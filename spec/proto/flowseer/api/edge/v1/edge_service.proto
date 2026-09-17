@@ -8,8 +8,8 @@ package flowseer.api.edge.v1;
 import "flowseer/api/edge/v1/bus.proto";
 import "flowseer/api/edge/v1/credential.proto";
 import "flowseer/api/edge/v1/device.proto";
-import "flowseer/api/edge/v1/edge.proto";
-import "flowseer/api/edge/v1/key_proof.proto";
+import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/key_proof.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -53,12 +53,12 @@ message EnrollRequest {
   ];
   // Proof of possession of the key being registered, bound to the setup
   // key's identifier. Must be present.
-  KeyProof proof = 2 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.KeyProof proof = 2 [(buf.validate.field).required = true];
 }
 
 message EnrollResponse {
   // The enrolled edge. Must be present.
-  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
   // Central's clock when it answered; the edge trusts it for assertion
   // timestamps until its own clock is synchronized. Must be present.
   google.protobuf.Timestamp server_time = 2 [(buf.validate.field).required = true];
@@ -80,7 +80,7 @@ message EnrollResponse {
 message RekeyRequest {
   // Proof of possession of the new key, bound to the nonce of this call's
   // assertion. Must be present.
-  KeyProof proof = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.KeyProof proof = 1 [(buf.validate.field).required = true];
 }
 
 message RekeyResponse {

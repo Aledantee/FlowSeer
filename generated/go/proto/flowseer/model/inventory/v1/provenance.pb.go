@@ -7,7 +7,7 @@
 package inventoryv1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -227,15 +227,15 @@ var File_flowseer_model_inventory_v1_provenance_proto protoreflect.FileDescripto
 
 const file_flowseer_model_inventory_v1_provenance_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/model/inventory/v1/provenance.proto\x12\x1bflowseer.model.inventory.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf6\x02\n" +
+	",flowseer/model/inventory/v1/provenance.proto\x12\x1bflowseer.model.inventory.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x02\n" +
 	"\n" +
 	"Provenance\x12O\n" +
 	"\abinding\x18\x01 \x01(\v2-.flowseer.model.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\abinding\x12C\n" +
 	"\vobserved_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"observedAt\x12Z\n" +
 	"\bprotocol\x18\x03 \x01(\x0e2/.flowseer.model.inventory.v1.ManagementProtocolB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x127\n" +
-	"\x04edge\x18\x04 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefR\x04edge\x12=\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x129\n" +
+	"\x04edge\x18\x04 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefR\x04edge\x12=\n" +
 	"\x14firmware_fingerprint\x18\x05 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprintB\x95\x02\n" +
 	"\x1fcom.flowseer.model.inventory.v1B\x0fProvenanceProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
@@ -246,13 +246,13 @@ var file_flowseer_model_inventory_v1_provenance_proto_goTypes = []any{
 	(*BindingGlobalRef)(nil),      // 1: flowseer.model.inventory.v1.BindingGlobalRef
 	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 	(ManagementProtocol)(0),       // 3: flowseer.model.inventory.v1.ManagementProtocol
-	(*v1.EdgeGlobalRef)(nil),      // 4: flowseer.api.edge.v1.EdgeGlobalRef
+	(*v1.EdgeGlobalRef)(nil),      // 4: flowseer.model.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_model_inventory_v1_provenance_proto_depIdxs = []int32{
 	1, // 0: flowseer.model.inventory.v1.Provenance.binding:type_name -> flowseer.model.inventory.v1.BindingGlobalRef
 	2, // 1: flowseer.model.inventory.v1.Provenance.observed_at:type_name -> google.protobuf.Timestamp
 	3, // 2: flowseer.model.inventory.v1.Provenance.protocol:type_name -> flowseer.model.inventory.v1.ManagementProtocol
-	4, // 3: flowseer.model.inventory.v1.Provenance.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	4, // 3: flowseer.model.inventory.v1.Provenance.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name

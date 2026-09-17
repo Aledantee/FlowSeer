@@ -11,7 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
@@ -123,7 +124,7 @@ func NewAdminService(store *edgestore.Store, holds LaneHolds, provisioning Provi
 
 // CreateEdge creates a pending edge and issues its first setup key. The key
 // string is in the response and nowhere else; central stores only its digest.
-func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[edgev1.CreateEdgeRequest]) (*connect.Response[edgev1.CreateEdgeResponse], error) {
+func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apiedgev1.CreateEdgeRequest]) (*connect.Response[apiedgev1.CreateEdgeResponse], error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, connectErr(errs.From(err).Code(ErrCodeRandom).Msg("draw edge identifier"))
@@ -166,7 +167,7 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[edge
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.CreateEdgeResponse_builder{
+	return connect.NewResponse(apiedgev1.CreateEdgeResponse_builder{
 		Edge:         s.reported(stored),
 		Provisioning: s.provisioningFor(key.str),
 	}.Build()), nil
@@ -176,7 +177,7 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[edge
 // replacing any unused one and returning a retired edge to pending. The
 // replaced key stops being accepted with the same write. An enrolled edge is
 // refused: it holds a registered key pair, and replacing that is Rekey.
-func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
+func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[apiedgev1.IssueSetupKeyRequest]) (*connect.Response[apiedgev1.IssueSetupKeyResponse], error) {
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
@@ -209,7 +210,7 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[e
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.IssueSetupKeyResponse_builder{
+	return connect.NewResponse(apiedgev1.IssueSetupKeyResponse_builder{
 		Edge:         s.reported(stored),
 		Provisioning: s.provisioningFor(key.str),
 	}.Build()), nil
@@ -218,7 +219,7 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[e
 // RevokeSetupKey withdraws an edge's outstanding setup key. A key that was
 // already consumed is refused, because an enrollment is undone by RetireEdge
 // and not by revoking the key it used.
-func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[edgev1.RevokeSetupKeyRequest]) (*connect.Response[edgev1.RevokeSetupKeyResponse], error) {
+func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[apiedgev1.RevokeSetupKeyRequest]) (*connect.Response[apiedgev1.RevokeSetupKeyResponse], error) {
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
@@ -246,7 +247,7 @@ func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.RevokeSetupKeyResponse_builder{Edge: s.reported(stored)}.Build()), nil
+	return connect.NewResponse(apiedgev1.RevokeSetupKeyResponse_builder{Edge: s.reported(stored)}.Build()), nil
 }
 
 // RetireEdge ends an edge's standing: its assertions are refused from the next
@@ -258,7 +259,7 @@ func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[
 // the edge still holds stays open on its lane record until an operator abandons
 // it through DeviceService, which is the call that ends work an edge will never
 // come back for.
-func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edgev1.RetireEdgeRequest]) (*connect.Response[edgev1.RetireEdgeResponse], error) {
+func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[apiedgev1.RetireEdgeRequest]) (*connect.Response[apiedgev1.RetireEdgeResponse], error) {
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
@@ -296,7 +297,7 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{
+	return connect.NewResponse(apiedgev1.RetireEdgeResponse_builder{
 		Edge:     s.reported(stored),
 		Orphaned: orphaned,
 	}.Build()), nil
@@ -325,7 +326,7 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 //
 // A failure here is returned rather than swallowed, and retirement is
 // idempotent, so the operator's retry finishes what this call started.
-func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*edgev1.OrphanedLane, error) {
+func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*apiedgev1.OrphanedLane, error) {
 	if s.holds == nil {
 		return nil, nil
 	}
@@ -343,7 +344,7 @@ func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*edge
 	}
 
 	slices.Sort(devices)
-	var orphaned []*edgev1.OrphanedLane
+	var orphaned []*apiedgev1.OrphanedLane
 	for _, deviceID := range devices {
 		if err := s.holds.DropHolds(ctx, deviceID); err != nil {
 			return nil, err
@@ -358,7 +359,7 @@ func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*edge
 		if !open {
 			continue
 		}
-		lane := &edgev1.OrphanedLane{}
+		lane := &apiedgev1.OrphanedLane{}
 		lane.SetDeviceId(deviceID)
 		lane.SetSequence(sequence)
 		orphaned = append(orphaned, lane)
@@ -367,7 +368,7 @@ func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*edge
 }
 
 // GetEdge returns one edge's record.
-func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
+func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[apiedgev1.GetEdgeRequest]) (*connect.Response[apiedgev1.GetEdgeResponse], error) {
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
@@ -379,13 +380,13 @@ func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[edgev1.
 	if stored == nil {
 		return nil, connectErr(notFound(edgeID))
 	}
-	return connect.NewResponse(edgev1.GetEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
+	return connect.NewResponse(apiedgev1.GetEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
 }
 
 // ListEdges returns one page of edges in ascending identifier order. The token
 // carries the last identifier of the page before it, so a page is unaffected by
 // edges created or retired while the caller reads.
-func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[edgev1.ListEdgesRequest]) (*connect.Response[edgev1.ListEdgesResponse], error) {
+func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apiedgev1.ListEdgesRequest]) (*connect.Response[apiedgev1.ListEdgesResponse], error) {
 	size := int(req.Msg.GetPageSize())
 	if size <= 0 {
 		size = defaultPageSize
@@ -422,7 +423,7 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[edgev
 		edges = append(edges, s.reported(stored))
 	}
 
-	resp := edgev1.ListEdgesResponse_builder{Edges: edges}
+	resp := apiedgev1.ListEdgesResponse_builder{Edges: edges}
 	if more && len(keys) > 0 {
 		resp.NextPageToken = proto.String(encodePageToken(keys[len(keys)-1]))
 	}

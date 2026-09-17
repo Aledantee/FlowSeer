@@ -10,6 +10,7 @@
 package edgev1
 
 import (
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -24,103 +25,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// One edge as the admin service returns it: intent and observation
-// together.
-type EdgeRecord struct {
-	state             protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Config *EdgeConfig            `protobuf:"bytes,1,opt,name=config"`
-	xxx_hidden_State  *EdgeState             `protobuf:"bytes,2,opt,name=state"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *EdgeRecord) Reset() {
-	*x = EdgeRecord{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EdgeRecord) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EdgeRecord) ProtoMessage() {}
-
-func (x *EdgeRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *EdgeRecord) GetConfig() *EdgeConfig {
-	if x != nil {
-		return x.xxx_hidden_Config
-	}
-	return nil
-}
-
-func (x *EdgeRecord) GetState() *EdgeState {
-	if x != nil {
-		return x.xxx_hidden_State
-	}
-	return nil
-}
-
-func (x *EdgeRecord) SetConfig(v *EdgeConfig) {
-	x.xxx_hidden_Config = v
-}
-
-func (x *EdgeRecord) SetState(v *EdgeState) {
-	x.xxx_hidden_State = v
-}
-
-func (x *EdgeRecord) HasConfig() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Config != nil
-}
-
-func (x *EdgeRecord) HasState() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_State != nil
-}
-
-func (x *EdgeRecord) ClearConfig() {
-	x.xxx_hidden_Config = nil
-}
-
-func (x *EdgeRecord) ClearState() {
-	x.xxx_hidden_State = nil
-}
-
-type EdgeRecord_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// Must be present.
-	Config *EdgeConfig
-	// Must be present.
-	State *EdgeState
-}
-
-func (b0 EdgeRecord_builder) Build() *EdgeRecord {
-	m0 := &EdgeRecord{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Config = b.Config
-	x.xxx_hidden_State = b.State
-	return m0
-}
-
 type CreateEdgeRequest struct {
 	state                        protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Name              *string                `protobuf:"bytes,1,opt,name=name"`
@@ -134,7 +38,7 @@ type CreateEdgeRequest struct {
 
 func (x *CreateEdgeRequest) Reset() {
 	*x = CreateEdgeRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[1]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +50,7 @@ func (x *CreateEdgeRequest) String() string {
 func (*CreateEdgeRequest) ProtoMessage() {}
 
 func (x *CreateEdgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[1]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -264,15 +168,15 @@ func (b0 CreateEdgeRequest_builder) Build() *CreateEdgeRequest {
 
 type CreateEdgeResponse struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge         *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
-	xxx_hidden_Provisioning *EdgeProvisioning      `protobuf:"bytes,2,opt,name=provisioning"`
+	xxx_hidden_Edge         *v1.EdgeRecord         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Provisioning *v1.EdgeProvisioning   `protobuf:"bytes,2,opt,name=provisioning"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
 func (x *CreateEdgeResponse) Reset() {
 	*x = CreateEdgeResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[2]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +188,7 @@ func (x *CreateEdgeResponse) String() string {
 func (*CreateEdgeResponse) ProtoMessage() {}
 
 func (x *CreateEdgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[2]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -295,25 +199,25 @@ func (x *CreateEdgeResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *CreateEdgeResponse) GetEdge() *EdgeRecord {
+func (x *CreateEdgeResponse) GetEdge() *v1.EdgeRecord {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *CreateEdgeResponse) GetProvisioning() *EdgeProvisioning {
+func (x *CreateEdgeResponse) GetProvisioning() *v1.EdgeProvisioning {
 	if x != nil {
 		return x.xxx_hidden_Provisioning
 	}
 	return nil
 }
 
-func (x *CreateEdgeResponse) SetEdge(v *EdgeRecord) {
+func (x *CreateEdgeResponse) SetEdge(v *v1.EdgeRecord) {
 	x.xxx_hidden_Edge = v
 }
 
-func (x *CreateEdgeResponse) SetProvisioning(v *EdgeProvisioning) {
+func (x *CreateEdgeResponse) SetProvisioning(v *v1.EdgeProvisioning) {
 	x.xxx_hidden_Provisioning = v
 }
 
@@ -343,10 +247,10 @@ type CreateEdgeResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The created edge. Must be present.
-	Edge *EdgeRecord
+	Edge *v1.EdgeRecord
 	// What to ship with the edge. Shown once; the setup key is not
 	// retrievable afterwards. Must be present.
-	Provisioning *EdgeProvisioning
+	Provisioning *v1.EdgeProvisioning
 }
 
 func (b0 CreateEdgeResponse_builder) Build() *CreateEdgeResponse {
@@ -360,7 +264,7 @@ func (b0 CreateEdgeResponse_builder) Build() *CreateEdgeResponse {
 
 type IssueSetupKeyRequest struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge      *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge      *v1.EdgeGlobalRef      `protobuf:"bytes,1,opt,name=edge"`
 	xxx_hidden_ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -368,7 +272,7 @@ type IssueSetupKeyRequest struct {
 
 func (x *IssueSetupKeyRequest) Reset() {
 	*x = IssueSetupKeyRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[3]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -380,7 +284,7 @@ func (x *IssueSetupKeyRequest) String() string {
 func (*IssueSetupKeyRequest) ProtoMessage() {}
 
 func (x *IssueSetupKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[3]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +295,7 @@ func (x *IssueSetupKeyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *IssueSetupKeyRequest) GetEdge() *EdgeGlobalRef {
+func (x *IssueSetupKeyRequest) GetEdge() *v1.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
@@ -405,7 +309,7 @@ func (x *IssueSetupKeyRequest) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *IssueSetupKeyRequest) SetEdge(v *EdgeGlobalRef) {
+func (x *IssueSetupKeyRequest) SetEdge(v *v1.EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -439,7 +343,7 @@ type IssueSetupKeyRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The edge to issue a key to. Must be present.
-	Edge *EdgeGlobalRef
+	Edge *v1.EdgeGlobalRef
 	// When the key stops being accepted; must lie in the future. Unset means
 	// 180 days from issue.
 	ExpiresAt *timestamppb.Timestamp
@@ -456,15 +360,15 @@ func (b0 IssueSetupKeyRequest_builder) Build() *IssueSetupKeyRequest {
 
 type IssueSetupKeyResponse struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge         *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
-	xxx_hidden_Provisioning *EdgeProvisioning      `protobuf:"bytes,2,opt,name=provisioning"`
+	xxx_hidden_Edge         *v1.EdgeRecord         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Provisioning *v1.EdgeProvisioning   `protobuf:"bytes,2,opt,name=provisioning"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
 func (x *IssueSetupKeyResponse) Reset() {
 	*x = IssueSetupKeyResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[4]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +380,7 @@ func (x *IssueSetupKeyResponse) String() string {
 func (*IssueSetupKeyResponse) ProtoMessage() {}
 
 func (x *IssueSetupKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[4]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,25 +391,25 @@ func (x *IssueSetupKeyResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *IssueSetupKeyResponse) GetEdge() *EdgeRecord {
+func (x *IssueSetupKeyResponse) GetEdge() *v1.EdgeRecord {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *IssueSetupKeyResponse) GetProvisioning() *EdgeProvisioning {
+func (x *IssueSetupKeyResponse) GetProvisioning() *v1.EdgeProvisioning {
 	if x != nil {
 		return x.xxx_hidden_Provisioning
 	}
 	return nil
 }
 
-func (x *IssueSetupKeyResponse) SetEdge(v *EdgeRecord) {
+func (x *IssueSetupKeyResponse) SetEdge(v *v1.EdgeRecord) {
 	x.xxx_hidden_Edge = v
 }
 
-func (x *IssueSetupKeyResponse) SetProvisioning(v *EdgeProvisioning) {
+func (x *IssueSetupKeyResponse) SetProvisioning(v *v1.EdgeProvisioning) {
 	x.xxx_hidden_Provisioning = v
 }
 
@@ -535,9 +439,9 @@ type IssueSetupKeyResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The edge after issue. Must be present.
-	Edge *EdgeRecord
+	Edge *v1.EdgeRecord
 	// What to ship with the edge. Shown once. Must be present.
-	Provisioning *EdgeProvisioning
+	Provisioning *v1.EdgeProvisioning
 }
 
 func (b0 IssueSetupKeyResponse_builder) Build() *IssueSetupKeyResponse {
@@ -551,14 +455,14 @@ func (b0 IssueSetupKeyResponse_builder) Build() *IssueSetupKeyResponse {
 
 type RevokeSetupKeyRequest struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge *v1.EdgeGlobalRef      `protobuf:"bytes,1,opt,name=edge"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RevokeSetupKeyRequest) Reset() {
 	*x = RevokeSetupKeyRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[5]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -570,7 +474,7 @@ func (x *RevokeSetupKeyRequest) String() string {
 func (*RevokeSetupKeyRequest) ProtoMessage() {}
 
 func (x *RevokeSetupKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[5]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -581,14 +485,14 @@ func (x *RevokeSetupKeyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *RevokeSetupKeyRequest) GetEdge() *EdgeGlobalRef {
+func (x *RevokeSetupKeyRequest) GetEdge() *v1.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *RevokeSetupKeyRequest) SetEdge(v *EdgeGlobalRef) {
+func (x *RevokeSetupKeyRequest) SetEdge(v *v1.EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -607,7 +511,7 @@ type RevokeSetupKeyRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The edge whose unused setup key to revoke. Must be present.
-	Edge *EdgeGlobalRef
+	Edge *v1.EdgeGlobalRef
 }
 
 func (b0 RevokeSetupKeyRequest_builder) Build() *RevokeSetupKeyRequest {
@@ -620,14 +524,14 @@ func (b0 RevokeSetupKeyRequest_builder) Build() *RevokeSetupKeyRequest {
 
 type RevokeSetupKeyResponse struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge *v1.EdgeRecord         `protobuf:"bytes,1,opt,name=edge"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RevokeSetupKeyResponse) Reset() {
 	*x = RevokeSetupKeyResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[6]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -639,7 +543,7 @@ func (x *RevokeSetupKeyResponse) String() string {
 func (*RevokeSetupKeyResponse) ProtoMessage() {}
 
 func (x *RevokeSetupKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[6]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,14 +554,14 @@ func (x *RevokeSetupKeyResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *RevokeSetupKeyResponse) GetEdge() *EdgeRecord {
+func (x *RevokeSetupKeyResponse) GetEdge() *v1.EdgeRecord {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *RevokeSetupKeyResponse) SetEdge(v *EdgeRecord) {
+func (x *RevokeSetupKeyResponse) SetEdge(v *v1.EdgeRecord) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -676,7 +580,7 @@ type RevokeSetupKeyResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The edge after revocation. Must be present.
-	Edge *EdgeRecord
+	Edge *v1.EdgeRecord
 }
 
 func (b0 RevokeSetupKeyResponse_builder) Build() *RevokeSetupKeyResponse {
@@ -689,14 +593,14 @@ func (b0 RevokeSetupKeyResponse_builder) Build() *RevokeSetupKeyResponse {
 
 type RetireEdgeRequest struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge *v1.EdgeGlobalRef      `protobuf:"bytes,1,opt,name=edge"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RetireEdgeRequest) Reset() {
 	*x = RetireEdgeRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[7]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +612,7 @@ func (x *RetireEdgeRequest) String() string {
 func (*RetireEdgeRequest) ProtoMessage() {}
 
 func (x *RetireEdgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[7]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -719,14 +623,14 @@ func (x *RetireEdgeRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *RetireEdgeRequest) GetEdge() *EdgeGlobalRef {
+func (x *RetireEdgeRequest) GetEdge() *v1.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *RetireEdgeRequest) SetEdge(v *EdgeGlobalRef) {
+func (x *RetireEdgeRequest) SetEdge(v *v1.EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -745,7 +649,7 @@ type RetireEdgeRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The edge to retire. Must be present.
-	Edge *EdgeGlobalRef
+	Edge *v1.EdgeGlobalRef
 }
 
 func (b0 RetireEdgeRequest_builder) Build() *RetireEdgeRequest {
@@ -758,7 +662,7 @@ func (b0 RetireEdgeRequest_builder) Build() *RetireEdgeRequest {
 
 type RetireEdgeResponse struct {
 	state               protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge     *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge     *v1.EdgeRecord         `protobuf:"bytes,1,opt,name=edge"`
 	xxx_hidden_Orphaned *[]*OrphanedLane       `protobuf:"bytes,2,rep,name=orphaned"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
@@ -766,7 +670,7 @@ type RetireEdgeResponse struct {
 
 func (x *RetireEdgeResponse) Reset() {
 	*x = RetireEdgeResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[8]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -778,7 +682,7 @@ func (x *RetireEdgeResponse) String() string {
 func (*RetireEdgeResponse) ProtoMessage() {}
 
 func (x *RetireEdgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[8]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -789,7 +693,7 @@ func (x *RetireEdgeResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *RetireEdgeResponse) GetEdge() *EdgeRecord {
+func (x *RetireEdgeResponse) GetEdge() *v1.EdgeRecord {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
@@ -805,7 +709,7 @@ func (x *RetireEdgeResponse) GetOrphaned() []*OrphanedLane {
 	return nil
 }
 
-func (x *RetireEdgeResponse) SetEdge(v *EdgeRecord) {
+func (x *RetireEdgeResponse) SetEdge(v *v1.EdgeRecord) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -828,7 +732,7 @@ type RetireEdgeResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The edge after retirement. Must be present.
-	Edge *EdgeRecord
+	Edge *v1.EdgeRecord
 	// The lanes the retirement orphaned, in device-id order. Retirement ends no
 	// mutation, so each of these is work only an operator can end, through
 	// DeviceService.AbandonMutation with the device and the sequence named
@@ -860,7 +764,7 @@ type OrphanedLane struct {
 
 func (x *OrphanedLane) Reset() {
 	*x = OrphanedLane{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -872,7 +776,7 @@ func (x *OrphanedLane) String() string {
 func (*OrphanedLane) ProtoMessage() {}
 
 func (x *OrphanedLane) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -963,14 +867,14 @@ func (b0 OrphanedLane_builder) Build() *OrphanedLane {
 
 type GetEdgeRequest struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge *v1.EdgeGlobalRef      `protobuf:"bytes,1,opt,name=edge"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetEdgeRequest) Reset() {
 	*x = GetEdgeRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -982,7 +886,7 @@ func (x *GetEdgeRequest) String() string {
 func (*GetEdgeRequest) ProtoMessage() {}
 
 func (x *GetEdgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -993,14 +897,14 @@ func (x *GetEdgeRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *GetEdgeRequest) GetEdge() *EdgeGlobalRef {
+func (x *GetEdgeRequest) GetEdge() *v1.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *GetEdgeRequest) SetEdge(v *EdgeGlobalRef) {
+func (x *GetEdgeRequest) SetEdge(v *v1.EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -1019,7 +923,7 @@ type GetEdgeRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Must be present.
-	Edge *EdgeGlobalRef
+	Edge *v1.EdgeGlobalRef
 }
 
 func (b0 GetEdgeRequest_builder) Build() *GetEdgeRequest {
@@ -1032,14 +936,14 @@ func (b0 GetEdgeRequest_builder) Build() *GetEdgeRequest {
 
 type GetEdgeResponse struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge *v1.EdgeRecord         `protobuf:"bytes,1,opt,name=edge"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetEdgeResponse) Reset() {
 	*x = GetEdgeResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +955,7 @@ func (x *GetEdgeResponse) String() string {
 func (*GetEdgeResponse) ProtoMessage() {}
 
 func (x *GetEdgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,14 +966,14 @@ func (x *GetEdgeResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *GetEdgeResponse) GetEdge() *EdgeRecord {
+func (x *GetEdgeResponse) GetEdge() *v1.EdgeRecord {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
 	return nil
 }
 
-func (x *GetEdgeResponse) SetEdge(v *EdgeRecord) {
+func (x *GetEdgeResponse) SetEdge(v *v1.EdgeRecord) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -1088,7 +992,7 @@ type GetEdgeResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Must be present.
-	Edge *EdgeRecord
+	Edge *v1.EdgeRecord
 }
 
 func (b0 GetEdgeResponse_builder) Build() *GetEdgeResponse {
@@ -1111,7 +1015,7 @@ type ListEdgesRequest struct {
 
 func (x *ListEdgesRequest) Reset() {
 	*x = ListEdgesRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1123,7 +1027,7 @@ func (x *ListEdgesRequest) String() string {
 func (*ListEdgesRequest) ProtoMessage() {}
 
 func (x *ListEdgesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1211,7 +1115,7 @@ func (b0 ListEdgesRequest_builder) Build() *ListEdgesRequest {
 
 type ListEdgesResponse struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edges         *[]*EdgeRecord         `protobuf:"bytes,1,rep,name=edges"`
+	xxx_hidden_Edges         *[]*v1.EdgeRecord      `protobuf:"bytes,1,rep,name=edges"`
 	xxx_hidden_NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
@@ -1221,7 +1125,7 @@ type ListEdgesResponse struct {
 
 func (x *ListEdgesResponse) Reset() {
 	*x = ListEdgesResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[13]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1233,7 +1137,7 @@ func (x *ListEdgesResponse) String() string {
 func (*ListEdgesResponse) ProtoMessage() {}
 
 func (x *ListEdgesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[13]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1244,7 +1148,7 @@ func (x *ListEdgesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ListEdgesResponse) GetEdges() []*EdgeRecord {
+func (x *ListEdgesResponse) GetEdges() []*v1.EdgeRecord {
 	if x != nil {
 		if x.xxx_hidden_Edges != nil {
 			return *x.xxx_hidden_Edges
@@ -1263,7 +1167,7 @@ func (x *ListEdgesResponse) GetNextPageToken() string {
 	return ""
 }
 
-func (x *ListEdgesResponse) SetEdges(v []*EdgeRecord) {
+func (x *ListEdgesResponse) SetEdges(v []*v1.EdgeRecord) {
 	x.xxx_hidden_Edges = &v
 }
 
@@ -1289,7 +1193,7 @@ type ListEdgesResponse_builder struct {
 
 	// The page of edges in the service's stable order. Empty means the
 	// listing is exhausted.
-	Edges []*EdgeRecord
+	Edges []*v1.EdgeRecord
 	// Token for the next page. Unset means this was the last page.
 	NextPageToken *string
 }
@@ -1310,52 +1214,48 @@ var File_flowseer_api_edge_v1_edge_admin_service_proto protoreflect.FileDescript
 
 const file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/api/edge/v1/edge_admin_service.proto\x12\x14flowseer.api.edge.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a'flowseer/api/edge/v1/provisioning.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x01\n" +
-	"\n" +
-	"EdgeRecord\x12@\n" +
-	"\x06config\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeConfigB\x06\xbaH\x03\xc8\x01\x01R\x06config\x12=\n" +
-	"\x05state\x18\x02 \x01(\v2\x1f.flowseer.api.edge.v1.EdgeStateB\x06\xbaH\x03\xc8\x01\x01R\x05state\"\xb8\x01\n" +
+	"-flowseer/api/edge/v1/edge_admin_service.proto\x12\x14flowseer.api.edge.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a)flowseer/model/edge/v1/provisioning.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb8\x01\n" +
 	"\x11CreateEdgeRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12U\n" +
-	"\x14setup_key_expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\b\xbaH\x05\xb2\x01\x02@\x01R\x11setupKeyExpiresAt\"\xa6\x01\n" +
-	"\x12CreateEdgeResponse\x12<\n" +
-	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12R\n" +
-	"\fprovisioning\x18\x02 \x01(\v2&.flowseer.api.edge.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\fprovisioning\"\x9c\x01\n" +
-	"\x14IssueSetupKeyRequest\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12C\n" +
+	"\x14setup_key_expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\b\xbaH\x05\xb2\x01\x02@\x01R\x11setupKeyExpiresAt\"\xaa\x01\n" +
+	"\x12CreateEdgeResponse\x12>\n" +
+	"\x04edge\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12T\n" +
+	"\fprovisioning\x18\x02 \x01(\v2(.flowseer.model.edge.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\fprovisioning\"\x9e\x01\n" +
+	"\x14IssueSetupKeyRequest\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12C\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\b\xbaH\x05\xb2\x01\x02@\x01R\texpiresAt\"\xa9\x01\n" +
-	"\x15IssueSetupKeyResponse\x12<\n" +
-	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12R\n" +
-	"\fprovisioning\x18\x02 \x01(\v2&.flowseer.api.edge.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\fprovisioning\"X\n" +
-	"\x15RevokeSetupKeyRequest\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"V\n" +
-	"\x16RevokeSetupKeyResponse\x12<\n" +
-	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"T\n" +
-	"\x11RetireEdgeRequest\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\x9d\x01\n" +
-	"\x12RetireEdgeResponse\x12<\n" +
-	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12I\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\b\xbaH\x05\xb2\x01\x02@\x01R\texpiresAt\"\xad\x01\n" +
+	"\x15IssueSetupKeyResponse\x12>\n" +
+	"\x04edge\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12T\n" +
+	"\fprovisioning\x18\x02 \x01(\v2(.flowseer.model.edge.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\fprovisioning\"Z\n" +
+	"\x15RevokeSetupKeyRequest\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"X\n" +
+	"\x16RevokeSetupKeyResponse\x12>\n" +
+	"\x04edge\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"V\n" +
+	"\x11RetireEdgeRequest\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\x9f\x01\n" +
+	"\x12RetireEdgeResponse\x12>\n" +
+	"\x04edge\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12I\n" +
 	"\borphaned\x18\x02 \x03(\v2\".flowseer.api.edge.v1.OrphanedLaneB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\borphaned\"`\n" +
 	"\fOrphanedLane\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"Q\n" +
-	"\x0eGetEdgeRequest\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"O\n" +
-	"\x0fGetEdgeResponse\x12<\n" +
-	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"f\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"S\n" +
+	"\x0eGetEdgeRequest\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"Q\n" +
+	"\x0fGetEdgeResponse\x12>\n" +
+	"\x04edge\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"f\n" +
 	"\x10ListEdgesRequest\x12'\n" +
 	"\tpage_size\x18\x01 \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\xf4\x03 \x00R\bpageSize\x12)\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\x7f\n" +
-	"\x11ListEdgesResponse\x126\n" +
-	"\x05edges\x18\x01 \x03(\v2 .flowseer.api.edge.v1.EdgeRecordR\x05edges\x122\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\x81\x01\n" +
+	"\x11ListEdgesResponse\x128\n" +
+	"\x05edges\x18\x01 \x03(\v2\".flowseer.model.edge.v1.EdgeRecordR\x05edges\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xe1\x04\n" +
 	"\x10EdgeAdminService\x12_\n" +
@@ -1369,63 +1269,59 @@ const file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc = "" +
 	"\tListEdges\x12&.flowseer.api.edge.v1.ListEdgesRequest\x1a'.flowseer.api.edge.v1.ListEdgesResponseB\xec\x01\n" +
 	"\x18com.flowseer.api.edge.v1B\x15EdgeAdminServiceProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_flowseer_api_edge_v1_edge_admin_service_proto_goTypes = []any{
-	(*EdgeRecord)(nil),             // 0: flowseer.api.edge.v1.EdgeRecord
-	(*CreateEdgeRequest)(nil),      // 1: flowseer.api.edge.v1.CreateEdgeRequest
-	(*CreateEdgeResponse)(nil),     // 2: flowseer.api.edge.v1.CreateEdgeResponse
-	(*IssueSetupKeyRequest)(nil),   // 3: flowseer.api.edge.v1.IssueSetupKeyRequest
-	(*IssueSetupKeyResponse)(nil),  // 4: flowseer.api.edge.v1.IssueSetupKeyResponse
-	(*RevokeSetupKeyRequest)(nil),  // 5: flowseer.api.edge.v1.RevokeSetupKeyRequest
-	(*RevokeSetupKeyResponse)(nil), // 6: flowseer.api.edge.v1.RevokeSetupKeyResponse
-	(*RetireEdgeRequest)(nil),      // 7: flowseer.api.edge.v1.RetireEdgeRequest
-	(*RetireEdgeResponse)(nil),     // 8: flowseer.api.edge.v1.RetireEdgeResponse
-	(*OrphanedLane)(nil),           // 9: flowseer.api.edge.v1.OrphanedLane
-	(*GetEdgeRequest)(nil),         // 10: flowseer.api.edge.v1.GetEdgeRequest
-	(*GetEdgeResponse)(nil),        // 11: flowseer.api.edge.v1.GetEdgeResponse
-	(*ListEdgesRequest)(nil),       // 12: flowseer.api.edge.v1.ListEdgesRequest
-	(*ListEdgesResponse)(nil),      // 13: flowseer.api.edge.v1.ListEdgesResponse
-	(*EdgeConfig)(nil),             // 14: flowseer.api.edge.v1.EdgeConfig
-	(*EdgeState)(nil),              // 15: flowseer.api.edge.v1.EdgeState
-	(*timestamppb.Timestamp)(nil),  // 16: google.protobuf.Timestamp
-	(*EdgeProvisioning)(nil),       // 17: flowseer.api.edge.v1.EdgeProvisioning
-	(*EdgeGlobalRef)(nil),          // 18: flowseer.api.edge.v1.EdgeGlobalRef
+	(*CreateEdgeRequest)(nil),      // 0: flowseer.api.edge.v1.CreateEdgeRequest
+	(*CreateEdgeResponse)(nil),     // 1: flowseer.api.edge.v1.CreateEdgeResponse
+	(*IssueSetupKeyRequest)(nil),   // 2: flowseer.api.edge.v1.IssueSetupKeyRequest
+	(*IssueSetupKeyResponse)(nil),  // 3: flowseer.api.edge.v1.IssueSetupKeyResponse
+	(*RevokeSetupKeyRequest)(nil),  // 4: flowseer.api.edge.v1.RevokeSetupKeyRequest
+	(*RevokeSetupKeyResponse)(nil), // 5: flowseer.api.edge.v1.RevokeSetupKeyResponse
+	(*RetireEdgeRequest)(nil),      // 6: flowseer.api.edge.v1.RetireEdgeRequest
+	(*RetireEdgeResponse)(nil),     // 7: flowseer.api.edge.v1.RetireEdgeResponse
+	(*OrphanedLane)(nil),           // 8: flowseer.api.edge.v1.OrphanedLane
+	(*GetEdgeRequest)(nil),         // 9: flowseer.api.edge.v1.GetEdgeRequest
+	(*GetEdgeResponse)(nil),        // 10: flowseer.api.edge.v1.GetEdgeResponse
+	(*ListEdgesRequest)(nil),       // 11: flowseer.api.edge.v1.ListEdgesRequest
+	(*ListEdgesResponse)(nil),      // 12: flowseer.api.edge.v1.ListEdgesResponse
+	(*timestamppb.Timestamp)(nil),  // 13: google.protobuf.Timestamp
+	(*v1.EdgeRecord)(nil),          // 14: flowseer.model.edge.v1.EdgeRecord
+	(*v1.EdgeProvisioning)(nil),    // 15: flowseer.model.edge.v1.EdgeProvisioning
+	(*v1.EdgeGlobalRef)(nil),       // 16: flowseer.model.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_api_edge_v1_edge_admin_service_proto_depIdxs = []int32{
-	14, // 0: flowseer.api.edge.v1.EdgeRecord.config:type_name -> flowseer.api.edge.v1.EdgeConfig
-	15, // 1: flowseer.api.edge.v1.EdgeRecord.state:type_name -> flowseer.api.edge.v1.EdgeState
-	16, // 2: flowseer.api.edge.v1.CreateEdgeRequest.setup_key_expires_at:type_name -> google.protobuf.Timestamp
-	0,  // 3: flowseer.api.edge.v1.CreateEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	17, // 4: flowseer.api.edge.v1.CreateEdgeResponse.provisioning:type_name -> flowseer.api.edge.v1.EdgeProvisioning
-	18, // 5: flowseer.api.edge.v1.IssueSetupKeyRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	16, // 6: flowseer.api.edge.v1.IssueSetupKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	0,  // 7: flowseer.api.edge.v1.IssueSetupKeyResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	17, // 8: flowseer.api.edge.v1.IssueSetupKeyResponse.provisioning:type_name -> flowseer.api.edge.v1.EdgeProvisioning
-	18, // 9: flowseer.api.edge.v1.RevokeSetupKeyRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	0,  // 10: flowseer.api.edge.v1.RevokeSetupKeyResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	18, // 11: flowseer.api.edge.v1.RetireEdgeRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	0,  // 12: flowseer.api.edge.v1.RetireEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	9,  // 13: flowseer.api.edge.v1.RetireEdgeResponse.orphaned:type_name -> flowseer.api.edge.v1.OrphanedLane
-	18, // 14: flowseer.api.edge.v1.GetEdgeRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	0,  // 15: flowseer.api.edge.v1.GetEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	0,  // 16: flowseer.api.edge.v1.ListEdgesResponse.edges:type_name -> flowseer.api.edge.v1.EdgeRecord
-	1,  // 17: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:input_type -> flowseer.api.edge.v1.CreateEdgeRequest
-	3,  // 18: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:input_type -> flowseer.api.edge.v1.IssueSetupKeyRequest
-	5,  // 19: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:input_type -> flowseer.api.edge.v1.RevokeSetupKeyRequest
-	7,  // 20: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:input_type -> flowseer.api.edge.v1.RetireEdgeRequest
-	10, // 21: flowseer.api.edge.v1.EdgeAdminService.GetEdge:input_type -> flowseer.api.edge.v1.GetEdgeRequest
-	12, // 22: flowseer.api.edge.v1.EdgeAdminService.ListEdges:input_type -> flowseer.api.edge.v1.ListEdgesRequest
-	2,  // 23: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:output_type -> flowseer.api.edge.v1.CreateEdgeResponse
-	4,  // 24: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:output_type -> flowseer.api.edge.v1.IssueSetupKeyResponse
-	6,  // 25: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:output_type -> flowseer.api.edge.v1.RevokeSetupKeyResponse
-	8,  // 26: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:output_type -> flowseer.api.edge.v1.RetireEdgeResponse
-	11, // 27: flowseer.api.edge.v1.EdgeAdminService.GetEdge:output_type -> flowseer.api.edge.v1.GetEdgeResponse
-	13, // 28: flowseer.api.edge.v1.EdgeAdminService.ListEdges:output_type -> flowseer.api.edge.v1.ListEdgesResponse
-	23, // [23:29] is the sub-list for method output_type
-	17, // [17:23] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	13, // 0: flowseer.api.edge.v1.CreateEdgeRequest.setup_key_expires_at:type_name -> google.protobuf.Timestamp
+	14, // 1: flowseer.api.edge.v1.CreateEdgeResponse.edge:type_name -> flowseer.model.edge.v1.EdgeRecord
+	15, // 2: flowseer.api.edge.v1.CreateEdgeResponse.provisioning:type_name -> flowseer.model.edge.v1.EdgeProvisioning
+	16, // 3: flowseer.api.edge.v1.IssueSetupKeyRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	13, // 4: flowseer.api.edge.v1.IssueSetupKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	14, // 5: flowseer.api.edge.v1.IssueSetupKeyResponse.edge:type_name -> flowseer.model.edge.v1.EdgeRecord
+	15, // 6: flowseer.api.edge.v1.IssueSetupKeyResponse.provisioning:type_name -> flowseer.model.edge.v1.EdgeProvisioning
+	16, // 7: flowseer.api.edge.v1.RevokeSetupKeyRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	14, // 8: flowseer.api.edge.v1.RevokeSetupKeyResponse.edge:type_name -> flowseer.model.edge.v1.EdgeRecord
+	16, // 9: flowseer.api.edge.v1.RetireEdgeRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	14, // 10: flowseer.api.edge.v1.RetireEdgeResponse.edge:type_name -> flowseer.model.edge.v1.EdgeRecord
+	8,  // 11: flowseer.api.edge.v1.RetireEdgeResponse.orphaned:type_name -> flowseer.api.edge.v1.OrphanedLane
+	16, // 12: flowseer.api.edge.v1.GetEdgeRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	14, // 13: flowseer.api.edge.v1.GetEdgeResponse.edge:type_name -> flowseer.model.edge.v1.EdgeRecord
+	14, // 14: flowseer.api.edge.v1.ListEdgesResponse.edges:type_name -> flowseer.model.edge.v1.EdgeRecord
+	0,  // 15: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:input_type -> flowseer.api.edge.v1.CreateEdgeRequest
+	2,  // 16: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:input_type -> flowseer.api.edge.v1.IssueSetupKeyRequest
+	4,  // 17: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:input_type -> flowseer.api.edge.v1.RevokeSetupKeyRequest
+	6,  // 18: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:input_type -> flowseer.api.edge.v1.RetireEdgeRequest
+	9,  // 19: flowseer.api.edge.v1.EdgeAdminService.GetEdge:input_type -> flowseer.api.edge.v1.GetEdgeRequest
+	11, // 20: flowseer.api.edge.v1.EdgeAdminService.ListEdges:input_type -> flowseer.api.edge.v1.ListEdgesRequest
+	1,  // 21: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:output_type -> flowseer.api.edge.v1.CreateEdgeResponse
+	3,  // 22: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:output_type -> flowseer.api.edge.v1.IssueSetupKeyResponse
+	5,  // 23: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:output_type -> flowseer.api.edge.v1.RevokeSetupKeyResponse
+	7,  // 24: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:output_type -> flowseer.api.edge.v1.RetireEdgeResponse
+	10, // 25: flowseer.api.edge.v1.EdgeAdminService.GetEdge:output_type -> flowseer.api.edge.v1.GetEdgeResponse
+	12, // 26: flowseer.api.edge.v1.EdgeAdminService.ListEdges:output_type -> flowseer.api.edge.v1.ListEdgesResponse
+	21, // [21:27] is the sub-list for method output_type
+	15, // [15:21] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_edge_v1_edge_admin_service_proto_init() }
@@ -1433,15 +1329,13 @@ func file_flowseer_api_edge_v1_edge_admin_service_proto_init() {
 	if File_flowseer_api_edge_v1_edge_admin_service_proto != nil {
 		return
 	}
-	file_flowseer_api_edge_v1_edge_proto_init()
-	file_flowseer_api_edge_v1_provisioning_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc), len(file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

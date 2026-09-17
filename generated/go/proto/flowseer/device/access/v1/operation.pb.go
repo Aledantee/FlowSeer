@@ -14,7 +14,7 @@
 package accessv1
 
 import (
-	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -1161,7 +1161,7 @@ var File_flowseer_device_access_v1_operation_proto protoreflect.FileDescriptor
 
 const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/device/access/v1/operation.proto\x12\x19flowseer.device.access.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a)flowseer/device/access/v1/interface.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"6\n" +
+	")flowseer/device/access/v1/operation.proto\x12\x19flowseer.device.access.v1\x1a)flowseer/device/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"6\n" +
 	"\vOperatorRef\x12'\n" +
 	"\asubject\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubject\"]\n" +
@@ -1181,7 +1181,7 @@ const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x1bexpectedFirmwareFingerprint\x12l\n" +
 	"\x15interface_description\x18\n" +
 	" \x01(\v25.flowseer.device.access.v1.InterfaceDescriptionChangeH\x00R\x14interfaceDescriptionB\x0f\n" +
-	"\x06change\x12\x05\xbaH\x02\b\x01\"\x9b\b\n" +
+	"\x06change\x12\x05\xbaH\x02\b\x01\"\x9d\b\n" +
 	"\rMutationState\x12I\n" +
 	"\x06intent\x18\x01 \x01(\v2).flowseer.device.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
 	"\bsequence\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\bsequence\x12N\n" +
@@ -1191,8 +1191,8 @@ const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdisposition\x12U\n" +
 	"\fblock_reason\x18\x05 \x01(\x0e2&.flowseer.device.access.v1.BlockReasonB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vblockReason\x12?\n" +
-	"\rblocked_since\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fblockedSince\x12V\n" +
-	"\x10responsible_edge\x18\a \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x0fresponsibleEdge:\x83\x04\xbaH\xff\x03\x1a\xb1\x01\n" +
+	"\rblocked_since\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fblockedSince\x12X\n" +
+	"\x10responsible_edge\x18\a \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x0fresponsibleEdge:\x83\x04\xbaH\xff\x03\x1a\xb1\x01\n" +
 	"(mutation_state.disposition_matches_phase\x12Qdisposition is set exactly when the phase is acknowledged, released, or abandoned\x1a2has(this.disposition) == (this.phase in [7, 8, 9])\x1a\x97\x01\n" +
 	"+mutation_state.blocked_since_matches_reason\x125blocked_since is set exactly when block_reason is set\x1a1has(this.blocked_since) == has(this.block_reason)\x1a\xae\x01\n" +
 	"%mutation_state.sequence_matches_phase\x12Fsequence is set exactly once the device's lane has admitted the intent\x1a=!has(this.phase) || (has(this.sequence) == (this.phase != 1))*\xd6\x02\n" +
@@ -1242,7 +1242,7 @@ var file_flowseer_device_access_v1_operation_proto_goTypes = []any{
 	(*v11.AccessPolicyHandle)(nil),     // 10: flowseer.model.policy.v1.AccessPolicyHandle
 	(*InterfaceDescriptionChange)(nil), // 11: flowseer.device.access.v1.InterfaceDescriptionChange
 	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
-	(*v12.EdgeGlobalRef)(nil),          // 13: flowseer.api.edge.v1.EdgeGlobalRef
+	(*v12.EdgeGlobalRef)(nil),          // 13: flowseer.model.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_device_access_v1_operation_proto_depIdxs = []int32{
 	3,  // 0: flowseer.device.access.v1.SystemActor.reason:type_name -> flowseer.device.access.v1.SystemReason
@@ -1257,7 +1257,7 @@ var file_flowseer_device_access_v1_operation_proto_depIdxs = []int32{
 	1,  // 9: flowseer.device.access.v1.MutationState.disposition:type_name -> flowseer.device.access.v1.Disposition
 	2,  // 10: flowseer.device.access.v1.MutationState.block_reason:type_name -> flowseer.device.access.v1.BlockReason
 	12, // 11: flowseer.device.access.v1.MutationState.blocked_since:type_name -> google.protobuf.Timestamp
-	13, // 12: flowseer.device.access.v1.MutationState.responsible_edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	13, // 12: flowseer.device.access.v1.MutationState.responsible_edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name

@@ -6,12 +6,12 @@
 
 // What the device service stores about one edge beyond its public record:
 // the digest of the setup key it was issued. Storage, not a boundary; the
-// record itself is the api/edge triad and needs none of its own.
+// record itself is the model/edge triad and needs none of its own.
 
 package devicev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -138,20 +138,20 @@ var File_flowseer_store_device_v1_edge_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_edge_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/edge_record.proto\x12\x18flowseer.store.device.v1\x1a-flowseer/api/edge/v1/edge_admin_service.proto\"}\n" +
+	"*flowseer/store/device/v1/edge_record.proto\x12\x18flowseer.store.device.v1\x1a!flowseer/model/edge/v1/edge.proto\"\x7f\n" +
 	"\n" +
-	"StoredEdge\x12@\n" +
-	"\x06record\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x06record\x12-\n" +
+	"StoredEdge\x12B\n" +
+	"\x06record\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x06record\x12-\n" +
 	"\x0esetup_key_hash\x18\x02 \x01(\fB\a\xbaH\x04z\x02h R\fsetupKeyHashB\x80\x02\n" +
 	"\x1ccom.flowseer.store.device.v1B\x0fEdgeRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_edge_record_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_store_device_v1_edge_record_proto_goTypes = []any{
 	(*StoredEdge)(nil),    // 0: flowseer.store.device.v1.StoredEdge
-	(*v1.EdgeRecord)(nil), // 1: flowseer.api.edge.v1.EdgeRecord
+	(*v1.EdgeRecord)(nil), // 1: flowseer.model.edge.v1.EdgeRecord
 }
 var file_flowseer_store_device_v1_edge_record_proto_depIdxs = []int32{
-	1, // 0: flowseer.store.device.v1.StoredEdge.record:type_name -> flowseer.api.edge.v1.EdgeRecord
+	1, // 0: flowseer.store.device.v1.StoredEdge.record:type_name -> flowseer.model.edge.v1.EdgeRecord
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

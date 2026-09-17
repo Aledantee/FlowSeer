@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/key_proof.proto
+// source: flowseer/model/edge/v1/key_proof.proto
 
 // The proof of possession an edge gives when it registers a key, at
 // enrollment and at rekey. Same shape as the assertion envelope: the
@@ -38,7 +38,7 @@ type KeyProofPayload struct {
 
 func (x *KeyProofPayload) Reset() {
 	*x = KeyProofPayload{}
-	mi := &file_flowseer_api_edge_v1_key_proof_proto_msgTypes[0]
+	mi := &file_flowseer_model_edge_v1_key_proof_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -50,7 +50,7 @@ func (x *KeyProofPayload) String() string {
 func (*KeyProofPayload) ProtoMessage() {}
 
 func (x *KeyProofPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_key_proof_proto_msgTypes[0]
+	mi := &file_flowseer_model_edge_v1_key_proof_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -207,7 +207,7 @@ func (b0 KeyProofPayload_builder) Build() *KeyProofPayload {
 type case_KeyProofPayload_Binding protoreflect.FieldNumber
 
 func (x case_KeyProofPayload_Binding) String() string {
-	md := file_flowseer_api_edge_v1_key_proof_proto_msgTypes[0].Descriptor()
+	md := file_flowseer_model_edge_v1_key_proof_proto_msgTypes[0].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -245,7 +245,7 @@ type KeyProof struct {
 
 func (x *KeyProof) Reset() {
 	*x = KeyProof{}
-	mi := &file_flowseer_api_edge_v1_key_proof_proto_msgTypes[1]
+	mi := &file_flowseer_model_edge_v1_key_proof_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -257,7 +257,7 @@ func (x *KeyProof) String() string {
 func (*KeyProof) ProtoMessage() {}
 
 func (x *KeyProof) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_key_proof_proto_msgTypes[1]
+	mi := &file_flowseer_model_edge_v1_key_proof_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -348,11 +348,11 @@ func (b0 KeyProof_builder) Build() *KeyProof {
 	return m0
 }
 
-var File_flowseer_api_edge_v1_key_proof_proto protoreflect.FileDescriptor
+var File_flowseer_model_edge_v1_key_proof_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_key_proof_proto_rawDesc = "" +
+const file_flowseer_model_edge_v1_key_proof_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/api/edge/v1/key_proof.proto\x12\x14flowseer.api.edge.v1\"\xc9\x01\n" +
+	"&flowseer/model/edge/v1/key_proof.proto\x12\x16flowseer.model.edge.v1\"\xc9\x01\n" +
 	"\x0fKeyProofPayload\x12)\n" +
 	"\n" +
 	"public_key\x18\x01 \x01(\fB\n" +
@@ -366,15 +366,15 @@ const file_flowseer_api_edge_v1_key_proof_proto_rawDesc = "" +
 	"\apayload\x18\x01 \x01(\fB\r\xbaH\n" +
 	"\xc8\x01\x01z\x05\x10\x01\x18\x80\bR\apayload\x12(\n" +
 	"\tsignature\x18\x02 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02h@R\tsignatureB\xe4\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\rKeyProofProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x01z\x02h@R\tsignatureB\xf0\x01\n" +
+	"\x1acom.flowseer.model.edge.v1B\rKeyProofProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_key_proof_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_flowseer_api_edge_v1_key_proof_proto_goTypes = []any{
-	(*KeyProofPayload)(nil), // 0: flowseer.api.edge.v1.KeyProofPayload
-	(*KeyProof)(nil),        // 1: flowseer.api.edge.v1.KeyProof
+var file_flowseer_model_edge_v1_key_proof_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_model_edge_v1_key_proof_proto_goTypes = []any{
+	(*KeyProofPayload)(nil), // 0: flowseer.model.edge.v1.KeyProofPayload
+	(*KeyProof)(nil),        // 1: flowseer.model.edge.v1.KeyProof
 }
-var file_flowseer_api_edge_v1_key_proof_proto_depIdxs = []int32{
+var file_flowseer_model_edge_v1_key_proof_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -382,12 +382,12 @@ var file_flowseer_api_edge_v1_key_proof_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_key_proof_proto_init() }
-func file_flowseer_api_edge_v1_key_proof_proto_init() {
-	if File_flowseer_api_edge_v1_key_proof_proto != nil {
+func init() { file_flowseer_model_edge_v1_key_proof_proto_init() }
+func file_flowseer_model_edge_v1_key_proof_proto_init() {
+	if File_flowseer_model_edge_v1_key_proof_proto != nil {
 		return
 	}
-	file_flowseer_api_edge_v1_key_proof_proto_msgTypes[0].OneofWrappers = []any{
+	file_flowseer_model_edge_v1_key_proof_proto_msgTypes[0].OneofWrappers = []any{
 		(*keyProofPayload_SetupKeyId)(nil),
 		(*keyProofPayload_AssertionNonce)(nil),
 	}
@@ -395,17 +395,17 @@ func file_flowseer_api_edge_v1_key_proof_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_key_proof_proto_rawDesc), len(file_flowseer_api_edge_v1_key_proof_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_edge_v1_key_proof_proto_rawDesc), len(file_flowseer_model_edge_v1_key_proof_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_key_proof_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_key_proof_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_edge_v1_key_proof_proto_msgTypes,
+		GoTypes:           file_flowseer_model_edge_v1_key_proof_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_edge_v1_key_proof_proto_depIdxs,
+		MessageInfos:      file_flowseer_model_edge_v1_key_proof_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_key_proof_proto = out.File
-	file_flowseer_api_edge_v1_key_proof_proto_goTypes = nil
-	file_flowseer_api_edge_v1_key_proof_proto_depIdxs = nil
+	File_flowseer_model_edge_v1_key_proof_proto = out.File
+	file_flowseer_model_edge_v1_key_proof_proto_goTypes = nil
+	file_flowseer_model_edge_v1_key_proof_proto_depIdxs = nil
 }

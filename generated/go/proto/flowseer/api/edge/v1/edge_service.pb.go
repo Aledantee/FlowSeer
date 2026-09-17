@@ -11,6 +11,7 @@
 package edgev1
 
 import (
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -28,7 +29,7 @@ const (
 type EnrollRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_SetupKey    *string                `protobuf:"bytes,1,opt,name=setup_key,json=setupKey"`
-	xxx_hidden_Proof       *KeyProof              `protobuf:"bytes,2,opt,name=proof"`
+	xxx_hidden_Proof       *v1.KeyProof           `protobuf:"bytes,2,opt,name=proof"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -70,7 +71,7 @@ func (x *EnrollRequest) GetSetupKey() string {
 	return ""
 }
 
-func (x *EnrollRequest) GetProof() *KeyProof {
+func (x *EnrollRequest) GetProof() *v1.KeyProof {
 	if x != nil {
 		return x.xxx_hidden_Proof
 	}
@@ -82,7 +83,7 @@ func (x *EnrollRequest) SetSetupKey(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
-func (x *EnrollRequest) SetProof(v *KeyProof) {
+func (x *EnrollRequest) SetProof(v *v1.KeyProof) {
 	x.xxx_hidden_Proof = v
 }
 
@@ -116,7 +117,7 @@ type EnrollRequest_builder struct {
 	SetupKey *string
 	// Proof of possession of the key being registered, bound to the setup
 	// key's identifier. Must be present.
-	Proof *KeyProof
+	Proof *v1.KeyProof
 }
 
 func (b0 EnrollRequest_builder) Build() *EnrollRequest {
@@ -133,7 +134,7 @@ func (b0 EnrollRequest_builder) Build() *EnrollRequest {
 
 type EnrollResponse struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge         *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Edge         *v1.EdgeGlobalRef      `protobuf:"bytes,1,opt,name=edge"`
 	xxx_hidden_ServerTime   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=server_time,json=serverTime"`
 	xxx_hidden_Audience     *string                `protobuf:"bytes,3,opt,name=audience"`
 	xxx_hidden_TrustAnchors [][]byte               `protobuf:"bytes,4,rep,name=trust_anchors,json=trustAnchors"`
@@ -168,7 +169,7 @@ func (x *EnrollResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *EnrollResponse) GetEdge() *EdgeGlobalRef {
+func (x *EnrollResponse) GetEdge() *v1.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Edge
 	}
@@ -199,7 +200,7 @@ func (x *EnrollResponse) GetTrustAnchors() [][]byte {
 	return nil
 }
 
-func (x *EnrollResponse) SetEdge(v *EdgeGlobalRef) {
+func (x *EnrollResponse) SetEdge(v *v1.EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
@@ -254,7 +255,7 @@ type EnrollResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The enrolled edge. Must be present.
-	Edge *EdgeGlobalRef
+	Edge *v1.EdgeGlobalRef
 	// Central's clock when it answered; the edge trusts it for assertion
 	// timestamps until its own clock is synchronized. Must be present.
 	ServerTime *timestamppb.Timestamp
@@ -281,7 +282,7 @@ func (b0 EnrollResponse_builder) Build() *EnrollResponse {
 
 type RekeyRequest struct {
 	state            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Proof *KeyProof              `protobuf:"bytes,1,opt,name=proof"`
+	xxx_hidden_Proof *v1.KeyProof           `protobuf:"bytes,1,opt,name=proof"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -311,14 +312,14 @@ func (x *RekeyRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *RekeyRequest) GetProof() *KeyProof {
+func (x *RekeyRequest) GetProof() *v1.KeyProof {
 	if x != nil {
 		return x.xxx_hidden_Proof
 	}
 	return nil
 }
 
-func (x *RekeyRequest) SetProof(v *KeyProof) {
+func (x *RekeyRequest) SetProof(v *v1.KeyProof) {
 	x.xxx_hidden_Proof = v
 }
 
@@ -338,7 +339,7 @@ type RekeyRequest_builder struct {
 
 	// Proof of possession of the new key, bound to the nonce of this call's
 	// assertion. Must be present.
-	Proof *KeyProof
+	Proof *v1.KeyProof
 }
 
 func (b0 RekeyRequest_builder) Build() *RekeyRequest {
@@ -598,20 +599,20 @@ var File_flowseer_api_edge_v1_edge_service_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_edge_service_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/api/edge/v1/edge_service.proto\x12\x14flowseer.api.edge.v1\x1a\x1eflowseer/api/edge/v1/bus.proto\x1a%flowseer/api/edge/v1/credential.proto\x1a!flowseer/api/edge/v1/device.proto\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a$flowseer/api/edge/v1/key_proof.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x96\x01\n" +
+	"'flowseer/api/edge/v1/edge_service.proto\x12\x14flowseer.api.edge.v1\x1a\x1eflowseer/api/edge/v1/bus.proto\x1a%flowseer/api/edge/v1/credential.proto\x1a!flowseer/api/edge/v1/device.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a&flowseer/model/edge/v1/key_proof.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n" +
 	"\rEnrollRequest\x12G\n" +
-	"\tsetup_key\x18\x01 \x01(\tB*\xbaH'\xc8\x01\x01r\"2 ^fse1_[a-z2-7]{26}_[a-z2-7]{52}$R\bsetupKey\x12<\n" +
-	"\x05proof\x18\x02 \x01(\v2\x1e.flowseer.api.edge.v1.KeyProofB\x06\xbaH\x03\xc8\x01\x01R\x05proof\"\xf8\x01\n" +
-	"\x0eEnrollResponse\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12C\n" +
+	"\tsetup_key\x18\x01 \x01(\tB*\xbaH'\xc8\x01\x01r\"2 ^fse1_[a-z2-7]{26}_[a-z2-7]{52}$R\bsetupKey\x12>\n" +
+	"\x05proof\x18\x02 \x01(\v2 .flowseer.model.edge.v1.KeyProofB\x06\xbaH\x03\xc8\x01\x01R\x05proof\"\xfa\x01\n" +
+	"\x0eEnrollResponse\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12C\n" +
 	"\vserver_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"serverTime\x12)\n" +
 	"\baudience\x18\x03 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\baudience\x125\n" +
 	"\rtrust_anchors\x18\x04 \x03(\fB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x10\b\"\x04z\x02h R\ftrustAnchors\"L\n" +
-	"\fRekeyRequest\x12<\n" +
-	"\x05proof\x18\x01 \x01(\v2\x1e.flowseer.api.edge.v1.KeyProofB\x06\xbaH\x03\xc8\x01\x01R\x05proof\"T\n" +
+	"\b\x01\x10\b\"\x04z\x02h R\ftrustAnchors\"N\n" +
+	"\fRekeyRequest\x12>\n" +
+	"\x05proof\x18\x01 \x01(\v2 .flowseer.model.edge.v1.KeyProofB\x06\xbaH\x03\xc8\x01\x01R\x05proof\"T\n" +
 	"\rRekeyResponse\x12C\n" +
 	"\vserver_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"serverTime\"\x8b\x01\n" +
@@ -640,8 +641,8 @@ var file_flowseer_api_edge_v1_edge_service_proto_goTypes = []any{
 	(*RekeyResponse)(nil),                 // 3: flowseer.api.edge.v1.RekeyResponse
 	(*HeartbeatRequest)(nil),              // 4: flowseer.api.edge.v1.HeartbeatRequest
 	(*HeartbeatResponse)(nil),             // 5: flowseer.api.edge.v1.HeartbeatResponse
-	(*KeyProof)(nil),                      // 6: flowseer.api.edge.v1.KeyProof
-	(*EdgeGlobalRef)(nil),                 // 7: flowseer.api.edge.v1.EdgeGlobalRef
+	(*v1.KeyProof)(nil),                   // 6: flowseer.model.edge.v1.KeyProof
+	(*v1.EdgeGlobalRef)(nil),              // 7: flowseer.model.edge.v1.EdgeGlobalRef
 	(*timestamppb.Timestamp)(nil),         // 8: google.protobuf.Timestamp
 	(*AttachBusRequest)(nil),              // 9: flowseer.api.edge.v1.AttachBusRequest
 	(*ListDevicesRequest)(nil),            // 10: flowseer.api.edge.v1.ListDevicesRequest
@@ -653,10 +654,10 @@ var file_flowseer_api_edge_v1_edge_service_proto_goTypes = []any{
 	(*OpenDeviceSubmissionResponse)(nil),  // 16: flowseer.api.edge.v1.OpenDeviceSubmissionResponse
 }
 var file_flowseer_api_edge_v1_edge_service_proto_depIdxs = []int32{
-	6,  // 0: flowseer.api.edge.v1.EnrollRequest.proof:type_name -> flowseer.api.edge.v1.KeyProof
-	7,  // 1: flowseer.api.edge.v1.EnrollResponse.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	6,  // 0: flowseer.api.edge.v1.EnrollRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
+	7,  // 1: flowseer.api.edge.v1.EnrollResponse.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
 	8,  // 2: flowseer.api.edge.v1.EnrollResponse.server_time:type_name -> google.protobuf.Timestamp
-	6,  // 3: flowseer.api.edge.v1.RekeyRequest.proof:type_name -> flowseer.api.edge.v1.KeyProof
+	6,  // 3: flowseer.api.edge.v1.RekeyRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
 	8,  // 4: flowseer.api.edge.v1.RekeyResponse.server_time:type_name -> google.protobuf.Timestamp
 	8,  // 5: flowseer.api.edge.v1.HeartbeatRequest.buffering_since:type_name -> google.protobuf.Timestamp
 	8,  // 6: flowseer.api.edge.v1.HeartbeatResponse.server_time:type_name -> google.protobuf.Timestamp
@@ -689,8 +690,6 @@ func file_flowseer_api_edge_v1_edge_service_proto_init() {
 	file_flowseer_api_edge_v1_bus_proto_init()
 	file_flowseer_api_edge_v1_credential_proto_init()
 	file_flowseer_api_edge_v1_device_proto_init()
-	file_flowseer_api_edge_v1_edge_proto_init()
-	file_flowseer_api_edge_v1_key_proof_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

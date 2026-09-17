@@ -13,7 +13,7 @@
 package inventoryv1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -1226,7 +1226,7 @@ var File_flowseer_model_inventory_v1_integration_proto protoreflect.FileDescript
 
 const file_flowseer_model_inventory_v1_integration_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/model/inventory/v1/integration.proto\x12\x1bflowseer.model.inventory.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\"2\n" +
+	"-flowseer/model/inventory/v1/integration.proto\x12\x1bflowseer.model.inventory.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\"2\n" +
 	"\x13IntegrationLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"r\n" +
 	"\x14IntegrationGlobalRef\x12Z\n" +
@@ -1240,7 +1240,7 @@ const file_flowseer_model_inventory_v1_integration_proto_rawDesc = "" +
 	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12\x1c\n" +
 	"\x05value\x18\x03 \x01(\fB\x06\xbaH\x03\xc8\x01\x01R\x05value\x12>\n" +
 	"\x13descriptor_revision\x18\x04 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x12descriptorRevision\"\xa6\x05\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x12descriptorRevision\"\xa8\x05\n" +
 	"\x11IntegrationConfig\x12K\n" +
 	"\x03ref\x18\x01 \x01(\v21.flowseer.model.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1249,8 +1249,8 @@ const file_flowseer_model_inventory_v1_integration_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x124\n" +
 	"\x0ecredential_ref\x18\x04 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\rcredentialRef\x127\n" +
-	"\x13requests_per_second\x18\x05 \x01(\rB\a\xbaH\x04*\x02 \x00R\x11requestsPerSecond\x127\n" +
-	"\x04edge\x18\x06 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefR\x04edge\x12V\n" +
+	"\x13requests_per_second\x18\x05 \x01(\rB\a\xbaH\x04*\x02 \x00R\x11requestsPerSecond\x129\n" +
+	"\x04edge\x18\x06 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefR\x04edge\x12V\n" +
 	"\rlocal_network\x18\n" +
 	" \x01(\v2/.flowseer.model.inventory.v1.LocalNetworkConfigH\x00R\flocalNetwork\x12P\n" +
 	"\vthird_party\x18\x13 \x01(\v2-.flowseer.model.inventory.v1.ThirdPartyConfigH\x00R\n" +
@@ -1297,13 +1297,13 @@ var file_flowseer_model_inventory_v1_integration_proto_goTypes = []any{
 	(*IntegrationState)(nil),     // 6: flowseer.model.inventory.v1.IntegrationState
 	(*IntegrationEvent)(nil),     // 7: flowseer.model.inventory.v1.IntegrationEvent
 	(*v1.IpPrefix)(nil),          // 8: flowseer.net.addr.v1.IpPrefix
-	(*v11.EdgeGlobalRef)(nil),    // 9: flowseer.api.edge.v1.EdgeGlobalRef
+	(*v11.EdgeGlobalRef)(nil),    // 9: flowseer.model.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_model_inventory_v1_integration_proto_depIdxs = []int32{
 	1,  // 0: flowseer.model.inventory.v1.IntegrationGlobalRef.integration:type_name -> flowseer.model.inventory.v1.IntegrationLocalRef
 	8,  // 1: flowseer.model.inventory.v1.LocalNetworkConfig.seed_ranges:type_name -> flowseer.net.addr.v1.IpPrefix
 	2,  // 2: flowseer.model.inventory.v1.IntegrationConfig.ref:type_name -> flowseer.model.inventory.v1.IntegrationGlobalRef
-	9,  // 3: flowseer.model.inventory.v1.IntegrationConfig.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	9,  // 3: flowseer.model.inventory.v1.IntegrationConfig.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
 	3,  // 4: flowseer.model.inventory.v1.IntegrationConfig.local_network:type_name -> flowseer.model.inventory.v1.LocalNetworkConfig
 	4,  // 5: flowseer.model.inventory.v1.IntegrationConfig.third_party:type_name -> flowseer.model.inventory.v1.ThirdPartyConfig
 	2,  // 6: flowseer.model.inventory.v1.IntegrationState.ref:type_name -> flowseer.model.inventory.v1.IntegrationGlobalRef

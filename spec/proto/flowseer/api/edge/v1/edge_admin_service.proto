@@ -4,8 +4,8 @@ edition = "2024";
 // Authorized as the operator; an edge never calls it.
 package flowseer.api.edge.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
-import "flowseer/api/edge/v1/provisioning.proto";
+import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/provisioning.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -21,15 +21,6 @@ service EdgeAdminService {
   rpc RetireEdge(RetireEdgeRequest) returns (RetireEdgeResponse);
   rpc GetEdge(GetEdgeRequest) returns (GetEdgeResponse);
   rpc ListEdges(ListEdgesRequest) returns (ListEdgesResponse);
-}
-
-// One edge as the admin service returns it: intent and observation
-// together.
-message EdgeRecord {
-  // Must be present.
-  EdgeConfig config = 1 [(buf.validate.field).required = true];
-  // Must be present.
-  EdgeState state = 2 [(buf.validate.field).required = true];
 }
 
 message CreateEdgeRequest {
@@ -51,15 +42,15 @@ message CreateEdgeRequest {
 
 message CreateEdgeResponse {
   // The created edge. Must be present.
-  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeRecord edge = 1 [(buf.validate.field).required = true];
   // What to ship with the edge. Shown once; the setup key is not
   // retrievable afterwards. Must be present.
-  EdgeProvisioning provisioning = 2 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeProvisioning provisioning = 2 [(buf.validate.field).required = true];
 }
 
 message IssueSetupKeyRequest {
   // The edge to issue a key to. Must be present.
-  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
   // When the key stops being accepted; must lie in the future. Unset means
   // 180 days from issue.
   google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).timestamp.gt_now = true];
@@ -67,29 +58,29 @@ message IssueSetupKeyRequest {
 
 message IssueSetupKeyResponse {
   // The edge after issue. Must be present.
-  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeRecord edge = 1 [(buf.validate.field).required = true];
   // What to ship with the edge. Shown once. Must be present.
-  EdgeProvisioning provisioning = 2 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeProvisioning provisioning = 2 [(buf.validate.field).required = true];
 }
 
 message RevokeSetupKeyRequest {
   // The edge whose unused setup key to revoke. Must be present.
-  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
 }
 
 message RevokeSetupKeyResponse {
   // The edge after revocation. Must be present.
-  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeRecord edge = 1 [(buf.validate.field).required = true];
 }
 
 message RetireEdgeRequest {
   // The edge to retire. Must be present.
-  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
 }
 
 message RetireEdgeResponse {
   // The edge after retirement. Must be present.
-  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeRecord edge = 1 [(buf.validate.field).required = true];
   // The lanes the retirement orphaned, in device-id order. Retirement ends no
   // mutation, so each of these is work only an operator can end, through
   // DeviceService.AbandonMutation with the device and the sequence named
@@ -118,12 +109,12 @@ message OrphanedLane {
 
 message GetEdgeRequest {
   // Must be present.
-  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
 }
 
 message GetEdgeResponse {
   // Must be present.
-  EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeRecord edge = 1 [(buf.validate.field).required = true];
 }
 
 message ListEdgesRequest {
@@ -142,7 +133,7 @@ message ListEdgesRequest {
 message ListEdgesResponse {
   // The page of edges in the service's stable order. Empty means the
   // listing is exhausted.
-  repeated EdgeRecord edges = 1;
+  repeated flowseer.model.edge.v1.EdgeRecord edges = 1;
   // Token for the next page. Unset means this was the last page.
   string next_page_token = 2 [
     (buf.validate.field).string.min_len = 1,

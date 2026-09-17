@@ -13,7 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -62,7 +63,7 @@ type Signer struct {
 }
 
 // NewSigner builds the signer for an enrolled edge.
-func NewSigner(key ed25519.PrivateKey, enrollment *edgev1.EnrollResponse, now func() time.Time) *Signer {
+func NewSigner(key ed25519.PrivateKey, enrollment *apiedgev1.EnrollResponse, now func() time.Time) *Signer {
 	if now == nil {
 		now = time.Now
 	}

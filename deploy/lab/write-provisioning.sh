@@ -1,5 +1,5 @@
 #!/bin/sh
-# Render the prototext flowseer.api.edge.v1.EdgeProvisioning an agent reads,
+# Render the prototext flowseer.model.edge.v1.EdgeProvisioning an agent reads,
 # from the JSON body CreateEdge returned.
 #
 # It exists because the two representations differ in one place that a person

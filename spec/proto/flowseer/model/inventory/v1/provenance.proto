@@ -2,7 +2,7 @@ edition = "2024";
 
 package flowseer.model.inventory.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/inventory/v1/binding.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
@@ -28,7 +28,7 @@ message Provenance {
   ];
   // The edge whose process performed the observation. Unset means a
   // cloud-mediated integration answered centrally, with no hosting edge.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 4;
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 4;
   // The device's exact firmware fingerprint at observation time, as the
   // identity probe reports it. Unset means no identity probe has run;
   // otherwise 1 to 128 characters, and a consumer comparing two

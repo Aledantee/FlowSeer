@@ -25,7 +25,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storeedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )

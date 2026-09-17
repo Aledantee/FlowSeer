@@ -7,7 +7,7 @@ edition = "2024";
 // what was asked for.
 package flowseer.api.capture.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/net/capture/v1/capture_counters.proto";
 import "flowseer/net/capture/v1/capture_filter.proto";
 import "flowseer/net/capture/v1/link_type.proto";
@@ -28,7 +28,7 @@ message CaptureSessionLocalRef {
 // The global reference to a capture session.
 message CaptureSessionGlobalRef {
   // The owning edge's key. Must be present.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
   // The session's own key. Must be present.
   CaptureSessionLocalRef capture_session = 2 [(buf.validate.field).required = true];
 }

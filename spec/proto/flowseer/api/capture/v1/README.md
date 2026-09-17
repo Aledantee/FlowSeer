@@ -22,7 +22,7 @@ Nothing here imports `api/inventory`.
 
 ## Re-assertion on the upload stream
 
-[The edge assertion contract](../../edge/v1/README.md#the-assertion-header)
+[The edge assertion contract](../../../model/edge/v1/README.md#the-assertion-header)
 checks a `SignedEdgeAssertion` when a call opens, and states plainly that
 streams are checked only there — an assertion itself is valid for at most 60
 seconds. `UploadCapture` is a stream an edge holds open for as long as the

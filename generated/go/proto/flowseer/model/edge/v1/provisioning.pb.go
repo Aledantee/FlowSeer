@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/provisioning.proto
+// source: flowseer/model/edge/v1/provisioning.proto
 
 package edgev1
 
@@ -48,7 +48,7 @@ type EdgeProvisioning struct {
 
 func (x *EdgeProvisioning) Reset() {
 	*x = EdgeProvisioning{}
-	mi := &file_flowseer_api_edge_v1_provisioning_proto_msgTypes[0]
+	mi := &file_flowseer_model_edge_v1_provisioning_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -60,7 +60,7 @@ func (x *EdgeProvisioning) String() string {
 func (*EdgeProvisioning) ProtoMessage() {}
 
 func (x *EdgeProvisioning) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_provisioning_proto_msgTypes[0]
+	mi := &file_flowseer_model_edge_v1_provisioning_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -167,24 +167,24 @@ func (b0 EdgeProvisioning_builder) Build() *EdgeProvisioning {
 	return m0
 }
 
-var File_flowseer_api_edge_v1_provisioning_proto protoreflect.FileDescriptor
+var File_flowseer_model_edge_v1_provisioning_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_provisioning_proto_rawDesc = "" +
+const file_flowseer_model_edge_v1_provisioning_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/api/edge/v1/provisioning.proto\x12\x14flowseer.api.edge.v1\"\xc3\x01\n" +
+	")flowseer/model/edge/v1/provisioning.proto\x12\x16flowseer.model.edge.v1\"\xc3\x01\n" +
 	"\x10EdgeProvisioning\x12/\n" +
 	"\vcentral_url\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\x80\x10\x88\x01\x01R\n" +
 	"centralUrl\x12G\n" +
 	"\tsetup_key\x18\x02 \x01(\tB*\xbaH'\xc8\x01\x01r\"2 ^fse1_[a-z2-7]{26}_[a-z2-7]{52}$R\bsetupKey\x125\n" +
 	"\rtrust_anchors\x18\x03 \x03(\fB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x10\b\"\x04z\x02h R\ftrustAnchorsB\xe8\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\x11ProvisioningProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\b\x01\x10\b\"\x04z\x02h R\ftrustAnchorsB\xf4\x01\n" +
+	"\x1acom.flowseer.model.edge.v1B\x11ProvisioningProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_provisioning_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_flowseer_api_edge_v1_provisioning_proto_goTypes = []any{
-	(*EdgeProvisioning)(nil), // 0: flowseer.api.edge.v1.EdgeProvisioning
+var file_flowseer_model_edge_v1_provisioning_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_flowseer_model_edge_v1_provisioning_proto_goTypes = []any{
+	(*EdgeProvisioning)(nil), // 0: flowseer.model.edge.v1.EdgeProvisioning
 }
-var file_flowseer_api_edge_v1_provisioning_proto_depIdxs = []int32{
+var file_flowseer_model_edge_v1_provisioning_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -192,26 +192,26 @@ var file_flowseer_api_edge_v1_provisioning_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_provisioning_proto_init() }
-func file_flowseer_api_edge_v1_provisioning_proto_init() {
-	if File_flowseer_api_edge_v1_provisioning_proto != nil {
+func init() { file_flowseer_model_edge_v1_provisioning_proto_init() }
+func file_flowseer_model_edge_v1_provisioning_proto_init() {
+	if File_flowseer_model_edge_v1_provisioning_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_provisioning_proto_rawDesc), len(file_flowseer_api_edge_v1_provisioning_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_edge_v1_provisioning_proto_rawDesc), len(file_flowseer_model_edge_v1_provisioning_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_provisioning_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_provisioning_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_edge_v1_provisioning_proto_msgTypes,
+		GoTypes:           file_flowseer_model_edge_v1_provisioning_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_edge_v1_provisioning_proto_depIdxs,
+		MessageInfos:      file_flowseer_model_edge_v1_provisioning_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_provisioning_proto = out.File
-	file_flowseer_api_edge_v1_provisioning_proto_goTypes = nil
-	file_flowseer_api_edge_v1_provisioning_proto_depIdxs = nil
+	File_flowseer_model_edge_v1_provisioning_proto = out.File
+	file_flowseer_model_edge_v1_provisioning_proto_goTypes = nil
+	file_flowseer_model_edge_v1_provisioning_proto_depIdxs = nil
 }

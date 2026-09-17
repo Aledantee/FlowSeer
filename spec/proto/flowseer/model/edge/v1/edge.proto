@@ -3,7 +3,7 @@ edition = "2024";
 // The edge family — the enrolled edge process through which FlowSeer runs
 // integrations inside a site's network. An edge is the host, not an
 // integration: the integrations it runs point at it.
-package flowseer.api.edge.v1;
+package flowseer.model.edge.v1;
 
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
@@ -187,4 +187,13 @@ message EdgeEvent {
       not_in: [0]
     }
   ];
+}
+
+// One edge as the admin service returns it and the device service stores
+// it: intent and observation together.
+message EdgeRecord {
+  // Must be present.
+  EdgeConfig config = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  EdgeState state = 2 [(buf.validate.field).required = true];
 }

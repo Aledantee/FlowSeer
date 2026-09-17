@@ -11,7 +11,7 @@
 package capturev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -271,10 +271,10 @@ var File_flowseer_api_capture_v1_capture_edge_service_proto protoreflect.FileDes
 
 const file_flowseer_api_capture_v1_capture_edge_service_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/api/capture/v1/capture_edge_service.proto\x12\x17flowseer.api.capture.v1\x1a+flowseer/api/capture/v1/capture_chunk.proto\x1a-flowseer/api/capture/v1/capture_session.proto\x1a$flowseer/api/edge/v1/assertion.proto\"\xb5\x01\n" +
+	"2flowseer/api/capture/v1/capture_edge_service.proto\x12\x17flowseer.api.capture.v1\x1a+flowseer/api/capture/v1/capture_chunk.proto\x1a-flowseer/api/capture/v1/capture_session.proto\x1a&flowseer/model/edge/v1/assertion.proto\"\xb7\x01\n" +
 	"\x14UploadCaptureRequest\x12C\n" +
-	"\x05chunk\x18\x01 \x01(\v2+.flowseer.api.capture.v1.CapturePacketChunkH\x00R\x05chunk\x12I\n" +
-	"\tassertion\x18\x02 \x01(\v2).flowseer.api.edge.v1.SignedEdgeAssertionH\x00R\tassertionB\r\n" +
+	"\x05chunk\x18\x01 \x01(\v2+.flowseer.api.capture.v1.CapturePacketChunkH\x00R\x05chunk\x12K\n" +
+	"\tassertion\x18\x02 \x01(\v2+.flowseer.model.edge.v1.SignedEdgeAssertionH\x00R\tassertionB\r\n" +
 	"\x04body\x12\x05\xbaH\x02\b\x01\"k\n" +
 	"\x15UploadCaptureResponse\x12R\n" +
 	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession2\x86\x01\n" +
@@ -287,12 +287,12 @@ var file_flowseer_api_capture_v1_capture_edge_service_proto_goTypes = []any{
 	(*UploadCaptureRequest)(nil),    // 0: flowseer.api.capture.v1.UploadCaptureRequest
 	(*UploadCaptureResponse)(nil),   // 1: flowseer.api.capture.v1.UploadCaptureResponse
 	(*CapturePacketChunk)(nil),      // 2: flowseer.api.capture.v1.CapturePacketChunk
-	(*v1.SignedEdgeAssertion)(nil),  // 3: flowseer.api.edge.v1.SignedEdgeAssertion
+	(*v1.SignedEdgeAssertion)(nil),  // 3: flowseer.model.edge.v1.SignedEdgeAssertion
 	(*CaptureSessionGlobalRef)(nil), // 4: flowseer.api.capture.v1.CaptureSessionGlobalRef
 }
 var file_flowseer_api_capture_v1_capture_edge_service_proto_depIdxs = []int32{
 	2, // 0: flowseer.api.capture.v1.UploadCaptureRequest.chunk:type_name -> flowseer.api.capture.v1.CapturePacketChunk
-	3, // 1: flowseer.api.capture.v1.UploadCaptureRequest.assertion:type_name -> flowseer.api.edge.v1.SignedEdgeAssertion
+	3, // 1: flowseer.api.capture.v1.UploadCaptureRequest.assertion:type_name -> flowseer.model.edge.v1.SignedEdgeAssertion
 	4, // 2: flowseer.api.capture.v1.UploadCaptureResponse.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
 	0, // 3: flowseer.api.capture.v1.CaptureEdgeService.UploadCapture:input_type -> flowseer.api.capture.v1.UploadCaptureRequest
 	1, // 4: flowseer.api.capture.v1.CaptureEdgeService.UploadCapture:output_type -> flowseer.api.capture.v1.UploadCaptureResponse

@@ -7,7 +7,7 @@ package flowseer.api.capture.v1;
 
 import "flowseer/api/capture/v1/capture_chunk.proto";
 import "flowseer/api/capture/v1/capture_session.proto";
-import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/net/capture/v1/capture_filter.proto";
 import option "buf/validate/validate.proto";
 
@@ -37,7 +37,7 @@ message CaptureSessionRecord {
 
 message CreateCaptureSessionRequest {
   // The edge to run this capture on. Must be present.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
   // Operator-assigned display name. Unset means none. When set, must not
   // be empty.
   string name = 2 [

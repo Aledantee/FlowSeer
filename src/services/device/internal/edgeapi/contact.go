@@ -3,7 +3,7 @@ package edgeapi
 import (
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 )
 
 // Contact derives how recently an enrolled edge was heard from, out of the

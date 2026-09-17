@@ -1,6 +1,6 @@
 // Package edge verifies the SignedEdgeAssertion every authenticated
 // EdgeService call carries, in the eleven-step order
-// spec/proto/flowseer/api/edge/v1/README.md pins: decode and validate the
+// spec/proto/flowseer/model/edge/v1/README.md pins: decode and validate the
 // envelope, read the edge ref from the payload, verify the signature over
 // the raw payload bytes with that edge's stored key, validate the parsed
 // assertion's own shape, check the invoked Connect procedure and the

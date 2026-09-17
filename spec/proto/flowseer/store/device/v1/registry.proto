@@ -7,7 +7,7 @@ edition = "2024";
 // pair.
 package flowseer.store.device.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/inventory/v1/binding.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/model/inventory/v1/integration.proto";
@@ -45,7 +45,7 @@ message RegistryIntegration {
   // Must be present.
   flowseer.model.inventory.v1.IntegrationGlobalRef ref = 1 [(buf.validate.field).required = true];
   // Must be present.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 2 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 2 [(buf.validate.field).required = true];
 }
 
 // One device the service serves: its configuration, the binding that

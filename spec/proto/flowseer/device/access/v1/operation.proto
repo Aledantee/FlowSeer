@@ -8,8 +8,8 @@ edition = "2024";
 // the durable audit record is its own package's contract.
 package flowseer.device.access.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
 import "flowseer/device/access/v1/interface.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/model/policy/v1/handle.proto";
 import "google/protobuf/timestamp.proto";
@@ -204,5 +204,5 @@ message MutationState {
   // When the block began. Set exactly while block_reason is set.
   google.protobuf.Timestamp blocked_since = 6;
   // The edge that executes, or executed, the mutation. Must be present.
-  flowseer.api.edge.v1.EdgeGlobalRef responsible_edge = 7 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef responsible_edge = 7 [(buf.validate.field).required = true];
 }

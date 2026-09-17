@@ -7,7 +7,7 @@ package flowseer.api.capture.v1;
 
 import "flowseer/api/capture/v1/capture_chunk.proto";
 import "flowseer/api/capture/v1/capture_session.proto";
-import "flowseer/api/edge/v1/assertion.proto";
+import "flowseer/model/edge/v1/assertion.proto";
 import option "buf/validate/validate.proto";
 
 service CaptureEdgeService {
@@ -25,7 +25,7 @@ message UploadCaptureRequest {
     option (buf.validate.oneof).required = true;
 
     CapturePacketChunk chunk = 1;
-    flowseer.api.edge.v1.SignedEdgeAssertion assertion = 2;
+    flowseer.model.edge.v1.SignedEdgeAssertion assertion = 2;
   }
 }
 

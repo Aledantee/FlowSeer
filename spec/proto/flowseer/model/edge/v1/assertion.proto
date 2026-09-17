@@ -4,9 +4,9 @@ edition = "2024";
 // envelope. The two are one contract: the verifier reads only the edge
 // ref from the payload, checks the signature over the payload bytes
 // exactly as received with that edge's key, and only then trusts the rest.
-package flowseer.api.edge.v1;
+package flowseer.model.edge.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -116,7 +116,7 @@ func testVerifier(at time.Time, skew time.Duration, lookup KeyLookup) *Verifier 
 }
 
 // readmeVector is the worked header published in
-// spec/proto/flowseer/api/edge/v1/README.md, character for character.
+// spec/proto/flowseer/model/edge/v1/README.md, character for character.
 //
 // It has to be the literal. This test was named for the vector and built its
 // own header with signHeader and this package's own HeaderScheme, so it was a

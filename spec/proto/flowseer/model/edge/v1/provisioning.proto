@@ -1,6 +1,6 @@
 edition = "2024";
 
-package flowseer.api.edge.v1;
+package flowseer.model.edge.v1;
 
 import option "buf/validate/validate.proto";
 

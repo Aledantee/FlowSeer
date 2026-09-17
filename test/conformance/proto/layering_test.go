@@ -34,18 +34,21 @@ var importOrder = map[string][]string{
 	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
 	// Boundary packages consume the primitives and never feed them.
-	// model/policy imports nothing FlowSeer-owned, the one leaf that lets
-	// inventory name a policy without a cycle. api/edge may import
-	// model/policy for the credential and host-trust handles its
-	// credential RPCs return, because model/policy imports nothing back.
+	// model/edge imports nothing FlowSeer-owned, the entity leaf every other
+	// boundary that names an edge reaches through here. model/policy imports
+	// nothing FlowSeer-owned either, the one leaf that lets inventory name a
+	// policy without a cycle. api/edge may import model/edge for the entity
+	// its services carry, and model/policy for the credential and host-trust
+	// handles its credential RPCs return, because neither imports back.
 	// model/credential imports nothing either: api/edge carries the typed
 	// credential material on its credential responses, so it sits beside
-	// model/policy as a second leaf below api/edge. net/addr is the third,
-	// for the management address the device listing carries — a primitive
-	// that imports nothing FlowSeer-owned, so it cannot cycle back, and the
-	// alternative of a formatted string would make an address the edge
-	// parses out of prose.
-	"api/edge":         {"model/credential", "model/policy", "net/addr"},
+	// model/edge and model/policy as a third leaf below api/edge. net/addr
+	// is the fourth, for the management address the device listing carries
+	// — a primitive that imports nothing FlowSeer-owned, so it cannot cycle
+	// back, and the alternative of a formatted string would make an address
+	// the edge parses out of prose.
+	"api/edge":         {"model/edge", "model/policy", "model/credential", "net/addr"},
+	"model/edge":       nil,
 	"model/credential": nil,
 	"model/policy":     nil,
 
@@ -56,15 +59,15 @@ var importOrder = map[string][]string{
 	// A capture session's identity, lifecycle and services. It holds
 	// net/capture's counters, link type and packet records rather than
 	// copies of their fields, and takes only the owning ref and the
-	// assertion its upload stream re-verifies from api/edge.
-	"api/capture": {"api/edge", "net/capture"},
+	// assertion its upload stream re-verifies from model/edge.
+	"api/capture": {"model/edge", "net/capture"},
 
-	"model/inventory": {"api/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
-	// api/edge for the responsible edge, so a boundary that imports them
-	// reaches api/edge only through here.
-	"device/access": {"api/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	// model/edge for the responsible edge, so a boundary that imports them
+	// reaches model/edge only through here.
+	"device/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of device/access and errs, and none of the
@@ -83,11 +86,11 @@ var importOrder = map[string][]string{
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
-	"store/device": {"api/edge", "model/inventory", "device/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"store/device": {"model/edge", "model/inventory", "device/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The agent's own deployment file. It imports nothing FlowSeer-owned and
 	// is imported by nothing: what an edge is told about central lives in
-	// api/edge's EdgeProvisioning, which this package names by path rather
+	// model/edge's EdgeProvisioning, which this package names by path rather
 	// than by type, so the dependency an entry here would suggest does not
 	// exist.
 	"store/edge": nil,
@@ -199,6 +202,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
 		{name: "storage imports access values", importer: "store/device", imported: "device/access", want: true},
 		{name: "storage imports credential material", importer: "store/device", imported: "model/credential", want: true},
+		{name: "storage imports the edge service package", importer: "store/device", imported: "api/edge"},
+		{name: "storage imports the edge entity", importer: "store/device", imported: "model/edge", want: true},
 		{name: "access values import storage", importer: "device/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},

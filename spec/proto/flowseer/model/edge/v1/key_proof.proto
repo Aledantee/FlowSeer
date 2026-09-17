@@ -3,7 +3,7 @@ edition = "2024";
 // The proof of possession an edge gives when it registers a key, at
 // enrollment and at rekey. Same shape as the assertion envelope: the
 // verifier checks the signature over the payload bytes as received.
-package flowseer.api.edge.v1;
+package flowseer.model.edge.v1;
 
 import option "buf/validate/validate.proto";
 

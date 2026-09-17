@@ -68,6 +68,15 @@ not exhaustive, and duplicating each family's own absence note would drift
 from the prose that already carries it. Cost if wrong: the later README
 pass rewrites or expands the line; no test depends on its contents yet.
 
+Ruled: `model/edge/v1/README.md`, created in U2, opens with the full package
+name, a one-paragraph identity, the four moved sections, and a `## Boundaries`
+section (`Imports:`, `Imported by:`, `Deliberately absent:`), matching the
+shape U1 already gave the three package READMEs it created rather than
+waiting for U5's pass. Why: the parent's README-shape decision holds for
+every unit in this phase, and U1 already established the precedent of adding
+`## Boundaries` to a new package README ahead of the gate. Cost if wrong:
+U5's pass rewrites the section; no test depends on its contents until then.
+
 ## Requirements
 
 1. `spec/proto/flowseer/model/` holds `policy`, `credential`, `edge`,
@@ -151,9 +160,12 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto tes
 ### U2. Split the Edge entity out of api/edge
 
 Files: spec/proto/flowseer/api/edge/v1/{edge,assertion,key_proof,provisioning,edge_admin_service}.proto,
+spec/proto/flowseer/api/edge/v1/README.md,
 spec/proto/flowseer/model/edge/v1/*,
 spec/proto/flowseer/model/inventory/v1/{integration,provenance}.proto,
-spec/proto/flowseer/api/capture/v1/*.proto, spec/proto/flowseer/device/access/v1/operation.proto,
+spec/proto/flowseer/model/inventory/v1/README.md,
+spec/proto/flowseer/api/capture/v1/*.proto, spec/proto/flowseer/api/capture/v1/README.md,
+spec/proto/flowseer/device/access/v1/operation.proto,
 spec/proto/flowseer/store/device/v1/{edge_record,registry,service_config}.proto,
 generated/go/proto/flowseer/**, test/conformance/proto/layering_test.go,
 test/conformance/proto/{api_edge,api_edge_bus_credential,store_device}_rules_test.go,
@@ -179,8 +191,12 @@ cases stay. `importOrder` gains `"model/edge": nil`; `api/edge` becomes
 lifetimes", "The assertion header", "Lifecycle and contact", and "What
 central holds and what an attacker gets" sections from the `api/edge`
 README, which keeps the rest and gains a first paragraph saying the entity
-moved. The solution entry, the provisioning file's first-line comment, and
-the script's comment read `flowseer.model.edge.v1`.
+moved, and a `## Boundaries` section (imports nothing FlowSeer-owned; imported
+by `api/capture, api/edge, device/access, model/inventory, store/device`).
+The solution entry, the provisioning file's first-line comment, and the
+script's comment read `flowseer.model.edge.v1`. `api/capture/v1/README.md`'s
+link to the assertion-header section and `model/inventory/v1/README.md`'s
+`Imports:` line follow the entity to `model/edge`.
 Tests: `model_edge_rules_test.go` and the reduced `api_edge_rules_test.go`
 pass; `TestLayeringViolationRules` gains `{importer: "store/device",
 imported: "api/edge"}` expecting a violation and `{importer: "store/device",

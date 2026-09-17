@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/assertion.proto
+// source: flowseer/model/edge/v1/assertion.proto
 
 // The assertion an enrolled edge sends with every call, and its signed
 // envelope. The two are one contract: the verifier reads only the edge
@@ -45,7 +45,7 @@ type EdgeAssertion struct {
 
 func (x *EdgeAssertion) Reset() {
 	*x = EdgeAssertion{}
-	mi := &file_flowseer_api_edge_v1_assertion_proto_msgTypes[0]
+	mi := &file_flowseer_model_edge_v1_assertion_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -57,7 +57,7 @@ func (x *EdgeAssertion) String() string {
 func (*EdgeAssertion) ProtoMessage() {}
 
 func (x *EdgeAssertion) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_assertion_proto_msgTypes[0]
+	mi := &file_flowseer_model_edge_v1_assertion_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,7 +307,7 @@ type SignedEdgeAssertion struct {
 
 func (x *SignedEdgeAssertion) Reset() {
 	*x = SignedEdgeAssertion{}
-	mi := &file_flowseer_api_edge_v1_assertion_proto_msgTypes[1]
+	mi := &file_flowseer_model_edge_v1_assertion_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -319,7 +319,7 @@ func (x *SignedEdgeAssertion) String() string {
 func (*SignedEdgeAssertion) ProtoMessage() {}
 
 func (x *SignedEdgeAssertion) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_assertion_proto_msgTypes[1]
+	mi := &file_flowseer_model_edge_v1_assertion_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -410,13 +410,13 @@ func (b0 SignedEdgeAssertion_builder) Build() *SignedEdgeAssertion {
 	return m0
 }
 
-var File_flowseer_api_edge_v1_assertion_proto protoreflect.FileDescriptor
+var File_flowseer_model_edge_v1_assertion_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_assertion_proto_rawDesc = "" +
+const file_flowseer_model_edge_v1_assertion_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/api/edge/v1/assertion.proto\x12\x14flowseer.api.edge.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x80\x05\n" +
-	"\rEdgeAssertion\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12)\n" +
+	"&flowseer/model/edge/v1/assertion.proto\x12\x16flowseer.model.edge.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x82\x05\n" +
+	"\rEdgeAssertion\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12)\n" +
 	"\baudience\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\baudience\x12?\n" +
 	"\tissued_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bissuedAt\x12A\n" +
@@ -433,20 +433,20 @@ const file_flowseer_api_edge_v1_assertion_proto_rawDesc = "" +
 	"\apayload\x18\x01 \x01(\fB\r\xbaH\n" +
 	"\xc8\x01\x01z\x05\x10\x01\x18\x80\bR\apayload\x12(\n" +
 	"\tsignature\x18\x02 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02h@R\tsignatureB\xe5\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\x0eAssertionProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x01z\x02h@R\tsignatureB\xf1\x01\n" +
+	"\x1acom.flowseer.model.edge.v1B\x0eAssertionProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_assertion_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_flowseer_api_edge_v1_assertion_proto_goTypes = []any{
-	(*EdgeAssertion)(nil),         // 0: flowseer.api.edge.v1.EdgeAssertion
-	(*SignedEdgeAssertion)(nil),   // 1: flowseer.api.edge.v1.SignedEdgeAssertion
-	(*EdgeGlobalRef)(nil),         // 2: flowseer.api.edge.v1.EdgeGlobalRef
+var file_flowseer_model_edge_v1_assertion_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_model_edge_v1_assertion_proto_goTypes = []any{
+	(*EdgeAssertion)(nil),         // 0: flowseer.model.edge.v1.EdgeAssertion
+	(*SignedEdgeAssertion)(nil),   // 1: flowseer.model.edge.v1.SignedEdgeAssertion
+	(*EdgeGlobalRef)(nil),         // 2: flowseer.model.edge.v1.EdgeGlobalRef
 	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
-var file_flowseer_api_edge_v1_assertion_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.edge.v1.EdgeAssertion.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	3, // 1: flowseer.api.edge.v1.EdgeAssertion.issued_at:type_name -> google.protobuf.Timestamp
-	3, // 2: flowseer.api.edge.v1.EdgeAssertion.expires_at:type_name -> google.protobuf.Timestamp
+var file_flowseer_model_edge_v1_assertion_proto_depIdxs = []int32{
+	2, // 0: flowseer.model.edge.v1.EdgeAssertion.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	3, // 1: flowseer.model.edge.v1.EdgeAssertion.issued_at:type_name -> google.protobuf.Timestamp
+	3, // 2: flowseer.model.edge.v1.EdgeAssertion.expires_at:type_name -> google.protobuf.Timestamp
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -454,27 +454,27 @@ var file_flowseer_api_edge_v1_assertion_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_assertion_proto_init() }
-func file_flowseer_api_edge_v1_assertion_proto_init() {
-	if File_flowseer_api_edge_v1_assertion_proto != nil {
+func init() { file_flowseer_model_edge_v1_assertion_proto_init() }
+func file_flowseer_model_edge_v1_assertion_proto_init() {
+	if File_flowseer_model_edge_v1_assertion_proto != nil {
 		return
 	}
-	file_flowseer_api_edge_v1_edge_proto_init()
+	file_flowseer_model_edge_v1_edge_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_assertion_proto_rawDesc), len(file_flowseer_api_edge_v1_assertion_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_edge_v1_assertion_proto_rawDesc), len(file_flowseer_model_edge_v1_assertion_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_assertion_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_assertion_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_edge_v1_assertion_proto_msgTypes,
+		GoTypes:           file_flowseer_model_edge_v1_assertion_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_edge_v1_assertion_proto_depIdxs,
+		MessageInfos:      file_flowseer_model_edge_v1_assertion_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_assertion_proto = out.File
-	file_flowseer_api_edge_v1_assertion_proto_goTypes = nil
-	file_flowseer_api_edge_v1_assertion_proto_depIdxs = nil
+	File_flowseer_model_edge_v1_assertion_proto = out.File
+	file_flowseer_model_edge_v1_assertion_proto_goTypes = nil
+	file_flowseer_model_edge_v1_assertion_proto_depIdxs = nil
 }

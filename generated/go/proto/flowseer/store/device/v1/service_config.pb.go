@@ -596,7 +596,7 @@ func (b0 ServiceListeners_builder) Build() *ServiceListeners {
 // What an edge is told when it enrolls, and what it must prove to be heard
 // on every call afterwards.
 //
-// It is the source of the flowseer.api.edge.v1.EdgeProvisioning file an
+// It is the source of the flowseer.model.edge.v1.EdgeProvisioning file an
 // operator receives at issue time: central_url and this deployment's setup
 // key and trust anchors are what ships with an edge, and assertion_audience
 // is what EnrollResponse then tells that edge to put in every assertion. The

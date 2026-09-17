@@ -7,7 +7,7 @@ edition = "2024";
 // families; no State or Event exists for them.
 package flowseer.model.inventory.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/net/addr/v1/ip.proto";
 import option "buf/validate/validate.proto";
 
@@ -126,7 +126,7 @@ message IntegrationConfig {
   uint32 requests_per_second = 5 [(buf.validate.field).uint32.gt = 0];
   // The edge that hosts this integration. Unset means it runs centrally;
   // must be present for the local-network kind.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 6;
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 6;
 
   // The kind-specific configuration; the arm identifies the kind.
   // First-party kinds occupy 10 through 18; every third-party kind shares

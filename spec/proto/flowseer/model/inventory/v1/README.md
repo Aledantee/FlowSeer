@@ -9,7 +9,7 @@ FlowSeer-assigned UUID.
 
 ## Boundaries
 
-Imports: api/edge, model/policy, net/addr, net/phy
+Imports: model/edge, model/policy, net/addr, net/phy
 
 Imported by: api/device, device/access, event/device, store/device
 
@@ -150,7 +150,7 @@ An integration is a configured adapter instance: the cloud tenant,
 controller, or site-local network through which FlowSeer reaches devices.
 Kinds are code, instances are data — `IntegrationConfig` carries the
 operator's intent (name, credential ref, request budget, and for an
-integration that runs at a site the [edge](../../../api/edge/v1/README.md)
+integration that runs at a site the [edge](../../edge/v1/README.md)
 that hosts it) plus a `kind` oneof whose arm both identifies the kind and
 holds its typed configuration. The edge is its own entity, so a site that
 hosts only an on-prem controller adapter needs no local-network integration

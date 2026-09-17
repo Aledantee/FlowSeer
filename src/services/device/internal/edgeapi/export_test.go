@@ -5,7 +5,8 @@ import (
 	"crypto/ed25519"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 )
 
@@ -20,7 +21,7 @@ func ContextWithVerifiedAssertion(ctx context.Context, assertion *edgev1.EdgeAss
 // OpenSubmission runs the submission stream against sender. Test-only: the
 // production path is [Service.OpenDeviceSubmission], whose Connect ServerStream
 // has no exported constructor.
-func (s *Service) OpenSubmission(ctx context.Context, msg *edgev1.OpenDeviceSubmissionRequest, sender submissionSender) error {
+func (s *Service) OpenSubmission(ctx context.Context, msg *apiedgev1.OpenDeviceSubmissionRequest, sender submissionSender) error {
 	return s.openSubmission(ctx, msg, sender)
 }
 

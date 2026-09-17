@@ -13,7 +13,7 @@
 package capturev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -1928,11 +1928,11 @@ var File_flowseer_api_capture_v1_capture_session_proto protoreflect.FileDescript
 
 const file_flowseer_api_capture_v1_capture_session_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/api/capture/v1/capture_session.proto\x12\x17flowseer.api.capture.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a,flowseer/net/capture/v1/capture_filter.proto\x1a'flowseer/net/capture/v1/link_type.proto\x1a$flowseer/net/capture/v1/mirror.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"5\n" +
+	"-flowseer/api/capture/v1/capture_session.proto\x12\x17flowseer.api.capture.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a,flowseer/net/capture/v1/capture_filter.proto\x1a'flowseer/net/capture/v1/link_type.proto\x1a$flowseer/net/capture/v1/mirror.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"5\n" +
 	"\x16CaptureSessionLocalRef\x12\x1b\n" +
-	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\xbc\x01\n" +
-	"\x17CaptureSessionGlobalRef\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12`\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\xbe\x01\n" +
+	"\x17CaptureSessionGlobalRef\x12A\n" +
+	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12`\n" +
 	"\x0fcapture_session\x18\x02 \x01(\v2/.flowseer.api.capture.v1.CaptureSessionLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x0ecaptureSession\"\x8e\x01\n" +
 	"\x14LocalInterfaceSource\x12T\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x12 \n" +
@@ -2030,7 +2030,7 @@ var file_flowseer_api_capture_v1_capture_session_proto_goTypes = []any{
 	(*CaptureSessionConfig)(nil),    // 10: flowseer.api.capture.v1.CaptureSessionConfig
 	(*CaptureSessionState)(nil),     // 11: flowseer.api.capture.v1.CaptureSessionState
 	(*CaptureSessionEvent)(nil),     // 12: flowseer.api.capture.v1.CaptureSessionEvent
-	(*v1.EdgeGlobalRef)(nil),        // 13: flowseer.api.edge.v1.EdgeGlobalRef
+	(*v1.EdgeGlobalRef)(nil),        // 13: flowseer.model.edge.v1.EdgeGlobalRef
 	(v11.MirrorEncapsulation)(0),    // 14: flowseer.net.capture.v1.MirrorEncapsulation
 	(*durationpb.Duration)(nil),     // 15: google.protobuf.Duration
 	(v11.LinkType)(0),               // 16: flowseer.net.capture.v1.LinkType
@@ -2039,7 +2039,7 @@ var file_flowseer_api_capture_v1_capture_session_proto_goTypes = []any{
 	(*v11.CaptureCounters)(nil),     // 19: flowseer.net.capture.v1.CaptureCounters
 }
 var file_flowseer_api_capture_v1_capture_session_proto_depIdxs = []int32{
-	13, // 0: flowseer.api.capture.v1.CaptureSessionGlobalRef.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	13, // 0: flowseer.api.capture.v1.CaptureSessionGlobalRef.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
 	2,  // 1: flowseer.api.capture.v1.CaptureSessionGlobalRef.capture_session:type_name -> flowseer.api.capture.v1.CaptureSessionLocalRef
 	14, // 2: flowseer.api.capture.v1.MirrorReceiverSource.encapsulations:type_name -> flowseer.net.capture.v1.MirrorEncapsulation
 	4,  // 3: flowseer.api.capture.v1.CaptureSource.local_interface:type_name -> flowseer.api.capture.v1.LocalInterfaceSource

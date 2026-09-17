@@ -13,8 +13,9 @@ import (
 	connect "connectrpc.com/connect"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 
 	"google.golang.org/protobuf/proto"
@@ -63,7 +64,7 @@ func assemble(t *testing.T) *deployment {
 	c := newCentral(t, dir, registryPath)
 	c.start()
 
-	created, err := c.admin().CreateEdge(context.Background(), connect.NewRequest(&edgev1.CreateEdgeRequest{}))
+	created, err := c.admin().CreateEdge(context.Background(), connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
 	if err != nil {
 		t.Fatalf("CreateEdge: %v", err)
 	}

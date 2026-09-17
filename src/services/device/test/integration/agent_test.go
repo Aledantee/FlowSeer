@@ -13,7 +13,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storeedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 	agenthost "go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -82,10 +83,10 @@ func startAgent(t *testing.T, dir string, provisioning *edgev1.EdgeProvisioning,
 	a.stop = cancel
 	go func() {
 		a.stopped <- agenthost.Run(ctx, loaded, "e2e", agenthost.Options{
-			OpenSNMP: func(endpoint agenthost.Endpoint) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+			OpenSNMP: func(endpoint agenthost.Endpoint) func(context.Context, *apiedgev1.DeviceCredential) (access.SNMPSession, error) {
 				return device.snmpFactory(renderEndpoint(endpoint))
 			},
-			OpenShell: func(endpoint agenthost.Endpoint) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+			OpenShell: func(endpoint agenthost.Endpoint) func(context.Context, *apiedgev1.DeviceCredential, string) (access.ShellSession, error) {
 				return device.shellFactory(renderEndpoint(endpoint))
 			},
 			Clock: clock.Now,

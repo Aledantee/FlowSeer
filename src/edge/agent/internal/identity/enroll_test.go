@@ -15,7 +15,8 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 )
 
@@ -34,8 +35,8 @@ type centralFake struct {
 }
 
 func (c *centralFake) Enroll(
-	_ context.Context, req *connect.Request[edgev1.EnrollRequest],
-) (*connect.Response[edgev1.EnrollResponse], error) {
+	_ context.Context, req *connect.Request[apiedgev1.EnrollRequest],
+) (*connect.Response[apiedgev1.EnrollResponse], error) {
 	c.calls++
 	if c.onEnroll != nil {
 		c.onEnroll()
@@ -247,7 +248,7 @@ func TestTheKeyFileIsPrivate(t *testing.T) {
 // from one signed on this machine's.
 var centralClock = time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
 
-func enrollAnswer() *edgev1.EnrollResponse {
+func enrollAnswer() *apiedgev1.EnrollResponse {
 	response := vectorEnrollment()
 	response.SetServerTime(timestamppb.New(centralClock))
 	response.SetTrustAnchors([][]byte{make([]byte, 32)})

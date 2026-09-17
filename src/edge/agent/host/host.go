@@ -10,10 +10,10 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	eventv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1/devicev1connect"
 	integrationv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
