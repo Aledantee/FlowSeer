@@ -69,11 +69,16 @@ firewall uses, and those are what this plan adds.
   reflector node to a spare port of the firewall switch; the device is
   sized by its caller.
 - A reflected copy is a new journey whose `Parent` is the received frame,
-  and loop detection keys on the root of the parent chain. Why: mirror
-  copies already use `Parent` (`src/common/netsim/fabric/run.go:521-526`),
-  and two reflectors on the same VLANs loop in reality (avahi-daemon.conf(5)
-  warns against it); a run must report that as a loop rather than exhaust
-  its budget silently.
+  and loop detection keys on the frame with a copy's set seeded from its
+  parent's. Why: mirror copies already use `Parent`
+  (`src/common/netsim/fabric/run.go:521-526`), and two reflectors on the same
+  VLANs loop in reality (avahi-daemon.conf(5) warns against it); a run must
+  report that as a loop rather than exhaust its budget silently. Keying on
+  the root of the parent chain cannot tell a sibling copy from an ancestor: a
+  reflector with three attachments on one trunk answers one query with two
+  copies that both egress the same port and arrive at the same switch port,
+  and a root key would record the second as a loop although it revisited
+  nothing. Phase 3 records this correction.
 - A routed sub-interface is a `routing.Interface` with both `Port` and
   `VLAN` set, classified on the routed-port path by the outer C-TAG, and its
   parent port stays outside the bridge. Why: this is how a firewall attaches

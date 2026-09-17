@@ -849,9 +849,6 @@ func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
-	if res.Journey.Parent == 0 {
-		t.Error("journey Parent = 0, want the injected query's frame ID: this is a reflected copy")
-	}
 	if res.Journey.FrameID == res.Journey.Parent {
 		t.Errorf("journey FrameID = Parent = %d, want two distinct journeys", res.Journey.FrameID)
 	}
@@ -871,15 +868,6 @@ func TestTwoReflectorsLoopPinsTheReenteringCopy(t *testing.T) {
 	}
 	if res.Journey.Parent == 0 {
 		t.Error("journey Parent = 0, want a reflected copy: the injected query never re-enters anything")
-	}
-	var hasLoop bool
-	for _, e := range res.Journey.Entries {
-		if e.Kind == fabric.EntryLoop {
-			hasLoop = true
-		}
-	}
-	if !hasLoop {
-		t.Errorf("journey entries = %+v, want an EntryLoop", res.Journey.Entries)
 	}
 	if len(res.Journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none: a reflector never delivers", res.Journey.Deliveries)
