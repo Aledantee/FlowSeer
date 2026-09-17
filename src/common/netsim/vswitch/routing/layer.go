@@ -812,13 +812,32 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 
 	targetIface := matchedRoute.Interface
 	res.Interface = targetIface
+
+	// Encode before resolving, in the egress form both paths use: heldHdr's hop limit is already
+	// decremented, the same value the direct path's newHdr computes below, so one encode here
+	// validates both, and its bytes serve the direct path too — mirroring Originate, which
+	// encodes before resolving its own next hop for the same reason.
+	heldHdr := hdr
+	heldHdr.HopLimit--
+	pktBytes, err := heldHdr.Encode(payload)
+	if err != nil {
+		res.Reason = ReasonBadHeader
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonBadHeader),
+			Subject: trace.Subject{Kind: "interface", Key: targetIface},
+			Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, "")},
+			Outputs: []trace.Fact{packetSnapshot(iface, f, hdr, false, ReasonBadHeader)},
+		})
+		return res
+	}
+
 	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
 	lookup := vrf.resolveNeighbor(now, key, commit, func() heldEntry {
-		// Queued in the egress form the direct path below builds too, so finishHeld need not
-		// (and must not) decrement it again once resolution completes.
-		heldHdr := hdr
-		heldHdr.HopLimit--
+		// heldHdr is already encoded above, so finishHeld need not (and must not) decrement it
+		// again once resolution completes.
 		pcp, dei := f.Priority()
 		return heldEntry{iface: targetIface, etherType: f.EtherType, header: heldHdr, payload: payload, pcp: pcp, dei: dei}
 	})
@@ -851,37 +870,21 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 	egressIfaceObj := l.ifaces[targetIface]
 	egressMAC := egressIfaceObj.MAC
 
-	newHdr := hdr
-	newHdr.HopLimit = hdr.HopLimit - 1
 	res.Steps = append(res.Steps, trace.Step{
 		Layer:   port.LayerRouting,
 		Op:      trace.OpRewrite,
 		RuleID:  trace.RuleID("decrement-ttl"),
 		Subject: trace.Subject{Kind: "interface", Key: targetIface},
 		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state)},
-		Outputs: []trace.Fact{packetSnapshot(targetIface, f, newHdr, true, "")},
+		Outputs: []trace.Fact{packetSnapshot(targetIface, f, heldHdr, true, "")},
 	})
-
-	newPayload, err := newHdr.Encode(payload)
-	if err != nil {
-		res.Reason = ReasonBadHeader
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   port.LayerRouting,
-			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID(ReasonBadHeader),
-			Subject: trace.Subject{Kind: "interface", Key: targetIface},
-			Inputs:  []trace.Fact{packetSnapshot(targetIface, f, newHdr, true, "")},
-			Outputs: []trace.Fact{packetSnapshot(targetIface, f, newHdr, false, ReasonBadHeader)},
-		})
-		return res
-	}
 
 	res.Interface = targetIface
 	res.Frame = ethernet.Frame{
 		Src:       egressMAC,
 		Dst:       lookup.mac,
 		EtherType: f.EtherType,
-		Payload:   newPayload,
+		Payload:   pktBytes,
 	}
 
 	return res

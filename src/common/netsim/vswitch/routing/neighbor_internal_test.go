@@ -1,11 +1,14 @@
 package routing
 
 import (
+	"encoding/binary"
 	"net/netip"
 	"slices"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -28,9 +31,11 @@ import (
 //     different run from the one that queued them; TestDiscardHeldThenWakePastDeadlineFailsTheEntry
 //     pins that decision.
 type conservationOp struct {
-	// kind is queue, resolve, discard, wake, or timeout.
+	// kind is queue, queue-oversize, queue-route, queue-route-badheader, resolve, discard, wake,
+	// or timeout.
 	kind string
-	// neighbor indexes conservationAddrs; ignored by the ops that take no neighbor.
+	// neighbor indexes conservationAddrs or conservationAddrsV6, depending on kind; ignored by
+	// the ops that take no neighbor.
 	neighbor int
 }
 
@@ -40,9 +45,31 @@ var conservationAddrs = []netip.Addr{
 	netip.MustParseAddr("10.0.10.13"),
 }
 
+// conservationAddrsV6 is the destination space for the queue-route-badheader op: each address is
+// on-link over the IPv6 prefix conservationLayer configures, so it routes the same way the IPv4
+// addresses above do, through an unresolved neighbor.
+var conservationAddrsV6 = []netip.Addr{
+	netip.MustParseAddr("2001:db8:10::11"),
+	netip.MustParseAddr("2001:db8:10::12"),
+	netip.MustParseAddr("2001:db8:10::13"),
+}
+
+// badIPv6Src is IPv4-mapped (RFC 4291 section 2.5.5.2): ip.Decode accepts it as a Src address,
+// but ip.Header.Encode refuses it, which is exactly the header finding 1 pins.
+var badIPv6Src = netip.MustParseAddr("::ffff:10.0.0.1")
+
+var (
+	conservationDeviceMAC = netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	conservationSenderMAC = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+)
+
 func q(n int) conservationOp    { return conservationOp{kind: "queue", neighbor: n} }
 func qBig(n int) conservationOp { return conservationOp{kind: "queue-oversize", neighbor: n} }
-func r(n int) conservationOp    { return conservationOp{kind: "resolve", neighbor: n} }
+func qr(n int) conservationOp   { return conservationOp{kind: "queue-route", neighbor: n} }
+func qrBad(n int) conservationOp {
+	return conservationOp{kind: "queue-route-badheader", neighbor: n}
+}
+func r(n int) conservationOp { return conservationOp{kind: "resolve", neighbor: n} }
 
 var (
 	opDiscard = conservationOp{kind: "discard"}
@@ -51,16 +78,21 @@ var (
 )
 
 // conservationLayer builds a single-VRF, single-interface layer holding at most depth frames per
-// neighbor, with a resolution timeout the driver can step past deliberately.
+// neighbor, with a resolution timeout the driver can step past deliberately. The interface carries
+// both an IPv4 and an IPv6 prefix, so it routes queue-route and queue-route-badheader's IPv6
+// destinations on-link the same way it already routes the IPv4 ones.
 func conservationLayer(t *testing.T, depth int) *Layer {
 	t.Helper()
 	l, err := New(Config{VRFs: map[string]VRF{
 		DefaultVRF: {
 			Interfaces: map[string]Interface{
 				"vlan10": {
-					VLAN:     10,
-					MAC:      netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
-					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")},
+					VLAN: 10,
+					MAC:  conservationDeviceMAC,
+					Prefixes: []netip.Prefix{
+						netip.MustParsePrefix("10.0.10.1/24"),
+						netip.MustParsePrefix("2001:db8:10::1/64"),
+					},
 				},
 			},
 			NeighborPolicy: NeighborPolicy{ResolutionTimeout: time.Second, HoldDepth: depth},
@@ -70,6 +102,24 @@ func conservationLayer(t *testing.T, depth int) *Layer {
 		t.Fatalf("routing.New: %v", err)
 	}
 	return l
+}
+
+// encodeUnencodableIPv6Packet builds the wire form of an IPv6 header whose Src is badIPv6Src,
+// matching decodeV6's layout in src/common/net/ip/ip.go so [ip.Decode] reads it back as that
+// header. It cannot use [ip.Header.Encode], which refuses an IPv4-mapped Src, which is the point:
+// this builds bytes Decode accepts and Encode does not.
+func encodeUnencodableIPv6Packet(dst netip.Addr, payload []byte) []byte {
+	b := make([]byte, ip.V6HeaderLen+len(payload))
+	binary.BigEndian.PutUint32(b[0:4], uint32(6)<<28)
+	binary.BigEndian.PutUint16(b[4:6], uint16(len(payload)))
+	b[6] = 17 // UDP
+	b[7] = 64 // hop limit
+	srcBytes := badIPv6Src.As16()
+	copy(b[8:24], srcBytes[:])
+	dstBytes := dst.As16()
+	copy(b[24:40], dstBytes[:])
+	copy(b[ip.V6HeaderLen:], payload)
+	return b
 }
 
 // TestHoldQueueConservesEveryFrame is the property in this file's header comment, over a fixed
@@ -96,6 +146,9 @@ func TestHoldQueueConservesEveryFrame(t *testing.T) {
 		{"an unencodable datagram never enters", 3, []conservationOp{q(0), qBig(0), q(0), r(0), opWake}},
 		{"an unencodable datagram on a full queue", 1, []conservationOp{qBig(0), q(0), q(0), opTimeout}},
 		{"interleaved everything", 3, []conservationOp{q(0), q(1), r(0), q(2), opWake, q(1), q(1), q(1), q(1), opDiscard, q(2), opTimeout}},
+		{"route then originate on the same neighbor", 3, []conservationOp{qr(0), q(0), r(0), opWake}},
+		{"queue via route then time out", 2, []conservationOp{qr(0), qr(1), opTimeout}},
+		{"an unencodable datagram via route never enters", 3, []conservationOp{qr(0), qrBad(0), qr(0), r(0), opWake}},
 	}
 
 	// The subtests run in sequence rather than in parallel: each is a handful of map operations
@@ -195,6 +248,38 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 			payload := make([]byte, 65516)
 			payload[len(payload)-1] = marker
 			l.Originate(now, DefaultVRF, conservationAddrs[op.neighbor], 17, payload, true)
+		case "queue-route":
+			marker++
+			hdr := ip.Header{
+				Src:      netip.MustParseAddr("10.0.10.99"),
+				Dst:      conservationAddrs[op.neighbor],
+				HopLimit: 64,
+				Protocol: 17,
+				V4:       &ip.V4{},
+			}
+			b, err := hdr.Encode([]byte{marker})
+			if err != nil {
+				t.Fatalf("encode route packet: %v", err)
+			}
+			l.Route(now, "vlan10", ethernet.Frame{
+				Src:       conservationSenderMAC,
+				Dst:       conservationDeviceMAC,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   b,
+			}, true)
+		case "queue-route-badheader":
+			// ip.Decode accepts an IPv6 header whose Src is IPv4-mapped, but
+			// ip.Header.Encode refuses it (finding 1): queued anyway, it would be
+			// re-encoded at release, fail there, and leave the queue by a path Wake
+			// reports nothing for.
+			marker++
+			b := encodeUnencodableIPv6Packet(conservationAddrsV6[op.neighbor], []byte{marker})
+			l.Route(now, "vlan10", ethernet.Frame{
+				Src:       conservationSenderMAC,
+				Dst:       conservationDeviceMAC,
+				EtherType: ethernet.EtherTypeIPv6,
+				Payload:   b,
+			}, true)
 		case "resolve":
 			l.Observe(now, Advertisement{
 				Interface: "vlan10",

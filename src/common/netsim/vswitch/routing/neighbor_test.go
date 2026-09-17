@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 
@@ -752,6 +753,60 @@ func lastPayloadByte(t *testing.T, f ethernet.Frame) byte {
 		t.Fatal("released frame has no payload")
 	}
 	return f.Payload[len(f.Payload)-1]
+}
+
+// TestWakeReportsPortForARoutedPortButNotAVLANInterface is finding 9: [HeldFrame.Port] is empty
+// for a VLAN interface, which has no single port until the bridge picks one, and the egress port
+// name for a routed-port interface, which has exactly one.
+func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
+	t.Parallel()
+
+	portMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x02, 0x01}
+	portDst := netip.MustParseAddr("10.0.50.99")
+	portNeighborMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
+
+	cfg := neighborLifecycleConfig(routing.NeighborPolicy{ResolutionTimeout: time.Second})
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Interfaces["port1"] = routing.Interface{
+		Port:     "port1",
+		MAC:      portMAC,
+		Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")},
+	}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	ports, err := port.NewBuilder().Add(port.Port{Name: "port1", Kind: port.Physical}).Build()
+	if err != nil {
+		t.Fatalf("port.NewBuilder: %v", err)
+	}
+	l := mustNewRoutingWithPorts(t, cfg, ports)
+
+	portFrame := ethernet.Frame{
+		Src:       lifecycleHostMAC,
+		Dst:       portMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.0.50.7"), portDst, 64, []byte("data")),
+	}
+	if res := l.Route(testNow, "port1", portFrame, true); res.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborPending)
+	}
+	l.Observe(testNow, routing.Advertisement{Interface: "port1", Addr: portDst, MAC: portNeighborMAC, HasMAC: true, Solicited: true, Override: true})
+	portEff := l.Wake(testNow)
+	if len(portEff.Exits) != 1 {
+		t.Fatalf("port exits = %+v, want exactly one", portEff.Exits)
+	}
+	if portEff.Exits[0].Port != "port1" {
+		t.Errorf("Port = %q, want %q for a routed-port interface", portEff.Exits[0].Port, "port1")
+	}
+
+	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0a}, HasMAC: true, Solicited: true, Override: true})
+	vlanEff := l.Wake(testNow)
+	if len(vlanEff.Exits) != 1 {
+		t.Fatalf("vlan exits = %+v, want exactly one", vlanEff.Exits)
+	}
+	if vlanEff.Exits[0].Port != "" {
+		t.Errorf("Port = %q, want empty for a VLAN interface", vlanEff.Exits[0].Port)
+	}
 }
 
 // mustNewLifecycleLayer builds a fresh layer over [neighborLifecycleConfig], reusing

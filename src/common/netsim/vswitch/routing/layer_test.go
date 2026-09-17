@@ -2026,11 +2026,10 @@ func TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt(t *testing.T) {
 		t.Errorf("last step = %s/%s, want %s/%s", last.Op, last.RuleID, trace.OpDrop, routing.ReasonBadHeader)
 	}
 
-	// A queued frame surfaces here: a Wake past the resolution deadline fails an Incomplete
-	// entry and reports every frame it was holding.
-	eff := l.Wake(testNow.Add(2 * time.Second))
-	if len(eff.Exits) != 0 {
-		t.Fatalf("wake reported %+v, want no exit at all", eff.Exits)
+	// The refused datagram never reached a hold queue at all, so there is no resolution deadline
+	// to time out: no entry was created for it in the first place.
+	if _, ok := l.NextWake(); ok {
+		t.Fatal("NextWake reported a pending entry, want none: the refused datagram must never be queued")
 	}
 }
 
