@@ -361,18 +361,21 @@ attachment already uses, since a frame on that pair could not be told apart.
 Attachments are walked in sorted name order, so a rejection names the same
 field on every run, such as `reflectors.r1.attachments.b.vlan`.
 
-This phase gives the reflector no forwarding behavior: an arriving frame is
-refused until a later phase adds acceptance and reflection. `New` and `Spec`
-carry a configured reflector through construction and back out unchanged,
-including MAC assignment when its `Address` is left zero, the same allocator
-a switch and a host share.
+`New` and `Spec` carry a configured reflector through construction and back
+out unchanged, including MAC assignment when its `Address` is left zero, the
+same allocator a switch and a host share. See [Reflector
+acceptance](#reflector-acceptance) for what an arriving frame does at a
+reflector.
 
 `Diff` reports a reflector under subject kind `reflector`, keyed by its name,
 with an added or removed reflector's whole configuration on `From` or `To` as
 a `fabric.reflector` snapshot. A changed `Address` reports field `address`. A
-changed attachment reports a field relative to the reflector subject, not the
-`reflectors.<name>.` prefix a validation error carries: an added or removed
-attachment reports field `attachments.<name>` with a
+changed port or attachment reports a field relative to the reflector subject,
+not the `reflectors.<name>.` prefix a validation error carries: an added or
+removed port reports field `ports.<name>` with the port's `phy.Ethernet`
+snapshot, and a changed one reports `ports.<name>.<field>` for whichever of
+phy's own field names differs, such as `ports.p1.speed_bps`. An added or
+removed attachment reports field `attachments.<name>` with a
 `fabric.reflector_attachment` snapshot, and a changed one reports
 `attachments.<name>.port`,
 `attachments.<name>.vlan`, or `attachments.<name>.addresses` for whichever
@@ -380,6 +383,66 @@ field differs. This is the same relative-versus-dotted split the host section
 above describes: a changed VLAN is field `attachments.a.vlan` under subject
 `{reflector, r1}`, while the validation error for the same attachment names
 the dotted `reflectors.r1.attachments.a.vlan`.
+
+## Reflector acceptance
+
+A frame that reaches a reflector's port is decided in the same step the
+arrival is processed, with no leading `Arrival` entry of its own: the fabric
+runs the checks directly and appends `Reflection`, `Rejection`, or
+`Unresolved`. Each decision entry carries a `trace.Step` on layer `reflector`
+with op `filter`. The reflector is its subject, its rule names the clause
+that decided, and its inputs are the facts read up to that point. Unlike a
+host's several ways to accept a MAC or an IP destination, each of a
+reflector's clauses has exactly one way to be satisfied, so a rejection names
+the same clause an acceptance would have used; the accept and the
+wrong-mDNS-port reject share rule `reflector.udp.port` for this reason.
+
+The checks run in this order, and the first one that decides ends the run:
+
+1. Ethernet source (`reflector.mac.own_source`). A frame whose source is the
+   reflector's own MAC is refused with `reflector-own-source`: it is a copy
+   the reflector itself originated, flooded back to it.
+2. Tag form (`reflector.mac.form`). The frame's tag stack must match one of
+   the attachments declared on the arrival port: untagged or a single VID 0
+   priority C-TAG for an attachment with no VLAN, or a single C-TAG with
+   that VLAN's VID. Anything else is refused with
+   `reflector-tag-form-not-accepted`.
+3. Destination MAC (`reflector.mac.group`). The frame must be addressed to
+   the IPv4 or IPv6 mDNS group MAC (`01:00:5e:00:00:fb` or
+   `33:33:00:00:00:fb`, RFC 6762 §3 mapped per RFC 1112 §6.4 and RFC 2464
+   §7). Anything else is refused with `reflector-mac-not-group`.
+4. IP destination (`reflector.ip.group`). The packet must be addressed to
+   the mDNS group the destination MAC named (224.0.0.251 or ff02::fb).
+   Anything else is refused with `reflector-ip-not-group`.
+5. Protocol (`reflector.udp.protocol`). The IP header's protocol must be UDP
+   (17). Anything else is refused with `reflector-protocol-not-udp`.
+6. UDP destination port (`reflector.udp.port`). The datagram's destination
+   port must be 5353 (RFC 6762 §5.2). Anything else is refused with
+   `reflector-udp-port-not-mdns`; a frame that clears every check is taken
+   for reflection under the same rule.
+
+A header that does not decode leaves acceptance unknown, the same shape a
+host's IP check follows: an undecodable IP header ends `Unresolved` with
+`reflector-ip-header-undecodable` under rule `reflector.ip.undecodable`, and
+an undecodable UDP header — a well-formed IP header whose payload is too
+short to be a UDP datagram, such as one whose total length equals its header
+length — ends `Unresolved` with `reflector-udp-header-undecodable` under
+rule `reflector.udp.undecodable`. Both carry an `Incomplete` issue on the
+journey's `analysis.JourneyScope`, and neither is a `Rejection`: the
+reflector cannot tell whether the frame qualifies.
+
+A frame taken for reflection is never a `Delivery`: a reflector is not a
+host, and `Journey.Deliveries` never holds it. Instead the fabric originates
+one fresh copy per other attachment of the query's address family, skipping
+the attachment the query itself arrived on, each its own journey with the
+arriving frame as `Parent`. The copy rebuilds the accepted datagram end to
+end — a new UDP source port of 5353, a new IP source address from the
+target attachment, and a recomputed IPv4 checksum — rather than patching
+bytes in place, because changing the source address invalidates the
+original checksum. The copy's own re-entry set for loop detection is seeded
+from a copy of the arriving frame's, not shared with it: a reflector with
+three attachments answering the same query would otherwise report a false
+loop on its first reflected copy.
 
 ## Hosts with an IP stack and address assignment
 
@@ -612,6 +675,15 @@ The package declares reasons for link failures and frame discards:
 | `host-ip-not-addressed` | Packet is not addressed to the host |
 | `host-ip-header-undecodable` | Host cannot decode the IP header it must check |
 | `policed`        | Ingress frame exceeded the port's token bucket     |
+| `reflector-own-source` | Frame's Ethernet source is the reflector's own MAC |
+| `reflector-tag-form-not-accepted` | Frame's tag form matches no attachment on the arrival port |
+| `reflector-mac-not-group` | Frame's destination MAC is not the mDNS group MAC |
+| `reflector-ip-header-undecodable` | Reflector cannot decode the IP header it must check |
+| `reflector-ip-not-group` | Frame's IP destination is not the mDNS group its MAC named |
+| `reflector-protocol-not-udp` | Frame's IP protocol is not UDP |
+| `reflector-udp-header-undecodable` | Reflector cannot decode the UDP header it must check |
+| `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
+| `reflector-no-address` | Target attachment names no address of the accepted datagram's family |
 
 ## Concurrency contract
 

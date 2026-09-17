@@ -255,31 +255,14 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 // acceptsTags reports whether tags is the tag form of one of the reflector's
 // attachments on port: with no VLAN, untagged or one VID 0 priority C-TAG;
 // with a VLAN, one C-TAG with that VID. Mirrors Host.acceptsTags, but over
-// the several attachments a port may carry rather than one host VLAN.
+// the several attachments a port may carry rather than one host VLAN. It
+// answers the same question as [reflectorArrivalAttachment], over the same
+// attachments, so the two are defined in terms of each other rather than
+// carrying the tag-form guards twice.
 func (r Reflector) acceptsTags(port string, tags []vlan.Tag) bool {
-	if len(tags) > 1 {
-		return false
-	}
-	if len(tags) == 1 && tags[0].TPID != 0 && tags[0].TPID != uint16(ethernet.EtherTypeDot1Q) {
-		return false
-	}
-	for _, a := range r.Attachments {
-		if a.Port != port {
-			continue
-		}
-		if a.VLAN == nil {
-			if len(tags) == 0 || tags[0].VID == 0 {
-				return true
-			}
+	_, ok := reflectorArrivalAttachment(r, port, tags)
 
-			continue
-		}
-		if len(tags) == 1 && tags[0].VID == *a.VLAN {
-			return true
-		}
-	}
-
-	return false
+	return ok
 }
 
 // arrive records a frame reaching a host over cable and the host's decision on

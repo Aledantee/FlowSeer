@@ -217,8 +217,9 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 // Diff computes the differences between two fabric configurations, reporting switch differences,
 // cable additions, removals, and modifications, host additions, removals, moves, and field changes
 // (an accepted multicast MAC added or removed is one change under "accept.multicast.<mac>"),
-// Uncabled entries added or removed, and a change of the physical assumption as one fabric field.
-// Evidence references produce no change.
+// reflector additions, removals, and field changes (a port or an attachment added, removed, or
+// changed), Uncabled entries added or removed, and a change of the physical assumption as one
+// fabric field. Evidence references produce no change.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
 	b = b.Normalize()
@@ -508,11 +509,32 @@ func Diff(a, b Config) []trace.Change {
 					To:      MACFact(rB.Address),
 				})
 			}
+			diffPorts(&changes, name, rA.Ports, rB.Ports)
 			diffAttachments(&changes, name, rA.Attachments, rB.Attachments)
 		}
 	}
 
 	return changes
+}
+
+// diffPorts reports a reflector's port changes under the reflector subject,
+// reusing phy's own per-field Ethernet comparison and walking ports in sorted
+// name order the way phy.Diff already does. An added or removed port reports
+// its Ethernet snapshot under "ports.<name>"; a changed one reports phy's own
+// field name under "ports.<name>.<field>", such as "ports.p1.speed_bps".
+func diffPorts(changes *[]trace.Change, reflectorName string, a, b map[string]phy.Ethernet) {
+	subject := trace.Subject{Kind: "reflector", Key: reflectorName}
+
+	for _, ch := range phy.Diff(phy.Config{Ethernet: a}, phy.Config{Ethernet: b}) {
+		portName := ch.Subject.Key
+		ch.Subject = subject
+		if ch.Field == "" {
+			ch.Field = "ports." + portName
+		} else {
+			ch.Field = "ports." + portName + "." + ch.Field
+		}
+		*changes = append(*changes, ch)
+	}
 }
 
 func diffUncabled(a, b []Uncabled) []trace.Change {

@@ -695,26 +695,9 @@ func TestReflectorValidateRules(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "node name collision between reflector and host",
-			mutate: func(c *fabric.Config) {
-				c.Hosts["r1"] = fabric.Host{Address: netaddr.MAC{0, 0, 0, 0, 0, 9}}
-			},
-			wantError: true,
-		},
-		{
 			name: "node name collision between reflector and switch",
 			mutate: func(c *fabric.Config) {
 				c.Switches["r1"] = c.Switches["sw1"]
-			},
-			wantError: true,
-		},
-		{
-			name: "reflector name empty",
-			mutate: func(c *fabric.Config) {
-				c.Reflectors[""] = c.Reflectors["r1"]
-				delete(c.Reflectors, "r1")
-				// The cable still names r1, which now names nothing.
-				c.Cables = c.Cables[:len(c.Cables)-1]
 			},
 			wantError: true,
 		},
@@ -748,20 +731,6 @@ func TestReflectorValidateRules(t *testing.T) {
 			},
 			wantError: true,
 		},
-		{
-			name: "cable endpoint naming an unknown reflector port",
-			mutate: func(c *fabric.Config) {
-				c.Cables[len(c.Cables)-1].B.Port = "p9"
-			},
-			wantError: true,
-		},
-		{
-			name: "reflector endpoint with empty port name",
-			mutate: func(c *fabric.Config) {
-				c.Cables[len(c.Cables)-1].B.Port = ""
-			},
-			wantError: true,
-		},
 	}
 
 	for _, tc := range tests {
@@ -776,18 +745,63 @@ func TestReflectorValidateRules(t *testing.T) {
 	}
 }
 
-// TestReflectorValidateRejectionsNameTheirField covers the rejections R2
-// requires, each asserting the error's field attribute rather than only that
-// an error occurred: an uncabled port, a port named in Uncabled, an
-// attachment naming an unknown port, two attachments sharing a port and
-// VLAN, and an attachment with no address would all otherwise pass any test
-// that stopped at err != nil.
+// TestReflectorValidateRejectionsNameTheirField asserts the error's field
+// attribute rather than only that an error occurred: an uncabled port, a port
+// named in Uncabled, an attachment naming an unknown port, two attachments
+// sharing a port and VLAN, and an attachment with no address would all
+// otherwise pass any test that stopped at err != nil. A node name collision
+// between a reflector and a host, a reflector with an empty name, a cable
+// endpoint naming an unknown reflector port, and a reflector endpoint with an
+// empty port name need the same treatment: deleting the guard each names
+// still leaves a different rule refusing the configuration, and the field
+// attribute is what tells the two apart. The collision guard and the
+// empty-port guard carry their own field; the empty-name guard and the
+// unknown-port guard carry none, so their cases want nil, which is what a
+// different rule's field would displace.
 func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 	tests := []struct {
 		name      string
 		mutate    func(*fabric.Config)
-		wantField string
+		wantField any
 	}{
+		{
+			name: "node name collision between reflector and host",
+			mutate: func(c *fabric.Config) {
+				c.Hosts["r1"] = fabric.Host{Address: netaddr.MAC{0, 0, 0, 0, 0, 9}}
+			},
+			wantField: "hosts.r1",
+		},
+		{
+			// Deleting this guard leaves the reflector's name "" reaching the
+			// ports-must-be-cabled check, which carries a field of its own;
+			// the guard's own error carries none, so the intact case wants
+			// nil, not empty string.
+			name: "reflector name empty",
+			mutate: func(c *fabric.Config) {
+				c.Reflectors[""] = c.Reflectors["r1"]
+				delete(c.Reflectors, "r1")
+				// The cable still names r1, which now names nothing.
+				c.Cables = c.Cables[:len(c.Cables)-1]
+			},
+			wantField: nil,
+		},
+		{
+			// Deleting this guard leaves port "p9" accepted, which reaches
+			// the ports-must-be-cabled check for the now-uncabled p1; that
+			// error carries a field, the guard's own error does not.
+			name: "cable endpoint naming an unknown reflector port",
+			mutate: func(c *fabric.Config) {
+				c.Cables[len(c.Cables)-1].B.Port = "p9"
+			},
+			wantField: nil,
+		},
+		{
+			name: "reflector endpoint with empty port name",
+			mutate: func(c *fabric.Config) {
+				c.Cables[len(c.Cables)-1].B.Port = ""
+			},
+			wantField: "reflectors.r1.ports",
+		},
 		{
 			name: "an uncabled port",
 			mutate: func(c *fabric.Config) {
@@ -847,7 +861,7 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 				t.Fatal("Validate() = nil, want an error")
 			}
 			if got := errs.Attributes(err)["field"]; got != tc.wantField {
-				t.Errorf("field = %v, want %q (error %v)", got, tc.wantField, err)
+				t.Errorf("field = %v, want %v (error %v)", got, tc.wantField, err)
 			}
 		})
 	}

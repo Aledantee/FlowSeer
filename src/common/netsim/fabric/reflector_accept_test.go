@@ -135,6 +135,26 @@ func acceptedVID10() []vlan.Tag {
 	return []vlan.Tag{{TPID: 0x8100, VID: 10}}
 }
 
+// mustUndecodableUDPFrame builds an otherwise fully accepted mDNS query whose
+// IPv4 header carries no payload: a total length equal to its header length,
+// which ip.Decode accepts but leaves udp.Decode nothing to read.
+func mustUndecodableUDPFrame(t *testing.T) ethernet.Frame {
+	t.Helper()
+	ipHeader := ip.Header{
+		Src: netip.MustParseAddr("10.0.10.7"), Dst: reflectorGroupAddr,
+		HopLimit: 255, Protocol: 17, V4: &ip.V4{},
+	}
+	ipPacket, err := ipHeader.Encode(nil)
+	if err != nil {
+		t.Fatalf("encode IP header: %v", err)
+	}
+
+	return ethernet.Frame{
+		Src: reflectorSenderMAC, Dst: reflectorGroupMAC, Tags: acceptedVID10(),
+		EtherType: ethernet.EtherTypeIPv4, Payload: ipPacket,
+	}
+}
+
 func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 	other := netip.AddrFrom4([4]byte{10, 0, 10, 50})
 	otherMAC := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x09}
@@ -204,6 +224,18 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			wantRule:   "reflector.ip.undecodable",
 			wantReason: fabric.ReasonReflectorIPHeaderUndecodable,
 		},
+		{
+			// A well-formed IPv4 header whose total length equals its header
+			// length decodes with an empty payload, which udp.Decode refuses
+			// as shorter than the eight-octet UDP header. Nothing else about
+			// the header is wrong, so the undecodable UDP header is the only
+			// thing that can leave acceptance unknown here.
+			name:       "an undecodable UDP header leaves acceptance unknown",
+			frame:      mustUndecodableUDPFrame(t),
+			wantKind:   fabric.EntryUnresolved,
+			wantRule:   "reflector.udp.undecodable",
+			wantReason: fabric.ReasonReflectorUDPHeaderUndecodable,
+		},
 	}
 
 	for _, tc := range tests {
@@ -232,7 +264,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 
 			undecided := false
 			for _, issue := range journey.Metadata.Issues() {
-				if issue.Code == analysis.IssueCode(fabric.ReasonReflectorIPHeaderUndecodable) &&
+				if issue.Code == analysis.IssueCode(tc.wantReason) &&
 					issue.Status == analysis.Incomplete &&
 					issue.Scope.Compare(analysis.JourneyScope(strconv.FormatUint(uint64(journey.FrameID), 10))) == 0 {
 					undecided = true
