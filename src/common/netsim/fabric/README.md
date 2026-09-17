@@ -364,7 +364,11 @@ originated:
 - `Frame` specifies any fields alongside `Packet`.
 - Packet origination encounters `no-route` (destination off every prefix with
   no gateway) or `neighbor-miss` (destination or gateway missing from neighbors),
-  naming the address and reason without creating a journey.
+  naming the address and reason without creating a journey. A host stack never
+  reports `neighbor-pending`: `HostRoutingConfig` writes `NeighborDisabled`
+  into every host VRF, because nothing wakes a host stack the way `Fabric`
+  wakes a switch, and a frame a host held would hold forever. The switch is
+  where address resolution is modelled; a host is a packet source.
 
 MAC addresses left zero in a fabric configuration are assigned by `New`
 and `Derive` before any switch or host stack is built. The allocator walks switch names

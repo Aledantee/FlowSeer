@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -197,6 +198,12 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "10.0.10.9") {
 		t.Errorf("Inject error %q does not contain address 10.0.10.9", err.Error())
+	}
+	// A host stack resolves no neighbors (HostRoutingConfig writes
+	// NeighborDisabled into every host VRF), so this is a definite miss, not
+	// a hold nothing ever wakes.
+	if !strings.Contains(err.Error(), string(routing.ReasonNeighborMiss)) {
+		t.Errorf("Inject error %q does not name reason %q", err.Error(), routing.ReasonNeighborMiss)
 	}
 }
 
@@ -613,5 +620,161 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 	}
 	if sw1 != netaddr.Local(2) {
 		t.Errorf("sw1 = %s, want the next free %s", sw1, netaddr.Local(2))
+	}
+}
+
+// TestFabricReleasesHeldFrameOnObservedARPReply covers R21a and R21b across
+// two hosts and a switch: h1's packet to h2 holds at the switch because
+// nothing has been observed for h2's address, an ARP reply injected directly
+// at the switch's port to h2 moves the entry, and the switch releases the
+// held frame without anything else nudging it. The released frame travels as
+// its own injected journey (linking it back to the journey that held it is a
+// later phase's job), so the switch's own release must itself carry the
+// frame all the way to a delivery and must not be marked Protocol: the
+// released frame is h1's ordinary data, not a frame of the switch's own.
+func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	vid10 := vlan.ID(10)
+	vid20 := vlan.ID(20)
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
+	addrH2 := netip.MustParseAddr("10.0.20.7")
+
+	swCfg := vswitch.Config{
+		MAC:   swMAC,
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &vid20, Untagged: []vlan.ID{20}},
+				},
+			},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+					// No neighbor configured for h2: the switch has never
+					// been told, and observes it below instead.
+				},
+			},
+		},
+	}
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": swCfg,
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.10.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{
+						netip.MustParseAddr("10.0.10.1"): swMAC,
+					},
+				},
+			},
+			"h2": {Address: macH2},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{
+			To:       addrH2,
+			Protocol: 17,
+			Payload:  []byte("ping"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+
+	msg := arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    macH2,
+		SenderAddr:   addrH2,
+		TargetMAC:    swMAC,
+		TargetAddr:   netip.MustParseAddr("10.0.20.1"),
+	}
+	replyFrame, err := arp.Encode(msg, swMAC)
+	if err != nil {
+		t.Fatalf("encode ARP reply: %v", err)
+	}
+
+	replyID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start.Add(time.Second),
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame:  replyFrame,
+	})
+	if err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+
+	fab.Run(20)
+
+	heldJourney := findJourney(t, fab, heldID)
+	if len(heldJourney.Entries) == 0 {
+		t.Fatalf("held journey has no entries")
+	}
+	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
+		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
+	}
+
+	// The released frame is a new injected journey at the switch, distinct
+	// from both the held journey and the ARP reply's own: linking it back to
+	// the journey it was held from belongs to a later phase.
+	var released *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.FrameID == heldID || j.FrameID == replyID {
+			continue
+		}
+		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+			jj := j
+			released = &jj
+			break
+		}
+	}
+	if released == nil {
+		t.Fatalf("no released journey delivered to h2 among: %+v", fab.Report())
+	}
+	if released.Protocol {
+		t.Errorf("released journey Protocol = true, want false: it carries h1's ordinary data, not a frame of the switch's own")
+	}
+
+	hdr, _, err := ip.Decode(released.Deliveries[0].Frame.Payload)
+	if err != nil {
+		t.Fatalf("decode delivered IP payload: %v", err)
+	}
+	if hdr.Src != netip.MustParseAddr("10.0.10.7") || hdr.Dst != addrH2 {
+		t.Errorf("delivered src/dst = %s/%s, want 10.0.10.7/%s", hdr.Src, hdr.Dst, addrH2)
 	}
 }

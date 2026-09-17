@@ -238,6 +238,11 @@ const (
 
 	// Consumed is a frame received and taken by the device for itself.
 	Consumed Outcome = "Consumed"
+
+	// Held is a frame that neither arrived nor failed: it is queued on an
+	// Incomplete neighbor entry, waiting on address resolution that may still
+	// release it or time it out. See the routing package's neighbor lifecycle.
+	Held Outcome = "Held"
 )
 
 // Reason explains why a frame met its outcome, such as why it was dropped or flooded.

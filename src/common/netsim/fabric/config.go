@@ -317,6 +317,10 @@ func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
 		},
 		Routes:    routes,
 		Neighbors: neighbors,
+		// A host stack resolves no neighbors: nothing wakes it, so an entry
+		// it held would hold forever. The switch is where resolution is
+		// modelled; a host is a packet source.
+		NeighborPolicy: routing.NeighborPolicy{Mode: routing.NeighborDisabled},
 	}
 
 	return routing.Config{

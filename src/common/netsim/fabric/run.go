@@ -197,7 +197,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 					Attr("host", inj.Origin.Node).
 					Msgf("host %q has no IP stack", inj.Origin.Node)
 			}
-			res := stack.Originate(routing.DefaultVRF, inj.Packet.To, inj.Packet.Protocol, inj.Packet.Payload)
+			res := stack.Originate(inj.At, routing.DefaultVRF, inj.Packet.To, inj.Packet.Protocol, inj.Packet.Payload, true)
 			if res.Reason != "" {
 				return 0, errs.New().
 					Attr("host", inj.Origin.Node).
@@ -904,7 +904,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 
 	journey := &Journey{
 		FrameID:   fid,
-		Protocol:  true,
+		Protocol:  em.Protocol,
 		Injection: inj,
 	}
 	f.journeys[fid] = journey

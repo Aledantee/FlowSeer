@@ -152,8 +152,8 @@ func TestSVINeighborMissRetainsExactLoadedIssue(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   payload,
 	})
-	if result.Reason != routing.ReasonNeighborMiss {
-		t.Fatalf("reason = %s, want neighbor-miss", result.Reason)
+	if result.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("reason = %s, want neighbor-pending", result.Reason)
 	}
 	wantScope := analysis.FieldScope(
 		analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF),
