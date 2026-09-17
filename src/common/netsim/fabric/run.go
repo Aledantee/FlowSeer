@@ -158,10 +158,11 @@ func (f *Fabric) runStarted() bool {
 // port origin, the frame is queued directly as given at At.
 // A host whose link is not Up transmits nothing, and the injection is still valid: the journey records a drop with
 // the link's reason at At when the link is Down, and an [EntryUnresolved] with the link's reason when it is Unknown.
-// Inject returns an error if the origin names an unknown host, an unknown switch port, a host without a connected cable,
-// a switch origin with Packet set, a host without an IP stack when Packet is set, a Packet injection specifying Frame
-// fields, a non-empty origin port for host packet injection, if packet origination fails, or if At precedes the fabric
-// clock after a nonzero-time step has run.
+// Inject returns an error if the origin names an unknown host, an unknown switch port, a reflector (which has
+// no port of its own to inject at), a host without a connected cable, a switch origin with Packet set, a host
+// without an IP stack when Packet is set, a Packet injection specifying Frame fields, a non-empty origin port
+// for host packet injection, if packet origination fails, or if At precedes the fabric clock after a
+// nonzero-time step has run.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
@@ -238,6 +239,10 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		frame = cloneFrame(inj.Frame)
 		targetDevice = inj.Origin.Node
 		targetPort = inj.Origin.Port
+	} else if _, isReflector := f.cfg.Reflectors[inj.Origin.Node]; isReflector {
+		return 0, errs.New().
+			Attr("node", inj.Origin.Node).
+			Msgf("reflector %q cannot originate an injection: it has no host or switch port to inject at", inj.Origin.Node)
 	} else {
 		return 0, errs.New().
 			Attr("node", inj.Origin.Node).
@@ -308,8 +313,10 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 // Step advances simulation time to the earliest queued arrival and processes it through the destination device.
 //
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
-// Corrupted arrivals are discarded with [ReasonBadFrame]. Normal arrivals are policed before dynamic MAC aging and
-// forwarding, then un-dropped egress frames are enqueued onto connected cables or delivered to target hosts.
+// Corrupted arrivals are discarded with [ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
+// and, when accepted, originates the reflected copies; it never reaches the switch forwarding path below.
+// A switch's normal arrivals are policed before dynamic MAC aging and forwarding, then un-dropped egress frames
+// are enqueued onto connected cables or delivered to target hosts.
 // Step returns false when the arrival queue is empty or a scheduling fault has
 // been recorded; [Fabric.Err] distinguishes the two.
 func (f *Fabric) Step() (Entry, bool) {
@@ -615,11 +622,21 @@ func (f *Fabric) reflectFrame(parent *Journey, name string, refl Reflector, arri
 }
 
 // reflectorArrivalAttachment returns the name of the attachment whose port
-// and tag form match the arriving frame, mirroring Reflector.acceptsTags.
-// acceptReflector already established that exactly one exists before this
-// runs, so a caller that gets ok == false has nothing to exclude and reflects
-// onto every attachment; that only happens if this invariant breaks.
+// and tag form match the arriving frame. [Reflector.acceptsTags] answers the
+// same question as a bool, so the two share this function rather than each
+// carrying the tag-form guards on their own: more than one tag refuses, and
+// a first tag whose TPID names neither the zero value nor a C-TAG refuses,
+// before any attachment is considered. acceptReflector already established
+// that exactly one attachment matches before this runs, so a caller that
+// gets ok == false has nothing to exclude and reflects onto every
+// attachment; that only happens if this invariant breaks.
 func reflectorArrivalAttachment(refl Reflector, arrivalPort string, tags []vlan.Tag) (string, bool) {
+	if len(tags) > 1 {
+		return "", false
+	}
+	if len(tags) == 1 && tags[0].TPID != 0 && tags[0].TPID != uint16(ethernet.EtherTypeDot1Q) {
+		return "", false
+	}
 	for attName, a := range refl.Attachments {
 		if a.Port != arrivalPort {
 			continue

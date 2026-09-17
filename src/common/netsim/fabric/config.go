@@ -335,7 +335,9 @@ func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
 // facts under a switch port's validation rules, keyed by port name; a port
 // with no cable has nothing to reflect onto, so every key must appear on a
 // cable. Attachments names the VLANs a port answers on and the addresses a
-// copy originates from; no forwarding behavior reads Attachments yet.
+// copy originates from: an arriving mDNS query is accepted on the attachment
+// its tag form and port match, and reflected as a fresh copy on every other
+// attachment of the query's address family.
 type Reflector struct {
 	Address     netaddr.MAC
 	Ports       map[string]phy.Ethernet
@@ -919,7 +921,7 @@ func (c Config) Validate() error {
 			return errs.New().Attr("node", name).Msgf("node %q cannot be both a switch and a host", name)
 		}
 		if _, isReflector := c.Reflectors[name]; isReflector {
-			return errs.New().Attr("node", name).Msgf("node %q cannot be both a host and a reflector", name)
+			return errs.New().Attr("field", "hosts."+name).Attr("node", name).Msgf("node %q cannot be both a host and a reflector", name)
 		}
 		h := c.Hosts[name]
 		if err := checkMAC(name, h.Address); err != nil {
@@ -1211,7 +1213,10 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 
 	if refl, isReflector := c.Reflectors[ep.Node]; isReflector {
 		if ep.Port == "" {
-			return errs.New().Attr("node", ep.Node).Msgf("reflector endpoint %q requires a port name", ep.Node)
+			return errs.New().
+				Attr("field", "reflectors."+ep.Node+".ports").
+				Attr("node", ep.Node).
+				Msgf("reflector endpoint %q requires a port name", ep.Node)
 		}
 		if _, ok := refl.Ports[ep.Port]; !ok {
 			return errs.New().

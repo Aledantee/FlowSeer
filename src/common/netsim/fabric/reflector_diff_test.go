@@ -7,6 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 )
 
 // TestReflectorDiffAdded proves that a reflector present only in the target
@@ -118,6 +119,68 @@ func TestReflectorDiffChangedAttachmentVLAN(t *testing.T) {
 		if ch.Subject.Kind == "reflector" && ch.Field != "attachments.a.vlan" {
 			t.Errorf("unexpected extra reflector change: %+v", ch)
 		}
+	}
+}
+
+// TestReflectorDiffPortAdded proves that a reflector port present only in
+// the target configuration reports one change under the reflector subject,
+// field "ports.<name>", addition carried on To rather than From: a port and
+// its cable decide link negotiation exactly as a host's do, so a diff that
+// only compared the reflector's address and attachments could never report
+// it.
+func TestReflectorDiffPortAdded(t *testing.T) {
+	t.Parallel()
+
+	a := reflectorBaseConfig(t)
+	b := a
+	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors["r1"].Ports["p2"] = phy.Ethernet{}
+
+	changes := fabric.Diff(a, b)
+	var match *trace.Change
+	for i := range changes {
+		if changes[i].Subject == (trace.Subject{Kind: "reflector", Key: "r1"}) && changes[i].Field == "ports.p2" {
+			match = &changes[i]
+		}
+	}
+	if match == nil {
+		t.Fatalf("changes = %+v, want a reflector r1 change on field ports.p2", changes)
+	}
+	if match.From != nil {
+		t.Errorf("from = %+v, want nil for an addition", match.From)
+	}
+	if match.To == nil {
+		t.Errorf("to = %+v, want a port snapshot", match.To)
+	}
+}
+
+// TestReflectorDiffChangedPortSpeed proves that a changed port field reports
+// phy's own field name relative to the reflector subject.
+func TestReflectorDiffChangedPortSpeed(t *testing.T) {
+	t.Parallel()
+
+	a := reflectorBaseConfig(t)
+	r1 := a.Reflectors["r1"].Clone()
+	r1.Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full}}
+	a.Reflectors["r1"] = r1
+
+	b := a
+	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors["r1"].Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}}
+
+	changes := fabric.Diff(a, b)
+	found := 0
+	for _, ch := range changes {
+		if ch.Subject != (trace.Subject{Kind: "reflector", Key: "r1"}) {
+			continue
+		}
+		found++
+		if ch.Field != "ports.p1.speed_bps" {
+			t.Errorf("field = %q, want ports.p1.speed_bps", ch.Field)
+		}
+	}
+	if found != 1 {
+		t.Fatalf("reflector changes = %d, want 1: %+v", found, changes)
 	}
 }
 

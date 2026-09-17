@@ -163,8 +163,8 @@ func NewConstructionSpec(cfg Config) (ConstructionSpec, error) {
 	return spec.Normalize()
 }
 
-// Fabric is a set of switches and hosts joined by cables, with every switch port's operational state
-// decided by its cable, by an Uncabled entry, or left Unknown when neither names it.
+// Fabric is a set of switches, hosts, and reflectors joined by cables, with every switch port's operational
+// state decided by its cable, by an Uncabled entry, or left Unknown when neither names it.
 //
 // A Fabric is not safe for concurrent use.
 type Fabric struct {
