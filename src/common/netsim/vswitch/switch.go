@@ -178,6 +178,13 @@ type Emission struct {
 // that leaves a hold queue and then reaches no wire is reported rather than dropped in silence.
 const ReasonHeldInterfaceUnknown trace.Reason = "held-interface-unknown"
 
+// ReasonHeldCauseUnknown indicates a held frame [routing.Layer.Wake] released under a
+// [routing.HeldCause] applyRoutingEffects does not recognize. Nothing constructs it — every call
+// site in this package stamps one of the three defined causes — but a routing package that adds a
+// fourth would otherwise reach this switch with no arm for it and vanish with no record, the way
+// the interface case above does not.
+const ReasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
+
 // NeighborDrop is one frame [Switch.Wake] took out of a hold queue and could not put on a wire,
 // carrying the reason from whichever stage refused it: the routing layer, for a frame that timed
 // out or was pushed out of a full queue, or the bridge or the port table, for a released frame
@@ -2852,6 +2859,13 @@ func (s *Switch) applyRoutingEffects(now time.Time, fx routing.Effects) {
 			s.recordHeldExitDrop(hf, routing.ReasonNeighborMiss)
 		case routing.HeldEvicted:
 			s.recordHeldExitDrop(hf, routing.ReasonNeighborHoldOverflow)
+		default:
+			// Nothing in this package constructs a fourth HeldCause today, but HeldCause is a
+			// bare string type, and ReasonHeldInterfaceUnknown already chose a record over
+			// silence for its own unreachable case; a cause this switch on hf.Cause does not
+			// recognize gets the same treatment rather than vanishing with no emission and no
+			// NeighborDrop.
+			s.recordHeldExitDrop(hf, ReasonHeldCauseUnknown)
 		}
 	}
 }
@@ -2916,13 +2930,14 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	if egressIface.VLAN != 0 {
 		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, PCP: hf.PCP, DEI: hf.DEI, Now: now, Commit: true}, hf.Frame)
 		if len(res.Egress) == 0 {
-			// bridge.replicate returns no egress entry at all when every flood candidate lost
-			// its port, naming the reason on the result instead, and a caller reading only
-			// res.Egress would see nothing. No test constructs it: a release reaches replicate
-			// only on a unicast miss, and the advertisement that resolved the neighbor had to
-			// arrive over a live member of the same VLAN, which is then a live candidate. The
-			// guard stays because the frame is already out of the hold queue by here, so the
-			// day that changes the frame is gone with no record at all.
+			// bridge.replicate returns no egress entry at all when no port ever becomes a
+			// flood candidate, naming the reason on the result instead, and a caller reading
+			// only res.Egress would see nothing. Egress reaches replicate on a unicast miss, on
+			// a flood VLAN, and on a group destination the resolver decided — see
+			// TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason for the flood-VLAN
+			// case. The guard stays because the frame is already out of the hold queue by here,
+			// so the day a fourth path reaches replicate with no candidates, the frame is gone
+			// with no record at all unless this still catches it.
 			reason := res.Reason
 			if reason == "" {
 				reason = bridge.ReasonNoEgress

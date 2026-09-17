@@ -285,6 +285,9 @@ Drop reasons recorded in traces and egress records:
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
 | `neighbor-miss`    | Next hop's VRF resolves no neighbors, or the entry already failed |
 | `neighbor-pending` | Next hop's neighbor entry is newly or still unresolved (not a drop; outcome `Held`) |
+| `neighbor-hold-overflow` | Held frame evicted to make room in the hold queue for a newer one |
+| `held-interface-unknown` | Held frame released onto an interface the routing configuration no longer resolves |
+| `held-cause-unknown` | Held frame released under a routing hold-queue exit cause this package does not recognize |
 | `not-routed`       | Frame addressed to local interface address (consumed)   |
 | `bad-header`       | IP packet header failed decoding or checksum validation |
 | `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
