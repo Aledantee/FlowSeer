@@ -179,10 +179,10 @@ type Emission struct {
 const ReasonHeldInterfaceUnknown trace.Reason = "held-interface-unknown"
 
 // ReasonHeldCauseUnknown indicates a held frame [routing.Layer.Wake] released under a
-// [routing.HeldCause] applyRoutingEffects does not recognize. Nothing constructs it — every call
-// site in this package stamps one of the three defined causes — but a routing package that adds a
-// fourth would otherwise reach this switch with no arm for it and vanish with no record, the way
-// the interface case above does not.
+// [routing.HeldCause] applyRoutingEffects does not recognize. Nothing constructs it —
+// [routing.Layer.Wake] stamps one of the three defined causes at every release site — but a
+// routing package that adds a fourth would otherwise reach this switch with no arm for it and
+// vanish with no record, the way the interface case above does not.
 const ReasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
 
 // NeighborDrop is one frame [Switch.Wake] took out of a hold queue and could not put on a wire,
@@ -2933,8 +2933,8 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 			// bridge.replicate returns no egress entry at all when no port ever becomes a
 			// flood candidate, naming the reason on the result instead, and a caller reading
 			// only res.Egress would see nothing. Egress reaches replicate on a unicast miss, on
-			// a flood VLAN, and on a group destination the resolver decided — see
-			// TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason for the flood-VLAN
+			// a flood VLAN, and on a group destination, whether or not a resolver decided it —
+			// see TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason for the flood-VLAN
 			// case. The guard stays because the frame is already out of the hold queue by here,
 			// so the day a fourth path reaches replicate with no candidates, the frame is gone
 			// with no record at all unless this still catches it.

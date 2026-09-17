@@ -755,9 +755,12 @@ func lastPayloadByte(t *testing.T, f ethernet.Frame) byte {
 	return f.Payload[len(f.Payload)-1]
 }
 
-// TestWakeReportsPortForARoutedPortButNotAVLANInterface is finding 9: [HeldFrame.Port] is empty
-// for a VLAN interface, which has no single port until the bridge picks one, and the egress port
-// name for a routed-port interface, which has exactly one.
+// TestWakeReportsPortForARoutedPortButNotAVLANInterface pins [HeldFrame.Port]: empty for a VLAN
+// interface, which has no single port until the bridge picks one, and the egress port name for a
+// routed-port interface, which has exactly one. The interface is named "routed1" and its Port
+// "port1" so the two differ: an implementation that filled Port with the interface name instead
+// of the interface's configured Port would still pass a routed-port arm named the same as its
+// port.
 func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 	t.Parallel()
 
@@ -767,7 +770,7 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 
 	cfg := neighborLifecycleConfig(routing.NeighborPolicy{ResolutionTimeout: time.Second})
 	vrf := cfg.VRFs[routing.DefaultVRF]
-	vrf.Interfaces["port1"] = routing.Interface{
+	vrf.Interfaces["routed1"] = routing.Interface{
 		Port:     "port1",
 		MAC:      portMAC,
 		Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")},
@@ -786,10 +789,10 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.0.50.7"), portDst, 64, []byte("data")),
 	}
-	if res := l.Route(testNow, "port1", portFrame, true); res.Reason != routing.ReasonNeighborPending {
+	if res := l.Route(testNow, "routed1", portFrame, true); res.Reason != routing.ReasonNeighborPending {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborPending)
 	}
-	l.Observe(testNow, routing.Advertisement{Interface: "port1", Addr: portDst, MAC: portNeighborMAC, HasMAC: true, Solicited: true, Override: true})
+	l.Observe(testNow, routing.Advertisement{Interface: "routed1", Addr: portDst, MAC: portNeighborMAC, HasMAC: true, Solicited: true, Override: true})
 	portEff := l.Wake(testNow)
 	if len(portEff.Exits) != 1 {
 		t.Fatalf("port exits = %+v, want exactly one", portEff.Exits)

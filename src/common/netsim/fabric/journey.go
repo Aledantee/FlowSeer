@@ -93,8 +93,10 @@ type Entry struct {
 // Metadata is evaluated over the whole analysis and holds only what the journey depended on, captured as each
 // entry was recorded. It keeps the issues and assumptions of every hop result, and the [Fabric.Metadata] issues
 // and assumptions whose scope overlaps an entry's endpoint or cable, a hop's consulted ports or scopes, or the
-// link of any such port. An acceptance a host could not decide adds an issue on the journey's scope. A later
-// [Fabric.SetFault] does not change a journey already recorded.
+// link of any such port. A switch entry naming no port contributes no endpoint scope at all: the only scope
+// available to it is the whole switch's node scope, which would pull in every other port's issues along with
+// it, so it depends on none. An acceptance a host could not decide adds an issue on the journey's scope. A
+// later [Fabric.SetFault] does not change a journey already recorded.
 type Journey struct {
 	FrameID    FrameID
 	Protocol   bool
@@ -228,7 +230,11 @@ func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
 
 // dependencies returns the scopes whose fabric issues could change e: its
 // endpoint and cable, and for a hop the ports and scopes its result consulted,
-// with each port's link.
+// with each port's link. A switch endpoint naming no port contributes no
+// endpoint scope: a host legitimately has one unnamed port, so an empty Port
+// there names that port's scope, but for a switch the same empty Port has no
+// scope narrower than the whole node, and inheriting every one of the
+// switch's other ports' issues is worse than inheriting none.
 func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	var scopes []analysis.Scope
 	endpoint := func(ep Endpoint) {

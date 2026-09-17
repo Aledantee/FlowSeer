@@ -1025,6 +1025,12 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 // opens a journey with an empty Port, and dependencies must not read that empty Port as "this is a
 // host's one unnamed port" the way it correctly does for a real host. sw1 is not a host, so an
 // empty Port here means no port was involved, not the whole switch.
+//
+// It checks both directions of that: sw1's real port-scoped issue (from 1/1/3's oper-status
+// mismatch) stays out, and so does a node-scoped issue pinned directly to sw1's construction
+// metadata. Production fabric code never raises a node-scoped issue against a switch (every
+// switch endpoint names a port), so this test attaches one deliberately: sw1's entry names no
+// port, so nothing on sw1's scope, port- or node-wide, ever reaches it.
 func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -1086,9 +1092,32 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 		PhyAssumption: gigabitCopper(),
 	}
 
-	fab, err := fabric.New(cfg)
+	spec, err := fabric.NewConstructionSpec(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("fabric.NewConstructionSpec: %v", err)
+	}
+
+	catalog := analysis.EvidenceCatalog{}
+	var nodeIssueRef trace.EvidenceRef
+	catalog, nodeIssueRef = catalog.Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "test.node-conflict",
+		Context: "conflicting loaded state",
+	})
+	nodeIssue := analysis.Issue{
+		Code:     "test.node-conflict",
+		Status:   analysis.Unstable,
+		Scope:    analysis.NodeScope("sw1"),
+		Message:  "loaded state conflicts",
+		Evidence: []trace.EvidenceRef{nodeIssueRef},
+	}
+	sw1Spec := spec.Switches["sw1"]
+	sw1Spec.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{nodeIssue}, catalog, nil)
+	spec.Switches["sw1"] = sw1Spec
+
+	fab, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		t.Fatalf("fabric.NewWithSpec: %v", err)
 	}
 
 	fabMeta := fab.Metadata()
@@ -1135,6 +1164,9 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 	for _, issue := range dropJourney.Metadata.Issues() {
 		if issue.Code == fabric.IssueOperStatusConflict && issue.Scope.Compare(issueScope) == 0 {
 			t.Errorf("drop journey metadata carries 1/1/3's oper-status-conflict issue, want none: %+v", issue)
+		}
+		if issue.Code == nodeIssue.Code {
+			t.Errorf("drop journey metadata carries sw1's node-scoped issue, want none: %+v", issue)
 		}
 	}
 }

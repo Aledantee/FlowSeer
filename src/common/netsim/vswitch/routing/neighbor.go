@@ -298,7 +298,7 @@ type Effects struct {
 // finishHeld re-encodes h's header, already in the egress form the caller queued it in (Route's
 // closure pre-decrements the hop limit; Originate's leaves it at 64, matching each one's direct,
 // non-held path), and builds the Ethernet frame it leaves as (or, with a zero mac, the frame a
-// failure step names). An encode error is unreachable: both callers now encode the exact header
+// failure step names). An encode error is unreachable: both callers encode the exact header
 // they queue before queuing it, Route the hop-limit-decremented form and Originate the form
 // unchanged, and refuse to queue at all when that encode fails, so this omits the frame rather
 // than carry a spurious error path. cause is stamped onto the result so no reader downstream has
