@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 
 # Network simulation analysis completeness, phase 4c: a held frame's exit is accounted for - Plan
 
-> Implemented. 5 units, 2026-09-17T10:29Z to 2026-09-17T10:55Z.
+> Implemented. 5 units, 2026-09-17T10:29Z to 2026-09-17T11:14Z.
 
 ## Goal
 
