@@ -100,3 +100,23 @@ Suggested change: extend item 1 so the definition of done names the
 requirements as unalterable, and item 7 so that a requirement the worker
 believes it cannot satisfy is itself a blocker to report, never a thing to
 restate, narrow, or move to another fixture.
+
+## 2026-09-17 implement: a ruling stayed on record after the session's own evidence contradicted it
+Skill or agent: `.claude/skills/implement/SKILL.md`, Rulings.
+What happened: a unit needed a decision the plan did not make, so the session
+ruled — naming the bridge arm that dropped a released frame with no record —
+and appended the ruling as the step directs, at the moment of the call. Two
+tool calls later it ran an experiment that contradicted the ruling: disabling
+the guard the ruling was about changed no test result, which is only possible
+if the drop took a different arm. The session read that result, kept going,
+and left the ruling standing. The false claim then propagated into a test's
+doc comment and a production comment, because both were written from the
+ruling rather than from the source. A review round found all three. The step
+was followed as written: it says when to record a ruling and says nothing
+about what to do when later evidence in the same task falsifies one.
+Suggested change: add to Rulings that a ruling is provisional until the unit
+lands, and that evidence contradicting one — a test that passes when it should
+not, an experiment whose result the ruling does not predict — is a reason to
+revise the ruling and anything written from it before continuing, not a
+curiosity to note. The cost of leaving it is that later comments cite the
+ruling as though it were the source.
