@@ -12,8 +12,8 @@
 package edgev1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -1075,23 +1075,23 @@ var File_flowseer_api_edge_v1_credential_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
-	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a,flowseer/device/credential/v1/material.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd9\x01\n" +
-	"\x10DeviceCredential\x12S\n" +
+	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a+flowseer/model/credential/v1/material.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd7\x01\n" +
+	"\x10DeviceCredential\x12R\n" +
 	"\n" +
-	"credential\x18\x01 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"credential\x12`\n" +
-	"\x0etyped_material\x18\x04 \x01(\v21.flowseer.device.credential.v1.CredentialMaterialB\x06\xbaH\x03\xc8\x01\x01R\rtypedMaterialJ\x04\b\x02\x10\x03R\bmaterial\"\xd0\x01\n" +
+	"credential\x18\x01 \x01(\v2*.flowseer.model.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\n" +
+	"credential\x12_\n" +
+	"\x0etyped_material\x18\x04 \x01(\v20.flowseer.model.credential.v1.CredentialMaterialB\x06\xbaH\x03\xc8\x01\x01R\rtypedMaterialJ\x04\b\x02\x10\x03R\bmaterial\"\xcf\x01\n" +
 	"\x1cAcquireReadCredentialRequest\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
-	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12Z\n" +
-	"\raccess_policy\x18\x03 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc3\x04\n" +
+	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12Y\n" +
+	"\raccess_policy\x18\x03 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc2\x04\n" +
 	"\x1dAcquireReadCredentialResponse\x12N\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"credential\x12Q\n" +
+	"credential\x12P\n" +
 	"\n" +
-	"host_trust\x18\x02 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12A\n" +
+	"host_trust\x18\x02 \x01(\v2).flowseer.model.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12A\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x12P\n" +
 	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB!\xbaH\x1er\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256:\xe9\x01\xbaH\xe5\x01\x1a\xe2\x01\n" +
@@ -1101,13 +1101,13 @@ const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12&\n" +
 	"\bsequence\x18\x03 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa2\x04\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa1\x04\n" +
 	"\x0fSubmissionGrant\x12N\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"credential\x12Q\n" +
+	"credential\x12P\n" +
 	"\n" +
-	"host_trust\x18\x02 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12>\n" +
+	"host_trust\x18\x02 \x01(\v2).flowseer.model.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12>\n" +
 	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12P\n" +
 	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB!\xbaH\x1er\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256:\xd9\x01\xbaH\xd5\x01\x1a\xd2\x01\n" +
 	"\"submission_grant.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1ae!has(this.credential) || (has(this.credential.typed_material.shell) == has(this.ssh_host_key_sha256))\"\xa8\x01\n" +
@@ -1136,21 +1136,21 @@ var file_flowseer_api_edge_v1_credential_proto_goTypes = []any{
 	(*SubmissionGrant)(nil),               // 5: flowseer.api.edge.v1.SubmissionGrant
 	(*AuthorityPulse)(nil),                // 6: flowseer.api.edge.v1.AuthorityPulse
 	(*OpenDeviceSubmissionResponse)(nil),  // 7: flowseer.api.edge.v1.OpenDeviceSubmissionResponse
-	(*v1.CredentialHandle)(nil),           // 8: flowseer.device.policy.v1.CredentialHandle
-	(*v11.CredentialMaterial)(nil),        // 9: flowseer.device.credential.v1.CredentialMaterial
-	(*v1.AccessPolicyHandle)(nil),         // 10: flowseer.device.policy.v1.AccessPolicyHandle
-	(*v1.HostTrustHandle)(nil),            // 11: flowseer.device.policy.v1.HostTrustHandle
+	(*v1.CredentialHandle)(nil),           // 8: flowseer.model.policy.v1.CredentialHandle
+	(*v11.CredentialMaterial)(nil),        // 9: flowseer.model.credential.v1.CredentialMaterial
+	(*v1.AccessPolicyHandle)(nil),         // 10: flowseer.model.policy.v1.AccessPolicyHandle
+	(*v1.HostTrustHandle)(nil),            // 11: flowseer.model.policy.v1.HostTrustHandle
 	(*timestamppb.Timestamp)(nil),         // 12: google.protobuf.Timestamp
 }
 var file_flowseer_api_edge_v1_credential_proto_depIdxs = []int32{
-	8,  // 0: flowseer.api.edge.v1.DeviceCredential.credential:type_name -> flowseer.device.policy.v1.CredentialHandle
-	9,  // 1: flowseer.api.edge.v1.DeviceCredential.typed_material:type_name -> flowseer.device.credential.v1.CredentialMaterial
-	10, // 2: flowseer.api.edge.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
+	8,  // 0: flowseer.api.edge.v1.DeviceCredential.credential:type_name -> flowseer.model.policy.v1.CredentialHandle
+	9,  // 1: flowseer.api.edge.v1.DeviceCredential.typed_material:type_name -> flowseer.model.credential.v1.CredentialMaterial
+	10, // 2: flowseer.api.edge.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
 	1,  // 3: flowseer.api.edge.v1.AcquireReadCredentialResponse.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
-	11, // 4: flowseer.api.edge.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
+	11, // 4: flowseer.api.edge.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
 	12, // 5: flowseer.api.edge.v1.AcquireReadCredentialResponse.expires_at:type_name -> google.protobuf.Timestamp
 	1,  // 6: flowseer.api.edge.v1.SubmissionGrant.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
-	11, // 7: flowseer.api.edge.v1.SubmissionGrant.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
+	11, // 7: flowseer.api.edge.v1.SubmissionGrant.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
 	12, // 8: flowseer.api.edge.v1.SubmissionGrant.deadline:type_name -> google.protobuf.Timestamp
 	0,  // 9: flowseer.api.edge.v1.AuthorityPulse.authority:type_name -> flowseer.api.edge.v1.SubmissionAuthority
 	12, // 10: flowseer.api.edge.v1.AuthorityPulse.deadline:type_name -> google.protobuf.Timestamp

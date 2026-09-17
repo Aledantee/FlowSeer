@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 )
 
 // Deliverer durably delivers one DeviceOperationEvent. A caller (the
@@ -36,7 +36,7 @@ type Common struct {
 }
 
 // Device names the device a Common event set concerns, narrowed to what
-// this package needs from api/inventory/v1.DeviceGlobalRef so callers do not
+// this package needs from model/inventory/v1.DeviceGlobalRef so callers do not
 // have to import that package just to build one. Tenant scope is ambient
 // and never named here, per the schema's own convention.
 type Device struct {

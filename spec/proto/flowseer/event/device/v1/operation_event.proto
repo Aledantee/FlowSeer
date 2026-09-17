@@ -7,9 +7,9 @@ edition = "2024";
 // device/access carries the live state this audit trails.
 package flowseer.event.device.v1;
 
-import "flowseer/api/inventory/v1/binding.proto";
-import "flowseer/api/inventory/v1/device.proto";
 import "flowseer/device/access/v1/operation.proto";
+import "flowseer/model/inventory/v1/binding.proto";
+import "flowseer/model/inventory/v1/device.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
@@ -19,7 +19,7 @@ import option "buf/validate/validate.proto";
 // audit half.
 message DeviceOperationEvent {
   // The device this event concerns. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // FlowSeer-assigned event identifier, unique for deduplication. Must be
   // present.
   string event_id = 2 [
@@ -99,7 +99,7 @@ message LaneReleased {}
 // A route was chosen for one operation, or fell through to a complete one.
 message RouteSelected {
   // The protocol chosen. Must be present; the zero value is rejected.
-  flowseer.api.inventory.v1.ManagementProtocol protocol = 1 [
+  flowseer.model.inventory.v1.ManagementProtocol protocol = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {
       defined_only: true

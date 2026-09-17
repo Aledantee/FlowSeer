@@ -9,9 +9,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 )

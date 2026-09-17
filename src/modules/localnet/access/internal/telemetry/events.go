@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 )
 
 // event writes an OpenTelemetry Event, per docs/conventions/observability.md's

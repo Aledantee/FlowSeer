@@ -19,10 +19,10 @@ import (
 	connect "connectrpc.com/connect"
 	"github.com/nats-io/nats.go/jetstream"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )

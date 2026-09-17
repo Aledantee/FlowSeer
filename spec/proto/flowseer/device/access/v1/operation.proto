@@ -9,9 +9,9 @@ edition = "2024";
 package flowseer.device.access.v1;
 
 import "flowseer/api/edge/v1/edge.proto";
-import "flowseer/api/inventory/v1/device.proto";
 import "flowseer/device/access/v1/interface.proto";
-import "flowseer/device/policy/v1/handle.proto";
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/model/policy/v1/handle.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -127,7 +127,7 @@ message Actor {
 // MutationState.
 message MutationIntent {
   // The device to change. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // Client-generated key that makes a retried submission the same intent.
   // Must be present.
   string idempotency_key = 2 [
@@ -138,7 +138,7 @@ message MutationIntent {
   Actor actor = 3 [(buf.validate.field).required = true];
   // The policy version the intent is admitted under; a later policy edit
   // does not change an intent in flight. Must be present.
-  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 4 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.AccessPolicyHandle access_policy = 4 [(buf.validate.field).required = true];
   // The firmware fingerprint the caller expects. A device reporting
   // another blocks the intent before any write. Must be present.
   string expected_firmware_fingerprint = 5 [

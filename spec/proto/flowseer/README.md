@@ -32,9 +32,8 @@ packages rather than being folded into the L3 interface model.
 
 ## Entity and runtime packages
 
-- `flowseer.api.inventory.v1` owns the landed inventory entities, their refs,
-  lifecycle events, and provenance. The `api` segment is part of the current
-  package name.
+- `flowseer.model.inventory.v1` owns the landed inventory entities, their refs,
+  lifecycle events, and provenance.
 - `flowseer.service.v1` owns the process-local durable mailbox and runtime
   control records. It is not the future ConnectRPC service API; that boundary's
   package remains unsettled.

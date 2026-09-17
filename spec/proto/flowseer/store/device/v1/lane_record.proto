@@ -8,10 +8,10 @@ edition = "2024";
 // triad and no ref pair.
 package flowseer.store.device.v1;
 
-import "flowseer/api/inventory/v1/device.proto";
 import "flowseer/device/access/v1/interface.proto";
 import "flowseer/device/access/v1/operation.proto";
 import "flowseer/errs/v1/error.proto";
+import "flowseer/model/inventory/v1/device.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -33,7 +33,7 @@ message DeviceLaneRecord {
   };
 
   // Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The highest sequence assigned on this device, to mutations and reads
   // alike. Implicit presence: zero and never assigned are one state.
   uint64 high_watermark = 2 [features.field_presence = IMPLICIT];

@@ -45,14 +45,14 @@ record is durable simply does not proceed on an error. Central derives
 nothing from the stream afterwards; the fingerprint and every other fact it
 acts on arrive through `integration/device/v1`'s reports.
 
-## Why this package imports api/inventory directly
+## Why this package imports model/inventory directly
 
 Unlike the execution envelope in `integration/device/v1`, which never
 restates a device or edge ref because every message travels over an
 already-addressed channel, an audit record is read and queried outside any
 live transport context — a compliance report, an incident timeline. It must
 name its device on its own, so this package imports
-`flowseer/api/inventory/v1/device.proto` for `DeviceGlobalRef` in addition to
+`flowseer/model/inventory/v1/device.proto` for `DeviceGlobalRef` in addition to
 `device/access` and `errs`. It never imports `api/edge` directly; the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 states that an event envelope reaches `api/edge` only through

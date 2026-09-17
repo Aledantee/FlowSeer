@@ -5,9 +5,9 @@ edition = "2024";
 // edge chooses. No RPC names a protocol, a path, or a raw command.
 package flowseer.api.device.v1;
 
-import "flowseer/api/inventory/v1/device.proto";
 import "flowseer/device/access/v1/interface.proto";
 import "flowseer/device/access/v1/operation.proto";
+import "flowseer/model/inventory/v1/device.proto";
 import option "buf/validate/validate.proto";
 
 service DeviceService {
@@ -40,7 +40,7 @@ service DeviceService {
 
 message ReadInterfaceRequest {
   // The device to read. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The device-local interface name, as the device spells it: letters,
   // digits, and space . / : _ - , starting with a letter or digit. Must be
   // present.
@@ -88,7 +88,7 @@ message ApplyInterfaceDescriptionResponse {
 
 message GetDeviceAccessStatusRequest {
   // The device. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
 }
 
 message GetDeviceAccessStatusResponse {
@@ -121,7 +121,7 @@ message GetDeviceAccessStatusResponse {
 
 message AbandonMutationRequest {
   // The device. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The sequence of the mutation to abandon. Must be present and at least
   // 1.
   uint64 sequence = 2 [
@@ -146,7 +146,7 @@ message RestoreExpectedDecision {}
 
 message ResolveDesynchronizationRequest {
   // The device. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The sequence of the abandoned or desynchronized mutation. Must be
   // present and at least 1.
   uint64 sequence = 2 [
@@ -199,7 +199,7 @@ message ListEdgeOpenMutationsRequest {
 // One device whose lane still holds a mutation.
 message OpenMutation {
   // The device. Must be present.
-  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The mutation holding the lane, with the sequence AbandonMutation takes
   // and the phase it stopped at. Must be present.
   flowseer.device.access.v1.MutationState mutation = 2 [(buf.validate.field).required = true];

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 )
 
 // ReadCredentialSource wraps EdgeService.AcquireReadCredential: a fresh

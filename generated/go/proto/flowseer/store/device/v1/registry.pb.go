@@ -14,8 +14,8 @@ package devicev1
 
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	v13 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	v13 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -680,32 +680,32 @@ var File_flowseer_store_device_v1_registry_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_registry_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/store/device/v1/registry.proto\x12\x18flowseer.store.device.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a'flowseer/api/inventory/v1/binding.proto\x1a&flowseer/api/inventory/v1/device.proto\x1a+flowseer/api/inventory/v1/integration.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\xef\x05\n" +
+	"'flowseer/store/device/v1/registry.proto\x12\x18flowseer.store.device.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a-flowseer/model/inventory/v1/integration.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\xef\x05\n" +
 	"\x0eDeviceRegistry\x12W\n" +
 	"\vintegration\x18\x01 \x01(\v2-.flowseer.store.device.v1.RegistryIntegrationB\x06\xbaH\x03\xc8\x01\x01R\vintegration\x12M\n" +
 	"\adevices\x18\x02 \x03(\v2(.flowseer.store.device.v1.RegistryDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\x12O\n" +
 	"\bpolicies\x18\x03 \x03(\v2(.flowseer.store.device.v1.RegistryPolicyB\t\xbaH\x06\x92\x01\x03\x10\x80 R\bpolicies:\xe3\x03\xbaH\xdf\x03\x1at\n" +
 	"\"device_registry.device_refs_unique\x12\x18each device appears once\x1a4this.devices.map(d, d.config.ref.device.id).unique()\x1ao\n" +
 	"\"device_registry.policy_keys_unique\x12\x1ceach policy key appears once\x1a+this.policies.map(p, p.handle.key).unique()\x1a\xf5\x01\n" +
-	"&device_registry.device_policies_listed\x12:every device's access policy names a listed policy version\x1a\x8e\x01this.devices.all(d, this.policies.exists(p, p.handle.key == d.config.access_policy.key && p.handle.version == d.config.access_policy.version))\"\xa1\x01\n" +
-	"\x13RegistryIntegration\x12I\n" +
-	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
-	"\x04edge\x18\x02 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\xf3\x03\n" +
-	"\x0eRegistryDevice\x12G\n" +
-	"\x06config\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.DeviceConfigB\x06\xbaH\x03\xc8\x01\x01R\x06config\x12M\n" +
-	"\abinding\x18\x02 \x01(\v2+.flowseer.api.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\abinding\x127\n" +
+	"&device_registry.device_policies_listed\x12:every device's access policy names a listed policy version\x1a\x8e\x01this.devices.all(d, this.policies.exists(p, p.handle.key == d.config.access_policy.key && p.handle.version == d.config.access_policy.version))\"\xa3\x01\n" +
+	"\x13RegistryIntegration\x12K\n" +
+	"\x03ref\x18\x01 \x01(\v21.flowseer.model.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
+	"\x04edge\x18\x02 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\xf7\x03\n" +
+	"\x0eRegistryDevice\x12I\n" +
+	"\x06config\x18\x01 \x01(\v2).flowseer.model.inventory.v1.DeviceConfigB\x06\xbaH\x03\xc8\x01\x01R\x06config\x12O\n" +
+	"\abinding\x18\x02 \x01(\v2-.flowseer.model.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\abinding\x127\n" +
 	"\x02ip\x18\x03 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\x02ip\x12(\n" +
 	"\tsnmp_port\x18\x04 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\bsnmpPort\x12&\n" +
 	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizon\x12c\n" +
-	"\x12managed_interfaces\x18\a \x03(\tB4\xbaH1\x92\x01.\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x11managedInterfaces\"\xa6\x04\n" +
-	"\x0eRegistryPolicy\x12M\n" +
-	"\x06handle\x18\x01 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\x06handle\x12\\\n" +
-	"\x0fread_credential\x18\x02 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x0ereadCredential\x12h\n" +
-	"\x15submission_credential\x18\x03 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x14submissionCredential\x12Q\n" +
+	"\x12managed_interfaces\x18\a \x03(\tB4\xbaH1\x92\x01.\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x11managedInterfaces\"\xa2\x04\n" +
+	"\x0eRegistryPolicy\x12L\n" +
+	"\x06handle\x18\x01 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\x06handle\x12[\n" +
+	"\x0fread_credential\x18\x02 \x01(\v2*.flowseer.model.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x0ereadCredential\x12g\n" +
+	"\x15submission_credential\x18\x03 \x01(\v2*.flowseer.model.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x14submissionCredential\x12P\n" +
 	"\n" +
-	"host_trust\x18\x04 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12S\n" +
+	"host_trust\x18\x04 \x01(\v2).flowseer.model.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12S\n" +
 	"\x13ssh_host_key_sha256\x18\x05 \x01(\tB$\xbaH!\xc8\x01\x01r\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256\x12U\n" +
 	"\x13read_credential_ttl\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x11readCredentialTtlB\xfe\x01\n" +
@@ -717,30 +717,30 @@ var file_flowseer_store_device_v1_registry_proto_goTypes = []any{
 	(*RegistryIntegration)(nil),     // 1: flowseer.store.device.v1.RegistryIntegration
 	(*RegistryDevice)(nil),          // 2: flowseer.store.device.v1.RegistryDevice
 	(*RegistryPolicy)(nil),          // 3: flowseer.store.device.v1.RegistryPolicy
-	(*v1.IntegrationGlobalRef)(nil), // 4: flowseer.api.inventory.v1.IntegrationGlobalRef
+	(*v1.IntegrationGlobalRef)(nil), // 4: flowseer.model.inventory.v1.IntegrationGlobalRef
 	(*v11.EdgeGlobalRef)(nil),       // 5: flowseer.api.edge.v1.EdgeGlobalRef
-	(*v1.DeviceConfig)(nil),         // 6: flowseer.api.inventory.v1.DeviceConfig
-	(*v1.BindingGlobalRef)(nil),     // 7: flowseer.api.inventory.v1.BindingGlobalRef
+	(*v1.DeviceConfig)(nil),         // 6: flowseer.model.inventory.v1.DeviceConfig
+	(*v1.BindingGlobalRef)(nil),     // 7: flowseer.model.inventory.v1.BindingGlobalRef
 	(*v12.IpAddress)(nil),           // 8: flowseer.net.addr.v1.IpAddress
 	(*durationpb.Duration)(nil),     // 9: google.protobuf.Duration
-	(*v13.AccessPolicyHandle)(nil),  // 10: flowseer.device.policy.v1.AccessPolicyHandle
-	(*v13.CredentialHandle)(nil),    // 11: flowseer.device.policy.v1.CredentialHandle
-	(*v13.HostTrustHandle)(nil),     // 12: flowseer.device.policy.v1.HostTrustHandle
+	(*v13.AccessPolicyHandle)(nil),  // 10: flowseer.model.policy.v1.AccessPolicyHandle
+	(*v13.CredentialHandle)(nil),    // 11: flowseer.model.policy.v1.CredentialHandle
+	(*v13.HostTrustHandle)(nil),     // 12: flowseer.model.policy.v1.HostTrustHandle
 }
 var file_flowseer_store_device_v1_registry_proto_depIdxs = []int32{
 	1,  // 0: flowseer.store.device.v1.DeviceRegistry.integration:type_name -> flowseer.store.device.v1.RegistryIntegration
 	2,  // 1: flowseer.store.device.v1.DeviceRegistry.devices:type_name -> flowseer.store.device.v1.RegistryDevice
 	3,  // 2: flowseer.store.device.v1.DeviceRegistry.policies:type_name -> flowseer.store.device.v1.RegistryPolicy
-	4,  // 3: flowseer.store.device.v1.RegistryIntegration.ref:type_name -> flowseer.api.inventory.v1.IntegrationGlobalRef
+	4,  // 3: flowseer.store.device.v1.RegistryIntegration.ref:type_name -> flowseer.model.inventory.v1.IntegrationGlobalRef
 	5,  // 4: flowseer.store.device.v1.RegistryIntegration.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	6,  // 5: flowseer.store.device.v1.RegistryDevice.config:type_name -> flowseer.api.inventory.v1.DeviceConfig
-	7,  // 6: flowseer.store.device.v1.RegistryDevice.binding:type_name -> flowseer.api.inventory.v1.BindingGlobalRef
+	6,  // 5: flowseer.store.device.v1.RegistryDevice.config:type_name -> flowseer.model.inventory.v1.DeviceConfig
+	7,  // 6: flowseer.store.device.v1.RegistryDevice.binding:type_name -> flowseer.model.inventory.v1.BindingGlobalRef
 	8,  // 7: flowseer.store.device.v1.RegistryDevice.ip:type_name -> flowseer.net.addr.v1.IpAddress
 	9,  // 8: flowseer.store.device.v1.RegistryDevice.delayed_apply_horizon:type_name -> google.protobuf.Duration
-	10, // 9: flowseer.store.device.v1.RegistryPolicy.handle:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
-	11, // 10: flowseer.store.device.v1.RegistryPolicy.read_credential:type_name -> flowseer.device.policy.v1.CredentialHandle
-	11, // 11: flowseer.store.device.v1.RegistryPolicy.submission_credential:type_name -> flowseer.device.policy.v1.CredentialHandle
-	12, // 12: flowseer.store.device.v1.RegistryPolicy.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
+	10, // 9: flowseer.store.device.v1.RegistryPolicy.handle:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
+	11, // 10: flowseer.store.device.v1.RegistryPolicy.read_credential:type_name -> flowseer.model.policy.v1.CredentialHandle
+	11, // 11: flowseer.store.device.v1.RegistryPolicy.submission_credential:type_name -> flowseer.model.policy.v1.CredentialHandle
+	12, // 12: flowseer.store.device.v1.RegistryPolicy.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
 	9,  // 13: flowseer.store.device.v1.RegistryPolicy.read_credential_ttl:type_name -> google.protobuf.Duration
 	14, // [14:14] is the sub-list for method output_type
 	14, // [14:14] is the sub-list for method input_type

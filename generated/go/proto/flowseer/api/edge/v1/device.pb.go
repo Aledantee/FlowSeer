@@ -12,7 +12,7 @@
 package edgev1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -404,18 +404,18 @@ var File_flowseer_api_edge_v1_device_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!flowseer/api/edge/v1/device.proto\x12\x14flowseer.api.edge.v1\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\x14\n" +
+	"!flowseer/api/edge/v1/device.proto\x12\x14flowseer.api.edge.v1\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\x14\n" +
 	"\x12ListDevicesRequest\"^\n" +
 	"\x13ListDevicesResponse\x12G\n" +
-	"\adevices\x18\x01 \x03(\v2\".flowseer.api.edge.v1.ListedDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\"\xa6\x03\n" +
+	"\adevices\x18\x01 \x03(\v2\".flowseer.api.edge.v1.ListedDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\"\xa5\x03\n" +
 	"\fListedDevice\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x127\n" +
 	"\x02ip\x18\x03 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\x02ip\x12(\n" +
 	"\tsnmp_port\x18\x04 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\bsnmpPort\x12&\n" +
-	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Z\n" +
-	"\raccess_policy\x18\x06 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Y\n" +
+	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
+	"\raccess_policy\x18\x06 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\a \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizonB\xe2\x01\n" +
 	"\x18com.flowseer.api.edge.v1B\vDeviceProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
@@ -426,13 +426,13 @@ var file_flowseer_api_edge_v1_device_proto_goTypes = []any{
 	(*ListDevicesResponse)(nil),    // 1: flowseer.api.edge.v1.ListDevicesResponse
 	(*ListedDevice)(nil),           // 2: flowseer.api.edge.v1.ListedDevice
 	(*v1.IpAddress)(nil),           // 3: flowseer.net.addr.v1.IpAddress
-	(*v11.AccessPolicyHandle)(nil), // 4: flowseer.device.policy.v1.AccessPolicyHandle
+	(*v11.AccessPolicyHandle)(nil), // 4: flowseer.model.policy.v1.AccessPolicyHandle
 	(*durationpb.Duration)(nil),    // 5: google.protobuf.Duration
 }
 var file_flowseer_api_edge_v1_device_proto_depIdxs = []int32{
 	2, // 0: flowseer.api.edge.v1.ListDevicesResponse.devices:type_name -> flowseer.api.edge.v1.ListedDevice
 	3, // 1: flowseer.api.edge.v1.ListedDevice.ip:type_name -> flowseer.net.addr.v1.IpAddress
-	4, // 2: flowseer.api.edge.v1.ListedDevice.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
+	4, // 2: flowseer.api.edge.v1.ListedDevice.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
 	5, // 3: flowseer.api.edge.v1.ListedDevice.delayed_apply_horizon:type_name -> google.protobuf.Duration
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type

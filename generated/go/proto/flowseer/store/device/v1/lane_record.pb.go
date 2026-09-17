@@ -14,9 +14,9 @@
 package devicev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -866,9 +866,9 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe7\x11\n" +
-	"\x10DeviceLaneRecord\x12J\n" +
-	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe9\x11\n" +
+	"\x10DeviceLaneRecord\x12L\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
 	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12D\n" +
 	"\bmutation\x18\x03 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\x12;\n" +
 	"\vadmitted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -930,7 +930,7 @@ var file_flowseer_store_device_v1_lane_record_proto_goTypes = []any{
 	nil,                              // 3: flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntry
 	nil,                              // 4: flowseer.store.device.v1.DeviceLaneRecord.ExpectedDescriptionsEntry
 	nil,                              // 5: flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry
-	(*v1.DeviceGlobalRef)(nil),       // 6: flowseer.api.inventory.v1.DeviceGlobalRef
+	(*v1.DeviceGlobalRef)(nil),       // 6: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*v11.MutationState)(nil),        // 7: flowseer.device.access.v1.MutationState
 	(*timestamppb.Timestamp)(nil),    // 8: google.protobuf.Timestamp
 	(v11.OperationPhase)(0),          // 9: flowseer.device.access.v1.OperationPhase
@@ -940,7 +940,7 @@ var file_flowseer_store_device_v1_lane_record_proto_goTypes = []any{
 	(v11.Disposition)(0),             // 13: flowseer.device.access.v1.Disposition
 }
 var file_flowseer_store_device_v1_lane_record_proto_depIdxs = []int32{
-	6,  // 0: flowseer.store.device.v1.DeviceLaneRecord.device:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	6,  // 0: flowseer.store.device.v1.DeviceLaneRecord.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
 	7,  // 1: flowseer.store.device.v1.DeviceLaneRecord.mutation:type_name -> flowseer.device.access.v1.MutationState
 	8,  // 2: flowseer.store.device.v1.DeviceLaneRecord.admitted_at:type_name -> google.protobuf.Timestamp
 	9,  // 3: flowseer.store.device.v1.DeviceLaneRecord.last_reported_phase:type_name -> flowseer.device.access.v1.OperationPhase

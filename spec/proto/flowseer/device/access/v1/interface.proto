@@ -5,8 +5,8 @@ edition = "2024";
 // and its ref are not decided yet, so nothing here is a ref.
 package flowseer.device.access.v1;
 
-import "flowseer/api/inventory/v1/provenance.proto";
-import "flowseer/device/policy/v1/handle.proto";
+import "flowseer/model/inventory/v1/provenance.proto";
+import "flowseer/model/policy/v1/handle.proto";
 import "flowseer/net/interface/v1/admin_status.proto";
 import "flowseer/net/interface/v1/oper_status.proto";
 import option "buf/validate/validate.proto";
@@ -90,7 +90,7 @@ message InterfaceObservation {
   }];
   // Which binding, protocol, edge, and firmware epoch produced the read,
   // and when. Present exactly when completeness is COMPLETE.
-  flowseer.api.inventory.v1.Provenance provenance = 5;
+  flowseer.model.inventory.v1.Provenance provenance = 5;
   // Whether every compared field was read. Must be present; the zero value
   // is rejected.
   Completeness completeness = 6 [
@@ -121,7 +121,7 @@ message InterfaceReadIntent {
 message TypedRead {
   // The policy version the read is admitted under and the read credential
   // is acquired against. Must be present.
-  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 1 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.AccessPolicyHandle access_policy = 1 [(buf.validate.field).required = true];
 
   oneof read {
     option (buf.validate.oneof).required = true;

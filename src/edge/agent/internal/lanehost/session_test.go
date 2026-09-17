@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )

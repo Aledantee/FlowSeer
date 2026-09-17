@@ -13,8 +13,8 @@
 package devicev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -907,7 +907,7 @@ func (b0 LaneReleased_builder) Build() *LaneReleased {
 // A route was chosen for one operation, or fell through to a complete one.
 type RouteSelected struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Protocol    v1.ManagementProtocol  `protobuf:"varint,1,opt,name=protocol,enum=flowseer.api.inventory.v1.ManagementProtocol"`
+	xxx_hidden_Protocol    v1.ManagementProtocol  `protobuf:"varint,1,opt,name=protocol,enum=flowseer.model.inventory.v1.ManagementProtocol"`
 	xxx_hidden_FellThrough bool                   `protobuf:"varint,2,opt,name=fell_through,json=fellThrough"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -1385,9 +1385,9 @@ var File_flowseer_event_device_v1_operation_event_proto protoreflect.FileDescrip
 
 const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/event/device/v1/operation_event.proto\x12\x18flowseer.event.device.v1\x1a'flowseer/api/inventory/v1/binding.proto\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x95\v\n" +
-	"\x14DeviceOperationEvent\x12J\n" +
-	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
+	".flowseer/event/device/v1/operation_event.proto\x12\x18flowseer.event.device.v1\x1a)flowseer/device/access/v1/operation.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\v\n" +
+	"\x14DeviceOperationEvent\x12L\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bevent_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aeventId\x12#\n" +
 	"\bsequence\x18\x03 \x01(\x04B\a\xbaH\x042\x02(\x01R\bsequence\x12C\n" +
 	"\voccurred_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
@@ -1422,9 +1422,9 @@ const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
 	"\vLaneBlocked\x12M\n" +
 	"\x06reason\x18\x01 \x01(\x0e2&.flowseer.device.access.v1.BlockReasonB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\x0e\n" +
-	"\fLaneReleased\"\x8c\x01\n" +
-	"\rRouteSelected\x12X\n" +
-	"\bprotocol\x18\x01 \x01(\x0e2-.flowseer.api.inventory.v1.ManagementProtocolB\r\xbaH\n" +
+	"\fLaneReleased\"\x8e\x01\n" +
+	"\rRouteSelected\x12Z\n" +
+	"\bprotocol\x18\x01 \x01(\x0e2/.flowseer.model.inventory.v1.ManagementProtocolB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x12!\n" +
 	"\ffell_through\x18\x02 \x01(\bR\vfellThrough\"V\n" +
 	"\x12DiscoveryCompleted\x12@\n" +
@@ -1458,15 +1458,15 @@ var file_flowseer_event_device_v1_operation_event_proto_goTypes = []any{
 	(*LaneFrozen)(nil),            // 9: flowseer.event.device.v1.LaneFrozen
 	nil,                           // 10: flowseer.event.device.v1.DeviceOperationEvent.CorrelationIdsEntry
 	nil,                           // 11: flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry
-	(*v1.DeviceGlobalRef)(nil),    // 12: flowseer.api.inventory.v1.DeviceGlobalRef
+	(*v1.DeviceGlobalRef)(nil),    // 12: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
 	(v11.OperationPhase)(0),       // 14: flowseer.device.access.v1.OperationPhase
 	(v11.BlockReason)(0),          // 15: flowseer.device.access.v1.BlockReason
-	(v1.ManagementProtocol)(0),    // 16: flowseer.api.inventory.v1.ManagementProtocol
+	(v1.ManagementProtocol)(0),    // 16: flowseer.model.inventory.v1.ManagementProtocol
 	(*structpb.Value)(nil),        // 17: google.protobuf.Value
 }
 var file_flowseer_event_device_v1_operation_event_proto_depIdxs = []int32{
-	12, // 0: flowseer.event.device.v1.DeviceOperationEvent.device:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	12, // 0: flowseer.event.device.v1.DeviceOperationEvent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
 	13, // 1: flowseer.event.device.v1.DeviceOperationEvent.occurred_at:type_name -> google.protobuf.Timestamp
 	10, // 2: flowseer.event.device.v1.DeviceOperationEvent.correlation_ids:type_name -> flowseer.event.device.v1.DeviceOperationEvent.CorrelationIdsEntry
 	11, // 3: flowseer.event.device.v1.DeviceOperationEvent.attributes:type_name -> flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry
@@ -1482,7 +1482,7 @@ var file_flowseer_event_device_v1_operation_event_proto_depIdxs = []int32{
 	14, // 13: flowseer.event.device.v1.PhaseTransitioned.from:type_name -> flowseer.device.access.v1.OperationPhase
 	14, // 14: flowseer.event.device.v1.PhaseTransitioned.to:type_name -> flowseer.device.access.v1.OperationPhase
 	15, // 15: flowseer.event.device.v1.LaneBlocked.reason:type_name -> flowseer.device.access.v1.BlockReason
-	16, // 16: flowseer.event.device.v1.RouteSelected.protocol:type_name -> flowseer.api.inventory.v1.ManagementProtocol
+	16, // 16: flowseer.event.device.v1.RouteSelected.protocol:type_name -> flowseer.model.inventory.v1.ManagementProtocol
 	17, // 17: flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry.value:type_name -> google.protobuf.Value
 	18, // [18:18] is the sub-list for method output_type
 	18, // [18:18] is the sub-list for method input_type

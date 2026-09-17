@@ -34,22 +34,22 @@ var importOrder = map[string][]string{
 	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
 	// Boundary packages consume the primitives and never feed them.
-	// device/policy imports nothing FlowSeer-owned, the one leaf that lets
+	// model/policy imports nothing FlowSeer-owned, the one leaf that lets
 	// inventory name a policy without a cycle. api/edge may import
-	// device/policy for the credential and host-trust handles its
-	// credential RPCs return, because device/policy imports nothing back.
-	// device/credential imports nothing either: api/edge carries the typed
+	// model/policy for the credential and host-trust handles its
+	// credential RPCs return, because model/policy imports nothing back.
+	// model/credential imports nothing either: api/edge carries the typed
 	// credential material on its credential responses, so it sits beside
-	// device/policy as a second leaf below api/edge. net/addr is the third,
+	// model/policy as a second leaf below api/edge. net/addr is the third,
 	// for the management address the device listing carries — a primitive
 	// that imports nothing FlowSeer-owned, so it cannot cycle back, and the
 	// alternative of a formatted string would make an address the edge
 	// parses out of prose.
-	"api/edge":          {"device/credential", "device/policy", "net/addr"},
-	"device/credential": nil,
-	"device/policy":     nil,
+	"api/edge":         {"model/credential", "model/policy", "net/addr"},
+	"model/credential": nil,
+	"model/policy":     nil,
 
-	// The error wire payload. A leaf like device/policy: every boundary may
+	// The error wire payload. A leaf like model/policy: every boundary may
 	// carry an error, so nothing may depend on it.
 	"errs": nil,
 
@@ -59,31 +59,31 @@ var importOrder = map[string][]string{
 	// assertion its upload stream re-verifies from api/edge.
 	"api/capture": {"api/edge", "net/capture"},
 
-	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"model/inventory": {"api/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
 	// api/edge for the responsible edge, so a boundary that imports them
 	// reaches api/edge only through here.
-	"device/access": {"api/edge", "api/inventory", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"device/access": {"api/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of device/access and errs, and none of the
-	// three imports another. api/inventory and device/policy predate the
+	// three imports another. model/inventory and model/policy predate the
 	// errs amendment and stay direct api/device dependencies; the envelope
 	// carries no device or edge ref at all (the transport already names
-	// both), while the audit event needs api/inventory directly because it
+	// both), while the audit event needs model/inventory directly because it
 	// is read outside any live transport context.
-	"api/device": {"api/inventory", "device/access", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"api/device": {"model/inventory", "device/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	"integration/device": {"device/access", "errs"},
 
-	"event/device": {"api/inventory", "device/access", "errs"},
+	"event/device": {"model/inventory", "device/access", "errs"},
 
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
-	"store/device": {"api/edge", "api/inventory", "device/access", "device/credential", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"store/device": {"api/edge", "model/inventory", "device/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The agent's own deployment file. It imports nothing FlowSeer-owned and
 	// is imported by nothing: what an edge is told about central lives in
@@ -97,7 +97,7 @@ var importOrder = map[string][]string{
 // flowseer/service stays out: it is the process-local bus contract and no
 // boundary package may import it.
 var orderedRoots = []string{
-	"flowseer/net", "flowseer/api", "flowseer/device",
+	"flowseer/net", "flowseer/api", "flowseer/device", "flowseer/model",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
 	"flowseer/store",
 }
@@ -177,28 +177,28 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "protocol imports a layer", importer: "net/protocol/lldp", imported: "net/interface", want: true},
 		{name: "protocol imports another protocol", importer: "net/protocol/lldp", imported: "net/protocol/stp"},
 		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
-		{name: "primitive imports a boundary", importer: "net/interface", imported: "api/inventory"},
-		{name: "inventory imports a leaf boundary", importer: "api/inventory", imported: "device/policy", want: true},
-		{name: "edge imports its credential handles", importer: "api/edge", imported: "device/policy", want: true},
-		{name: "leaf boundary imports edge", importer: "device/policy", imported: "api/edge"},
-		{name: "access values import inventory", importer: "device/access", imported: "api/inventory", want: true},
+		{name: "primitive imports a boundary", importer: "net/interface", imported: "model/inventory"},
+		{name: "inventory imports a leaf boundary", importer: "model/inventory", imported: "model/policy", want: true},
+		{name: "edge imports its credential handles", importer: "api/edge", imported: "model/policy", want: true},
+		{name: "leaf boundary imports edge", importer: "model/policy", imported: "api/edge"},
+		{name: "access values import inventory", importer: "device/access", imported: "model/inventory", want: true},
 		{name: "access values import the operator api", importer: "device/access", imported: "api/device"},
 		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
 		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
-		{name: "leaf boundary imports inventory", importer: "device/policy", imported: "api/inventory"},
+		{name: "leaf boundary imports inventory", importer: "model/policy", imported: "model/inventory"},
 		{name: "execution envelope imports access values", importer: "integration/device", imported: "device/access", want: true},
 		{name: "execution envelope imports errs", importer: "integration/device", imported: "errs", want: true},
 		{name: "execution envelope imports the audit event", importer: "integration/device", imported: "event/device"},
 		{name: "audit event imports access values", importer: "event/device", imported: "device/access", want: true},
-		{name: "audit event imports inventory", importer: "event/device", imported: "api/inventory", want: true},
+		{name: "audit event imports inventory", importer: "event/device", imported: "model/inventory", want: true},
 		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
 		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
 		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
-		{name: "edge imports credential material", importer: "api/edge", imported: "device/credential", want: true},
-		{name: "credential material imports edge", importer: "device/credential", imported: "api/edge"},
-		{name: "credential material imports policy handles", importer: "device/credential", imported: "device/policy"},
+		{name: "edge imports credential material", importer: "api/edge", imported: "model/credential", want: true},
+		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
+		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
 		{name: "storage imports access values", importer: "store/device", imported: "device/access", want: true},
-		{name: "storage imports credential material", importer: "store/device", imported: "device/credential", want: true},
+		{name: "storage imports credential material", importer: "store/device", imported: "model/credential", want: true},
 		{name: "access values import storage", importer: "device/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},

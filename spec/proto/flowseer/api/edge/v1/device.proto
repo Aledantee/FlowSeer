@@ -6,7 +6,7 @@ edition = "2024";
 // credential; those are their own lifecycle in credential.proto.
 package flowseer.api.edge.v1;
 
-import "flowseer/device/policy/v1/handle.proto";
+import "flowseer/model/policy/v1/handle.proto";
 import "flowseer/net/addr/v1/ip.proto";
 import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
@@ -56,7 +56,7 @@ message ListedDevice {
   ];
   // The access policy version the device pins, which the edge names when it
   // acquires a credential for the onboarding probe. Must be present.
-  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 6 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.AccessPolicyHandle access_policy = 6 [(buf.validate.field).required = true];
   // The longest a mutation on this device may take to become visible to a
   // fresh read, measured on the device. Unset means unmeasured: the edge
   // serves the device and refuses a mutation on it until it is set.

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/epoch"

@@ -1,0 +1,206 @@
+edition = "2024";
+
+// The cable family — one physical cable the operator documents between
+// two terminations: a device port, a patch panel port, or a place with no
+// modeled port such as a wall outlet. Deliberately partial: a cable is
+// pure operator intent that nothing observes, so the family is Cable plus
+// CableEvent, with no CableConfig and no CableState. The observed
+// counterpart is the Link family in link.proto, which discovery derives;
+// the service reconciles the two and neither embeds the other. Cable has
+// not joined EntityType; nothing may name one through an EntityRef.
+package flowseer.model.inventory.v1;
+
+import "flowseer/model/inventory/v1/component.proto";
+import "flowseer/model/inventory/v1/location.proto";
+import "flowseer/model/inventory/v1/patch_panel.proto";
+import "flowseer/net/phy/v1/module_connector.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a cable.
+message CableLocalRef {
+  // FlowSeer-assigned cable identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a cable.
+message CableGlobalRef {
+  // The cable's own key. Must be present.
+  CableLocalRef cable = 1 [(buf.validate.field).required = true];
+}
+
+// What the cable is made of, after the ISO/IEC 11801 copper categories,
+// the fiber types of the same standard, and the direct-attach forms of
+// SFF-8431 and SFF-8636.
+enum CableMedium {
+  // No medium named. Cables reject the zero value.
+  CABLE_MEDIUM_UNSPECIFIED = 0;
+  // A medium none of the values below name; the cable's description says
+  // which.
+  CABLE_MEDIUM_OTHER = 1;
+  CABLE_MEDIUM_CAT3 = 2;
+  CABLE_MEDIUM_CAT5 = 3;
+  CABLE_MEDIUM_CAT5E = 4;
+  CABLE_MEDIUM_CAT6 = 5;
+  CABLE_MEDIUM_CAT6A = 6;
+  CABLE_MEDIUM_CAT7 = 7;
+  CABLE_MEDIUM_CAT7A = 8;
+  CABLE_MEDIUM_CAT8 = 9;
+  CABLE_MEDIUM_MULTIMODE_OM1 = 10;
+  CABLE_MEDIUM_MULTIMODE_OM2 = 11;
+  CABLE_MEDIUM_MULTIMODE_OM3 = 12;
+  CABLE_MEDIUM_MULTIMODE_OM4 = 13;
+  CABLE_MEDIUM_MULTIMODE_OM5 = 14;
+  CABLE_MEDIUM_SINGLEMODE_OS1 = 15;
+  CABLE_MEDIUM_SINGLEMODE_OS2 = 16;
+  // A passive direct-attach copper cable with the transceivers moulded on.
+  CABLE_MEDIUM_DAC_PASSIVE = 17;
+  // An active direct-attach copper cable.
+  CABLE_MEDIUM_DAC_ACTIVE = 18;
+  // An active optical cable with the transceivers moulded on.
+  CABLE_MEDIUM_ACTIVE_OPTICAL = 19;
+  CABLE_MEDIUM_COAXIAL = 20;
+  // A serial console lead.
+  CABLE_MEDIUM_SERIAL = 21;
+  CABLE_MEDIUM_POWER = 22;
+}
+
+// What role the cable plays in the cabling plant, after the ISO/IEC 11801
+// link model.
+enum CableRole {
+  // No role named. Cables reject the zero value.
+  CABLE_ROLE_UNSPECIFIED = 0;
+  // A cord between a device port and a panel port, or between two device
+  // ports in reach of each other.
+  CABLE_ROLE_PATCH = 1;
+  // The fixed cabling behind the panels, from rear port to rear port or
+  // to an outlet.
+  CABLE_ROLE_PERMANENT_LINK = 2;
+  // A pre-terminated multi-fiber or multi-pair assembly between panels.
+  CABLE_ROLE_TRUNK = 3;
+}
+
+// One end of a cable: what it plugs into and with which connector.
+message CableTermination {
+  // The connector on this end. Unset means the operator did not record
+  // it; the medium usually implies it.
+  flowseer.net.phy.v1.ModuleConnector connector = 1 [(buf.validate.field).enum.defined_only = true];
+  // What the end is terminated on. Exactly one arm.
+  oneof endpoint {
+    option (buf.validate.oneof).required = true;
+
+    // A port or transceiver component of a device.
+    ComponentGlobalRef port = 10;
+    // A port on a patch panel.
+    PatchPanelPortGlobalRef panel_port = 11;
+    // A place with no modeled port: a wall outlet, a cross-connect in
+    // another site, a cable coiled for later. The cable's description says
+    // which.
+    LocationGlobalRef location = 12;
+  }
+}
+
+// One cable: what it is, how long it is, and what its two ends plug into.
+// Which end is a and which is b carries no meaning; the service compares
+// ends as a set.
+message Cable {
+  option (buf.validate.message).cel = {
+    id: "cable.ends_differ"
+    message: "a cable's two ends terminate on different things"
+    expression:
+      "!has(this.a_end) || !has(this.b_end) || ("
+      "(!has(this.a_end.port) || !has(this.b_end.port) || this.a_end.port != this.b_end.port) && "
+      "(!has(this.a_end.panel_port) || !has(this.b_end.panel_port) || this.a_end.panel_port != this.b_end.panel_port) && "
+      "(!has(this.a_end.location) || !has(this.b_end.location) || this.a_end.location != this.b_end.location))"
+  };
+  option (buf.validate.message).cel = {
+    id: "cable.strand_count_only_trunk"
+    message: "strand_count is set only on a trunk"
+    expression: "!has(this.strand_count) || this.role == 3"
+  };
+
+  // The ref to this cable. Must be present.
+  CableGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // What the cable is made of. Must be present; the zero value is
+  // rejected.
+  CableMedium medium = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The cable's role in the plant. Must be present; the zero value is
+  // rejected.
+  CableRole role = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The cable's length in millimeters, as measured or as printed on it.
+  // Unset means the operator did not record it.
+  uint32 length_millimeters = 4 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 100000000
+  ];
+  // The jacket color as the operator names it, for finding the cable in a
+  // bundle. Unset means none was recorded.
+  string color = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // The label printed on the cable. Unset means the cable carries none.
+  string label = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description. Unset means none was provided. When set, must
+  // not be empty.
+  string description = 7 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // One end. Must be present.
+  CableTermination a_end = 8 [(buf.validate.field).required = true];
+  // The other end. Must be present.
+  CableTermination b_end = 9 [(buf.validate.field).required = true];
+  // For a trunk, how many fibers or pairs it carries. Set only on a trunk.
+  uint32 strand_count = 10 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 4096
+  ];
+}
+
+// One transition of a cable, carried as the record before and after.
+message CableEvent {
+  option (buf.validate.message).cel = {
+    id: "cable_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.cable.id == this.ref.cable.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "cable_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.cable.id == this.ref.cable.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "cable_event.one_side"
+    message: "an event carries at least one side"
+    expression: "has(this.before) || has(this.after)"
+  };
+
+  // The ref to the cable that changed. Must be present.
+  CableGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The record before the transition. Unset means the cable was created.
+  Cable before = 2;
+  // The record after the transition. Unset means the cable was removed.
+  Cable after = 3;
+}

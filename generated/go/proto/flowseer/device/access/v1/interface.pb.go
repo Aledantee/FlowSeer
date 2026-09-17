@@ -11,8 +11,8 @@
 package accessv1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -688,10 +688,10 @@ var File_flowseer_device_access_v1_interface_proto protoreflect.FileDescriptor
 
 const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a*flowseer/api/inventory/v1/provenance.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\xaa\x01\n" +
+	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a,flowseer/model/inventory/v1/provenance.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\xaa\x01\n" +
 	"\x1aInterfaceDescriptionChange\x12T\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x126\n" +
-	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\x8e\b\n" +
+	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\x90\b\n" +
 	"\x14InterfaceObservation\x12T\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x123\n" +
 	"\vdescription\x18\x02 \x01(\tB\x11\xbaH\x0er\f\x18@2\b^[ -~]*$R\vdescription\x12U\n" +
@@ -699,18 +699,18 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vadminStatus\x12R\n" +
 	"\voper_status\x18\x04 \x01(\x0e2%.flowseer.net.interface.v1.OperStatusB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\n" +
-	"operStatus\x12E\n" +
+	"operStatus\x12G\n" +
 	"\n" +
-	"provenance\x18\x05 \x01(\v2%.flowseer.api.inventory.v1.ProvenanceR\n" +
+	"provenance\x18\x05 \x01(\v2'.flowseer.model.inventory.v1.ProvenanceR\n" +
 	"provenance\x12Z\n" +
 	"\fcompleteness\x18\x06 \x01(\x0e2'.flowseer.device.access.v1.CompletenessB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x9c\x04\xbaH\x98\x04\x1a\x86\x02\n" +
 	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\x1a\x8c\x02\n" +
 	"8interface_observation.complete_sets_every_compared_field\x12Ra complete observation sets description, admin_status, oper_status, and provenance\x1a|this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))\"k\n" +
 	"\x13InterfaceReadIntent\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\xc6\x01\n" +
-	"\tTypedRead\x12Z\n" +
-	"\raccess_policy\x18\x01 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12N\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\xc5\x01\n" +
+	"\tTypedRead\x12Y\n" +
+	"\raccess_policy\x18\x01 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12N\n" +
 	"\tinterface\x18\n" +
 	" \x01(\v2..flowseer.device.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
 	"\x04read\x12\x05\xbaH\x02\b\x01*a\n" +
@@ -730,15 +730,15 @@ var file_flowseer_device_access_v1_interface_proto_goTypes = []any{
 	(*TypedRead)(nil),                  // 4: flowseer.device.access.v1.TypedRead
 	(v1.AdminStatus)(0),                // 5: flowseer.net.interface.v1.AdminStatus
 	(v1.OperStatus)(0),                 // 6: flowseer.net.interface.v1.OperStatus
-	(*v11.Provenance)(nil),             // 7: flowseer.api.inventory.v1.Provenance
-	(*v12.AccessPolicyHandle)(nil),     // 8: flowseer.device.policy.v1.AccessPolicyHandle
+	(*v11.Provenance)(nil),             // 7: flowseer.model.inventory.v1.Provenance
+	(*v12.AccessPolicyHandle)(nil),     // 8: flowseer.model.policy.v1.AccessPolicyHandle
 }
 var file_flowseer_device_access_v1_interface_proto_depIdxs = []int32{
 	5, // 0: flowseer.device.access.v1.InterfaceObservation.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
 	6, // 1: flowseer.device.access.v1.InterfaceObservation.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
-	7, // 2: flowseer.device.access.v1.InterfaceObservation.provenance:type_name -> flowseer.api.inventory.v1.Provenance
+	7, // 2: flowseer.device.access.v1.InterfaceObservation.provenance:type_name -> flowseer.model.inventory.v1.Provenance
 	0, // 3: flowseer.device.access.v1.InterfaceObservation.completeness:type_name -> flowseer.device.access.v1.Completeness
-	8, // 4: flowseer.device.access.v1.TypedRead.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
+	8, // 4: flowseer.device.access.v1.TypedRead.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
 	3, // 5: flowseer.device.access.v1.TypedRead.interface:type_name -> flowseer.device.access.v1.InterfaceReadIntent
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type

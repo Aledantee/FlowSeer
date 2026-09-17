@@ -57,6 +57,17 @@ The parent's Decisions hold. Specific to this phase:
   landed form is `<root><leaf>v1` for the package that is not the file's
   main one, and a fixed name keeps phase 2's rename a search-and-replace.
 
+Ruled: `model/inventory/v1/README.md`'s `Deliberately absent:` line in U1
+names only the three package-wide absences already stated in the body prose
+(Config messages for the discovered-only families, `EntityRef` admission for
+the four entities that have not joined `EntityType`, and a `Tenant` entity
+with an id surface) rather than restating every per-family "no
+`XConfig`" aside. Why: the README coverage and `Imports:`/`Imported by:`
+gates land in a later unit, so U1 only has to leave the section accurate,
+not exhaustive, and duplicating each family's own absence note would drift
+from the prose that already carries it. Cost if wrong: the later README
+pass rewrites or expands the line; no test depends on its contents yet.
+
 ## Requirements
 
 1. `spec/proto/flowseer/model/` holds `policy`, `credential`, `edge`,
@@ -105,9 +116,10 @@ generated/go/proto/flowseer/**, test/conformance/proto/layering_test.go,
 test/conformance/proto/{device_policy,device_credential,api_inventory,api_inventory_event,api_inventory_topology,api_attribute}_rules_test.go,
 test/conformance/proto/{field_constraint_class,api_edge_bus_credential,store_device}_test.go,
 every Go file importing the three generated packages,
+src/services/device/test/integration/testdata/mutation-verification-repro/{e2e_test.go.repro,fixture_test.go.repro},
 docs/solutions/conventions/document-intentional-schema-deviations-with-comment-and-test.md,
-deploy/lab/registry.textproto, src/modules/localnet/README.md,
-docs/runbooks/lab-icx7150-first-write.md
+deploy/lab/registry.textproto,
+src/modules/localnet/access/internal/capability/interfaces/doc.go
 After: none
 Change: `git mv` moves `device/policy` to `model/policy`,
 `device/credential` to `model/credential`, and `api/inventory` to
@@ -124,9 +136,11 @@ directories). Go imports change path only; `policyv1`, `credentialv1`, and
 change import paths. `importOrder` renames the three keys and every entry
 naming them; `orderedRoots` adds `flowseer/model` and keeps
 `flowseer/device` until U3 empties it. The solution entry's `module:` and
-cited paths, the registry comment naming `CredentialMaterial`, the
-localnet README, and the runbook read the new full names. The three
-package READMEs open with their new full name and gain `## Boundaries`.
+cited paths, the registry comment naming `CredentialMaterial`, and the
+`localnet` capability doc comment naming `Provenance` read the new full
+names; `src/modules/localnet/README.md` and the runbook cite neither
+package by path and need no edit. The three package READMEs open with
+their new full name and gain `## Boundaries`.
 Tests: the renamed rules tests pass unchanged in body;
 `TestSharedFieldNamesCarryTheSameConstraints` passes with no unmatched
 exemption; `TestImportOrder`, `TestImportOrderCoversEveryPackage`, and

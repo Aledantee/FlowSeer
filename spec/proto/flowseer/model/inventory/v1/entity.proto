@@ -1,0 +1,54 @@
+edition = "2024";
+
+package flowseer.model.inventory.v1;
+
+import option "buf/validate/validate.proto";
+
+// The kinds of entity a dynamic reference may name. EntityType, EntityRef,
+// and Entity are one contract designed together — the enum names the kinds,
+// the ref points at one entity of such a kind, and Entity wraps the ref as
+// the uniform generic handle. What admission to this enum obliges is the
+// conventions doc's EntityRef rule.
+enum EntityType {
+  // No kind named. Refs reject the zero value; it exists only so an unset
+  // field is distinguishable from a chosen kind.
+  ENTITY_TYPE_UNSPECIFIED = 0;
+  ENTITY_TYPE_TENANT = 1;
+  ENTITY_TYPE_DEVICE = 2;
+  ENTITY_TYPE_TAG = 3;
+  // The attribute definition, never a value assignment.
+  ENTITY_TYPE_ATTRIBUTE = 4;
+  ENTITY_TYPE_INTEGRATION = 5;
+  ENTITY_TYPE_BINDING = 6;
+  ENTITY_TYPE_PLACEMENT = 7;
+}
+
+// A reference to one entity whose kind is decided at runtime. A
+// statically-known target keeps its typed LocalRef/GlobalRef pair —
+// reaching for EntityRef there trades away the type safety the pair exists
+// for. The flat kind-and-id shape can only address top-level entities; an
+// entity identified relative to an owning parent has no id of its own to
+// carry here and keeps its typed GlobalRef.
+message EntityRef {
+  // The referenced entity's kind. Must be present; the zero value is
+  // rejected.
+  EntityType type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // FlowSeer-assigned identifier of the referenced entity. Must be present.
+  string id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The uniform generic handle: an entity of any kind, as nothing more than
+// its ref. Anything richer than identity is read from the concrete entity.
+message Entity {
+  // The entity's ref. Must be present.
+  EntityRef ref = 1 [(buf.validate.field).required = true];
+}

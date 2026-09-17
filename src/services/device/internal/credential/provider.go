@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/encoding/prototext"
 
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -32,7 +32,7 @@ var (
 )
 
 // keyPattern is the same one-path-segment shape
-// flowseer.device.policy.v1.CredentialHandle.key requires: lowercase,
+// flowseer.model.policy.v1.CredentialHandle.key requires: lowercase,
 // digits, dot, underscore, and hyphen, starting with a letter or digit.
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 

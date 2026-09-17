@@ -58,7 +58,7 @@ which is how a waiter on another replica learns what the read returned.
 the policies their handles resolve to. It is read once at start and
 validated before anything else runs. A policy names credential versions and
 a host-key pin; the credential material itself lives in the mounted files
-`flowseer.device.credential.v1` describes, never here.
+`flowseer.model.credential.v1` describes, never here.
 
 ## The service configuration
 
