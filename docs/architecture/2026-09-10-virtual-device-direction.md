@@ -560,9 +560,9 @@ them.
   Unreachability Detection, and netsim never solicits, so no input can ever
   drive them. A state nothing in the simulator can reach is worse than no
   state, so it is left out rather than sitting dead in the type. The same
-  five states serve ARP and NDP alike, one vocabulary for both families,
-  because Linux itself keeps one neighbour table for both and a second
-  vocabulary for IPv4 would say nothing a shared one does not already say.
+  five states serve ARP and NDP alike: section 7.3.2's set already covers
+  everything an ARP binding has to say, so a vocabulary invented separately
+  for IPv4 would name the same five things a second time.
 - **The wire formats live in two new packages, `arp` and `ndp` under
   `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
   Ethernet or ICMPv6 directly and encodes or decodes one message shape; they
