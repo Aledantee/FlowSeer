@@ -29,6 +29,7 @@ type ConstructionSpec struct {
 	Start         time.Time
 	Switches      map[string]vswitch.ConstructionSpec
 	Hosts         map[string]Host
+	Reflectors    map[string]Reflector
 	Cables        []Cable
 	Uncabled      []Uncabled
 	PhyAssumption *PhyAssumption
@@ -53,6 +54,12 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 		cp.Hosts = make(map[string]Host, len(s.Hosts))
 		for name, host := range s.Hosts {
 			cp.Hosts[name] = host.Clone()
+		}
+	}
+	if s.Reflectors != nil {
+		cp.Reflectors = make(map[string]Reflector, len(s.Reflectors))
+		for name, refl := range s.Reflectors {
+			cp.Reflectors[name] = refl.Clone()
 		}
 	}
 	if s.Cables != nil {
@@ -84,6 +91,12 @@ func (s ConstructionSpec) Config() Config {
 		cfg.Hosts = make(map[string]Host, len(s.Hosts))
 		for name, host := range s.Hosts {
 			cfg.Hosts[name] = host.Clone()
+		}
+	}
+	if s.Reflectors != nil {
+		cfg.Reflectors = make(map[string]Reflector, len(s.Reflectors))
+		for name, refl := range s.Reflectors {
+			cfg.Reflectors[name] = refl.Clone()
 		}
 	}
 	if s.Cables != nil {
@@ -135,6 +148,7 @@ func NewConstructionSpec(cfg Config) (ConstructionSpec, error) {
 	spec := ConstructionSpec{
 		Start:         cfg.Start,
 		Hosts:         cfg.Hosts,
+		Reflectors:    cfg.Reflectors,
 		Cables:        cfg.Cables,
 		Uncabled:      cfg.Uncabled,
 		PhyAssumption: cfg.PhyAssumption,
@@ -222,6 +236,7 @@ func (f *Fabric) Spec() ConstructionSpec {
 		Start:         f.cfg.Start,
 		Switches:      make(map[string]vswitch.ConstructionSpec, len(f.switches)),
 		Hosts:         make(map[string]Host, len(f.cfg.Hosts)),
+		Reflectors:    make(map[string]Reflector, len(f.cfg.Reflectors)),
 		Cables:        make([]Cable, len(f.cfg.Cables)),
 		Uncabled:      cloneUncabled(f.cfg.Uncabled),
 		PhyAssumption: f.cfg.PhyAssumption.Clone(),
@@ -234,6 +249,9 @@ func (f *Fabric) Spec() ConstructionSpec {
 	}
 	for name, host := range f.cfg.Hosts {
 		spec.Hosts[name] = host.Clone()
+	}
+	for name, refl := range f.cfg.Reflectors {
+		spec.Reflectors[name] = refl.Clone()
 	}
 	for i, cable := range f.cfg.Cables {
 		spec.Cables[i] = cable.Clone()
@@ -323,6 +341,17 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 				}
 			}
 		}
+		for name, refl := range cfg.Reflectors {
+			if refl.Address != (netaddr.MAC{}) {
+				continue
+			}
+			if current, ok := cur.cfg.Reflectors[name]; ok {
+				if mac, ok := carry(current.Address); ok {
+					refl.Address = mac
+					cfg.Reflectors[name] = refl
+				}
+			}
+		}
 	}
 
 	cfg = cfg.Normalize()
@@ -331,6 +360,7 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 	}
 	owned.Start = cfg.Start
 	owned.Hosts = cfg.Hosts
+	owned.Reflectors = cfg.Reflectors
 	owned.Cables = cfg.Cables
 	owned.Uncabled = cfg.Uncabled
 	owned.PhyAssumption = cfg.PhyAssumption
@@ -385,6 +415,11 @@ func configuredMACs(cfg Config) map[netaddr.MAC]struct{} {
 	for _, host := range cfg.Hosts {
 		if host.Address != (netaddr.MAC{}) {
 			used[host.Address] = struct{}{}
+		}
+	}
+	for _, refl := range cfg.Reflectors {
+		if refl.Address != (netaddr.MAC{}) {
+			used[refl.Address] = struct{}{}
 		}
 	}
 
@@ -958,6 +993,9 @@ func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState)
 	if host, isHost := cfg.Hosts[ep.Node]; isHost {
 		return host.Ethernet, port.Up
 	}
+	if refl, isReflector := cfg.Reflectors[ep.Node]; isReflector {
+		return refl.Ports[ep.Port], port.Up
+	}
 	swCfg := cfg.Switches[ep.Node]
 	p, _ := swCfg.Ports.Port(ep.Port)
 	admin := p.AdminStatus
@@ -1074,6 +1112,9 @@ func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpo
 		return vswitch.PointToPointFalse
 	}
 	if _, isHost := cfg.Hosts[peer.Node]; isHost {
+		return vswitch.PointToPointTrue
+	}
+	if _, isReflector := cfg.Reflectors[peer.Node]; isReflector {
 		return vswitch.PointToPointTrue
 	}
 	if peerSw, isSw := cfg.Switches[peer.Node]; isSw {

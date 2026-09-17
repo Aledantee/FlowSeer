@@ -342,6 +342,31 @@ and each multicast MAC added or removed as `accept.multicast.<mac>`.
 Validation refuses a unicast entry in `Accept.Multicast`, naming its submitted
 position, such as `hosts.h1.accept.multicast.0`.
 
+## Reflector configuration
+
+A `Reflector` is a third node kind beside a switch and a host: `Config.Reflectors
+map[string]Reflector`. Unlike a host, which has one unnamed port, a reflector
+names its ports explicitly in `Ports map[string]phy.Ethernet`, one entry per
+physical port under a switch port's Ethernet validation rules. Every declared
+port must carry a cable; a port with no cable has no VLAN to reflect onto, so
+`Validate` refuses one and refuses a reflector port named in `Config.Uncabled`
+the same way it refuses any non-switch node there.
+
+`Attachments map[string]Attachment` names the VLANs a reflector answers on. An
+`Attachment` is `{Port string, VLAN *vlan.ID, Addresses []netip.Prefix}`: `Port`
+must name a declared port, a nil `VLAN` is the port's untagged form, and
+`Addresses` must be non-empty. `Validate` refuses an attachment naming an
+unknown port, an invalid VLAN ID, no address, or a port and VLAN pair another
+attachment already uses, since a frame on that pair could not be told apart.
+Attachments are walked in sorted name order, so a rejection names the same
+field on every run, such as `reflectors.r1.attachments.b.vlan`.
+
+This phase gives the reflector no forwarding behavior: an arriving frame is
+refused until a later phase adds acceptance and reflection. `New` and `Spec`
+carry a configured reflector through construction and back out unchanged,
+including MAC assignment when its `Address` is left zero, the same allocator
+a switch and a host share.
+
 ## Hosts with an IP stack and address assignment
 
 A host configured with `IP *HostIP` translates to an internal routing layer
