@@ -197,7 +197,7 @@ them is created.
 
 Files: docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md
 After: none
-Landed: `aaa269e3..b0141ef1`
+Landed: `aaa269e3..a688f322`
 
 ### U2. Phase 2: the edge plane, the northbound api, and the event root
 
