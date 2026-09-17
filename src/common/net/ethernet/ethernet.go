@@ -194,20 +194,46 @@ func Decode(b []byte) (Frame, error) {
 	return f, nil
 }
 
+// isCTagTPID reports whether tpid is one an outer C-Tag carries: zero, the repository's
+// convention for an unspecified TPID, or [EtherTypeDot1Q]. A provider S-Tag (0x88A8) and
+// every other TPID are not C-Tags. [Frame.Priority] and [Frame.OuterVID] must agree about
+// which tags they read, so they share this one test rather than each spelling it out.
+func isCTagTPID(tpid uint16) bool {
+	return tpid == 0 || tpid == uint16(EtherTypeDot1Q)
+}
+
 // Priority returns the PCP and DEI carried by f's outer 802.1Q tag. An untagged frame
-// returns (0, false). A tag whose TPID is neither zero (the repository's convention for
-// an unspecified TPID, treated as 802.1Q) nor [EtherTypeDot1Q] — a provider S-Tag
-// (0x88A8) among others — also returns (0, false); only an outer C-Tag is consulted.
+// returns (0, false), and so does a frame whose outer tag is not a C-Tag — a provider
+// S-Tag (0x88A8) among others; only an outer C-Tag is consulted.
 func (f Frame) Priority() (vlan.PCP, bool) {
 	if len(f.Tags) == 0 {
 		return 0, false
 	}
 	outer := f.Tags[0]
-	if outer.TPID != 0 && outer.TPID != uint16(EtherTypeDot1Q) {
+	if !isCTagTPID(outer.TPID) {
 		return 0, false
 	}
 
 	return outer.PCP, outer.DEI
+}
+
+// OuterVID returns the VLAN identifier f's outer tag names and whether that tag is a
+// C-Tag, which is what a routed sub-interface classifies on. The VID is reported either
+// way, so a caller that refuses a non-C-Tag can still name the VID it saw in the drop it
+// records rather than dropping with no identifier at all.
+//
+// An untagged frame returns (0, true), where [Frame.Priority] returns (0, false) for the
+// same frame. The two answer different questions: Priority reports whether a priority was
+// carried, and an untagged frame carries none, while OuterVID reports whether the frame
+// can be classified onto an interface, and an untagged frame is classifiable at VID 0 —
+// that is exactly the interface a plain routed port carries.
+func (f Frame) OuterVID() (vid vlan.ID, cTag bool) {
+	if len(f.Tags) == 0 {
+		return 0, true
+	}
+	outer := f.Tags[0]
+
+	return outer.VID, isCTagTPID(outer.TPID)
 }
 
 // IsReserved reports whether mac is in the IEEE standard reserved bridge address

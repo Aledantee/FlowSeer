@@ -281,6 +281,62 @@ func TestEncodeRejectsATagItCannotDecode(t *testing.T) {
 	}
 }
 
+// TestFrameOuterVID covers the four tag shapes on the same frames
+// TestFramePriority uses, including the untagged frame the two answer
+// differently: OuterVID reports a classifiable VID 0 where Priority reports no
+// priority carried.
+func TestFrameOuterVID(t *testing.T) {
+	tests := []struct {
+		name     string
+		frame    ethernet.Frame
+		wantVID  vlan.ID
+		wantCTag bool
+	}{
+		{
+			name:     "an untagged frame classifies at VID 0",
+			frame:    ethernet.Frame{EtherType: ethernet.EtherTypeIPv4},
+			wantVID:  0,
+			wantCTag: true,
+		},
+		{
+			name: "802.1Q outer tag reports its VID",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, DEI: true, VID: 100}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			wantVID:  100,
+			wantCTag: true,
+		},
+		{
+			name: "a zero TPID is treated as 802.1Q",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: 0, PCP: 3, DEI: true, VID: 7}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			wantVID:  7,
+			wantCTag: true,
+		},
+		{
+			name: "an S-Tag reports its VID but is no C-Tag",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeProviderBridging), PCP: 7, DEI: true, VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			wantVID:  10,
+			wantCTag: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotVID, gotCTag := tc.frame.OuterVID()
+			if gotVID != tc.wantVID || gotCTag != tc.wantCTag {
+				t.Errorf("OuterVID() = (%v, %v), want (%v, %v)", gotVID, gotCTag, tc.wantVID, tc.wantCTag)
+			}
+		})
+	}
+}
+
 func TestFramePriority(t *testing.T) {
 	tests := []struct {
 		name    string

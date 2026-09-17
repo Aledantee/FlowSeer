@@ -121,18 +121,6 @@ func rateInterval(wireBits, rateBPS uint64) time.Duration {
 	return time.Duration(nanos + fraction)
 }
 
-func framePCP(frame ethernet.Frame) vlan.PCP {
-	if len(frame.Tags) == 0 {
-		return 0
-	}
-	outer := frame.Tags[0]
-	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
-		return 0
-	}
-
-	return outer.PCP
-}
-
 // portCable returns a copy of the cable at an endpoint, or nil for a port
 // without one.
 func (f *Fabric) portCable(node, portName string) *Cable {
@@ -292,7 +280,8 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 			Reason: hostRef.end.Reason,
 		})
 	case hostRef != nil:
-		f.enqueueEgress(inj.At, hostRef.end.Endpoint, hostRef.end.Port, frame, seq, fid, journey, framePCP(frame), "")
+		pcp, _ := frame.Priority()
+		f.enqueueEgress(inj.At, hostRef.end.Endpoint, hostRef.end.Port, frame, seq, fid, journey, pcp, "")
 	default:
 		arr := Arrival{
 			At:      inj.At,
@@ -576,7 +565,8 @@ func (f *Fabric) Step() (Entry, bool) {
 			Port:   copy.Port,
 			Cable:  f.portCable(arr.Device, copy.Port),
 		})
-		f.transmit(arr.At, arr.Device, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, framePCP(copy.Frame), copy.Mirror)
+		pcp, _ := copy.Frame.Priority()
+		f.transmit(arr.At, arr.Device, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, pcp, copy.Mirror)
 	}
 
 	return hopEntry, true
@@ -779,7 +769,8 @@ func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflecto
 		return
 	}
 
-	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, copyFrame, seq, fid, copyJourney, framePCP(copyFrame), "")
+	pcp, _ := copyFrame.Priority()
+	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, copyFrame, seq, fid, copyJourney, pcp, "")
 }
 
 // cloneEntered returns an independent copy of a frame's re-entry set, so a
