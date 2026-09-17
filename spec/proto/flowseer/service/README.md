@@ -15,8 +15,13 @@ belong in `api/` or `edge/`.
 
 ## Boundaries
 
-The `service/` root sits outside the import order as a process-local contract.
-It imports nothing FlowSeer-owned and is imported by no boundary package.
+Imports: nothing FlowSeer-owned
+
+Imported by: nothing
+
+The `service/` root sits outside the import order as a process-local contract,
+so `test/conformance/proto/layering_test.go` holds it to importing nothing
+FlowSeer-owned rather than to a row of the import table.
 
 ## Packages
 

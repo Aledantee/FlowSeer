@@ -17,6 +17,10 @@ services; services live in service roots (`api/`, `edge/`).
 
 ## Boundaries
 
+Imports: net/addr, net/capture, net/interface, net/phy
+
+Imported by: api/capture, api/device, api/edge, event/device, integration/device, store/device
+
 Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
 `model/` packages never import service packages (`api/`), event packages
 (`event/`), or stores (`store/`), and never declare a Connect service.

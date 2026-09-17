@@ -15,6 +15,10 @@ entity models fail admission and belong in `model/`.
 
 ## Boundaries
 
+Imports: errs, model/access, model/edge, model/inventory, model/policy, net/addr
+
+Imported by: nothing
+
 Packages under `store/` may import `model/` entities and handles, `net/`
 primitives, and `errs/`. They are private persistence contracts and are
 imported by nothing FlowSeer-owned.

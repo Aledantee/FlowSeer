@@ -19,9 +19,12 @@ belongs in `model/`.
 
 ## Boundaries
 
-Packages under `net/` are leaves with respect to other FlowSeer roots: they
-import nothing outside `net/`. They may be imported by `model/`, `api/`,
-`store/`, and edge-plane services.
+Imports: nothing FlowSeer-owned
+
+Imported by: api/capture, api/edge, model/access, model/capture, model/inventory, store/device
+
+Packages under `net/` are leaves with respect to every other root: nothing here
+imports outside `net/`, and any root may import them.
 
 ## Packages
 

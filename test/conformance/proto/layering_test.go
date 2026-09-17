@@ -43,8 +43,8 @@ var importOrder = map[string][]string{
 	"model/credential": nil,
 	"model/policy":     nil,
 
-	// The error wire payload. A leaf like model/policy: every boundary may
-	// carry an error, so nothing may depend on it.
+	// The error wire payload, a leaf like model/policy: it imports nothing,
+	// and every boundary that carries an error imports it.
 	"errs": nil,
 
 	// A capture session's identity, lifecycle, and the chunk frames its two
@@ -67,12 +67,13 @@ var importOrder = map[string][]string{
 	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operator API, the execution envelope, and the audit event are
-	// sibling boundary consumers of model/access and errs, and none of the
-	// three imports another. model/inventory and model/policy predate the
-	// errs amendment and stay direct api/device dependencies; the envelope
-	// carries no device or edge ref at all (the transport already names
-	// both), while the audit event needs model/inventory directly because it
-	// is read outside any live transport context.
+	// sibling boundary consumers of model/access, and none of the three
+	// imports another. This row is an allowlist and is wider than the tree:
+	// api/device's files reach model/access and model/inventory, while
+	// model/policy and errs are permitted and unused. The envelope carries no
+	// device or edge ref at all (the transport already names both), and the
+	// audit event needs model/inventory directly because it is read outside
+	// any live transport context.
 	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	"integration/device": {"model/access", "errs"},
@@ -94,13 +95,19 @@ var importOrder = map[string][]string{
 }
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.
-// flowseer/service stays out: it is the process-local bus contract and no
-// boundary package may import it.
 var orderedRoots = []string{
 	"flowseer/net", "flowseer/api", "flowseer/model",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
 	"flowseer/store",
 }
+
+// unorderedRoots are the trees deliberately outside the import order, relative
+// to spec/proto. flowseer/service is the process-local bus contract rather than
+// a boundary between packages, so "which packages may it import" has no answer
+// to put in importOrder; what keeps it out of everyone's way instead is that it
+// imports nothing FlowSeer-owned, which
+// TestUnorderedRootsImportNothingFlowSeerOwned holds it to.
+var unorderedRoots = []string{"flowseer/service"}
 
 func TestImportOrder(t *testing.T) {
 	files := orderedProtoFiles(t)
@@ -166,11 +173,9 @@ func TestImportOrderCoversEveryPackage(t *testing.T) {
 }
 
 // TestOrderedRootsCoverEveryTopLevelTree fails when a new top-level tree lands
-// under spec/proto/flowseer without being added to orderedRoots, so a whole
-// new root cannot escape the coverage and layering checks above the way a
-// package inside an existing root cannot. flowseer/service is the one
-// declared exception: it is the process-local bus contract, and no boundary
-// package may import it.
+// under spec/proto/flowseer without being added to orderedRoots or to
+// unorderedRoots, so a whole new root cannot escape the coverage and layering
+// checks above the way a package inside an existing root cannot.
 func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
 	flowseerRoot := filepath.Join(repoRoot(t), "spec", "proto", "flowseer")
 
@@ -180,19 +185,63 @@ func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
 	}
 
 	declared := map[string]bool{}
-	for _, root := range orderedRoots {
+	for _, root := range slices.Concat(orderedRoots, unorderedRoots) {
 		declared[strings.TrimPrefix(root, "flowseer/")] = true
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == "service" || declared[entry.Name()] {
+		if !entry.IsDir() || declared[entry.Name()] {
 			continue
 		}
 		if len(protoFilesUnder(t, filepath.Join(repoRoot(t), "spec", "proto"), "flowseer/"+entry.Name())) == 0 {
 			continue
 		}
-		t.Errorf("flowseer/%s carries schemas but is missing from orderedRoots", entry.Name())
+		t.Errorf("flowseer/%s carries schemas but is in neither orderedRoots nor unorderedRoots", entry.Name())
 	}
+}
+
+// TestUnorderedRootsImportNothingFlowSeerOwned holds the roots importOrder does
+// not govern. Nothing in the table constrains what such a root imports, so
+// without this a schema under flowseer/service could reach a Connect service
+// package or another process's private store with every other gate green.
+func TestUnorderedRootsImportNothingFlowSeerOwned(t *testing.T) {
+	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
+	for _, root := range unorderedRoots {
+		for _, found := range crossPackageImports(protoFilesUnder(t, protoRoot, root)) {
+			t.Errorf("%s: %s is outside the import order and may import nothing FlowSeer-owned", found, root)
+		}
+	}
+
+	synthetic := []protoFile{{
+		rel: "flowseer/service/v1/x.proto",
+		imports: []string{
+			"google/protobuf/timestamp.proto",
+			"flowseer/service/v1/message.proto",
+			"flowseer/model/edge/v1/edge.proto",
+		},
+	}}
+	got := crossPackageImports(synthetic)
+	want := []string{"flowseer/service/v1/x.proto imports flowseer/model/edge/v1/edge.proto"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// crossPackageImports returns one "<file> imports <schema>" line per
+// FlowSeer-owned import a file declares outside its own package.
+func crossPackageImports(files []protoFile) []string {
+	var found []string
+	for _, file := range files {
+		pkg := protoPackage(file.rel)
+		for _, imported := range file.imports {
+			if !strings.HasPrefix(imported, "flowseer/") || protoPackage(imported) == pkg {
+				continue
+			}
+			found = append(found, fmt.Sprintf("%s imports %s", file.rel, imported))
+		}
+	}
+
+	return found
 }
 
 // TestLayeringViolationRules pins the order's shape against synthetic pairs, so
@@ -202,7 +251,14 @@ func TestLayeringViolationRules(t *testing.T) {
 		name     string
 		importer string
 		imported string
+		// services replaces the tree's service-declaring packages, for a case
+		// that must be rejected by the sink rule alone.
+		services map[string]bool
 		want     bool
+		// wantReason, when set, is the reason layeringViolation must give, so
+		// the case pins which rule rejected the import and not merely that one
+		// did.
+		wantReason string
 	}{
 		{name: "leaf imports nothing FlowSeer-owned", importer: "net/addr", imported: "net/packet"},
 		{name: "package imports itself", importer: "net/addr", imported: "net/addr", want: true},
@@ -241,16 +297,46 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "access values import storage", importer: "model/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
-		{name: "storage imports a sink", importer: "store/device", imported: "api/device"},
-		{name: "access values import a sink", importer: "model/access", imported: "integration/device"},
+		{
+			name:       "storage imports a sink",
+			importer:   "store/device",
+			imported:   "api/device",
+			wantReason: "api/device declares a service and is imported by nothing",
+		},
+		{
+			name:       "access values import a sink",
+			importer:   "model/access",
+			imported:   "integration/device",
+			wantReason: "integration/device declares a service and is imported by nothing",
+		},
+		// The sink rule's own case. Every other rejection above is one the
+		// table would make anyway, so this is the pair that fails when the rule
+		// goes: model/access declares model/inventory, and only a service
+		// declaration in it can stand in the way.
+		{
+			name:       "declared import of a package that declares a service",
+			importer:   "model/access",
+			imported:   "model/inventory",
+			services:   map[string]bool{"model/inventory": true},
+			wantReason: "model/inventory declares a service and is imported by nothing",
+		},
 	}
 
-	services := servicePackages(orderedProtoFiles(t))
+	treeServices := servicePackages(orderedProtoFiles(t))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if allowed := layeringViolation(tt.importer, tt.imported, services) == ""; allowed != tt.want {
+			services := treeServices
+			if tt.services != nil {
+				services = tt.services
+			}
+
+			reason := layeringViolation(tt.importer, tt.imported, services)
+			if allowed := reason == ""; allowed != tt.want {
 				t.Errorf("got allowed=%t, want %t", allowed, tt.want)
+			}
+			if tt.wantReason != "" && reason != tt.wantReason {
+				t.Errorf("got reason %q, want %q", reason, tt.wantReason)
 			}
 		})
 	}
@@ -280,6 +366,31 @@ import public "flowseer/net/addr/v1/eui.proto";
 
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// TestScanServices pins the forms the sink rule must recognize. An indented
+// declaration is the one that would let a model package declare a service and
+// still read as service-free.
+func TestScanServices(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		want   bool
+	}{
+		{name: "declaration at the margin", source: "service Probe {\n}\n", want: true},
+		{name: "indented declaration", source: "  service Probe {\n  }\n", want: true},
+		{name: "commented out", source: "// service Probe {}\n"},
+		{name: "message whose name begins with the keyword", source: "message ServiceProbe {\n}\n"},
+		{name: "rpc inside a service body", source: "  rpc Probe(ProbeRequest) returns (ProbeResponse);\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := scanServices(tt.source); got != tt.want {
+				t.Errorf("got %t, want %t", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -356,7 +467,7 @@ func protoPackage(protoPath string) string {
 var (
 	versionSegment = regexp.MustCompile(`^v\d+(alpha|beta)?\d*$`)
 	importLine     = regexp.MustCompile(`^\s*import\s+(?:option\s+|public\s+|weak\s+)?"([^"]+)"\s*;`)
-	serviceLine    = regexp.MustCompile(`^service\s+\w+\s*\{`)
+	serviceLine    = regexp.MustCompile(`^\s*service\s+\w+\s*\{`)
 )
 
 type protoFile struct {

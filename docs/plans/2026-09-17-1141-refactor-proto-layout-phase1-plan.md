@@ -93,6 +93,38 @@ Ruled: `model/policy/v1/README.md` omits `api/device` from `Imported by:`, and `
 
 Ruled: U6's six pointer amendments say only that `api/inventory`, `device/policy`, `device/credential`, `device/access`, and the entity halves of `api/edge` and `api/capture` now read under `model/`; none claims `integration/device` or `event/device` now reads under `edge/` or `event/access`. Why: neither root exists yet, and an amendment dated today that named one would be false the day it was written; the record that cites `integration/device/v1`'s `DispatchService.Subscribe` and `event/device/v1`'s `AuditService.Deliver` says those two are unchanged instead. Cost if wrong: the pointer amendments need a second one-line addition when the edge plane move lands.
 
+Ruled: a root that the import order leaves out imports nothing
+FlowSeer-owned, and `TestUnorderedRootsImportNothingFlowSeerOwned` holds it
+to that. Why: `importOrder` answers "which packages may this one import",
+and a root with no row in it is answered by nothing — a schema under
+`flowseer/service` could import a Connect service package or another
+process's private store with every gate green, which is the opposite of
+what putting the bus contract outside the order was for. Cost if wrong: a
+runtime schema that legitimately needs a FlowSeer-owned message takes a row
+in `importOrder` instead of the exemption, and the unordered list shrinks.
+
+Ruled: a root or intermediate README's `## Boundaries` carries the same
+`Imports:` and `Imported by:` lines a package README does, naming packages
+rather than roots — `Imports:` the packages its schemas reach outside it,
+`Imported by:` the packages outside it that reach in — and the imports gate
+reads them. `spec/proto/flowseer/README.md` is left out, because no import
+crosses the edge of the tree that holds every FlowSeer package. Why: the
+nine root and intermediate READMEs already made boundary claims in the
+gate's own heading and vocabulary and no gate read them, so a false claim
+was invisible; package names are what a walk can check, while "which roots
+it may import" is a permission it cannot. That permission stays in the
+section, as prose under the two lines. Cost if wrong: a root README's lines
+grow long enough that a reader skips them, and the prose beneath carries
+the rule alone.
+
+Ruled: a version directory holding no schema needs no README. Why:
+`TestProtoPathPolicy` blesses a `.gitkeep` placeholder under a version
+directory, so requiring a README of a directory whose only file is that
+placeholder would set the two gates against each other, and a directory
+with no schema has no package identity to state. Cost if wrong: the
+directory gains the requirement when it gains a schema, which is when the
+README has something to say.
+
 ## Requirements
 
 1. `spec/proto/flowseer/model/` holds `policy`, `credential`, `edge`,
@@ -108,10 +140,12 @@ Ruled: U6's six pointer amendments say only that `api/inventory`, `device/policy
    `model/`. Example: a synthetic `service Probe {}` under
    `model/access/v1` is reported by path.
 4. Every directory under `spec/proto/flowseer/` that is not a bare version
-   holder has a README, and every versioned package README's `Imports:`
-   and `Imported by:` lines match the tree. Example: deleting
-   `model/README.md` fails `TestProtoReadmeCoverage` naming
-   `flowseer/model`; `net/addr/` has no README and passes.
+   holder has a README, and the `Imports:` and `Imported by:` lines of every
+   versioned package README and of every root and intermediate README match
+   the tree. Example: deleting `model/README.md` fails
+   `TestProtoReadmeCoverage` naming `flowseer/model`; `net/addr/` has no
+   README and passes; dropping a package from `net/README.md`'s
+   `Imported by:` line fails `TestProtoReadmeImports`.
 5. The structure record's tree names `model/` with its six packages and
    the five service packages phase 2 moves, and every row of its import
    graph is within `importOrder`. Example: the record's row for
@@ -262,10 +296,13 @@ nothing"; the set of service-declaring packages is scanned from the tree.
 `TestModelDeclaresNoService` walks `flowseer/model/` and fails on any
 `service` declaration. The comments that explained `api/edge` being
 imported are deleted; the table's comment states the rule in two
-sentences.
+sentences. A root the table does not govern is held to importing nothing
+FlowSeer-owned, since no row constrains it.
 Tests: `TestLayeringViolationRules` gains `{importer: "store/device",
 imported: "api/device"}` and `{importer: "model/access", imported:
-"integration/device"}` expecting violations naming the sink rule;
+"integration/device"}` expecting violations naming the sink rule, and a
+case whose service set makes an import the table permits a sink violation,
+asserting the reason rather than only the boolean;
 `TestModelDeclaresNoService` has a synthetic case with `service Probe {}`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- test/conformance/proto`
 
@@ -288,12 +325,14 @@ identity paragraph and has `## Boundaries` with `Imports:`,
 `Imported by:`, and `Deliberately absent:`; an existing "deliberately
 absent" section's content moves under that line. `layout_test.go` gains
 `TestProtoReadmeCoverage` (a README in every directory under `flowseer/`
-whose children are not all version directories) and
-`TestProtoReadmeImports` (for every versioned package, the packages on
-`Imports:` equal those its files import outside itself, and those on
-`Imported by:` equal the packages whose files import it; `nothing
-FlowSeer-owned` and `nothing` mean the empty set), each with a synthetic
-tree case for the failing shape.
+whose children are not all version directories, except a version directory
+holding no schema) and `TestProtoReadmeImports` (for every versioned
+package, the packages on `Imports:` equal those its files import outside
+itself, and those on `Imported by:` equal the packages whose files import
+it; for every root and intermediate README, the same two lines over the
+packages crossing that root's edge; `nothing FlowSeer-owned` and `nothing`
+mean the empty set), each with a synthetic tree case for the failing
+shape.
 Tests: `TestProtoReadmeCoverage` on a temporary tree with `x/v1/a.proto`
 and no README reports `x/v1` and not `x`; `TestProtoReadmeImports` on a
 README naming one package too many on `Imports:` and one too few on

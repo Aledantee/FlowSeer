@@ -17,6 +17,10 @@ internal execution envelope.
 
 ## Boundaries
 
+Imports: errs, model/access
+
+Imported by: nothing
+
 Packages under `integration/` may import `model/` operation vocabulary and
 `errs/`. They are sinks and are imported by nothing FlowSeer-owned.
 

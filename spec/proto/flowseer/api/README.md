@@ -16,9 +16,13 @@ operation vocabulary without RPC definitions.
 
 ## Boundaries
 
+Imports: model/access, model/capture, model/credential, model/edge, model/inventory, model/policy, net/addr, net/capture
+
+Imported by: nothing
+
 Packages under `api/` may import `model/` entities and handles, `net/`
-primitives, and `errs/`. They are sinks and are imported by nothing
-FlowSeer-owned.
+primitives, and `errs/`. They are sinks: every package here declares a service,
+so no schema in the tree may import one.
 
 ## Packages
 

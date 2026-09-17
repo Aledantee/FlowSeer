@@ -17,6 +17,10 @@ facilities, not an individual control protocol.
 
 ## Boundaries
 
+Imports: net/addr
+
+Imported by: nothing
+
 A protocol package may import primitives from lower layers (`net/addr`,
 `net/packet`, `net/phy`, `net/switching`, `net/ip`, `net/interface`) and never
 another protocol package. Protocol packages are not imported by other `net/`

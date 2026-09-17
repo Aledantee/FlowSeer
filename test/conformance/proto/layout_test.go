@@ -2,10 +2,12 @@
 package conformance
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,12 +18,12 @@ func TestProtoSourceTreeLayout(t *testing.T) {
 	root := repoRoot(t)
 	protoRoot := filepath.Join(root, "spec", "proto")
 
-	err := filepath.WalkDir(protoRoot, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(protoRoot, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		rel, err := filepath.Rel(protoRoot, path)
+		rel, err := filepath.Rel(protoRoot, p)
 		if err != nil {
 			return err
 		}
@@ -120,32 +122,45 @@ func TestProtoReadmeCoverage(t *testing.T) {
 	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
 	flowseerDir := filepath.Join(protoRoot, "flowseer")
 
-	for _, missing := range missingProtoReadmes(protoRoot, flowseerDir) {
-		t.Errorf("%s: missing README.md", missing)
+	missing, err := missingProtoReadmes(protoRoot, flowseerDir)
+	if err != nil {
+		t.Fatalf("walking %s: %v", flowseerDir, err)
+	}
+	for _, dir := range missing {
+		t.Errorf("%s: missing README.md", dir)
 	}
 
 	t.Run("synthetic", func(t *testing.T) {
 		tmp := t.TempDir()
-		xV1 := filepath.Join(tmp, "x", "v1")
-		if err := os.MkdirAll(xV1, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(xV1, "a.proto"), []byte("syntax = \"proto3\";\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		writeFixture(t, filepath.Join(tmp, "x", "v1", "a.proto"), "syntax = \"proto3\";\n")
+		// A version directory holding only a placeholder has no schema to
+		// describe, and TestProtoPathPolicy blesses the placeholder.
+		writeFixture(t, filepath.Join(tmp, "y", "v1", ".gitkeep"), "")
 
-		missing := missingProtoReadmes(tmp, tmp)
-		if !slices.Equal(missing, []string{"x/v1"}) {
-			t.Errorf("got %v, want [x/v1]", missing)
+		got, err := missingProtoReadmes(tmp, tmp)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"x/v1"}; !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	// A walk that cannot read the tree has found nothing, not nothing to find,
+	// and the caller has to be able to tell the two apart.
+	t.Run("unreadable tree", func(t *testing.T) {
+		tmp := t.TempDir()
+		if _, err := missingProtoReadmes(tmp, filepath.Join(tmp, "absent")); err == nil {
+			t.Error("got no error walking a directory that does not exist, want one")
 		}
 	})
 }
 
 // missingProtoReadmes returns the slash-separated paths relative to baseDir of
-// directories under startDir that lack a README.md and are not bare version holders.
-func missingProtoReadmes(baseDir, startDir string) []string {
+// directories under startDir that lack a README.md and are expected to carry one.
+func missingProtoReadmes(baseDir, startDir string) ([]string, error) {
 	var missing []string
-	err := filepath.WalkDir(startDir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(startDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -155,56 +170,78 @@ func missingProtoReadmes(baseDir, startDir string) []string {
 		if strings.HasPrefix(d.Name(), ".") {
 			return filepath.SkipDir
 		}
-		if path == baseDir {
+		if p == baseDir {
 			return nil
 		}
 
-		entries, err := os.ReadDir(path)
+		entries, err := os.ReadDir(p)
 		if err != nil {
 			return err
 		}
 
 		var subdirs []os.DirEntry
-		hasReadme := false
+		hasReadme, hasSchema := false, false
 		for _, e := range entries {
-			if e.IsDir() {
+			switch {
+			case e.IsDir():
 				if !strings.HasPrefix(e.Name(), ".") {
 					subdirs = append(subdirs, e)
 				}
-			} else if e.Name() == "README.md" {
+			case e.Name() == "README.md":
 				hasReadme = true
+			case filepath.Ext(e.Name()) == ".proto":
+				hasSchema = true
 			}
+		}
+		if hasReadme {
+			return nil
 		}
 
-		// A bare version holder is a directory whose children are all version directories.
-		isBareVersionHolder := len(subdirs) > 0
-		for _, s := range subdirs {
-			if !versionSegment.MatchString(s.Name()) {
-				isBareVersionHolder = false
-				break
-			}
+		// A bare version holder is a directory whose children are all version
+		// directories; the packages under it state their own identity. A
+		// version directory holding no schema has no identity to state either:
+		// TestProtoPathPolicy blesses a placeholder there, and demanding a
+		// README of a directory whose only file is a .gitkeep would contradict
+		// it.
+		if bareVersionHolder(subdirs) || (versionSegment.MatchString(d.Name()) && !hasSchema) {
+			return nil
 		}
 
-		if !isBareVersionHolder && !hasReadme {
-			rel, err := filepath.Rel(baseDir, path)
-			if err != nil {
-				return err
-			}
-			missing = append(missing, filepath.ToSlash(rel))
+		rel, err := filepath.Rel(baseDir, p)
+		if err != nil {
+			return err
 		}
+		missing = append(missing, filepath.ToSlash(rel))
 
 		return nil
 	})
 	if err != nil {
-		return nil
+		return nil, err
 	}
+
 	slices.Sort(missing)
-	return missing
+
+	return missing, nil
 }
 
-// TestProtoReadmeImports checks that every versioned package's README has
-// Imports: and Imported by: lines that match the dependencies declared by
-// the schemas in the tree.
+// bareVersionHolder reports whether subdirs are all version directories.
+func bareVersionHolder(subdirs []os.DirEntry) bool {
+	if len(subdirs) == 0 {
+		return false
+	}
+	for _, subdir := range subdirs {
+		if !versionSegment.MatchString(subdir.Name()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// TestProtoReadmeImports checks every README under spec/proto/flowseer that
+// claims a boundary against the imports the tree declares: a versioned
+// package's own imports and importers, and, for a root or intermediate
+// directory, the packages crossing its edge either way.
 func TestProtoReadmeImports(t *testing.T) {
 	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
 	flowseerDir := filepath.Join(protoRoot, "flowseer")
@@ -219,95 +256,90 @@ func TestProtoReadmeImports(t *testing.T) {
 
 	t.Run("synthetic", func(t *testing.T) {
 		tmp := t.TempDir()
-		aDir := filepath.Join(tmp, "flowseer", "a", "v1")
-		if err := os.MkdirAll(aDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(aDir, "a.proto"), []byte("edition = \"2024\";\npackage flowseer.a.v1;\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		// a's README names one package too many on Imports: and one too few on Imported by:.
-		aReadme := `# A
-The flowseer.a.v1 package holds a.
+		flowseer := filepath.Join(tmp, "flowseer")
 
-## Boundaries
+		writeFixture(t, filepath.Join(flowseer, "a", "v1", "a.proto"), "edition = \"2024\";\npackage flowseer.a.v1;\n")
+		// a/v1 imports nothing and is imported by b/v1, so its README names one
+		// package too many on Imports: and one too few on Imported by:.
+		writeFixture(t, filepath.Join(flowseer, "a", "v1", "README.md"), boundariesReadme("A", "extra", "nothing"))
 
-Imports: extra
+		writeFixture(t, filepath.Join(flowseer, "b", "v1", "b.proto"),
+			"edition = \"2024\";\npackage flowseer.b.v1;\nimport \"flowseer/a/v1/a.proto\";\n")
+		writeFixture(t, filepath.Join(flowseer, "b", "v1", "README.md"), boundariesReadme("B", "a", "c"))
+		// The b root's README denies both the import the package under it makes
+		// and the one made into it.
+		writeFixture(t, filepath.Join(flowseer, "b", "README.md"), boundariesReadme("B root", "nothing FlowSeer-owned", "nothing"))
 
-Imported by: nothing
+		// Two versions of c, each importing a different package and each with a
+		// README that is right about its own version. Keyed on the package
+		// rather than the directory, one of the two would go unchecked against
+		// both versions' imports merged.
+		writeFixture(t, filepath.Join(flowseer, "c", "v1", "c.proto"),
+			"edition = \"2024\";\npackage flowseer.c.v1;\nimport \"flowseer/a/v1/a.proto\";\n")
+		writeFixture(t, filepath.Join(flowseer, "c", "v1", "README.md"), boundariesReadme("C v1", "a", "nothing"))
+		writeFixture(t, filepath.Join(flowseer, "c", "v2", "c.proto"),
+			"edition = \"2024\";\npackage flowseer.c.v2;\nimport \"flowseer/b/v1/b.proto\";\n")
+		writeFixture(t, filepath.Join(flowseer, "c", "v2", "README.md"), boundariesReadme("C v2", "b", "nothing"))
 
-Deliberately absent:
-- none
-`
-		if err := os.WriteFile(filepath.Join(aDir, "README.md"), []byte(aReadme), 0o644); err != nil {
-			t.Fatal(err)
-		}
-
-		bDir := filepath.Join(tmp, "flowseer", "b", "v1")
-		if err := os.MkdirAll(bDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		bProto := `edition = "2024";
-package flowseer.b.v1;
-import "flowseer/a/v1/a.proto";
-`
-		if err := os.WriteFile(filepath.Join(bDir, "b.proto"), []byte(bProto), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		bReadme := `# B
-The flowseer.b.v1 package holds b.
-
-## Boundaries
-
-Imports: a
-
-Imported by: nothing
-
-Deliberately absent:
-- none
-`
-		if err := os.WriteFile(filepath.Join(bDir, "README.md"), []byte(bReadme), 0o644); err != nil {
-			t.Fatal(err)
-		}
-
-		violations, err := checkProtoReadmeImports(tmp, filepath.Join(tmp, "flowseer"))
+		violations, err := checkProtoReadmeImports(tmp, flowseer)
 		if err != nil {
 			t.Fatalf("synthetic check failed: %v", err)
 		}
 
-		var hasImportsViolation, hasImportedByViolation bool
+		var got []string
 		for _, v := range violations {
-			if v.pkg == "a" {
-				if v.field == "Imports" {
-					hasImportsViolation = true
-				}
-				if v.field == "Imported by" {
-					hasImportedByViolation = true
-				}
-			}
+			got = append(got, v.readme+" "+v.field)
 		}
-		if !hasImportsViolation {
-			t.Errorf("synthetic test expected Imports violation on package a, got %v", violations)
+		slices.Sort(got)
+
+		want := []string{
+			"flowseer/a/v1/README.md Imported by",
+			"flowseer/a/v1/README.md Imports",
+			"flowseer/b/README.md Imported by",
+			"flowseer/b/README.md Imports",
 		}
-		if !hasImportedByViolation {
-			t.Errorf("synthetic test expected Imported by violation on package a, got %v", violations)
+		if !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
 		}
 	})
 }
 
 type readmeViolation struct {
-	pkg     string
+	// readme is the file's path relative to spec/proto, in slash form.
 	readme  string
 	field   string
 	message string
 }
 
-func checkProtoReadmeImports(protoRoot, scanDir string) ([]readmeViolation, error) {
-	pkgDirs := map[string]string{}
-	actualImports := map[string]map[string]bool{}
-	actualImportedBy := map[string]map[string]bool{}
+// schemaFile is one schema's FlowSeer-owned imports. Both the file and the
+// imports are paths relative to spec/proto, in slash form.
+type schemaFile struct {
+	rel     string
+	imports []string
+}
 
-	err := filepath.WalkDir(scanDir, func(path string, d fs.DirEntry, err error) error {
+func checkProtoReadmeImports(protoRoot, scanDir string) ([]readmeViolation, error) {
+	files, err := collectSchemaImports(protoRoot, scanDir)
+	if err != nil {
+		return nil, err
+	}
+
+	roots, err := boundaryReadmeRoots(protoRoot, scanDir)
+	if err != nil {
+		return nil, err
+	}
+
+	violations := packageReadmeViolations(protoRoot, files)
+	for _, root := range roots {
+		violations = append(violations, rootReadmeViolations(protoRoot, root, files)...)
+	}
+
+	return violations, nil
+}
+
+func collectSchemaImports(protoRoot, scanDir string) ([]schemaFile, error) {
+	var files []schemaFile
+	err := filepath.WalkDir(scanDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -315,44 +347,31 @@ func checkProtoReadmeImports(protoRoot, scanDir string) ([]readmeViolation, erro
 			if strings.HasPrefix(d.Name(), ".") {
 				return filepath.SkipDir
 			}
+
 			return nil
 		}
-		if filepath.Ext(path) != ".proto" {
+		if filepath.Ext(p) != ".proto" {
 			return nil
 		}
 
-		rel, err := filepath.Rel(protoRoot, path)
+		rel, err := filepath.Rel(protoRoot, p)
 		if err != nil {
 			return err
 		}
-		rel = filepath.ToSlash(rel)
-		pkg := protoPackage(rel)
-		if pkg == "" {
-			return nil
-		}
-		pkgDirs[pkg] = filepath.Dir(path)
 
-		source, err := os.ReadFile(path)
+		source, err := os.ReadFile(p)
 		if err != nil {
-			return fmt.Errorf("reading imports of %s: %w", path, err)
+			return fmt.Errorf("reading imports of %s: %w", p, err)
 		}
-		imports := scanImports(string(source))
 
-		if actualImports[pkg] == nil {
-			actualImports[pkg] = map[string]bool{}
-		}
-		for _, imp := range imports {
-			if strings.HasPrefix(imp, "flowseer/") {
-				impPkg := protoPackage(imp)
-				if impPkg != "" && impPkg != pkg {
-					actualImports[pkg][impPkg] = true
-					if actualImportedBy[impPkg] == nil {
-						actualImportedBy[impPkg] = map[string]bool{}
-					}
-					actualImportedBy[impPkg][pkg] = true
-				}
+		var owned []string
+		for _, imported := range scanImports(string(source)) {
+			if strings.HasPrefix(imported, "flowseer/") {
+				owned = append(owned, imported)
 			}
 		}
+
+		files = append(files, schemaFile{rel: filepath.ToSlash(rel), imports: owned})
 
 		return nil
 	})
@@ -360,60 +379,168 @@ func checkProtoReadmeImports(protoRoot, scanDir string) ([]readmeViolation, erro
 		return nil, err
 	}
 
-	var violations []readmeViolation
-	for _, pkg := range slices.Sorted(maps.Keys(pkgDirs)) {
-		dir := pkgDirs[pkg]
-		readmePath := filepath.Join(dir, "README.md")
-		content, err := os.ReadFile(readmePath)
-		if err != nil {
-			violations = append(violations, readmeViolation{
-				pkg:     pkg,
-				readme:  readmePath,
-				message: fmt.Sprintf("cannot read README.md: %v", err),
-			})
-			continue
-		}
+	return files, nil
+}
 
-		gotImports, gotImportedBy, err := parseReadmeBoundaries(string(content))
-		if err != nil {
-			violations = append(violations, readmeViolation{
-				pkg:     pkg,
-				readme:  readmePath,
-				field:   "Boundaries",
-				message: err.Error(),
-			})
-			continue
-		}
+// packageReadmeViolations checks one README per versioned package directory.
+// The directory is the key rather than the version-stripped package name: two
+// version directories under one package each carry their own README and their
+// own imports, and keying on the name would check whichever was walked last
+// against both versions' imports merged.
+func packageReadmeViolations(protoRoot string, files []schemaFile) []readmeViolation {
+	dirs := map[string]bool{}
+	imports := map[string]map[string]bool{}
+	importedBy := map[string]map[string]bool{}
 
-		var wantImports []string
-		if len(actualImports[pkg]) > 0 {
-			wantImports = slices.Sorted(maps.Keys(actualImports[pkg]))
-		}
-		var wantImportedBy []string
-		if len(actualImportedBy[pkg]) > 0 {
-			wantImportedBy = slices.Sorted(maps.Keys(actualImportedBy[pkg]))
-		}
+	for _, file := range files {
+		dir := path.Dir(file.rel)
+		dirs[dir] = true
 
-		if !equalPackageLists(gotImports, wantImports) {
-			violations = append(violations, readmeViolation{
-				pkg:     pkg,
-				readme:  readmePath,
-				field:   "Imports",
-				message: fmt.Sprintf("Imports: got %v, want %v", formatPkgList(gotImports), formatPkgList(wantImports)),
-			})
-		}
-
-		if !equalPackageLists(gotImportedBy, wantImportedBy) {
-			violations = append(violations, readmeViolation{
-				pkg:     pkg,
-				readme:  readmePath,
-				field:   "Imported by",
-				message: fmt.Sprintf("Imported by: got %v, want %v", formatPkgList(gotImportedBy), formatPkgList(wantImportedBy)),
-			})
+		for _, imported := range file.imports {
+			importedDir := path.Dir(imported)
+			if importedDir == dir {
+				continue
+			}
+			add(imports, dir, protoPackage(imported))
+			add(importedBy, importedDir, protoPackage(file.rel))
 		}
 	}
 
-	return violations, nil
+	var violations []readmeViolation
+	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
+		violations = append(violations, readmeViolations(protoRoot, dir, imports[dir], importedBy[dir])...)
+	}
+
+	return violations
+}
+
+// rootReadmeViolations checks the README of a root or intermediate directory.
+// Its Imports: are the packages its schemas reach outside it and its Imported
+// by: the packages outside it that reach in, so the claim a root README makes
+// about its edge is the same kind of claim a package README makes and is worth
+// the same amount.
+func rootReadmeViolations(protoRoot, root string, files []schemaFile) []readmeViolation {
+	imports := map[string]bool{}
+	importedBy := map[string]bool{}
+
+	for _, file := range files {
+		inside := withinDir(root, file.rel)
+		for _, imported := range file.imports {
+			switch {
+			case inside && !withinDir(root, imported):
+				imports[protoPackage(imported)] = true
+			case !inside && withinDir(root, imported):
+				importedBy[protoPackage(file.rel)] = true
+			}
+		}
+	}
+
+	return readmeViolations(protoRoot, root, imports, importedBy)
+}
+
+// boundaryReadmeRoots returns the directories under scanDir whose README states
+// a boundary: every directory that holds one except the version directories,
+// whose READMEs packageReadmeViolations checks, and scanDir itself, because no
+// import crosses the edge of the tree that holds every FlowSeer package. A
+// directory that should carry a README and does not is TestProtoReadmeCoverage's
+// to report.
+func boundaryReadmeRoots(protoRoot, scanDir string) ([]string, error) {
+	var roots []string
+	err := filepath.WalkDir(scanDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if strings.HasPrefix(d.Name(), ".") {
+			return filepath.SkipDir
+		}
+		if p == scanDir || versionSegment.MatchString(d.Name()) {
+			return nil
+		}
+
+		switch _, err := os.Stat(filepath.Join(p, "README.md")); {
+		case errors.Is(err, fs.ErrNotExist):
+			return nil
+		case err != nil:
+			return err
+		}
+
+		rel, err := filepath.Rel(protoRoot, p)
+		if err != nil {
+			return err
+		}
+		roots = append(roots, filepath.ToSlash(rel))
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return roots, nil
+}
+
+// readmeViolations compares the ## Boundaries lines of the README in dir, a
+// directory relative to spec/proto, against the dependencies the tree declares.
+func readmeViolations(protoRoot, dir string, imports, importedBy map[string]bool) []readmeViolation {
+	readme := dir + "/README.md"
+
+	content, err := os.ReadFile(filepath.Join(protoRoot, filepath.FromSlash(readme)))
+	if err != nil {
+		return []readmeViolation{{readme: readme, message: fmt.Sprintf("cannot read README.md: %v", err)}}
+	}
+
+	gotImports, gotImportedBy, err := parseReadmeBoundaries(string(content))
+	if err != nil {
+		return []readmeViolation{{readme: readme, field: "Boundaries", message: err.Error()}}
+	}
+
+	var violations []readmeViolation
+	if want := slices.Sorted(maps.Keys(imports)); !equalPackageLists(gotImports, want) {
+		violations = append(violations, readmeViolation{
+			readme:  readme,
+			field:   "Imports",
+			message: fmt.Sprintf("Imports: got %s, want %s", formatPkgList(gotImports), formatPkgList(want)),
+		})
+	}
+	if want := slices.Sorted(maps.Keys(importedBy)); !equalPackageLists(gotImportedBy, want) {
+		violations = append(violations, readmeViolation{
+			readme:  readme,
+			field:   "Imported by",
+			message: fmt.Sprintf("Imported by: got %s, want %s", formatPkgList(gotImportedBy), formatPkgList(want)),
+		})
+	}
+
+	return violations
+}
+
+// withinDir reports whether rel names a file under dir.
+func withinDir(dir, rel string) bool {
+	return strings.HasPrefix(rel, dir+"/")
+}
+
+func add(index map[string]map[string]bool, key, value string) {
+	if index[key] == nil {
+		index[key] = map[string]bool{}
+	}
+	index[key][value] = true
+}
+
+func writeFixture(t *testing.T, p, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func boundariesReadme(title, imports, importedBy string) string {
+	return fmt.Sprintf("# %s\n\n## Boundaries\n\nImports: %s\n\nImported by: %s\n", title, imports, importedBy)
 }
 
 func parseReadmeBoundaries(content string) (imports, importedBy []string, err error) {

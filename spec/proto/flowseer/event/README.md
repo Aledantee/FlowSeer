@@ -16,6 +16,10 @@ in `model/inventory`.
 
 ## Boundaries
 
+Imports: model/access, model/inventory
+
+Imported by: nothing
+
 Packages under `event/` may import `model/` entities and handles, `net/`
 primitives, and `errs/`. They are sinks and are imported by nothing
 FlowSeer-owned.
