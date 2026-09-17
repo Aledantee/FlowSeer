@@ -563,13 +563,13 @@ them.
   five states serve ARP and NDP alike: section 7.3.2's set already covers
   everything an ARP binding has to say, so a vocabulary invented separately
   for IPv4 would name the same five things a second time.
-- **The wire formats live in two new packages, `arp` and `ndp` under
+- **The wire formats live in two packages, `arp` and `ndp` under
   `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
   Ethernet or ICMPv6 directly and encodes or decodes one message shape; they
   hold no neighbor table and no lifecycle of their own; that state lives in
-  `routing.Layer`, which maps a reply or a request onto RFC 4861's solicited,
-  override, and router flags before applying the same merge rule to both
-  families.
+  `routing.Layer`, which applies one RFC 4861 section 7.2.5 merge rule to
+  both families. ARP has no solicited or override flags of its own, so the
+  switch maps a reply or a request onto the flags the layer takes.
 - **The switch observes and never solicits, so an unresolved neighbor a
   lookup depended on degrades readiness instead of silently blocking the
   frame forever.** It reads ARP replies and requests, and Neighbor
@@ -581,13 +581,14 @@ them.
   host held would hold forever. A miss on a host is always `neighbor-miss`,
   never `neighbor-pending`.
 - **A frame held during resolution rides the same wake and emission facility
-  the run model already gives every protocol layer.** A `Route` or
-  `Originate` call that lands on an `Incomplete` neighbor queues the frame
-  instead of dropping it, bounded by a configured hold depth; `Switch.Wake`
-  is what turns a later observation, or a resolution timeout, into an
-  effect, the same call that fires spanning tree hellos and LACP timers. A
+  the run model already gives every protocol layer.** A committing `Route`
+  or `Originate` call that lands on an `Incomplete` neighbor queues the
+  frame instead of dropping it, bounded by a configured hold depth; the
+  `Forward` that observes the advertisement resolving that neighbor releases
+  the frames that observation freed, and `Switch.Wake` settles a resolution
+  timeout, the same call that fires spanning tree hellos and LACP timers. A
   resolved entry releases its held frames as ordinary emissions, and a
-  timed-out one reports them dropped with `neighbor-miss`. `Emission` now
+  timed-out one reports them dropped with `neighbor-miss`. `Emission`
   carries a `Protocol` field, because a released frame is exactly the kind of
   emission that is not one: everything else the switch emits on its own is a
   BPDU, an LACPDU, or a loop-protect probe, and the fabric seam that injects
