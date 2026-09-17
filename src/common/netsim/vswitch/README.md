@@ -324,10 +324,17 @@ explicit calls:
   across all four layers.
 - `Drain()` returns and clears pending frame emissions produced by the
   protocol layers and by a released held frame.
-- `DrainNeighborFailures()` returns and clears the trace steps `Wake`
-  recorded for held frames whose neighbor resolution timed out, the released
-  half's counterpart: a frame that vanished with neither a step nor an entry
+- `DrainNeighborFailures()` returns and clears the `NeighborDrop` records
+  `Wake` made for held frames that reached no wire, the released half's
+  counterpart: a frame that vanished with neither a record nor an emission
   would be the same silent answer the neighbor lifecycle exists to remove.
+  It is every exit from a hold queue that is not an emission, not timeouts
+  alone — a frame the queue pushed out to make room under
+  `routing.ReasonNeighborHoldOverflow`, and a released frame the bridge or
+  the port table then refused, are both here. Each record carries the reason
+  the refusing stage gave and the port it is counted against, empty when no
+  single port owns it, so a consumer is told what happened rather than
+  assuming a neighbor miss and counting it against a name that is not a port.
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.

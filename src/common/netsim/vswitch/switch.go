@@ -162,6 +162,25 @@ type Emission struct {
 	Protocol bool
 }
 
+// ReasonHeldInterfaceUnknown indicates a held frame the routing layer released onto an interface
+// the switch's own routing configuration does not resolve. Nothing constructible reaches it —
+// the exit names the interface the same layer resolved when it queued the frame — but a frame
+// that leaves a hold queue and then reaches no wire is reported rather than dropped in silence.
+const ReasonHeldInterfaceUnknown trace.Reason = "held-interface-unknown"
+
+// NeighborDrop is one frame [Switch.Wake] took out of a hold queue and could not put on a wire,
+// carrying the reason from whichever stage refused it: the routing layer, for a frame that timed
+// out or was pushed out of a full queue, or the bridge or the port table, for a released frame
+// the egress then refused. Reason is that stage's own answer rather than one the reader supplies,
+// and Step is the trace step naming it. Port is the egress port the drop is counted against, and
+// is empty when no single port owns it — a VLAN interface whose bridge found no candidate at all
+// — in which case a consumer counts it against no port rather than inventing an endpoint.
+type NeighborDrop struct {
+	Step   trace.Step
+	Port   string
+	Reason trace.Reason
+}
+
 // Switch simulates a network device composed of a port table and optional
 // physical-layer, bridge, link aggregation, spanning tree, multicast snooping,
 // layer 3 routing, and traffic subsystems.
@@ -215,12 +234,12 @@ type Switch struct {
 	// cannot simulate. It resets with the other hit sets.
 	pvstBoundaryHits map[pvstBoundaryHit]struct{}
 
-	// neighborFailures holds the trace steps [Switch.Wake] recorded for held
-	// frames whose neighbor resolution timed out, drained by
+	// neighborFailures holds the records [Switch.Wake] made for held frames
+	// that left a hold queue and reached no wire, drained by
 	// [Switch.DrainNeighborFailures] the way [Switch.Drain] drains emissions.
-	// A frame that vanished with no step would be the same silent answer
-	// R20 exists to remove.
-	neighborFailures []trace.Step
+	// A frame that vanished with no record would be the same silent answer
+	// the neighbor lifecycle exists to remove.
+	neighborFailures []NeighborDrop
 }
 
 // pvstBoundaryHit names one port and VLAN a journey crossed while the port
@@ -2803,27 +2822,66 @@ func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 	}
 }
 
-// applyRoutingEffects turns the routing layer's neighbor-resolution outcomes
-// into what [Switch.Wake]'s caller can observe: a released frame becomes an
-// Emission with Protocol false, since it is ordinary data the switch is
-// finally able to send rather than a protocol frame of the switch's own, and
-// a frame the hold queue gave up on becomes a trace step rather than
-// vanishing silently.
+// applyRoutingEffects turns the routing layer's hold-queue exits into what
+// [Switch.Wake]'s caller can observe: a released frame becomes an Emission
+// with Protocol false, since it is ordinary data the switch is finally able
+// to send rather than a protocol frame of the switch's own, and a frame that
+// left the queue any other way becomes a [NeighborDrop] under the reason its
+// own cause names rather than vanishing silently.
+//
+// A timeout keeps [routing.ReasonNeighborMiss]: nothing ever answered for the
+// next hop, which is what that reason says. An eviction gets its own, because
+// the neighbor it was queued for may well have resolved, often on this very
+// call.
 func (s *Switch) applyRoutingEffects(now time.Time, fx routing.Effects) {
 	for _, hf := range fx.Exits {
-		if hf.Cause == routing.HeldReleased {
+		switch hf.Cause {
+		case routing.HeldReleased:
 			s.releaseHeldFrame(now, hf)
-
-			continue
+		case routing.HeldTimedOut:
+			s.recordHeldExitDrop(hf, routing.ReasonNeighborMiss)
+		case routing.HeldEvicted:
+			s.recordHeldExitDrop(hf, routing.ReasonNeighborHoldOverflow)
 		}
-		s.neighborFailures = append(s.neighborFailures, trace.Step{
+	}
+}
+
+// recordHeldExitDrop records a held frame the routing layer itself refused, so the subject is
+// the interface it was held on rather than a port: no egress was attempted.
+func (s *Switch) recordHeldExitDrop(hf routing.HeldFrame, reason trace.Reason) {
+	s.neighborFailures = append(s.neighborFailures, NeighborDrop{
+		Step: trace.Step{
 			Layer:   port.LayerRouting,
 			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID(routing.ReasonNeighborMiss),
+			RuleID:  trace.RuleID(reason),
 			Subject: trace.Subject{Kind: "interface", Key: hf.Interface},
-			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, "", "", routing.ReasonNeighborMiss)},
-		})
+			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, hf.Port, "", reason)},
+		},
+		Port:   hf.Port,
+		Reason: reason,
+	})
+}
+
+// recordHeldEgressDrop records a released frame an egress stage refused, under the reason that
+// stage gave. ruleID is separate from reason because a port-table refusal is namespaced as a
+// port status while the counter it feeds is keyed by the bare reason.
+func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member string, ruleID trace.RuleID, reason trace.Reason) {
+	subject := trace.Subject{Kind: "port", Key: egressPort}
+	if egressPort == "" {
+		// No port was chosen, so the interface is the most specific thing the drop is about.
+		subject = trace.Subject{Kind: "interface", Key: hf.Interface}
 	}
+	s.neighborFailures = append(s.neighborFailures, NeighborDrop{
+		Step: trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  ruleID,
+			Subject: subject,
+			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, egressPort, member, reason)},
+		},
+		Port:   egressPort,
+		Reason: reason,
+	})
 }
 
 // releaseHeldFrame resolves the port a released frame for routed interface
@@ -2831,27 +2889,41 @@ func (s *Switch) applyRoutingEffects(now time.Time, fx routing.Effects) {
 // builds for a route resolved live: a VLAN interface's frame goes out through
 // [bridge.Bridge.Egress] with the synthetic ingress a routed frame already
 // uses, and a routed port's frame transmits directly, through its LAG member
-// selection if it has one. Either way a drop the egress attempt itself
-// reports becomes a trace step rather than a silently discarded frame,
-// because a released frame the bridge or port refuses is a different answer
-// from one that was never held.
+// selection if it has one. Every way out of here that is not an emission is
+// a [NeighborDrop] rather than a silently discarded frame, because a released
+// frame the bridge or port refuses is a different answer from one that was
+// never held — and an SVI whose only member port is down produces no egress
+// entry at all, so the bridge's own no-candidate reason is the only thing
+// that can speak for it.
 func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	egressIface, ok := s.routing.Interface(hf.Interface)
 	if !ok {
+		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(ReasonHeldInterfaceUnknown), ReasonHeldInterfaceUnknown)
+
 		return
 	}
 
 	if egressIface.VLAN != 0 {
 		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, PCP: hf.PCP, DEI: hf.DEI, Now: now, Commit: true}, hf.Frame)
+		if len(res.Egress) == 0 {
+			// bridge.replicate returns no egress entry at all when every flood candidate lost
+			// its port, naming the reason on the result instead, and a caller reading only
+			// res.Egress would see nothing. No test constructs it: a release reaches replicate
+			// only on a unicast miss, and the advertisement that resolved the neighbor had to
+			// arrive over a live member of the same VLAN, which is then a live candidate. The
+			// guard stays because the frame is already out of the hold queue by here, so the
+			// day that changes the frame is gone with no record at all.
+			reason := res.Reason
+			if reason == "" {
+				reason = bridge.ReasonNoEgress
+			}
+			s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reason), reason)
+
+			return
+		}
 		for _, eg := range res.Egress {
 			if eg.Dropped != "" {
-				s.neighborFailures = append(s.neighborFailures, trace.Step{
-					Layer:   port.LayerRouting,
-					Op:      trace.OpDrop,
-					RuleID:  trace.RuleID(eg.Dropped),
-					Subject: trace.Subject{Kind: "port", Key: eg.Port},
-					Outputs: []trace.Fact{routing.EgressFact(hf.Interface, eg.Port, eg.Member, eg.Dropped)},
-				})
+				s.recordHeldEgressDrop(hf, eg.Port, eg.Member, trace.RuleID(eg.Dropped), eg.Dropped)
 
 				continue
 			}
@@ -2863,13 +2935,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(hf.Frame.Payload))
 	if txReason != "" {
-		s.neighborFailures = append(s.neighborFailures, trace.Step{
-			Layer:   port.LayerRouting,
-			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID("port.status." + string(txReason)),
-			Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
-			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, egressIface.Port, member, txReason)},
-		})
+		s.recordHeldEgressDrop(hf, egressIface.Port, member, trace.RuleID("port.status."+string(txReason)), txReason)
 
 		return
 	}
@@ -2878,13 +2944,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	if p.Kind == port.Lag {
 		sel := s.selectOrPeekMember(now, egressIface.Port, hf.Frame, 0, true)
 		if !sel.OK {
-			s.neighborFailures = append(s.neighborFailures, trace.Step{
-				Layer:   port.LayerRouting,
-				Op:      trace.OpDrop,
-				RuleID:  "lag.egress.no_member",
-				Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
-				Outputs: []trace.Fact{routing.EgressFact(hf.Interface, egressIface.Port, "", bridge.ReasonNoMember)},
-			})
+			s.recordHeldEgressDrop(hf, egressIface.Port, "", "lag.egress.no_member", bridge.ReasonNoMember)
 
 			return
 		}
@@ -2967,12 +3027,13 @@ func (s *Switch) Drain() []Emission {
 	return em
 }
 
-// DrainNeighborFailures returns and clears the trace steps [Switch.Wake]
-// recorded for held frames whose neighbor resolution timed out: each names
-// the interface the frame was held on with outcome Dropped and reason
-// [routing.ReasonNeighborMiss], the same way [Switch.Drain] returns and
-// clears released frames as emissions.
-func (s *Switch) DrainNeighborFailures() []trace.Step {
+// DrainNeighborFailures returns and clears the records [Switch.Wake] made for
+// held frames that reached no wire, the same way [Switch.Drain] returns and
+// clears released frames as emissions. It is every exit from a hold queue
+// that is not an emission, not timeouts alone: a frame the queue pushed out
+// to make room, and a released frame the bridge or the port table then
+// refused, are both here, each carrying the reason its own stage gave.
+func (s *Switch) DrainNeighborFailures() []NeighborDrop {
 	steps := s.neighborFailures
 	s.neighborFailures = nil
 

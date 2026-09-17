@@ -224,6 +224,23 @@ the arm this phase exists for, would go untested. `DiscardHeld` clears both
 lists, so the discard rule carries over unchanged. Cost if wrong: one line in
 the test's observer and a weaker assertion direction.
 
+Ruled: of the two silent exits U3 names, only one is constructible, and the
+other lands as a documented guard rather than a tested fix. Why: the decision
+above reads `bridge.replicate`'s no-candidate return as the SVI arm's silent
+exit, but a released frame reaches `replicate` only on a unicast miss, and the
+advertisement that resolved the neighbor had to arrive over a live member of
+that same VLAN, which is then a live flood candidate — the observing `Forward`
+is the releasing call, so there is no window in between. `Bridge.Egress`'s
+known-unicast arm appends a `Dropped` egress entry for a down port, so that
+path was never silent either. The arm that *is* silent is LAG member selection
+failing (`bridge.go:1112`), which returns `ReasonNoMember` with no egress
+entry; `TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason`
+constructs it over a LAG whose LACP never converged. The
+`routing.Interface`-unknown return is likewise not constructible and keeps a
+stated reason, `ReasonHeldInterfaceUnknown`. Cost if wrong: both guards are
+four lines each and already record; a later test that reaches either one needs
+no production change.
+
 ## Requirements
 
 1. A frame that enters a hold queue leaves exactly once with a stated cause.

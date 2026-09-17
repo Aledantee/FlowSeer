@@ -331,8 +331,8 @@ func (f *Fabric) Step() (Entry, bool) {
 			for _, em := range sw.Drain() {
 				f.injectEmission(arr.At, arr.Device, em)
 			}
-			for _, step := range sw.DrainNeighborFailures() {
-				f.recordNeighborFailure(arr.At, arr.Device, step)
+			for _, drop := range sw.DrainNeighborFailures() {
+				f.recordNeighborFailure(arr.At, arr.Device, drop.Step)
 			}
 			f.scheduleWake(arr.Device)
 		}
@@ -454,8 +454,8 @@ func (f *Fabric) Step() (Entry, bool) {
 	for _, em := range sw.Drain() {
 		f.injectEmission(arr.At, arr.Device, em)
 	}
-	for _, step := range sw.DrainNeighborFailures() {
-		f.recordNeighborFailure(arr.At, arr.Device, step)
+	for _, drop := range sw.DrainNeighborFailures() {
+		f.recordNeighborFailure(arr.At, arr.Device, drop.Step)
 	}
 	f.scheduleWake(arr.Device)
 

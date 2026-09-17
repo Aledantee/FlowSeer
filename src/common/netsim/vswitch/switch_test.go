@@ -8254,11 +8254,14 @@ func TestHeldFrameTimesOutToFailedWithDropStep(t *testing.T) {
 	if len(failures) != 1 {
 		t.Fatalf("neighbor failures = %d, want 1: %+v", len(failures), failures)
 	}
-	if failures[0].Op != trace.OpDrop {
-		t.Errorf("op = %v, want %v", failures[0].Op, trace.OpDrop)
+	if failures[0].Step.Op != trace.OpDrop {
+		t.Errorf("op = %v, want %v", failures[0].Step.Op, trace.OpDrop)
 	}
-	if failures[0].RuleID != trace.RuleID(routing.ReasonNeighborMiss) {
-		t.Errorf("rule = %v, want %v", failures[0].RuleID, routing.ReasonNeighborMiss)
+	if failures[0].Reason != routing.ReasonNeighborMiss {
+		t.Errorf("reason = %v, want %v", failures[0].Reason, routing.ReasonNeighborMiss)
+	}
+	if failures[0].Step.RuleID != trace.RuleID(routing.ReasonNeighborMiss) {
+		t.Errorf("rule = %v, want %v", failures[0].Step.RuleID, routing.ReasonNeighborMiss)
 	}
 }
 
@@ -8431,5 +8434,211 @@ func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 	failures := sw.DrainNeighborFailures()
 	if len(failures) != 1 {
 		t.Fatalf("neighbor failures = %d, want 1: the frame held for the solicitation's target must never have resolved", len(failures))
+	}
+}
+
+// buildHeldEgressSwitch builds a switch with both egress shapes a released held frame can take:
+// vlan20, an SVI over 1/1/2, and rp1, a routed port on 1/1/3 whose MTU is small enough that a
+// test can build a frame the port refuses. depth bounds each neighbor's hold queue.
+// Nothing is configured for the next hops on purpose — every test below needs the frame held
+// first, which only an unresolved neighbor produces.
+func buildHeldEgressSwitch(t *testing.T, depth int) *vswitch.Switch {
+	t.Helper()
+	p10 := vlan.ID(10)
+	p20 := vlan.ID(20)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 600}))
+
+	return mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &p20, Untagged: []vlan.ID{20}},
+				},
+			},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						"rp1":    {Port: "1/1/3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+					},
+					NeighborPolicy: routing.NeighborPolicy{HoldDepth: depth},
+				},
+			},
+		},
+	})
+}
+
+// holdFrameToward forwards a frame from 1/1/1 toward dst and asserts it was held.
+func holdFrameToward(t *testing.T, sw *vswitch.Switch, at time.Time, dst netip.Addr, payload []byte) {
+	t.Helper()
+	pkt := makeIPv4Packet(t, ipH1, dst, 64, payload)
+	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
+	if res := sw.Forward(at, "1/1/1", frame); res.Outcome != trace.Held {
+		t.Fatalf("outcome for %s = %v, want Held", dst, res.Outcome)
+	}
+}
+
+// TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason covers a released held frame the
+// port table refuses: the record must carry the refusal the port gave, not neighbor-miss, which
+// would say the next hop never answered when it answered a moment ago. The frame is too large
+// for 1/1/3 rather than the port being down, because a down port could not have carried the ARP
+// reply that resolved the neighbor in the first place — the observing Forward is the call that
+// releases, so the egress has to be refusing at that moment.
+func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
+	sw := buildHeldEgressSwitch(t, 3)
+
+	dst := netip.MustParseAddr("10.0.30.77")
+	holdFrameToward(t, sw, fixedTime, dst, make([]byte, 1000))
+
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x30, 0x77}
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.30.1"), learnedMAC, macRouter)
+	sw.Forward(fixedTime.Add(time.Second), "1/1/3", reply)
+
+	if emissions := sw.Drain(); len(emissions) != 0 {
+		t.Fatalf("emissions = %d, want 0: 1/1/3 has an MTU of 600", len(emissions))
+	}
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
+	}
+	if drops[0].Reason != port.ReasonMTUExceeded {
+		t.Errorf("reason = %v, want %v, the port table's own refusal", drops[0].Reason, port.ReasonMTUExceeded)
+	}
+	if drops[0].Port != "1/1/3" {
+		t.Errorf("port = %q, want 1/1/3", drops[0].Port)
+	}
+	if want := trace.RuleID("port.status." + string(port.ReasonMTUExceeded)); drops[0].Step.RuleID != want {
+		t.Errorf("rule = %v, want %v: the step and the reason must agree", drops[0].Step.RuleID, want)
+	}
+}
+
+// TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason covers the arm that recorded
+// nothing at all: [bridge.Bridge.Egress] returns ReasonNoMember with no Egress entry when LAG
+// member selection fails, so releaseHeldFrame, which read only res.Egress, dropped the frame
+// with neither a wire nor a record.
+//
+// The shape: vlan20's member is a LAG whose LACP never converged, so the aggregation forwards —
+// its member links are up — but distributes to nothing. The advertisement arrives on 1/1/5, a
+// second vlan20 port, and carries a different Ethernet source from the address it advertises, so
+// the forwarding database keeps pointing the destination at the LAG. Nothing simpler reaches
+// this branch: the observing Forward is the call that releases, so the neighbor has to resolve
+// over a live port while the egress the frame would take is already refusing.
+func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.T) {
+	p10 := vlan.ID(10)
+	p20 := vlan.ID(20)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
+		Add(port.Port{Name: "1/1/5", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
+					"lag1":  {PVID: &p20, Untagged: []vlan.ID{20}},
+					"1/1/5": {PVID: &p20, Untagged: []vlan.ID{20}},
+				},
+			},
+		},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			// LACP Active with no partner ever answering: the members stay out of the
+			// distributing set, so Select finds nothing to hash onto.
+			"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}, Members: map[string]lag.Member{"1/1/2": {}}},
+		}},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+				},
+			},
+		},
+	})
+
+	dst := netip.MustParseAddr("10.0.20.77")
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+	if err := sw.Learn([]bridge.Seed{{FID: 20, MAC: learnedMAC, Port: "lag1", Static: true}}); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
+
+	holdFrameToward(t, sw, fixedTime, dst, []byte("svi"))
+
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	reply.Src = netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x01}
+	sw.Forward(fixedTime.Add(time.Second), "1/1/5", reply)
+
+	for _, em := range sw.Drain() {
+		if em.Frame.Dst == learnedMAC {
+			t.Fatalf("the held frame egressed on %s, want no emission: lag1 distributes to nothing", em.Port)
+		}
+	}
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
+	}
+	if drops[0].Reason != bridge.ReasonNoMember {
+		t.Errorf("reason = %v, want %v, the bridge's own answer", drops[0].Reason, bridge.ReasonNoMember)
+	}
+	if drops[0].Port != "lag1" {
+		t.Errorf("port = %q, want lag1, the aggregation that refused it", drops[0].Port)
+	}
+	if drops[0].Step.RuleID != trace.RuleID(drops[0].Reason) {
+		t.Errorf("rule = %v, want %v: the step and the reason must agree", drops[0].Step.RuleID, drops[0].Reason)
+	}
+}
+
+// TestEvictedHeldFrameIsNotReportedAsANeighborMiss covers a frame the hold queue pushed out to
+// make room. It is not a neighbor that failed to answer — in this very run the neighbor answers,
+// and the two frames behind it release on the same Wake.
+func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
+	sw := buildHeldEgressSwitch(t, 2)
+
+	dst := netip.MustParseAddr("10.0.20.77")
+	for i, payload := range [][]byte{[]byte("first"), []byte("second"), []byte("third")} {
+		holdFrameToward(t, sw, fixedTime.Add(time.Duration(i)*time.Millisecond), dst, payload)
+	}
+
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
+
+	var released int
+	for _, em := range sw.Drain() {
+		if em.Frame.Dst == learnedMAC {
+			released++
+		}
+	}
+	if released != 2 {
+		t.Fatalf("released frames = %d, want 2: the two frames the queue kept", released)
+	}
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
+	}
+	if drops[0].Reason != routing.ReasonNeighborHoldOverflow {
+		t.Errorf("reason = %v, want %v", drops[0].Reason, routing.ReasonNeighborHoldOverflow)
+	}
+	if drops[0].Step.RuleID != trace.RuleID(routing.ReasonNeighborHoldOverflow) {
+		t.Errorf("rule = %v, want %v", drops[0].Step.RuleID, routing.ReasonNeighborHoldOverflow)
+	}
+	if drops[0].Port != "" {
+		t.Errorf("port = %q, want empty: vlan20 is an SVI, which owns no single port", drops[0].Port)
 	}
 }
