@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
 ---
 
 # Protobuf Tree Phase 2 - The Edge Plane, the Northbound API, and the Event Root - Plan
+
+> Implemented. 6 units, 2026-09-17T21:43Z to 2026-09-18T00:19Z.
 
 ## Goal
 

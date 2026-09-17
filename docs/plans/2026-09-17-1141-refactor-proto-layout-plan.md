@@ -206,7 +206,7 @@ Landed: `aaa269e3..a688f322`
 
 Files: docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md
 After: U1
-Landed:
+Landed: `61fa0be4..0b8ca670`
 
 ### U3. Phase 3: the process-private roots and the root README pass
 
