@@ -814,7 +814,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		// (and must not) decrement it again once resolution completes.
 		heldHdr := hdr
 		heldHdr.HopLimit--
-		pcp, dei := framePriority(f)
+		pcp, dei := f.Priority()
 		return heldEntry{iface: targetIface, etherType: f.EtherType, header: heldHdr, payload: payload, pcp: pcp, dei: dei}
 	})
 

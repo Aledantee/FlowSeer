@@ -280,3 +280,55 @@ func TestEncodeRejectsATagItCannotDecode(t *testing.T) {
 		t.Errorf("a zero TPID encoded as %+v, want two tags with an outer C-Tag", back.Tags)
 	}
 }
+
+func TestFramePriority(t *testing.T) {
+	tests := []struct {
+		name    string
+		frame   ethernet.Frame
+		wantPCP vlan.PCP
+		wantDEI bool
+	}{
+		{
+			name:    "untagged frame carries no priority",
+			frame:   ethernet.Frame{EtherType: ethernet.EtherTypeIPv4},
+			wantPCP: 0,
+			wantDEI: false,
+		},
+		{
+			name: "802.1Q outer tag reports its PCP and DEI",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, DEI: true, VID: 100}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			wantPCP: 5,
+			wantDEI: true,
+		},
+		{
+			name: "a zero TPID is treated as 802.1Q",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: 0, PCP: 3, DEI: true, VID: 42}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			wantPCP: 3,
+			wantDEI: true,
+		},
+		{
+			name: "a non-802.1Q outer TPID carries no priority",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeProviderBridging), PCP: 7, DEI: true, VID: 42}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			wantPCP: 0,
+			wantDEI: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotPCP, gotDEI := tc.frame.Priority()
+			if gotPCP != tc.wantPCP || gotDEI != tc.wantDEI {
+				t.Errorf("Priority() = (%v, %v), want (%v, %v)", gotPCP, gotDEI, tc.wantPCP, tc.wantDEI)
+			}
+		})
+	}
+}
