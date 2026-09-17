@@ -519,3 +519,15 @@ in-memory inputs and a logical clock.
    caller reading only `res.Egress` inherits U3's defect. The live forwarding
    path also reads `res.Outcome`, so it is covered; whether every other caller
    does was not checked here.
+6. **Should a journey entry that names no port depend on its device's
+   node-level issues?** Review found that keeping the node scope as a
+   dependency made a portless neighbor drop inherit every port's issues on
+   that device, because a node scope contains every port scope beneath it.
+   The fix drops the endpoint scope for such an entry entirely, which also
+   drops the node-level issues that legitimately bear on it. No production
+   fabric path raises a node-scoped issue today (`analysis.NodeScope` appears
+   in non-test fabric code only at `fabric.go:951`), so nothing is lost yet,
+   and the behavior is documented and pinned in both directions. Keeping the
+   node-level half would need `record` to match some dependencies by
+   containment rather than overlap, which is a change to its shape rather
+   than to one condition; that is the question a later phase decides.
