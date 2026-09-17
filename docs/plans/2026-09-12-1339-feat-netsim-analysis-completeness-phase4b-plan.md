@@ -4,13 +4,19 @@ type: feat
 date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 4b: neighbor lifecycle and address resolution - Plan
+
+> Implemented. 6 units, 2026-09-16T17:39Z to 2026-09-17T08:47Z. The neighbor
+> lifecycle, both codecs, the hold queue, the switch and fabric seam, the
+> direction record, and the corpus case all landed. The plan's `CurrentResult`
+> for the corpus case described a drop the tree stopped giving once the seam
+> landed; Decisions carries the ruling that replaced it.
 
 ## Goal
 
@@ -301,6 +307,22 @@ line numbers that phases 3b through 4 have since moved.
   Each vector's swappable fields differ in every octet, and the ICMPv6
   checksum appears as a hand-computed literal with its working in a comment,
   the way `src/common/net/ip/ip_test.go:16-42` does it.
+
+Ruled: the corpus case records `Held` with `neighbor-pending` as the tree's
+present answer, and the drop this plan wrote into `CurrentResult` moves to
+`FalseAnswer`. Why: `CurrentResult` was written before the switch and fabric
+seam landed, when an unresolved next hop was still a `Complete` drop, and a
+case whose `CurrentResult` describes an answer the tree stopped giving tells
+a later reader the corpus disagrees with the code. Cost if wrong: two strings
+in one case function.
+
+Ruled: the case's neighbor-unresolved evidence `Context` is a literal string,
+not one built from the values the switch writes. Why: an expectation computed
+from the production side follows a renamed issue code or a reshaped scope
+wherever it goes and still passes, which is the one thing the exact-match
+corpus exists to catch; every other case writes the string out. Cost if
+wrong: the literal has to be re-read off a failure message when the scope
+rendering changes on purpose.
 
 ## Requirements
 

@@ -517,6 +517,14 @@ area reads this before planning; a phase that closes one removes its entry.
   state-ownership phase.** Phase 5's plan assigns the routing retention arm to
   itself; `derive.go` already has one, keyed on `routing.Diff` with held frames
   discarded. Phase 5 reconciles rather than adds.
+- **A connected route's lookup fact renders its absent next hop as
+  `invalid IP`.** `routing.LookupFact` prints `netip.Addr{}` through its
+  `String` method, so a connected route, which has no next hop by definition,
+  canonicalizes as `next_hop="invalid IP"` and its candidate list as
+  `[invalid IP|out|invalid IP]`. Nothing is wrong with the lookup, but the
+  text reads as a decode failure, and any phase that shows a lookup fact to a
+  person, or matches on one, meets it first. Surfaced admitting the
+  neighbor-resolution corpus case, which had to pin the string as it stands.
 - **`stp.PortInfo` carries counters that advance on every hello.**
   `TxBPDUs`, `RxBPDUs`, `ForwardTransitions` and `BadBPDUs` move whenever the
   protocol runs, so anything that hashes a port snapshot whole never sees the
@@ -648,7 +656,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4b-plan.md`
 - **After:** U4
-- **Landed:**
+- **Landed:** `64ea915e..22e74b0f`
 - **Change:** Add an explicit neighbor lifecycle, ARP and Neighbor Discovery
   codecs, and injected logical-time transitions with held frames.
 - **Tests:** Codec vectors, state transitions, held-frame release and timeout,
