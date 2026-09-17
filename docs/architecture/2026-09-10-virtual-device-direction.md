@@ -542,6 +542,58 @@ them.
   the question this decision creates. A withdrawn route and a `neighbor-miss`
   stay separate failures.
 
+### Neighbor resolution and held frames
+
+- **`neighbor-miss` and `neighbor-pending` are two different answers to "who
+  is at this next hop", not degrees of the same failure.** `neighbor-miss` is
+  a routing VRF that will never resolve the next hop to a MAC address, either
+  because it does not observe neighbors at all or because it already tried
+  and gave up; `neighbor-pending` is a next hop the routing table reached
+  whose neighbor entry is newly or still unresolved, and it is not a drop —
+  the frame is held. A withdrawn route is a third, earlier failure: no chain
+  of routes reaches the next hop at all, decided once when the table is
+  built, before any neighbor lookup runs.
+- **A neighbor entry has five states, and two states of RFC 4861's machine
+  are missing on purpose.** `Unobserved`, `Incomplete`, `Reachable`, `Stale`,
+  and `Failed` are the states a lookup can report; `Delay` and `Probe` exist
+  in the RFC only to schedule a unicast solicitation toward Neighbor
+  Unreachability Detection, and netsim never solicits, so no input can ever
+  drive them. A state nothing in the simulator can reach is worse than no
+  state, so it is left out rather than sitting dead in the type. The same
+  five states serve ARP and NDP alike, one vocabulary for both families,
+  because Linux itself keeps one neighbour table for both and a second
+  vocabulary for IPv4 would say nothing a shared one does not already say.
+- **The wire formats live in two new packages, `arp` and `ndp` under
+  `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
+  Ethernet or ICMPv6 directly and encodes or decodes one message shape; they
+  hold no neighbor table and no lifecycle of their own; that state lives in
+  `routing.Layer`, which maps a reply or a request onto RFC 4861's solicited,
+  override, and router flags before applying the same merge rule to both
+  families.
+- **The switch observes and never solicits, so an unresolved neighbor a
+  lookup depended on degrades readiness instead of silently blocking the
+  frame forever.** It reads ARP replies and requests, and Neighbor
+  Solicitation and Advertisement messages, off the wire as they pass, and
+  applies RFC 4861 section 7.2.5 to what they say, without ever sending a
+  solicitation of its own. A host's routing layer does not resolve at all:
+  `HostRoutingConfig` writes `NeighborDisabled` into every host VRF, because
+  nothing wakes a host stack the way `Fabric` wakes a switch, and a frame a
+  host held would hold forever. A miss on a host is always `neighbor-miss`,
+  never `neighbor-pending`.
+- **A frame held during resolution rides the same wake and emission facility
+  the run model already gives every protocol layer.** A `Route` or
+  `Originate` call that lands on an `Incomplete` neighbor queues the frame
+  instead of dropping it, bounded by a configured hold depth; `Switch.Wake`
+  is what turns a later observation, or a resolution timeout, into an
+  effect, the same call that fires spanning tree hellos and LACP timers. A
+  resolved entry releases its held frames as ordinary emissions, and a
+  timed-out one reports them dropped with `neighbor-miss`. `Emission` now
+  carries a `Protocol` field, because a released frame is exactly the kind of
+  emission that is not one: everything else the switch emits on its own is a
+  BPDU, an LACPDU, or a loop-protect probe, and the fabric seam that injects
+  emissions needs to tell a held user frame apart from a frame the switch
+  originated.
+
 ### Semantic traces and producer-owned facts
 
 Prose strings are rejected as trace comparison keys. Capabilities define typed
@@ -631,6 +683,11 @@ The following areas remain outside the foundation established here:
 - **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
   MSTP), LACP dynamic aggregation negotiations, IGMP/MLD querier election,
   dynamic IP routing (BGP and OSPF), and transport protocol behavior.
+- **Neighbor solicitation and unreachability detection**: the switch observes
+  ARP and NDP traffic but never sends a solicitation of its own, and a stale
+  or incomplete neighbor entry never moves through `Delay` or `Probe` toward
+  a fresh answer; the `Reachable` cache is trusted until it ages out or a
+  received advertisement changes it.
 - **Scenario overlays and search**: high-level scenario injection DSLs, packet
   generation search spaces, and multi-journey exploration budgets.
 - **Convergence guarantees**: automated loop detection and settling criteria
