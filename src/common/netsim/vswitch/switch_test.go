@@ -8522,10 +8522,11 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 	}
 }
 
-// TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason covers the arm that recorded
-// nothing at all: [bridge.Bridge.Egress] returns ReasonNoMember with no Egress entry when LAG
-// member selection fails, so releaseHeldFrame, which read only res.Egress, dropped the frame
-// with neither a wire nor a record.
+// TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason covers a released frame whose
+// SVI egress is a LAG that fails member selection: [bridge.Bridge.selectMember] records its own
+// [bridge.ReasonNoMember] entry, naming the LAG, and releaseHeldFrame carries that reason and
+// that port name onto the [NeighborDrop] unchanged, rather than reporting a reason of its own
+// invention.
 //
 // The shape: vlan20's member is a LAG whose LACP never converged, so the aggregation forwards —
 // its member links are up — but distributes to nothing. The advertisement arrives on 1/1/5, a
@@ -8598,6 +8599,80 @@ func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.
 	}
 	if drops[0].Port != "lag1" {
 		t.Errorf("port = %q, want lag1, the aggregation that refused it", drops[0].Port)
+	}
+	if drops[0].Step.RuleID != trace.RuleID(drops[0].Reason) {
+		t.Errorf("rule = %v, want %v: the step and the reason must agree", drops[0].Step.RuleID, drops[0].Reason)
+	}
+}
+
+// TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason covers the arm
+// releaseHeldFrame's len(res.Egress) == 0 guard exists for: vlan20 is a
+// flood VLAN with no switchport carrying it at all, so [bridge.Bridge.Egress]
+// never reaches a candidate port and returns with no Egress entry, naming
+// the reason on the result instead — the same shape
+// TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason covers for
+// a LAG that fails member selection, but reached through the
+// candidates-stay-empty branch of replicate rather than through
+// selectMember, which always records an Egress entry of its own even when
+// it fails.
+//
+// The ARP reply that resolves the neighbor arrives tagged for VID 20 on
+// 1/1/2, a port with no switchport entry at all: a tagged frame classifies
+// by its own VID regardless of switchport membership, which is the only way
+// to attribute the observation to vlan20's interface without also handing
+// the release a live vlan20 port to flood onto.
+func TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason(t *testing.T) {
+	p10 := vlan.ID(10)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
+				},
+			},
+			FloodVLANs: []vlan.ID{20},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+				},
+			},
+		},
+	})
+
+	dst := netip.MustParseAddr("10.0.20.77")
+	holdFrameToward(t, sw, fixedTime, dst, []byte("flood-vlan"))
+
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	reply.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
+	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
+
+	for _, em := range sw.Drain() {
+		if em.Frame.Dst == learnedMAC {
+			t.Fatalf("the held frame egressed on %s, want no emission: vlan20 has no member port", em.Port)
+		}
+	}
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
+	}
+	if drops[0].Reason != bridge.ReasonNoEgress {
+		t.Errorf("reason = %v, want %v, the bridge's own answer", drops[0].Reason, bridge.ReasonNoEgress)
+	}
+	if drops[0].Port != "" {
+		t.Errorf("port = %q, want empty: no port was chosen", drops[0].Port)
 	}
 	if drops[0].Step.RuleID != trace.RuleID(drops[0].Reason) {
 		t.Errorf("rule = %v, want %v: the step and the reason must agree", drops[0].Step.RuleID, drops[0].Reason)
