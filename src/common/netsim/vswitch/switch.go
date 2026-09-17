@@ -2290,9 +2290,9 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	}
 
 	// The step is chosen above from admitted and tracked, not from the
-	// outcome: both are true here, which leaves the layer having processed
-	// the frame, or under Peek having been shown what it would do with one,
-	// and that is what stp.sstp.admit traces whether the tree half applied
+	// outcome: both are true here, which under Forward leaves the layer
+	// having processed the frame and under Peek leaves it untouched.
+	// stp.sstp.admit is the step either way, whether the tree half applied
 	// the vector, fired BPDU guard, marked a boundary, or refused a PVID
 	// mismatch.
 	//
