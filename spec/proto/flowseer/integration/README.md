@@ -4,7 +4,7 @@
 
 The `integration/` root holds contracts between central services and
 distributed integrations, including dispatch envelopes, execution reports, and
-the integration fabric contract described in the [device service direction record's "Transport" section](../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md#transport).
+the integration fabric contract described in the [device service direction record's "Transport" section](../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md#transport-nats-as-the-integration-fabric).
 The root is reserved for this fabric contract until the bus plan lands.
 
 ## Admission

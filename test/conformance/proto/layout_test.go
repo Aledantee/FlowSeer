@@ -332,10 +332,11 @@ func checkProtoReadmeImports(protoRoot, scanDir string) ([]readmeViolation, erro
 		}
 		pkgDirs[pkg] = filepath.Dir(path)
 
-		imports, err := protoImports(path)
+		source, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("reading imports of %s: %w", path, err)
 		}
+		imports := scanImports(string(source))
 
 		if actualImports[pkg] == nil {
 			actualImports[pkg] = map[string]bool{}
