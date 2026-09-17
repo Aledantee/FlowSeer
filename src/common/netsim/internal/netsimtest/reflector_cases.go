@@ -53,7 +53,7 @@ var (
 	reflectedQueryR1MAC = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x04, 0xaa}
 )
 
-// reflectedQueryConfig cables h1 on VLAN 10 and h2 on VLAN 20 to sw1, and
+// mustReflectedQueryConfig cables h1 on VLAN 10 and h2 on VLAN 20 to sw1, and
 // sw1's third port to r1's single trunk port, carrying both VLANs tagged.
 // sw1 snoops both VLANs with FloodUnregistered off, so the case also proves
 // the reflector's query still crosses it: 224.0.0.251 sits in the
@@ -62,7 +62,7 @@ var (
 // [CaseTroubleshootingMDNSIPv4FloodsUnderSnooping]'s sibling proof at the
 // switch layer alone. r1's two attachments carry the only addresses of h2's
 // family, so accepting on one produces exactly one copy.
-func reflectedQueryConfig() fabric.Config {
+func mustReflectedQueryConfig() fabric.Config {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
 	flood := false
@@ -181,7 +181,7 @@ func CaseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 		ExpectedFacts: []FactExpectation{groupDestination, macFact, addrFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.New(reflectedQueryConfig())
+			fab, err := fabric.New(mustReflectedQueryConfig())
 			if err != nil {
 				return ExecutionResult{}, err
 			}
