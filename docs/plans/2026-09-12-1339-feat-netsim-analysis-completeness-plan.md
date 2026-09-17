@@ -663,11 +663,29 @@ area reads this before planning; a phase that closes one removes its entry.
   and a corpus case.
 - **Verify:** Re-plan the phase against the landed tree before implementation.
 
+### U4c: Account for every exit from a neighbor hold queue
+
+- **Files:**
+  `docs/plans/2026-09-17-1217-fix-netsim-analysis-completeness-phase4c-plan.md`
+- **After:** U4b
+- **Landed:**
+- **Change:** One exit slice carrying a cause, an encode that validates before
+  the queue rather than after it, an egress identity carried with the frame, a
+  drop record that keeps the egress's own reason, and a released frame's
+  priority reaching the wire on every egress shape. Corrective: a review and a
+  re-review found defects of one class in U4b's hold-queue reporting, several
+  of them in the fixes for the first round's findings.
+- **Tests:** A conservation test over a fixed list of queue sequences, an
+  ordering test that loops rather than sampling once, and SVI and
+  untagged-egress cases the phase's own tests avoided by naming interfaces
+  after ports.
+- **Verify:** Follow the phase plan.
+
 ### U5: Define state ownership, derivation invalidation, and fork isolation
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase5-plan.md`
-- **After:** U2, U3c, U3e, U3f, U4, U4b
+- **After:** U2, U3c, U3e, U3f, U4, U4b, U4c
 - **Landed:**
 - **Change:** Separate state ownership, key retained runtime state by complete
   dependencies, reconstruct static state from construction inputs, and make
