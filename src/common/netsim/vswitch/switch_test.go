@@ -7539,3 +7539,42 @@ func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
 		t.Errorf("stp.sstp.vlans fact = %q, want %q", vlansCanonical, want)
 	}
 }
+
+// TestSSTPPortDownTracesTheSameUnderPeekAndForward pins the agreement a
+// read-only inspection owes a committing one. Peek derives its outcome from
+// what the switch can observe without mutating, and the port-down case is the
+// one the layer alone knows: a port the port table calls up but the spanning
+// tree layer never configured. A Peek that renders it as admitted describes a
+// journey the switch would not have taken.
+func TestSSTPPortDownTracesTheSameUnderPeekAndForward(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	cfg.Ports = mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	// Start is deliberately not called: "1/1/1" is a configured spanning tree
+	// port that the layer has not yet seen a link transition for. That is the
+	// case a port-name lookup alone cannot tell from a configured, linked
+	// port, so it is the one that distinguishes the two.
+	sw := mustSwitch(t, cfg)
+
+	frame := pvstSSTPFrame(t, 10, 10, peer)
+
+	peeked := sw.Peek(now, "1/1/1", frame)
+	forwarded := sw.Forward(now, "1/1/1", frame)
+
+	if peeked.Outcome != forwarded.Outcome {
+		t.Errorf("Peek outcome = %s, Forward outcome = %s, want agreement", peeked.Outcome, forwarded.Outcome)
+	}
+	if peeked.Reason != forwarded.Reason {
+		t.Errorf("Peek reason = %q, Forward reason = %q, want agreement", peeked.Reason, forwarded.Reason)
+	}
+	if _, ok := findStep(peeked.Steps, "port.status.down"); !ok {
+		t.Errorf("no port.status.down step under Peek: %+v", peeked.Steps)
+	}
+}
