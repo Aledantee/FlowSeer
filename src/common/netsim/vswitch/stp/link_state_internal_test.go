@@ -393,6 +393,13 @@ func TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag(t *testing.T) {
 			set := distinctValue(t, mstField.Type(), 3)
 			mstField.Set(set)
 
+			// A planted value that already equals what the link-down branch
+			// must write would assert nothing, which is how the sibling
+			// replication check went vacuous for three of its four fields.
+			if spec.linkDownClears && reflect.DeepEqual(set.Interface(), spec.linkDownValue) {
+				t.Fatalf("test setup: the planted %s already equals linkDownValue %v", name, spec.linkDownValue)
+			}
+
 			cistP.up = false
 			l.syncInstancePorts("p1", cistP)
 
@@ -422,6 +429,8 @@ func TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag(t *testing.T) {
 // without calling ReceiveSSTP itself, since Peek must not mutate the link
 // half of a receive.
 func TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Priority: 32768,
 		Address:  netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03},

@@ -2289,23 +2289,16 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		FID:     arrivalVID,
 	}
 
-	// admitted and tracked are both true past this point, so every outcome
-	// ReceiveSSTP can still have returned — applied, bpdu guard, a PVST
-	// boundary, or a PVID mismatch — means the link half ran to completion
-	// and the tree half is done deciding what to do about it; all four are
-	// the layer having processed the frame, which is what stp.sstp.admit
-	// traces. They are named explicitly, rather than folded into a default
-	// arm, so a new stp.SSTPOutcome value needs its own case here instead of
-	// silently taking this path.
-	switch outcome {
-	case stp.SSTPApplied, stp.SSTPGuarded, stp.SSTPBoundary, stp.SSTPPVIDInconsistent:
-		return admitResult
-	}
-
-	// Unreachable given stp.SSTPOutcome's definition today: SSTPPortDown,
-	// SSTPNotAdmitted, and SSTPUntrackedVLAN are excluded above, leaving only
-	// the four outcomes named in the case above. Returned explicitly so this
-	// path stays visible rather than disappearing into the switch.
+	// The step is chosen above from admitted and tracked, not from the
+	// outcome: both are true here, which leaves the layer having processed
+	// the frame, and that is what stp.sstp.admit traces whether the tree half
+	// applied the vector, fired BPDU guard, marked a boundary, or refused a
+	// PVID mismatch.
+	//
+	// ReceiveSSTP has a second source of SSTPUntrackedVLAN that tracked does
+	// not model: the arrival VLAN's tree exists but holds no state for this
+	// port. It cannot occur here, because every tree is built from the same
+	// port name set, the invariant portInfo and recompute already rest on.
 	return admitResult
 }
 

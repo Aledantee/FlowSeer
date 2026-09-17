@@ -814,10 +814,11 @@ func (l *Layer) PVSTBoundary(port string) bool {
 // named port rather than treat it as SSTPPortDown: the port is one this
 // layer tracks and its CIST copy currently holds the link up. ReceiveSSTP
 // makes exactly this check before doing anything else with a frame, and it
-// is the one read-only distinction the other accessors cannot make: PortInfo
-// and VLANPortInfo return a zero-value PortInfo for both "never configured"
-// and "configured but the link is down", so a caller judging a port before
-// calling ReceiveSSTP needs this instead.
+// is the one read-only distinction the other accessors cannot make: a
+// PortInfo snapshot carries no link bit, and it renders a port whose link
+// went down through the same Disabled and Discarding values a port that
+// never came up shows, so a caller judging a port before calling ReceiveSSTP
+// cannot reconstruct the answer from one.
 func (l *Layer) PortLinked(port string) bool {
 	p, ok := l.cist().ports[port]
 

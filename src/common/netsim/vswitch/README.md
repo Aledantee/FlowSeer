@@ -343,10 +343,9 @@ not configured or has not yet seen a link-up event for, even though the port
 table itself calls the port up. `Forward` and `Peek` agree on this: `Peek`
 asks the layer's `PortLinked` directly rather than deriving the answer from a
 snapshot, so it renders `port-down` for exactly the ports `Forward` would.
-Its VLAN and whether it counts as tagged both
-come from one test of the outer tag's TPID, the same test the bridge's own
-ingress classification makes, rather than from the bridge's ingress pipeline
-itself: that pipeline applies the spanning tree gate, and the ports a tree
+Its VLAN and whether it counts as tagged both come from one test of the outer
+tag's TPID, the same test the bridge's own ingress classification makes,
+rather than from the bridge's ingress pipeline itself: that pipeline applies the spanning tree gate, and the ports a tree
 holds discarding are exactly the ones whose blocking depends on continuing to
 hear their peer. A VID of 0 under a dot1Q TPID is a priority tag, not a VLAN
 selection, and an outer tag whose TPID names neither dot1Q nor the codec's
