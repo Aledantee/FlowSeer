@@ -129,8 +129,10 @@ established across the library:
   with outcome Held and reason `neighbor-pending`, and the forward's metadata
   carries `neighbor-unresolved` at Incomplete scoped to the neighbor lookup,
   disproving the false answer that an unresolved next hop is a definite drop.
-  The case goes on to observe an ARP reply and wake the switch, proving the
-  hold is releasable rather than a disguised, permanent drop.
+  The case goes on to observe an ARP reply, proving the hold is releasable
+  rather than a disguised, permanent drop; the observing `Forward` already
+  releases the frame, so the case's own `Wake` call is a no-op kept to make
+  a future move of the release onto `Wake` visible here.
 - `troubleshooting/recursive-route-not-installed`: A `/24` static route names a
   next hop no other route reaches. The device still constructs, the `/24` is
   withdrawn instead of installed, and the packet takes the less specific `/8`

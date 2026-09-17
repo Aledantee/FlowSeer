@@ -2139,9 +2139,11 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 				Payload:   pkt,
 			})
 
-			// Observe an ARP reply for the pending destination and wake the switch, so
-			// the case's own execution proves the hold above is releasable rather than
-			// a disguised, permanent drop.
+			// Observe an ARP reply for the pending destination, so the case's own
+			// execution proves the hold above is releasable rather than a disguised,
+			// permanent drop. The observing Forward already flushes the neighbor's hold
+			// queue, so the Wake below is a no-op; it stays to make a future change that
+			// moved the release onto Wake visible here rather than silent.
 			replyMsg := arp.Message{
 				HardwareType: 1,
 				ProtocolType: 0x0800,
@@ -2164,6 +2166,9 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 			}
 			if emissions[0].Frame.Dst != learnedMAC {
 				return ExecutionResult{}, fmt.Errorf("released frame dst = %v, want %v", emissions[0].Frame.Dst, learnedMAC)
+			}
+			if emissions[0].Port != "out" || emissions[0].Protocol {
+				return ExecutionResult{}, fmt.Errorf("released emission = {Port: %v, Protocol: %v}, want {Port: out, Protocol: false}", emissions[0].Port, emissions[0].Protocol)
 			}
 			if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
 				return ExecutionResult{}, fmt.Errorf("neighbor failures = %d, want 0: %+v", len(failures), failures)
