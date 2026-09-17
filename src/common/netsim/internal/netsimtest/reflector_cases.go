@@ -53,7 +53,7 @@ var (
 	reflectedQueryR1MAC = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x04, 0xaa}
 )
 
-// mustReflectedQueryConfig cables h1 on VLAN 10 and h2 on VLAN 20 to sw1, and
+// reflectedQueryConfig cables h1 on VLAN 10 and h2 on VLAN 20 to sw1, and
 // sw1's third port to r1's single trunk port, carrying both VLANs tagged.
 // sw1 snoops both VLANs with FloodUnregistered off, so the case also proves
 // the reflector's query still crosses it: 224.0.0.251 sits in the
@@ -62,7 +62,7 @@ var (
 // [CaseTroubleshootingMDNSIPv4FloodsUnderSnooping]'s sibling proof at the
 // switch layer alone. r1's two attachments carry the only addresses of h2's
 // family, so accepting on one produces exactly one copy.
-func mustReflectedQueryConfig() fabric.Config {
+func reflectedQueryConfig() (fabric.Config, error) {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
 	flood := false
@@ -73,7 +73,7 @@ func mustReflectedQueryConfig() fabric.Config {
 		Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 	if err != nil {
-		panic(err)
+		return fabric.Config{}, err
 	}
 
 	return fabric.Config{
@@ -118,7 +118,7 @@ func mustReflectedQueryConfig() fabric.Config {
 			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "p2"}, Medium: fabric.TwistedPair},
 			{A: fabric.Endpoint{Node: "sw1", Port: "p9"}, B: fabric.Endpoint{Node: "r1", Port: "trunk"}, Medium: fabric.TwistedPair},
 		},
-	}
+	}, nil
 }
 
 // CaseTroubleshootingMDNSReflectedAcrossVLANs returns the case whose journey
@@ -181,7 +181,11 @@ func CaseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 		ExpectedFacts: []FactExpectation{groupDestination, macFact, addrFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.New(mustReflectedQueryConfig())
+			cfg, err := reflectedQueryConfig()
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			fab, err := fabric.New(cfg)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -201,13 +205,15 @@ func CaseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 			fab.Run(10)
 
 			var copyJourney fabric.Journey
+			matches := 0
 			for _, j := range fab.Report() {
 				if j.Parent == queryID {
 					copyJourney = j
+					matches++
 				}
 			}
-			if copyJourney.FrameID == 0 {
-				return ExecutionResult{}, fmt.Errorf("no journey has query %d as its parent", queryID)
+			if matches != 1 {
+				return ExecutionResult{}, fmt.Errorf("%d journeys have query %d as their parent, want exactly one", matches, queryID)
 			}
 
 			return ExecutionResult{
@@ -233,8 +239,12 @@ var (
 // Decisions require it enqueue an arrival rather than call arrive inline,
 // and this is the configuration that exercises that branch. r1 answers on
 // three attachments (its own VLAN 10 port and both VLANs on the trunk) and
-// r2 on two (both VLANs on the trunk), so a copy that returns to either
-// reflector's trunk attachment always finds it already in its own ancestry.
+// r2 on two (both VLANs on the trunk). A copy's entered set is cloned from
+// its parent's at origination, so the first copy to cross the trunk and
+// r2's own reflection of it back across the trunk each visit a trunk port
+// their ancestry has not yet entered; only the third copy, r1's reflection
+// of that second one back onto the trunk a second time, finds the trunk
+// port already there and closes the loop.
 func reflectorLoopConfig() fabric.Config {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
@@ -270,13 +280,13 @@ func reflectorLoopConfig() fabric.Config {
 }
 
 // reflectorLoopBudget is the step budget the case runs with. It is large
-// enough for the bounce between r1 and r2 to land its first EntryLoop and
-// small enough that the queue is still non-empty when Run stops, which is
-// the run-stops-on-budget half of parent R6.
+// enough for the bounce between r1 and r2 to land its first EntryLoop, and
+// small enough that Run still has arrivals queued when it stops: the run
+// halts on the budget rather than on the loop itself.
 const reflectorLoopBudget = 40
 
 // CaseTroubleshootingMDNSTwoReflectorsLoop returns the case whose journey
-// carries parent R6's EntryLoop: r1 and r2 share VLAN 10 and VLAN 20 over
+// carries an EntryLoop entry: r1 and r2 share VLAN 10 and VLAN 20 over
 // one trunk, and a copy bouncing between them eventually re-enters an
 // endpoint one of its ancestors already entered. That arrival is also where
 // the reflector's own acceptance step is recorded, since re-entry does not
@@ -334,7 +344,12 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 			}); err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(reflectorLoopBudget)
+			steps := fab.Run(reflectorLoopBudget)
+			if steps != reflectorLoopBudget || len(fab.Snapshot().Queue) == 0 {
+				return ExecutionResult{}, fmt.Errorf(
+					"fabric.Run(%d) = %d steps with %d arrivals queued, want the budget exhausted with work still queued",
+					reflectorLoopBudget, steps, len(fab.Snapshot().Queue))
+			}
 
 			var loopJourney fabric.Journey
 			for _, j := range fab.Report() {
@@ -348,7 +363,8 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 			}
 
 			return ExecutionResult{
-				Outcome:  trace.Consumed,
+				Outcome:  journeyLastEntryOutcome(loopJourney),
+				Reason:   journeyLastEntryReason(loopJourney),
 				Steps:    journeySteps(loopJourney),
 				Metadata: loopJourney.Metadata,
 				Journey:  &loopJourney,
@@ -366,6 +382,35 @@ func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 	}
 
 	return false
+}
+
+// journeyLastEntryOutcome returns the domain outcome of j's own last recorded
+// entry: [trace.Consumed] for a reflector or host taking the frame for
+// itself, [trace.Dropped] for one rejecting, discarding, or failing to
+// decide it. Unlike journeyHopOutcome, which reads the last switch-layer
+// [vswitch.ForwardResult], a reflector's own arrival carries no such
+// result, only the Step its acceptance or refusal recorded.
+func journeyLastEntryOutcome(j fabric.Journey) trace.Outcome {
+	if len(j.Entries) == 0 {
+		return ""
+	}
+	switch j.Entries[len(j.Entries)-1].Kind {
+	case fabric.EntryReflection, fabric.EntryDelivery:
+		return trace.Consumed
+	case fabric.EntryRejection, fabric.EntryDrop, fabric.EntryUnresolved:
+		return trace.Dropped
+	default:
+		return ""
+	}
+}
+
+// journeyLastEntryReason returns the reason paired with [journeyLastEntryOutcome].
+func journeyLastEntryReason(j fabric.Journey) trace.Reason {
+	if len(j.Entries) == 0 {
+		return ""
+	}
+
+	return j.Entries[len(j.Entries)-1].Reason
 }
 
 // RegisterReflectorCases populates registry with the cases covering the
