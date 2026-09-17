@@ -41,18 +41,22 @@ const (
 	ruleHostIPUndecodable           trace.RuleID = "host.ip.undecodable"
 )
 
-// Reflector acceptance rules. Each names the clause it decides; a rejection
-// names the same clause that failed, since a reflector's clauses have exactly
-// one way to be satisfied, unlike a host's several MAC and IP rules.
+// Reflector acceptance rules. Each rejection names the clause that failed,
+// since a reflector's clauses have exactly one way to be satisfied, unlike a
+// host's several MAC and IP rules. The acceptance names itself rather than
+// reusing the last clause it passed, so a step alone says which of the two
+// outcomes a rule ID shared with a rejection would otherwise leave to entry
+// kind.
 const (
 	ruleReflectorMACOwnSource   trace.RuleID = "reflector.mac.own_source"
-	ruleReflectorMACForm        trace.RuleID = "reflector.mac.form"
+	ruleReflectorVLANForm       trace.RuleID = "reflector.vlan.form"
 	ruleReflectorMACGroup       trace.RuleID = "reflector.mac.group"
 	ruleReflectorIPGroup        trace.RuleID = "reflector.ip.group"
 	ruleReflectorIPUndecodable  trace.RuleID = "reflector.ip.undecodable"
 	ruleReflectorUDPProtocol    trace.RuleID = "reflector.udp.protocol"
 	ruleReflectorUDPUndecodable trace.RuleID = "reflector.udp.undecodable"
 	ruleReflectorUDPPort        trace.RuleID = "reflector.udp.port"
+	ruleReflectorAccepted       trace.RuleID = "reflector.accepted"
 )
 
 // Reflector acceptance reasons, one per rule above that can refuse or leave a
@@ -210,7 +214,7 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 		return decide(EntryRejection, ruleReflectorMACOwnSource, ReasonReflectorOwnSource)
 	}
 	if !refl.acceptsTags(arrivalPort, frame.Tags) {
-		return decide(EntryRejection, ruleReflectorMACForm, ReasonReflectorTagFormNotAccepted)
+		return decide(EntryRejection, ruleReflectorVLANForm, ReasonReflectorTagFormNotAccepted)
 	}
 
 	inputs = append(inputs, MACFact(frame.Dst))
@@ -249,7 +253,7 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 		return decide(EntryRejection, ruleReflectorUDPPort, ReasonReflectorUDPPortNotMDNS)
 	}
 
-	return decide(EntryReflection, ruleReflectorUDPPort, "")
+	return decide(EntryReflection, ruleReflectorAccepted, "")
 }
 
 // acceptsTags reports whether tags is the tag form of one of the reflector's

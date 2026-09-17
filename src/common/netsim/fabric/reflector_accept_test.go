@@ -170,7 +170,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		{
 			name:     "an mDNS query is accepted",
 			frame:    mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), reflectorGroupMAC, reflectorGroupAddr, 17, 5353),
-			wantKind: fabric.EntryReflection, wantRule: "reflector.udp.port",
+			wantKind: fabric.EntryReflection, wantRule: "reflector.accepted",
 		},
 		{
 			name:       "a frame sourced from the reflector's own MAC is refused",
@@ -183,7 +183,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:       "a tag form matching no attachment on the arrival port is refused",
 			frame:      mdnsFrame(t, reflectorSenderMAC, mismatchedVID, reflectorGroupMAC, reflectorGroupAddr, 17, 5353),
 			wantKind:   fabric.EntryRejection,
-			wantRule:   "reflector.mac.form",
+			wantRule:   "reflector.vlan.form",
 			wantReason: fabric.ReasonReflectorTagFormNotAccepted,
 		},
 		{
