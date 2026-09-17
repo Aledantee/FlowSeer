@@ -5,6 +5,17 @@ capabilities, and active physical-link facts. Requested speed, duplex,
 auto-negotiation, FEC, and PoE intent are separate from negotiated or measured
 values, so callers do not have to infer which meaning a source supplied.
 
+## Boundaries
+
+Imports: nothing FlowSeer-owned
+
+Imported by: model/inventory, net/interface
+
+Deliberately absent:
+
+- Component and device entity references.
+- Observation time, provenance, and tenant context.
+
 `EthernetFacet` is embedded by value by physical interface kinds. The facet
 carries the facts every transport shares: link rate and duplex,
 auto-negotiation, FEC, the operational MAU type, the advertised and received

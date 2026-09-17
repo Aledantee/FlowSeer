@@ -9,6 +9,25 @@ must be delivered before the state it records is released, while
 OpenTelemetry events, spans, and metrics answer *why* and may fail without
 blocking work. This package carries only the former.
 
+## Boundaries
+
+Imports: model/access, model/inventory
+
+Imported by: nothing
+
+Deliberately absent:
+
+- `DeviceOperationConfig` and `DeviceOperationState`. This package is a pure
+  event stream; there is nothing here to configure and nothing to query as
+  current state. `MutationState` in `model/access` is the live state this
+  audit trails.
+- A secret, a credential, or a transcript. `attributes` is bounded and
+  client-owned facts only — a field name, a fingerprint, a protocol — never
+  raw device output.
+- A protocol path or raw command. `RouteSelected` names which protocol
+  answered, never how it was spoken to the device.
+- A tenant. Scope is ambient.
+
 ## One record, nine kinds
 
 Every event carries the same envelope — the device, a unique event id, the
@@ -53,21 +72,8 @@ already-addressed channel, an audit record is read and queried outside any
 live transport context — a compliance report, an incident timeline. It must
 name its device on its own, so this package imports
 `flowseer/model/inventory/v1/device.proto` for `DeviceGlobalRef` in addition to
-`model/access` and `errs`. It never imports `api/edge` directly; the
+`model/access` and `errs`. It never imports `model/edge` directly; the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
-states that an event envelope reaches `api/edge` only through
+states that an event envelope reaches `model/edge` only through
 `model/access`, where `MutationState.responsible_edge` already names it
 when a mutation is in scope.
-
-## What is deliberately absent
-
-- `DeviceOperationConfig` and `DeviceOperationState`. This package is a pure
-  event stream; there is nothing here to configure and nothing to query as
-  current state. `MutationState` in `model/access` is the live state this
-  audit trails.
-- A secret, a credential, or a transcript. `attributes` is bounded and
-  client-owned facts only — a field name, a fingerprint, a protocol — never
-  raw device output.
-- A protocol path or raw command. `RouteSelected` names which protocol
-  answered, never how it was spoken to the device.
-- A tenant. Scope is ambient.

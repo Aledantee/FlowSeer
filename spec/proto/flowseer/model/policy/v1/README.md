@@ -12,8 +12,7 @@ places the package.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/device, api/edge, model/access, model/inventory,
-store/device
+Imported by: api/edge, model/access, model/inventory, store/device
 
 Deliberately absent:
 

@@ -1,31 +1,41 @@
-# Edge
+# Edge Services
 
-The Edge entity — its ref pair, its lifecycle, its two secrets, the
-assertion it signs on every call, and the provisioning file that ships
-with it — moved to
-[`model/edge/v1`](../../../model/edge/v1/README.md), which this package
-imports and returns as `EdgeRecord` from every call that hands back an
-edge.
+The `flowseer.api.edge.v1` package holds the two Connect services around the
+Edge entity: `EdgeService`, which an edge process calls to enroll, attach to the
+bus, and acquire credentials, and `EdgeAdminService`, which an operator calls to
+create, provision, and retire edges. The Edge entity itself, its ref pair,
+lifecycle, keys, assertion, and provisioning file moved to
+[`model/edge/v1`](../../../model/edge/v1/README.md), which this package imports
+and returns as `EdgeRecord` from every call that hands back an edge.
 
-The `flowseer.api.edge.v1` package holds the two Connect services around
-that entity: the one an edge process calls to enroll and stay attached, and
-the one an operator calls to create, provision, and retire edges. It is the
-first Connect service package in the repository; the
-[protobuf conventions](../../../../../../docs/conventions/protobuf.md) and
-the [device-service direction record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
-say where it sits.
+## Boundaries
 
-An edge is the process, not an integration. The local-network integration
-and any on-prem controller adapter a site needs run on the edge and point
-at it; the edge's own concerns are identity, liveness, provisioning, which
-devices it serves, and the three lifecycles below. The execute and event contracts are their own
-packages, `integration/device/v1` and `event/device/v1`; nothing here
+Imports: model/credential, model/edge, model/policy, net/addr
+
+Imported by: nothing
+
+Deliberately absent:
+
+- Admission to `EntityType` in `model/inventory/v1`. Admission obliges a
+  cascading delete of attribute values and an existence check that need the edge
+  store, which arrives with the first host. Until then nothing may reference an
+  edge through an `EntityRef`; the conventions doc records the exception next
+  to the tenant one.
+- Handlers for the RPCs, and the Connect interceptor that verifies the
+  assertion against them. Those need a running device service host; this
+  package is the contract they implement against.
+
+An edge is the process, not an integration. The local-network integration and
+any on-prem controller adapter a site needs run on the edge and point at it; the
+edge's own concerns are identity, liveness, provisioning, which devices it
+serves, and the three lifecycles below. The execute and event contracts are
+their own packages, `integration/device/v1` and `event/device/v1`; nothing here
 carries an operation, a device ref, or a durable audit record.
 
 ## Three lifecycles, never the same call
 
 Decision 9 of the
-[verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
+[verified device access record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
 keeps bus attachment, credential delivery, and revocation apart, and this
 package keeps them on separate RPCs so that revoking one never touches the
 others. The device listing below them is a fourth call and none of the three:
@@ -79,7 +89,7 @@ would leave the edge unable to tell a device it must not mutate from one
 central has never heard of.
 
 Device and binding are plain UUID strings here for the same reason the
-credential calls take them that way: `api/edge` sits below `api/inventory` in
+credential calls take them that way: `api/edge` sits below `model/inventory` in
 the import graph and cannot name a `DeviceGlobalRef` without cycling it.
 
 ### Read credential delivery
@@ -87,9 +97,9 @@ the import graph and cannot name a `DeviceGlobalRef` without cycling it.
 `AcquireReadCredential` delivers a device read credential for one binding,
 under the device's pinned `AccessPolicyHandle`, scoped to a device id and a
 binding id passed as plain UUID strings rather than typed refs — `api/edge`
-sits below `api/inventory` in the import graph, so it cannot name a
+sits below `model/inventory` in the import graph, so it cannot name a
 `DeviceGlobalRef` without cycling it. The response's `DeviceCredential`
-pairs a typed `CredentialMaterial` from `device/credential/v1` (an SNMPv3
+pairs a typed `CredentialMaterial` from `model/credential/v1` (an SNMPv3
 user or a shell login) with a `CredentialHandle` naming exactly which
 version it is, alongside a `HostTrustHandle` and an `expires_at`. The
 handle names the trust version; when the material is a shell login the
@@ -121,15 +131,3 @@ to. Credential revocation is an `AuthorityPulse` carrying
 simply the next `AcquireReadCredential` call returning a credential the
 previous one no longer matches. None of the three lifecycles shares a
 message with another, so revoking one never touches the others.
-
-## Deliberately absent
-
-The Edge does not join `EntityType` in `api/inventory/v1` yet. Admission
-obliges a cascading delete of attribute values and an existence check that
-need the edge store, which arrives with the first host. Until then nothing
-may reference an edge through an `EntityRef`; the conventions doc records
-the exception next to the tenant one.
-
-A handler for any of the three RPCs above, and the Connect interceptor
-that verifies the assertion against them. Those need a running device
-service host; this package is the contract they implement against.

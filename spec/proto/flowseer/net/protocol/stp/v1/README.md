@@ -4,6 +4,19 @@ The `flowseer.net.protocol.stp.v1` package holds what the Spanning Tree
 Protocol owns: a bridge's protocol state and its ports' roles and states, as
 device-scoped rows naming interfaces.
 
+## Boundaries
+
+Imports: net/addr
+
+Imported by: nothing
+
+Deliberately absent:
+
+- Device and interface entity references. Rows use device-local interface names.
+- Multiple spanning tree instances (MSTP) and per-VLAN instances (PVST).
+- Wire-format BPDU encoding and decoding.
+- Observation time, provenance, and tenant context.
+
 Rows name the local interface by device-local name, so walking the port states
 stands on its own without embedding protocol facets into the interface table.
 

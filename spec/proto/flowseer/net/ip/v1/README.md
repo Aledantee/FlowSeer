@@ -4,6 +4,18 @@ The `flowseer.net.ip.v1` package defines protocol-independent IP-on-interface
 values: per-family enablement, forwarding, and MTU facets; assigned-address
 rows; and the device-local ARP and IPv6 Neighbor Discovery cache.
 
+## Boundaries
+
+Imports: net/addr
+
+Imported by: net/interface
+
+Deliberately absent:
+
+- VRFs, network instances, RIBs, FIBs, and routing policies.
+- Device refs, observation time, and provenance.
+- Protocol-specific routing state (BGP, OSPF).
+
 The package does not own network instances, VRFs, RIBs, FIBs, routing policy,
 multicast forwarding, tunnels, or protocol-specific state. Those domains need
 separate packages whose keys can distinguish network instances and multiple

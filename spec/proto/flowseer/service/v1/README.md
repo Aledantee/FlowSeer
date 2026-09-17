@@ -5,6 +5,18 @@ service mailbox. A command, an event delivery, and a reply use the same
 `Message` envelope, so crash recovery does not depend on an in-memory request
 or a Go type name.
 
+## Boundaries
+
+Imports: nothing FlowSeer-owned
+
+Imported by: nothing
+
+Deliberately absent:
+
+- Connect service RPC definitions. This package is the process-local bus and
+  mailbox storage contract.
+- Domain types and entity payloads. Payloads are opaque serialized bytes.
+
 For example, a reply to `edge/ingest/syslog` is persisted with kind
 `MESSAGE_KIND_REPLY`, that module's path as its target, the request's
 `correlation_id`, and the request message's id as its `causation_id`. The

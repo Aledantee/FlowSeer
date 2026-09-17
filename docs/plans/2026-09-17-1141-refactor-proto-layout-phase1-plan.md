@@ -87,6 +87,8 @@ when it lands, not when U5 sweeps the tree. Cost if wrong: U5's pass
 rewrites or reorders the section; no test depends on its contents until
 then.
 
+Ruled: `model/policy/v1/README.md` omits `api/device` from `Imported by:`, and `model/edge/v1/README.md` adds `model/capture`. Why: the `Imported by:` gate checks the actual imports declared by `.proto` files in the tree rather than the wider allowlist in `layering_test.go`, and `api/device/v1/device_service.proto` imports `model/access` and `model/inventory` but not `model/policy`, while `model/capture/v1/capture_session.proto` imports `model/edge`. Cost if wrong: a future change adding a direct import from `api/device` to `model/policy` will update the README's `Imported by:` line.
+
 ## Requirements
 
 1. `spec/proto/flowseer/model/` holds `policy`, `credential`, `edge`,
