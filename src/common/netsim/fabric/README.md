@@ -394,15 +394,16 @@ with op `filter`. The reflector is its subject, its rule names the clause
 that decided, and its inputs are the facts read up to that point. Unlike a
 host's several ways to accept a MAC or an IP destination, each of a
 reflector's clauses has exactly one way to be satisfied, so a rejection names
-the same clause an acceptance would have used; the accept and the
-wrong-mDNS-port reject share rule `reflector.udp.port` for this reason.
+the clause that failed. The acceptance instead names itself,
+`reflector.accepted`, rather than reusing the last clause it passed, so a
+step alone tells an acceptance apart from the refusal of that same clause.
 
 The checks run in this order, and the first one that decides ends the run:
 
 1. Ethernet source (`reflector.mac.own_source`). A frame whose source is the
    reflector's own MAC is refused with `reflector-own-source`: it is a copy
    the reflector itself originated, flooded back to it.
-2. Tag form (`reflector.mac.form`). The frame's tag stack must match one of
+2. Tag form (`reflector.vlan.form`). The frame's tag stack must match one of
    the attachments declared on the arrival port: untagged or a single VID 0
    priority C-TAG for an attachment with no VLAN, or a single C-TAG with
    that VLAN's VID. Anything else is refused with
@@ -419,7 +420,7 @@ The checks run in this order, and the first one that decides ends the run:
 6. UDP destination port (`reflector.udp.port`). The datagram's destination
    port must be 5353 (RFC 6762 §5.2). Anything else is refused with
    `reflector-udp-port-not-mdns`; a frame that clears every check is taken
-   for reflection under the same rule.
+   for reflection under `reflector.accepted`.
 
 A header that does not decode leaves acceptance unknown, the same shape a
 host's IP check follows: an undecodable IP header ends `Unresolved` with

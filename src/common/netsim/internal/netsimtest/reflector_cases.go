@@ -302,7 +302,7 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 	udpPorts := expectedFact("fabric.udp_ports", "src=5353;dst=5353")
 
 	steps := []StepExpectation{
-		expectedStep(fabric.ReflectorLayer, trace.OpFilter, "reflector.udp.port", trace.Subject{Kind: "reflector", Key: "r2"},
+		expectedStep(fabric.ReflectorLayer, trace.OpFilter, "reflector.accepted", trace.Subject{Kind: "reflector", Key: "r2"},
 			[]FactExpectation{vlanTags, macFact, addrFact, udpPorts}, nil),
 	}
 
@@ -320,7 +320,7 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 		ExpectedMetadata: &MetadataExpectation{Status: analysis.Complete, Scope: analysis.WholeScope()},
 		ExpectedOutcome:  trace.Consumed,
 		ExpectedRules: []trace.RuleID{
-			trace.RuleID("reflector.udp.port"),
+			trace.RuleID("reflector.accepted"),
 		},
 		ExpectedSubjects: []trace.Subject{
 			{Kind: "reflector", Key: "r2"},
