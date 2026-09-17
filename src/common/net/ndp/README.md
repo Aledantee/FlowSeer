@@ -116,13 +116,24 @@ Both header addresses must be IPv6 addresses (RFC 8200 section 8.1).
 
 ## Errors
 
+`Decode` walks the option chain looking for the link-layer address option
+that matches the message (Source for a solicitation, Target for an
+advertisement); an option of a different type is skipped by its own declared
+length rather than misread as the one `Decode` wants, and a chain with no
+matching option leaves `HasLinkLayerAddr` false rather than an error.
 `Decode` wraps `ErrMalformed` for: a payload shorter than twenty-four octets
 (RFC 4861 sections 7.1.1 and 7.1.2); a Hop Limit other than 255; a Code other
-than zero; a multicast Target Address; a link-layer address option whose
-length is zero or whose declared length overruns the payload; a Source
-Link-Layer Address option on a solicitation from the unspecified address; and
-a checksum that does not match. `Encode` and `Decode` both wrap `ErrUnsupported`
-for a message type other than 135 or 136.
+than zero; a multicast Target Address; an option whose declared length is
+zero or overruns the payload; a matching link-layer address option whose
+declared length is not one 8-octet unit; a Source Link-Layer Address option
+on a solicitation from the unspecified address; and a checksum that does not
+match. `Encode` wraps `ErrMalformed` for the same invalid target, unspecified-
+address, and flags rules `Decode` enforces, so `Encode` never builds a
+message `Decode` would refuse: an invalid target, a solicitation from the
+unspecified address carrying a link-layer address option, and a solicitation
+with Router, Solicited, or Override set (those three apply only to an
+advertisement). `Encode` and `Decode` both wrap `ErrUnsupported` for a
+message type other than 135 or 136.
 
 ## Sources
 

@@ -59,8 +59,11 @@ var (
 // Encode serializes m as an ICMPv6 message and writes its checksum using
 // hdr's IPv6 addresses. The result does not include an IPv6 header; a caller
 // that sends it must set the IPv6 Hop Limit to 255 (RFC 4861 sections 4.3 and
-// 4.4). Encode returns [ErrMalformed] for invalid fields and [ErrUnsupported]
-// for unknown message types.
+// 4.4). Encode returns [ErrMalformed] for an invalid target, a solicitation
+// from the unspecified address carrying a link-layer address option, and a
+// solicitation with Router, Solicited, or Override set — the same rules
+// Decode enforces, so Encode never builds a message Decode would refuse. It
+// returns [ErrUnsupported] for unknown message types.
 func Encode(hdr ip.Header, m Message) ([]byte, error) {
 	if err := validateIPv6Header(hdr); err != nil {
 		return nil, err
@@ -70,6 +73,16 @@ func Encode(hdr ip.Header, m Message) ([]byte, error) {
 			Attr("field", "target").
 			Attr("target", m.Target).
 			Msg("NDP target must be a unicast IPv6 address")
+	}
+	if m.Type == NeighborSolicitation && hdr.Src.IsUnspecified() && m.HasLinkLayerAddr {
+		return nil, errs.From(ErrMalformed).
+			Attr("field", "option").
+			Msg("solicitation from the unspecified address must not carry a source link-layer address option")
+	}
+	if m.Type == NeighborSolicitation && (m.Router || m.Solicited || m.Override) {
+		return nil, errs.From(ErrMalformed).
+			Attr("field", "flags").
+			Msg("solicitation must not set Router, Solicited, or Override, which apply only to an advertisement")
 	}
 
 	var wire []byte
@@ -137,13 +150,18 @@ func putLinkLayerOption(dst []byte, optionType byte, mac netaddr.MAC) {
 }
 
 // Decode parses a Neighbor Solicitation or Neighbor Advertisement from
-// payload and verifies its ICMPv6 checksum. Decode returns [ErrMalformed]
+// payload and verifies its ICMPv6 checksum. It walks the option chain
+// looking for the link-layer address option that matches the message type
+// (Source for a solicitation, Target for an advertisement); an unrelated
+// option earlier in the chain is skipped by its own declared length rather
+// than mistaken for the option Decode wants. Decode returns [ErrMalformed]
 // for a payload shorter than 24 octets, a hop limit other than 255, a code
-// other than 0, a multicast target, a link-layer address option whose length
-// is zero or overruns the payload, a Source Link-Layer Address option on a
-// solicitation whose IPv6 source is the unspecified address, and a checksum
-// that does not match. It returns [ErrUnsupported] for an unknown message
-// type.
+// other than 0, a multicast target, an option whose declared length is zero
+// or overruns the payload, a matching link-layer address option whose
+// declared length is not one 8-octet unit, a Source Link-Layer Address
+// option on a solicitation whose IPv6 source is the unspecified address, and
+// a checksum that does not match. It returns [ErrUnsupported] for an unknown
+// message type.
 func Decode(hdr ip.Header, payload []byte) (Message, error) {
 	if err := validateIPv6Header(hdr); err != nil {
 		return Message{}, err
@@ -199,9 +217,12 @@ func decodeSolicitation(hdr ip.Header, payload []byte, target netip.Addr) (Messa
 		return m, nil
 	}
 
-	mac, err := decodeLinkLayerOption(payload[24:])
+	mac, found, err := decodeLinkLayerOption(payload[24:], optionSourceLinkLayerAddr)
 	if err != nil {
 		return Message{}, err
+	}
+	if !found {
+		return m, nil
 	}
 	if hdr.Src.IsUnspecified() {
 		return Message{}, errs.From(ErrMalformed).
@@ -226,40 +247,66 @@ func decodeAdvertisement(payload []byte, target netip.Addr) (Message, error) {
 		return m, nil
 	}
 
-	mac, err := decodeLinkLayerOption(payload[24:])
+	mac, found, err := decodeLinkLayerOption(payload[24:], optionTargetLinkLayerAddr)
 	if err != nil {
 		return Message{}, err
+	}
+	if !found {
+		return m, nil
 	}
 	m.LinkLayerAddr = mac
 	m.HasLinkLayerAddr = true
 	return m, nil
 }
 
-func decodeLinkLayerOption(b []byte) (netaddr.MAC, error) {
-	if len(b) < 2 {
-		return netaddr.MAC{}, errs.From(ErrMalformed).
-			Attr("field", "option_length").
-			Attr("remaining", len(b)).
-			Msg("NDP link-layer address option exceeds the payload")
+// decodeLinkLayerOption walks the TLV option chain in b looking for an
+// option of the given wantType. It returns the option's six-octet
+// link-layer address and found true when one matches; it returns found
+// false, with no error, when the chain runs out without a match. It refuses
+// a declared option length of zero or one that overruns b, and refuses a
+// matching option whose declared length is not 1 (the single 8-octet unit
+// this package's 6-octet MAC option occupies).
+func decodeLinkLayerOption(b []byte, wantType byte) (netaddr.MAC, bool, error) {
+	for len(b) > 0 {
+		if len(b) < 2 {
+			return netaddr.MAC{}, false, errs.From(ErrMalformed).
+				Attr("field", "option_length").
+				Attr("remaining", len(b)).
+				Msg("NDP link-layer address option exceeds the payload")
+		}
+
+		optionType := b[0]
+		length := int(b[1])
+		if length == 0 {
+			return netaddr.MAC{}, false, errs.From(ErrMalformed).
+				Attr("field", "option_length").
+				Msg("NDP link-layer address option length must not be zero")
+		}
+
+		required := length * 8
+		if len(b) < required {
+			return netaddr.MAC{}, false, errs.From(ErrMalformed).
+				Attr("field", "option_length").
+				Attr("required", required).
+				Attr("remaining", len(b)).
+				Msg("NDP link-layer address option exceeds the payload")
+		}
+
+		if optionType == wantType {
+			if length != optionLen {
+				return netaddr.MAC{}, false, errs.From(ErrMalformed).
+					Attr("field", "option_length").
+					Attr("option_length", length).
+					Attr("want", optionLen).
+					Msg("NDP link-layer address option length must be one 8-octet unit")
+			}
+			return netaddr.MAC(b[2:8]), true, nil
+		}
+
+		b = b[required:]
 	}
 
-	length := int(b[1])
-	if length == 0 {
-		return netaddr.MAC{}, errs.From(ErrMalformed).
-			Attr("field", "option_length").
-			Msg("NDP link-layer address option length must not be zero")
-	}
-
-	required := length * 8
-	if len(b) < required {
-		return netaddr.MAC{}, errs.From(ErrMalformed).
-			Attr("field", "option_length").
-			Attr("required", required).
-			Attr("remaining", len(b)).
-			Msg("NDP link-layer address option exceeds the payload")
-	}
-
-	return netaddr.MAC(b[2:8]), nil
+	return netaddr.MAC{}, false, nil
 }
 
 func validateIPv6Header(hdr ip.Header) error {

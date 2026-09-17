@@ -12,15 +12,18 @@ import (
 )
 
 // literal is the RFC 826 wire vector shared by the placement and decode
-// tests. Sender and target differ in every octet of both the hardware and
-// protocol addresses, so a codec that swaps either pair fails every octet
-// instead of passing by accident.
+// tests. Hardware type (offset 0-2) and operation (offset 6-8) both hold two
+// octets, so this vector pins them to a Reply, 0x0001 against 0x0002, and
+// they differ in every octet from each other; the sender and target address
+// pairs already differ in every octet of both the hardware and protocol
+// addresses, so a codec that transposes any of these three pairs fails
+// every octet instead of passing by accident.
 var literal = []byte{
 	0x00, 0x01, // hardware type: Ethernet
 	0x08, 0x00, // protocol type: IPv4
 	0x06,       // hardware length
 	0x04,       // protocol length
-	0x00, 0x01, // operation: Request
+	0x00, 0x02, // operation: Reply
 	0x02, 0x11, 0x22, 0x33, 0x44, 0x55, // sender hardware address
 	0x0a, 0x01, 0x02, 0x03, // sender protocol address: 10.1.2.3
 	0x06, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, // target hardware address
@@ -31,7 +34,7 @@ func literalMessage() arp.Message {
 	return arp.Message{
 		HardwareType: 1,
 		ProtocolType: 0x0800,
-		Operation:    arp.Request,
+		Operation:    arp.Reply,
 		SenderMAC:    netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55},
 		SenderAddr:   netip.MustParseAddr("10.1.2.3"),
 		TargetMAC:    netaddr.MAC{0x06, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
@@ -40,6 +43,8 @@ func literalMessage() arp.Message {
 }
 
 func TestARPEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
+	t.Parallel()
+
 	frame, err := arp.Encode(literalMessage(), netaddr.MAC{0x06, 0xaa, 0xbb, 0xcc, 0xdd, 0xee})
 	if err != nil {
 		t.Fatalf("Encode() error = %v", err)
@@ -76,6 +81,8 @@ func TestARPEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
 }
 
 func TestARPDecodeReadsTheLiteralVector(t *testing.T) {
+	t.Parallel()
+
 	frame := ethernet.Frame{
 		Dst:       netaddr.MAC{0x06, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 		Src:       netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -95,6 +102,8 @@ func TestARPDecodeReadsTheLiteralVector(t *testing.T) {
 }
 
 func TestARPRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		want arp.Message
@@ -127,6 +136,8 @@ func TestARPRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			frame, err := arp.Encode(tt.want, tt.want.TargetMAC)
 			if err != nil {
 				t.Fatalf("Encode() error = %v", err)
@@ -150,6 +161,8 @@ func TestARPRoundTrip(t *testing.T) {
 // independent of the frame's own destination, which must still reach the
 // segment as a broadcast.
 func TestARPEncodeRequestGoesToBroadcastWithAnUnknownTargetHardwareAddress(t *testing.T) {
+	t.Parallel()
+
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	m := arp.Message{
 		HardwareType: 1,
@@ -175,7 +188,49 @@ func TestARPEncodeRequestGoesToBroadcastWithAnUnknownTargetHardwareAddress(t *te
 	}
 }
 
+func TestARPEncodeRefuses(t *testing.T) {
+	t.Parallel()
+
+	valid := literalMessage()
+	ipv6 := netip.MustParseAddr("2001:db8::1")
+
+	tests := []struct {
+		name string
+		m    arp.Message
+	}{
+		{
+			name: "sender address not IPv4",
+			m: func() arp.Message {
+				m := valid
+				m.SenderAddr = ipv6
+				return m
+			}(),
+		},
+		{
+			name: "target address not IPv4",
+			m: func() arp.Message {
+				m := valid
+				m.TargetAddr = ipv6
+				return m
+			}(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := arp.Encode(tt.m, netaddr.MAC{0x06, 0xaa, 0xbb, 0xcc, 0xdd, 0xee})
+			if !errors.Is(err, arp.ErrMalformed) {
+				t.Errorf("Encode() error = %v, want wrapping %v", err, arp.ErrMalformed)
+			}
+		})
+	}
+}
+
 func TestARPDecodeRefuses(t *testing.T) {
+	t.Parallel()
+
 	validFrame := func() ethernet.Frame {
 		payload := make([]byte, len(literal))
 		copy(payload, literal)
@@ -256,6 +311,8 @@ func TestARPDecodeRefuses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := arp.Decode(tt.frame)
 			if !errors.Is(err, tt.want) {
 				t.Errorf("Decode() error = %v, want wrapping %v", err, tt.want)
