@@ -493,6 +493,25 @@ flowchart TD
   decoded records or byte records supplied by its caller.
 - Symbolic packet verification or an unbounded reachability solver.
 
+## Carried observations
+
+Findings a phase surfaced that belong to a later one. A phase that touches the
+area reads this before planning; a phase that closes one removes its entry.
+
+- **`Switch.Roles()` answers from the common tree alone.** It builds its map
+  from `stp.Layer.PortInfo`, which is the CIST, so under multiple spanning
+  tree or per-VLAN spanning tree it reports one tree's roles for every port
+  with no VLAN in the answer. The data plane is unaffected: the gate consults
+  the per-VLAN `Forwards(port, vid)`. Surfaced reviewing U3f and confirmed as
+  pre-existing; it then reached U6's plan as a convergence fingerprint that
+  would report a settled fabric while an instance tree churned. Whether the
+  inspection contract owes a per-VLAN shape is undecided.
+- **`stp.PortInfo` carries counters that advance on every hello.**
+  `TxBPDUs`, `RxBPDUs`, `ForwardTransitions` and `BadBPDUs` move whenever the
+  protocol runs, so anything that hashes a port snapshot whole never sees the
+  same value twice. Any phase deriving a fingerprint, a cache key or an
+  equality test from `PortInfo` names the subset it reads.
+
 ## Units
 
 ### U1: Establish the analysis trust contract and semantic trace
