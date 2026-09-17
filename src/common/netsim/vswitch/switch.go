@@ -1075,7 +1075,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		receive := s.ports.Receive(ingress)
 		resolved := receive.Resolved
 		if resolved.Name != "" {
-			vid, tagAcceptable := outerTagVID(f)
+			vid, tagAcceptable := f.OuterVID()
 			portVLANScopes := s.routing.PortVLANLookupScopes(resolved.Name, vid)
 			routingScopes = append(routingScopes, portVLANScopes...)
 			if ifaceName, portRouted, vlanMatched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
@@ -1258,7 +1258,7 @@ func (s *Switch) observationInterface(now time.Time, ingress string, f ethernet.
 	receive := s.ports.Receive(ingress)
 	resolved := receive.Resolved
 	if resolved.Name != "" && receive.Reason == "" {
-		vid, tagAcceptable := outerTagVID(f)
+		vid, tagAcceptable := f.OuterVID()
 		if iface, portRouted, vlanMatched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
 			return iface, vlanMatched && tagAcceptable
 		}
@@ -1764,20 +1764,17 @@ func traceFacts(values ...trace.Fact) []trace.Fact {
 	return result
 }
 
-// outerTagVID reads the VLAN identifier a routed sub-interface would classify f on: zero for
-// an untagged frame, or the outer tag's VID otherwise. tagAcceptable reports whether the outer
-// tag's TPID is one a C-TAG sub-interface can match (zero or the C-TAG EtherType, the same
-// predicate [ethernet.Frame.Priority] uses); an S-Tagged or otherwise labeled frame reports its
-// VID but false, so the caller takes the tag-miss drop rather than a coincidental match.
-func outerTagVID(f ethernet.Frame) (vid vlan.ID, tagAcceptable bool) {
-	if len(f.Tags) == 0 {
-		return 0, true
+// subInterfaceTag returns the one C-TAG a routed sub-interface's egress carries: its own
+// VLAN, at the priority the frame arrived with. Any other interface shape reports false —
+// a plain routed port leaves the frame untagged, and a VLAN interface with no parent port
+// hands off to the bridge, which tags the egress itself. The live path and the held-frame
+// release both call it, so the two cannot drift about what a sub-interface puts on the wire.
+func subInterfaceTag(iface routing.Interface, pcp vlan.PCP, dei bool) ([]vlan.Tag, bool) {
+	if iface.VLAN == 0 || iface.Port == "" {
+		return nil, false
 	}
-	outer := f.Tags[0]
-	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
-		return outer.VID, false
-	}
-	return outer.VID, true
+
+	return []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: iface.VLAN, PCP: pcp, DEI: dei}}, true
 }
 
 func (s *Switch) assembleRouteResult(
@@ -1856,13 +1853,8 @@ func (s *Switch) assembleRouteResult(
 	// A sub-interface's egress carries the outer tag its parent port classifies on; a plain
 	// routed port (VLAN zero) leaves untagged. Applied before the transmit and LAG checks
 	// below, because their refusal-path egress records embed this same frame.
-	if egressIface.VLAN != 0 {
-		routeRes.Frame.Tags = append([]vlan.Tag{{
-			TPID: uint16(ethernet.EtherTypeDot1Q),
-			VID:  egressIface.VLAN,
-			PCP:  ingressPCP,
-			DEI:  ingressDEI,
-		}}, routeRes.Frame.Tags...)
+	if tags, ok := subInterfaceTag(egressIface, ingressPCP, ingressDEI); ok {
+		routeRes.Frame.Tags = append(tags, routeRes.Frame.Tags...)
 	}
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
@@ -2992,7 +2984,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 		return
 	}
 
-	if egressIface.VLAN != 0 {
+	if egressIface.VLAN != 0 && egressIface.Port == "" {
 		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, PCP: hf.PCP, DEI: hf.DEI, Now: now, Commit: true}, hf.Frame)
 		if len(res.Egress) == 0 {
 			// bridge.replicate returns no egress entry at all when no port ever becomes a
@@ -3021,6 +3013,13 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 		}
 
 		return
+	}
+
+	// A sub-interface leaves by its parent port, tagged, exactly as the live path leaves it;
+	// applied before the transmit and LAG checks below, because the records they make embed
+	// this same frame.
+	if tags, ok := subInterfaceTag(egressIface, hf.PCP, hf.DEI); ok {
+		hf.Frame.Tags = append(tags, hf.Frame.Tags...)
 	}
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(hf.Frame.Payload))

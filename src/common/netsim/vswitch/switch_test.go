@@ -8441,6 +8441,103 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 	})
 }
 
+// TestARPObservationReleasesHeldFrameOnSubInterface covers a held frame whose
+// neighbor resolves on a sub-interface: it leaves by the parent port, tagged
+// with the sub-interface's VLAN, the way the live path leaves the same frame.
+// The fixture configures no bridge, which is a sub-interface's ordinary shape,
+// so a release routed through the bridge does not merely take the wrong path
+// here — it dereferences nothing at all.
+func TestARPObservationReleasesHeldFrameOnSubInterface(t *testing.T) {
+	sw := buildSubInterfaceSwitch(t)
+	holdOnSubInterface(t, sw)
+
+	sw.Forward(fixedTime.Add(time.Second), "eth1", subInterfaceARPReply(t, []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}}))
+	sw.Wake(fixedTime.Add(time.Second))
+
+	emission := soleDataEmission(t, sw.Drain(), macSubHost)
+	if emission.Port != "eth1" {
+		t.Errorf("released port = %q, want eth1, the sub-interface's parent", emission.Port)
+	}
+	// The held frame arrived untagged on eth3, so the egress tag carries its
+	// priority: zero, and drop eligibility clear.
+	wantTag := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}
+	if got := emission.Frame.Tags; len(got) != 1 || got[0] != wantTag {
+		t.Errorf("released tags = %+v, want [%+v]", got, wantTag)
+	}
+	if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+		t.Errorf("neighbor failures = %+v, want none", failures)
+	}
+}
+
+// TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort pins HeldFrame.Port's
+// contract for a sub-interface: the drop is counted against the parent port,
+// which is the only port the interface has. It passes before the release path
+// learns about sub-interfaces as well as after — finishHeld already fills Port
+// from the interface — so it is a pin on that contract, not proof of a fix.
+func TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort(t *testing.T) {
+	sw := buildSubInterfaceSwitch(t)
+	holdOnSubInterface(t, sw)
+
+	sw.Wake(fixedTime.Add(3 * time.Second))
+	if emissions := sw.Drain(); len(emissions) != 0 {
+		t.Errorf("emissions at timeout = %+v, want none", emissions)
+	}
+	failures := sw.DrainNeighborFailures()
+	if len(failures) != 1 {
+		t.Fatalf("neighbor failures = %d, want 1: %+v", len(failures), failures)
+	}
+	if failures[0].Port != "eth1" {
+		t.Errorf("drop port = %q, want eth1, the sub-interface's parent", failures[0].Port)
+	}
+	if failures[0].Reason != routing.ReasonNeighborMiss {
+		t.Errorf("reason = %v, want %v", failures[0].Reason, routing.ReasonNeighborMiss)
+	}
+}
+
+// TestReleasedSubInterfaceFrameStaysOffTheBridge covers the same release on a
+// switch that does have a bridge, where routing it through the bridge would not
+// fault but would flood the frame at the FID the sub-interface's VLAN id
+// happens to name. A sub-interface's parent port is outside the bridge, so the
+// two VLAN 10s are unrelated namespaces and the released frame belongs on eth1
+// alone.
+func TestReleasedSubInterfaceFrameStaysOffTheBridge(t *testing.T) {
+	p10 := vlan.ID(10)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "eth3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "swport", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table:       map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{"swport": {PVID: &p10, Untagged: []vlan.ID{10}}},
+		}},
+		Routing: &routing.Config{VRFs: map[string]routing.VRF{
+			"default": {
+				Interfaces: map[string]routing.Interface{
+					"eth1.10": {Port: "eth1", VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+					"eth3":    {Port: "eth3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+				},
+			},
+		}},
+	})
+
+	pkt := makeIPv4Packet(t, ipSubSrc, ipSubHost, 64, []byte("held beside a bridge"))
+	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
+	if res := sw.Forward(fixedTime, "eth3", frame); res.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held; steps=%+v", res.Outcome, res.Steps)
+	}
+
+	sw.Forward(fixedTime.Add(time.Second), "eth1", subInterfaceARPReply(t, []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}}))
+	sw.Wake(fixedTime.Add(time.Second))
+
+	emission := soleDataEmission(t, sw.Drain(), macSubHost)
+	if emission.Port != "eth1" {
+		t.Errorf("released port = %q, want eth1: the bridge's VLAN 10 is a different namespace", emission.Port)
+	}
+}
+
 // TestARPObservationReleasesHeldFrameOnVLANInterface covers the same release
 // as TestARPObservationReleasesHeldFrameOnRoutedPort for an interface bound
 // to a VLAN rather than a port, and checks the released frame egresses
@@ -9084,20 +9181,22 @@ func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
 	}
 }
 
-// TestReleasedFrameCarriesPriorityOntoUntaggedEgress covers the half
+// TestReleasedFrameCarriesIngressPriorityOntoEgress covers the half
 // TestReleasedFrameCarriesIngressPCPAndDEI could not see. That test releases onto a tagged port,
 // where the priority survives in the egress tag. On an untagged access port and on a routed port
 // there is no tag to carry it, so the priority has to travel on the Emission itself — a reader
 // deriving it from the frame gets 0, and the frame queues behind traffic the live, non-held path
-// would have overtaken.
-func TestReleasedFrameCarriesPriorityOntoUntaggedEgress(t *testing.T) {
+// would have overtaken. The sub-interface row has it both ways, on the tag it prepends and on
+// the Emission, and each release is compared against the live path through the same interface.
+func TestReleasedFrameCarriesIngressPriorityOntoEgress(t *testing.T) {
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/4", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	newSwitch := func(t *testing.T, neighbors []routing.Neighbor) *vswitch.Switch {
 		t.Helper()
@@ -9116,6 +9215,7 @@ func TestReleasedFrameCarriesPriorityOntoUntaggedEgress(t *testing.T) {
 						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
 						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
 						"rp1":    {Port: "1/1/3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+						"rp2.40": {Port: "1/1/4", VLAN: 40, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.40.1/24")}},
 					},
 					Neighbors: neighbors,
 				},
@@ -9131,12 +9231,13 @@ func TestReleasedFrameCarriesPriorityOntoUntaggedEgress(t *testing.T) {
 			Src:       macH1,
 			Dst:       macRouter,
 			EtherType: ethernet.EtherTypeIPv4,
-			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, VID: 10}},
+			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, DEI: true, VID: 10}},
 			Payload:   makeIPv4Packet(t, ipH1, dst, 64, []byte("priority")),
 		}
 	}
 
 	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x30, 0x77}
+	subTag := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 40, PCP: 5, DEI: true}
 	for _, tc := range []struct {
 		name      string
 		iface     string
@@ -9144,16 +9245,23 @@ func TestReleasedFrameCarriesPriorityOntoUntaggedEgress(t *testing.T) {
 		gateway   netip.Addr
 		replyOn   string
 		wantEgres string
+		wantTags  []vlan.Tag
+		replyTags []vlan.Tag
 	}{
-		{"untagged access port", "vlan20", netip.MustParseAddr("10.0.20.77"), netip.MustParseAddr("10.0.20.1"), "1/1/2", "1/1/2"},
-		{"routed port", "rp1", netip.MustParseAddr("10.0.30.77"), netip.MustParseAddr("10.0.30.1"), "1/1/3", "1/1/3"},
+		{"untagged access port", "vlan20", netip.MustParseAddr("10.0.20.77"), netip.MustParseAddr("10.0.20.1"), "1/1/2", "1/1/2", nil, nil},
+		{"routed port", "rp1", netip.MustParseAddr("10.0.30.77"), netip.MustParseAddr("10.0.30.1"), "1/1/3", "1/1/3", nil, nil},
+		// The sub-interface's reply arrives on its parent port, where only its
+		// own C-TAG names it.
+		{"sub-interface", "rp2.40", netip.MustParseAddr("10.0.40.77"), netip.MustParseAddr("10.0.40.1"), "1/1/4", "1/1/4", []vlan.Tag{subTag}, []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 40}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			held := newSwitch(t, nil)
 			if res := held.Forward(fixedTime, "1/1/1", taggedFrame(t, tc.dst)); res.Outcome != trace.Held {
-				t.Fatalf("outcome = %v, want Held", res.Outcome)
+				t.Fatalf("outcome = %v (%v), want Held; steps=%+v", res.Outcome, res.Reason, res.Steps)
 			}
-			held.Forward(fixedTime.Add(time.Second), tc.replyOn, makeARPReply(t, tc.dst, tc.gateway, learnedMAC, macRouter))
+			reply := makeARPReply(t, tc.dst, tc.gateway, learnedMAC, macRouter)
+			reply.Tags = tc.replyTags
+			held.Forward(fixedTime.Add(time.Second), tc.replyOn, reply)
 			heldEmission := soleDataEmission(t, held.Drain(), learnedMAC)
 
 			// The baseline is a switch that never held: the binding is configured, so the same
@@ -9175,8 +9283,12 @@ func TestReleasedFrameCarriesPriorityOntoUntaggedEgress(t *testing.T) {
 			if heldEmission.PCP != 5 {
 				t.Errorf("released PCP = %d, want 5, the priority the frame arrived with", heldEmission.PCP)
 			}
-			if len(heldEmission.Frame.Tags) != 0 {
-				t.Errorf("released tags = %+v, want none: the egress is untagged, so nothing carries the priority but the emission", heldEmission.Frame.Tags)
+			if !slices.Equal(heldEmission.Frame.Tags, tc.wantTags) {
+				t.Errorf("released tags = %+v, want %+v", heldEmission.Frame.Tags, tc.wantTags)
+			}
+			if !slices.Equal(heldEmission.Frame.Tags, res.Egress[0].Frame.Tags) {
+				t.Errorf("held tags = %+v, live tags = %+v: a hold must not change what reaches the wire",
+					heldEmission.Frame.Tags, res.Egress[0].Frame.Tags)
 			}
 			if heldEmission.Port != tc.wantEgres {
 				t.Errorf("released port = %q, want %q", heldEmission.Port, tc.wantEgres)

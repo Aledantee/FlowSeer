@@ -87,9 +87,10 @@ const (
 // HeldFrame is one frame [Layer.Wake] reports leaving a neighbor entry's hold queue, with Cause
 // naming how it left: under [HeldReleased] Frame is ready to leave by Interface, and under the
 // other two causes Frame carries no resolved destination and exists to name what was held. Port
-// is the egress port Interface resolves to, empty for a VLAN interface, which has no single port
-// until the bridge picks one; a caller counting the exit against a port counts it against no
-// port at all rather than inventing one. PCP and DEI are the ingress 802.1Q priority the held
+// is the egress port Interface resolves to: empty for a VLAN interface with no parent port,
+// which has no single port until the bridge picks one, so a caller counting the exit against a
+// port counts it against no port at all rather than inventing one, and the parent port for a
+// sub-interface, which leaves by that port tagged. PCP and DEI are the ingress 802.1Q priority the held
 // frame arrived with (zero for a self-originated frame), so a caller that releases it can carry
 // the same priority the live, non-held path would have used.
 type HeldFrame struct {
