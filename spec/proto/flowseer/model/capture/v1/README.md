@@ -10,12 +10,14 @@ values a capture produces and matches against — `LinkType`,
 [`flowseer.net.capture.v1`](../../../net/capture/v1/README.md) and are
 ref-free by design; this package embeds them by value and adds everything
 that needs an identity to exist: the ref, the lifecycle, the authorization
-record, and the streaming contracts. The two Connect services around it —
-the one an operator calls to create, control, and read back a capture, and
-the one an edge calls to upload one — live in
-[`api/capture/v1`](../../../api/capture/v1/README.md), which imports this
-package for the entity and the chunk frames and returns `CaptureSessionRecord`
-from every call that hands back a session.
+record, and the streaming contracts. The two Connect services around it live
+in two packages: the one an operator calls to create, control, and read back
+a capture lives in
+[`api/capture/v1`](../../../api/capture/v1/README.md), and the one an edge
+calls to upload one lives in
+[`edge/capture/v1`](../../../edge/capture/v1/README.md). Both import this
+package for the entity and the chunk frames; `api/capture/v1` returns
+`CaptureSessionRecord` from every call that hands back a session.
 
 ## The owning edge
 
@@ -30,7 +32,7 @@ Nothing here imports `model/inventory`.
 
 Imports: model/edge, net/capture
 
-Imported by: api/capture
+Imported by: api/capture, edge/capture
 
 Deliberately absent:
 

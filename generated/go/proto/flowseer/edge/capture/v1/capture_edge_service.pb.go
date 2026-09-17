@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/capture/v1/capture_edge_service.proto
+// source: flowseer/edge/capture/v1/capture_edge_service.proto
 
 // The service an edge calls to upload a running capture's packets.
 // Authorized as the edge named in the stream's most recent assertion;
@@ -37,7 +37,7 @@ type UploadCaptureRequest struct {
 
 func (x *UploadCaptureRequest) Reset() {
 	*x = UploadCaptureRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[0]
+	mi := &file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +49,7 @@ func (x *UploadCaptureRequest) String() string {
 func (*UploadCaptureRequest) ProtoMessage() {}
 
 func (x *UploadCaptureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[0]
+	mi := &file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +176,7 @@ func (b0 UploadCaptureRequest_builder) Build() *UploadCaptureRequest {
 type case_UploadCaptureRequest_Body protoreflect.FieldNumber
 
 func (x case_UploadCaptureRequest_Body) String() string {
-	md := file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[0].Descriptor()
+	md := file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes[0].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -208,7 +208,7 @@ type UploadCaptureResponse struct {
 
 func (x *UploadCaptureResponse) Reset() {
 	*x = UploadCaptureResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[1]
+	mi := &file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -220,7 +220,7 @@ func (x *UploadCaptureResponse) String() string {
 func (*UploadCaptureResponse) ProtoMessage() {}
 
 func (x *UploadCaptureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[1]
+	mi := &file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -268,35 +268,35 @@ func (b0 UploadCaptureResponse_builder) Build() *UploadCaptureResponse {
 	return m0
 }
 
-var File_flowseer_api_capture_v1_capture_edge_service_proto protoreflect.FileDescriptor
+var File_flowseer_edge_capture_v1_capture_edge_service_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_capture_v1_capture_edge_service_proto_rawDesc = "" +
+const file_flowseer_edge_capture_v1_capture_edge_service_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/api/capture/v1/capture_edge_service.proto\x12\x17flowseer.api.capture.v1\x1a-flowseer/model/capture/v1/capture_chunk.proto\x1a/flowseer/model/capture/v1/capture_session.proto\x1a&flowseer/model/edge/v1/assertion.proto\"\xb9\x01\n" +
+	"3flowseer/edge/capture/v1/capture_edge_service.proto\x12\x18flowseer.edge.capture.v1\x1a-flowseer/model/capture/v1/capture_chunk.proto\x1a/flowseer/model/capture/v1/capture_session.proto\x1a&flowseer/model/edge/v1/assertion.proto\"\xb9\x01\n" +
 	"\x14UploadCaptureRequest\x12E\n" +
 	"\x05chunk\x18\x01 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkH\x00R\x05chunk\x12K\n" +
 	"\tassertion\x18\x02 \x01(\v2+.flowseer.model.edge.v1.SignedEdgeAssertionH\x00R\tassertionB\r\n" +
 	"\x04body\x12\x05\xbaH\x02\b\x01\"m\n" +
 	"\x15UploadCaptureResponse\x12T\n" +
-	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession2\x86\x01\n" +
-	"\x12CaptureEdgeService\x12p\n" +
-	"\rUploadCapture\x12-.flowseer.api.capture.v1.UploadCaptureRequest\x1a..flowseer.api.capture.v1.UploadCaptureResponse(\x01B\x83\x02\n" +
-	"\x1bcom.flowseer.api.capture.v1B\x17CaptureEdgeServiceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession2\x88\x01\n" +
+	"\x12CaptureEdgeService\x12r\n" +
+	"\rUploadCapture\x12..flowseer.edge.capture.v1.UploadCaptureRequest\x1a/.flowseer.edge.capture.v1.UploadCaptureResponse(\x01B\x89\x02\n" +
+	"\x1ccom.flowseer.edge.capture.v1B\x17CaptureEdgeServiceProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1;capturev1\xa2\x02\x03FEC\xaa\x02\x18Flowseer.Edge.Capture.V1\xca\x02\x18Flowseer\\Edge\\Capture\\V1\xe2\x02$Flowseer\\Edge\\Capture\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Edge::Capture::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_flowseer_api_capture_v1_capture_edge_service_proto_goTypes = []any{
-	(*UploadCaptureRequest)(nil),       // 0: flowseer.api.capture.v1.UploadCaptureRequest
-	(*UploadCaptureResponse)(nil),      // 1: flowseer.api.capture.v1.UploadCaptureResponse
+var file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_edge_capture_v1_capture_edge_service_proto_goTypes = []any{
+	(*UploadCaptureRequest)(nil),       // 0: flowseer.edge.capture.v1.UploadCaptureRequest
+	(*UploadCaptureResponse)(nil),      // 1: flowseer.edge.capture.v1.UploadCaptureResponse
 	(*v1.CapturePacketChunk)(nil),      // 2: flowseer.model.capture.v1.CapturePacketChunk
 	(*v11.SignedEdgeAssertion)(nil),    // 3: flowseer.model.edge.v1.SignedEdgeAssertion
 	(*v1.CaptureSessionGlobalRef)(nil), // 4: flowseer.model.capture.v1.CaptureSessionGlobalRef
 }
-var file_flowseer_api_capture_v1_capture_edge_service_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.capture.v1.UploadCaptureRequest.chunk:type_name -> flowseer.model.capture.v1.CapturePacketChunk
-	3, // 1: flowseer.api.capture.v1.UploadCaptureRequest.assertion:type_name -> flowseer.model.edge.v1.SignedEdgeAssertion
-	4, // 2: flowseer.api.capture.v1.UploadCaptureResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	0, // 3: flowseer.api.capture.v1.CaptureEdgeService.UploadCapture:input_type -> flowseer.api.capture.v1.UploadCaptureRequest
-	1, // 4: flowseer.api.capture.v1.CaptureEdgeService.UploadCapture:output_type -> flowseer.api.capture.v1.UploadCaptureResponse
+var file_flowseer_edge_capture_v1_capture_edge_service_proto_depIdxs = []int32{
+	2, // 0: flowseer.edge.capture.v1.UploadCaptureRequest.chunk:type_name -> flowseer.model.capture.v1.CapturePacketChunk
+	3, // 1: flowseer.edge.capture.v1.UploadCaptureRequest.assertion:type_name -> flowseer.model.edge.v1.SignedEdgeAssertion
+	4, // 2: flowseer.edge.capture.v1.UploadCaptureResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	0, // 3: flowseer.edge.capture.v1.CaptureEdgeService.UploadCapture:input_type -> flowseer.edge.capture.v1.UploadCaptureRequest
+	1, // 4: flowseer.edge.capture.v1.CaptureEdgeService.UploadCapture:output_type -> flowseer.edge.capture.v1.UploadCaptureResponse
 	4, // [4:5] is the sub-list for method output_type
 	3, // [3:4] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -304,12 +304,12 @@ var file_flowseer_api_capture_v1_capture_edge_service_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_capture_v1_capture_edge_service_proto_init() }
-func file_flowseer_api_capture_v1_capture_edge_service_proto_init() {
-	if File_flowseer_api_capture_v1_capture_edge_service_proto != nil {
+func init() { file_flowseer_edge_capture_v1_capture_edge_service_proto_init() }
+func file_flowseer_edge_capture_v1_capture_edge_service_proto_init() {
+	if File_flowseer_edge_capture_v1_capture_edge_service_proto != nil {
 		return
 	}
-	file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[0].OneofWrappers = []any{
+	file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes[0].OneofWrappers = []any{
 		(*uploadCaptureRequest_Chunk)(nil),
 		(*uploadCaptureRequest_Assertion)(nil),
 	}
@@ -317,17 +317,17 @@ func file_flowseer_api_capture_v1_capture_edge_service_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_capture_v1_capture_edge_service_proto_rawDesc), len(file_flowseer_api_capture_v1_capture_edge_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_capture_v1_capture_edge_service_proto_rawDesc), len(file_flowseer_edge_capture_v1_capture_edge_service_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_flowseer_api_capture_v1_capture_edge_service_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_capture_v1_capture_edge_service_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_capture_v1_capture_edge_service_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_capture_v1_capture_edge_service_proto_depIdxs,
+		MessageInfos:      file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_capture_v1_capture_edge_service_proto = out.File
-	file_flowseer_api_capture_v1_capture_edge_service_proto_goTypes = nil
-	file_flowseer_api_capture_v1_capture_edge_service_proto_depIdxs = nil
+	File_flowseer_edge_capture_v1_capture_edge_service_proto = out.File
+	file_flowseer_edge_capture_v1_capture_edge_service_proto_goTypes = nil
+	file_flowseer_edge_capture_v1_capture_edge_service_proto_depIdxs = nil
 }

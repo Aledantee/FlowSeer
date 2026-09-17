@@ -59,6 +59,12 @@ var importOrder = map[string][]string{
 	// carry.
 	"api/capture": {"model/capture", "model/edge", "net/capture"},
 
+	// The Connect service an edge calls to upload a running capture
+	// session's packets. Takes the entity and the assertion it re-verifies
+	// on the stream from model/capture and model/edge; adds no import
+	// model/capture does not already carry.
+	"edge/capture": {"model/capture", "model/edge"},
+
 	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
@@ -96,7 +102,7 @@ var importOrder = map[string][]string{
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.
 var orderedRoots = []string{
-	"flowseer/net", "flowseer/api", "flowseer/model",
+	"flowseer/net", "flowseer/api", "flowseer/edge", "flowseer/model",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
 	"flowseer/store",
 }
@@ -303,6 +309,13 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "access values import storage", importer: "model/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
+		{name: "capture upload imports the entity and the chunk frames", importer: "edge/capture", imported: "model/capture", want: true},
+		{
+			name:       "the entity imports the service that carries it",
+			importer:   "model/capture",
+			imported:   "edge/capture",
+			wantReason: "edge/capture declares a service and is imported by nothing",
+		},
 		{
 			name:       "storage imports a sink",
 			importer:   "store/device",

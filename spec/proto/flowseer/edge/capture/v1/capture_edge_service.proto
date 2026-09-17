@@ -3,7 +3,7 @@ edition = "2024";
 // The service an edge calls to upload a running capture's packets.
 // Authorized as the edge named in the stream's most recent assertion;
 // central never calls it.
-package flowseer.api.capture.v1;
+package flowseer.edge.capture.v1;
 
 import "flowseer/model/capture/v1/capture_chunk.proto";
 import "flowseer/model/capture/v1/capture_session.proto";
