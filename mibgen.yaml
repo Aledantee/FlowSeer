@@ -102,14 +102,17 @@ modules:
   # are in no public MIB, so a CBS350 resolves to switch001 rather than to
   # its model — enough to know the vendor and the firmware line.
   - { name: CISCOSB-MIB,         package: ciscosbmib }
-  # An AireOS controller reports a sysObjectID under 1.3.6.1.4.1.14179.1.1.4,
-  # and no public MIB names those model nodes. AIRESPACE-REF-MIB declares the
-  # airespace root alone, so a WLC resolves to it by ancestor — vendor and
-  # line, not model. The deeper AIRESPACE-SWITCHING-MIB is deliberately not
-  # here: the only ancestor it would add is agentInfoGroup at 14179.1.1, a
-  # management-tree group rather than a product, and it carries 16 tables
-  # nothing reads. Resolving a controller to that would be more precise and
-  # less true.
+  # AIRESPACE-REF-MIB declares the airespace root at enterprises 14179 and
+  # nothing else, which is the whole AireOS identity anyone gets. An AireOS
+  # controller reports a sysObjectID under 14179.1.1.4, and the only nodes
+  # declared there are agentProductGroup and productGroup1 through 4 in
+  # AIRESPACE-SWITCHING-MIB — families, not models, whose descriptions have
+  # not kept up: productGroup3 is documented as the 4202 and 4204, and is
+  # what much later controllers report. So that module buys a product-shaped
+  # ancestor that still cannot name the box, for 16 tables nothing reads.
+  # Both LibreNMS and Observium stop at the same place, Observium matching
+  # the bare .1.3.6.1.4.1.14179 prefix this module supplies. The model comes
+  # off the device instead, from ENTITY-MIB's chassis row.
   - { name: AIRESPACE-REF-MIB,   package: airespaceref }
   # LCOS-MIB carries the LANCOM product nodes (enterprises 2356) together
   # with the whole LCOS status and setup tree, so unlike the identity-only
