@@ -814,11 +814,13 @@ func (l *Layer) PVSTBoundary(port string) bool {
 // named port rather than treat it as SSTPPortDown: the port is one this
 // layer tracks and its CIST copy currently holds the link up. ReceiveSSTP
 // makes exactly this check before doing anything else with a frame, and it
-// is the one read-only distinction the other accessors cannot make: a
-// PortInfo snapshot carries no link bit, and it renders a port whose link
+// is the one read-only distinction the other accessors do not make directly:
+// a PortInfo snapshot carries no link bit, and it renders a port whose link
 // went down through the same Disabled and Discarding values a port that
-// never came up shows, so a caller judging a port before calling ReceiveSSTP
-// cannot reconstruct the answer from one.
+// never came up shows. A caller can still recover the answer from a
+// snapshot, but only by re-deriving this layer's own role and guard rules —
+// that a down port clears its guards, so a Disabled port reporting BPDU
+// guard is up — which is the coupling this accessor exists to spare it.
 func (l *Layer) PortLinked(port string) bool {
 	p, ok := l.cist().ports[port]
 

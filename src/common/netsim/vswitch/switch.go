@@ -2291,9 +2291,10 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 
 	// The step is chosen above from admitted and tracked, not from the
 	// outcome: both are true here, which leaves the layer having processed
-	// the frame, and that is what stp.sstp.admit traces whether the tree half
-	// applied the vector, fired BPDU guard, marked a boundary, or refused a
-	// PVID mismatch.
+	// the frame, or under Peek having been shown what it would do with one,
+	// and that is what stp.sstp.admit traces whether the tree half applied
+	// the vector, fired BPDU guard, marked a boundary, or refused a PVID
+	// mismatch.
 	//
 	// ReceiveSSTP has a second source of SSTPUntrackedVLAN that tracked does
 	// not model: the arrival VLAN's tree exists but holds no state for this

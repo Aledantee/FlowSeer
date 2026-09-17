@@ -7543,9 +7543,9 @@ func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
 // TestSSTPPortDownTracesTheSameUnderPeekAndForward pins the agreement a
 // read-only inspection owes a committing one. Peek derives its outcome from
 // what the switch can observe without mutating, and the port-down case is the
-// one the layer alone knows: a port the port table calls up but the spanning
-// tree layer never configured. A Peek that renders it as admitted describes a
-// journey the switch would not have taken.
+// one the layer alone knows: a port the port table calls up that the spanning
+// tree layer has not seen a link-up event for. A Peek that renders it as
+// admitted describes a journey the switch would not have taken.
 func TestSSTPPortDownTracesTheSameUnderPeekAndForward(t *testing.T) {
 	t.Parallel()
 
