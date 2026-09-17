@@ -4,13 +4,15 @@ type: fix
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4b-plan.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 4c: a held frame's exit is accounted for - Plan
+
+> Implemented. 5 units, 2026-09-17T10:29Z to 2026-09-17T10:55Z.
 
 ## Goal
 
@@ -240,6 +242,13 @@ constructs it over a LAG whose LACP never converged. The
 stated reason, `ReasonHeldInterfaceUnknown`. Cost if wrong: both guards are
 four lines each and already record; a later test that reaches either one needs
 no production change.
+
+Ruled: the four protocol append sites do not gain an explicit `PCP: 0`. Why:
+zero is the field's zero value and what the deleted derivation returned for all
+four, so writing it four times states nothing the field's own documentation
+does not, and a composite literal carrying a redundant zero reads as a value
+someone chose to set. The `Emission.PCP` comment says instead why a protocol
+frame's priority is zero. Cost if wrong: four one-word additions.
 
 ## Requirements
 

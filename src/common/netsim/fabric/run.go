@@ -922,7 +922,10 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 		Cable:  f.portCable(device, em.Port),
 	})
 
-	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, framePCP(em.Frame), "")
+	// em.PCP rather than a priority re-derived from em.Frame: a released held frame leaving an
+	// untagged access port or a routed port carries no tag to derive from, so deriving would
+	// queue at 0 a frame the live path queues at the priority it arrived with.
+	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, em.PCP, "")
 }
 
 // recordNeighborFailure turns one [vswitch.NeighborDrop] reported for a held

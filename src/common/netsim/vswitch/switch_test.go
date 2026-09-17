@@ -8642,3 +8642,120 @@ func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
 		t.Errorf("port = %q, want empty: vlan20 is an SVI, which owns no single port", drops[0].Port)
 	}
 }
+
+// TestReleasedFrameCarriesPriorityOntoUntaggedEgress covers the half
+// TestReleasedFrameCarriesIngressPCPAndDEI could not see. That test releases onto a tagged port,
+// where the priority survives in the egress tag. On an untagged access port and on a routed port
+// there is no tag to carry it, so the priority has to travel on the Emission itself — a reader
+// deriving it from the frame gets 0, and the frame queues behind traffic the live, non-held path
+// would have overtaken.
+func TestReleasedFrameCarriesPriorityOntoUntaggedEgress(t *testing.T) {
+	p10 := vlan.ID(10)
+	p20 := vlan.ID(20)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	newSwitch := func(t *testing.T, neighbors []routing.Neighbor) *vswitch.Switch {
+		t.Helper()
+		return mustSwitch(t, vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Tagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &p20, Untagged: []vlan.ID{20}},
+				},
+			}},
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						"rp1":    {Port: "1/1/3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+					},
+					Neighbors: neighbors,
+				},
+			}},
+		})
+	}
+
+	// The held and the live frame take the same route to the same next hop; only the order of
+	// the advertisement and the frame differs, so any divergence is the hold.
+	taggedFrame := func(t *testing.T, dst netip.Addr) ethernet.Frame {
+		t.Helper()
+		return ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			EtherType: ethernet.EtherTypeIPv4,
+			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, VID: 10}},
+			Payload:   makeIPv4Packet(t, ipH1, dst, 64, []byte("priority")),
+		}
+	}
+
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x30, 0x77}
+	for _, tc := range []struct {
+		name      string
+		iface     string
+		dst       netip.Addr
+		gateway   netip.Addr
+		replyOn   string
+		wantEgres string
+	}{
+		{"untagged access port", "vlan20", netip.MustParseAddr("10.0.20.77"), netip.MustParseAddr("10.0.20.1"), "1/1/2", "1/1/2"},
+		{"routed port", "rp1", netip.MustParseAddr("10.0.30.77"), netip.MustParseAddr("10.0.30.1"), "1/1/3", "1/1/3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			held := newSwitch(t, nil)
+			if res := held.Forward(fixedTime, "1/1/1", taggedFrame(t, tc.dst)); res.Outcome != trace.Held {
+				t.Fatalf("outcome = %v, want Held", res.Outcome)
+			}
+			held.Forward(fixedTime.Add(time.Second), tc.replyOn, makeARPReply(t, tc.dst, tc.gateway, learnedMAC, macRouter))
+			heldEmission := soleDataEmission(t, held.Drain(), learnedMAC)
+
+			// The baseline is a switch that never held: the binding is configured, so the same
+			// frame forwards straight through and its priority rides res.Egress, which is what
+			// the fabric transmits on the live path. Observe alone would not do — an
+			// advertisement for an address nothing routed to creates no entry.
+			live := newSwitch(t, []routing.Neighbor{{Interface: tc.iface, Addr: tc.dst, MAC: learnedMAC}})
+			res := live.Forward(fixedTime, "1/1/1", taggedFrame(t, tc.dst))
+			if res.Outcome == trace.Held || res.Outcome == trace.Dropped {
+				t.Fatalf("live outcome = %v (%v), want the frame on its way: the binding is configured", res.Outcome, res.Reason)
+			}
+			if len(res.Egress) != 1 {
+				t.Fatalf("live egress = %+v, want exactly one entry", res.Egress)
+			}
+
+			if heldEmission.PCP != res.Egress[0].PCP {
+				t.Errorf("held PCP = %d, live PCP = %d: a hold must not change the priority", heldEmission.PCP, res.Egress[0].PCP)
+			}
+			if heldEmission.PCP != 5 {
+				t.Errorf("released PCP = %d, want 5, the priority the frame arrived with", heldEmission.PCP)
+			}
+			if len(heldEmission.Frame.Tags) != 0 {
+				t.Errorf("released tags = %+v, want none: the egress is untagged, so nothing carries the priority but the emission", heldEmission.Frame.Tags)
+			}
+			if heldEmission.Port != tc.wantEgres {
+				t.Errorf("released port = %q, want %q", heldEmission.Port, tc.wantEgres)
+			}
+		})
+	}
+}
+
+// soleDataEmission returns the one emission addressed to dst, failing when there is not exactly
+// one: a Forward that observes an advertisement also relays the advertisement itself.
+func soleDataEmission(t *testing.T, emissions []vswitch.Emission, dst netaddr.MAC) vswitch.Emission {
+	t.Helper()
+	var found []vswitch.Emission
+	for _, em := range emissions {
+		if em.Frame.Dst == dst {
+			found = append(found, em)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("emissions to %s = %d, want exactly 1: %+v", dst, len(found), emissions)
+	}
+	return found[0]
+}

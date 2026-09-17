@@ -154,6 +154,16 @@ type Emission struct {
 	Port  string
 	Frame ethernet.Frame
 
+	// PCP is the 802.1Q priority the frame queues at on egress. It is carried
+	// rather than left to a reader to re-derive from Frame, because an
+	// untagged egress frame carries no tag to derive from: a frame that
+	// arrived tagged at priority 5 and left a routed or untagged access port
+	// would re-derive as 0 and overtake nothing, where the live, non-held
+	// path queues it at 5. A protocol frame leaves it at zero: a BPDU, an
+	// LACPDU and a loop-protect probe all go out either untagged or tagged at
+	// priority 0 by [bridge.Bridge.OriginateFrame].
+	PCP vlan.PCP
+
 	// Protocol reports whether the frame is a BPDU, LACPDU, loop-protect
 	// probe, or other frame the switch generated for a protocol of its own,
 	// as opposed to a held user frame [Switch.Wake] released once its next
@@ -2927,7 +2937,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 
 				continue
 			}
-			s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame})
+			s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame, PCP: eg.PCP})
 		}
 
 		return
@@ -2950,7 +2960,9 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 		}
 	}
 
-	s.emissions = append(s.emissions, Emission{Port: egressIface.Port, Frame: hf.Frame})
+	// A routed port has no bridge egress decision to read a priority off, so the frame keeps the
+	// one it arrived with, which is what the live path transmits for the same frame.
+	s.emissions = append(s.emissions, Emission{Port: egressIface.Port, Frame: hf.Frame, PCP: hf.PCP})
 }
 
 func (s *Switch) updateLagState(now time.Time, lagName string) {

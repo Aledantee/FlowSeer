@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/arp"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -1015,5 +1016,153 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 		if got := counters.Discards[routing.ReasonNeighborMiss]; got != 0 {
 			t.Errorf("port %q counted %d neighbor-miss discards, want 0: no port carried this frame", name, got)
 		}
+	}
+}
+
+// TestFabricReleasedFrameQueuesAtItsIngressPriority is the end of the priority's journey: the
+// switch carries a released frame's priority on the Emission, and the fabric has to queue on
+// that rather than re-derive one from a frame whose egress tag is gone. The baseline is the same
+// frame over the same fabric with the binding configured, so it never holds.
+func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
+	sw1MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	sw2MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x02}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	nextHop := netip.MustParseAddr("10.0.60.7")
+	vid10 := vlan.ID(10)
+	start := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+
+	twoPorts := func(t *testing.T) port.Table {
+		t.Helper()
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		ports, err := b.Build()
+		if err != nil {
+			t.Fatalf("build ports: %v", err)
+		}
+		return ports
+	}
+
+	// sw1's 1/1/1 is tagged, so a frame arrives carrying a priority; 1/1/2 is a routed port, so
+	// the frame leaves with no tag at all and nothing but the emission can carry it. The far end
+	// is a second switch rather than a host, because only a crossing into a device records the
+	// priority the frame queued at.
+	build := func(t *testing.T, neighbors []routing.Neighbor) *fabric.Fabric {
+		t.Helper()
+		cfg := fabric.Config{
+			Start: start,
+			Switches: map[string]vswitch.Config{
+				"sw1": {
+					MAC:   sw1MAC,
+					Ports: twoPorts(t),
+					Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+						Table:       map[vlan.ID]string{10: "vlan10"},
+						Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{10}}},
+					}},
+					Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+						Interfaces: map[string]routing.Interface{
+							"vlan10": {VLAN: 10, MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+							"rp2":    {Port: "1/1/2", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")}},
+						},
+						Neighbors: neighbors,
+					}}},
+				},
+				"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
+			},
+			// h1 exists only to give 1/1/1 a link: an unconnected port comes up Down, and a
+			// frame injected onto a down port never reaches the switch at all.
+			Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+			Cables: []fabric.Cable{
+				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+				{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+			},
+		}
+
+		fab, err := fabric.New(statedPhysical(cfg))
+		if err != nil {
+			t.Fatalf("fabric.New: %v", err)
+		}
+		return fab
+	}
+
+	// The frame is injected at sw1's port rather than from a host: a host injection replaces the
+	// frame's tag with the host's own VLAN form, which carries priority 0, and this test is
+	// about a frame that arrived at priority 5.
+	packet, err := ip.Header{
+		Src:      netip.MustParseAddr("10.0.50.7"),
+		Dst:      nextHop,
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}.Encode([]byte("priority"))
+	if err != nil {
+		t.Fatalf("encode IPv4 packet: %v", err)
+	}
+	taggedFrame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       sw1MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, VID: 10}},
+		Payload:   packet,
+	}
+
+	replyFrame, err := arp.Encode(arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    sw2MAC,
+		SenderAddr:   nextHop,
+		TargetMAC:    sw1MAC,
+		TargetAddr:   netip.MustParseAddr("10.0.60.1"),
+	}, sw1MAC)
+	if err != nil {
+		t.Fatalf("encode ARP reply: %v", err)
+	}
+
+	// Both runs take the same injections, so the only difference between them is whether the
+	// binding was configured up front. Netsim never solicits, so the reply is what resolves the
+	// held run's next hop; the configured run ignores it, because Observe never overwrites a
+	// configured binding.
+	run := func(t *testing.T, neighbors []routing.Neighbor) vlan.PCP {
+		t.Helper()
+		fab := build(t, neighbors)
+		if _, err := fab.Inject(fabric.Injection{
+			At:     start,
+			Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			Frame:  taggedFrame,
+		}); err != nil {
+			t.Fatalf("Inject frame: %v", err)
+		}
+		if _, err := fab.Inject(fabric.Injection{
+			At:     start.Add(time.Second),
+			Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+			Frame:  replyFrame,
+		}); err != nil {
+			t.Fatalf("Inject ARP reply: %v", err)
+		}
+		fab.Run(200)
+
+		var found []vlan.PCP
+		for _, j := range fab.Report() {
+			for _, e := range j.Entries {
+				if e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
+					found = append(found, e.PCP)
+				}
+			}
+		}
+		if len(found) != 1 {
+			t.Fatalf("crossings into sw2 = %d, want exactly 1: %+v", len(found), fab.Report())
+		}
+		return found[0]
+	}
+
+	heldPCP := run(t, nil)
+	livePCP := run(t, []routing.Neighbor{{Interface: "rp2", Addr: nextHop, MAC: sw2MAC}})
+
+	if heldPCP != livePCP {
+		t.Errorf("held frame queued at PCP %d, the same frame unheld at %d: a hold must not change the priority", heldPCP, livePCP)
+	}
+	if heldPCP != 5 {
+		t.Errorf("released frame queued at PCP %d, want 5, the priority it arrived with", heldPCP)
 	}
 }
