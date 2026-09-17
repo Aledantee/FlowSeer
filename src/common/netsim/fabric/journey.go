@@ -45,6 +45,12 @@ const (
 	// EntryDelivery records a host accepting an arrived frame.
 	EntryDelivery EntryKind = "Delivery"
 
+	// EntryReflection records a reflector accepting an arrived frame for
+	// reflection. A reflector is not a host and delivers nothing, so this is
+	// its own kind rather than EntryDelivery: originating copies is not a
+	// host taking delivery of a frame.
+	EntryReflection EntryKind = "Reflection"
+
 	// EntryRejection records a host refusing an arrived frame; its Reason names the refusing check.
 	EntryRejection EntryKind = "Rejection"
 

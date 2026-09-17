@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"maps"
 	"math"
 	"math/bits"
 	"net/netip"
@@ -9,7 +10,9 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -394,6 +397,9 @@ func (f *Fabric) Step() (Entry, bool) {
 		}
 
 		entry := f.arriveReflector(journey, arr.Device, refl, arr.Port, arr.Frame, arr.At)
+		if entry.Kind == EntryReflection {
+			f.reflectFrame(journey, arr.Device, refl, arr.Port, arr.Frame, arr.At)
+		}
 
 		return entry, true
 	}
@@ -561,6 +567,208 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 
 	return hopEntry, true
+}
+
+// reflectFrame originates one copy of an accepted mDNS query per other
+// attachment of the datagram's address family, on the reflector's own
+// acceptance the Step reflector branch just recorded. It is the counterpart
+// to arriveReflector: arriveReflector decides whether the frame is taken for
+// reflection, and reflectFrame is what "taken for reflection" does. The
+// arriving frame's IP and UDP headers already decoded once inside
+// acceptReflector to reach EntryReflection, so decoding them again here
+// cannot fail.
+func (f *Fabric) reflectFrame(parent *Journey, name string, refl Reflector, arrivalPort string, frame ethernet.Frame, at time.Time) {
+	header, ipPayload, err := ip.Decode(frame.Payload)
+	if err != nil {
+		f.recordFault(errs.Wrap(err, "decode accepted reflector frame's IP header"))
+		return
+	}
+	udpHeader, udpPayload, err := udp.Decode(ipPayload)
+	if err != nil {
+		f.recordFault(errs.Wrap(err, "decode accepted reflector frame's UDP header"))
+		return
+	}
+
+	arrivalName, _ := reflectorArrivalAttachment(refl, arrivalPort, frame.Tags)
+	family4 := header.Dst.Is4()
+
+	for _, attName := range slices.Sorted(maps.Keys(refl.Attachments)) {
+		if attName == arrivalName {
+			continue
+		}
+		att := refl.Attachments[attName]
+		addr, ok := attachmentAddress(att, family4)
+		if !ok {
+			f.record(parent, Entry{
+				At:     at,
+				Kind:   EntryDrop,
+				Device: name,
+				Port:   att.Port,
+				Reason: ReasonReflectorNoAddress,
+			})
+
+			continue
+		}
+
+		f.originateReflection(parent, name, refl, att, addr, frame, header, udpHeader, udpPayload, at)
+	}
+}
+
+// reflectorArrivalAttachment returns the name of the attachment whose port
+// and tag form match the arriving frame, mirroring Reflector.acceptsTags.
+// acceptReflector already established that exactly one exists before this
+// runs, so a caller that gets ok == false has nothing to exclude and reflects
+// onto every attachment; that only happens if this invariant breaks.
+func reflectorArrivalAttachment(refl Reflector, arrivalPort string, tags []vlan.Tag) (string, bool) {
+	for attName, a := range refl.Attachments {
+		if a.Port != arrivalPort {
+			continue
+		}
+		if a.VLAN == nil {
+			if len(tags) == 0 || tags[0].VID == 0 {
+				return attName, true
+			}
+
+			continue
+		}
+		if len(tags) == 1 && tags[0].VID == *a.VLAN {
+			return attName, true
+		}
+	}
+
+	return "", false
+}
+
+// attachmentAddress returns one of the attachment's addresses matching the
+// requested family (true for IPv4), or false if it names none.
+func attachmentAddress(att Attachment, family4 bool) (netip.Addr, bool) {
+	for _, prefix := range att.Addresses {
+		if addr := prefix.Addr(); addr.Is4() == family4 {
+			return addr, true
+		}
+	}
+
+	return netip.Addr{}, false
+}
+
+// attachmentTags returns the tag stack a reflector copy carries onto an
+// attachment: no tag for an untagged attachment, or one C-TAG with the
+// attachment's VLAN. Mirrors the tag form Inject gives a host origin.
+func attachmentTags(att Attachment) []vlan.Tag {
+	if att.VLAN == nil {
+		return nil
+	}
+
+	return []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: *att.VLAN}}
+}
+
+// originateReflection rebuilds the accepted datagram end to end onto one
+// attachment and originates it as a new journey: fresh FrameID, Parent set to
+// the arriving frame, and its own entered set seeded from a copy of the
+// parent's. Seeding rather than sharing is load-bearing: a shared set cannot
+// tell a sibling copy from an ancestor, and a reflector with three
+// attachments would report a false loop on its first query.
+//
+// The datagram is rebuilt through udp.Encode and then ip.Header.Encode rather
+// than patched in place, because changing the IP source address invalidates
+// the IPv4 header checksum; ip.Decode refuses a header whose checksum does
+// not match, so a receiving host would record an unrecomputed copy as
+// undecodable instead of accepting it. Hop limit is 255 and UDP source port
+// is 5353 (RFC 6762 section 11 and section 5.2); every other IPv4 field is
+// carried from the arriving header unchanged.
+func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflector, att Attachment, addr netip.Addr, frame ethernet.Frame, header ip.Header, udpHeader udp.Header, udpPayload []byte, at time.Time) {
+	copyUDP := udpHeader
+	copyUDP.SrcPort = mdnsUDPPort
+	udpBytes, err := udp.Encode(copyUDP, udpPayload, addr, header.Dst)
+	if err != nil {
+		// The arriving datagram already encoded at this length over a
+		// same-family address pair, so re-encoding it with another
+		// same-family source cannot fail.
+		f.recordFault(errs.Wrap(err, "encode reflected UDP datagram"))
+		return
+	}
+
+	copyHeader := header
+	copyHeader.Src = addr
+	copyHeader.HopLimit = 255
+	ipBytes, err := copyHeader.Encode(udpBytes)
+	if err != nil {
+		// The arriving header already encoded this options length and total
+		// length; replacing only the source address and hop limit cannot
+		// make it exceed either limit.
+		f.recordFault(errs.Wrap(err, "encode reflected IP header"))
+		return
+	}
+
+	copyFrame := ethernet.Frame{
+		Dst:       frame.Dst,
+		Src:       refl.Address,
+		Tags:      attachmentTags(att),
+		EtherType: frame.EtherType,
+		Payload:   ipBytes,
+	}
+
+	fid := f.nextFrameID
+	f.nextFrameID++
+	seq := f.nextSeq
+	f.nextSeq++
+
+	inj := Injection{
+		At:     at,
+		Origin: Endpoint{Node: name, Port: att.Port},
+		Frame:  copyFrame,
+	}
+	copyJourney := &Journey{
+		FrameID:   fid,
+		Parent:    parent.FrameID,
+		Injection: inj,
+	}
+	f.journeys[fid] = copyJourney
+	f.entered[fid] = cloneEntered(f.entered[parent.FrameID])
+	f.record(copyJourney, Entry{
+		At:     at,
+		Kind:   EntryInjection,
+		Device: name,
+		Port:   att.Port,
+		Cable:  f.portCable(name, att.Port),
+	})
+
+	ref, ok := f.linkEnd(name, att.Port)
+	if !ok {
+		// Validate requires every reflector port to be cabled, so a
+		// configured fabric never reaches this.
+		return
+	}
+	if ref.end.Oper != port.Up {
+		kind := EntryDrop
+		if ref.end.Oper == port.Unknown {
+			kind = EntryUnresolved
+		}
+		cable := ref.link.Clone()
+		f.record(copyJourney, Entry{
+			At:     at,
+			Kind:   kind,
+			Device: name,
+			Cable:  &cable,
+			Reason: ref.end.Reason,
+		})
+
+		return
+	}
+
+	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, copyFrame, seq, fid, copyJourney, framePCP(copyFrame), "")
+}
+
+// cloneEntered returns an independent copy of a frame's re-entry set, so a
+// reflected copy's set can be seeded from its parent's without the two ever
+// sharing one map.
+func cloneEntered(src map[Endpoint]bool) map[Endpoint]bool {
+	cp := make(map[Endpoint]bool, len(src))
+	for ep, v := range src {
+		cp[ep] = v
+	}
+
+	return cp
 }
 
 func (f *Fabric) transmit(now time.Time, device, portName, memberName string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) {

@@ -1,11 +1,13 @@
 package fabric_test
 
 import (
+	"net/netip"
 	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -13,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 const (
@@ -152,6 +155,130 @@ func TestSwitchOriginInjectionEntryCarriesItsPortAndCable(t *testing.T) {
 	if injection.Port != "1/1/1" || injection.Cable == nil || injection.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
 		t.Errorf("injection entry = %+v, want port 1/1/1 with its cable", injection)
 	}
+}
+
+// reflectMetadataConfig cables a reflector to h1 (the arrival side, VLAN 10,
+// plain assumed physical facts) and to h2 (VLAN 20, with both ends reporting
+// observed facts and no stated medium), the same shape journeyFabric uses to
+// put propagation-unknown on the h2 link rather than assuming it away.
+func reflectMetadataConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	gigabit := autoEthernet(1_000_000_000)
+	observed := autoEthernet(1_000_000_000)
+	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
+	vid10, vid20 := vlan.ID(10), vlan.ID(20)
+
+	return fabric.Config{
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: reflectH1Address, VLAN: &vid10, Ethernet: gigabit},
+			"h2": {
+				Address: reflectH2Address, VLAN: &vid20, Ethernet: observed,
+				IP:     &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
+				Accept: fabric.HostAccept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
+			},
+		},
+		Reflectors: map[string]fabric.Reflector{
+			"r1": {
+				Address: reflectR1Address,
+				Ports:   map[string]phy.Ethernet{"rp1": gigabit, "rp2": observed},
+				Attachments: map[string]fabric.Attachment{
+					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
+					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}, LengthMeters: 2},
+		},
+	}
+}
+
+// TestReflectedCopyJourneyFoldsItsCableMetadata covers parent R8: a copy's
+// journey folds in the issues of the cables and links it depends on, exactly
+// as a host delivery's journey does, because both go through the same
+// generic [Fabric.record] dependency fold rather than a reflector-specific
+// path.
+func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
+	fab, err := fabric.NewWithSpec(constructionSpec(reflectMetadataConfig(t)))
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	if !hasIssue(fab.Metadata().Issues(), fabric.IssuePropagationUnknown) {
+		t.Fatalf("fabric issues = %+v, want the fixture's propagation-unknown on r1's link to h2", fab.Metadata().Issues())
+	}
+
+	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
+	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(20)
+
+	var copyJourney fabric.Journey
+	for _, j := range fab.Report() {
+		if j.Parent == parentID {
+			copyJourney = j
+		}
+	}
+	if copyJourney.FrameID == 0 {
+		t.Fatalf("no copy journey found for parent %d", parentID)
+	}
+	if len(copyJourney.Deliveries) != 1 || copyJourney.Deliveries[0].Host != "h2" {
+		t.Fatalf("copy deliveries = %+v, want h2 to decode it", copyJourney.Deliveries)
+	}
+	if !hasIssue(copyJourney.Metadata.Issues(), fabric.IssuePropagationUnknown) {
+		t.Errorf("copy journey issues = %+v, want propagation-unknown from its own egress cable", copyJourney.Metadata.Issues())
+	}
+}
+
+// TestMirrorCopyEnteredSetIsIndependentOfItsParent guards against the
+// reflector's seeded re-entry set spilling over onto mirror copies, which
+// must keep starting from a clean slate: a mirror copy is not a reflected
+// query, and it must not carry any of its parent's visited endpoints into
+// its own loop detection.
+func TestMirrorCopyEnteredSetIsIndependentOfItsParent(t *testing.T) {
+	fab, macs := newTrafficTopology(t, &traffic.Config{Mirrors: []traffic.Mirror{{
+		Name: "m1", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/4",
+	}}})
+	fid, err := fab.Inject(fabric.Injection{
+		At:     fixedTime,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Dst: macs["h2"], Src: macs["h1"], Tags: []vlan.Tag{{TPID: 0x8100, VID: 10}}, Payload: make([]byte, 46)},
+	})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(20)
+
+	var original, mirror fabric.Journey
+	for _, j := range fab.Report() {
+		switch {
+		case j.FrameID == fid:
+			original = j
+		case j.Parent == fid && j.Mirror == "m1":
+			mirror = j
+		}
+	}
+	if original.FrameID == 0 {
+		t.Fatalf("original journey %d not found", fid)
+	}
+	if mirror.FrameID == 0 {
+		t.Fatalf("no mirror copy of journey %d found", fid)
+	}
+	if mirror.FrameID == original.FrameID {
+		t.Fatalf("mirror copy shares the original's FrameID %d", original.FrameID)
+	}
+	if hasEntryKind(original.Entries, fabric.EntryLoop) {
+		t.Errorf("original entries = %+v, want no EntryLoop", original.Entries)
+	}
+	if hasEntryKind(mirror.Entries, fabric.EntryLoop) {
+		t.Errorf("mirror entries = %+v, want no EntryLoop: its entered set must not inherit the original's visited endpoints", mirror.Entries)
+	}
+}
+
+func hasEntryKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
+	return slices.ContainsFunc(entries, func(e fabric.Entry) bool { return e.Kind == kind })
 }
 
 func TestFloodJourneyCarriesTheIssueOfAConsultedPortItDidNotEgress(t *testing.T) {
