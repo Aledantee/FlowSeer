@@ -68,14 +68,34 @@ type heldEntry struct {
 	dei       bool
 }
 
-// HeldFrame is one frame [Layer.Wake] reports on for a neighbor entry it acted on: released
-// with a frame ready to leave by Interface, or failed because resolution never completed, in
-// which case Frame carries no resolved destination and exists to name what was held. PCP and DEI
-// are the ingress 802.1Q priority the held frame arrived with (zero for a self-originated
-// frame), so a caller that releases it onto a tagged egress port can carry the same priority the
-// live, non-held path would have used.
+// HeldCause names how a frame left a neighbor's hold queue. The three values are exactly the
+// exits the routing layer itself observes; what a caller then does with a released frame, and
+// whether that succeeds, is the caller's own answer to report, not a fourth value here.
+type HeldCause string
+
+const (
+	// HeldReleased indicates the neighbor resolved and the frame left with a destination MAC.
+	HeldReleased HeldCause = "released"
+
+	// HeldTimedOut indicates the entry's resolution deadline passed with the frame still queued.
+	HeldTimedOut HeldCause = "timed-out"
+
+	// HeldEvicted indicates [appendHeld] pushed the frame out of a full queue to make room.
+	HeldEvicted HeldCause = "evicted"
+)
+
+// HeldFrame is one frame [Layer.Wake] reports leaving a neighbor entry's hold queue, with Cause
+// naming how it left: under [HeldReleased] Frame is ready to leave by Interface, and under the
+// other two causes Frame carries no resolved destination and exists to name what was held. Port
+// is the egress port Interface resolves to, empty for a VLAN interface, which has no single port
+// until the bridge picks one; a caller counting the exit against a port counts it against no
+// port at all rather than inventing one. PCP and DEI are the ingress 802.1Q priority the held
+// frame arrived with (zero for a self-originated frame), so a caller that releases it can carry
+// the same priority the live, non-held path would have used.
 type HeldFrame struct {
 	Interface string
+	Port      string
+	Cause     HeldCause
 	Frame     ethernet.Frame
 	PCP       vlan.PCP
 	DEI       bool
@@ -120,8 +140,8 @@ type Advertisement struct {
 
 // appendHeld appends h to queue, dropping the oldest entry once the queue exceeds depth
 // (RFC 4861 section 7.2.2) and returning it as evicted rather than discarding it: a frame the
-// hold queue gives up on is still reported, in [Layer.Wake]'s next Effects.Failed, not silently
-// dropped.
+// hold queue pushes out is still reported, as a [HeldEvicted] exit in [Layer.Wake]'s next
+// Effects, not silently dropped and not reported as a resolution that failed.
 func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []heldEntry) {
 	queue = append(queue, h)
 	if len(queue) > depth {
@@ -267,11 +287,12 @@ func (l *Layer) Age(now time.Time) {
 	}
 }
 
-// Effects lists the frames a call to [Layer.Wake] released onto the wire and the frames it gave
-// up on, matching the shape of [go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag.Effects].
+// Effects lists every frame a call to [Layer.Wake] observed leaving a hold queue, in the order
+// Wake produced them, each carrying the [HeldCause] that says how it left. One slice rather than
+// one per cause: the cause is on the element, so a reader that switches on it cannot silently
+// inherit a meaning from whichever slice it happened to drain.
 type Effects struct {
-	Released []HeldFrame
-	Failed   []HeldFrame
+	Exits []HeldFrame
 }
 
 // finishHeld re-encodes h's header, already in the egress form the caller queued it in (Route's
@@ -282,13 +303,16 @@ type Effects struct {
 // and Route by having decoded the datagram out of a frame that already held it, so this omits
 // the frame rather than carry a spurious error path. Neither caller's closure changes the
 // encoded size, the only thing Encode refuses on — Route's decrements the hop limit in place.
-func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC) (HeldFrame, bool) {
+// cause is stamped onto the result so no reader downstream has to infer it from context.
+func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC, cause HeldCause) (HeldFrame, bool) {
 	newPayload, err := h.header.Encode(h.payload)
 	if err != nil {
 		return HeldFrame{}, false
 	}
 	return HeldFrame{
 		Interface: h.iface,
+		Port:      l.ifaces[h.iface].Port,
+		Cause:     cause,
 		Frame: ethernet.Frame{
 			Src:       l.ifaces[h.iface].MAC,
 			Dst:       mac,
@@ -301,23 +325,24 @@ func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC) (HeldFrame, bool) {
 }
 
 // neighborTableEntry names one row Wake acts on, keyed for the total order below: a Go map
-// iterates its VRFs and neighbors in random order, and Effects.Released and Effects.Failed are
-// ordered slices the switch consumes in sequence, so Wake sorts before it acts rather than
-// leaving emission order, Drain order, and the fabric's frame numbering to inherit map order.
+// iterates its VRFs and neighbors in random order, and Effects.Exits is an ordered slice the
+// switch consumes in sequence, so Wake sorts before it acts rather than leaving emission order,
+// Drain order, and the fabric's frame numbering to inherit map order. The order is by VRF name,
+// then interface, then address.
 type neighborTableEntry struct {
 	vrfName string
 	key     neighborKey
 	entry   *neighborEntry
 }
 
-// Wake advances every VRF's neighbor table to now: an Incomplete entry whose resolution
-// deadline has passed becomes Failed, and its held frames are reported in Effects.Failed; any
-// entry that already holds frames and is no longer Incomplete (because [Layer.Observe] resolved
-// it since the previous Wake) has them reported in Effects.Released. Either way the entry's
-// queue is drained, so calling Wake again before anything else changes reports nothing further.
-// A frame [appendHeld] evicted from a queue is reported in Effects.Failed unconditionally, on
-// the first Wake after the eviction, regardless of the entry's current state or whether its
-// queue currently holds anything.
+// Wake advances every VRF's neighbor table to now and reports every frame that leaves a hold
+// queue as a result, in Effects.Exits: an Incomplete entry whose resolution deadline has passed
+// becomes Failed and its held frames exit [HeldTimedOut]; an entry that already holds frames and
+// is no longer Incomplete (because [Layer.Observe] resolved it since the previous Wake) has them
+// exit [HeldReleased]. Either way the entry's queue is drained, so calling Wake again before
+// anything else changes reports nothing further. A frame [appendHeld] evicted from a queue exits
+// [HeldEvicted] unconditionally, on the first Wake after the eviction, regardless of the entry's
+// current state or whether its queue currently holds anything.
 func (l *Layer) Wake(now time.Time) Effects {
 	var eff Effects
 
@@ -341,8 +366,8 @@ func (l *Layer) Wake(now time.Time) Effects {
 		entry := row.entry
 
 		for _, h := range entry.evicted {
-			if hf, ok := l.finishHeld(h, netaddr.MAC{}); ok {
-				eff.Failed = append(eff.Failed, hf)
+			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); ok {
+				eff.Exits = append(eff.Exits, hf)
 			}
 		}
 		entry.evicted = nil
@@ -352,8 +377,8 @@ func (l *Layer) Wake(now time.Time) Effects {
 				continue
 			}
 			for _, h := range entry.queue {
-				if hf, ok := l.finishHeld(h, netaddr.MAC{}); ok {
-					eff.Failed = append(eff.Failed, hf)
+				if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); ok {
+					eff.Exits = append(eff.Exits, hf)
 				}
 			}
 			entry.state = NeighborFailed
@@ -366,8 +391,8 @@ func (l *Layer) Wake(now time.Time) Effects {
 			continue
 		}
 		for _, h := range entry.queue {
-			if hf, ok := l.finishHeld(h, entry.mac); ok {
-				eff.Released = append(eff.Released, hf)
+			if hf, ok := l.finishHeld(h, entry.mac, HeldReleased); ok {
+				eff.Exits = append(eff.Exits, hf)
 			}
 		}
 		entry.queue = nil

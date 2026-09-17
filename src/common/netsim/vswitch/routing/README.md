@@ -312,18 +312,29 @@ machine's. Everything else on the table is driven by two calls:
   reply confirms the forward path a solicitation was sent on, and a request
   only refreshes the binding.
 
-- **`Layer.Wake(now)`** turns a state change into an effect. An `Incomplete`
-  entry whose resolution deadline has passed becomes `Failed`, and its held
-  frames are reported in `Effects.Failed`, still carried rather than
-  discarded — nothing here ever generates the retransmissions RFC 4861 counts
-  against, so `Failed` names a timeout and never an exhausted solicitation
-  count. Any entry that already holds frames and is no longer `Incomplete`
-  (because `Observe` resolved it since the previous `Wake`) has them reported
-  in `Effects.Released`. Either way the queue is drained, so calling `Wake`
-  again before anything else changes reports nothing further.
+- **`Layer.Wake(now)`** turns a state change into an effect. Every frame that
+  leaves a hold queue is reported in `Effects.Exits`, each carrying the
+  `HeldCause` that says how it left: `HeldReleased`, `HeldTimedOut`, or
+  `HeldEvicted`. An `Incomplete` entry whose resolution deadline has passed
+  becomes `Failed` and its held frames exit `HeldTimedOut`, still carried
+  rather than discarded — nothing here ever generates the retransmissions RFC
+  4861 counts against, so `Failed` names a timeout and never an exhausted
+  solicitation count. Any entry that already holds frames and is no longer
+  `Incomplete` (because `Observe` resolved it since the previous `Wake`) has
+  them exit `HeldReleased`. Either way the queue is drained, so calling `Wake`
+  again before anything else changes reports nothing further. Exits are
+  ordered by VRF name, then interface, then address, so a caller turning them
+  into emissions or trace steps does not inherit Go map order.
   `Layer.NextWake()` reports the earliest `Incomplete` deadline, and
   `Layer.Age(now)` is the separate timer that moves a `Reachable` entry past
   its `ReachableTime` to `Stale`.
+
+  One slice with a cause on each element, rather than one slice per cause: a
+  reader that switches on the cause cannot silently inherit a meaning from
+  whichever slice it drained, which is how an evicted frame came to be
+  reported as a neighbor miss. What a caller then does with a released frame,
+  and whether that succeeds, is the caller's own answer to report — it is not
+  a fourth cause here.
 
 A `Stale` entry forwards on its cached MAC and stays `Stale`. RFC 4861
 section 7.3.2 says of `STALE` that "until traffic is sent to the neighbor, no
@@ -344,6 +355,12 @@ overflows, the new arrival SHOULD replace the oldest entry." `HoldDepth`
 defaults to 3 rather than the permitted minimum of 1, because an analysis
 library is asked which of several frames arrived, and a depth of 1 answers
 that for the last one only.
+
+The replaced frame is not discarded: it surfaces in the next `Wake` as a
+`HeldEvicted` exit, under its own reason `neighbor-hold-overflow`. That reason
+is deliberately not `neighbor-miss`, because the neighbor may well resolve,
+and on a queue that overflowed because frames kept arriving it usually does —
+often on the same `Wake` that reports the eviction.
 
 `commit` is what makes a preview safe. With it clear, a miss reports
 `neighbor-pending` without creating an entry or queuing anything, so

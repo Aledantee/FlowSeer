@@ -68,6 +68,11 @@ const (
 	// or because a prior resolution attempt for the next hop already failed.
 	ReasonNeighborMiss trace.Reason = "neighbor-miss"
 
+	// ReasonNeighborHoldOverflow indicates a frame dropped because a newer frame for the same
+	// unresolved next hop took its place in a full hold queue. It is deliberately distinct from
+	// ReasonNeighborMiss: the neighbor may well resolve, and often does on the same Wake.
+	ReasonNeighborHoldOverflow trace.Reason = "neighbor-hold-overflow"
+
 	// ReasonNeighborPending indicates a frame held because the next hop's neighbor entry is
 	// newly or still unresolved under [NeighborObserved]; it is not a drop.
 	ReasonNeighborPending trace.Reason = "neighbor-pending"

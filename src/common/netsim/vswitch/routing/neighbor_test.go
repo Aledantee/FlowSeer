@@ -2,6 +2,7 @@ package routing_test
 
 import (
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 
@@ -357,25 +359,31 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	eff := l.Wake(testNow)
-	if len(eff.Failed) != 1 {
-		t.Fatalf("failed = %+v, want 1 (frame 1, the one appendHeld evicted)", eff.Failed)
+	evicted := exitsWithCause(eff, routing.HeldEvicted)
+	if len(evicted) != 1 {
+		t.Fatalf("evicted = %+v, want 1 (frame 1, the one appendHeld pushed out)", evicted)
 	}
-	if got := lastPayloadByte(t, eff.Failed[0].Frame); got != 1 {
-		t.Errorf("failed[0] payload marker = %d, want 1", got)
+	if got := lastPayloadByte(t, evicted[0].Frame); got != 1 {
+		t.Errorf("evicted[0] payload marker = %d, want 1", got)
 	}
-	if len(eff.Released) != 3 {
-		t.Fatalf("released = %d frames, want 3", len(eff.Released))
+	// The eviction resolved on the same Wake, so nothing here is a resolution that failed.
+	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 0 {
+		t.Errorf("timed out = %+v, want none: the neighbor resolved", timedOut)
+	}
+	released := exitsWithCause(eff, routing.HeldReleased)
+	if len(released) != 3 {
+		t.Fatalf("released = %d frames, want 3", len(released))
 	}
 	for i, want := range []byte{2, 3, 4} {
-		got := lastPayloadByte(t, eff.Released[i].Frame)
+		got := lastPayloadByte(t, released[i].Frame)
 		if got != want {
 			t.Errorf("released[%d] payload marker = %d, want %d (arrival order after dropping the oldest)", i, got, want)
 		}
-		if eff.Released[i].Frame.Dst != mac {
-			t.Errorf("released[%d] dst = %s, want %s", i, eff.Released[i].Frame.Dst, mac)
+		if released[i].Frame.Dst != mac {
+			t.Errorf("released[%d] dst = %s, want %s", i, released[i].Frame.Dst, mac)
 		}
-		if eff.Released[i].Interface != "vlan10" {
-			t.Errorf("released[%d] interface = %q, want vlan10", i, eff.Released[i].Interface)
+		if released[i].Interface != "vlan10" {
+			t.Errorf("released[%d] interface = %q, want vlan10", i, released[i].Interface)
 		}
 	}
 }
@@ -394,19 +402,19 @@ func TestWakeFailsAnIncompleteEntryAfterResolutionTimeout(t *testing.T) {
 
 	// Before the deadline, nothing happens.
 	eff := l.Wake(testNow.Add(2 * time.Second))
-	if len(eff.Failed) != 0 || len(eff.Released) != 0 {
-		t.Fatalf("effects before the deadline = %+v, want none", eff)
+	if len(eff.Exits) != 0 {
+		t.Fatalf("exits before the deadline = %+v, want none", eff.Exits)
 	}
 
 	eff = l.Wake(testNow.Add(3 * time.Second))
-	if len(eff.Released) != 0 {
-		t.Fatalf("released = %+v, want none", eff.Released)
+	if len(eff.Exits) != 1 {
+		t.Fatalf("exits = %+v, want 1", eff.Exits)
 	}
-	if len(eff.Failed) != 1 {
-		t.Fatalf("failed = %d frames, want 1", len(eff.Failed))
+	if eff.Exits[0].Cause != routing.HeldTimedOut {
+		t.Errorf("cause = %q, want %q", eff.Exits[0].Cause, routing.HeldTimedOut)
 	}
-	if eff.Failed[0].Interface != "vlan10" {
-		t.Errorf("failed interface = %q, want vlan10", eff.Failed[0].Interface)
+	if eff.Exits[0].Interface != "vlan10" {
+		t.Errorf("timed-out interface = %q, want vlan10", eff.Exits[0].Interface)
 	}
 
 	after := routeToV4(t, l, testNow.Add(3*time.Second), lifecycleDstV4, []byte("data"), true)
@@ -484,8 +492,8 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	}
 
 	eff := l.Wake(testNow.Add(time.Second))
-	if len(eff.Failed) != 1 {
-		t.Fatalf("original failed = %d, want 1 (unaffected by the clone's Observe)", len(eff.Failed))
+	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 1 {
+		t.Fatalf("original timed out = %d, want 1 (unaffected by the clone's Observe)", len(timedOut))
 	}
 
 	cloneRes := routeToV4(t, clone, testNow, lifecycleDstV4, []byte("data"), true)
@@ -494,36 +502,106 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	}
 }
 
+// orderingTrials is how many times an ordering test rebuilds and re-runs its scenario. Wake
+// drains, so a layer cannot be reused; a single run of the two-address case passes about half
+// the time with the sort reverted, which is not a gate. Fifty independent Go map iterations
+// agreeing on one order is.
+const orderingTrials = 50
+
+// twoVRFOrderingConfig builds two VRFs of two VLAN interfaces each, so an ordering test can
+// cover the two sort keys ahead of the address. Interface names and VLAN IDs are unique across
+// VRFs because [routing.Layer.Observe] resolves a VRF from the interface name alone and the
+// config refuses a VLAN claimed twice. The higher-numbered pair sits in the lower-named VRF on
+// purpose: sorting by interface or address alone then produces a different order from sorting by
+// VRF first, so the test can tell the two apart.
+func twoVRFOrderingConfig() routing.Config {
+	iface := func(vid vlan.ID, prefix string) routing.Interface {
+		return routing.Interface{VLAN: vid, MAC: lifecycleDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix(prefix)}}
+	}
+	return routing.Config{VRFs: map[string]routing.VRF{
+		"vrf-a": {Interfaces: map[string]routing.Interface{
+			"vlan30": iface(30, "10.0.30.1/24"),
+			"vlan40": iface(40, "10.0.40.1/24"),
+		}},
+		"vrf-b": {Interfaces: map[string]routing.Interface{
+			"vlan10": iface(10, "10.0.10.1/24"),
+			"vlan20": iface(20, "10.0.20.1/24"),
+		}},
+	}}
+}
+
 // TestWakeReleasesInDeterministicOrder is finding 1: Wake ranges l.vrfs and a VRF's neighbors,
-// both Go maps, so without a sort the release order varies run to run. Two next hops on one VRF,
-// each holding one frame and resolved together, must release in (iface, addr) order every time.
+// both Go maps, so without a sort the release order varies run to run. Next hops resolved
+// together must release in (VRF, interface, address) order every time.
 func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-
-	addr98 := netip.MustParseAddr("10.0.10.98")
-	addr99 := netip.MustParseAddr("10.0.10.99")
-
-	if res := routeToV4(t, l, testNow, addr98, []byte{98}, true); res.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("addr98 reason = %q, want pending", res.Reason)
-	}
-	if res := routeToV4(t, l, testNow, addr99, []byte{99}, true); res.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("addr99 reason = %q, want pending", res.Reason)
-	}
-
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x20}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr98, MAC: mac, HasMAC: true, Solicited: true, Override: true})
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr99, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
-	eff := l.Wake(testNow)
-	if len(eff.Released) != 2 {
-		t.Fatalf("released = %d frames, want 2", len(eff.Released))
+	t.Run("by address on one interface", func(t *testing.T) {
+		t.Parallel()
+		addr98 := netip.MustParseAddr("10.0.10.98")
+		addr99 := netip.MustParseAddr("10.0.10.99")
+
+		for trial := range orderingTrials {
+			l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+			if res := routeToV4(t, l, testNow, addr98, []byte{98}, true); res.Reason != routing.ReasonNeighborPending {
+				t.Fatalf("trial %d: addr98 reason = %q, want pending", trial, res.Reason)
+			}
+			if res := routeToV4(t, l, testNow, addr99, []byte{99}, true); res.Reason != routing.ReasonNeighborPending {
+				t.Fatalf("trial %d: addr99 reason = %q, want pending", trial, res.Reason)
+			}
+			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr98, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr99, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+
+			wantReleaseOrder(t, trial, l.Wake(testNow), 98, 99)
+		}
+	})
+
+	// The VRF and interface keys sort ahead of the address, and no other test drives a layer
+	// whose held frames differ by either. Each entry is queued in the map's own iteration order,
+	// so the queuing order varies run to run as well as the table's.
+	t.Run("by VRF then interface", func(t *testing.T) {
+		t.Parallel()
+		// Markers descend in the expected release order, so sorting by interface name or by
+		// address instead would produce 2, 1, 4, 3.
+		queued := map[string]struct {
+			addr   netip.Addr
+			marker byte
+		}{
+			"vlan30": {netip.MustParseAddr("10.0.30.50"), 4},
+			"vlan40": {netip.MustParseAddr("10.0.40.50"), 3},
+			"vlan10": {netip.MustParseAddr("10.0.10.50"), 2},
+			"vlan20": {netip.MustParseAddr("10.0.20.50"), 1},
+		}
+		ifaceVRF := map[string]string{"vlan30": "vrf-a", "vlan40": "vrf-a", "vlan10": "vrf-b", "vlan20": "vrf-b"}
+
+		for trial := range orderingTrials {
+			l := mustNewRouting(t, twoVRFOrderingConfig())
+			for iface, q := range queued {
+				if res := l.Originate(testNow, ifaceVRF[iface], q.addr, 17, []byte{q.marker}, true); res.Reason != routing.ReasonNeighborPending {
+					t.Fatalf("trial %d: %s reason = %q, want pending", trial, iface, res.Reason)
+				}
+				l.Observe(testNow, routing.Advertisement{Interface: iface, Addr: q.addr, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+			}
+
+			wantReleaseOrder(t, trial, l.Wake(testNow), 4, 3, 2, 1)
+		}
+	})
+}
+
+// wantReleaseOrder asserts that eff's released exits carry want's payload markers in that order.
+func wantReleaseOrder(t *testing.T, trial int, eff routing.Effects, want ...byte) {
+	t.Helper()
+	released := exitsWithCause(eff, routing.HeldReleased)
+	if len(released) != len(want) {
+		t.Fatalf("trial %d: released = %d frames, want %d", trial, len(released), len(want))
 	}
-	if got := lastPayloadByte(t, eff.Released[0].Frame); got != 98 {
-		t.Errorf("released[0] payload marker = %d, want 98 (10.0.10.98 sorts before 10.0.10.99)", got)
+	got := make([]byte, len(released))
+	for i, hf := range released {
+		got[i] = lastPayloadByte(t, hf.Frame)
 	}
-	if got := lastPayloadByte(t, eff.Released[1].Frame); got != 99 {
-		t.Errorf("released[1] payload marker = %d, want 99", got)
+	if !slices.Equal(got, want) {
+		t.Fatalf("trial %d: release order by payload marker = %v, want %v", trial, got, want)
 	}
 }
 
@@ -552,8 +630,8 @@ func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
 	}
 
 	eff := l.Wake(testNow.Add(time.Second))
-	if len(eff.Failed) != 0 || len(eff.Released) != 0 {
-		t.Fatalf("effects = %+v, want none: DiscardHeld left no frames to report", eff)
+	if len(eff.Exits) != 0 {
+		t.Fatalf("exits = %+v, want none: DiscardHeld left no frames to report", eff.Exits)
 	}
 	if _, ok := l.NextWake(); ok {
 		t.Error("NextWake still reports a timer once the entry failed, want none")
@@ -583,13 +661,14 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	eff := l.Wake(testNow)
-	if len(eff.Released) != 1 {
-		t.Fatalf("released = %d frames, want 1", len(eff.Released))
+	released := exitsWithCause(eff, routing.HeldReleased)
+	if len(released) != 1 {
+		t.Fatalf("released = %d frames, want 1", len(released))
 	}
-	if eff.Released[0].Frame.Dst != mac {
-		t.Fatalf("released dst = %s, want %s", eff.Released[0].Frame.Dst, mac)
+	if released[0].Frame.Dst != mac {
+		t.Fatalf("released dst = %s, want %s", released[0].Frame.Dst, mac)
 	}
-	hdr, _, err := ip.Decode(eff.Released[0].Frame.Payload)
+	hdr, _, err := ip.Decode(released[0].Frame.Payload)
 	if err != nil {
 		// ip.Decode itself verifies the header checksum and errors on a mismatch, so a
 		// successful decode is also evidence the checksum matches.
@@ -653,6 +732,18 @@ func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	if after.Frame.Dst != mac {
 		t.Errorf("frame dst = %s, want %s (a Stale entry still forwards on its cached MAC)", after.Frame.Dst, mac)
 	}
+}
+
+// exitsWithCause returns the exits in eff carrying cause, keeping the order Wake reported them
+// in, so a test can name the one exit shape it is about without losing the ordering guarantee.
+func exitsWithCause(eff routing.Effects, cause routing.HeldCause) []routing.HeldFrame {
+	var out []routing.HeldFrame
+	for _, hf := range eff.Exits {
+		if hf.Cause == cause {
+			out = append(out, hf)
+		}
+	}
+	return out
 }
 
 func lastPayloadByte(t *testing.T, f ethernet.Frame) byte {

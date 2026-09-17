@@ -2810,10 +2810,12 @@ func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 // a frame the hold queue gave up on becomes a trace step rather than
 // vanishing silently.
 func (s *Switch) applyRoutingEffects(now time.Time, fx routing.Effects) {
-	for _, hf := range fx.Released {
-		s.releaseHeldFrame(now, hf)
-	}
-	for _, hf := range fx.Failed {
+	for _, hf := range fx.Exits {
+		if hf.Cause == routing.HeldReleased {
+			s.releaseHeldFrame(now, hf)
+
+			continue
+		}
 		s.neighborFailures = append(s.neighborFailures, trace.Step{
 			Layer:   port.LayerRouting,
 			Op:      trace.OpDrop,

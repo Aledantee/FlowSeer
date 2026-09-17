@@ -333,8 +333,8 @@ func TestRouteNeighborLifecycle(t *testing.T) {
 		}
 		// If either peek had created an entry or queued a frame, Wake would report it.
 		eff := l.Wake(testNow.Add(time.Hour))
-		if len(eff.Failed) != 0 || len(eff.Released) != 0 {
-			t.Fatalf("effects = %+v, want none: a peek must not create an entry or queue a frame", eff)
+		if len(eff.Exits) != 0 {
+			t.Fatalf("exits = %+v, want none: a peek must not create an entry or queue a frame", eff.Exits)
 		}
 	})
 }
@@ -2029,8 +2029,8 @@ func TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt(t *testing.T) {
 	// A queued frame surfaces here: a Wake past the resolution deadline fails an Incomplete
 	// entry and reports every frame it was holding.
 	eff := l.Wake(testNow.Add(2 * time.Second))
-	if len(eff.Released) != 0 || len(eff.Failed) != 0 {
-		t.Fatalf("wake reported %d released and %d failed, want none of either", len(eff.Released), len(eff.Failed))
+	if len(eff.Exits) != 0 {
+		t.Fatalf("wake reported %+v, want no exit at all", eff.Exits)
 	}
 }
 

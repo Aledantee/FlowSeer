@@ -213,6 +213,17 @@ the Decisions section argued for is about `heldEntry`, which still carries
 header and payload rather than bytes. Cost if wrong: restoring the second
 encode and its step, both in `Originate`; no caller or test reads either.
 
+Ruled: the conservation test's "entered" multiset is what is observed in an
+entry's `queue` **or** its `evicted` list after an operation, not `queue`
+alone as the accounting rule above states, and the assertion is equality of
+the two multisets rather than one-way containment. Why: `appendHeld` moves the
+displaced frame to `evicted` inside the same call that queues the new one, so
+an evicted frame is never observable in `queue` and a `queue`-only rule would
+see an exit for a frame it believes never entered — the eviction arm, which is
+the arm this phase exists for, would go untested. `DiscardHeld` clears both
+lists, so the discard rule carries over unchanged. Cost if wrong: one line in
+the test's observer and a weaker assertion direction.
+
 ## Requirements
 
 1. A frame that enters a hold queue leaves exactly once with a stated cause.
