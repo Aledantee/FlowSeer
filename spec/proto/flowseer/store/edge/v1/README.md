@@ -7,6 +7,19 @@ because every message FlowSeer parses needs a schema someone can read in five
 years, and under the `store` root because it is storage rather than a
 boundary — no triad, no ref pair, and imported by nothing.
 
+## Boundaries
+
+Imports: nothing FlowSeer-owned
+
+Imported by: nothing
+
+Deliberately absent:
+
+- Central URL, trust anchors, and setup key. Those belong in
+  `flowseer.model.edge.v1.EdgeProvisioning`.
+- Telemetry endpoints and queue bounds. Telemetry routes through the local leaf
+  node and bounds default in code.
+
 It is a separate package from `flowseer.store.device.v1` because it is a
 separate process's file. The two deployments share no state and no lifetime:
 central's configuration names listeners, a registry and credential mounts;
@@ -15,7 +28,7 @@ this one names a state directory and a provisioning file.
 ## What it does not carry, and why
 
 **Where central is, how to trust it, and the key that joins.** All three are
-in `flowseer.api.edge.v1.EdgeProvisioning`, the file an operator receives once
+in `flowseer.model.edge.v1.EdgeProvisioning`, the file an operator receives once
 at issue time and writes into the device before it ships. `AgentConfig` names
 its path. Restating those fields here would give the same three facts two
 homes with nothing keeping them equal, and the failure mode is silent: an

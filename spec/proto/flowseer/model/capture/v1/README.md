@@ -24,7 +24,7 @@ A capture session's one owning parent is the edge that runs it:
 `CaptureSessionLocalRef`. A session is not scoped to a device: both
 `CaptureSource` arms name something local to the edge itself, a host
 interface name or a UDP port to listen on, never a device in inventory.
-Nothing here imports `api/inventory`.
+Nothing here imports `model/inventory`.
 
 ## Boundaries
 

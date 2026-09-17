@@ -8,6 +8,20 @@ wrapper arms for ERSPAN Type I, II, and III, GRE, VXLAN, and TZSP), and
 `PacketRecord`. None of them carry a session ref, a device ref, or a
 lifecycle; the session that owns a capture is an entity outside this package.
 
+## Boundaries
+
+Imports: net/addr, net/packet, net/switching
+
+Imported by: api/capture, model/capture
+
+Deliberately absent:
+
+- Session identity, device refs, and lifecycle. The CaptureSession entity lives
+  in `model/capture/v1`.
+- An arbitrary expression grammar for filters. `CaptureFilter` compiles to
+  linear cBPF instructions.
+- Dissected protocol fields beyond packet headers.
+
 The package deliberately does not hold a session identity, provenance beyond
 the packet's own timestamp, dissected protocol fields, or a general packet
 matcher. `CaptureFilter` is scoped by its own compile contract instead of a

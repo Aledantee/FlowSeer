@@ -10,6 +10,25 @@ that journal and the edge. It imports only `model/access` and `errs`, per
 the record's amendment, and it is not the operator-facing API,
 `api/device/v1` is that and never imports this package.
 
+## Boundaries
+
+Imports: errs, model/access
+
+Imported by: nothing
+
+Deliberately absent:
+
+- A device or edge ref on the envelope messages, per the section above.
+- A protocol, a path, or a raw command. The typed intent or read is the
+  contract; how a route expresses it is the adapter's concern behind the
+  edge.
+- A credential or a session identifier. Decision 9 delivers those over their
+  own authenticated channel, never inside this envelope.
+- Central's outbox policy: which row the record owes when is the device
+  service's, in `src/services/device/README.md`. This README states only
+  what a correct edge sends.
+- A tenant. Scope is ambient.
+
 ## Two directions, both Connect
 
 Central to edge is `DispatchService.Subscribe`: one server stream per edge,
@@ -102,16 +121,3 @@ abandonment is central's authority and abandoned work stays abandoned. An
 acknowledgement the phase does not allow is answered with
 `mutation/out-of-order` and changes nothing; central's record does not
 change on it either.
-
-## What is deliberately absent
-
-- A device or edge ref on the envelope messages, per the section above.
-- A protocol, a path, or a raw command. The typed intent or read is the
-  contract; how a route expresses it is the adapter's concern behind the
-  edge.
-- A credential or a session identifier. Decision 9 delivers those over their
-  own authenticated channel, never inside this envelope.
-- Central's outbox policy: which row the record owes when is the device
-  service's, in `src/services/device/README.md`. This README states only
-  what a correct edge sends.
-- A tenant. Scope is ambient.

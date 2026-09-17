@@ -208,8 +208,8 @@ integrations it hosts are later allowed to reach.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/edge, model/access, model/inventory,
-store/device
+Imported by: api/capture, api/edge, model/access, model/capture,
+model/inventory, store/device
 
 Deliberately absent:
 

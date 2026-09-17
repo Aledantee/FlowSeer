@@ -10,6 +10,25 @@ because every message FlowSeer persists or parses needs a schema someone can
 read in five years, and they sit under their own `store` root so the layering
 table can say they import boundary packages and are imported by none.
 
+## Boundaries
+
+Imports: errs, model/access, model/edge, model/inventory, model/policy, net/addr
+
+Imported by: nothing
+
+Deliberately absent:
+
+- A triad or a ref pair for any message here. A record is written and read
+  by one service, and its configuration is read by the one process it
+  configures; nothing observes or configures either from outside.
+- Secrets, with one named exception. The registry names credential versions
+  and the lane record holds observations and expectations; the only field
+  here that can carry one is `ServiceTelemetry.headers`, which says so, and a
+  deployment that puts a token there is choosing to treat the configuration
+  file as a secret.
+- A tenant. Scope is ambient, and the bucket a record lives in is per
+  deployment.
+
 ## The lane record
 
 `DeviceLaneRecord` is what central derives its outbox from. Every field the
@@ -93,16 +112,3 @@ together or not at all.
 to get the reason behind every refused call: the request interceptor grades
 refusals at DEBUG precisely so an incident can turn them on, and before this
 field existed there was no way to.
-
-## What is deliberately absent
-
-- A triad or a ref pair for any message here. A record is written and read
-  by one service, and its configuration is read by the one process it
-  configures; nothing observes or configures either from outside.
-- Secrets, with one named exception. The registry names credential versions
-  and the lane record holds observations and expectations; the only field
-  here that can carry one is `ServiceTelemetry.headers`, which says so, and a
-  deployment that puts a token there is choosing to treat the configuration
-  file as a secret.
-- A tenant. Scope is ambient, and the bucket a record lives in is per
-  deployment.
