@@ -110,6 +110,24 @@ func (f hostSnapshotFact) TypeID() string { return "fabric.host" }
 
 func (f hostSnapshotFact) Canonical() string { return string(f) }
 
+type reflectorSnapshotFact string
+
+func (f reflectorSnapshotFact) TypeID() string { return "fabric.reflector" }
+
+func (f reflectorSnapshotFact) Canonical() string { return string(f) }
+
+type attachmentSnapshotFact string
+
+func (f attachmentSnapshotFact) TypeID() string { return "fabric.reflector_attachment" }
+
+func (f attachmentSnapshotFact) Canonical() string { return string(f) }
+
+type attachmentPortFact string
+
+func (f attachmentPortFact) TypeID() string { return "fabric.reflector_attachment_port" }
+
+func (f attachmentPortFact) Canonical() string { return string(f) }
+
 type cableSnapshotFact string
 
 func (f cableSnapshotFact) TypeID() string { return "fabric.cable" }
@@ -447,6 +465,53 @@ func Diff(a, b Config) []trace.Change {
 		}
 	}
 
+	reflectorNames := make(map[string]struct{})
+	for name := range a.Reflectors {
+		reflectorNames[name] = struct{}{}
+	}
+	for name := range b.Reflectors {
+		reflectorNames[name] = struct{}{}
+	}
+	sortedReflectors := make([]string, 0, len(reflectorNames))
+	for name := range reflectorNames {
+		sortedReflectors = append(sortedReflectors, name)
+	}
+	slices.Sort(sortedReflectors)
+
+	for _, name := range sortedReflectors {
+		rA, inA := a.Reflectors[name]
+		rB, inB := b.Reflectors[name]
+		switch {
+		case inA && !inB:
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "reflector", Key: name},
+				Field:   "",
+				From:    reflectorSnapshot(rA),
+				To:      nil,
+			})
+		case !inA && inB:
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "reflector", Key: name},
+				Field:   "",
+				From:    nil,
+				To:      reflectorSnapshot(rB),
+			})
+		case inA && inB:
+			if rA.Address != rB.Address {
+				changes = append(changes, trace.Change{
+					Layer:   Layer,
+					Subject: trace.Subject{Kind: "reflector", Key: name},
+					Field:   "address",
+					From:    MACFact(rA.Address),
+					To:      MACFact(rB.Address),
+				})
+			}
+			diffAttachments(&changes, name, rA.Attachments, rB.Attachments)
+		}
+	}
+
 	return changes
 }
 
@@ -509,6 +574,59 @@ func diffHostAccept(changes *[]trace.Change, name string, a, b HostAccept) {
 	for _, mac := range b.Multicast {
 		if !slices.Contains(a.Multicast, mac) {
 			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.multicast." + mac.String(), To: MACFact(mac)})
+		}
+	}
+}
+
+// diffAttachments reports a reflector's attachment changes under the reflector subject,
+// walked in sorted attachment-name order so a report names the same field on every run.
+// An added or removed attachment reports its whole snapshot under "attachments.<name>"; a
+// changed one reports each differing sub-field under "attachments.<name>.port",
+// ".vlan", or ".addresses".
+func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[string]Attachment) {
+	subject := trace.Subject{Kind: "reflector", Key: reflectorName}
+
+	names := make(map[string]struct{}, len(a)+len(b))
+	for name := range a {
+		names[name] = struct{}{}
+	}
+	for name := range b {
+		names[name] = struct{}{}
+	}
+	sortedNames := make([]string, 0, len(names))
+	for name := range names {
+		sortedNames = append(sortedNames, name)
+	}
+	slices.Sort(sortedNames)
+
+	for _, name := range sortedNames {
+		attA, inA := a[name]
+		attB, inB := b[name]
+		field := "attachments." + name
+		switch {
+		case inA && !inB:
+			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field, From: attachmentSnapshot(attA), To: nil})
+		case !inA && inB:
+			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field, From: nil, To: attachmentSnapshot(attB)})
+		case inA && inB:
+			if attA.Port != attB.Port {
+				*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field + ".port", From: attachmentPortFact(attA.Port), To: attachmentPortFact(attB.Port)})
+			}
+			if !samePtr(attA.VLAN, attB.VLAN) {
+				var fromVal, toVal trace.Fact
+				if attA.VLAN != nil {
+					fromVal = VLANFact(*attA.VLAN)
+				}
+				if attB.VLAN != nil {
+					toVal = VLANFact(*attB.VLAN)
+				}
+				*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field + ".vlan", From: fromVal, To: toVal})
+			}
+			pfxA := sortedPrefixStrings(attA.Addresses)
+			pfxB := sortedPrefixStrings(attB.Addresses)
+			if !slices.Equal(pfxA, pfxB) {
+				*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: field + ".addresses", From: PrefixesFact(pfxA), To: PrefixesFact(pfxB)})
+			}
 		}
 	}
 }
@@ -895,6 +1013,73 @@ func hostSnapshot(h Host) hostSnapshotFact {
 	out.WriteString("];")
 
 	return hostSnapshotFact(out.String())
+}
+
+func reflectorSnapshot(r Reflector) reflectorSnapshotFact {
+	var out strings.Builder
+	writeStringField(&out, "address", r.Address.String())
+
+	portNames := make([]string, 0, len(r.Ports))
+	for name := range r.Ports {
+		portNames = append(portNames, name)
+	}
+	slices.Sort(portNames)
+	out.WriteString("ports=[")
+	for i, name := range portNames {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteByte('{')
+		writeStringField(&out, "name", name)
+		writeStringField(&out, "ethernet", r.Ports[name].Canonical())
+		out.WriteByte('}')
+	}
+	out.WriteString("];")
+
+	attachNames := make([]string, 0, len(r.Attachments))
+	for name := range r.Attachments {
+		attachNames = append(attachNames, name)
+	}
+	slices.Sort(attachNames)
+	out.WriteString("attachments=[")
+	for i, name := range attachNames {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteByte('{')
+		writeStringField(&out, "name", name)
+		out.WriteString(attachmentFields(r.Attachments[name]))
+		out.WriteByte('}')
+	}
+	out.WriteString("];")
+
+	return reflectorSnapshotFact(out.String())
+}
+
+func attachmentSnapshot(a Attachment) attachmentSnapshotFact {
+	return attachmentSnapshotFact(attachmentFields(a))
+}
+
+// attachmentFields writes an attachment's fields as key=value pairs, reused by both the
+// whole-reflector snapshot and the standalone added/removed attachment snapshot.
+func attachmentFields(a Attachment) string {
+	var out strings.Builder
+	writeStringField(&out, "port", a.Port)
+	if a.VLAN == nil {
+		out.WriteString("vlan=nil;")
+	} else {
+		writeUintField(&out, "vlan", uint64(*a.VLAN))
+	}
+	out.WriteString("addresses=[")
+	for i, s := range sortedPrefixStrings(a.Addresses) {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(s))
+	}
+	out.WriteString("];")
+
+	return out.String()
 }
 
 func cableSnapshot(c Cable) cableSnapshotFact {

@@ -367,6 +367,20 @@ carry a configured reflector through construction and back out unchanged,
 including MAC assignment when its `Address` is left zero, the same allocator
 a switch and a host share.
 
+`Diff` reports a reflector under subject kind `reflector`, keyed by its name,
+with an added or removed reflector's whole configuration on `From` or `To` as
+a `fabric.reflector` snapshot. A changed `Address` reports field `address`. A
+changed attachment reports a field relative to the reflector subject, not the
+`reflectors.<name>.` prefix a validation error carries: an added or removed
+attachment reports field `attachments.<name>` with a
+`fabric.reflector_attachment` snapshot, and a changed one reports
+`attachments.<name>.port`,
+`attachments.<name>.vlan`, or `attachments.<name>.addresses` for whichever
+field differs. This is the same relative-versus-dotted split the host section
+above describes: a changed VLAN is field `attachments.a.vlan` under subject
+`{reflector, r1}`, while the validation error for the same attachment names
+the dotted `reflectors.r1.attachments.a.vlan`.
+
 ## Hosts with an IP stack and address assignment
 
 A host configured with `IP *HostIP` translates to an internal routing layer
