@@ -17,6 +17,11 @@ import (
 // anything else it imports must be listed here. Adding a package to the tree
 // is one line in this table — leaving it out fails
 // TestImportOrderCoversEveryPackage rather than silently escaping the order.
+//
+// A package that declares a service is a sink: importing one is always
+// rejected, so it never appears as a value in this table. layeringViolation
+// enforces that independently of any row here, and TestModelDeclaresNoService
+// keeps every package under model/ from declaring one.
 var importOrder = map[string][]string{
 	"net/addr":   nil,
 	"net/packet": nil,
@@ -33,20 +38,6 @@ var importOrder = map[string][]string{
 	"net/protocol/lacp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
-	// Boundary packages consume the primitives and never feed them.
-	// model/edge imports nothing FlowSeer-owned, the entity leaf every other
-	// boundary that names an edge reaches through here. model/policy imports
-	// nothing FlowSeer-owned either, the one leaf that lets inventory name a
-	// policy without a cycle. api/edge may import model/edge for the entity
-	// its services carry, and model/policy for the credential and host-trust
-	// handles its credential RPCs return, because neither imports back.
-	// model/credential imports nothing either: api/edge carries the typed
-	// credential material on its credential responses, so it sits beside
-	// model/edge and model/policy as a third leaf below api/edge. net/addr
-	// is the fourth, for the management address the device listing carries
-	// — a primitive that imports nothing FlowSeer-owned, so it cannot cycle
-	// back, and the alternative of a formatted string would make an address
-	// the edge parses out of prose.
 	"api/edge":         {"model/edge", "model/policy", "model/credential", "net/addr"},
 	"model/edge":       nil,
 	"model/credential": nil,
@@ -112,18 +103,55 @@ var orderedRoots = []string{
 }
 
 func TestImportOrder(t *testing.T) {
-	for _, file := range orderedProtoFiles(t) {
+	files := orderedProtoFiles(t)
+	services := servicePackages(files)
+
+	for _, file := range files {
 		pkg := protoPackage(file.rel)
 		for _, imported := range file.imports {
 			if !strings.HasPrefix(imported, "flowseer/") {
 				continue
 			}
 
-			if reason := layeringViolation(pkg, protoPackage(imported)); reason != "" {
+			if reason := layeringViolation(pkg, protoPackage(imported), services); reason != "" {
 				t.Errorf("%s: %s", file.rel, reason)
 			}
 		}
 	}
+}
+
+// TestModelDeclaresNoService fails on any service declaration under model/,
+// the sink rule's other half: a package that carries identity never gets to
+// be the thing everything else waits on.
+func TestModelDeclaresNoService(t *testing.T) {
+	files := protoFilesUnder(t, filepath.Join(repoRoot(t), "spec", "proto"), "flowseer/model")
+	for _, rel := range modelServiceViolations(files) {
+		t.Errorf("%s: package under model declares a service", rel)
+	}
+
+	synthetic := []protoFile{{
+		rel:        "flowseer/model/access/v1/x.proto",
+		hasService: scanServices("service Probe {}\n"),
+	}}
+	got := modelServiceViolations(synthetic)
+	want := []string{"flowseer/model/access/v1/x.proto"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// modelServiceViolations returns the relative paths of files that declare a
+// service, so TestModelDeclaresNoService can check the real tree and a
+// synthetic case with the same logic.
+func modelServiceViolations(files []protoFile) []string {
+	var violations []string
+	for _, file := range files {
+		if file.hasService {
+			violations = append(violations, file.rel)
+		}
+	}
+
+	return violations
 }
 
 func TestImportOrderCoversEveryPackage(t *testing.T) {
@@ -213,11 +241,15 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "access values import storage", importer: "model/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
+		{name: "storage imports a sink", importer: "store/device", imported: "api/device"},
+		{name: "access values import a sink", importer: "model/access", imported: "integration/device"},
 	}
+
+	services := servicePackages(orderedProtoFiles(t))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if allowed := layeringViolation(tt.importer, tt.imported) == ""; allowed != tt.want {
+			if allowed := layeringViolation(tt.importer, tt.imported, services) == ""; allowed != tt.want {
 				t.Errorf("got allowed=%t, want %t", allowed, tt.want)
 			}
 		})
@@ -261,10 +293,14 @@ func TestUndeclaredPackages(t *testing.T) {
 }
 
 // layeringViolation reports why importer may not import imported, or "" when the
-// import is within the declared order.
-func layeringViolation(importer, imported string) string {
+// import is within the declared order. services holds the service-declaring
+// packages the sink rule blocks, from servicePackages.
+func layeringViolation(importer, imported string, services map[string]bool) string {
 	if importer == imported {
 		return ""
+	}
+	if services[imported] {
+		return fmt.Sprintf("%s declares a service and is imported by nothing", imported)
 	}
 
 	allowed, declared := importOrder[importer]
@@ -277,6 +313,19 @@ func layeringViolation(importer, imported string) string {
 
 	return fmt.Sprintf("importing %s is outside %s's declared layer (%s)",
 		imported, importer, strings.Join(allowed, ", "))
+}
+
+// servicePackages returns the packages among files that declare at least one
+// service, the sink rule's blocklist.
+func servicePackages(files []protoFile) map[string]bool {
+	services := map[string]bool{}
+	for _, file := range files {
+		if file.hasService {
+			services[protoPackage(file.rel)] = true
+		}
+	}
+
+	return services
 }
 
 // undeclaredPackages returns the schema-bearing packages the table does not cover.
@@ -307,12 +356,14 @@ func protoPackage(protoPath string) string {
 var (
 	versionSegment = regexp.MustCompile(`^v\d+(alpha|beta)?\d*$`)
 	importLine     = regexp.MustCompile(`^\s*import\s+(?:option\s+|public\s+|weak\s+)?"([^"]+)"\s*;`)
+	serviceLine    = regexp.MustCompile(`^service\s+\w+\s*\{`)
 )
 
 type protoFile struct {
 	// rel is the file's path relative to spec/proto, in slash form.
-	rel     string
-	imports []string
+	rel        string
+	imports    []string
+	hasService bool
 }
 
 // orderedProtoFiles collects every .proto file under the ordered roots with the
@@ -351,12 +402,16 @@ func protoFilesUnder(t *testing.T, protoRoot, root string) []protoFile {
 			return err
 		}
 
-		imports, err := protoImports(path)
+		source, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
 
-		files = append(files, protoFile{rel: filepath.ToSlash(rel), imports: imports})
+		files = append(files, protoFile{
+			rel:        filepath.ToSlash(rel),
+			imports:    scanImports(string(source)),
+			hasService: scanServices(string(source)),
+		})
 
 		return nil
 	})
@@ -365,15 +420,6 @@ func protoFilesUnder(t *testing.T, protoRoot, root string) []protoFile {
 	}
 
 	return files
-}
-
-func protoImports(path string) ([]string, error) {
-	source, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return scanImports(string(source)), nil
 }
 
 func scanImports(source string) []string {
@@ -385,4 +431,15 @@ func scanImports(source string) []string {
 	}
 
 	return imports
+}
+
+// scanServices reports whether source declares at least one service.
+func scanServices(source string) bool {
+	for line := range strings.SplitSeq(source, "\n") {
+		if serviceLine.MatchString(line) {
+			return true
+		}
+	}
+
+	return false
 }
