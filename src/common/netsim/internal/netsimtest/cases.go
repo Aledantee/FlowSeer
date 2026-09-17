@@ -2041,8 +2041,8 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 	neighborUnresolvedEvidence := analysis.Evidence{
 		Kind:   "vswitch.runtime",
 		Origin: "forward",
-		Context: fmt.Sprintf("code=%q,status=%q,scope=%q",
-			vswitch.IssueNeighborUnresolved.String(), analysis.Incomplete.String(), neighborScope.String()),
+		Context: `code="neighbor-unresolved",status="incomplete",` +
+			`scope="node[\"\"]/protocol[\"routing\",\"default\"]/field[\"interfaces\",\"out\",\"neighbors\",\"10.0.20.77\"]"`,
 	}
 	var refNeighborUnresolved trace.EvidenceRef
 	cat, refNeighborUnresolved = cat.Add(neighborUnresolvedEvidence)
@@ -2092,7 +2092,7 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 			{Kind: "prefix", Key: "10.0.20.0/24"},
 			{Kind: "ip", Key: "10.0.20.77"},
 		},
-		ExpectedFacts:           []FactExpectation{lookup},
+		ExpectedFacts:           []FactExpectation{lookup, neighborPending},
 		ExpectedSteps:           expectedSteps,
 		ExpectedForwardMetadata: &resultMetadata,
 		Execute: func() (ExecutionResult, error) {
