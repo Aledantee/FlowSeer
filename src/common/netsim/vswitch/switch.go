@@ -1089,7 +1089,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					return s.finishForward(now, ingress, f, res, mutate)
 				}
 
-				pcp, dei := framePriority(f)
+				pcp, dei := f.Priority()
 				routeRes := s.routing.Route(now, iface, f, mutate)
 				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, routeRes, mutate)
 				s.forwardingDependencies(ingress).consult(&res)
@@ -1691,18 +1691,6 @@ func traceFacts(values ...trace.Fact) []trace.Fact {
 	return result
 }
 
-func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
-	if len(f.Tags) == 0 {
-		return 0, false
-	}
-	outer := f.Tags[0]
-	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
-		return 0, false
-	}
-
-	return outer.PCP, outer.DEI
-}
-
 func (s *Switch) assembleRouteResult(
 	now time.Time,
 	ingressPort string,
@@ -1913,7 +1901,7 @@ func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mut
 	res.Outcome = trace.Dropped
 	res.FID = 0
 	s.forwardingDependencies(ingress).consult(&res)
-	pcp, _ := framePriority(f)
+	pcp, _ := f.Priority()
 
 	p, ok := s.ports.Port(ingress)
 	if !ok {

@@ -81,22 +81,6 @@ type HeldFrame struct {
 	DEI       bool
 }
 
-// framePriority reads the outer 802.1Q tag's PCP and DEI directly off f, mirroring the
-// derivation the switch layer applies to the live, non-held path (see framePriority in
-// switch.go) so a frame held here for neighbor resolution and later released carries the same
-// priority a frame that resolved immediately would have. An untagged frame, or one whose outer
-// tag's TPID names neither 802.1Q nor the frame's own EtherType, carries no priority.
-func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
-	if len(f.Tags) == 0 {
-		return 0, false
-	}
-	outer := f.Tags[0]
-	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
-		return 0, false
-	}
-	return outer.PCP, outer.DEI
-}
-
 // neighborEntry is one row of a VRF's runtime neighbor table: the state it currently occupies,
 // the bound link-layer address once one is known, the time the entry next changes on its own
 // (a resolution deadline for Incomplete, a reachability deadline for Reachable, and zero for

@@ -194,6 +194,22 @@ func Decode(b []byte) (Frame, error) {
 	return f, nil
 }
 
+// Priority returns the PCP and DEI carried by f's outer 802.1Q tag. An untagged frame
+// returns (0, false). A tag whose TPID is neither zero (the repository's convention for
+// an unspecified TPID, treated as 802.1Q) nor [EtherTypeDot1Q] — a provider S-Tag
+// (0x88A8) among others — also returns (0, false); only an outer C-Tag is consulted.
+func (f Frame) Priority() (vlan.PCP, bool) {
+	if len(f.Tags) == 0 {
+		return 0, false
+	}
+	outer := f.Tags[0]
+	if outer.TPID != 0 && outer.TPID != uint16(EtherTypeDot1Q) {
+		return 0, false
+	}
+
+	return outer.PCP, outer.DEI
+}
+
 // IsReserved reports whether mac is in the IEEE standard reserved bridge address
 // range (01:80:c2:00:00:00 through 01:80:c2:00:00:0f inclusive).
 // Frames matching this range are neither forwarded nor learned by compliant bridges.
