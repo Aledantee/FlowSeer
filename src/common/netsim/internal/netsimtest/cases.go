@@ -2184,5 +2184,6 @@ func DefaultRegistry() *Registry {
 	RegisterLoopProtectCases(r)
 	RegisterRoutingCases(r)
 	RegisterMDNSCases(r)
+	RegisterReflectorCases(r)
 	return r
 }

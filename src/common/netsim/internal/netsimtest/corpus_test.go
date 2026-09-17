@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 26 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 26", len(allCases))
+	if len(allCases) != 28 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 28", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -633,6 +633,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"troubleshooting/loop-protect-contains-access-loop",
 		"troubleshooting/mdns-ipv4-floods-under-snooping",
 		"troubleshooting/mdns-ipv6-unregistered-router-ports",
+		"troubleshooting/mdns-reflected-across-vlans",
+		"troubleshooting/mdns-two-reflectors-loop",
 		"troubleshooting/recursive-route-not-installed",
 		"troubleshooting/ssm-rejects-unjoined-source",
 		"troubleshooting/stale-root-ages-out",
@@ -835,6 +837,52 @@ func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
 	last := res.Journey.Entries[len(res.Journey.Entries)-1]
 	if last.Kind != fabric.EntryRejection || last.Reason != fabric.ReasonHostUnicastNotAddressed {
 		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, fabric.ReasonHostUnicastNotAddressed)
+	}
+}
+
+// TestReflectedQueryPinsTheCopyNotTheInjectedQuery covers what no Expected
+// field can carry: [ExecutionResult.Journey] is the copy r1 originated, not
+// the query h1 injected, so its Parent names the query's frame and it alone
+// carries the delivery to h2.
+func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
+	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingMDNSReflectedAcrossVLANs())
+	if res.Journey == nil {
+		t.Fatal("res.Journey is nil")
+	}
+	if res.Journey.Parent == 0 {
+		t.Error("journey Parent = 0, want the injected query's frame ID: this is a reflected copy")
+	}
+	if res.Journey.FrameID == res.Journey.Parent {
+		t.Errorf("journey FrameID = Parent = %d, want two distinct journeys", res.Journey.FrameID)
+	}
+	if len(res.Journey.Deliveries) != 1 || res.Journey.Deliveries[0].Host != "h2" {
+		t.Errorf("deliveries = %+v, want exactly one to h2", res.Journey.Deliveries)
+	}
+}
+
+// TestTwoReflectorsLoopPinsTheReenteringCopy covers the same two-journey
+// shape from the loop side: the pinned journey is itself a reflected copy
+// (Parent nonzero), and it is the one whose arrival re-entered an endpoint
+// its own ancestry already carries.
+func TestTwoReflectorsLoopPinsTheReenteringCopy(t *testing.T) {
+	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingMDNSTwoReflectorsLoop())
+	if res.Journey == nil {
+		t.Fatal("res.Journey is nil")
+	}
+	if res.Journey.Parent == 0 {
+		t.Error("journey Parent = 0, want a reflected copy: the injected query never re-enters anything")
+	}
+	var hasLoop bool
+	for _, e := range res.Journey.Entries {
+		if e.Kind == fabric.EntryLoop {
+			hasLoop = true
+		}
+	}
+	if !hasLoop {
+		t.Errorf("journey entries = %+v, want an EntryLoop", res.Journey.Entries)
+	}
+	if len(res.Journey.Deliveries) != 0 {
+		t.Errorf("deliveries = %+v, want none: a reflector never delivers", res.Journey.Deliveries)
 	}
 }
 
