@@ -22,9 +22,9 @@ import (
 // Two accounting rules the assertions cannot infer:
 //
 //   - Entered means observed in an entry's queue or evicted list after an operation, not "a call
-//     was made". A frame Originate refuses before the queue was never in it. The evicted list
-//     counts because appendHeld moves a frame there inside the same call that queues it, so an
-//     evicted frame is never observable in queue and would otherwise look like an exit for a
+//     was made". A frame Originate or Route refuses before it queues was never in it. The evicted
+//     list counts because appendHeld moves a frame there inside the same call that queues it, so
+//     an evicted frame is never observable in queue and would otherwise look like an exit for a
 //     frame that never entered.
 //   - DiscardHeld removes a frame from the entered multiset rather than producing an exit. A
 //     derive boundary discards held frames unconditionally, and the fork that discarded them is a
