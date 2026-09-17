@@ -9,9 +9,9 @@ edition = "2024";
 // repeated field: PacketRecord.data caps each packet at 65535 octets and
 // this file caps the packet count at 4096, so the chunk's worst case is
 // their product.
-package flowseer.api.capture.v1;
+package flowseer.model.capture.v1;
 
-import "flowseer/api/capture/v1/capture_session.proto";
+import "flowseer/model/capture/v1/capture_session.proto";
 import "flowseer/net/capture/v1/capture_counters.proto";
 import "flowseer/net/capture/v1/packet_record.proto";
 import option "buf/validate/validate.proto";

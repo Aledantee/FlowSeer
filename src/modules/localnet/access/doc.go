@@ -2,7 +2,7 @@
 // mutates one device family over SNMP or SSH, orders every read, probe,
 // mutation, and recovery step for one device through that device's own
 // lane, and reports the result as a
-// flowseer.device.access.v1.InterfaceObservation. [Lane] is the package's
+// flowseer.model.access.v1.InterfaceObservation. [Lane] is the package's
 // only exported surface beyond the capability facade functions below it;
 // every other type lives under internal/ so a caller never depends on this
 // module's own composition of them.

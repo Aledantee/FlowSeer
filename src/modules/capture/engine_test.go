@@ -8,7 +8,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/pcapng"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
@@ -52,8 +52,8 @@ func testFrame(n byte) rawsocket.Frame {
 	}
 }
 
-func testBudget(maxPackets uint64) *apicapturev1.CaptureBudget {
-	b := &apicapturev1.CaptureBudget{}
+func testBudget(maxPackets uint64) *modelcapturev1.CaptureBudget {
+	b := &modelcapturev1.CaptureBudget{}
 	b.SetMaxPackets(maxPackets)
 	return b
 }
@@ -99,10 +99,10 @@ func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 	if !sawFinal {
 		t.Errorf("no batch was marked Final")
 	}
-	if got := e.State().StopReason; got != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT {
+	if got := e.State().StopReason; got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT {
 		t.Errorf("StopReason = %v, want PACKET_COUNT", got)
 	}
-	if got := e.State().Lifecycle; got != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
+	if got := e.State().Lifecycle; got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
 		t.Errorf("Lifecycle = %v, want COMPLETED", got)
 	}
 	select {
@@ -326,7 +326,7 @@ func TestEngine_DurationStopDrainsQueuedFrames(t *testing.T) {
 		src.frames <- testFrame(byte(i))
 	}
 
-	budget := &apicapturev1.CaptureBudget{}
+	budget := &modelcapturev1.CaptureBudget{}
 	budget.SetMaxDuration(durationpb.New(2 * time.Millisecond))
 
 	e := newEngine(src, budget, true)
@@ -338,7 +338,7 @@ func TestEngine_DurationStopDrainsQueuedFrames(t *testing.T) {
 	_ = drainAll(p)
 
 	final := e.State()
-	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION {
+	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION {
 		t.Fatalf("StopReason = %v, want DURATION", final.StopReason)
 	}
 	if final.Counters.GetDroppedByBudget() == 0 {
@@ -363,10 +363,10 @@ func TestEngine_FramesChannelClosedWithoutCancelIsError(t *testing.T) {
 	_ = drainAll(p)
 
 	final := e.State()
-	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
+	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
 		t.Errorf("StopReason = %v, want ERROR", final.StopReason)
 	}
-	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+	if final.Lifecycle != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
 		t.Errorf("Lifecycle = %v, want FAILED", final.Lifecycle)
 	}
 	if p.Err() == nil {
@@ -393,10 +393,10 @@ func TestEngine_ContextCancelIsOperatorAndCanceled(t *testing.T) {
 	_ = drainAll(p)
 
 	final := e.State()
-	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
 		t.Errorf("StopReason = %v, want OPERATOR", final.StopReason)
 	}
-	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
+	if final.Lifecycle != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
 		t.Errorf("Lifecycle = %v, want CANCELED", final.Lifecycle)
 	}
 }
@@ -419,10 +419,10 @@ func TestEngine_ConsumerStopWithoutContextCancelIsOperator(t *testing.T) {
 	<-src.closed
 
 	final := e.State()
-	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
 		t.Errorf("StopReason = %v, want OPERATOR", final.StopReason)
 	}
-	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
+	if final.Lifecycle != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
 		t.Errorf("Lifecycle = %v, want CANCELED", final.Lifecycle)
 	}
 }
@@ -464,8 +464,8 @@ func TestEngine_FinalBatchCarriesRecordsWhenSizeAndBudgetCoincide(t *testing.T) 
 
 func TestNew_RejectsUnboundedBudget(t *testing.T) {
 	cfg := Config{
-		Source: &apicapturev1.CaptureSource{},
-		Budget: &apicapturev1.CaptureBudget{},
+		Source: &modelcapturev1.CaptureSource{},
+		Budget: &modelcapturev1.CaptureBudget{},
 	}
 	if _, err := New(cfg); err == nil {
 		t.Fatal("New: want an error for a budget with no packet, byte, or duration bound, got nil")
@@ -476,7 +476,7 @@ func TestNew_RejectsSnapLengthOverMax(t *testing.T) {
 	budget := testBudget(1)
 	budget.SetSnapLength(65536)
 	cfg := Config{
-		Source: &apicapturev1.CaptureSource{},
+		Source: &modelcapturev1.CaptureSource{},
 		Budget: budget,
 	}
 	if _, err := New(cfg); err == nil {

@@ -11,7 +11,8 @@
 package capturev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -59,7 +60,7 @@ func (x *UploadCaptureRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *UploadCaptureRequest) GetChunk() *CapturePacketChunk {
+func (x *UploadCaptureRequest) GetChunk() *v1.CapturePacketChunk {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Body.(*uploadCaptureRequest_Chunk); ok {
 			return x.Chunk
@@ -68,7 +69,7 @@ func (x *UploadCaptureRequest) GetChunk() *CapturePacketChunk {
 	return nil
 }
 
-func (x *UploadCaptureRequest) GetAssertion() *v1.SignedEdgeAssertion {
+func (x *UploadCaptureRequest) GetAssertion() *v11.SignedEdgeAssertion {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Body.(*uploadCaptureRequest_Assertion); ok {
 			return x.Assertion
@@ -77,7 +78,7 @@ func (x *UploadCaptureRequest) GetAssertion() *v1.SignedEdgeAssertion {
 	return nil
 }
 
-func (x *UploadCaptureRequest) SetChunk(v *CapturePacketChunk) {
+func (x *UploadCaptureRequest) SetChunk(v *v1.CapturePacketChunk) {
 	if v == nil {
 		x.xxx_hidden_Body = nil
 		return
@@ -85,7 +86,7 @@ func (x *UploadCaptureRequest) SetChunk(v *CapturePacketChunk) {
 	x.xxx_hidden_Body = &uploadCaptureRequest_Chunk{v}
 }
 
-func (x *UploadCaptureRequest) SetAssertion(v *v1.SignedEdgeAssertion) {
+func (x *UploadCaptureRequest) SetAssertion(v *v11.SignedEdgeAssertion) {
 	if v == nil {
 		x.xxx_hidden_Body = nil
 		return
@@ -154,8 +155,8 @@ type UploadCaptureRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Fields of oneof xxx_hidden_Body:
-	Chunk     *CapturePacketChunk
-	Assertion *v1.SignedEdgeAssertion
+	Chunk     *v1.CapturePacketChunk
+	Assertion *v11.SignedEdgeAssertion
 	// -- end of xxx_hidden_Body
 }
 
@@ -187,11 +188,11 @@ type isUploadCaptureRequest_Body interface {
 }
 
 type uploadCaptureRequest_Chunk struct {
-	Chunk *CapturePacketChunk `protobuf:"bytes,1,opt,name=chunk,oneof"`
+	Chunk *v1.CapturePacketChunk `protobuf:"bytes,1,opt,name=chunk,oneof"`
 }
 
 type uploadCaptureRequest_Assertion struct {
-	Assertion *v1.SignedEdgeAssertion `protobuf:"bytes,2,opt,name=assertion,oneof"`
+	Assertion *v11.SignedEdgeAssertion `protobuf:"bytes,2,opt,name=assertion,oneof"`
 }
 
 func (*uploadCaptureRequest_Chunk) isUploadCaptureRequest_Body() {}
@@ -199,8 +200,8 @@ func (*uploadCaptureRequest_Chunk) isUploadCaptureRequest_Body() {}
 func (*uploadCaptureRequest_Assertion) isUploadCaptureRequest_Body() {}
 
 type UploadCaptureResponse struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Session *v1.CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -230,14 +231,14 @@ func (x *UploadCaptureResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *UploadCaptureResponse) GetSession() *CaptureSessionGlobalRef {
+func (x *UploadCaptureResponse) GetSession() *v1.CaptureSessionGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *UploadCaptureResponse) SetSession(v *CaptureSessionGlobalRef) {
+func (x *UploadCaptureResponse) SetSession(v *v1.CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
@@ -256,7 +257,7 @@ type UploadCaptureResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The session whose stream closed. Must be present.
-	Session *CaptureSessionGlobalRef
+	Session *v1.CaptureSessionGlobalRef
 }
 
 func (b0 UploadCaptureResponse_builder) Build() *UploadCaptureResponse {
@@ -271,29 +272,29 @@ var File_flowseer_api_capture_v1_capture_edge_service_proto protoreflect.FileDes
 
 const file_flowseer_api_capture_v1_capture_edge_service_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/api/capture/v1/capture_edge_service.proto\x12\x17flowseer.api.capture.v1\x1a+flowseer/api/capture/v1/capture_chunk.proto\x1a-flowseer/api/capture/v1/capture_session.proto\x1a&flowseer/model/edge/v1/assertion.proto\"\xb7\x01\n" +
-	"\x14UploadCaptureRequest\x12C\n" +
-	"\x05chunk\x18\x01 \x01(\v2+.flowseer.api.capture.v1.CapturePacketChunkH\x00R\x05chunk\x12K\n" +
+	"2flowseer/api/capture/v1/capture_edge_service.proto\x12\x17flowseer.api.capture.v1\x1a-flowseer/model/capture/v1/capture_chunk.proto\x1a/flowseer/model/capture/v1/capture_session.proto\x1a&flowseer/model/edge/v1/assertion.proto\"\xb9\x01\n" +
+	"\x14UploadCaptureRequest\x12E\n" +
+	"\x05chunk\x18\x01 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkH\x00R\x05chunk\x12K\n" +
 	"\tassertion\x18\x02 \x01(\v2+.flowseer.model.edge.v1.SignedEdgeAssertionH\x00R\tassertionB\r\n" +
-	"\x04body\x12\x05\xbaH\x02\b\x01\"k\n" +
-	"\x15UploadCaptureResponse\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession2\x86\x01\n" +
+	"\x04body\x12\x05\xbaH\x02\b\x01\"m\n" +
+	"\x15UploadCaptureResponse\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession2\x86\x01\n" +
 	"\x12CaptureEdgeService\x12p\n" +
 	"\rUploadCapture\x12-.flowseer.api.capture.v1.UploadCaptureRequest\x1a..flowseer.api.capture.v1.UploadCaptureResponse(\x01B\x83\x02\n" +
 	"\x1bcom.flowseer.api.capture.v1B\x17CaptureEdgeServiceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_api_capture_v1_capture_edge_service_proto_goTypes = []any{
-	(*UploadCaptureRequest)(nil),    // 0: flowseer.api.capture.v1.UploadCaptureRequest
-	(*UploadCaptureResponse)(nil),   // 1: flowseer.api.capture.v1.UploadCaptureResponse
-	(*CapturePacketChunk)(nil),      // 2: flowseer.api.capture.v1.CapturePacketChunk
-	(*v1.SignedEdgeAssertion)(nil),  // 3: flowseer.model.edge.v1.SignedEdgeAssertion
-	(*CaptureSessionGlobalRef)(nil), // 4: flowseer.api.capture.v1.CaptureSessionGlobalRef
+	(*UploadCaptureRequest)(nil),       // 0: flowseer.api.capture.v1.UploadCaptureRequest
+	(*UploadCaptureResponse)(nil),      // 1: flowseer.api.capture.v1.UploadCaptureResponse
+	(*v1.CapturePacketChunk)(nil),      // 2: flowseer.model.capture.v1.CapturePacketChunk
+	(*v11.SignedEdgeAssertion)(nil),    // 3: flowseer.model.edge.v1.SignedEdgeAssertion
+	(*v1.CaptureSessionGlobalRef)(nil), // 4: flowseer.model.capture.v1.CaptureSessionGlobalRef
 }
 var file_flowseer_api_capture_v1_capture_edge_service_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.capture.v1.UploadCaptureRequest.chunk:type_name -> flowseer.api.capture.v1.CapturePacketChunk
+	2, // 0: flowseer.api.capture.v1.UploadCaptureRequest.chunk:type_name -> flowseer.model.capture.v1.CapturePacketChunk
 	3, // 1: flowseer.api.capture.v1.UploadCaptureRequest.assertion:type_name -> flowseer.model.edge.v1.SignedEdgeAssertion
-	4, // 2: flowseer.api.capture.v1.UploadCaptureResponse.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
+	4, // 2: flowseer.api.capture.v1.UploadCaptureResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
 	0, // 3: flowseer.api.capture.v1.CaptureEdgeService.UploadCapture:input_type -> flowseer.api.capture.v1.UploadCaptureRequest
 	1, // 4: flowseer.api.capture.v1.CaptureEdgeService.UploadCapture:output_type -> flowseer.api.capture.v1.UploadCaptureResponse
 	4, // [4:5] is the sub-list for method output_type
@@ -308,8 +309,6 @@ func file_flowseer_api_capture_v1_capture_edge_service_proto_init() {
 	if File_flowseer_api_capture_v1_capture_edge_service_proto != nil {
 		return
 	}
-	file_flowseer_api_capture_v1_capture_chunk_proto_init()
-	file_flowseer_api_capture_v1_capture_session_proto_init()
 	file_flowseer_api_capture_v1_capture_edge_service_proto_msgTypes[0].OneofWrappers = []any{
 		(*uploadCaptureRequest_Chunk)(nil),
 		(*uploadCaptureRequest_Assertion)(nil),

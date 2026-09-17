@@ -6,9 +6,9 @@ edition = "2024";
 // all carry. Deliberately partial: MutationIntent is the intended side, so
 // there is no MutationConfig, and there is no MutationEvent here because
 // the durable audit record is its own package's contract.
-package flowseer.device.access.v1;
+package flowseer.model.access.v1;
 
-import "flowseer/device/access/v1/interface.proto";
+import "flowseer/model/access/v1/interface.proto";
 import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/model/policy/v1/handle.proto";

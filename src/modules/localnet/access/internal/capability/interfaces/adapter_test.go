@@ -9,7 +9,7 @@ import (
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -18,7 +18,7 @@ import (
 
 // mustValid holds a message to its own schema rules — the capability may
 // not hand a caller a message the CEL rules in
-// spec/proto/flowseer/device/access/v1/interface.proto would reject.
+// spec/proto/flowseer/model/access/v1/interface.proto would reject.
 func mustValid(t *testing.T, m proto.Message) {
 	t.Helper()
 

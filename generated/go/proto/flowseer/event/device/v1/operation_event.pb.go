@@ -8,12 +8,12 @@
 // and its typed kinds. Deliberately partial: there is no DeviceOperationConfig
 // or DeviceOperationState, because this package is a pure event stream with
 // no queryable current-state entity of its own — MutationState in
-// device/access carries the live state this audit trails.
+// model/access carries the live state this audit trails.
 
 package devicev1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -670,8 +670,8 @@ func (*deviceOperationEvent_LaneFrozen) isDeviceOperationEvent_Detail() {}
 // One mutation's phase changed.
 type PhaseTransitioned struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_From        v11.OperationPhase     `protobuf:"varint,1,opt,name=from,enum=flowseer.device.access.v1.OperationPhase"`
-	xxx_hidden_To          v11.OperationPhase     `protobuf:"varint,2,opt,name=to,enum=flowseer.device.access.v1.OperationPhase"`
+	xxx_hidden_From        v11.OperationPhase     `protobuf:"varint,1,opt,name=from,enum=flowseer.model.access.v1.OperationPhase"`
+	xxx_hidden_To          v11.OperationPhase     `protobuf:"varint,2,opt,name=to,enum=flowseer.model.access.v1.OperationPhase"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -784,7 +784,7 @@ func (b0 PhaseTransitioned_builder) Build() *PhaseTransitioned {
 // The device's lane stopped admitting the next mutation.
 type LaneBlocked struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Reason      v11.BlockReason        `protobuf:"varint,1,opt,name=reason,enum=flowseer.device.access.v1.BlockReason"`
+	xxx_hidden_Reason      v11.BlockReason        `protobuf:"varint,1,opt,name=reason,enum=flowseer.model.access.v1.BlockReason"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -1385,7 +1385,7 @@ var File_flowseer_event_device_v1_operation_event_proto protoreflect.FileDescrip
 
 const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/event/device/v1/operation_event.proto\x12\x18flowseer.event.device.v1\x1a)flowseer/device/access/v1/operation.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\v\n" +
+	".flowseer/event/device/v1/operation_event.proto\x12\x18flowseer.event.device.v1\x1a(flowseer/model/access/v1/operation.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\v\n" +
 	"\x14DeviceOperationEvent\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bevent_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aeventId\x12#\n" +
@@ -1413,14 +1413,14 @@ const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B\x0f\n" +
-	"\x06detail\x12\x05\xbaH\x02\b\x01\"\xa8\x01\n" +
-	"\x11PhaseTransitioned\x12I\n" +
-	"\x04from\x18\x01 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04from\x12H\n" +
-	"\x02to\x18\x02 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x02to\"\\\n" +
-	"\vLaneBlocked\x12M\n" +
-	"\x06reason\x18\x01 \x01(\x0e2&.flowseer.device.access.v1.BlockReasonB\r\xbaH\n" +
+	"\x06detail\x12\x05\xbaH\x02\b\x01\"\xa6\x01\n" +
+	"\x11PhaseTransitioned\x12H\n" +
+	"\x04from\x18\x01 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04from\x12G\n" +
+	"\x02to\x18\x02 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x02to\"[\n" +
+	"\vLaneBlocked\x12L\n" +
+	"\x06reason\x18\x01 \x01(\x0e2%.flowseer.model.access.v1.BlockReasonB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\x0e\n" +
 	"\fLaneReleased\"\x8e\x01\n" +
 	"\rRouteSelected\x12Z\n" +
@@ -1460,8 +1460,8 @@ var file_flowseer_event_device_v1_operation_event_proto_goTypes = []any{
 	nil,                           // 11: flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry
 	(*v1.DeviceGlobalRef)(nil),    // 12: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
-	(v11.OperationPhase)(0),       // 14: flowseer.device.access.v1.OperationPhase
-	(v11.BlockReason)(0),          // 15: flowseer.device.access.v1.BlockReason
+	(v11.OperationPhase)(0),       // 14: flowseer.model.access.v1.OperationPhase
+	(v11.BlockReason)(0),          // 15: flowseer.model.access.v1.BlockReason
 	(v1.ManagementProtocol)(0),    // 16: flowseer.model.inventory.v1.ManagementProtocol
 	(*structpb.Value)(nil),        // 17: google.protobuf.Value
 }
@@ -1479,9 +1479,9 @@ var file_flowseer_event_device_v1_operation_event_proto_depIdxs = []int32{
 	7,  // 10: flowseer.event.device.v1.DeviceOperationEvent.recovery_started:type_name -> flowseer.event.device.v1.RecoveryStarted
 	8,  // 11: flowseer.event.device.v1.DeviceOperationEvent.drift_detected:type_name -> flowseer.event.device.v1.DriftDetected
 	9,  // 12: flowseer.event.device.v1.DeviceOperationEvent.lane_frozen:type_name -> flowseer.event.device.v1.LaneFrozen
-	14, // 13: flowseer.event.device.v1.PhaseTransitioned.from:type_name -> flowseer.device.access.v1.OperationPhase
-	14, // 14: flowseer.event.device.v1.PhaseTransitioned.to:type_name -> flowseer.device.access.v1.OperationPhase
-	15, // 15: flowseer.event.device.v1.LaneBlocked.reason:type_name -> flowseer.device.access.v1.BlockReason
+	14, // 13: flowseer.event.device.v1.PhaseTransitioned.from:type_name -> flowseer.model.access.v1.OperationPhase
+	14, // 14: flowseer.event.device.v1.PhaseTransitioned.to:type_name -> flowseer.model.access.v1.OperationPhase
+	15, // 15: flowseer.event.device.v1.LaneBlocked.reason:type_name -> flowseer.model.access.v1.BlockReason
 	16, // 16: flowseer.event.device.v1.RouteSelected.protocol:type_name -> flowseer.model.inventory.v1.ManagementProtocol
 	17, // 17: flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry.value:type_name -> google.protobuf.Value
 	18, // [18:18] is the sub-list for method output_type

@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 )
 
 func TestDeviceReadInterfaceRules(t *testing.T) {

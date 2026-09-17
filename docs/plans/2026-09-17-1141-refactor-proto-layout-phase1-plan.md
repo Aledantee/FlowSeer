@@ -77,6 +77,16 @@ every unit in this phase, and U1 already established the precedent of adding
 `## Boundaries` to a new package README ahead of the gate. Cost if wrong:
 U5's pass rewrites the section; no test depends on its contents until then.
 
+Ruled: U3 gives `model/access/v1/README.md` (moved from `device/access/v1`)
+and `model/capture/v1/README.md` (newly created from the split-out entity
+and chunk frames) a `## Boundaries` section immediately, matching the shape
+U1 and U2 already gave the packages they moved or created rather than
+waiting for U5's pass. Why: the same precedent U2's ruling cites applies
+here — a package that lands under `model/` in this phase gets the section
+when it lands, not when U5 sweeps the tree. Cost if wrong: U5's pass
+rewrites or reorders the section; no test depends on its contents until
+then.
+
 ## Requirements
 
 1. `spec/proto/flowseer/model/` holds `policy`, `credential`, `edge`,

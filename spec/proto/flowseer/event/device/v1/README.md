@@ -53,17 +53,17 @@ already-addressed channel, an audit record is read and queried outside any
 live transport context — a compliance report, an incident timeline. It must
 name its device on its own, so this package imports
 `flowseer/model/inventory/v1/device.proto` for `DeviceGlobalRef` in addition to
-`device/access` and `errs`. It never imports `api/edge` directly; the
+`model/access` and `errs`. It never imports `api/edge` directly; the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 states that an event envelope reaches `api/edge` only through
-`device/access`, where `MutationState.responsible_edge` already names it
+`model/access`, where `MutationState.responsible_edge` already names it
 when a mutation is in scope.
 
 ## What is deliberately absent
 
 - `DeviceOperationConfig` and `DeviceOperationState`. This package is a pure
   event stream; there is nothing here to configure and nothing to query as
-  current state. `MutationState` in `device/access` is the live state this
+  current state. `MutationState` in `model/access` is the live state this
   audit trails.
 - A secret, a credential, or a transcript. `attributes` is bounded and
   client-owned facts only — a field name, a fingerprint, a protocol — never

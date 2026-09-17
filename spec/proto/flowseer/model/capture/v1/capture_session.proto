@@ -5,7 +5,7 @@ edition = "2024";
 // artifact. The values a capture produces and matches against live in
 // flowseer.net.capture.v1; this package holds the ref, the lifecycle, and
 // what was asked for.
-package flowseer.api.capture.v1;
+package flowseer.model.capture.v1;
 
 import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/net/capture/v1/capture_counters.proto";
@@ -270,4 +270,13 @@ message CaptureSessionEvent {
       not_in: [0]
     }
   ];
+}
+
+// One capture session as CaptureService returns it: intent and observation
+// together.
+message CaptureSessionRecord {
+  // Must be present.
+  CaptureSessionConfig config = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  CaptureSessionState state = 2 [(buf.validate.field).required = true];
 }

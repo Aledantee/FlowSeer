@@ -4,10 +4,10 @@ edition = "2024";
 // and its typed kinds. Deliberately partial: there is no DeviceOperationConfig
 // or DeviceOperationState, because this package is a pure event stream with
 // no queryable current-state entity of its own — MutationState in
-// device/access carries the live state this audit trails.
+// model/access carries the live state this audit trails.
 package flowseer.event.device.v1;
 
-import "flowseer/device/access/v1/operation.proto";
+import "flowseer/model/access/v1/operation.proto";
 import "flowseer/model/inventory/v1/binding.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "google/protobuf/struct.proto";
@@ -66,13 +66,13 @@ message DeviceOperationEvent {
 message PhaseTransitioned {
   // The phase before the transition. Unset means the mutation was just
   // recorded and has no earlier phase. The zero value is rejected.
-  flowseer.device.access.v1.OperationPhase from = 1 [(buf.validate.field).enum = {
+  flowseer.model.access.v1.OperationPhase from = 1 [(buf.validate.field).enum = {
     defined_only: true
     not_in: [0]
   }];
   // The phase after the transition. Must be present; the zero value is
   // rejected.
-  flowseer.device.access.v1.OperationPhase to = 2 [
+  flowseer.model.access.v1.OperationPhase to = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {
       defined_only: true
@@ -84,7 +84,7 @@ message PhaseTransitioned {
 // The device's lane stopped admitting the next mutation.
 message LaneBlocked {
   // Why the lane is blocked. Must be present; the zero value is rejected.
-  flowseer.device.access.v1.BlockReason reason = 1 [
+  flowseer.model.access.v1.BlockReason reason = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {
       defined_only: true

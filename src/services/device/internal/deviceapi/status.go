@@ -7,7 +7,7 @@ import (
 	connect "connectrpc.com/connect"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 )
 
 // GetDeviceAccessStatus reports the record: how far the device's sequence has

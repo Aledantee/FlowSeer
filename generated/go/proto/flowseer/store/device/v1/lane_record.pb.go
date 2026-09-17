@@ -14,8 +14,8 @@
 package devicev1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -38,7 +38,7 @@ type DeviceLaneRecord struct {
 	xxx_hidden_Mutation              *v11.MutationState                   `protobuf:"bytes,3,opt,name=mutation"`
 	xxx_hidden_AdmittedAt            *timestamppb.Timestamp               `protobuf:"bytes,4,opt,name=admitted_at,json=admittedAt"`
 	xxx_hidden_Dispatched            bool                                 `protobuf:"varint,5,opt,name=dispatched"`
-	xxx_hidden_LastReportedPhase     v11.OperationPhase                   `protobuf:"varint,6,opt,name=last_reported_phase,json=lastReportedPhase,enum=flowseer.device.access.v1.OperationPhase"`
+	xxx_hidden_LastReportedPhase     v11.OperationPhase                   `protobuf:"varint,6,opt,name=last_reported_phase,json=lastReportedPhase,enum=flowseer.model.access.v1.OperationPhase"`
 	xxx_hidden_DispatchConfirmed     bool                                 `protobuf:"varint,7,opt,name=dispatch_confirmed,json=dispatchConfirmed"`
 	xxx_hidden_CheckpointConfirmed   bool                                 `protobuf:"varint,8,opt,name=checkpoint_confirmed,json=checkpointConfirmed"`
 	xxx_hidden_HoldResolutionPending []uint64                             `protobuf:"varint,9,rep,packed,name=hold_resolution_pending,json=holdResolutionPending"`
@@ -680,7 +680,7 @@ type IdempotencyEntry struct {
 	xxx_hidden_IdempotencyKey *string                `protobuf:"bytes,1,opt,name=idempotency_key,json=idempotencyKey"`
 	xxx_hidden_Sequence       uint64                 `protobuf:"varint,2,opt,name=sequence"`
 	xxx_hidden_IntentDigest   []byte                 `protobuf:"bytes,4,opt,name=intent_digest,json=intentDigest"`
-	xxx_hidden_Disposition    v11.Disposition        `protobuf:"varint,3,opt,name=disposition,enum=flowseer.device.access.v1.Disposition"`
+	xxx_hidden_Disposition    v11.Disposition        `protobuf:"varint,3,opt,name=disposition,enum=flowseer.model.access.v1.Disposition"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -866,17 +866,17 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe9\x11\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe6\x11\n" +
 	"\x10DeviceLaneRecord\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
-	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12D\n" +
-	"\bmutation\x18\x03 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\x12;\n" +
+	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12C\n" +
+	"\bmutation\x18\x03 \x01(\v2'.flowseer.model.access.v1.MutationStateR\bmutation\x12;\n" +
 	"\vadmitted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"admittedAt\x12%\n" +
 	"\n" +
 	"dispatched\x18\x05 \x01(\bB\x05\xaa\x01\x02\b\x02R\n" +
-	"dispatched\x12e\n" +
-	"\x13last_reported_phase\x18\x06 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\n" +
+	"dispatched\x12d\n" +
+	"\x13last_reported_phase\x18\x06 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x11lastReportedPhase\x124\n" +
 	"\x12dispatch_confirmed\x18\a \x01(\bB\x05\xaa\x01\x02\b\x02R\x11dispatchConfirmed\x128\n" +
 	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12H\n" +
@@ -895,30 +895,30 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\".flowseer.store.device.v1.OpenReadR\x05value:\x028\x01\x1aG\n" +
 	"\x19ExpectedDescriptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1at\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1as\n" +
 	"\x15LastObservationsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12E\n" +
-	"\x05value\x18\x02 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationR\x05value:\x028\x01:\xe2\x05\xbaH\xde\x05\x1a\x8a\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12D\n" +
+	"\x05value\x18\x02 \x01(\v2..flowseer.model.access.v1.InterfaceObservationR\x05value:\x028\x01:\xe2\x05\xbaH\xde\x05\x1a\x8a\x01\n" +
 	".device_lane_record.mutation_has_admission_time\x12+an open mutation carries its admission time\x1a+has(this.mutation) == has(this.admitted_at)\x1a\xd3\x02\n" +
 	",device_lane_record.sequences_under_watermark\x12+no open sequence exceeds the high watermark\x1a\xf5\x01(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark) && this.hold_resolution_pending.all(s, s <= this.high_watermark)\x1a\xf8\x01\n" +
-	"0device_lane_record.confirmations_need_a_mutation\x12=dispatch and checkpoint facts exist only for an open mutation\x1a\x84\x01has(this.mutation) || (!this.dispatched && !this.dispatch_confirmed && !this.checkpoint_confirmed && !has(this.last_reported_phase))\"\x82\x03\n" +
+	"0device_lane_record.confirmations_need_a_mutation\x12=dispatch and checkpoint facts exist only for an open mutation\x1a\x84\x01has(this.mutation) || (!this.dispatched && !this.dispatch_confirmed && !this.checkpoint_confirmed && !has(this.last_reported_phase))\"\x80\x03\n" +
 	"\bOpenRead\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12@\n" +
-	"\x04read\x18\x02 \x01(\v2$.flowseer.device.access.v1.TypedReadB\x06\xbaH\x03\xc8\x01\x01R\x04read\x12>\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12?\n" +
+	"\x04read\x18\x02 \x01(\v2#.flowseer.model.access.v1.TypedReadB\x06\xbaH\x03\xc8\x01\x01R\x04read\x12>\n" +
 	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x124\n" +
-	"\x0fidempotency_key\x18\x04 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12S\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12R\n" +
 	"\vobservation\x18\n" +
-	" \x01(\v2/.flowseer.device.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
+	" \x01(\v2..flowseer.model.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
 	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05errorB\t\n" +
-	"\aoutcome\"\xf7\x01\n" +
+	"\aoutcome\"\xf6\x01\n" +
 	"\x10IdempotencyEntry\x124\n" +
 	"\x0fidempotency_key\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12/\n" +
 	"\rintent_digest\x18\x04 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02h\bR\fintentDigest\x12T\n" +
-	"\vdisposition\x18\x03 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\n" +
+	"\xbaH\a\xc8\x01\x01z\x02h\bR\fintentDigest\x12S\n" +
+	"\vdisposition\x18\x03 \x01(\x0e2%.flowseer.model.access.v1.DispositionB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdispositionB\x80\x02\n" +
 	"\x1ccom.flowseer.store.device.v1B\x0fLaneRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
@@ -931,30 +931,30 @@ var file_flowseer_store_device_v1_lane_record_proto_goTypes = []any{
 	nil,                              // 4: flowseer.store.device.v1.DeviceLaneRecord.ExpectedDescriptionsEntry
 	nil,                              // 5: flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry
 	(*v1.DeviceGlobalRef)(nil),       // 6: flowseer.model.inventory.v1.DeviceGlobalRef
-	(*v11.MutationState)(nil),        // 7: flowseer.device.access.v1.MutationState
+	(*v11.MutationState)(nil),        // 7: flowseer.model.access.v1.MutationState
 	(*timestamppb.Timestamp)(nil),    // 8: google.protobuf.Timestamp
-	(v11.OperationPhase)(0),          // 9: flowseer.device.access.v1.OperationPhase
-	(*v11.TypedRead)(nil),            // 10: flowseer.device.access.v1.TypedRead
-	(*v11.InterfaceObservation)(nil), // 11: flowseer.device.access.v1.InterfaceObservation
+	(v11.OperationPhase)(0),          // 9: flowseer.model.access.v1.OperationPhase
+	(*v11.TypedRead)(nil),            // 10: flowseer.model.access.v1.TypedRead
+	(*v11.InterfaceObservation)(nil), // 11: flowseer.model.access.v1.InterfaceObservation
 	(*v12.ErrorPayload)(nil),         // 12: flowseer.errs.v1.ErrorPayload
-	(v11.Disposition)(0),             // 13: flowseer.device.access.v1.Disposition
+	(v11.Disposition)(0),             // 13: flowseer.model.access.v1.Disposition
 }
 var file_flowseer_store_device_v1_lane_record_proto_depIdxs = []int32{
 	6,  // 0: flowseer.store.device.v1.DeviceLaneRecord.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	7,  // 1: flowseer.store.device.v1.DeviceLaneRecord.mutation:type_name -> flowseer.device.access.v1.MutationState
+	7,  // 1: flowseer.store.device.v1.DeviceLaneRecord.mutation:type_name -> flowseer.model.access.v1.MutationState
 	8,  // 2: flowseer.store.device.v1.DeviceLaneRecord.admitted_at:type_name -> google.protobuf.Timestamp
-	9,  // 3: flowseer.store.device.v1.DeviceLaneRecord.last_reported_phase:type_name -> flowseer.device.access.v1.OperationPhase
+	9,  // 3: flowseer.store.device.v1.DeviceLaneRecord.last_reported_phase:type_name -> flowseer.model.access.v1.OperationPhase
 	3,  // 4: flowseer.store.device.v1.DeviceLaneRecord.open_reads:type_name -> flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntry
 	4,  // 5: flowseer.store.device.v1.DeviceLaneRecord.expected_descriptions:type_name -> flowseer.store.device.v1.DeviceLaneRecord.ExpectedDescriptionsEntry
 	5,  // 6: flowseer.store.device.v1.DeviceLaneRecord.last_observations:type_name -> flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry
 	2,  // 7: flowseer.store.device.v1.DeviceLaneRecord.idempotency:type_name -> flowseer.store.device.v1.IdempotencyEntry
-	10, // 8: flowseer.store.device.v1.OpenRead.read:type_name -> flowseer.device.access.v1.TypedRead
+	10, // 8: flowseer.store.device.v1.OpenRead.read:type_name -> flowseer.model.access.v1.TypedRead
 	8,  // 9: flowseer.store.device.v1.OpenRead.deadline:type_name -> google.protobuf.Timestamp
-	11, // 10: flowseer.store.device.v1.OpenRead.observation:type_name -> flowseer.device.access.v1.InterfaceObservation
+	11, // 10: flowseer.store.device.v1.OpenRead.observation:type_name -> flowseer.model.access.v1.InterfaceObservation
 	12, // 11: flowseer.store.device.v1.OpenRead.error:type_name -> flowseer.errs.v1.ErrorPayload
-	13, // 12: flowseer.store.device.v1.IdempotencyEntry.disposition:type_name -> flowseer.device.access.v1.Disposition
+	13, // 12: flowseer.store.device.v1.IdempotencyEntry.disposition:type_name -> flowseer.model.access.v1.Disposition
 	1,  // 13: flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntry.value:type_name -> flowseer.store.device.v1.OpenRead
-	11, // 14: flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry.value:type_name -> flowseer.device.access.v1.InterfaceObservation
+	11, // 14: flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry.value:type_name -> flowseer.model.access.v1.InterfaceObservation
 	15, // [15:15] is the sub-list for method output_type
 	15, // [15:15] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name

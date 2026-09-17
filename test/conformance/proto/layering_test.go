@@ -56,37 +56,43 @@ var importOrder = map[string][]string{
 	// carry an error, so nothing may depend on it.
 	"errs": nil,
 
-	// A capture session's identity, lifecycle and services. It holds
-	// net/capture's counters, link type and packet records rather than
-	// copies of their fields, and takes only the owning ref and the
-	// assertion its upload stream re-verifies from model/edge.
-	"api/capture": {"model/edge", "net/capture"},
+	// A capture session's identity, lifecycle, and the chunk frames its two
+	// services share. It takes the owning ref and the assertion its upload
+	// stream re-verifies from model/edge, and holds net/capture's counters,
+	// link type and packet records rather than copies of their fields.
+	"model/capture": {"model/edge", "net/capture"},
+
+	// The two Connect services around a capture session: the one an operator
+	// calls to create, control, and read one back, and the one an edge calls
+	// to upload one. Neither adds an import model/capture does not already
+	// carry.
+	"api/capture": {"model/capture", "model/edge", "net/capture"},
 
 	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
 	// model/edge for the responsible edge, so a boundary that imports them
 	// reaches model/edge only through here.
-	"device/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operator API, the execution envelope, and the audit event are
-	// sibling boundary consumers of device/access and errs, and none of the
+	// sibling boundary consumers of model/access and errs, and none of the
 	// three imports another. model/inventory and model/policy predate the
 	// errs amendment and stay direct api/device dependencies; the envelope
 	// carries no device or edge ref at all (the transport already names
 	// both), while the audit event needs model/inventory directly because it
 	// is read outside any live transport context.
-	"api/device": {"model/inventory", "device/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
-	"integration/device": {"device/access", "errs"},
+	"integration/device": {"model/access", "errs"},
 
-	"event/device": {"model/inventory", "device/access", "errs"},
+	"event/device": {"model/inventory", "model/access", "errs"},
 
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
-	"store/device": {"model/edge", "model/inventory", "device/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"store/device": {"model/edge", "model/inventory", "model/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The agent's own deployment file. It imports nothing FlowSeer-owned and
 	// is imported by nothing: what an edge is told about central lives in
@@ -100,7 +106,7 @@ var importOrder = map[string][]string{
 // flowseer/service stays out: it is the process-local bus contract and no
 // boundary package may import it.
 var orderedRoots = []string{
-	"flowseer/net", "flowseer/api", "flowseer/device", "flowseer/model",
+	"flowseer/net", "flowseer/api", "flowseer/model",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
 	"flowseer/store",
 }
@@ -184,15 +190,15 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "inventory imports a leaf boundary", importer: "model/inventory", imported: "model/policy", want: true},
 		{name: "edge imports its credential handles", importer: "api/edge", imported: "model/policy", want: true},
 		{name: "leaf boundary imports edge", importer: "model/policy", imported: "api/edge"},
-		{name: "access values import inventory", importer: "device/access", imported: "model/inventory", want: true},
-		{name: "access values import the operator api", importer: "device/access", imported: "api/device"},
-		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
+		{name: "access values import inventory", importer: "model/access", imported: "model/inventory", want: true},
+		{name: "access values import the operator api", importer: "model/access", imported: "api/device"},
+		{name: "operator api imports access values", importer: "api/device", imported: "model/access", want: true},
 		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
 		{name: "leaf boundary imports inventory", importer: "model/policy", imported: "model/inventory"},
-		{name: "execution envelope imports access values", importer: "integration/device", imported: "device/access", want: true},
+		{name: "execution envelope imports access values", importer: "integration/device", imported: "model/access", want: true},
 		{name: "execution envelope imports errs", importer: "integration/device", imported: "errs", want: true},
 		{name: "execution envelope imports the audit event", importer: "integration/device", imported: "event/device"},
-		{name: "audit event imports access values", importer: "event/device", imported: "device/access", want: true},
+		{name: "audit event imports access values", importer: "event/device", imported: "model/access", want: true},
 		{name: "audit event imports inventory", importer: "event/device", imported: "model/inventory", want: true},
 		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
 		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
@@ -200,11 +206,11 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "edge imports credential material", importer: "api/edge", imported: "model/credential", want: true},
 		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
 		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
-		{name: "storage imports access values", importer: "store/device", imported: "device/access", want: true},
+		{name: "storage imports access values", importer: "store/device", imported: "model/access", want: true},
 		{name: "storage imports credential material", importer: "store/device", imported: "model/credential", want: true},
 		{name: "storage imports the edge service package", importer: "store/device", imported: "api/edge"},
 		{name: "storage imports the edge entity", importer: "store/device", imported: "model/edge", want: true},
-		{name: "access values import storage", importer: "device/access", imported: "store/device"},
+		{name: "access values import storage", importer: "model/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
 	}

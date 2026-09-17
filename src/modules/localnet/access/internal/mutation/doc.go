@@ -1,5 +1,5 @@
 // Package mutation drives one admitted operation — a mutation or a read —
-// through the phases flowseer.device.access.v1.OperationPhase names: plan
+// through the phases flowseer.model.access.v1.OperationPhase names: plan
 // (admission-time validation), checkpoint, execute, observe, compare, and
 // result. Machine is a typestate: each method is valid from exactly the
 // phases the checkpoint barrier allows it from, and an

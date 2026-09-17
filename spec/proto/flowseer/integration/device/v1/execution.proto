@@ -10,9 +10,9 @@ edition = "2024";
 // none because the transport supplies it.
 package flowseer.integration.device.v1;
 
-import "flowseer/device/access/v1/interface.proto";
-import "flowseer/device/access/v1/operation.proto";
 import "flowseer/errs/v1/error.proto";
+import "flowseer/model/access/v1/interface.proto";
+import "flowseer/model/access/v1/operation.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -60,8 +60,8 @@ message ExecuteRequest {
   oneof operation {
     option (buf.validate.oneof).required = true;
 
-    flowseer.device.access.v1.MutationIntent mutation = 10;
-    flowseer.device.access.v1.TypedRead read = 11;
+    flowseer.model.access.v1.MutationIntent mutation = 10;
+    flowseer.model.access.v1.TypedRead read = 11;
   }
 }
 
@@ -74,7 +74,7 @@ message ExecuteResult {
   ];
   // The phase the edge reached before returning. Must be present; the zero
   // value is rejected.
-  flowseer.device.access.v1.OperationPhase phase_reached = 2 [
+  flowseer.model.access.v1.OperationPhase phase_reached = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {
       defined_only: true
@@ -92,7 +92,7 @@ message ExecuteResult {
   oneof outcome {
     option (buf.validate.oneof).required = true;
 
-    flowseer.device.access.v1.InterfaceObservation observation = 10;
+    flowseer.model.access.v1.InterfaceObservation observation = 10;
     flowseer.errs.v1.ErrorPayload error = 11;
     // A report of a phase reached with nothing to show yet.
     Progress progress = 12;
@@ -134,7 +134,7 @@ message TerminalResultAck {
   ];
   // The disposition central recorded. Must be present; the zero value is
   // rejected.
-  flowseer.device.access.v1.Disposition disposition = 2 [
+  flowseer.model.access.v1.Disposition disposition = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {
       defined_only: true

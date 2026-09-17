@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/pump"
 	"go.aledante.io/FlowSeer/src/common/spawn"
@@ -45,7 +45,7 @@ const (
 // once.
 type Engine struct {
 	source                Source
-	budget                *apicapturev1.CaptureBudget
+	budget                *modelcapturev1.CaptureBudget
 	snapLength            uint32
 	reportsInterfaceDrops bool
 
@@ -112,7 +112,7 @@ func New(cfg Config) (*Engine, error) {
 // exists at that layer: per capture_counters.proto, an absent counter means
 // the stage does not report one, so a mirror-sourced run never sets
 // dropped_by_interface rather than reporting a misleading zero.
-func newEngine(src Source, budget *apicapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
+func newEngine(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	snapLength := budget.GetSnapLength()
 	if snapLength == 0 {
 		snapLength = defaultSnapLength
@@ -123,7 +123,7 @@ func newEngine(src Source, budget *apicapturev1.CaptureBudget, reportsInterfaceD
 		snapLength:            snapLength,
 		reportsInterfaceDrops: reportsInterfaceDrops,
 		state: State{
-			Lifecycle: apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING,
+			Lifecycle: modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING,
 			LinkType:  capturev1.LinkType_LINK_TYPE_ETHERNET,
 			Counters:  &capturev1.CaptureCounters{},
 		},
@@ -142,7 +142,7 @@ func (e *Engine) Run(ctx context.Context) (*pump.Pump[Batch], error) {
 		return nil, fmt.Errorf("capture: Run called more than once")
 	}
 	e.started = true
-	e.state.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
+	e.state.Lifecycle = modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
 	e.mu.Unlock()
 
 	p := pump.New[Batch](ctx, pumpBuffer)
@@ -158,7 +158,7 @@ func (e *Engine) Run(ctx context.Context) (*pump.Pump[Batch], error) {
 		// finished that the source is released. Without this the fd stays
 		// open and State() reports RUNNING for the rest of the process.
 		e.setState(func(s *State) {
-			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
+			s.Lifecycle = modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
 		})
 		_ = e.source.Close()
 		p.Fail(err)
@@ -201,7 +201,7 @@ func (e *Engine) run(p *pump.Pump[Batch]) {
 		batch         []*capturev1.PacketRecord
 		batchFirstSeq uint64
 
-		stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED
+		stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED
 		runErr     error
 	)
 
@@ -271,10 +271,10 @@ runLoop:
 				// this is the same operator-initiated stop the
 				// p.Context().Done() case below reports, not a failure.
 				if p.Context().Err() != nil {
-					stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+					stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
 				} else {
 					runErr = fmt.Errorf("capture: source closed its frame channel unexpectedly")
-					stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
+					stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
 				}
 				break runLoop
 			}
@@ -285,10 +285,10 @@ runLoop:
 				// than a failure, so which case wins the select cannot
 				// change the outcome.
 				if errors.Is(f.Err, context.Canceled) || errors.Is(f.Err, context.DeadlineExceeded) {
-					stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+					stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
 				} else {
 					runErr = f.Err
-					stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
+					stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
 				}
 				break runLoop
 			}
@@ -301,9 +301,9 @@ runLoop:
 
 			switch {
 			case e.budget.HasMaxPackets() && acceptedPackets >= e.budget.GetMaxPackets():
-				stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
+				stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
 			case e.budget.HasMaxBytes() && acceptedBytes >= e.budget.GetMaxBytes():
-				stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT
+				stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT
 			default:
 				if len(batch) >= batchMaxRecords {
 					flush(false)
@@ -323,7 +323,7 @@ runLoop:
 			break runLoop
 
 		case <-durationC:
-			stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION
+			stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION
 			// Same reasoning as the budget-bound case above: whatever the
 			// source already queued is this bound's own loss, not silently
 			// discarded.
@@ -335,7 +335,7 @@ runLoop:
 			flush(false)
 
 		case <-p.Context().Done():
-			stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+			stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
 			break runLoop
 
 		case <-p.Stopped():
@@ -345,7 +345,7 @@ runLoop:
 			// obeys by this point, but the receive loop above would
 			// otherwise never notice and keep draining the source for
 			// nothing.
-			stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+			stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
 			break runLoop
 		}
 	}
@@ -365,11 +365,11 @@ runLoop:
 	e.setState(func(s *State) {
 		switch {
 		case runErr != nil:
-			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
-		case stopReason == apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR:
-			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED
+			s.Lifecycle = modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
+		case stopReason == modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR:
+			s.Lifecycle = modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED
 		default:
-			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED
+			s.Lifecycle = modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED
 		}
 		s.StopReason = stopReason
 		s.Counters = buildCounters()

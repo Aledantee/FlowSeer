@@ -3,7 +3,7 @@ edition = "2024";
 // The interface capability's typed intent and observation. An interface is
 // named by the device-local name the device spells; the Interface entity
 // and its ref are not decided yet, so nothing here is a ref.
-package flowseer.device.access.v1;
+package flowseer.model.access.v1;
 
 import "flowseer/model/inventory/v1/provenance.proto";
 import "flowseer/model/policy/v1/handle.proto";

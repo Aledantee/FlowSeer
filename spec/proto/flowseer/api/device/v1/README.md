@@ -8,7 +8,7 @@ are decided behind the service and reported back as provenance, never chosen
 by the caller. The
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 fixes that split, and
-[`device/access/v1`](../../../device/access/v1/README.md) holds the messages
+[`model/access/v1`](../../../model/access/v1/README.md) holds the messages
 the RPCs exchange.
 
 ## Reading

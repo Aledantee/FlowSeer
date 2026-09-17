@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/capture/v1/capture_chunk.proto
+// source: flowseer/model/capture/v1/capture_chunk.proto
 
 // The chunk frames both capture services share: CapturePacketChunk is what
 // an edge uploads and what an operator tails, CaptureArtifactChunk is what
@@ -47,7 +47,7 @@ type CapturePacketChunk struct {
 
 func (x *CapturePacketChunk) Reset() {
 	*x = CapturePacketChunk{}
-	mi := &file_flowseer_api_capture_v1_capture_chunk_proto_msgTypes[0]
+	mi := &file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -59,7 +59,7 @@ func (x *CapturePacketChunk) String() string {
 func (*CapturePacketChunk) ProtoMessage() {}
 
 func (x *CapturePacketChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_chunk_proto_msgTypes[0]
+	mi := &file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -224,7 +224,7 @@ type CaptureArtifactChunk struct {
 
 func (x *CaptureArtifactChunk) Reset() {
 	*x = CaptureArtifactChunk{}
-	mi := &file_flowseer_api_capture_v1_capture_chunk_proto_msgTypes[1]
+	mi := &file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -236,7 +236,7 @@ func (x *CaptureArtifactChunk) String() string {
 func (*CaptureArtifactChunk) ProtoMessage() {}
 
 func (x *CaptureArtifactChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_chunk_proto_msgTypes[1]
+	mi := &file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -353,13 +353,13 @@ func (b0 CaptureArtifactChunk_builder) Build() *CaptureArtifactChunk {
 	return m0
 }
 
-var File_flowseer_api_capture_v1_capture_chunk_proto protoreflect.FileDescriptor
+var File_flowseer_model_capture_v1_capture_chunk_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_capture_v1_capture_chunk_proto_rawDesc = "" +
+const file_flowseer_model_capture_v1_capture_chunk_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/api/capture/v1/capture_chunk.proto\x12\x17flowseer.api.capture.v1\x1a-flowseer/api/capture/v1/capture_session.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a+flowseer/net/capture/v1/packet_record.proto\"\xbf\x02\n" +
-	"\x12CapturePacketChunk\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\x12-\n" +
+	"-flowseer/model/capture/v1/capture_chunk.proto\x12\x19flowseer.model.capture.v1\x1a/flowseer/model/capture/v1/capture_session.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a+flowseer/net/capture/v1/packet_record.proto\"\xc1\x02\n" +
+	"\x12CapturePacketChunk\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\x12-\n" +
 	"\x0efirst_sequence\x18\x02 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\rfirstSequence\x12J\n" +
 	"\apackets\x18\x03 \x03(\v2%.flowseer.net.capture.v1.PacketRecordB\t\xbaH\x06\x92\x01\x03\x10\x80 R\apackets\x12D\n" +
 	"\bcounters\x18\x04 \x01(\v2(.flowseer.net.capture.v1.CaptureCountersR\bcounters\x12\x14\n" +
@@ -367,21 +367,21 @@ const file_flowseer_api_capture_v1_capture_chunk_proto_rawDesc = "" +
 	"\x14CaptureArtifactChunk\x12\x1e\n" +
 	"\x06offset\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\x06offset\x12 \n" +
 	"\x04data\x18\x02 \x01(\fB\f\xbaH\t\xc8\x01\x01z\x04\x18\x80\x80@R\x04data\x12\x14\n" +
-	"\x05final\x18\x03 \x01(\bR\x05finalB\xfd\x01\n" +
-	"\x1bcom.flowseer.api.capture.v1B\x11CaptureChunkProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
+	"\x05final\x18\x03 \x01(\bR\x05finalB\x89\x02\n" +
+	"\x1dcom.flowseer.model.capture.v1B\x11CaptureChunkProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1;capturev1\xa2\x02\x03FMC\xaa\x02\x19Flowseer.Model.Capture.V1\xca\x02\x19Flowseer\\Model\\Capture\\V1\xe2\x02%Flowseer\\Model\\Capture\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Model::Capture::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_capture_v1_capture_chunk_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_flowseer_api_capture_v1_capture_chunk_proto_goTypes = []any{
-	(*CapturePacketChunk)(nil),      // 0: flowseer.api.capture.v1.CapturePacketChunk
-	(*CaptureArtifactChunk)(nil),    // 1: flowseer.api.capture.v1.CaptureArtifactChunk
-	(*CaptureSessionGlobalRef)(nil), // 2: flowseer.api.capture.v1.CaptureSessionGlobalRef
+var file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_model_capture_v1_capture_chunk_proto_goTypes = []any{
+	(*CapturePacketChunk)(nil),      // 0: flowseer.model.capture.v1.CapturePacketChunk
+	(*CaptureArtifactChunk)(nil),    // 1: flowseer.model.capture.v1.CaptureArtifactChunk
+	(*CaptureSessionGlobalRef)(nil), // 2: flowseer.model.capture.v1.CaptureSessionGlobalRef
 	(*v1.PacketRecord)(nil),         // 3: flowseer.net.capture.v1.PacketRecord
 	(*v1.CaptureCounters)(nil),      // 4: flowseer.net.capture.v1.CaptureCounters
 }
-var file_flowseer_api_capture_v1_capture_chunk_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.capture.v1.CapturePacketChunk.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
-	3, // 1: flowseer.api.capture.v1.CapturePacketChunk.packets:type_name -> flowseer.net.capture.v1.PacketRecord
-	4, // 2: flowseer.api.capture.v1.CapturePacketChunk.counters:type_name -> flowseer.net.capture.v1.CaptureCounters
+var file_flowseer_model_capture_v1_capture_chunk_proto_depIdxs = []int32{
+	2, // 0: flowseer.model.capture.v1.CapturePacketChunk.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	3, // 1: flowseer.model.capture.v1.CapturePacketChunk.packets:type_name -> flowseer.net.capture.v1.PacketRecord
+	4, // 2: flowseer.model.capture.v1.CapturePacketChunk.counters:type_name -> flowseer.net.capture.v1.CaptureCounters
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -389,27 +389,27 @@ var file_flowseer_api_capture_v1_capture_chunk_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_capture_v1_capture_chunk_proto_init() }
-func file_flowseer_api_capture_v1_capture_chunk_proto_init() {
-	if File_flowseer_api_capture_v1_capture_chunk_proto != nil {
+func init() { file_flowseer_model_capture_v1_capture_chunk_proto_init() }
+func file_flowseer_model_capture_v1_capture_chunk_proto_init() {
+	if File_flowseer_model_capture_v1_capture_chunk_proto != nil {
 		return
 	}
-	file_flowseer_api_capture_v1_capture_session_proto_init()
+	file_flowseer_model_capture_v1_capture_session_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_capture_v1_capture_chunk_proto_rawDesc), len(file_flowseer_api_capture_v1_capture_chunk_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_capture_v1_capture_chunk_proto_rawDesc), len(file_flowseer_model_capture_v1_capture_chunk_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_capture_v1_capture_chunk_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_capture_v1_capture_chunk_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_capture_v1_capture_chunk_proto_msgTypes,
+		GoTypes:           file_flowseer_model_capture_v1_capture_chunk_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_capture_v1_capture_chunk_proto_depIdxs,
+		MessageInfos:      file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_capture_v1_capture_chunk_proto = out.File
-	file_flowseer_api_capture_v1_capture_chunk_proto_goTypes = nil
-	file_flowseer_api_capture_v1_capture_chunk_proto_depIdxs = nil
+	File_flowseer_model_capture_v1_capture_chunk_proto = out.File
+	file_flowseer_model_capture_v1_capture_chunk_proto_goTypes = nil
+	file_flowseer_model_capture_v1_capture_chunk_proto_depIdxs = nil
 }

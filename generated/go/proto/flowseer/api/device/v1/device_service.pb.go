@@ -11,7 +11,7 @@
 package devicev1
 
 import (
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -1614,64 +1614,64 @@ var File_flowseer_api_device_v1_device_service_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\"\xba\x01\n" +
+	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\"\xba\x01\n" +
 	"\x14ReadInterfaceRequest\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12T\n" +
-	"\x0einterface_name\x18\x02 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\x92\x02\n" +
-	"\x15ReadInterfaceResponse\x12U\n" +
-	"\tinterface\x18\x01 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationB\x06\xbaH\x03\xc8\x01\x01R\tinterface:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
-	"-read_interface_response.interface_is_complete\x12/a read never answers with a partial observation\x1a8!has(this.interface) || this.interface.completeness == 1\"\xcd\x02\n" +
-	" ApplyInterfaceDescriptionRequest\x12I\n" +
-	"\x06intent\x18\x01 \x01(\v2).flowseer.device.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
+	"\x0einterface_name\x18\x02 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\x91\x02\n" +
+	"\x15ReadInterfaceResponse\x12T\n" +
+	"\tinterface\x18\x01 \x01(\v2..flowseer.model.access.v1.InterfaceObservationB\x06\xbaH\x03\xc8\x01\x01R\tinterface:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
+	"-read_interface_response.interface_is_complete\x12/a read never answers with a partial observation\x1a8!has(this.interface) || this.interface.completeness == 1\"\xcc\x02\n" +
+	" ApplyInterfaceDescriptionRequest\x12H\n" +
+	"\x06intent\x18\x01 \x01(\v2(.flowseer.model.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
 	"\rvalidate_only\x18\x02 \x01(\bR\fvalidateOnly:\xb8\x01\xbaH\xb4\x01\x1a\xb1\x01\n" +
-	";apply_interface_description.change_is_interface_description\x125the intent must carry an interface_description change\x1a;!has(this.intent) || has(this.intent.interface_description)\"i\n" +
-	"!ApplyInterfaceDescriptionResponse\x12D\n" +
-	"\bmutation\x18\x01 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\"l\n" +
+	";apply_interface_description.change_is_interface_description\x125the intent must carry an interface_description change\x1a;!has(this.intent) || has(this.intent.interface_description)\"h\n" +
+	"!ApplyInterfaceDescriptionResponse\x12C\n" +
+	"\bmutation\x18\x01 \x01(\v2'.flowseer.model.access.v1.MutationStateR\bmutation\"l\n" +
 	"\x1cGetDeviceAccessStatusRequest\x12L\n" +
-	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xd4\x04\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xd2\x04\n" +
 	"\x1dGetDeviceAccessStatusResponse\x12-\n" +
-	"\x0ehigh_watermark\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\rhighWatermark\x12H\n" +
+	"\x0ehigh_watermark\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\rhighWatermark\x12G\n" +
 	"\n" +
-	"unresolved\x18\x02 \x01(\v2(.flowseer.device.access.v1.MutationStateR\n" +
+	"unresolved\x18\x02 \x01(\v2'.flowseer.model.access.v1.MutationStateR\n" +
 	"unresolved\x12=\n" +
 	"\x14firmware_fingerprint\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprint\x12O\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprint\x12N\n" +
 	"\n" +
-	"interfaces\x18\x04 \x03(\v2/.flowseer.device.access.v1.InterfaceObservationR\n" +
+	"interfaces\x18\x04 \x03(\v2..flowseer.model.access.v1.InterfaceObservationR\n" +
 	"interfaces:\xa9\x02\xbaH\xa5\x02\x1a\x96\x01\n" +
 	"'device_access_status.unresolved_is_open\x126an unresolved mutation cannot be in the released phase\x1a3!has(this.unresolved) || this.unresolved.phase != 8\x1a\x89\x01\n" +
-	"*device_access_status.interfaces_are_unique\x12(each interface name appears at most once\x1a1this.interfaces.map(o, o.interface_name).unique()\"\xce\x01\n" +
+	"*device_access_status.interfaces_are_unique\x12(each interface name appears at most once\x1a1this.interfaces.map(o, o.interface_name).unique()\"\xcd\x01\n" +
 	"\x16AbandonMutationRequest\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
-	"\x05actor\x18\x03 \x01(\v2 .flowseer.device.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\"g\n" +
-	"\x17AbandonMutationResponse\x12L\n" +
-	"\bmutation\x18\x01 \x01(\v2(.flowseer.device.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"\x18\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12=\n" +
+	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\"f\n" +
+	"\x17AbandonMutationResponse\x12K\n" +
+	"\bmutation\x18\x01 \x01(\v2'.flowseer.model.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"\x18\n" +
 	"\x16AcceptObservedDecision\"\x19\n" +
-	"\x17RestoreExpectedDecision\"\xc8\x03\n" +
+	"\x17RestoreExpectedDecision\"\xc6\x03\n" +
 	"\x1fResolveDesynchronizationRequest\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
-	"\x05actor\x18\x03 \x01(\v2 .flowseer.device.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\x12H\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12=\n" +
+	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\x12H\n" +
 	"\x06accept\x18\n" +
 	" \x01(\v2..flowseer.api.device.v1.AcceptObservedDecisionH\x00R\x06accept\x12K\n" +
-	"\arestore\x18\v \x01(\v2/.flowseer.api.device.v1.RestoreExpectedDecisionH\x00R\arestore\x12E\n" +
-	"\areplace\x18\f \x01(\v2).flowseer.device.access.v1.MutationIntentH\x00R\areplaceB\x11\n" +
-	"\bdecision\x12\x05\xbaH\x02\b\x01\"h\n" +
-	" ResolveDesynchronizationResponse\x12D\n" +
-	"\bmutation\x18\x01 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\"\x98\x01\n" +
+	"\arestore\x18\v \x01(\v2/.flowseer.api.device.v1.RestoreExpectedDecisionH\x00R\arestore\x12D\n" +
+	"\areplace\x18\f \x01(\v2(.flowseer.model.access.v1.MutationIntentH\x00R\areplaceB\x11\n" +
+	"\bdecision\x12\x05\xbaH\x02\b\x01\"g\n" +
+	" ResolveDesynchronizationResponse\x12C\n" +
+	"\bmutation\x18\x01 \x01(\v2'.flowseer.model.access.v1.MutationStateR\bmutation\"\x98\x01\n" +
 	"\x1cListEdgeOpenMutationsRequest\x12$\n" +
 	"\aedge_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x06edgeId\x12'\n" +
 	"\tpage_size\x18\x02 \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\xe8\a \x00R\bpageSize\x12)\n" +
 	"\n" +
 	"page_token\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\xaa\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\xa9\x01\n" +
 	"\fOpenMutation\x12L\n" +
-	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12L\n" +
-	"\bmutation\x18\x02 \x01(\v2(.flowseer.device.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"\x98\x01\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12K\n" +
+	"\bmutation\x18\x02 \x01(\v2'.flowseer.model.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"\x98\x01\n" +
 	"\x1dListEdgeOpenMutationsResponse\x12C\n" +
 	"\x04open\x18\x01 \x03(\v2$.flowseer.api.device.v1.OpenMutationB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\x04open\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
@@ -1703,30 +1703,30 @@ var file_flowseer_api_device_v1_device_service_proto_goTypes = []any{
 	(*OpenMutation)(nil),                      // 13: flowseer.api.device.v1.OpenMutation
 	(*ListEdgeOpenMutationsResponse)(nil),     // 14: flowseer.api.device.v1.ListEdgeOpenMutationsResponse
 	(*v1.DeviceGlobalRef)(nil),                // 15: flowseer.model.inventory.v1.DeviceGlobalRef
-	(*v11.InterfaceObservation)(nil),          // 16: flowseer.device.access.v1.InterfaceObservation
-	(*v11.MutationIntent)(nil),                // 17: flowseer.device.access.v1.MutationIntent
-	(*v11.MutationState)(nil),                 // 18: flowseer.device.access.v1.MutationState
-	(*v11.Actor)(nil),                         // 19: flowseer.device.access.v1.Actor
+	(*v11.InterfaceObservation)(nil),          // 16: flowseer.model.access.v1.InterfaceObservation
+	(*v11.MutationIntent)(nil),                // 17: flowseer.model.access.v1.MutationIntent
+	(*v11.MutationState)(nil),                 // 18: flowseer.model.access.v1.MutationState
+	(*v11.Actor)(nil),                         // 19: flowseer.model.access.v1.Actor
 }
 var file_flowseer_api_device_v1_device_service_proto_depIdxs = []int32{
 	15, // 0: flowseer.api.device.v1.ReadInterfaceRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	16, // 1: flowseer.api.device.v1.ReadInterfaceResponse.interface:type_name -> flowseer.device.access.v1.InterfaceObservation
-	17, // 2: flowseer.api.device.v1.ApplyInterfaceDescriptionRequest.intent:type_name -> flowseer.device.access.v1.MutationIntent
-	18, // 3: flowseer.api.device.v1.ApplyInterfaceDescriptionResponse.mutation:type_name -> flowseer.device.access.v1.MutationState
+	16, // 1: flowseer.api.device.v1.ReadInterfaceResponse.interface:type_name -> flowseer.model.access.v1.InterfaceObservation
+	17, // 2: flowseer.api.device.v1.ApplyInterfaceDescriptionRequest.intent:type_name -> flowseer.model.access.v1.MutationIntent
+	18, // 3: flowseer.api.device.v1.ApplyInterfaceDescriptionResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
 	15, // 4: flowseer.api.device.v1.GetDeviceAccessStatusRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	18, // 5: flowseer.api.device.v1.GetDeviceAccessStatusResponse.unresolved:type_name -> flowseer.device.access.v1.MutationState
-	16, // 6: flowseer.api.device.v1.GetDeviceAccessStatusResponse.interfaces:type_name -> flowseer.device.access.v1.InterfaceObservation
+	18, // 5: flowseer.api.device.v1.GetDeviceAccessStatusResponse.unresolved:type_name -> flowseer.model.access.v1.MutationState
+	16, // 6: flowseer.api.device.v1.GetDeviceAccessStatusResponse.interfaces:type_name -> flowseer.model.access.v1.InterfaceObservation
 	15, // 7: flowseer.api.device.v1.AbandonMutationRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	19, // 8: flowseer.api.device.v1.AbandonMutationRequest.actor:type_name -> flowseer.device.access.v1.Actor
-	18, // 9: flowseer.api.device.v1.AbandonMutationResponse.mutation:type_name -> flowseer.device.access.v1.MutationState
+	19, // 8: flowseer.api.device.v1.AbandonMutationRequest.actor:type_name -> flowseer.model.access.v1.Actor
+	18, // 9: flowseer.api.device.v1.AbandonMutationResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
 	15, // 10: flowseer.api.device.v1.ResolveDesynchronizationRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	19, // 11: flowseer.api.device.v1.ResolveDesynchronizationRequest.actor:type_name -> flowseer.device.access.v1.Actor
+	19, // 11: flowseer.api.device.v1.ResolveDesynchronizationRequest.actor:type_name -> flowseer.model.access.v1.Actor
 	8,  // 12: flowseer.api.device.v1.ResolveDesynchronizationRequest.accept:type_name -> flowseer.api.device.v1.AcceptObservedDecision
 	9,  // 13: flowseer.api.device.v1.ResolveDesynchronizationRequest.restore:type_name -> flowseer.api.device.v1.RestoreExpectedDecision
-	17, // 14: flowseer.api.device.v1.ResolveDesynchronizationRequest.replace:type_name -> flowseer.device.access.v1.MutationIntent
-	18, // 15: flowseer.api.device.v1.ResolveDesynchronizationResponse.mutation:type_name -> flowseer.device.access.v1.MutationState
+	17, // 14: flowseer.api.device.v1.ResolveDesynchronizationRequest.replace:type_name -> flowseer.model.access.v1.MutationIntent
+	18, // 15: flowseer.api.device.v1.ResolveDesynchronizationResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
 	15, // 16: flowseer.api.device.v1.OpenMutation.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	18, // 17: flowseer.api.device.v1.OpenMutation.mutation:type_name -> flowseer.device.access.v1.MutationState
+	18, // 17: flowseer.api.device.v1.OpenMutation.mutation:type_name -> flowseer.model.access.v1.MutationState
 	13, // 18: flowseer.api.device.v1.ListEdgeOpenMutationsResponse.open:type_name -> flowseer.api.device.v1.OpenMutation
 	0,  // 19: flowseer.api.device.v1.DeviceService.ReadInterface:input_type -> flowseer.api.device.v1.ReadInterfaceRequest
 	2,  // 20: flowseer.api.device.v1.DeviceService.ApplyInterfaceDescription:input_type -> flowseer.api.device.v1.ApplyInterfaceDescriptionRequest

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/device/access/v1/operation.proto
+// source: flowseer/model/access/v1/operation.proto
 
 // The vocabulary every device-access boundary shares: the phases and
 // dispositions of a mutation, who asked for it, and the intent and state
@@ -103,11 +103,11 @@ func (x OperationPhase) String() string {
 }
 
 func (OperationPhase) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_device_access_v1_operation_proto_enumTypes[0].Descriptor()
+	return file_flowseer_model_access_v1_operation_proto_enumTypes[0].Descriptor()
 }
 
 func (OperationPhase) Type() protoreflect.EnumType {
-	return &file_flowseer_device_access_v1_operation_proto_enumTypes[0]
+	return &file_flowseer_model_access_v1_operation_proto_enumTypes[0]
 }
 
 func (x OperationPhase) Number() protoreflect.EnumNumber {
@@ -155,11 +155,11 @@ func (x Disposition) String() string {
 }
 
 func (Disposition) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_device_access_v1_operation_proto_enumTypes[1].Descriptor()
+	return file_flowseer_model_access_v1_operation_proto_enumTypes[1].Descriptor()
 }
 
 func (Disposition) Type() protoreflect.EnumType {
-	return &file_flowseer_device_access_v1_operation_proto_enumTypes[1]
+	return &file_flowseer_model_access_v1_operation_proto_enumTypes[1]
 }
 
 func (x Disposition) Number() protoreflect.EnumNumber {
@@ -225,11 +225,11 @@ func (x BlockReason) String() string {
 }
 
 func (BlockReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_device_access_v1_operation_proto_enumTypes[2].Descriptor()
+	return file_flowseer_model_access_v1_operation_proto_enumTypes[2].Descriptor()
 }
 
 func (BlockReason) Type() protoreflect.EnumType {
-	return &file_flowseer_device_access_v1_operation_proto_enumTypes[2]
+	return &file_flowseer_model_access_v1_operation_proto_enumTypes[2]
 }
 
 func (x BlockReason) Number() protoreflect.EnumNumber {
@@ -269,11 +269,11 @@ func (x SystemReason) String() string {
 }
 
 func (SystemReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_device_access_v1_operation_proto_enumTypes[3].Descriptor()
+	return file_flowseer_model_access_v1_operation_proto_enumTypes[3].Descriptor()
 }
 
 func (SystemReason) Type() protoreflect.EnumType {
-	return &file_flowseer_device_access_v1_operation_proto_enumTypes[3]
+	return &file_flowseer_model_access_v1_operation_proto_enumTypes[3]
 }
 
 func (x SystemReason) Number() protoreflect.EnumNumber {
@@ -292,7 +292,7 @@ type OperatorRef struct {
 
 func (x *OperatorRef) Reset() {
 	*x = OperatorRef{}
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[0]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -304,7 +304,7 @@ func (x *OperatorRef) String() string {
 func (*OperatorRef) ProtoMessage() {}
 
 func (x *OperatorRef) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[0]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -364,7 +364,7 @@ func (b0 OperatorRef_builder) Build() *OperatorRef {
 // A FlowSeer process acting on its own policy.
 type SystemActor struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Reason      SystemReason           `protobuf:"varint,1,opt,name=reason,enum=flowseer.device.access.v1.SystemReason"`
+	xxx_hidden_Reason      SystemReason           `protobuf:"varint,1,opt,name=reason,enum=flowseer.model.access.v1.SystemReason"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -373,7 +373,7 @@ type SystemActor struct {
 
 func (x *SystemActor) Reset() {
 	*x = SystemActor{}
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[1]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -385,7 +385,7 @@ func (x *SystemActor) String() string {
 func (*SystemActor) ProtoMessage() {}
 
 func (x *SystemActor) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[1]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +450,7 @@ type Actor struct {
 
 func (x *Actor) Reset() {
 	*x = Actor{}
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[2]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +462,7 @@ func (x *Actor) String() string {
 func (*Actor) ProtoMessage() {}
 
 func (x *Actor) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[2]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -591,7 +591,7 @@ func (b0 Actor_builder) Build() *Actor {
 type case_Actor_Principal protoreflect.FieldNumber
 
 func (x case_Actor_Principal) String() string {
-	md := file_flowseer_device_access_v1_operation_proto_msgTypes[2].Descriptor()
+	md := file_flowseer_model_access_v1_operation_proto_msgTypes[2].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -633,7 +633,7 @@ type MutationIntent struct {
 
 func (x *MutationIntent) Reset() {
 	*x = MutationIntent{}
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[3]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -645,7 +645,7 @@ func (x *MutationIntent) String() string {
 func (*MutationIntent) ProtoMessage() {}
 
 func (x *MutationIntent) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[3]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +880,7 @@ func (b0 MutationIntent_builder) Build() *MutationIntent {
 type case_MutationIntent_Change protoreflect.FieldNumber
 
 func (x case_MutationIntent_Change) String() string {
-	md := file_flowseer_device_access_v1_operation_proto_msgTypes[3].Descriptor()
+	md := file_flowseer_model_access_v1_operation_proto_msgTypes[3].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -903,9 +903,9 @@ type MutationState struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Intent          *MutationIntent        `protobuf:"bytes,1,opt,name=intent"`
 	xxx_hidden_Sequence        uint64                 `protobuf:"varint,2,opt,name=sequence"`
-	xxx_hidden_Phase           OperationPhase         `protobuf:"varint,3,opt,name=phase,enum=flowseer.device.access.v1.OperationPhase"`
-	xxx_hidden_Disposition     Disposition            `protobuf:"varint,4,opt,name=disposition,enum=flowseer.device.access.v1.Disposition"`
-	xxx_hidden_BlockReason     BlockReason            `protobuf:"varint,5,opt,name=block_reason,json=blockReason,enum=flowseer.device.access.v1.BlockReason"`
+	xxx_hidden_Phase           OperationPhase         `protobuf:"varint,3,opt,name=phase,enum=flowseer.model.access.v1.OperationPhase"`
+	xxx_hidden_Disposition     Disposition            `protobuf:"varint,4,opt,name=disposition,enum=flowseer.model.access.v1.Disposition"`
+	xxx_hidden_BlockReason     BlockReason            `protobuf:"varint,5,opt,name=block_reason,json=blockReason,enum=flowseer.model.access.v1.BlockReason"`
 	xxx_hidden_BlockedSince    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=blocked_since,json=blockedSince"`
 	xxx_hidden_ResponsibleEdge *v12.EdgeGlobalRef     `protobuf:"bytes,7,opt,name=responsible_edge,json=responsibleEdge"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
@@ -916,7 +916,7 @@ type MutationState struct {
 
 func (x *MutationState) Reset() {
 	*x = MutationState{}
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[4]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -928,7 +928,7 @@ func (x *MutationState) String() string {
 func (*MutationState) ProtoMessage() {}
 
 func (x *MutationState) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_operation_proto_msgTypes[4]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1157,39 +1157,39 @@ func (b0 MutationState_builder) Build() *MutationState {
 	return m0
 }
 
-var File_flowseer_device_access_v1_operation_proto protoreflect.FileDescriptor
+var File_flowseer_model_access_v1_operation_proto protoreflect.FileDescriptor
 
-const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
+const file_flowseer_model_access_v1_operation_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/device/access/v1/operation.proto\x12\x19flowseer.device.access.v1\x1a)flowseer/device/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"6\n" +
+	"(flowseer/model/access/v1/operation.proto\x12\x18flowseer.model.access.v1\x1a(flowseer/model/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"6\n" +
 	"\vOperatorRef\x12'\n" +
 	"\asubject\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubject\"]\n" +
-	"\vSystemActor\x12N\n" +
-	"\x06reason\x18\x01 \x01(\x0e2'.flowseer.device.access.v1.SystemReasonB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\xa3\x01\n" +
-	"\x05Actor\x12D\n" +
-	"\boperator\x18\x01 \x01(\v2&.flowseer.device.access.v1.OperatorRefH\x00R\boperator\x12@\n" +
-	"\x06system\x18\x02 \x01(\v2&.flowseer.device.access.v1.SystemActorH\x00R\x06systemB\x12\n" +
-	"\tprincipal\x12\x05\xbaH\x02\b\x01\"\x81\x04\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubject\"\\\n" +
+	"\vSystemActor\x12M\n" +
+	"\x06reason\x18\x01 \x01(\x0e2&.flowseer.model.access.v1.SystemReasonB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\xa1\x01\n" +
+	"\x05Actor\x12C\n" +
+	"\boperator\x18\x01 \x01(\v2%.flowseer.model.access.v1.OperatorRefH\x00R\boperator\x12?\n" +
+	"\x06system\x18\x02 \x01(\v2%.flowseer.model.access.v1.SystemActorH\x00R\x06systemB\x12\n" +
+	"\tprincipal\x12\x05\xbaH\x02\b\x01\"\xff\x03\n" +
 	"\x0eMutationIntent\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x124\n" +
-	"\x0fidempotency_key\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12>\n" +
-	"\x05actor\x18\x03 \x01(\v2 .flowseer.device.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\x12Y\n" +
+	"\x0fidempotency_key\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12=\n" +
+	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\x12Y\n" +
 	"\raccess_policy\x18\x04 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Q\n" +
 	"\x1dexpected_firmware_fingerprint\x18\x05 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x1bexpectedFirmwareFingerprint\x12l\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x1bexpectedFirmwareFingerprint\x12k\n" +
 	"\x15interface_description\x18\n" +
-	" \x01(\v25.flowseer.device.access.v1.InterfaceDescriptionChangeH\x00R\x14interfaceDescriptionB\x0f\n" +
-	"\x06change\x12\x05\xbaH\x02\b\x01\"\x9d\b\n" +
-	"\rMutationState\x12I\n" +
-	"\x06intent\x18\x01 \x01(\v2).flowseer.device.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
-	"\bsequence\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\bsequence\x12N\n" +
-	"\x05phase\x18\x03 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05phase\x12T\n" +
-	"\vdisposition\x18\x04 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdisposition\x12U\n" +
-	"\fblock_reason\x18\x05 \x01(\x0e2&.flowseer.device.access.v1.BlockReasonB\n" +
+	" \x01(\v24.flowseer.model.access.v1.InterfaceDescriptionChangeH\x00R\x14interfaceDescriptionB\x0f\n" +
+	"\x06change\x12\x05\xbaH\x02\b\x01\"\x99\b\n" +
+	"\rMutationState\x12H\n" +
+	"\x06intent\x18\x01 \x01(\v2(.flowseer.model.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
+	"\bsequence\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\bsequence\x12M\n" +
+	"\x05phase\x18\x03 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05phase\x12S\n" +
+	"\vdisposition\x18\x04 \x01(\x0e2%.flowseer.model.access.v1.DispositionB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdisposition\x12T\n" +
+	"\fblock_reason\x18\x05 \x01(\x0e2%.flowseer.model.access.v1.BlockReasonB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vblockReason\x12?\n" +
 	"\rblocked_since\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fblockedSince\x12X\n" +
 	"\x10responsible_edge\x18\a \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x0fresponsibleEdge:\x83\x04\xbaH\xff\x03\x1a\xb1\x01\n" +
@@ -1223,41 +1223,41 @@ const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
 	"\x17BLOCK_REASON_EDGE_STALE\x10\a*O\n" +
 	"\fSystemReason\x12\x1d\n" +
 	"\x19SYSTEM_REASON_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cSYSTEM_REASON_RECONCILIATION\x10\x01B\x85\x02\n" +
-	"\x1dcom.flowseer.device.access.v1B\x0eOperationProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1;accessv1\xa2\x02\x03FDA\xaa\x02\x19Flowseer.Device.Access.V1\xca\x02\x19Flowseer\\Device\\Access\\V1\xe2\x02%Flowseer\\Device\\Access\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Device::Access::V1b\beditionsp\xe9\a"
+	"\x1cSYSTEM_REASON_RECONCILIATION\x10\x01B\xff\x01\n" +
+	"\x1ccom.flowseer.model.access.v1B\x0eOperationProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
 
-var file_flowseer_device_access_v1_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_flowseer_device_access_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_flowseer_device_access_v1_operation_proto_goTypes = []any{
-	(OperationPhase)(0),                // 0: flowseer.device.access.v1.OperationPhase
-	(Disposition)(0),                   // 1: flowseer.device.access.v1.Disposition
-	(BlockReason)(0),                   // 2: flowseer.device.access.v1.BlockReason
-	(SystemReason)(0),                  // 3: flowseer.device.access.v1.SystemReason
-	(*OperatorRef)(nil),                // 4: flowseer.device.access.v1.OperatorRef
-	(*SystemActor)(nil),                // 5: flowseer.device.access.v1.SystemActor
-	(*Actor)(nil),                      // 6: flowseer.device.access.v1.Actor
-	(*MutationIntent)(nil),             // 7: flowseer.device.access.v1.MutationIntent
-	(*MutationState)(nil),              // 8: flowseer.device.access.v1.MutationState
+var file_flowseer_model_access_v1_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_flowseer_model_access_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_flowseer_model_access_v1_operation_proto_goTypes = []any{
+	(OperationPhase)(0),                // 0: flowseer.model.access.v1.OperationPhase
+	(Disposition)(0),                   // 1: flowseer.model.access.v1.Disposition
+	(BlockReason)(0),                   // 2: flowseer.model.access.v1.BlockReason
+	(SystemReason)(0),                  // 3: flowseer.model.access.v1.SystemReason
+	(*OperatorRef)(nil),                // 4: flowseer.model.access.v1.OperatorRef
+	(*SystemActor)(nil),                // 5: flowseer.model.access.v1.SystemActor
+	(*Actor)(nil),                      // 6: flowseer.model.access.v1.Actor
+	(*MutationIntent)(nil),             // 7: flowseer.model.access.v1.MutationIntent
+	(*MutationState)(nil),              // 8: flowseer.model.access.v1.MutationState
 	(*v1.DeviceGlobalRef)(nil),         // 9: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*v11.AccessPolicyHandle)(nil),     // 10: flowseer.model.policy.v1.AccessPolicyHandle
-	(*InterfaceDescriptionChange)(nil), // 11: flowseer.device.access.v1.InterfaceDescriptionChange
+	(*InterfaceDescriptionChange)(nil), // 11: flowseer.model.access.v1.InterfaceDescriptionChange
 	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
 	(*v12.EdgeGlobalRef)(nil),          // 13: flowseer.model.edge.v1.EdgeGlobalRef
 }
-var file_flowseer_device_access_v1_operation_proto_depIdxs = []int32{
-	3,  // 0: flowseer.device.access.v1.SystemActor.reason:type_name -> flowseer.device.access.v1.SystemReason
-	4,  // 1: flowseer.device.access.v1.Actor.operator:type_name -> flowseer.device.access.v1.OperatorRef
-	5,  // 2: flowseer.device.access.v1.Actor.system:type_name -> flowseer.device.access.v1.SystemActor
-	9,  // 3: flowseer.device.access.v1.MutationIntent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	6,  // 4: flowseer.device.access.v1.MutationIntent.actor:type_name -> flowseer.device.access.v1.Actor
-	10, // 5: flowseer.device.access.v1.MutationIntent.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
-	11, // 6: flowseer.device.access.v1.MutationIntent.interface_description:type_name -> flowseer.device.access.v1.InterfaceDescriptionChange
-	7,  // 7: flowseer.device.access.v1.MutationState.intent:type_name -> flowseer.device.access.v1.MutationIntent
-	0,  // 8: flowseer.device.access.v1.MutationState.phase:type_name -> flowseer.device.access.v1.OperationPhase
-	1,  // 9: flowseer.device.access.v1.MutationState.disposition:type_name -> flowseer.device.access.v1.Disposition
-	2,  // 10: flowseer.device.access.v1.MutationState.block_reason:type_name -> flowseer.device.access.v1.BlockReason
-	12, // 11: flowseer.device.access.v1.MutationState.blocked_since:type_name -> google.protobuf.Timestamp
-	13, // 12: flowseer.device.access.v1.MutationState.responsible_edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+var file_flowseer_model_access_v1_operation_proto_depIdxs = []int32{
+	3,  // 0: flowseer.model.access.v1.SystemActor.reason:type_name -> flowseer.model.access.v1.SystemReason
+	4,  // 1: flowseer.model.access.v1.Actor.operator:type_name -> flowseer.model.access.v1.OperatorRef
+	5,  // 2: flowseer.model.access.v1.Actor.system:type_name -> flowseer.model.access.v1.SystemActor
+	9,  // 3: flowseer.model.access.v1.MutationIntent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
+	6,  // 4: flowseer.model.access.v1.MutationIntent.actor:type_name -> flowseer.model.access.v1.Actor
+	10, // 5: flowseer.model.access.v1.MutationIntent.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
+	11, // 6: flowseer.model.access.v1.MutationIntent.interface_description:type_name -> flowseer.model.access.v1.InterfaceDescriptionChange
+	7,  // 7: flowseer.model.access.v1.MutationState.intent:type_name -> flowseer.model.access.v1.MutationIntent
+	0,  // 8: flowseer.model.access.v1.MutationState.phase:type_name -> flowseer.model.access.v1.OperationPhase
+	1,  // 9: flowseer.model.access.v1.MutationState.disposition:type_name -> flowseer.model.access.v1.Disposition
+	2,  // 10: flowseer.model.access.v1.MutationState.block_reason:type_name -> flowseer.model.access.v1.BlockReason
+	12, // 11: flowseer.model.access.v1.MutationState.blocked_since:type_name -> google.protobuf.Timestamp
+	13, // 12: flowseer.model.access.v1.MutationState.responsible_edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
@@ -1265,35 +1265,35 @@ var file_flowseer_device_access_v1_operation_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_device_access_v1_operation_proto_init() }
-func file_flowseer_device_access_v1_operation_proto_init() {
-	if File_flowseer_device_access_v1_operation_proto != nil {
+func init() { file_flowseer_model_access_v1_operation_proto_init() }
+func file_flowseer_model_access_v1_operation_proto_init() {
+	if File_flowseer_model_access_v1_operation_proto != nil {
 		return
 	}
-	file_flowseer_device_access_v1_interface_proto_init()
-	file_flowseer_device_access_v1_operation_proto_msgTypes[2].OneofWrappers = []any{
+	file_flowseer_model_access_v1_interface_proto_init()
+	file_flowseer_model_access_v1_operation_proto_msgTypes[2].OneofWrappers = []any{
 		(*actor_Operator)(nil),
 		(*actor_System)(nil),
 	}
-	file_flowseer_device_access_v1_operation_proto_msgTypes[3].OneofWrappers = []any{
+	file_flowseer_model_access_v1_operation_proto_msgTypes[3].OneofWrappers = []any{
 		(*mutationIntent_InterfaceDescription)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_device_access_v1_operation_proto_rawDesc), len(file_flowseer_device_access_v1_operation_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_access_v1_operation_proto_rawDesc), len(file_flowseer_model_access_v1_operation_proto_rawDesc)),
 			NumEnums:      4,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_device_access_v1_operation_proto_goTypes,
-		DependencyIndexes: file_flowseer_device_access_v1_operation_proto_depIdxs,
-		EnumInfos:         file_flowseer_device_access_v1_operation_proto_enumTypes,
-		MessageInfos:      file_flowseer_device_access_v1_operation_proto_msgTypes,
+		GoTypes:           file_flowseer_model_access_v1_operation_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_access_v1_operation_proto_depIdxs,
+		EnumInfos:         file_flowseer_model_access_v1_operation_proto_enumTypes,
+		MessageInfos:      file_flowseer_model_access_v1_operation_proto_msgTypes,
 	}.Build()
-	File_flowseer_device_access_v1_operation_proto = out.File
-	file_flowseer_device_access_v1_operation_proto_goTypes = nil
-	file_flowseer_device_access_v1_operation_proto_depIdxs = nil
+	File_flowseer_model_access_v1_operation_proto = out.File
+	file_flowseer_model_access_v1_operation_proto_goTypes = nil
+	file_flowseer_model_access_v1_operation_proto_depIdxs = nil
 }

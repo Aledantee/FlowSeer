@@ -1,6 +1,6 @@
 # Device access values
 
-The `flowseer.device.access.v1` package holds what every device-access
+The `flowseer.model.access.v1` package holds what every device-access
 boundary says in the same words: the phases a mutation passes through, its
 terminal disposition, who asked for it, the typed intent, and the typed
 observation that verifies it. The operator API in `api/device/v1`, the
@@ -78,7 +78,13 @@ A `TypedRead` also carries the `AccessPolicyHandle` it is admitted under,
 because the edge acquires its read credential against that handle and a
 read reaches the edge with no `MutationIntent` to carry one.
 
-## What is deliberately absent
+## Boundaries
+
+Imports: model/edge, model/inventory, model/policy, net/interface
+
+Imported by: api/device, event/device, integration/device, store/device
+
+Deliberately absent:
 
 - Secrets, sessions, and transcripts. A `Provenance` names a binding, an
   edge, and a protocol, never a credential or a session identifier.

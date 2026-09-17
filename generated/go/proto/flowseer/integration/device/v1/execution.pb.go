@@ -16,8 +16,8 @@
 package devicev1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -353,7 +353,7 @@ func (*executeRequest_Read) isExecuteRequest_Operation() {}
 type ExecuteResult struct {
 	state                   protoimpl.MessageState  `protogen:"opaque.v1"`
 	xxx_hidden_Sequence     uint64                  `protobuf:"varint,1,opt,name=sequence"`
-	xxx_hidden_PhaseReached v1.OperationPhase       `protobuf:"varint,2,opt,name=phase_reached,json=phaseReached,enum=flowseer.device.access.v1.OperationPhase"`
+	xxx_hidden_PhaseReached v1.OperationPhase       `protobuf:"varint,2,opt,name=phase_reached,json=phaseReached,enum=flowseer.model.access.v1.OperationPhase"`
 	xxx_hidden_Submitted    bool                    `protobuf:"varint,3,opt,name=submitted"`
 	xxx_hidden_Outcome      isExecuteResult_Outcome `protobuf_oneof:"outcome"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
@@ -860,7 +860,7 @@ func (b0 CheckpointAck_builder) Build() *CheckpointAck {
 type TerminalResultAck struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Sequence    uint64                 `protobuf:"varint,1,opt,name=sequence"`
-	xxx_hidden_Disposition v1.Disposition         `protobuf:"varint,2,opt,name=disposition,enum=flowseer.device.access.v1.Disposition"`
+	xxx_hidden_Disposition v1.Disposition         `protobuf:"varint,2,opt,name=disposition,enum=flowseer.model.access.v1.Disposition"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -1129,7 +1129,7 @@ var File_flowseer_integration_device_v1_execution_proto protoreflect.FileDescrip
 
 const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc7\x05\n" +
+	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x05\n" +
 	"\x0eExecuteRequest\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
@@ -1137,21 +1137,21 @@ const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\x0fidempotency_key\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12\x1d\n" +
 	"\x06resume\x18\x04 \x01(\bB\x05\xaa\x01\x02\b\x02R\x06resume\x12;\n" +
 	"\vadmitted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"admittedAt\x12G\n" +
+	"admittedAt\x12F\n" +
 	"\bmutation\x18\n" +
-	" \x01(\v2).flowseer.device.access.v1.MutationIntentH\x00R\bmutation\x12:\n" +
-	"\x04read\x18\v \x01(\v2$.flowseer.device.access.v1.TypedReadH\x00R\x04read:\xa1\x02\xbaH\x9d\x02\x1a\xa2\x01\n" +
+	" \x01(\v2(.flowseer.model.access.v1.MutationIntentH\x00R\bmutation\x129\n" +
+	"\x04read\x18\v \x01(\v2#.flowseer.model.access.v1.TypedReadH\x00R\x04read:\xa1\x02\xbaH\x9d\x02\x1a\xa2\x01\n" +
 	"$execute_request.resume_is_a_mutation\x12;resume applies to a mutation and carries its admission time\x1a=!this.resume || (has(this.mutation) && has(this.admitted_at))\x1av\n" +
 	"(execute_request.admitted_at_needs_resume\x12#admitted_at is set only with resume\x1a%!has(this.admitted_at) || this.resumeB\x12\n" +
-	"\toperation\x12\x05\xbaH\x02\b\x01\"\xa2\x03\n" +
+	"\toperation\x12\x05\xbaH\x02\b\x01\"\xa0\x03\n" +
 	"\rExecuteResult\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12]\n" +
-	"\rphase_reached\x18\x02 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\r\xbaH\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12\\\n" +
+	"\rphase_reached\x18\x02 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fphaseReached\x12#\n" +
-	"\tsubmitted\x18\x03 \x01(\bB\x05\xaa\x01\x02\b\x02R\tsubmitted\x12S\n" +
+	"\tsubmitted\x18\x03 \x01(\bB\x05\xaa\x01\x02\b\x02R\tsubmitted\x12R\n" +
 	"\vobservation\x18\n" +
-	" \x01(\v2/.flowseer.device.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
+	" \x01(\v2..flowseer.model.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
 	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05error\x12F\n" +
 	"\bprogress\x18\f \x01(\v2(.flowseer.integration.device.v1.ProgressH\x00R\bprogressB\x10\n" +
 	"\aoutcome\x12\x05\xbaH\x02\b\x01\"\n" +
@@ -1162,11 +1162,11 @@ const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"7\n" +
 	"\rCheckpointAck\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\x94\x01\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\x93\x01\n" +
 	"\x11TerminalResultAck\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12W\n" +
-	"\vdisposition\x18\x02 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\r\xbaH\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12V\n" +
+	"\vdisposition\x18\x02 \x01(\x0e2%.flowseer.model.access.v1.DispositionB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\vdisposition\"6\n" +
 	"\fHoldResolved\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
@@ -1187,23 +1187,23 @@ var file_flowseer_integration_device_v1_execution_proto_goTypes = []any{
 	(*HoldResolved)(nil),            // 6: flowseer.integration.device.v1.HoldResolved
 	(*HoldResolvedAck)(nil),         // 7: flowseer.integration.device.v1.HoldResolvedAck
 	(*timestamppb.Timestamp)(nil),   // 8: google.protobuf.Timestamp
-	(*v1.MutationIntent)(nil),       // 9: flowseer.device.access.v1.MutationIntent
-	(*v1.TypedRead)(nil),            // 10: flowseer.device.access.v1.TypedRead
-	(v1.OperationPhase)(0),          // 11: flowseer.device.access.v1.OperationPhase
-	(*v1.InterfaceObservation)(nil), // 12: flowseer.device.access.v1.InterfaceObservation
+	(*v1.MutationIntent)(nil),       // 9: flowseer.model.access.v1.MutationIntent
+	(*v1.TypedRead)(nil),            // 10: flowseer.model.access.v1.TypedRead
+	(v1.OperationPhase)(0),          // 11: flowseer.model.access.v1.OperationPhase
+	(*v1.InterfaceObservation)(nil), // 12: flowseer.model.access.v1.InterfaceObservation
 	(*v11.ErrorPayload)(nil),        // 13: flowseer.errs.v1.ErrorPayload
-	(v1.Disposition)(0),             // 14: flowseer.device.access.v1.Disposition
+	(v1.Disposition)(0),             // 14: flowseer.model.access.v1.Disposition
 }
 var file_flowseer_integration_device_v1_execution_proto_depIdxs = []int32{
 	8,  // 0: flowseer.integration.device.v1.ExecuteRequest.deadline:type_name -> google.protobuf.Timestamp
 	8,  // 1: flowseer.integration.device.v1.ExecuteRequest.admitted_at:type_name -> google.protobuf.Timestamp
-	9,  // 2: flowseer.integration.device.v1.ExecuteRequest.mutation:type_name -> flowseer.device.access.v1.MutationIntent
-	10, // 3: flowseer.integration.device.v1.ExecuteRequest.read:type_name -> flowseer.device.access.v1.TypedRead
-	11, // 4: flowseer.integration.device.v1.ExecuteResult.phase_reached:type_name -> flowseer.device.access.v1.OperationPhase
-	12, // 5: flowseer.integration.device.v1.ExecuteResult.observation:type_name -> flowseer.device.access.v1.InterfaceObservation
+	9,  // 2: flowseer.integration.device.v1.ExecuteRequest.mutation:type_name -> flowseer.model.access.v1.MutationIntent
+	10, // 3: flowseer.integration.device.v1.ExecuteRequest.read:type_name -> flowseer.model.access.v1.TypedRead
+	11, // 4: flowseer.integration.device.v1.ExecuteResult.phase_reached:type_name -> flowseer.model.access.v1.OperationPhase
+	12, // 5: flowseer.integration.device.v1.ExecuteResult.observation:type_name -> flowseer.model.access.v1.InterfaceObservation
 	13, // 6: flowseer.integration.device.v1.ExecuteResult.error:type_name -> flowseer.errs.v1.ErrorPayload
 	2,  // 7: flowseer.integration.device.v1.ExecuteResult.progress:type_name -> flowseer.integration.device.v1.Progress
-	14, // 8: flowseer.integration.device.v1.TerminalResultAck.disposition:type_name -> flowseer.device.access.v1.Disposition
+	14, // 8: flowseer.integration.device.v1.TerminalResultAck.disposition:type_name -> flowseer.model.access.v1.Disposition
 	9,  // [9:9] is the sub-list for method output_type
 	9,  // [9:9] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name

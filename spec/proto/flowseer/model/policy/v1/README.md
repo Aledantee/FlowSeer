@@ -3,7 +3,7 @@
 `flowseer.model.policy.v1` holds the opaque handles a device record and a
 device operation use to name a policy without carrying it. It sits at the
 bottom of the device-access packages: `model/inventory` puts a handle on
-`DeviceConfig`, and `device/access` pins one on every mutation intent, so the
+`DeviceConfig`, and `model/access` pins one on every mutation intent, so the
 two boundaries agree on a policy without either importing the other. The
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 places the package.
@@ -12,7 +12,7 @@ places the package.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/device, api/edge, device/access, model/inventory,
+Imported by: api/device, api/edge, model/access, model/inventory,
 store/device
 
 Deliberately absent:

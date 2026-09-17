@@ -8,9 +8,9 @@ edition = "2024";
 // triad and no ref pair.
 package flowseer.store.device.v1;
 
-import "flowseer/device/access/v1/interface.proto";
-import "flowseer/device/access/v1/operation.proto";
 import "flowseer/errs/v1/error.proto";
+import "flowseer/model/access/v1/interface.proto";
+import "flowseer/model/access/v1/operation.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
@@ -38,7 +38,7 @@ message DeviceLaneRecord {
   // alike. Implicit presence: zero and never assigned are one state.
   uint64 high_watermark = 2 [features.field_presence = IMPLICIT];
   // The mutation that holds the lane. Unset means the lane is free.
-  flowseer.device.access.v1.MutationState mutation = 3;
+  flowseer.model.access.v1.MutationState mutation = 3;
   // When the open mutation was admitted; carried on a resumed dispatch as
   // the start of its delayed-apply horizon. Set exactly with mutation.
   google.protobuf.Timestamp admitted_at = 4;
@@ -47,7 +47,7 @@ message DeviceLaneRecord {
   bool dispatched = 5 [features.field_presence = IMPLICIT];
   // The phase the edge last reported for the open mutation. Unset means no
   // report yet. The zero value is rejected.
-  flowseer.device.access.v1.OperationPhase last_reported_phase = 6 [(buf.validate.field).enum = {
+  flowseer.model.access.v1.OperationPhase last_reported_phase = 6 [(buf.validate.field).enum = {
     defined_only: true
     not_in: [0]
   }];
@@ -104,7 +104,7 @@ message DeviceLaneRecord {
   }];
   // The last complete observation per managed interface, keyed by
   // interface name.
-  map<string, flowseer.device.access.v1.InterfaceObservation> last_observations = 12 [(buf.validate.field).map = {
+  map<string, flowseer.model.access.v1.InterfaceObservation> last_observations = 12 [(buf.validate.field).map = {
     max_pairs: 256
     keys: {
       string: {
@@ -135,7 +135,7 @@ message OpenRead {
     (buf.validate.field).uint64.gte = 1
   ];
   // Must be present.
-  flowseer.device.access.v1.TypedRead read = 2 [(buf.validate.field).required = true];
+  flowseer.model.access.v1.TypedRead read = 2 [(buf.validate.field).required = true];
   // After this the read is closed with a deadline error and its row is no
   // longer owed. Must be present.
   google.protobuf.Timestamp deadline = 3 [(buf.validate.field).required = true];
@@ -149,7 +149,7 @@ message OpenRead {
   // The read's outcome once it closed, kept for the waiter until the next
   // write removes the entry. Unset means the read is still open.
   oneof outcome {
-    flowseer.device.access.v1.InterfaceObservation observation = 10;
+    flowseer.model.access.v1.InterfaceObservation observation = 10;
     flowseer.errs.v1.ErrorPayload error = 11;
   }
 }
@@ -182,7 +182,7 @@ message IdempotencyEntry {
   // record itself carries the state. It is what a resubmission after the
   // close reads: without it the answer is a bare released, which an operator
   // cannot tell from success. The zero value is rejected.
-  flowseer.device.access.v1.Disposition disposition = 3 [(buf.validate.field).enum = {
+  flowseer.model.access.v1.Disposition disposition = 3 [(buf.validate.field).enum = {
     defined_only: true
     not_in: [0]
   }];

@@ -11,8 +11,9 @@
 package capturev1
 
 import (
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -26,112 +27,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// One capture session as the service returns it: intent and observation
-// together.
-type CaptureSessionRecord struct {
-	state             protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Config *CaptureSessionConfig  `protobuf:"bytes,1,opt,name=config"`
-	xxx_hidden_State  *CaptureSessionState   `protobuf:"bytes,2,opt,name=state"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *CaptureSessionRecord) Reset() {
-	*x = CaptureSessionRecord{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CaptureSessionRecord) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CaptureSessionRecord) ProtoMessage() {}
-
-func (x *CaptureSessionRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *CaptureSessionRecord) GetConfig() *CaptureSessionConfig {
-	if x != nil {
-		return x.xxx_hidden_Config
-	}
-	return nil
-}
-
-func (x *CaptureSessionRecord) GetState() *CaptureSessionState {
-	if x != nil {
-		return x.xxx_hidden_State
-	}
-	return nil
-}
-
-func (x *CaptureSessionRecord) SetConfig(v *CaptureSessionConfig) {
-	x.xxx_hidden_Config = v
-}
-
-func (x *CaptureSessionRecord) SetState(v *CaptureSessionState) {
-	x.xxx_hidden_State = v
-}
-
-func (x *CaptureSessionRecord) HasConfig() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Config != nil
-}
-
-func (x *CaptureSessionRecord) HasState() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_State != nil
-}
-
-func (x *CaptureSessionRecord) ClearConfig() {
-	x.xxx_hidden_Config = nil
-}
-
-func (x *CaptureSessionRecord) ClearState() {
-	x.xxx_hidden_State = nil
-}
-
-type CaptureSessionRecord_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// Must be present.
-	Config *CaptureSessionConfig
-	// Must be present.
-	State *CaptureSessionState
-}
-
-func (b0 CaptureSessionRecord_builder) Build() *CaptureSessionRecord {
-	m0 := &CaptureSessionRecord{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Config = b.Config
-	x.xxx_hidden_State = b.State
-	return m0
-}
-
 type CreateCaptureSessionRequest struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge          *v1.EdgeGlobalRef      `protobuf:"bytes,1,opt,name=edge"`
-	xxx_hidden_Name          *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Description   *string                `protobuf:"bytes,3,opt,name=description"`
-	xxx_hidden_Source        *CaptureSource         `protobuf:"bytes,4,opt,name=source"`
-	xxx_hidden_Filter        *v11.CaptureFilter     `protobuf:"bytes,5,opt,name=filter"`
-	xxx_hidden_Budget        *CaptureBudget         `protobuf:"bytes,6,opt,name=budget"`
-	xxx_hidden_Authorization *CaptureAuthorization  `protobuf:"bytes,7,opt,name=authorization"`
+	state                    protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Edge          *v1.EdgeGlobalRef         `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Name          *string                   `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Description   *string                   `protobuf:"bytes,3,opt,name=description"`
+	xxx_hidden_Source        *v11.CaptureSource        `protobuf:"bytes,4,opt,name=source"`
+	xxx_hidden_Filter        *v12.CaptureFilter        `protobuf:"bytes,5,opt,name=filter"`
+	xxx_hidden_Budget        *v11.CaptureBudget        `protobuf:"bytes,6,opt,name=budget"`
+	xxx_hidden_Authorization *v11.CaptureAuthorization `protobuf:"bytes,7,opt,name=authorization"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -140,7 +44,7 @@ type CreateCaptureSessionRequest struct {
 
 func (x *CreateCaptureSessionRequest) Reset() {
 	*x = CreateCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[1]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -152,7 +56,7 @@ func (x *CreateCaptureSessionRequest) String() string {
 func (*CreateCaptureSessionRequest) ProtoMessage() {}
 
 func (x *CreateCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[1]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -190,28 +94,28 @@ func (x *CreateCaptureSessionRequest) GetDescription() string {
 	return ""
 }
 
-func (x *CreateCaptureSessionRequest) GetSource() *CaptureSource {
+func (x *CreateCaptureSessionRequest) GetSource() *v11.CaptureSource {
 	if x != nil {
 		return x.xxx_hidden_Source
 	}
 	return nil
 }
 
-func (x *CreateCaptureSessionRequest) GetFilter() *v11.CaptureFilter {
+func (x *CreateCaptureSessionRequest) GetFilter() *v12.CaptureFilter {
 	if x != nil {
 		return x.xxx_hidden_Filter
 	}
 	return nil
 }
 
-func (x *CreateCaptureSessionRequest) GetBudget() *CaptureBudget {
+func (x *CreateCaptureSessionRequest) GetBudget() *v11.CaptureBudget {
 	if x != nil {
 		return x.xxx_hidden_Budget
 	}
 	return nil
 }
 
-func (x *CreateCaptureSessionRequest) GetAuthorization() *CaptureAuthorization {
+func (x *CreateCaptureSessionRequest) GetAuthorization() *v11.CaptureAuthorization {
 	if x != nil {
 		return x.xxx_hidden_Authorization
 	}
@@ -232,19 +136,19 @@ func (x *CreateCaptureSessionRequest) SetDescription(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
-func (x *CreateCaptureSessionRequest) SetSource(v *CaptureSource) {
+func (x *CreateCaptureSessionRequest) SetSource(v *v11.CaptureSource) {
 	x.xxx_hidden_Source = v
 }
 
-func (x *CreateCaptureSessionRequest) SetFilter(v *v11.CaptureFilter) {
+func (x *CreateCaptureSessionRequest) SetFilter(v *v12.CaptureFilter) {
 	x.xxx_hidden_Filter = v
 }
 
-func (x *CreateCaptureSessionRequest) SetBudget(v *CaptureBudget) {
+func (x *CreateCaptureSessionRequest) SetBudget(v *v11.CaptureBudget) {
 	x.xxx_hidden_Budget = v
 }
 
-func (x *CreateCaptureSessionRequest) SetAuthorization(v *CaptureAuthorization) {
+func (x *CreateCaptureSessionRequest) SetAuthorization(v *v11.CaptureAuthorization) {
 	x.xxx_hidden_Authorization = v
 }
 
@@ -338,13 +242,13 @@ type CreateCaptureSessionRequest_builder struct {
 	// Free-text description. Unset means none. When set, must not be empty.
 	Description *string
 	// Where the capture reads packets from. Must be present.
-	Source *CaptureSource
+	Source *v11.CaptureSource
 	// The packet filter. Unset and an empty filter both accept every packet.
-	Filter *v11.CaptureFilter
+	Filter *v12.CaptureFilter
 	// Bounds the session runs within. Must be present.
-	Budget *CaptureBudget
+	Budget *v11.CaptureBudget
 	// Who is requesting this capture and why. Must be present.
-	Authorization *CaptureAuthorization
+	Authorization *v11.CaptureAuthorization
 }
 
 func (b0 CreateCaptureSessionRequest_builder) Build() *CreateCaptureSessionRequest {
@@ -368,15 +272,15 @@ func (b0 CreateCaptureSessionRequest_builder) Build() *CreateCaptureSessionReque
 }
 
 type CreateCaptureSessionResponse struct {
-	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionRecord  `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionRecord `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *CreateCaptureSessionResponse) Reset() {
 	*x = CreateCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[2]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +292,7 @@ func (x *CreateCaptureSessionResponse) String() string {
 func (*CreateCaptureSessionResponse) ProtoMessage() {}
 
 func (x *CreateCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[2]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -399,14 +303,14 @@ func (x *CreateCaptureSessionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *CreateCaptureSessionResponse) GetSession() *CaptureSessionRecord {
+func (x *CreateCaptureSessionResponse) GetSession() *v11.CaptureSessionRecord {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *CreateCaptureSessionResponse) SetSession(v *CaptureSessionRecord) {
+func (x *CreateCaptureSessionResponse) SetSession(v *v11.CaptureSessionRecord) {
 	x.xxx_hidden_Session = v
 }
 
@@ -425,7 +329,7 @@ type CreateCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The created session. Must be present.
-	Session *CaptureSessionRecord
+	Session *v11.CaptureSessionRecord
 }
 
 func (b0 CreateCaptureSessionResponse_builder) Build() *CreateCaptureSessionResponse {
@@ -437,15 +341,15 @@ func (b0 CreateCaptureSessionResponse_builder) Build() *CreateCaptureSessionResp
 }
 
 type StopCaptureSessionRequest struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *StopCaptureSessionRequest) Reset() {
 	*x = StopCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[3]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -457,7 +361,7 @@ func (x *StopCaptureSessionRequest) String() string {
 func (*StopCaptureSessionRequest) ProtoMessage() {}
 
 func (x *StopCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[3]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -468,14 +372,14 @@ func (x *StopCaptureSessionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *StopCaptureSessionRequest) GetSession() *CaptureSessionGlobalRef {
+func (x *StopCaptureSessionRequest) GetSession() *v11.CaptureSessionGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *StopCaptureSessionRequest) SetSession(v *CaptureSessionGlobalRef) {
+func (x *StopCaptureSessionRequest) SetSession(v *v11.CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
@@ -494,7 +398,7 @@ type StopCaptureSessionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The session to stop. Must be present.
-	Session *CaptureSessionGlobalRef
+	Session *v11.CaptureSessionGlobalRef
 }
 
 func (b0 StopCaptureSessionRequest_builder) Build() *StopCaptureSessionRequest {
@@ -506,15 +410,15 @@ func (b0 StopCaptureSessionRequest_builder) Build() *StopCaptureSessionRequest {
 }
 
 type StopCaptureSessionResponse struct {
-	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionRecord  `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionRecord `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *StopCaptureSessionResponse) Reset() {
 	*x = StopCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[4]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -526,7 +430,7 @@ func (x *StopCaptureSessionResponse) String() string {
 func (*StopCaptureSessionResponse) ProtoMessage() {}
 
 func (x *StopCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[4]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -537,14 +441,14 @@ func (x *StopCaptureSessionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *StopCaptureSessionResponse) GetSession() *CaptureSessionRecord {
+func (x *StopCaptureSessionResponse) GetSession() *v11.CaptureSessionRecord {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *StopCaptureSessionResponse) SetSession(v *CaptureSessionRecord) {
+func (x *StopCaptureSessionResponse) SetSession(v *v11.CaptureSessionRecord) {
 	x.xxx_hidden_Session = v
 }
 
@@ -563,7 +467,7 @@ type StopCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The session after the stop request. Must be present.
-	Session *CaptureSessionRecord
+	Session *v11.CaptureSessionRecord
 }
 
 func (b0 StopCaptureSessionResponse_builder) Build() *StopCaptureSessionResponse {
@@ -575,15 +479,15 @@ func (b0 StopCaptureSessionResponse_builder) Build() *StopCaptureSessionResponse
 }
 
 type GetCaptureSessionRequest struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetCaptureSessionRequest) Reset() {
 	*x = GetCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[5]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -595,7 +499,7 @@ func (x *GetCaptureSessionRequest) String() string {
 func (*GetCaptureSessionRequest) ProtoMessage() {}
 
 func (x *GetCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[5]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,14 +510,14 @@ func (x *GetCaptureSessionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *GetCaptureSessionRequest) GetSession() *CaptureSessionGlobalRef {
+func (x *GetCaptureSessionRequest) GetSession() *v11.CaptureSessionGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *GetCaptureSessionRequest) SetSession(v *CaptureSessionGlobalRef) {
+func (x *GetCaptureSessionRequest) SetSession(v *v11.CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
@@ -632,7 +536,7 @@ type GetCaptureSessionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Must be present.
-	Session *CaptureSessionGlobalRef
+	Session *v11.CaptureSessionGlobalRef
 }
 
 func (b0 GetCaptureSessionRequest_builder) Build() *GetCaptureSessionRequest {
@@ -644,15 +548,15 @@ func (b0 GetCaptureSessionRequest_builder) Build() *GetCaptureSessionRequest {
 }
 
 type GetCaptureSessionResponse struct {
-	state              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionRecord  `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionRecord `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetCaptureSessionResponse) Reset() {
 	*x = GetCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[6]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -664,7 +568,7 @@ func (x *GetCaptureSessionResponse) String() string {
 func (*GetCaptureSessionResponse) ProtoMessage() {}
 
 func (x *GetCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[6]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -675,14 +579,14 @@ func (x *GetCaptureSessionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *GetCaptureSessionResponse) GetSession() *CaptureSessionRecord {
+func (x *GetCaptureSessionResponse) GetSession() *v11.CaptureSessionRecord {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *GetCaptureSessionResponse) SetSession(v *CaptureSessionRecord) {
+func (x *GetCaptureSessionResponse) SetSession(v *v11.CaptureSessionRecord) {
 	x.xxx_hidden_Session = v
 }
 
@@ -701,7 +605,7 @@ type GetCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Must be present.
-	Session *CaptureSessionRecord
+	Session *v11.CaptureSessionRecord
 }
 
 func (b0 GetCaptureSessionResponse_builder) Build() *GetCaptureSessionResponse {
@@ -724,7 +628,7 @@ type ListCaptureSessionsRequest struct {
 
 func (x *ListCaptureSessionsRequest) Reset() {
 	*x = ListCaptureSessionsRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[7]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -736,7 +640,7 @@ func (x *ListCaptureSessionsRequest) String() string {
 func (*ListCaptureSessionsRequest) ProtoMessage() {}
 
 func (x *ListCaptureSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[7]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -824,9 +728,9 @@ func (b0 ListCaptureSessionsRequest_builder) Build() *ListCaptureSessionsRequest
 }
 
 type ListCaptureSessionsResponse struct {
-	state                    protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Sessions      *[]*CaptureSessionRecord `protobuf:"bytes,1,rep,name=sessions"`
-	xxx_hidden_NextPageToken *string                  `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken"`
+	state                    protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Sessions      *[]*v11.CaptureSessionRecord `protobuf:"bytes,1,rep,name=sessions"`
+	xxx_hidden_NextPageToken *string                      `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -835,7 +739,7 @@ type ListCaptureSessionsResponse struct {
 
 func (x *ListCaptureSessionsResponse) Reset() {
 	*x = ListCaptureSessionsResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[8]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -847,7 +751,7 @@ func (x *ListCaptureSessionsResponse) String() string {
 func (*ListCaptureSessionsResponse) ProtoMessage() {}
 
 func (x *ListCaptureSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[8]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -858,7 +762,7 @@ func (x *ListCaptureSessionsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ListCaptureSessionsResponse) GetSessions() []*CaptureSessionRecord {
+func (x *ListCaptureSessionsResponse) GetSessions() []*v11.CaptureSessionRecord {
 	if x != nil {
 		if x.xxx_hidden_Sessions != nil {
 			return *x.xxx_hidden_Sessions
@@ -877,7 +781,7 @@ func (x *ListCaptureSessionsResponse) GetNextPageToken() string {
 	return ""
 }
 
-func (x *ListCaptureSessionsResponse) SetSessions(v []*CaptureSessionRecord) {
+func (x *ListCaptureSessionsResponse) SetSessions(v []*v11.CaptureSessionRecord) {
 	x.xxx_hidden_Sessions = &v
 }
 
@@ -903,7 +807,7 @@ type ListCaptureSessionsResponse_builder struct {
 
 	// The page of sessions in the service's stable order. Empty means the
 	// listing is exhausted.
-	Sessions []*CaptureSessionRecord
+	Sessions []*v11.CaptureSessionRecord
 	// Token for the next page. Unset means this was the last page.
 	NextPageToken *string
 }
@@ -921,15 +825,15 @@ func (b0 ListCaptureSessionsResponse_builder) Build() *ListCaptureSessionsRespon
 }
 
 type DeleteCaptureSessionRequest struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *DeleteCaptureSessionRequest) Reset() {
 	*x = DeleteCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[9]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -941,7 +845,7 @@ func (x *DeleteCaptureSessionRequest) String() string {
 func (*DeleteCaptureSessionRequest) ProtoMessage() {}
 
 func (x *DeleteCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[9]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -952,14 +856,14 @@ func (x *DeleteCaptureSessionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *DeleteCaptureSessionRequest) GetSession() *CaptureSessionGlobalRef {
+func (x *DeleteCaptureSessionRequest) GetSession() *v11.CaptureSessionGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *DeleteCaptureSessionRequest) SetSession(v *CaptureSessionGlobalRef) {
+func (x *DeleteCaptureSessionRequest) SetSession(v *v11.CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
@@ -978,7 +882,7 @@ type DeleteCaptureSessionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The session to delete. Must be present.
-	Session *CaptureSessionGlobalRef
+	Session *v11.CaptureSessionGlobalRef
 }
 
 func (b0 DeleteCaptureSessionRequest_builder) Build() *DeleteCaptureSessionRequest {
@@ -997,7 +901,7 @@ type DeleteCaptureSessionResponse struct {
 
 func (x *DeleteCaptureSessionResponse) Reset() {
 	*x = DeleteCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[10]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +913,7 @@ func (x *DeleteCaptureSessionResponse) String() string {
 func (*DeleteCaptureSessionResponse) ProtoMessage() {}
 
 func (x *DeleteCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[10]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1033,15 +937,15 @@ func (b0 DeleteCaptureSessionResponse_builder) Build() *DeleteCaptureSessionResp
 }
 
 type TailCaptureSessionRequest struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *TailCaptureSessionRequest) Reset() {
 	*x = TailCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1053,7 +957,7 @@ func (x *TailCaptureSessionRequest) String() string {
 func (*TailCaptureSessionRequest) ProtoMessage() {}
 
 func (x *TailCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,14 +968,14 @@ func (x *TailCaptureSessionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *TailCaptureSessionRequest) GetSession() *CaptureSessionGlobalRef {
+func (x *TailCaptureSessionRequest) GetSession() *v11.CaptureSessionGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *TailCaptureSessionRequest) SetSession(v *CaptureSessionGlobalRef) {
+func (x *TailCaptureSessionRequest) SetSession(v *v11.CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
@@ -1090,7 +994,7 @@ type TailCaptureSessionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The session to tail. Must be present.
-	Session *CaptureSessionGlobalRef
+	Session *v11.CaptureSessionGlobalRef
 }
 
 func (b0 TailCaptureSessionRequest_builder) Build() *TailCaptureSessionRequest {
@@ -1102,15 +1006,15 @@ func (b0 TailCaptureSessionRequest_builder) Build() *TailCaptureSessionRequest {
 }
 
 type TailCaptureSessionResponse struct {
-	state            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Chunk *CapturePacketChunk    `protobuf:"bytes,1,opt,name=chunk"`
+	state            protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Chunk *v11.CapturePacketChunk `protobuf:"bytes,1,opt,name=chunk"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *TailCaptureSessionResponse) Reset() {
 	*x = TailCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1122,7 +1026,7 @@ func (x *TailCaptureSessionResponse) String() string {
 func (*TailCaptureSessionResponse) ProtoMessage() {}
 
 func (x *TailCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1133,14 +1037,14 @@ func (x *TailCaptureSessionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *TailCaptureSessionResponse) GetChunk() *CapturePacketChunk {
+func (x *TailCaptureSessionResponse) GetChunk() *v11.CapturePacketChunk {
 	if x != nil {
 		return x.xxx_hidden_Chunk
 	}
 	return nil
 }
 
-func (x *TailCaptureSessionResponse) SetChunk(v *CapturePacketChunk) {
+func (x *TailCaptureSessionResponse) SetChunk(v *v11.CapturePacketChunk) {
 	x.xxx_hidden_Chunk = v
 }
 
@@ -1159,7 +1063,7 @@ type TailCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The next chunk of packets. Must be present.
-	Chunk *CapturePacketChunk
+	Chunk *v11.CapturePacketChunk
 }
 
 func (b0 TailCaptureSessionResponse_builder) Build() *TailCaptureSessionResponse {
@@ -1171,15 +1075,15 @@ func (b0 TailCaptureSessionResponse_builder) Build() *TailCaptureSessionResponse
 }
 
 type DownloadCaptureSessionRequest struct {
-	state              protoimpl.MessageState   `protogen:"opaque.v1"`
-	xxx_hidden_Session *CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
+	state              protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Session *v11.CaptureSessionGlobalRef `protobuf:"bytes,1,opt,name=session"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *DownloadCaptureSessionRequest) Reset() {
 	*x = DownloadCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1191,7 +1095,7 @@ func (x *DownloadCaptureSessionRequest) String() string {
 func (*DownloadCaptureSessionRequest) ProtoMessage() {}
 
 func (x *DownloadCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1202,14 +1106,14 @@ func (x *DownloadCaptureSessionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *DownloadCaptureSessionRequest) GetSession() *CaptureSessionGlobalRef {
+func (x *DownloadCaptureSessionRequest) GetSession() *v11.CaptureSessionGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Session
 	}
 	return nil
 }
 
-func (x *DownloadCaptureSessionRequest) SetSession(v *CaptureSessionGlobalRef) {
+func (x *DownloadCaptureSessionRequest) SetSession(v *v11.CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
@@ -1228,7 +1132,7 @@ type DownloadCaptureSessionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The session whose artifact to download. Must be present.
-	Session *CaptureSessionGlobalRef
+	Session *v11.CaptureSessionGlobalRef
 }
 
 func (b0 DownloadCaptureSessionRequest_builder) Build() *DownloadCaptureSessionRequest {
@@ -1240,15 +1144,15 @@ func (b0 DownloadCaptureSessionRequest_builder) Build() *DownloadCaptureSessionR
 }
 
 type DownloadCaptureSessionResponse struct {
-	state            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Chunk *CaptureArtifactChunk  `protobuf:"bytes,1,opt,name=chunk"`
+	state            protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Chunk *v11.CaptureArtifactChunk `protobuf:"bytes,1,opt,name=chunk"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DownloadCaptureSessionResponse) Reset() {
 	*x = DownloadCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[14]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1260,7 +1164,7 @@ func (x *DownloadCaptureSessionResponse) String() string {
 func (*DownloadCaptureSessionResponse) ProtoMessage() {}
 
 func (x *DownloadCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[14]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1271,14 +1175,14 @@ func (x *DownloadCaptureSessionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *DownloadCaptureSessionResponse) GetChunk() *CaptureArtifactChunk {
+func (x *DownloadCaptureSessionResponse) GetChunk() *v11.CaptureArtifactChunk {
 	if x != nil {
 		return x.xxx_hidden_Chunk
 	}
 	return nil
 }
 
-func (x *DownloadCaptureSessionResponse) SetChunk(v *CaptureArtifactChunk) {
+func (x *DownloadCaptureSessionResponse) SetChunk(v *v11.CaptureArtifactChunk) {
 	x.xxx_hidden_Chunk = v
 }
 
@@ -1297,7 +1201,7 @@ type DownloadCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The next chunk of the stored artifact. Must be present.
-	Chunk *CaptureArtifactChunk
+	Chunk *v11.CaptureArtifactChunk
 }
 
 func (b0 DownloadCaptureSessionResponse_builder) Build() *DownloadCaptureSessionResponse {
@@ -1312,51 +1216,48 @@ var File_flowseer_api_capture_v1_capture_service_proto protoreflect.FileDescript
 
 const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/api/capture/v1/capture_service.proto\x12\x17flowseer.api.capture.v1\x1a+flowseer/api/capture/v1/capture_chunk.proto\x1a-flowseer/api/capture/v1/capture_session.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a,flowseer/net/capture/v1/capture_filter.proto\"\xb1\x01\n" +
-	"\x14CaptureSessionRecord\x12M\n" +
-	"\x06config\x18\x01 \x01(\v2-.flowseer.api.capture.v1.CaptureSessionConfigB\x06\xbaH\x03\xc8\x01\x01R\x06config\x12J\n" +
-	"\x05state\x18\x02 \x01(\v2,.flowseer.api.capture.v1.CaptureSessionStateB\x06\xbaH\x03\xc8\x01\x01R\x05state\"\xdb\x03\n" +
+	"-flowseer/api/capture/v1/capture_service.proto\x12\x17flowseer.api.capture.v1\x1a-flowseer/model/capture/v1/capture_chunk.proto\x1a/flowseer/model/capture/v1/capture_session.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a,flowseer/net/capture/v1/capture_filter.proto\"\xe1\x03\n" +
 	"\x1bCreateCaptureSessionRequest\x12A\n" +
 	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12F\n" +
-	"\x06source\x18\x04 \x01(\v2&.flowseer.api.capture.v1.CaptureSourceB\x06\xbaH\x03\xc8\x01\x01R\x06source\x12>\n" +
-	"\x06filter\x18\x05 \x01(\v2&.flowseer.net.capture.v1.CaptureFilterR\x06filter\x12F\n" +
-	"\x06budget\x18\x06 \x01(\v2&.flowseer.api.capture.v1.CaptureBudgetB\x06\xbaH\x03\xc8\x01\x01R\x06budget\x12[\n" +
-	"\rauthorization\x18\a \x01(\v2-.flowseer.api.capture.v1.CaptureAuthorizationB\x06\xbaH\x03\xc8\x01\x01R\rauthorization\"o\n" +
-	"\x1cCreateCaptureSessionResponse\x12O\n" +
-	"\asession\x18\x01 \x01(\v2-.flowseer.api.capture.v1.CaptureSessionRecordB\x06\xbaH\x03\xc8\x01\x01R\asession\"o\n" +
-	"\x19StopCaptureSessionRequest\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"m\n" +
-	"\x1aStopCaptureSessionResponse\x12O\n" +
-	"\asession\x18\x01 \x01(\v2-.flowseer.api.capture.v1.CaptureSessionRecordB\x06\xbaH\x03\xc8\x01\x01R\asession\"n\n" +
-	"\x18GetCaptureSessionRequest\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"l\n" +
-	"\x19GetCaptureSessionResponse\x12O\n" +
-	"\asession\x18\x01 \x01(\v2-.flowseer.api.capture.v1.CaptureSessionRecordB\x06\xbaH\x03\xc8\x01\x01R\asession\"p\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12H\n" +
+	"\x06source\x18\x04 \x01(\v2(.flowseer.model.capture.v1.CaptureSourceB\x06\xbaH\x03\xc8\x01\x01R\x06source\x12>\n" +
+	"\x06filter\x18\x05 \x01(\v2&.flowseer.net.capture.v1.CaptureFilterR\x06filter\x12H\n" +
+	"\x06budget\x18\x06 \x01(\v2(.flowseer.model.capture.v1.CaptureBudgetB\x06\xbaH\x03\xc8\x01\x01R\x06budget\x12]\n" +
+	"\rauthorization\x18\a \x01(\v2/.flowseer.model.capture.v1.CaptureAuthorizationB\x06\xbaH\x03\xc8\x01\x01R\rauthorization\"q\n" +
+	"\x1cCreateCaptureSessionResponse\x12Q\n" +
+	"\asession\x18\x01 \x01(\v2/.flowseer.model.capture.v1.CaptureSessionRecordB\x06\xbaH\x03\xc8\x01\x01R\asession\"q\n" +
+	"\x19StopCaptureSessionRequest\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"o\n" +
+	"\x1aStopCaptureSessionResponse\x12Q\n" +
+	"\asession\x18\x01 \x01(\v2/.flowseer.model.capture.v1.CaptureSessionRecordB\x06\xbaH\x03\xc8\x01\x01R\asession\"p\n" +
+	"\x18GetCaptureSessionRequest\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"n\n" +
+	"\x19GetCaptureSessionResponse\x12Q\n" +
+	"\asession\x18\x01 \x01(\v2/.flowseer.model.capture.v1.CaptureSessionRecordB\x06\xbaH\x03\xc8\x01\x01R\asession\"p\n" +
 	"\x1aListCaptureSessionsRequest\x12'\n" +
 	"\tpage_size\x18\x01 \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\xf4\x03 \x00R\bpageSize\x12)\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\x9c\x01\n" +
-	"\x1bListCaptureSessionsResponse\x12I\n" +
-	"\bsessions\x18\x01 \x03(\v2-.flowseer.api.capture.v1.CaptureSessionRecordR\bsessions\x122\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\x9e\x01\n" +
+	"\x1bListCaptureSessionsResponse\x12K\n" +
+	"\bsessions\x18\x01 \x03(\v2/.flowseer.model.capture.v1.CaptureSessionRecordR\bsessions\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken\"q\n" +
-	"\x1bDeleteCaptureSessionRequest\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x1e\n" +
-	"\x1cDeleteCaptureSessionResponse\"o\n" +
-	"\x19TailCaptureSessionRequest\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"g\n" +
-	"\x1aTailCaptureSessionResponse\x12I\n" +
-	"\x05chunk\x18\x01 \x01(\v2+.flowseer.api.capture.v1.CapturePacketChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk\"s\n" +
-	"\x1dDownloadCaptureSessionRequest\x12R\n" +
-	"\asession\x18\x01 \x01(\v20.flowseer.api.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"m\n" +
-	"\x1eDownloadCaptureSessionResponse\x12K\n" +
-	"\x05chunk\x18\x01 \x01(\v2-.flowseer.api.capture.v1.CaptureArtifactChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk2\xa9\a\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken\"s\n" +
+	"\x1bDeleteCaptureSessionRequest\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x1e\n" +
+	"\x1cDeleteCaptureSessionResponse\"q\n" +
+	"\x19TailCaptureSessionRequest\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"i\n" +
+	"\x1aTailCaptureSessionResponse\x12K\n" +
+	"\x05chunk\x18\x01 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk\"u\n" +
+	"\x1dDownloadCaptureSessionRequest\x12T\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"o\n" +
+	"\x1eDownloadCaptureSessionResponse\x12M\n" +
+	"\x05chunk\x18\x01 \x01(\v2/.flowseer.model.capture.v1.CaptureArtifactChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk2\xa9\a\n" +
 	"\x0eCaptureService\x12\x83\x01\n" +
 	"\x14CreateCaptureSession\x124.flowseer.api.capture.v1.CreateCaptureSessionRequest\x1a5.flowseer.api.capture.v1.CreateCaptureSessionResponse\x12}\n" +
 	"\x12StopCaptureSession\x122.flowseer.api.capture.v1.StopCaptureSessionRequest\x1a3.flowseer.api.capture.v1.StopCaptureSessionResponse\x12z\n" +
@@ -1367,72 +1268,68 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\x16DownloadCaptureSession\x126.flowseer.api.capture.v1.DownloadCaptureSessionRequest\x1a7.flowseer.api.capture.v1.DownloadCaptureSessionResponse0\x01B\xff\x01\n" +
 	"\x1bcom.flowseer.api.capture.v1B\x13CaptureServiceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_capture_v1_capture_service_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_flowseer_api_capture_v1_capture_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_flowseer_api_capture_v1_capture_service_proto_goTypes = []any{
-	(*CaptureSessionRecord)(nil),           // 0: flowseer.api.capture.v1.CaptureSessionRecord
-	(*CreateCaptureSessionRequest)(nil),    // 1: flowseer.api.capture.v1.CreateCaptureSessionRequest
-	(*CreateCaptureSessionResponse)(nil),   // 2: flowseer.api.capture.v1.CreateCaptureSessionResponse
-	(*StopCaptureSessionRequest)(nil),      // 3: flowseer.api.capture.v1.StopCaptureSessionRequest
-	(*StopCaptureSessionResponse)(nil),     // 4: flowseer.api.capture.v1.StopCaptureSessionResponse
-	(*GetCaptureSessionRequest)(nil),       // 5: flowseer.api.capture.v1.GetCaptureSessionRequest
-	(*GetCaptureSessionResponse)(nil),      // 6: flowseer.api.capture.v1.GetCaptureSessionResponse
-	(*ListCaptureSessionsRequest)(nil),     // 7: flowseer.api.capture.v1.ListCaptureSessionsRequest
-	(*ListCaptureSessionsResponse)(nil),    // 8: flowseer.api.capture.v1.ListCaptureSessionsResponse
-	(*DeleteCaptureSessionRequest)(nil),    // 9: flowseer.api.capture.v1.DeleteCaptureSessionRequest
-	(*DeleteCaptureSessionResponse)(nil),   // 10: flowseer.api.capture.v1.DeleteCaptureSessionResponse
-	(*TailCaptureSessionRequest)(nil),      // 11: flowseer.api.capture.v1.TailCaptureSessionRequest
-	(*TailCaptureSessionResponse)(nil),     // 12: flowseer.api.capture.v1.TailCaptureSessionResponse
-	(*DownloadCaptureSessionRequest)(nil),  // 13: flowseer.api.capture.v1.DownloadCaptureSessionRequest
-	(*DownloadCaptureSessionResponse)(nil), // 14: flowseer.api.capture.v1.DownloadCaptureSessionResponse
-	(*CaptureSessionConfig)(nil),           // 15: flowseer.api.capture.v1.CaptureSessionConfig
-	(*CaptureSessionState)(nil),            // 16: flowseer.api.capture.v1.CaptureSessionState
-	(*v1.EdgeGlobalRef)(nil),               // 17: flowseer.model.edge.v1.EdgeGlobalRef
-	(*CaptureSource)(nil),                  // 18: flowseer.api.capture.v1.CaptureSource
-	(*v11.CaptureFilter)(nil),              // 19: flowseer.net.capture.v1.CaptureFilter
-	(*CaptureBudget)(nil),                  // 20: flowseer.api.capture.v1.CaptureBudget
-	(*CaptureAuthorization)(nil),           // 21: flowseer.api.capture.v1.CaptureAuthorization
-	(*CaptureSessionGlobalRef)(nil),        // 22: flowseer.api.capture.v1.CaptureSessionGlobalRef
-	(*CapturePacketChunk)(nil),             // 23: flowseer.api.capture.v1.CapturePacketChunk
-	(*CaptureArtifactChunk)(nil),           // 24: flowseer.api.capture.v1.CaptureArtifactChunk
+	(*CreateCaptureSessionRequest)(nil),    // 0: flowseer.api.capture.v1.CreateCaptureSessionRequest
+	(*CreateCaptureSessionResponse)(nil),   // 1: flowseer.api.capture.v1.CreateCaptureSessionResponse
+	(*StopCaptureSessionRequest)(nil),      // 2: flowseer.api.capture.v1.StopCaptureSessionRequest
+	(*StopCaptureSessionResponse)(nil),     // 3: flowseer.api.capture.v1.StopCaptureSessionResponse
+	(*GetCaptureSessionRequest)(nil),       // 4: flowseer.api.capture.v1.GetCaptureSessionRequest
+	(*GetCaptureSessionResponse)(nil),      // 5: flowseer.api.capture.v1.GetCaptureSessionResponse
+	(*ListCaptureSessionsRequest)(nil),     // 6: flowseer.api.capture.v1.ListCaptureSessionsRequest
+	(*ListCaptureSessionsResponse)(nil),    // 7: flowseer.api.capture.v1.ListCaptureSessionsResponse
+	(*DeleteCaptureSessionRequest)(nil),    // 8: flowseer.api.capture.v1.DeleteCaptureSessionRequest
+	(*DeleteCaptureSessionResponse)(nil),   // 9: flowseer.api.capture.v1.DeleteCaptureSessionResponse
+	(*TailCaptureSessionRequest)(nil),      // 10: flowseer.api.capture.v1.TailCaptureSessionRequest
+	(*TailCaptureSessionResponse)(nil),     // 11: flowseer.api.capture.v1.TailCaptureSessionResponse
+	(*DownloadCaptureSessionRequest)(nil),  // 12: flowseer.api.capture.v1.DownloadCaptureSessionRequest
+	(*DownloadCaptureSessionResponse)(nil), // 13: flowseer.api.capture.v1.DownloadCaptureSessionResponse
+	(*v1.EdgeGlobalRef)(nil),               // 14: flowseer.model.edge.v1.EdgeGlobalRef
+	(*v11.CaptureSource)(nil),              // 15: flowseer.model.capture.v1.CaptureSource
+	(*v12.CaptureFilter)(nil),              // 16: flowseer.net.capture.v1.CaptureFilter
+	(*v11.CaptureBudget)(nil),              // 17: flowseer.model.capture.v1.CaptureBudget
+	(*v11.CaptureAuthorization)(nil),       // 18: flowseer.model.capture.v1.CaptureAuthorization
+	(*v11.CaptureSessionRecord)(nil),       // 19: flowseer.model.capture.v1.CaptureSessionRecord
+	(*v11.CaptureSessionGlobalRef)(nil),    // 20: flowseer.model.capture.v1.CaptureSessionGlobalRef
+	(*v11.CapturePacketChunk)(nil),         // 21: flowseer.model.capture.v1.CapturePacketChunk
+	(*v11.CaptureArtifactChunk)(nil),       // 22: flowseer.model.capture.v1.CaptureArtifactChunk
 }
 var file_flowseer_api_capture_v1_capture_service_proto_depIdxs = []int32{
-	15, // 0: flowseer.api.capture.v1.CaptureSessionRecord.config:type_name -> flowseer.api.capture.v1.CaptureSessionConfig
-	16, // 1: flowseer.api.capture.v1.CaptureSessionRecord.state:type_name -> flowseer.api.capture.v1.CaptureSessionState
-	17, // 2: flowseer.api.capture.v1.CreateCaptureSessionRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
-	18, // 3: flowseer.api.capture.v1.CreateCaptureSessionRequest.source:type_name -> flowseer.api.capture.v1.CaptureSource
-	19, // 4: flowseer.api.capture.v1.CreateCaptureSessionRequest.filter:type_name -> flowseer.net.capture.v1.CaptureFilter
-	20, // 5: flowseer.api.capture.v1.CreateCaptureSessionRequest.budget:type_name -> flowseer.api.capture.v1.CaptureBudget
-	21, // 6: flowseer.api.capture.v1.CreateCaptureSessionRequest.authorization:type_name -> flowseer.api.capture.v1.CaptureAuthorization
-	0,  // 7: flowseer.api.capture.v1.CreateCaptureSessionResponse.session:type_name -> flowseer.api.capture.v1.CaptureSessionRecord
-	22, // 8: flowseer.api.capture.v1.StopCaptureSessionRequest.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
-	0,  // 9: flowseer.api.capture.v1.StopCaptureSessionResponse.session:type_name -> flowseer.api.capture.v1.CaptureSessionRecord
-	22, // 10: flowseer.api.capture.v1.GetCaptureSessionRequest.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
-	0,  // 11: flowseer.api.capture.v1.GetCaptureSessionResponse.session:type_name -> flowseer.api.capture.v1.CaptureSessionRecord
-	0,  // 12: flowseer.api.capture.v1.ListCaptureSessionsResponse.sessions:type_name -> flowseer.api.capture.v1.CaptureSessionRecord
-	22, // 13: flowseer.api.capture.v1.DeleteCaptureSessionRequest.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
-	22, // 14: flowseer.api.capture.v1.TailCaptureSessionRequest.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
-	23, // 15: flowseer.api.capture.v1.TailCaptureSessionResponse.chunk:type_name -> flowseer.api.capture.v1.CapturePacketChunk
-	22, // 16: flowseer.api.capture.v1.DownloadCaptureSessionRequest.session:type_name -> flowseer.api.capture.v1.CaptureSessionGlobalRef
-	24, // 17: flowseer.api.capture.v1.DownloadCaptureSessionResponse.chunk:type_name -> flowseer.api.capture.v1.CaptureArtifactChunk
-	1,  // 18: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:input_type -> flowseer.api.capture.v1.CreateCaptureSessionRequest
-	3,  // 19: flowseer.api.capture.v1.CaptureService.StopCaptureSession:input_type -> flowseer.api.capture.v1.StopCaptureSessionRequest
-	5,  // 20: flowseer.api.capture.v1.CaptureService.GetCaptureSession:input_type -> flowseer.api.capture.v1.GetCaptureSessionRequest
-	7,  // 21: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:input_type -> flowseer.api.capture.v1.ListCaptureSessionsRequest
-	9,  // 22: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:input_type -> flowseer.api.capture.v1.DeleteCaptureSessionRequest
-	11, // 23: flowseer.api.capture.v1.CaptureService.TailCaptureSession:input_type -> flowseer.api.capture.v1.TailCaptureSessionRequest
-	13, // 24: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:input_type -> flowseer.api.capture.v1.DownloadCaptureSessionRequest
-	2,  // 25: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:output_type -> flowseer.api.capture.v1.CreateCaptureSessionResponse
-	4,  // 26: flowseer.api.capture.v1.CaptureService.StopCaptureSession:output_type -> flowseer.api.capture.v1.StopCaptureSessionResponse
-	6,  // 27: flowseer.api.capture.v1.CaptureService.GetCaptureSession:output_type -> flowseer.api.capture.v1.GetCaptureSessionResponse
-	8,  // 28: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:output_type -> flowseer.api.capture.v1.ListCaptureSessionsResponse
-	10, // 29: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:output_type -> flowseer.api.capture.v1.DeleteCaptureSessionResponse
-	12, // 30: flowseer.api.capture.v1.CaptureService.TailCaptureSession:output_type -> flowseer.api.capture.v1.TailCaptureSessionResponse
-	14, // 31: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:output_type -> flowseer.api.capture.v1.DownloadCaptureSessionResponse
-	25, // [25:32] is the sub-list for method output_type
-	18, // [18:25] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	14, // 0: flowseer.api.capture.v1.CreateCaptureSessionRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	15, // 1: flowseer.api.capture.v1.CreateCaptureSessionRequest.source:type_name -> flowseer.model.capture.v1.CaptureSource
+	16, // 2: flowseer.api.capture.v1.CreateCaptureSessionRequest.filter:type_name -> flowseer.net.capture.v1.CaptureFilter
+	17, // 3: flowseer.api.capture.v1.CreateCaptureSessionRequest.budget:type_name -> flowseer.model.capture.v1.CaptureBudget
+	18, // 4: flowseer.api.capture.v1.CreateCaptureSessionRequest.authorization:type_name -> flowseer.model.capture.v1.CaptureAuthorization
+	19, // 5: flowseer.api.capture.v1.CreateCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	20, // 6: flowseer.api.capture.v1.StopCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	19, // 7: flowseer.api.capture.v1.StopCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	20, // 8: flowseer.api.capture.v1.GetCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	19, // 9: flowseer.api.capture.v1.GetCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	19, // 10: flowseer.api.capture.v1.ListCaptureSessionsResponse.sessions:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	20, // 11: flowseer.api.capture.v1.DeleteCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	20, // 12: flowseer.api.capture.v1.TailCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	21, // 13: flowseer.api.capture.v1.TailCaptureSessionResponse.chunk:type_name -> flowseer.model.capture.v1.CapturePacketChunk
+	20, // 14: flowseer.api.capture.v1.DownloadCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	22, // 15: flowseer.api.capture.v1.DownloadCaptureSessionResponse.chunk:type_name -> flowseer.model.capture.v1.CaptureArtifactChunk
+	0,  // 16: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:input_type -> flowseer.api.capture.v1.CreateCaptureSessionRequest
+	2,  // 17: flowseer.api.capture.v1.CaptureService.StopCaptureSession:input_type -> flowseer.api.capture.v1.StopCaptureSessionRequest
+	4,  // 18: flowseer.api.capture.v1.CaptureService.GetCaptureSession:input_type -> flowseer.api.capture.v1.GetCaptureSessionRequest
+	6,  // 19: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:input_type -> flowseer.api.capture.v1.ListCaptureSessionsRequest
+	8,  // 20: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:input_type -> flowseer.api.capture.v1.DeleteCaptureSessionRequest
+	10, // 21: flowseer.api.capture.v1.CaptureService.TailCaptureSession:input_type -> flowseer.api.capture.v1.TailCaptureSessionRequest
+	12, // 22: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:input_type -> flowseer.api.capture.v1.DownloadCaptureSessionRequest
+	1,  // 23: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:output_type -> flowseer.api.capture.v1.CreateCaptureSessionResponse
+	3,  // 24: flowseer.api.capture.v1.CaptureService.StopCaptureSession:output_type -> flowseer.api.capture.v1.StopCaptureSessionResponse
+	5,  // 25: flowseer.api.capture.v1.CaptureService.GetCaptureSession:output_type -> flowseer.api.capture.v1.GetCaptureSessionResponse
+	7,  // 26: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:output_type -> flowseer.api.capture.v1.ListCaptureSessionsResponse
+	9,  // 27: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:output_type -> flowseer.api.capture.v1.DeleteCaptureSessionResponse
+	11, // 28: flowseer.api.capture.v1.CaptureService.TailCaptureSession:output_type -> flowseer.api.capture.v1.TailCaptureSessionResponse
+	13, // 29: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:output_type -> flowseer.api.capture.v1.DownloadCaptureSessionResponse
+	23, // [23:30] is the sub-list for method output_type
+	16, // [16:23] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_capture_v1_capture_service_proto_init() }
@@ -1440,15 +1337,13 @@ func file_flowseer_api_capture_v1_capture_service_proto_init() {
 	if File_flowseer_api_capture_v1_capture_service_proto != nil {
 		return
 	}
-	file_flowseer_api_capture_v1_capture_chunk_proto_init()
-	file_flowseer_api_capture_v1_capture_session_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_capture_v1_capture_service_proto_rawDesc), len(file_flowseer_api_capture_v1_capture_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

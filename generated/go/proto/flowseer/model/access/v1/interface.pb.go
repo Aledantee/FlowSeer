@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/device/access/v1/interface.proto
+// source: flowseer/model/access/v1/interface.proto
 
 // The interface capability's typed intent and observation. An interface is
 // named by the device-local name the device spells; the Interface entity
@@ -65,11 +65,11 @@ func (x Completeness) String() string {
 }
 
 func (Completeness) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_device_access_v1_interface_proto_enumTypes[0].Descriptor()
+	return file_flowseer_model_access_v1_interface_proto_enumTypes[0].Descriptor()
 }
 
 func (Completeness) Type() protoreflect.EnumType {
-	return &file_flowseer_device_access_v1_interface_proto_enumTypes[0]
+	return &file_flowseer_model_access_v1_interface_proto_enumTypes[0]
 }
 
 func (x Completeness) Number() protoreflect.EnumNumber {
@@ -89,7 +89,7 @@ type InterfaceDescriptionChange struct {
 
 func (x *InterfaceDescriptionChange) Reset() {
 	*x = InterfaceDescriptionChange{}
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[0]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -101,7 +101,7 @@ func (x *InterfaceDescriptionChange) String() string {
 func (*InterfaceDescriptionChange) ProtoMessage() {}
 
 func (x *InterfaceDescriptionChange) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[0]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -206,7 +206,7 @@ type InterfaceObservation struct {
 	xxx_hidden_AdminStatus   v1.AdminStatus         `protobuf:"varint,3,opt,name=admin_status,json=adminStatus,enum=flowseer.net.interface.v1.AdminStatus"`
 	xxx_hidden_OperStatus    v1.OperStatus          `protobuf:"varint,4,opt,name=oper_status,json=operStatus,enum=flowseer.net.interface.v1.OperStatus"`
 	xxx_hidden_Provenance    *v11.Provenance        `protobuf:"bytes,5,opt,name=provenance"`
-	xxx_hidden_Completeness  Completeness           `protobuf:"varint,6,opt,name=completeness,enum=flowseer.device.access.v1.Completeness"`
+	xxx_hidden_Completeness  Completeness           `protobuf:"varint,6,opt,name=completeness,enum=flowseer.model.access.v1.Completeness"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -215,7 +215,7 @@ type InterfaceObservation struct {
 
 func (x *InterfaceObservation) Reset() {
 	*x = InterfaceObservation{}
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[1]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -227,7 +227,7 @@ func (x *InterfaceObservation) String() string {
 func (*InterfaceObservation) ProtoMessage() {}
 
 func (x *InterfaceObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[1]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -457,7 +457,7 @@ type InterfaceReadIntent struct {
 
 func (x *InterfaceReadIntent) Reset() {
 	*x = InterfaceReadIntent{}
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[2]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +469,7 @@ func (x *InterfaceReadIntent) String() string {
 func (*InterfaceReadIntent) ProtoMessage() {}
 
 func (x *InterfaceReadIntent) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[2]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -540,7 +540,7 @@ type TypedRead struct {
 
 func (x *TypedRead) Reset() {
 	*x = TypedRead{}
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[3]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -552,7 +552,7 @@ func (x *TypedRead) String() string {
 func (*TypedRead) ProtoMessage() {}
 
 func (x *TypedRead) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[3]
+	mi := &file_flowseer_model_access_v1_interface_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -667,7 +667,7 @@ func (b0 TypedRead_builder) Build() *TypedRead {
 type case_TypedRead_Read protoreflect.FieldNumber
 
 func (x case_TypedRead_Read) String() string {
-	md := file_flowseer_device_access_v1_interface_proto_msgTypes[3].Descriptor()
+	md := file_flowseer_model_access_v1_interface_proto_msgTypes[3].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -684,14 +684,14 @@ type typedRead_Interface struct {
 
 func (*typedRead_Interface) isTypedRead_Read() {}
 
-var File_flowseer_device_access_v1_interface_proto protoreflect.FileDescriptor
+var File_flowseer_model_access_v1_interface_proto protoreflect.FileDescriptor
 
-const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
+const file_flowseer_model_access_v1_interface_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a,flowseer/model/inventory/v1/provenance.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\xaa\x01\n" +
+	"(flowseer/model/access/v1/interface.proto\x12\x18flowseer.model.access.v1\x1a,flowseer/model/inventory/v1/provenance.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\xaa\x01\n" +
 	"\x1aInterfaceDescriptionChange\x12T\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x126\n" +
-	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\x90\b\n" +
+	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\x8f\b\n" +
 	"\x14InterfaceObservation\x12T\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x123\n" +
 	"\vdescription\x18\x02 \x01(\tB\x11\xbaH\x0er\f\x18@2\b^[ -~]*$R\vdescription\x12U\n" +
@@ -702,44 +702,44 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"operStatus\x12G\n" +
 	"\n" +
 	"provenance\x18\x05 \x01(\v2'.flowseer.model.inventory.v1.ProvenanceR\n" +
-	"provenance\x12Z\n" +
-	"\fcompleteness\x18\x06 \x01(\x0e2'.flowseer.device.access.v1.CompletenessB\r\xbaH\n" +
+	"provenance\x12Y\n" +
+	"\fcompleteness\x18\x06 \x01(\x0e2&.flowseer.model.access.v1.CompletenessB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x9c\x04\xbaH\x98\x04\x1a\x86\x02\n" +
 	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\x1a\x8c\x02\n" +
 	"8interface_observation.complete_sets_every_compared_field\x12Ra complete observation sets description, admin_status, oper_status, and provenance\x1a|this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))\"k\n" +
 	"\x13InterfaceReadIntent\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\xc5\x01\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\xc4\x01\n" +
 	"\tTypedRead\x12Y\n" +
-	"\raccess_policy\x18\x01 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12N\n" +
+	"\raccess_policy\x18\x01 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12M\n" +
 	"\tinterface\x18\n" +
-	" \x01(\v2..flowseer.device.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
+	" \x01(\v2-.flowseer.model.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
 	"\x04read\x12\x05\xbaH\x02\b\x01*a\n" +
 	"\fCompleteness\x12\x1c\n" +
 	"\x18COMPLETENESS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15COMPLETENESS_COMPLETE\x10\x01\x12\x18\n" +
-	"\x14COMPLETENESS_PARTIAL\x10\x02B\x85\x02\n" +
-	"\x1dcom.flowseer.device.access.v1B\x0eInterfaceProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1;accessv1\xa2\x02\x03FDA\xaa\x02\x19Flowseer.Device.Access.V1\xca\x02\x19Flowseer\\Device\\Access\\V1\xe2\x02%Flowseer\\Device\\Access\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Device::Access::V1b\beditionsp\xe9\a"
+	"\x14COMPLETENESS_PARTIAL\x10\x02B\xff\x01\n" +
+	"\x1ccom.flowseer.model.access.v1B\x0eInterfaceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
 
-var file_flowseer_device_access_v1_interface_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_device_access_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_flowseer_device_access_v1_interface_proto_goTypes = []any{
-	(Completeness)(0),                  // 0: flowseer.device.access.v1.Completeness
-	(*InterfaceDescriptionChange)(nil), // 1: flowseer.device.access.v1.InterfaceDescriptionChange
-	(*InterfaceObservation)(nil),       // 2: flowseer.device.access.v1.InterfaceObservation
-	(*InterfaceReadIntent)(nil),        // 3: flowseer.device.access.v1.InterfaceReadIntent
-	(*TypedRead)(nil),                  // 4: flowseer.device.access.v1.TypedRead
+var file_flowseer_model_access_v1_interface_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_model_access_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_flowseer_model_access_v1_interface_proto_goTypes = []any{
+	(Completeness)(0),                  // 0: flowseer.model.access.v1.Completeness
+	(*InterfaceDescriptionChange)(nil), // 1: flowseer.model.access.v1.InterfaceDescriptionChange
+	(*InterfaceObservation)(nil),       // 2: flowseer.model.access.v1.InterfaceObservation
+	(*InterfaceReadIntent)(nil),        // 3: flowseer.model.access.v1.InterfaceReadIntent
+	(*TypedRead)(nil),                  // 4: flowseer.model.access.v1.TypedRead
 	(v1.AdminStatus)(0),                // 5: flowseer.net.interface.v1.AdminStatus
 	(v1.OperStatus)(0),                 // 6: flowseer.net.interface.v1.OperStatus
 	(*v11.Provenance)(nil),             // 7: flowseer.model.inventory.v1.Provenance
 	(*v12.AccessPolicyHandle)(nil),     // 8: flowseer.model.policy.v1.AccessPolicyHandle
 }
-var file_flowseer_device_access_v1_interface_proto_depIdxs = []int32{
-	5, // 0: flowseer.device.access.v1.InterfaceObservation.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
-	6, // 1: flowseer.device.access.v1.InterfaceObservation.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
-	7, // 2: flowseer.device.access.v1.InterfaceObservation.provenance:type_name -> flowseer.model.inventory.v1.Provenance
-	0, // 3: flowseer.device.access.v1.InterfaceObservation.completeness:type_name -> flowseer.device.access.v1.Completeness
-	8, // 4: flowseer.device.access.v1.TypedRead.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
-	3, // 5: flowseer.device.access.v1.TypedRead.interface:type_name -> flowseer.device.access.v1.InterfaceReadIntent
+var file_flowseer_model_access_v1_interface_proto_depIdxs = []int32{
+	5, // 0: flowseer.model.access.v1.InterfaceObservation.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
+	6, // 1: flowseer.model.access.v1.InterfaceObservation.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
+	7, // 2: flowseer.model.access.v1.InterfaceObservation.provenance:type_name -> flowseer.model.inventory.v1.Provenance
+	0, // 3: flowseer.model.access.v1.InterfaceObservation.completeness:type_name -> flowseer.model.access.v1.Completeness
+	8, // 4: flowseer.model.access.v1.TypedRead.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
+	3, // 5: flowseer.model.access.v1.TypedRead.interface:type_name -> flowseer.model.access.v1.InterfaceReadIntent
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name
@@ -747,30 +747,30 @@ var file_flowseer_device_access_v1_interface_proto_depIdxs = []int32{
 	0, // [0:6] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_device_access_v1_interface_proto_init() }
-func file_flowseer_device_access_v1_interface_proto_init() {
-	if File_flowseer_device_access_v1_interface_proto != nil {
+func init() { file_flowseer_model_access_v1_interface_proto_init() }
+func file_flowseer_model_access_v1_interface_proto_init() {
+	if File_flowseer_model_access_v1_interface_proto != nil {
 		return
 	}
-	file_flowseer_device_access_v1_interface_proto_msgTypes[3].OneofWrappers = []any{
+	file_flowseer_model_access_v1_interface_proto_msgTypes[3].OneofWrappers = []any{
 		(*typedRead_Interface)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_device_access_v1_interface_proto_rawDesc), len(file_flowseer_device_access_v1_interface_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_access_v1_interface_proto_rawDesc), len(file_flowseer_model_access_v1_interface_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_device_access_v1_interface_proto_goTypes,
-		DependencyIndexes: file_flowseer_device_access_v1_interface_proto_depIdxs,
-		EnumInfos:         file_flowseer_device_access_v1_interface_proto_enumTypes,
-		MessageInfos:      file_flowseer_device_access_v1_interface_proto_msgTypes,
+		GoTypes:           file_flowseer_model_access_v1_interface_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_access_v1_interface_proto_depIdxs,
+		EnumInfos:         file_flowseer_model_access_v1_interface_proto_enumTypes,
+		MessageInfos:      file_flowseer_model_access_v1_interface_proto_msgTypes,
 	}.Build()
-	File_flowseer_device_access_v1_interface_proto = out.File
-	file_flowseer_device_access_v1_interface_proto_goTypes = nil
-	file_flowseer_device_access_v1_interface_proto_depIdxs = nil
+	File_flowseer_model_access_v1_interface_proto = out.File
+	file_flowseer_model_access_v1_interface_proto_goTypes = nil
+	file_flowseer_model_access_v1_interface_proto_depIdxs = nil
 }
