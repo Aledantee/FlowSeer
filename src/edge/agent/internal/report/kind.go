@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 )
 
 // The report kinds this queue distinguishes. They are part of the key

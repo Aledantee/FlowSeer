@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"

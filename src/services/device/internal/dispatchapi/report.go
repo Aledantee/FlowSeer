@@ -6,7 +6,7 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"

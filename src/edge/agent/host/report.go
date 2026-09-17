@@ -3,7 +3,7 @@ package host
 import (
 	"context"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 )
 
 // Outbound is where a report goes on its way to central. The agent's re-send
