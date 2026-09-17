@@ -5,6 +5,8 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
+compound: docs/solutions/architecture-patterns/a-third-kind-joins-a-two-kind-system-silently.md
 execution: code
 parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
 amends: docs/architecture/2026-09-16-local-network-analysis-direction.md
