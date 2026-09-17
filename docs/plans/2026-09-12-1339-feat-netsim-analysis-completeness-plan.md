@@ -656,7 +656,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4b-plan.md`
 - **After:** U4
-- **Landed:** `64ea915e..22e74b0f`
+- **Landed:** `64ea915e..1317af1f`
 - **Change:** Add an explicit neighbor lifecycle, ARP and Neighbor Discovery
   codecs, and injected logical-time transitions with held frames.
 - **Tests:** Codec vectors, state transitions, held-frame release and timeout,
