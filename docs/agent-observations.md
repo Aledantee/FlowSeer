@@ -129,3 +129,21 @@ Suggested change: extend the rule to a unit that adds a new exported function
 or package, where there is no prior behavior to change: each test that claims to
 pin a guard is watched failing against that guard removed, and the unit reports
 which mutation it watched per test.
+
+## 2026-09-17 review: the loop has no rule for judging the invariant a round introduced
+Skill or agent: `.claude/skills/review/SKILL.md`, step 4 ("a finding is a sample
+of a class") and step 6 (the fix and re-review loop).
+What happened: step 4 says that when a round finds a defect in the previous
+round's fix for the same mechanism, the remedy is to make the property
+executable rather than patch again. That fired, and the round produced an
+enumeration test standing in for a contract. The steps were followed as
+written, and nothing then said the next round must judge that test rather than
+the code. Two further rounds were needed to find that the enumeration omitted
+ten of nineteen rules and had one row filed under a rule it could not trip. A
+wrong invariant is worse than none, because the next reader trusts it and stops
+looking.
+Suggested change: add to step 6 that when a round's remedy is an executable
+property, the following round's brief names that artifact as the primary
+subject and asks three questions of it: is its enumeration complete against the
+source it claims to read, does each case fail for the rule it names, and is
+each exemption an argument an input cannot violate.

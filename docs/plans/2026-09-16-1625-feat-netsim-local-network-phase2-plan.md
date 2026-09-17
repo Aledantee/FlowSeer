@@ -5,6 +5,8 @@ date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
+compound: docs/solutions/conventions/a-degrade-contract-is-tested-against-the-refusing-side.md
 execution: code
 parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
 ---
