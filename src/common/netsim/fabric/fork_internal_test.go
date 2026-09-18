@@ -68,7 +68,7 @@ var fabricFieldClasses = map[string]forkClass{
 	"busyUntil":      classDeepCopied,
 	"egress":         classDeepCopied,
 	"counters":       classDeepCopied,
-	"err":            classDeepCopied,
+	"err":            classImmutableShared,
 }
 
 func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {

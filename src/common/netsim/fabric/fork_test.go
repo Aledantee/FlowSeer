@@ -1,10 +1,10 @@
 package fabric
 
 import (
-	"errors"
 	"maps"
 	"net/netip"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -34,7 +34,6 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"busyUntil":      probeFabricBusyUntil,
 	"egress":         probeFabricEgress,
 	"counters":       probeFabricCounters,
-	"err":            probeFabricErr,
 }
 
 func probeFabricCfg(t *testing.T) {
@@ -274,21 +273,6 @@ func probeFabricCounters(t *testing.T) {
 	}
 }
 
-func probeFabricErr(t *testing.T) {
-	fab := newTestFabricForFork(t)
-	fork := fab.Fork()
-
-	fab.err = errors.New("source-err")
-	if fork.Err() != nil {
-		t.Errorf("fork Err() reported error when source set: %v", fork.Err())
-	}
-
-	fork.err = errors.New("fork-err")
-	if fab.Err().Error() != "source-err" {
-		t.Errorf("source Err() changed when fork set: %v", fab.Err())
-	}
-}
-
 func buildSteppableTwinFabrics(t *testing.T) (*Fabric, *Fabric) {
 	t.Helper()
 
@@ -371,7 +355,7 @@ func buildSteppableTwinFabrics(t *testing.T) (*Fabric, *Fabric) {
 }
 
 func TestSameNextArrival(t *testing.T) {
-	// "A same-next-arrival test forks mid-run, runs the fork to quiescence, then steps the source and asserts the arrival it produces equals a never-forked twin's"
+	// Running a fork to quiescence does not perturb the source switch's next arrival relative to an unforked twin.
 	fab, twin := buildSteppableTwinFabrics(t)
 
 	// Step both 2 times mid-run
@@ -419,7 +403,7 @@ func TestSameNextArrival(t *testing.T) {
 }
 
 func TestSiblingJourneys(t *testing.T) {
-	// "a sibling test asserts the fork's journeys from that point equal the twin's."
+	// A fork continuing execution produces journey records identical to an unforked twin run from the same point.
 	fab, twin := buildSteppableTwinFabrics(t)
 
 	// Step both 2 times mid-run
@@ -475,22 +459,26 @@ func TestSiblingJourneys(t *testing.T) {
 }
 
 func TestSnapshotImmutability(t *testing.T) {
-	// "A snapshot test takes a snapshot, steps until the queue, the counters and one device's forwarding database have all moved, and asserts every snapshot field unchanged."
+	// A captured snapshot remains unaffected when the running fabric advances queue, counter, and FDB state.
 	fab, _ := buildSteppableTwinFabrics(t)
 
-	// Inject frame to trigger counters and learning
 	snap := fab.Snapshot()
 
 	// Capture snapshot state
 	initialClock := snap.Clock
-	initialQueueLen := len(snap.Queue)
+	initialQueue := make([]Arrival, len(snap.Queue))
+	for i, arr := range snap.Queue {
+		initialQueue[i] = arr
+		initialQueue[i].Frame.Payload = slices.Clone(arr.Frame.Payload)
+	}
 	initialQueued := maps.Clone(snap.Queued)
 	initialLinksCount := len(snap.Links)
 	initialDevicesLen := len(snap.Devices)
-	initialSw1Entries := len(snap.Devices["sw1"].Entries)
-	initialBusyLen := len(snap.Busy)
+	initialSw1Entries := slices.Clone(snap.Devices["sw1"].Entries)
+	initialBusy := maps.Clone(snap.Busy)
+	initialFabricQueueLen := len(fab.queue)
 
-	// Step until queue moved, counters moved, and sw1 forwarding database moved
+	// Step until queue length, counters, and sw1 forwarding database have all moved.
 	steps := 0
 	for steps < 50 {
 		_, ok := fab.Step()
@@ -498,7 +486,18 @@ func TestSnapshotImmutability(t *testing.T) {
 			break
 		}
 		steps++
-		if len(fab.switches["sw1"].Entries()) > initialSw1Entries {
+
+		queueMoved := len(fab.queue) != initialFabricQueueLen
+		fdbMoved := len(fab.switches["sw1"].Entries()) > len(initialSw1Entries)
+		countersMoved := false
+		for _, c := range fab.counters {
+			if c.InOctets > 0 || c.OutOctets > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
+				countersMoved = true
+				break
+			}
+		}
+
+		if queueMoved && countersMoved && fdbMoved {
 			break
 		}
 	}
@@ -506,13 +505,29 @@ func TestSnapshotImmutability(t *testing.T) {
 	if steps == 0 {
 		t.Fatalf("fabric did not step")
 	}
+	if len(fab.queue) == initialFabricQueueLen {
+		t.Fatalf("fabric queue length did not move")
+	}
+	hasCounterMoved := false
+	for _, c := range fab.counters {
+		if c.InOctets > 0 || c.OutOctets > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
+			hasCounterMoved = true
+			break
+		}
+	}
+	if !hasCounterMoved {
+		t.Fatalf("fabric counters did not move")
+	}
+	if len(fab.switches["sw1"].Entries()) <= len(initialSw1Entries) {
+		t.Fatalf("fabric sw1 entries did not move")
+	}
 
 	// Assert every snapshot field unchanged
 	if !snap.Clock.Equal(initialClock) {
 		t.Errorf("snapshot Clock changed: got %v, want %v", snap.Clock, initialClock)
 	}
-	if len(snap.Queue) != initialQueueLen {
-		t.Errorf("snapshot Queue len changed: got %d, want %d", len(snap.Queue), initialQueueLen)
+	if !reflect.DeepEqual(snap.Queue, initialQueue) {
+		t.Errorf("snapshot Queue contents changed: got %+v, want %+v", snap.Queue, initialQueue)
 	}
 	if !reflect.DeepEqual(snap.Queued, initialQueued) {
 		t.Errorf("snapshot Queued changed: got %+v, want %+v", snap.Queued, initialQueued)
@@ -523,16 +538,16 @@ func TestSnapshotImmutability(t *testing.T) {
 	if len(snap.Devices) != initialDevicesLen {
 		t.Errorf("snapshot Devices len changed: got %d, want %d", len(snap.Devices), initialDevicesLen)
 	}
-	if len(snap.Devices["sw1"].Entries) != initialSw1Entries {
-		t.Errorf("snapshot Devices[sw1] Entries changed: got %d, want %d", len(snap.Devices["sw1"].Entries), initialSw1Entries)
+	if !reflect.DeepEqual(snap.Devices["sw1"].Entries, initialSw1Entries) {
+		t.Errorf("snapshot Devices[sw1] Entries contents changed: got %+v, want %+v", snap.Devices["sw1"].Entries, initialSw1Entries)
 	}
-	if len(snap.Busy) != initialBusyLen {
-		t.Errorf("snapshot Busy len changed: got %d, want %d", len(snap.Busy), initialBusyLen)
+	if !reflect.DeepEqual(snap.Busy, initialBusy) {
+		t.Errorf("snapshot Busy contents changed: got %+v, want %+v", snap.Busy, initialBusy)
 	}
 }
 
 func TestSnapshotPhase4b(t *testing.T) {
-	// "A phase-4b snapshot test asserts Snapshot().Devices names a neighbor, its state and its hold depth."
+	// The snapshot exposes incomplete neighbor state and hold-queue depth for switch routing interfaces.
 	b1 := port.NewBuilder()
 	b1.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b1.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})

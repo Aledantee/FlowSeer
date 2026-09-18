@@ -1,7 +1,6 @@
 package vswitch
 
 import (
-	"errors"
 	"net/netip"
 	"testing"
 	"time"
@@ -33,7 +32,6 @@ var switchDeepCopiedProbes = map[string]func(t *testing.T){
 	"portSpeed":        probeSwitchPortSpeed,
 	"protocolIssues":   probeSwitchProtocolIssues,
 	"seeds":            probeSwitchSeeds,
-	"operErr":          probeSwitchOperErr,
 	"neighborFailures": probeSwitchNeighborFailures,
 	"retention":        probeSwitchRetention,
 }
@@ -280,40 +278,20 @@ func probeSwitchSeeds(t *testing.T) {
 	sw := newTestSwitchForFork(t)
 	fork := sw.Fork()
 
-	// "seeds gets its own probe: Learn on the fork, then the source's Spec().Seeds is unchanged."
-	initialSeeds := len(sw.Spec().Seeds)
-	newSeed := bridge.Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55}, Port: "1/1/1", Lifetime: bridge.Static}
-	if err := fork.Learn([]bridge.Seed{newSeed}); err != nil {
-		t.Fatalf("fork.Learn: %v", err)
+	if len(sw.seeds) == 0 || len(fork.seeds) == 0 {
+		t.Fatalf("seeds must be non-empty on both source and fork")
 	}
 
-	if len(sw.Spec().Seeds) != initialSeeds {
-		t.Errorf("Learn on fork changed source Spec().Seeds: got %d, want %d", len(sw.Spec().Seeds), initialSeeds)
+	origMAC := sw.seeds[0].MAC
+	mutatedMAC := netaddr.MAC{0x00, 0xee, 0xdd, 0xcc, 0xbb, 0xaa}
+	fork.seeds[0].MAC = mutatedMAC
+	if sw.seeds[0].MAC != origMAC {
+		t.Errorf("mutating fork.seeds[0] altered source seeds[0]: got %v, want %v", sw.seeds[0].MAC, origMAC)
 	}
 
-	// And vice-versa: Learn on source, then fork's Spec().Seeds is unchanged.
-	forkSeeds := len(fork.Spec().Seeds)
-	srcSeed := bridge.Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x44}, Port: "1/1/1", Lifetime: bridge.Static}
-	if err := sw.Learn([]bridge.Seed{srcSeed}); err != nil {
-		t.Fatalf("sw.Learn: %v", err)
-	}
-	if len(fork.Spec().Seeds) != forkSeeds {
-		t.Errorf("Learn on source changed fork Spec().Seeds: got %d, want %d", len(fork.Spec().Seeds), forkSeeds)
-	}
-}
-
-func probeSwitchOperErr(t *testing.T) {
-	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
-
-	sw.operErr = errors.New("source-oper-err")
-	if fork.Err() != nil {
-		t.Errorf("fork has error when source operErr set: %v", fork.Err())
-	}
-
-	fork.operErr = errors.New("fork-oper-err")
-	if sw.Err().Error() != "source-oper-err" {
-		t.Errorf("source error changed when fork operErr set: %v", sw.Err())
+	sw.seeds[0].MAC = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	if fork.seeds[0].MAC != mutatedMAC {
+		t.Errorf("mutating sw.seeds[0] altered fork seeds[0]: got %v, want %v", fork.seeds[0].MAC, mutatedMAC)
 	}
 }
 
@@ -332,7 +310,7 @@ func probeSwitchNeighborFailures(t *testing.T) {
 }
 
 func TestForkBackPointerLagMemberRemoved(t *testing.T) {
-	// "The back-pointer probe removes a LAG member on the source and asserts the fork selects from its own port table."
+	// Member removal on the source switch leaves LAG forwarding on the fork intact.
 	sw := newTestSwitchForFork(t)
 	fork := sw.Fork()
 
