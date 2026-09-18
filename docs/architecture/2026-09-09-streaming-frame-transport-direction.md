@@ -74,10 +74,14 @@ edge a signature every half minute, which is nothing next to the packets it is
 already moving, and it turns retirement into something that takes effect within
 the window rather than at the end of an arbitrarily long call.
 
-The assertion does not bind the RPC method or the body, which the edge README
-already names as an open boundary. This record does not settle that; it only
-requires that the re-assertion frame be verified under whatever rule the opening
-assertion is verified under, so the two cannot drift apart.
+The assertion binds the Connect procedure and a SHA-256 of the request body,
+checked at steps 5 and 6 of the verifier order in
+`spec/proto/flowseer/model/edge/v1/README.md`. A re-assertion frame arrives
+mid-stream, where there is no second HTTP body to hash and the procedure is
+the one the stream opened with, so what those two fields mean on a
+re-assertion is open. This record does not settle that; it only requires that
+the re-assertion frame be verified under whatever rule the opening assertion
+is verified under, so the two cannot drift apart.
 
 ## What a chunk may not carry
 
@@ -109,10 +113,10 @@ Every claim here is checkable in this repository; nothing external is relied on.
   `spec/proto/flowseer/api/edge/v1/assertion.proto`, where the
   `edge_assertion.short_lived` rule holds `expires_at` within 60 seconds of
   `issued_at`.
-- Streams are authorized once, and method binding is open —
-  `spec/proto/flowseer/api/edge/v1/README.md`, which records that the assertion
-  "does not bind the RPC method or the request body" and that "streams are
-  checked when they open".
+- Streams are authorized once, and procedure and body are bound —
+  `spec/proto/flowseer/model/edge/v1/README.md` for the procedure check at
+  step 5, the body check at step 6, and the sentence "Streams are checked when
+  they open".
 - Bounded buffering that reports what it discarded — `TrySendDropOldest` in
   `src/common/pump/pump.go`.
 - Untrusted bytes never reach telemetry — `docs/conventions/observability.md`.
@@ -123,10 +127,27 @@ Every claim here is checkable in this repository; nothing external is relied on.
 
 `assertion.proto` and the assertion-header section this record cites split
 out of `api/edge/v1` into `model/edge/v1` with the rest of the Edge entity.
-The `edge_assertion.short_lived` rule and the "does not bind the RPC method"
-and "streams are checked when they open" language now live in
+The `edge_assertion.short_lived` rule and the "streams are checked when they
+open" language now live in
 `spec/proto/flowseer/model/edge/v1/assertion.proto` and
 `spec/proto/flowseer/model/edge/v1/README.md`. The assertion's `procedure`
 example now names the `edge/attach` route. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
+
+### 2026-09-18 — the assertion already bound the method and the body
+
+The claim that the assertion "does not bind the RPC method or the body" was
+struck in place, along with the Sources citation of "does not bind the RPC
+method or the request body". This record quoted `api/edge/v1/README.md` as it
+stood on the branch where the document was written. The binding of `procedure`
+and `body_sha256`, together with the README correction documenting both checks,
+had already landed on 2026-09-05 in `3d06f2a9`. The claim was therefore false
+on the merged tree from the day this record landed rather than made false by the
+package moves.
+
+The correction leaves one question open: a re-assertion frame arrives
+mid-stream, where there is no second HTTP body to hash and the procedure is the
+one the stream opened with. What `procedure` and `body_sha256` bind to on a
+mid-stream re-assertion frame is unsettled and requires a design decision
+before the first streaming RPC lands.
