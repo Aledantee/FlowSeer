@@ -39,9 +39,19 @@ type SNMPFactoryFor = lanehost.SNMPFactoryFor
 // for.
 type ShellFactoryFor = lanehost.ShellFactoryFor
 
-// CaptureSourceOpener builds or opens a packet capture source for cfg.
-// The boolean return indicates whether the source reports interface drops.
-// Nil in [Options] means the production source via [capture.New].
+// CaptureSourceOpener opens the packet source one capture session reads from.
+// The boolean return says whether that source's Stats reports a real kernel
+// drop count; a source that counts nothing answers false, so the session
+// reports no drop counter rather than a zero it cannot stand behind.
+//
+// What it stands in for is the whole of [capture.New], not its socket step.
+// New validates the budget, refuses a snap length over 65535, and compiles
+// cfg.Filter into the cBPF program it attaches to the socket it opens; an
+// opener reaches the engine through [capture.NewWithSource], which does none
+// of that and has no userspace filter stage to do it in. So an opener owns
+// cfg.Filter: a session's filter is applied where the source is opened or it
+// is not applied at all, and a capture wider than the operator authorized is
+// what that costs.
 type CaptureSourceOpener func(ctx context.Context, cfg capture.Config) (capture.Source, bool, error)
 
 // Options are what a caller assembling this agent in its own process can
@@ -53,8 +63,10 @@ type Options struct {
 	// they may and may not stand in for.
 	OpenSNMP  SNMPFactoryFor
 	OpenShell ShellFactoryFor
-	// OpenCaptureSource replaces the packet source factory used for capture
-	// sessions. Nil means [capture.New].
+	// OpenCaptureSource replaces how a capture session's packet source is
+	// opened. Nil is the packaged deployment: [capture.New], with its
+	// validation and its compiled filter. A non-nil opener takes both on
+	// itself, for every session this agent runs; see [CaptureSourceOpener].
 	OpenCaptureSource CaptureSourceOpener
 	// Logger overrides the base logger the agent logs to. Nil means stderr with
 	// [Config.LogLevel].

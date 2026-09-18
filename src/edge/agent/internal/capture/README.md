@@ -23,21 +23,28 @@ When central assigns a capture session to this edge:
    30 seconds, well within central's 60-second assertion window.
 6. When a session reaches its budget, the engine marks the trailing batch as
    final; the runner uploads the chunk with `final: true`, closes the stream,
-   and unregisters the session.
+   and unregisters the session. The engine marks no batch final for a run its
+   source killed off, so a capture that died mid-stream leaves the same trace
+   as one that timed out.
 
-## Silent captures and inactivity timeouts
+## A capture that did not finish must not send a final chunk
 
-When a capture session's budget specifies only packet count or byte count without
-a duration limit, an idle network interface would keep the session running
-indefinitely.
+The final chunk is the whole of what central has to go on. On one it finalizes
+the artifact, sets `COMPLETED`, and derives a stop reason from the budget —
+and `deriveStopReason` falls back to `PACKET_COUNT` when nothing else fits, so
+an empty capture reported as final becomes a completed capture that reached
+its packet budget. Without one, `failStream` marks the session `FAILED` with
+`CAPTURE_STOP_REASON_ERROR`.
 
-The runner bounds silent captures using an inactivity timer. If no packets arrive
-before the timeout elapses, the runner terminates `UploadCapture` without
-sending a final chunk. Terminating the stream prematurely triggers central's
-`failStream` cleanup, marking the session `FAILED` with stop reason
-`CAPTURE_STOP_REASON_ERROR`. Sending a final chunk upon timeout would instead
-cause central to fall back to `PACKET_COUNT` and report success for an empty
-capture.
+Two things end a session short, and neither sends one:
+
+- A budget that bounds packets or bytes but not duration never completes on an
+  idle interface. The runner bounds that with an inactivity timer and closes
+  `UploadCapture` when it elapses.
+- A source that fails mid-capture. `capture.Engine` leaves `Final` unset on
+  every batch of a failed run and closes its pump with the error, so the
+  runner sees the pump close with no final batch and ends the stream the same
+  way.
 
 Blocking kernel socket reads (`AF_PACKET`) observe cancellation because
 `rawsocket` configures `SO_RCVTIMEO` (100ms) polling and descriptor closure in
@@ -55,7 +62,9 @@ artifact.
 
 ## Telemetry privacy
 
-In accordance with repository privacy standards, telemetry emitted by this
-package (slog attributes and span attributes under `flowseer.edge.capture.*`)
-records only session IDs, sequence numbers, batch counts, and counter snapshots.
-Zero bytes of captured packet data are ever written to telemetry.
+What this package records about a chunk is its first sequence, its packet
+count, and whether it is final; what it records about a session is its ID. No
+packet byte reaches a log record, and none can: the records are built from the
+batch's metadata, never from `batch.Records`. The package opens no spans of its
+own — the stream's counters live in the `flowseer.edge.capture.*` metrics the
+host registers.

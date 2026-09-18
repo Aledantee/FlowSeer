@@ -176,6 +176,8 @@ func (s *testCaptureSource) Close() error {
 }
 
 func TestCaptureAssembly_OpenCaptureSource_PassedToRunner(t *testing.T) {
+	t.Parallel()
+
 	sessID := "0192e6a0-0000-7000-8000-000000000042"
 	startMsg := captureedgev1.SubscribeCaptureAssignmentsResponse_builder{
 		Start: modelcapturev1.CaptureSessionConfig_builder{

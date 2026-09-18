@@ -31,7 +31,9 @@ type Batch struct {
 	Records       []*capturev1.PacketRecord
 	// Counters is a snapshot taken when this batch was built.
 	Counters *capturev1.CaptureCounters
-	// Final reports whether this is the last batch of a completed run.
+	// Final reports whether this is the last batch of a completed run. A
+	// run that failed delivers no final batch at all; its consumer learns
+	// that from the pump closing with an error.
 	Final bool
 }
 

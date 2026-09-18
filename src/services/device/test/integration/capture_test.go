@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -530,6 +531,25 @@ func (s *integrationCaptureSource) Receive(_ context.Context) <-chan rawsocket.F
 	return s.frames
 }
 
+// waitDrained blocks until the engine has taken every pushed frame off the
+// channel, so a test that acts on what the engine holds acts after it holds
+// it.
+func (s *integrationCaptureSource) waitDrained(ctx context.Context, t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(s.frames) == 0 {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("context ended while waiting for the source to drain: %v", ctx.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	t.Fatalf("timed out waiting for the engine to drain the source; %d frames left", len(s.frames))
+}
+
 func (s *integrationCaptureSource) Stats() (uint64, uint64, error) {
 	return 0, 0, nil
 }
@@ -774,6 +794,14 @@ func TestRemotePacketCapture_OperatorCancellation(t *testing.T) {
 		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
 	}, "RUNNING")
 
+	// RUNNING is set by the agent's zero-packet opening chunk, which precedes
+	// the engine start, so stopping on it alone races the first frame and the
+	// artifact assertion below would be a coin toss. Wait for the engine to
+	// take every frame off the source instead: what this test is about is
+	// that the stop flushes what the engine had buffered, which needs the
+	// engine to have buffered something.
+	source.waitDrained(ctx, t)
+
 	// Operator stops session
 	stopReq := operatorcapturev1.StopCaptureSessionRequest_builder{
 		Session: sessionRef,
@@ -816,6 +844,14 @@ func TestRemotePacketCapture_OperatorCancellation(t *testing.T) {
 	pcapngMagic := []byte{0x0a, 0x0d, 0x0d, 0x0a}
 	if !bytes.HasPrefix(downloaded, pcapngMagic) {
 		t.Fatal("downloaded artifact missing pcapng magic header")
+	}
+	// A header-only pcapng satisfies every check above, and is what a stop
+	// that canceled the engine without flushing its buffer would produce.
+	if !bytes.Contains(downloaded, []byte("cancel-frame-1")) {
+		t.Error("the canceled session's artifact carries no captured frame; the final flush lost what the engine held")
+	}
+	if n := state.GetArtifact().GetPacketCount(); n == 0 {
+		t.Error("artifact packet count = 0, want the frames buffered before the stop")
 	}
 }
 
@@ -881,11 +917,10 @@ func TestRemotePacketCapture_InactivityTimeout(t *testing.T) {
 	}
 	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
 
-	// Wait for transition to RUNNING (initial chunk claimed session)
-	pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
-		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
-	}, "RUNNING")
-
+	// No poll for RUNNING on the way: the agent holds it for one inactivity
+	// timeout, and a poll that lost that second to a scheduling stall would
+	// fail on FAILED, which is the state this test is waiting for.
+	//
 	// After 1s of inactivity, agent aborts upload without final chunk,
 	// and central transitions session to FAILED with stop_reason: ERROR.
 	state := pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
@@ -994,14 +1029,28 @@ func TestRemotePacketCapture_TelemetryPrivacy(t *testing.T) {
 		t.Fatal("downloaded artifact does not contain the packet payload")
 	}
 
-	// Verify logs DO NOT contain packet payload data anywhere
+	// The screen has to see a leak in the shape a leak would take. A
+	// slog.JSONHandler writes a []byte attribute base64-encoded, and a
+	// hex-rendered one is what a handler dumping a frame tends to produce, so
+	// searching for the plain marker alone would pass over both.
 	logs := logSink.String()
-	if bytes.Contains([]byte(logs), []byte(secretMarker)) {
-		t.Errorf("agent logs leaked packet payload bytes %q", secretMarker)
+	for name, encoded := range map[string]string{
+		"plain":  secretMarker,
+		"base64": base64.StdEncoding.EncodeToString([]byte(secretMarker)),
+		"hex":    fmt.Sprintf("%x", secretMarker),
+	} {
+		if strings.Contains(logs, encoded) {
+			t.Errorf("agent logs leaked packet payload bytes (%s encoding)", name)
+		}
 	}
 
-	// Verify logs DO contain session identifier
-	if !bytes.Contains([]byte(logs), []byte(sessionID)) {
+	// What the logs must carry instead, which is also what proves the screen
+	// above ran against records that describe this capture rather than an
+	// empty buffer.
+	if !strings.Contains(logs, sessionID) {
 		t.Errorf("agent logs missing session ID %q", sessionID)
+	}
+	if !strings.Contains(logs, "flowseer.capture.chunk.first_sequence") {
+		t.Error("agent logs carry no chunk records; the payload screen proved nothing")
 	}
 }

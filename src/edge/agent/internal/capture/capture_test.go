@@ -255,7 +255,7 @@ func TestHandler_StartAndUploadChunks(t *testing.T) {
 		Client:        client,
 		SignAssertion: testAssertionSigner(t),
 		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
-			return source, true, nil
+			return source, false, nil
 		},
 		InactivityTimeout: time.Second,
 		ReassertInterval:  10 * time.Second,
@@ -316,7 +316,7 @@ func TestHandler_PeriodicMidStreamReAssertion(t *testing.T) {
 		Client:        client,
 		SignAssertion: testAssertionSigner(t),
 		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
-			return source, true, nil
+			return source, false, nil
 		},
 		InactivityTimeout: 2 * time.Second,
 		ReassertInterval:  20 * time.Millisecond,
@@ -367,7 +367,7 @@ func TestHandler_OperatorStopCancelsAndFlushesFinalChunk(t *testing.T) {
 		Client:        client,
 		SignAssertion: testAssertionSigner(t),
 		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
-			return source, true, nil
+			return source, false, nil
 		},
 		InactivityTimeout: 10 * time.Second,
 		ReassertInterval:  10 * time.Second,
@@ -421,7 +421,7 @@ func TestHandler_InactivityTimeoutAbortsWithoutFinalChunk(t *testing.T) {
 		Client:        client,
 		SignAssertion: testAssertionSigner(t),
 		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
-			return source, true, nil
+			return source, false, nil
 		},
 		InactivityTimeout: 50 * time.Millisecond,
 		ReassertInterval:  10 * time.Second,
@@ -463,12 +463,15 @@ func TestHandler_CustomCaptureSourceExecution(t *testing.T) {
 		CapturedAt:     time.Now(),
 	}
 
-	var customSourceCalled bool
+	customSourceCalled := make(chan struct{}, 1)
 	h, err := agentcapture.NewHandler(agentcapture.HandlerConfig{
 		Client:        client,
 		SignAssertion: testAssertionSigner(t),
 		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
-			customSourceCalled = true
+			select {
+			case customSourceCalled <- struct{}{}:
+			default:
+			}
 			return source, false, nil
 		},
 		InactivityTimeout: 5 * time.Second,
@@ -491,7 +494,9 @@ func TestHandler_CustomCaptureSourceExecution(t *testing.T) {
 		t.Fatal("timed out waiting for custom source capture completion")
 	}
 
-	if !customSourceCalled {
+	select {
+	case <-customSourceCalled:
+	default:
 		t.Fatal("OpenCaptureSource seam was not invoked")
 	}
 	if !fakeServer.HasFinal() {
@@ -552,5 +557,58 @@ func TestLogAttrs_SessionID(t *testing.T) {
 	}
 	if got, want := attrs[0].Value.String(), "0192e6a0-0000-7000-8000-000000000015"; got != want {
 		t.Errorf("attr val = %q, want %q", got, want)
+	}
+}
+
+// TestHandler_SourceFailureAbortsWithoutFinalChunk proves a capture whose
+// packet source dies mid-run ends its upload the way a silent one does: with
+// no final chunk, so central records FAILED. A final chunk is the only thing
+// that tells central a capture finished, and central would answer one from a
+// run that died after a single packet by finalizing the artifact and deriving
+// PACKET_COUNT from a budget of 100 that was never reached.
+func TestHandler_SourceFailureAbortsWithoutFinalChunk(t *testing.T) {
+	sessID := "0192e6a0-0000-7000-8000-000000000016"
+	cfg := testSessionConfig(sessID, 100)
+
+	fakeServer := newFakeCaptureServiceHandler()
+	client, closeServer := startTestServer(t, fakeServer)
+	defer closeServer()
+
+	source := newFakeSource(5)
+	source.frames <- rawsocket.Frame{
+		Data:           []byte("packet 1"),
+		OriginalLength: 8,
+		CapturedAt:     time.Now(),
+	}
+	source.frames <- rawsocket.Frame{Err: errors.New("recvfrom: network is down")}
+
+	h, err := agentcapture.NewHandler(agentcapture.HandlerConfig{
+		Client:        client,
+		SignAssertion: testAssertionSigner(t),
+		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+			return source, false, nil
+		},
+		InactivityTimeout: 10 * time.Second,
+		ReassertInterval:  10 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	defer func() { _ = h.Close() }()
+
+	if err := h.Handle(context.Background(), captureedgev1.SubscribeCaptureAssignmentsResponse_builder{
+		Start: cfg,
+	}.Build()); err != nil {
+		t.Fatalf("Handle(Start): %v", err)
+	}
+
+	select {
+	case <-fakeServer.closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the upload stream to end")
+	}
+
+	if fakeServer.HasFinal() {
+		t.Fatal("a capture killed off by its source sent final: true; central would record it COMPLETED")
 	}
 }

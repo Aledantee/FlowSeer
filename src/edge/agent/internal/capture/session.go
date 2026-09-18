@@ -24,8 +24,12 @@ const (
 
 // HandlerConfig configures [Handler].
 type HandlerConfig struct {
-	Client            capturev1connect.CaptureEdgeServiceClient
-	SignAssertion     func(ctx context.Context) (*edgev1.SignedEdgeAssertion, error)
+	Client        capturev1connect.CaptureEdgeServiceClient
+	SignAssertion func(ctx context.Context) (*edgev1.SignedEdgeAssertion, error)
+	// OpenCaptureSource opens a session's packet source in place of
+	// capture.New. Nil is the production path. A non-nil opener replaces
+	// capture.New whole, so it owns the config validation and the session's
+	// filter that New would otherwise have applied; see capture.NewWithSource.
 	OpenCaptureSource func(ctx context.Context, cfg capture.Config) (capture.Source, bool, error)
 	InactivityTimeout time.Duration
 	ReassertInterval  time.Duration
@@ -170,13 +174,6 @@ func (h *Handler) removeSession(sessionID string) {
 		close(sess.done)
 	}
 	h.mu.Unlock()
-}
-
-// ActiveSessions returns the count of currently running capture sessions.
-func (h *Handler) ActiveSessions() int {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return len(h.sessions)
 }
 
 // Close stops all in-flight capture sessions and prevents new sessions from

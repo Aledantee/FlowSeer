@@ -52,10 +52,26 @@ func SigningClient(anchors [][]byte, signer *Signer) *http.Client {
 // re-marshal of what it sent, and central hashes what it received. This is
 // the layer where those bytes exist.
 //
-// It reads each request body whole, which is right for the calls it carries —
-// EdgeService is unary except for OpenDeviceSubmission, whose request is one
-// enveloped message — and wrong for a client-streaming call, which has no
-// last byte to sign. There is no such call on this service.
+// It reads each request body whole, which is right for the calls it carries:
+// every one of them is unary or, like OpenDeviceSubmission, a server stream
+// whose request is one enveloped message.
+//
+// # UploadCapture goes through unsigned
+//
+// CaptureEdgeService.UploadCapture is the one client-streaming call on this
+// client, and a client stream has no last byte to sign — reading its body
+// whole would block until the capture ended, which is to say until the body
+// this read is holding up gets written. It is matched by path and passed
+// through to base unsigned, and it authenticates from the SignedEdgeAssertion
+// messages it carries instead, which is why central serves that one procedure
+// in front of its assertion middleware.
+//
+// The match is the bare Connect procedure, so it assumes the deployment's
+// central URL carries no path prefix. So does everything else here: the
+// procedure this signs is req.URL.Path, and central compares it against the
+// bare procedure. Under a prefix every other call already fails verification
+// — an upload would miss the match and hang on the body read instead, which
+// is the one difference worth knowing about.
 //
 // A body already compressed is refused rather than sent. Central refuses a
 // compressed request before verifying, because the bytes it hashes have to be
@@ -98,9 +114,8 @@ type signingTransport struct {
 }
 
 func (t *signingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// UploadCapture carries in-stream assertions rather than an Authorization
-	// header. A client-streaming call has no last byte to sign in advance, so
-	// draining its body would deadlock until the upload ends.
+	// The one client-streaming call, which signs itself from inside the
+	// stream; see SigningTransport.
 	if req.URL.Path == capturev1connect.CaptureEdgeServiceUploadCaptureProcedure {
 		return t.base.RoundTrip(req)
 	}

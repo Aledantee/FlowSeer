@@ -1,13 +1,14 @@
 # Device access agent
 
-The agent that runs where the devices are. It enrolls with central once,
-holds central's dispatch stream open, drives the local-network access lane
-from what arrives on it, and reports back what happened.
+The agent that runs where the devices are. It enrolls with central once, holds
+central's dispatch and capture-assignment streams open, drives the
+local-network access lane and packet captures from what arrives on them, and
+reports back what happened.
 
-Assembled from `src/modules/localnet/access` (the lane) and
-`src/modules/edgebus` (the leaf node and the loopback OTLP receiver). It owns
-no device logic of its own: what it adds is identity, transport, and the
-orderings between them.
+Assembled from `src/modules/localnet/access` (the lane), `src/modules/edgebus`
+(the leaf node and the loopback OTLP receiver), and `src/modules/capture` (the
+capture engine). It owns no device logic of its own: what it adds is identity,
+transport, and the orderings between them.
 
 ## What it is made of
 
@@ -184,12 +185,14 @@ messages. To keep the stream active and satisfy central's assertion deadline,
 the runner transmits periodic mid-stream re-assertions every 30 seconds.
 
 When a `Stop` assignment arrives, the handler cancels the running engine and
-flushes any buffered packets with `final: true`, completing the upload cleanly.
-If a capture interface remains idle and no packets arrive before the inactivity
-timeout, the runner cancels the engine and closes the upload stream without
-a final chunk — ensuring central's stream reader marks the session as failed
-rather than falsely recording a completed capture.
+flushes any buffered packets with `final: true`, which is how the upload ends
+cleanly. A final chunk is the only thing that tells central a capture
+finished, so a capture that did not finish must not send one: if the interface
+stays idle past the inactivity timeout, or the engine's source fails, the
+runner closes the upload stream with no final chunk and central records the
+session failed rather than complete.
 
 Stream contact metrics are exported under `flowseer.edge.capture.connections`,
-`.failures`, and `.messages`. In accordance with privacy rules, packet payload
-bytes are never emitted into log records or span attributes.
+`.failures`, and `.messages`. No packet payload byte is ever written to a log
+record: what the runner logs about a chunk is its first sequence, its packet
+count, and whether it is final.

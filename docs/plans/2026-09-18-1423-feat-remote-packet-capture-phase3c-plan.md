@@ -5,6 +5,7 @@ date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: code
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 ---
@@ -12,6 +13,14 @@ parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 # Remote Packet Capture Phase 3c, Edge Capture Wiring - Plan
 
 > Implemented. 3 units, 2026-09-18. Commit range 4fdd8897..7144a6a6.
+> Reviewed 2026-09-18: accept after fixes. Two correctness defects were found
+> and fixed on the branch. A capture its source killed off was uploaded with
+> `final: true`, which central answers by finalizing the artifact and recording
+> `COMPLETED` with a stop reason derived from a budget the run never reached —
+> the same silent success the inactivity decision was written to prevent, on
+> the error path instead of the idle path. And `capture.Engine` batched 512
+> records into a message whose schema caps `packets` at 256 and whose receiver
+> sizes its read bound for 256.
 
 ## Goal
 

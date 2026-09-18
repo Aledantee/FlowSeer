@@ -2,9 +2,11 @@ package capture
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
+	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
@@ -20,6 +22,12 @@ import (
 func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Context, cfg *modelcapturev1.CaptureSessionConfig, sess *activeSession) {
 	sessionID := cfg.GetRef().GetCaptureSession().GetId()
 	defer h.removeSession(sessionID)
+	// The upload stream's context, released on every way out of here. The two
+	// send failures below have no stream worth closing politely, and once
+	// removeSession has run nothing else holds this session's cancel func —
+	// Handler.Close reaches only what is still in the registry — so without
+	// this the request stays open for the life of the process.
+	defer sess.abortUpload()
 
 	log := h.logger.With(
 		slog.String("flowseer.capture.session.id", sessionID),
@@ -105,6 +113,13 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 	inactivityTimer := time.NewTimer(h.inactivityTimeout)
 	defer inactivityTimer.Stop()
 
+	// An operator stop gets one further window to deliver its final batch,
+	// and only one. Letting the timer lapse instead would leave this loop
+	// with no time bound at all: an engine that never reaches its trailing
+	// flush would hold the session, the upload stream, and any Handler.Close
+	// waiting on it until the agent stops.
+	stopFlushGranted := false
+
 	for {
 		select {
 		case <-reassertTicker.C:
@@ -125,13 +140,15 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 			}
 
 		case <-inactivityTimer.C:
-			if sess.stopping.Load() {
+			if sess.stopping.Load() && !stopFlushGranted {
 				// Operator stop is currently flushing the final batch.
+				stopFlushGranted = true
+				inactivityTimer.Reset(h.inactivityTimeout)
 				continue
 			}
 			// Inactivity timeout: close upload stream without sending final chunk
 			// so central's failStream transitions the session to FAILED.
-			log.WarnContext(sessionCtx, "capture inactivity timeout elapsed; aborting upload stream without final chunk")
+			log.WarnContext(sessionCtx, "capture upload abandoned on inactivity")
 			pump.SignalStop()
 			pump.Cancel()
 			_, _ = stream.CloseAndReceive()
@@ -195,9 +212,24 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 	}
 }
 
+// errorType classifies a failure for the error.type attribute, the way
+// subscribeloop and lanehost do: the error's own code where it has one, the
+// two context causes by name, and the Connect code otherwise — a stream that
+// central refused is most of what goes wrong here, and "unknown" for all of
+// it would leave an operator nothing to read. A bounded value, because it
+// becomes a metric dimension downstream.
 func errorType(err error) string {
 	if code, ok := errs.CodeOf(err); ok {
 		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	}
+	if code := connect.CodeOf(err); code != connect.CodeUnknown {
+		return "connect." + code.String()
 	}
 	return "unknown"
 }
