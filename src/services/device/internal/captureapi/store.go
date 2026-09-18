@@ -268,10 +268,52 @@ func (s *Store) AbandonWriter(sessionID string) {
 	}
 }
 
+// mayWriteArtifact refuses to open an artifact for a session whose record says
+// the capture is over.
+//
+// The file and the record are two stores that must agree, and the record is
+// the one of record: it carries the digest, the byte count and the purge
+// stamp that everything else trusts. So a session that is gone, that already
+// has an artifact, or whose payload retention has purged one, may not have a
+// file written for it — otherwise the bytes on disk stop being the bytes the
+// record describes, and nothing downstream can tell.
+//
+// A session that is merely holding an open writer is not consulted: that
+// stream already has the permission, and asking again on every batch would
+// put a network read in the packet path.
+func (s *Store) mayWriteArtifact(ctx context.Context, sessionID string) error {
+	s.mu.Lock()
+	_, open := s.writers[sessionID]
+	s.mu.Unlock()
+	if open {
+		return nil
+	}
+
+	rec, _, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	if rec == nil {
+		return errs.New().Code(ErrCodeNotFound).Attr("session", sessionID).Msg("capture session not found")
+	}
+	if artifact := rec.GetState().GetArtifact(); artifact != nil {
+		return errs.New().Code(ErrCodeArtifactExists).Attr("session", sessionID).Msg("capture session has already produced its artifact")
+	}
+	return nil
+}
+
 // AppendPackets appends a slice of PacketRecords to the session's pcapng artifact.
-func (s *Store) AppendPackets(_ context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, packets []*netcapturev1.PacketRecord) error {
+func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, packets []*netcapturev1.PacketRecord) error {
 	if len(packets) == 0 {
 		return nil
+	}
+
+	// Opening a new file needs the record's permission, taken before the
+	// lock because it is a network read. The writers map alone cannot give
+	// it: the map is what this process is holding open, and the record is
+	// what says whether the capture is still being written at all.
+	if err := s.mayWriteArtifact(ctx, sessionID); err != nil {
+		return err
 	}
 
 	s.mu.Lock()
@@ -322,7 +364,11 @@ func (s *Store) AppendPackets(_ context.Context, sessionID string, linkType netc
 
 // FinalizeArtifact closes the pcapng file, computes its SHA-256 digest, byte count,
 // and packet total, and returns the constructed CaptureArtifact.
-func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, counters *netcapturev1.CaptureCounters, expiresAt time.Time) (*modelcapturev1.CaptureArtifact, error) {
+func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, counters *netcapturev1.CaptureCounters, expiresAt time.Time) (*modelcapturev1.CaptureArtifact, error) {
+	if err := s.mayWriteArtifact(ctx, sessionID); err != nil {
+		return nil, err
+	}
+
 	s.mu.Lock()
 	_, gone := s.deleted[sessionID]
 	w, ok := s.writers[sessionID]
