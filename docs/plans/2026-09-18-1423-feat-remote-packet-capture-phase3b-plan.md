@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 
 # Remote Packet Capture Phase 3b, Command Channel and Central Capture Leg - Plan
 
-> Re-planned against the landed subscribeloop package and device service control plane.
+> Implemented. 5 units, 2026-09-18T13:44:55Z to 2026-09-18T15:03:08Z.
 
 ## Goal
 
@@ -291,14 +291,14 @@ go test -race ./src/services/device/...
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path in this phase.
-- [ ] `spec/proto/flowseer/edge/capture/v1/capture_edge_service.proto` updated with `SubscribeCaptureAssignments` and `spec/proto/flowseer/edge/capture/v1/README.md` updated with the open question resolved.
-- [ ] `docs/architecture/2026-09-09-remote-packet-capture-direction.md` amended to record central pcapng storage and reverse store-on-edge.
-- [ ] `docs/architecture/2026-08-20-network-model-structure-direction.md` amended to name both streams for `edge/capture`.
-- [ ] `src/services/device/internal/captureapi` implements `CaptureService` and `CaptureEdgeService`.
-- [ ] The device service host mounts both services and manages `<StateDir>/captures/`.
-- [ ] This plan's `status` set with an outcome note under its title, and parent plan U3b filled.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] Verifier green for every changed path in this phase.
+- [x] `spec/proto/flowseer/edge/capture/v1/capture_edge_service.proto` updated with `SubscribeCaptureAssignments` and `spec/proto/flowseer/edge/capture/v1/README.md` updated with the open question resolved.
+- [x] `docs/architecture/2026-09-09-remote-packet-capture-direction.md` amended to record central pcapng storage and reverse store-on-edge.
+- [x] `docs/architecture/2026-08-20-network-model-structure-direction.md` amended to name both streams for `edge/capture`.
+- [x] `src/services/device/internal/captureapi` implements `CaptureService` and `CaptureEdgeService`.
+- [x] The device service host mounts both services and manages `<StateDir>/captures/`.
+- [x] This plan's `status` set with an outcome note under its title, and parent plan U3b filled.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 

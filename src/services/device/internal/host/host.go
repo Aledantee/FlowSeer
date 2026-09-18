@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/centralaudit"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
@@ -119,6 +121,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 			{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
 			{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
 			{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
+			{Name: "capture_sweeper", Leaf: &service.Leaf{Setup: h.setupCaptureSweeper}},
 		},
 	})
 }
@@ -271,12 +274,25 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		Logger:        log,
 	})
 
+	capturesBucket, err := hub.JetStream().KeyValue(ctx, edgebus.CapturesBucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the captures bucket")
+	}
+	capturesDir := filepath.Join(h.cfg.StateDir(), "captures")
+	captureStore, err := captureapi.NewStore(capturesBucket, capturesDir)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("initialize the capture store")
+	}
+	broadcaster := captureapi.NewBroadcaster()
+
 	return &busResources{
-		hub:      hub,
-		lanes:    lanes,
-		journal:  lane,
-		edges:    edgestore.New(edges),
-		dispatch: dispatch,
+		hub:         hub,
+		lanes:       lanes,
+		journal:     lane,
+		edges:       edgestore.New(edges),
+		dispatch:    dispatch,
+		captures:    captureStore,
+		broadcaster: broadcaster,
 	}, nil
 }
 
@@ -467,4 +483,31 @@ func serveConnect(ctx context.Context, server *http.Server, bound string, serve 
 		<-errCh
 		return nil
 	}
+}
+
+const defaultCaptureSweepInterval = time.Minute
+
+// setupCaptureSweeper periodically sweeps expired pcapng artifacts past their
+// retention deadline while preserving session metadata.
+func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, error) {
+	resources, err := h.hub.await(ctx)
+	if err != nil {
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		ticker := time.NewTicker(defaultCaptureSweepInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-ticker.C:
+				if _, err := resources.captures.SweepExpired(ctx); err != nil {
+					service.Logger(ctx).WarnContext(ctx, "capture sweeper could not purge expired artifacts", slog.Any("error", err))
+				}
+			}
+		}
+	}}, nil
 }

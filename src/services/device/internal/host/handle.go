@@ -8,6 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -22,11 +23,13 @@ var ErrCodeHubGone = errs.NewCode("host/hub-gone")
 // write through, and the relay built over them. They are built once per hub
 // attempt and thrown away with it.
 type busResources struct {
-	hub      *edgebus.Hub
-	lanes    jetstream.KeyValue
-	journal  *journal.Journal
-	edges    *edgestore.Store
-	dispatch *dispatchapi.Service
+	hub         *edgebus.Hub
+	lanes       jetstream.KeyValue
+	journal     *journal.Journal
+	edges       *edgestore.Store
+	dispatch    *dispatchapi.Service
+	captures    *captureapi.Store
+	broadcaster *captureapi.Broadcaster
 }
 
 // hubHandle carries the hub's resources from the module that owns them to the

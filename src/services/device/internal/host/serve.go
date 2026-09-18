@@ -12,14 +12,17 @@ import (
 
 	connect "connectrpc.com/connect"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
@@ -101,6 +104,22 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		resources.hub.Tenant(),
 	)
 
+	captureEdgeService := captureapi.NewEdgeService(
+		resources.captures,
+		verifier,
+		resources.broadcaster,
+		captureapi.EdgeServiceConfig{
+			Logger: log,
+		},
+	)
+	captureOperatorService := captureapi.NewOperatorService(
+		resources.captures,
+		resources.broadcaster,
+		captureapi.OperatorServiceConfig{
+			NotifyChange: captureEdgeService.NotifyStoreChange,
+		},
+	)
+
 	mux := http.NewServeMux()
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
@@ -125,6 +144,15 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 
 	devicePath, deviceHandler := devicev1connect.NewDeviceServiceHandler(deviceService, interceptors, recoverPanic)
 	mux.Handle(devicePath, deviceHandler)
+
+	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, interceptors, recoverPanic)
+	mux.Handle(capturePath, captureHandler)
+
+	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(captureEdgeService, interceptors, recoverPanic)
+	mux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
+	// UploadCapture is client-streaming with continuous chunks and in-stream
+	// assertion verification rather than header assertions.
+	mux.Handle(captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure, captureEdgeHandler)
 
 	return mux, nil
 }

@@ -175,11 +175,36 @@ printing the digest an edge pins. That digest is what every edge is
 provisioned with, so the pair is persisted: a service that generated a fresh
 key each start would refuse every edge in the field.
 
-Five modules run under the service runtime — the bus hub, the telemetry
-forwarder, the journal's read sweeper, the Connect listener, and the drift
-poll — supervised `RestForOne` with the hub first. That is not a default: the
-four modules after it hold resources the hub owns, so a hub that is rebuilt
+Six modules run under the service runtime — the bus hub, the telemetry
+forwarder, the journal's read sweeper, the Connect listener, the drift
+poll, and the capture artifact sweeper — supervised `RestForOne` with the hub first. That is not a default: the
+five modules after it hold resources the hub owns, so a hub that is rebuilt
 must take them with it.
+
+## Remote packet capture
+
+Central coordinates bounded packet captures run by edges. An operator requests
+a capture session via `CaptureService` (`CreateCaptureSession`), bounding it by
+packet count, byte count, or duration. The session record is persisted in
+JetStream KV (`captures` bucket) in the `PENDING` lifecycle.
+
+What central owes an edge is derived from open session records:
+`CaptureEdgeService.SubscribeCaptureAssignments` derives owed assignments for
+the calling edge (start for `PENDING` sessions, stop for cancellations).
+
+Packets stream back over `CaptureEdgeService.UploadCapture`, which authenticates
+via in-stream `SignedEdgeAssertion`s rather than HTTP header assertions. On the
+first chunk upload, central transitions the session to `RUNNING`, withdrawing
+the start assignment. Uploaded packets are appended into a retained pcapng file
+on central at `<StateDir>/captures/<session_id>.pcapng` and broadcast in memory
+to active `TailCaptureSession` subscribers.
+
+When the edge marks upload complete (`final: true`), central finalizes the
+pcapng artifact, writes the SHA-256 digest, byte size, and packet count to the
+session state, and sets the retention expiration. Operators download stored
+pcapng files in chunks up to 1MiB via `DownloadCaptureSession`. A background
+sweeper module (`capture_sweeper`) periodically purges expired pcapng payload
+files from disk while preserving session metadata and counters.
 
 ## Layout
 
@@ -194,6 +219,7 @@ must take them with it.
 | `internal/dispatchapi` | `DispatchService`: the outbox relay and the report handler |
 | `internal/auditapi` | `AuditService`: the edge's audit deliveries onto the stream |
 | `internal/deviceapi` | `DeviceService`: the operator's calls |
+| `internal/captureapi` | `CaptureService`, `CaptureEdgeService`, pcapng artifact store, and live tail broadcaster |
 | `internal/centralaudit` | the audit records central writes on its own behalf |
 | `internal/drift` | the poll that compares a managed interface against its expectation |
 | `internal/connecterr` | the errs-to-Connect mapping every handler answers through |
