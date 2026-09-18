@@ -5,6 +5,7 @@ date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+compound: docs/solutions/architecture-patterns/panic-to-error-conversion-that-escapes-its-unit-is-a-replan.md
 execution: mixed
 ---
 
