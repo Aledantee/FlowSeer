@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -439,6 +440,92 @@ func (s *Switch) Spec() ConstructionSpec {
 // Config returns an independent deep copy of the switch configuration.
 func (s *Switch) Config() Config {
 	return s.cfg.Clone()
+}
+
+// Fork returns an independent executable copy of the switch. Construction
+// configuration, ports, phy resolution, node identity, and trust metadata are
+// shared; capability layers, policer buckets, seeds, and forwarding issues are
+// deep-copied. Bridge selector, resolver, and gate bindings are rebound to the
+// fork's own cloned layers. Transient hit sets for forward calls in progress are
+// reset to their zero values.
+func (s *Switch) Fork() *Switch {
+	cp := &Switch{
+		cfg:        s.cfg,
+		ports:      s.ports,
+		speeds:     s.speeds,
+		power:      s.power,
+		traffic:    s.traffic,
+		nodeID:     s.nodeID,
+		metadata:   s.metadata,
+		missingSTP: s.missingSTP,
+		operErr:    s.operErr,
+	}
+	if s.seeds != nil {
+		cp.seeds = slices.Clone(s.seeds)
+	}
+	if s.copies != nil {
+		cp.copies = slices.Clone(s.copies)
+	}
+	if s.emissions != nil {
+		cp.emissions = slices.Clone(s.emissions)
+	}
+	if s.portP2P != nil {
+		cp.portP2P = maps.Clone(s.portP2P)
+	}
+	if s.portSpeed != nil {
+		cp.portSpeed = maps.Clone(s.portSpeed)
+	}
+	if s.protocolIssues != nil {
+		cp.protocolIssues = maps.Clone(s.protocolIssues)
+	}
+	if s.neighborFailures != nil {
+		cp.neighborFailures = slices.Clone(s.neighborFailures)
+	}
+	if s.buckets != nil {
+		cp.buckets = make(map[string]*traffic.Bucket, len(s.buckets))
+		for k, v := range s.buckets {
+			cp.buckets[k] = v.Clone()
+		}
+	}
+	if s.stp != nil {
+		cp.stp = s.stp.Clone()
+	}
+	if s.loopprotect != nil {
+		cp.loopprotect = s.loopprotect.Clone()
+	}
+	if s.lag != nil {
+		cp.lag = s.lag.Clone()
+	}
+	if s.mcast != nil {
+		cp.mcast = s.mcast.Clone()
+	}
+	if s.routing != nil {
+		cp.routing = s.routing.Clone()
+	}
+	if s.bridge != nil {
+		cp.bridge = s.bridge.Clone()
+		if cp.stp != nil {
+			cp.bridge.SetGate(cp.stp, protocolScope(cp.nodeID, port.LayerStp))
+		}
+		if cp.loopprotect != nil {
+			cp.bridge.SetGate(cp.loopprotect, protocolScope(cp.nodeID, port.LayerLoopProtect))
+		}
+		if cp.lag != nil {
+			cp.bridge.SetSelector(lagSelector{sw: cp}, protocolScope(cp.nodeID, port.LayerLag))
+		}
+		if cp.mcast != nil {
+			cp.bridge.SetGroupResolver(cp, protocolScope(cp.nodeID, port.LayerMcast))
+		}
+	}
+	return cp
+}
+
+// Neighbors returns the current neighbor table entries across all VRFs.
+func (s *Switch) Neighbors() []routing.NeighborEntry {
+	if s.routing == nil {
+		return nil
+	}
+	return s.routing.Neighbors()
 }
 
 // Copies returns and clears mirror copies admitted to a forwarding output by the

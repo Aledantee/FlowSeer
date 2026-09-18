@@ -154,6 +154,31 @@ func (j Journey) clone() Journey {
 	return cp
 }
 
+// shallowClone returns a copy of the journey that shares ethernet.Frame values
+// across forks while cloning mutable traversal history and deliveries.
+func (j *Journey) shallowClone() *Journey {
+	if j == nil {
+		return nil
+	}
+	cp := *j
+	if j.Injection.Packet != nil {
+		packet := *j.Injection.Packet
+		packet.Payload = slices.Clone(j.Injection.Packet.Payload)
+		cp.Injection.Packet = &packet
+	}
+	if len(j.Entries) > 0 {
+		cp.Entries = make([]Entry, len(j.Entries))
+		for i, e := range j.Entries {
+			cp.Entries[i] = e.clone()
+		}
+	}
+	if len(j.Deliveries) > 0 {
+		cp.Deliveries = slices.Clone(j.Deliveries)
+	}
+
+	return &cp
+}
+
 func (e Entry) clone() Entry {
 	cp := e
 	if e.Cable != nil {

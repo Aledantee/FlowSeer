@@ -52,6 +52,7 @@ type Device struct {
 	// RelayCounters is what the relay's learning table counted, beside the
 	// per-port Counters.
 	RelayCounters bridge.Counters
+	Neighbors     []routing.NeighborEntry
 }
 
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, pending egress frames,
@@ -1295,6 +1296,7 @@ func (f *Fabric) Snapshot() Snapshot {
 			Counters:      f.snapshotCounters(name),
 			Roles:         sw.Roles(),
 			RelayCounters: sw.RelayCounters(),
+			Neighbors:     sw.Neighbors(),
 		}
 	}
 

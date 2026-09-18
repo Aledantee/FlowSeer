@@ -496,6 +496,17 @@ and leaves the transmission in flight:
   by snooped VLAN.
 - `RelayCounters` for `Devices["sw1"]`: Reads `Learned` 1 (the example learns h1's MAC on the first step).
 - `Devices["sw2"]`: FDB contains no entries.
+- `Neighbors` for each device: Holds neighbor resolution entries with state, origin, lifetime, and hold-queue depth.
+
+## Fabric forking
+
+`[Fabric.Fork]` creates an independent executable simulation that continues the
+same run. Runtime execution state — the arrival queue, egress queues, journeys,
+counters, clock, frame-id counters, and switches (via `[vswitch.Switch.Fork]`) —
+is deep-copied, while immutable `ethernet.Frame` values in queues and journeys
+are shared rather than copied. Fabric configuration `cfg` is deep-copied (since
+`SetFault` mutates cables in place), and `byEnd` is rebuilt from the newly copied
+`links` so fault mutations do not alias between source and fork.
 
 ## Protocol traffic and wake-ups
 

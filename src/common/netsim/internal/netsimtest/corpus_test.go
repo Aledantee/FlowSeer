@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 30 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 30", len(allCases))
+	if len(allCases) != 31 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 31", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -587,6 +587,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	}
 
 	wantPlanning := []string{
+		"planning/candidate-fork-diverges",
 		"planning/ecmp-candidates-recorded",
 		"planning/lag-member-fault-keeps-surviving-flows",
 		"planning/mstp-vlan-instances-diverge",

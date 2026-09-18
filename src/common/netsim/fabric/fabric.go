@@ -538,6 +538,171 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	return fab, nil
 }
 
+// Fork returns an independent execution copy of the fabric at its current simulation point.
+// Construction inputs and immutable frames are shared; all simulation state is deep-copied.
+func (f *Fabric) Fork() *Fabric {
+	links := make([]Link, len(f.links))
+	for i, l := range f.links {
+		links[i] = cloneLink(l)
+	}
+
+	byEnd := make(map[Endpoint]linkEndRef, len(links)*2)
+	for i := range links {
+		byEnd[links[i].A.Endpoint] = linkEndRef{link: &links[i], end: &links[i].A, peer: &links[i].B}
+		byEnd[links[i].B.Endpoint] = linkEndRef{link: &links[i], end: &links[i].B, peer: &links[i].A}
+	}
+
+	var uncabled map[Endpoint]Uncabled
+	if f.uncabled != nil {
+		uncabled = make(map[Endpoint]Uncabled, len(f.uncabled))
+		for ep, u := range f.uncabled {
+			uncabled[ep] = u.Clone()
+		}
+	}
+
+	var switches map[string]*vswitch.Switch
+	if f.switches != nil {
+		switches = make(map[string]*vswitch.Switch, len(f.switches))
+		for name, sw := range f.switches {
+			switches[name] = sw.Fork()
+		}
+	}
+
+	var hostStacks map[string]*routing.Layer
+	if f.hostStacks != nil {
+		hostStacks = make(map[string]*routing.Layer, len(f.hostStacks))
+		for name, l := range f.hostStacks {
+			hostStacks[name] = l.Clone()
+		}
+	}
+
+	var queue []Arrival
+	if len(f.queue) > 0 {
+		queue = slices.Clone(f.queue)
+	}
+
+	var wakes map[string]time.Time
+	if f.wakes != nil {
+		wakes = maps.Clone(f.wakes)
+	}
+
+	var journeys map[FrameID]*Journey
+	if f.journeys != nil {
+		journeys = make(map[FrameID]*Journey, len(f.journeys))
+		for id, j := range f.journeys {
+			journeys[id] = j.shallowClone()
+		}
+	}
+
+	var entered map[FrameID]map[Endpoint]bool
+	if f.entered != nil {
+		entered = make(map[FrameID]map[Endpoint]bool, len(f.entered))
+		for id, eps := range f.entered {
+			entered[id] = maps.Clone(eps)
+		}
+	}
+
+	var cableCrossings map[Endpoint]uint
+	if f.cableCrossings != nil {
+		cableCrossings = maps.Clone(f.cableCrossings)
+	}
+
+	var busyUntil map[Endpoint]time.Time
+	if f.busyUntil != nil {
+		busyUntil = maps.Clone(f.busyUntil)
+	}
+
+	var egress map[Endpoint]*egressQueue
+	if f.egress != nil {
+		egress = make(map[Endpoint]*egressQueue, len(f.egress))
+		for ep, q := range f.egress {
+			egress[ep] = cloneEgressQueue(q, journeys)
+		}
+	}
+
+	var counters map[Endpoint]*Counters
+	if f.counters != nil {
+		counters = make(map[Endpoint]*Counters, len(f.counters))
+		for ep, c := range f.counters {
+			if c != nil {
+				cloned := c.Clone()
+				counters[ep] = &cloned
+			}
+		}
+	}
+
+	return &Fabric{
+		cfg:            f.cfg.Clone(),
+		evidence:       f.evidence,
+		links:          links,
+		linkTrust:      cloneLinkTrustSlice(f.linkTrust),
+		uncabled:       uncabled,
+		switches:       switches,
+		hostStacks:     hostStacks,
+		byEnd:          byEnd,
+		clock:          f.clock,
+		stepped:        f.stepped,
+		queue:          queue,
+		wakes:          wakes,
+		nextFrameID:    f.nextFrameID,
+		nextSeq:        f.nextSeq,
+		journeys:       journeys,
+		entered:        entered,
+		cableCrossings: cableCrossings,
+		busyUntil:      busyUntil,
+		egress:         egress,
+		counters:       counters,
+		err:            f.err,
+	}
+}
+
+func cloneLink(l Link) Link {
+	cp := l
+	cp.Cable = l.Clone()
+	cp.A = l.A.clone()
+	cp.B = l.B.clone()
+	return cp
+}
+
+func cloneLinkTrustSlice(trust []linkTrust) []linkTrust {
+	if len(trust) == 0 {
+		return nil
+	}
+	cp := make([]linkTrust, len(trust))
+	for i, t := range trust {
+		cp[i] = linkTrust{
+			issues: slices.Clone(t.issues),
+		}
+		if t.assumption != nil {
+			a := *t.assumption
+			cp[i].assumption = &a
+		}
+	}
+	return cp
+}
+
+func cloneEgressQueue(q *egressQueue, journeys map[FrameID]*Journey) *egressQueue {
+	if q == nil {
+		return nil
+	}
+	cp := *q
+	for i := 0; i < 8; i++ {
+		if len(q.pending[i]) > 0 {
+			pending := make([]queued, len(q.pending[i]))
+			for j, item := range q.pending[i] {
+				pending[j] = item
+				if journeys != nil && journeys[item.fid] != nil {
+					pending[j].journey = journeys[item.fid]
+				} else if item.journey != nil {
+					pending[j].journey = item.journey.shallowClone()
+				}
+			}
+			cp.pending[i] = pending
+		}
+	}
+	return &cp
+}
+
 func (f *Fabric) switchNames() []string {
 	names := make([]string, 0, len(f.cfg.Switches))
 	for name := range f.cfg.Switches {

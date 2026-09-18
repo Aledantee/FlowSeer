@@ -481,3 +481,46 @@ func (l *Layer) DiscardHeld() {
 		}
 	}
 }
+
+// NeighborEntry is one neighbor table entry reported by a layer snapshot.
+type NeighborEntry struct {
+	VRF       string
+	Interface string
+	Addr      netip.Addr
+	MAC       netaddr.MAC
+	State     NeighborState
+	HoldDepth int
+}
+
+// Neighbors returns a snapshot of every neighbor table entry across all VRFs,
+// ordered canonically by VRF name, then interface name, then address.
+func (l *Layer) Neighbors() []NeighborEntry {
+	var rows []neighborTableEntry
+	for vrfName, vs := range l.vrfs {
+		for key, entry := range vs.neighbors {
+			rows = append(rows, neighborTableEntry{vrfName: vrfName, key: key, entry: entry})
+		}
+	}
+	slices.SortFunc(rows, func(a, b neighborTableEntry) int {
+		if c := cmp.Compare(a.vrfName, b.vrfName); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.key.iface, b.key.iface); c != 0 {
+			return c
+		}
+		return a.key.addr.Compare(b.key.addr)
+	})
+
+	entries := make([]NeighborEntry, len(rows))
+	for i, r := range rows {
+		entries[i] = NeighborEntry{
+			VRF:       r.vrfName,
+			Interface: r.key.iface,
+			Addr:      r.key.addr,
+			MAC:       r.entry.mac,
+			State:     r.entry.state,
+			HoldDepth: len(r.entry.queue),
+		}
+	}
+	return entries
+}

@@ -195,6 +195,145 @@ func CasePlanningPortVLANChange() Case {
 	}
 }
 
+var (
+	candForkH1 = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x07, 0x01}
+	candForkH2 = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x07, 0x02}
+)
+
+// CasePlanningCandidateForkDiverges returns the planning case evaluating that
+// a candidate fork diverging mid-run leaves the original simulation's forwarding
+// state and outcome untouched.
+func CasePlanningCandidateForkDiverges() Case {
+	gigabit := gigabitAuto()
+
+	frame := expectedFact("bridge.frame", `src="02:00:00:00:07:01";dst="02:00:00:00:07:02";ether_type=2048;tags=[];payload_len=9`)
+	fdbHit := expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:07:02";present=true;port="1/1/2";static=true`)
+	macFact := expectedFact("fabric.mac", "02:00:00:00:07:02")
+	steps := []StepExpectation{
+		expectedStep("relay", trace.OpClassify, "default-vlan", trace.Subject{Kind: "vlan", Key: "0"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="1/1/1";fid=0;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:07:01"}, nil,
+			[]FactExpectation{expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:07:01";present=true;port="1/1/1";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:07:02"},
+			[]FactExpectation{frame}, []FactExpectation{fdbHit}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "1/1/2"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="1/1/2";member="";fid=0;eligible=true;reason=""`)}),
+		expectedStep("host", trace.OpFilter, "host.mac.own", trace.Subject{Kind: "host", Key: "h2"},
+			[]FactExpectation{expectedFact("fabric.vlan_tags", "[]"), macFact}, nil),
+	}
+
+	return Case{
+		ID:      "planning/candidate-fork-diverges",
+		UseCase: UseCasePlanning,
+		Question: "When a candidate simulation is forked mid-run and diverges, does its execution " +
+			"leave the source simulation's forwarding state and outcome untouched?",
+		FalseAnswer: "Running the candidate fork alters shared simulation state, corrupting the source simulation's answer",
+		CurrentResult: "The candidate fork faults a link and runs independently, while the source fabric continues " +
+			"to deliver the frame over its intact link with an identical trace",
+		ExpectedMetadata: &MetadataExpectation{Status: analysis.Complete, Scope: analysis.WholeScope()},
+		ExpectedOutcome:  trace.Forwarded,
+		ExpectedRules: []trace.RuleID{
+			trace.RuleID("unicast-hit"),
+			trace.RuleID("host.mac.own"),
+		},
+		ExpectedSubjects: []trace.Subject{
+			{Kind: "mac", Key: "02:00:00:00:07:02"},
+			{Kind: "host", Key: "h2"},
+		},
+		ExpectedFacts: []FactExpectation{fdbHit, macFact},
+		ExpectedSteps: steps,
+		Execute: func() (ExecutionResult, error) {
+			tbl, err := port.NewBuilder().Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			spec := fabric.ConstructionSpec{
+				Switches: map[string]vswitch.ConstructionSpec{
+					"sw1": {
+						NodeID: "sw1",
+						Config: vswitch.Config{
+							Ports:  tbl,
+							Bridge: &bridge.Config{},
+							Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit}},
+						},
+						Seeds: []bridge.Seed{{MAC: candForkH2, Port: "1/1/2", Lifetime: bridge.Static}},
+					},
+				},
+				Hosts: map[string]fabric.Host{
+					"h1": {Address: candForkH1, Ethernet: gigabit},
+					"h2": {Address: candForkH2, Ethernet: gigabit},
+				},
+				Cables: []fabric.Cable{
+					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
+					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+				},
+			}
+
+			fab, err := fabric.NewWithSpec(spec)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			// Advance clock slightly before fork.
+			fab.Run(5)
+
+			// Fork a candidate simulation mid-run.
+			cand := fab.Fork()
+
+			// The candidate fork diverges: fault the link to h2 and run on the candidate.
+			if err := cand.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+				return ExecutionResult{}, err
+			}
+			_, err = cand.Inject(fabric.Injection{
+				At:     cand.Snapshot().Clock,
+				Origin: fabric.Endpoint{Node: "h1"},
+				Frame: ethernet.Frame{
+					Dst:       candForkH2,
+					Src:       candForkH1,
+					EtherType: ethernet.EtherTypeIPv4,
+					Payload:   []byte("candidate"),
+				},
+			})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			cand.Run(20)
+
+			// Source fabric injects the planned frame and continues its run unaffected.
+			fid, err := fab.Inject(fabric.Injection{
+				At:     fab.Snapshot().Clock,
+				Origin: fabric.Endpoint{Node: "h1"},
+				Frame: ethernet.Frame{
+					Dst:       candForkH2,
+					Src:       candForkH1,
+					EtherType: ethernet.EtherTypeIPv4,
+					Payload:   []byte("fork-safe"),
+				},
+			})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			fab.Run(10)
+
+			journey := fab.Report()[fid-1]
+			fabricMetadata := fab.Metadata()
+
+			return ExecutionResult{
+				Outcome:        journeyHopOutcome(journey),
+				Reason:         journeyHopReason(journey),
+				Steps:          journeySteps(journey),
+				Metadata:       journey.Metadata,
+				Switch:         fab.Switch("sw1"),
+				Journey:        &journey,
+				FabricMetadata: &fabricMetadata,
+			}, nil
+		},
+	}
+}
+
 // CaseShadowingPartialUnknownPort returns the baseline topology shadowing case evaluating a partial model with an unknown port.
 func CaseShadowingPartialUnknownPort() Case {
 	var cat analysis.EvidenceCatalog
@@ -2310,9 +2449,10 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 	}
 }
 
-// RegisterBaselineCases populates registry with the three initial baseline cases.
+// RegisterBaselineCases populates registry with the baseline cases.
 func RegisterBaselineCases(registry *Registry) {
 	registry.MustRegister(CasePlanningPortVLANChange())
+	registry.MustRegister(CasePlanningCandidateForkDiverges())
 	registry.MustRegister(CaseShadowingPartialUnknownPort())
 	registry.MustRegister(CaseTroubleshootingUnicastForwarding())
 }

@@ -128,6 +128,34 @@ func (b *Bridge) Counters() Counters {
 	return b.counters
 }
 
+// Clone returns an independent copy of the bridge for executable forking.
+// Immutable configuration, scopes, and port definitions are shared; active
+// forwarding records, gates, counters, and dynamic entry counts are deep-copied.
+// Dynamic selector and resolver bindings are reset so the enclosing switch can
+// rebind them to its own layers.
+func (b *Bridge) Clone() *Bridge {
+	cp := &Bridge{
+		cfg:           b.cfg,
+		ports:         b.ports,
+		agingTime:     b.agingTime,
+		fdbScope:      b.fdbScope,
+		selectorScope: b.selectorScope,
+		resolverScope: b.resolverScope,
+		counters:      b.counters,
+		dynamic:       b.dynamic,
+	}
+	if b.fdb != nil {
+		cp.fdb = make(map[fdbKey]Entry, len(b.fdb))
+		for k, v := range b.fdb {
+			cp.fdb[k] = v
+		}
+	}
+	if b.gates != nil {
+		cp.gates = slices.Clone(b.gates)
+	}
+	return cp
+}
+
 // Validate verifies the invariants of the bridge configuration against the given port table.
 func (b *Bridge) Validate(ports port.Table) error {
 	return b.cfg.Validate(ports)

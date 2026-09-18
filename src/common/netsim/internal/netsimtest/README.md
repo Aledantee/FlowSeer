@@ -11,6 +11,10 @@ simulation library, not a public service, wire schema, benchmark, or UI.
 The corpus maintains executable scenarios locking the simulation contracts
 established across the library:
 
+- `planning/candidate-fork-diverges`: A candidate simulation is forked mid-run and
+  diverges (faulting a link and running candidate arrivals). Asserts that the
+  candidate's execution leaves the source simulation's forwarding state, clock,
+  and delivery trace untouched.
 - `planning/port-vlan-change`: Reconfigures an access switchport from VLAN 10 to
   VLAN 20 and asserts both forwarding sides, their ordered traces, and typed
   diff facts ([bridge.PVIDFact], [bridge.VLANsFact]) without string parsing.
