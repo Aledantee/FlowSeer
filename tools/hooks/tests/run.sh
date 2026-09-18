@@ -461,12 +461,39 @@ assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$mark_input"
 grep -qx 'main.go' "$fixture/.git/flowseer-verification-dirty"
 ok "edits mark the worktree dirty for the verifier"
 
-rm -f "$fixture/.git/flowseer-verification-dirty"
-bash_mark_input=$(jq -n --arg cwd "$fixture" --arg command "sed -i '' -e s/a/b/ main.go" \
-  '{cwd:$cwd,tool_input:{command:$command}}')
-assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$bash_mark_input"
-grep -qx '<Bash mutation; verify with --full>' "$fixture/.git/flowseer-verification-dirty"
-ok "Bash source mutations mark a full-scope verification"
+# A Bash call is judged by what it left in the tree, never by its text. The
+# first call stores the listing; the command lines below are chosen to be
+# the ones a pattern over the text got wrong in both directions.
+assert_executable tools/hooks/tree-state.sh
+bash_mark() {
+  jq -n --arg cwd "$fixture" --arg command "$1" '{cwd:$cwd,tool_input:{command:$command}}'
+}
+dirty_marker=$fixture/.git/flowseer-verification-dirty
+rm -f "$dirty_marker" "$fixture/.git/flowseer-tree-state"
+assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$(bash_mark true)"
+grep -qx 'main.go' "$dirty_marker"
+ok "the first Bash call marks every dirty path once"
+
+rm -f "$dirty_marker"
+assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" \
+  "$(bash_mark 'git log | grep patch > /scratch/out.json')"
+[[ ! -e $dirty_marker ]]
+ok "a Bash call that changed no file marks nothing, whatever its text"
+
+printf 'package main\n' >"$fixture/main.go"
+assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" \
+  "$(bash_mark 'python3 rewrite.py')"
+[[ $(cat "$dirty_marker") == main.go ]]
+ok "a Bash write is marked by path, with no full-scope line"
+
+rm -f "$dirty_marker"
+printf 'module fixture\n' >"$fixture/go.mod"
+assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$(bash_mark 'cp a b')"
+grep -qx 'go.mod' "$dirty_marker"
+grep -qx '<Bash mutation; verify with --full>' "$dirty_marker"
+ok "a Bash change to the module graph keeps the full-scope verification"
+# The marker stays: the Stop assertion below reads it.
+rm -f "$fixture/go.mod"
 
 # The format hook resolves gofumpt and goimports from $(go env GOPATH)/bin
 # when PATH does not carry it: a stub go names a GOPATH whose bin holds

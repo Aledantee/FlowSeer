@@ -57,11 +57,21 @@ no remote. The Claude worktree hook defaults to the sibling
 - Keep small sequential work in the main conversation. Delegate through the
   `delegate` skill, which names the worker and model for each kind of work:
   `repo-researcher` for a bounded read-only question, `independent-reviewer`
-  for a fresh pass over changed files, and an Orca worker for editing work
-  when an Orca runtime is reachable.
-- The project skills `plan`, `implement`, `review`, `compound`, `close`,
-  and `steer` under `.claude/skills/` carry the multi-step workflows; each
-  says when it applies and when to skip it. `close` merges into `master`
+  for a fresh pass over changed files, and a Herdr or Orca worker for
+  editing work when one of those runtimes is reachable.
+- At a decision that is the user's (which workflow step runs next, which
+  remedy to apply, a design choice the task does not settle), ask through
+  the runtime's question tool (`AskUserQuestion` in Claude Code): one
+  specific question, two to four concrete options, the recommended one
+  first with its reason. A report ends with that question, not with a
+  sentence about what the user could ask for next. Where the runtime has no
+  question tool, the report ends with the same question and options as
+  text. A delegated worker never asks; it states the blocker and stops.
+- The project skills `next`, `plan`, `implement`, `review`, `compound`,
+  `close`, `drive`, and `steer` under `.claude/skills/` carry the
+  multi-step workflows; each says when it applies and when to skip it.
+  `next` picks the work, and `drive` takes a plan through `implement`,
+  `review`, and `compound` in worker sessions. `close` merges into `main`
   only after `implement`, `review`, and `compound` have left their
   checkpoints and leaves the worktree ready for removal; removing it is a
   person's action. `steer` works the queue in `docs/agent-observations.md`
@@ -92,6 +102,10 @@ no remote. The Claude worktree hook defaults to the sibling
 
 4. Review the final diff against the request and repository guidance. Report the
    commands run, their results, and any residual risk.
+5. When the verified work is uncommitted or unmerged, end by asking what
+   happens to it (Agent behavior): commit it, commit and land it through
+   `close` (which asks for a review verdict and a `compound` outcome
+   first), or leave it as it is. Commit or merge only on that answer.
 
 ## Investigation discipline
 
@@ -132,6 +146,8 @@ authority: `go test -race ./...` enforces the same invariants.
   frontmatter; check when working in a documented area.
 - `README.md` is the human entry point; `docs/README.md` maps the documentation
   system of record.
+- `GOALS.md` — what the project is being built to do, one line per decided
+  goal with the record that states it; `next` reads it when no plan is open.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting to the codebase or discussing domain terms.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).

@@ -19,9 +19,34 @@ case "$git_dir" in
 esac
 
 if [[ -n $command ]]; then
-  if grep -Eq '(^|[;&|()[:space:]])(apply_patch|patch|sed[[:space:]]+-i|perl[[:space:]]+-pi|gofmt[[:space:]].*-w|gofumpt[[:space:]].*-w|goimports[[:space:]].*-w|buf[[:space:]]+(format[[:space:]].*-w|generate|dep[[:space:]]+update)|go[[:space:]]+mod[[:space:]]+(tidy|edit))([[:space:]]|$)|>[[:space:]]*[^[:space:]]+\.(go|proto|ts|tsx|js|jsx|py|sh|md|json|ya?ml)' <<<"$command"; then
+  # What a command wrote is read off the tree, not guessed from its text: a
+  # pattern over the command line missed python, cp and tee and flagged a
+  # grep for "patch". Every dirty path whose content hash is not in the
+  # stored listing changed since the last Bash call or the last verified
+  # run, and is marked like an editor edit. No stored listing marks every
+  # dirty path once, which in a fresh worktree is exactly what the command
+  # wrote.
+  state=$git_dir/flowseer-tree-state
+  current=$(mktemp "$git_dir/flowseer-tree-state.XXXXXX") || exit 0
+  if ! "$(dirname "$0")/tree-state.sh" "$root" >"$current"; then
+    rm -f "$current"
+    exit 0
+  fi
+  [[ -f $state ]] || : >"$state"
+  full=false
+  while IFS=$'\t' read -r _ rel; do
+    [[ -n $rel ]] || continue
+    printf '%s\n' "$rel" >>"$git_dir/flowseer-verification-dirty"
+    # A generator's output and the module graph reach packages no path
+    # names, so only these keep the module-wide run.
+    case "$rel" in
+      generated/*|*/generated/*|go.mod|go.sum|*/go.mod|*/go.sum|buf.lock|*/buf.lock) full=true ;;
+    esac
+  done < <(LC_ALL=C comm -13 "$state" "$current")
+  if [[ $full == true ]]; then
     printf '%s\n' '<Bash mutation; verify with --full>' >>"$git_dir/flowseer-verification-dirty"
   fi
+  mv "$current" "$state"
   exit 0
 fi
 
