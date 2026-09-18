@@ -4,13 +4,19 @@ type: feat
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 5: state ownership, derivation invalidation, and fork isolation - Plan
+
+> Implemented. 6 units, 2026-09-18. All units landed across state ownership
+> direction, origin and lifetime separation on retained records, diff coverage
+> gating, Switch/Bridge/Fabric fork cloning with isolated mutable state,
+> dependency-keyed retention reporting, and representative scale topology with
+> allocation gating.
 
 ## Goal
 
@@ -609,17 +615,17 @@ is a deliberate edit to that line, not a re-run.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path.
-- [ ] Every field of `Switch`, `Bridge` and `Fabric` carries a fork class, and
+- [x] The verifier is green for every changed path.
+- [x] Every field of `Switch`, `Bridge` and `Fabric` carries a fork class, and
       each class is asserted rather than recorded.
-- [ ] Every `Config` field in the two trees reaches its `Diff` and its retention
+- [x] Every `Config` field in the two trees reaches its `Diff` and its retention
       key, or sits in an exemption list with a reason.
-- [ ] `Derive` retains only on an equal dependency key, computes both keys from
+- [x] `Derive` retains only on an equal dependency key, computes both keys from
       constructed switches, and reports what it did.
-- [ ] Each touched package README and the direction record are updated in this
+- [x] Each touched package README and the direction record are updated in this
       change.
-- [ ] This plan's `status` is set with an outcome note under its title.
-- [ ] No plan labels appear in code, comments, or commit messages.
+- [x] This plan's `status` is set with an outcome note under its title.
+- [x] No plan labels appear in code, comments, or commit messages.
 
 ## Open questions
 
