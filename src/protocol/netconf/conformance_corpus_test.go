@@ -63,39 +63,49 @@ var netconfCorpus = []conformance.Row{
 	},
 	{
 		ID: "nc-t4-identity", Clause: "device identity reads",
-		Provenance: "IOS-XE lab device (pending)",
-		Behavior:   "hostname, serial, model, and OS version return as typed values via the generated native and device-hardware bindings",
-		Unit:       "netconf/lab", Status: conformance.Pending,
+		Provenance:  "Cisco CSR1000v running IOS-XE 17.3.2, lab device 2026-09-18",
+		Behavior:    "hostname, serial, model, and OS version return as typed values via the generated native and device-hardware bindings",
+		Adversarial: "identity read against a device whose models predate the vendored tree by six years (device native 2020-07-02, vendored 2026-02-01); all four fields still decode",
+		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 	{
-		ID: "nc-t4-invalid-rollback", Clause: "rejected candidate cleanup",
-		Provenance: "IOS-XE lab device (pending)",
-		Behavior:   "a staged invalid candidate change is rejected, discarded, and unlocked; read-back diff proves running unchanged",
-		Unit:       "netconf/lab", Status: conformance.Pending,
+		ID: "nc-t4-invalid-rollback", Clause: "rejected edit leaves running unchanged",
+		Provenance: "Cisco CSR1000v running IOS-XE 17.3.2, lab device 2026-09-18",
+		Behavior: "an out-of-range leaf is rejected with an rpc-error the library surfaces as its RPC error code; " +
+			"a read-back diff of the whole native subtree proves running unchanged. This device advertises " +
+			"writable-running and no candidate datastore, so the edit targets running directly and the proof is the " +
+			"read-back diff rather than a candidate discard",
+		Adversarial: "username privilege 99 against the uint8 0..15 range; device answers application invalid-value",
+		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "nc-t4-reversible-edit", Clause: "reversible config edit",
-		Provenance: "IOS-XE lab device (pending)",
-		Behavior:   "a reversible edit round-trips through candidate/commit and its revert, both proven by read-back",
-		Unit:       "netconf/lab", Status: conformance.Pending,
+		Provenance: "Cisco CSR1000v running IOS-XE 17.3.2, lab device 2026-09-18",
+		Behavior: "a create and its delete each round-trip against the running datastore, both proven by read-back; " +
+			"the device is left without the fixture username",
+		Adversarial: "a username created then removed with nc:operation=delete, read back after each half",
+		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "nc-t4-interface-walk", Clause: "typed interface state walk",
-		Provenance: "IOS-XE lab device (pending)",
-		Behavior:   "the interface-state Walker completes with typed rows on hardware",
-		Unit:       "netconf/lab", Status: conformance.Pending,
+		Provenance:  "Cisco CSR1000v running IOS-XE 17.3.2, lab device 2026-09-18",
+		Behavior:    "the interface-state Walker completes with typed rows on hardware",
+		Adversarial: "walk over a device serving ietf-interfaces 2014-05-08 while the bindings come from the vendored 26.11 tree; five interfaces decode",
+		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "nc-t4-watch-induced", Clause: "interface change detection",
-		Provenance: "IOS-XE lab device (pending; operator-induced toggle)",
-		Behavior:   "an interface state change between ticks emits exactly one Modified for that row on hardware",
-		Unit:       "netconf/lab", Status: conformance.Pending,
+		Provenance:  "Cisco CSR1000v running IOS-XE 17.3.2, lab device 2026-09-18 (operator-induced toggle)",
+		Behavior:    "an interface state change between ticks emits exactly one Modified for that row on hardware",
+		Adversarial: "GigabitEthernet3 taken out of shutdown once inside a three-minute window at a ten-second poll interval; exactly one Modified observed",
+		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "nc-t4-revision-drift", Clause: "model revision comparison",
-		Provenance: "IOS-XE lab device (pending)",
-		Behavior:   "device-advertised module revisions diff against the committed lockfile; drift surfaces as warnings",
-		Unit:       "netconf/lab", Status: conformance.Pending,
+		Provenance:  "Cisco CSR1000v running IOS-XE 17.3.2, lab device 2026-09-18",
+		Behavior:    "device-advertised module revisions diff against the committed lockfile; drift surfaces as warnings",
+		Adversarial: "493 device modules compared against the vendored 26.11 lockfile; drift reported for most of them, the widest being CISCO-RF-MIB at vendored 2023-07-13 against device 2005-09-01",
+		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 }
 

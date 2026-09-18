@@ -519,16 +519,15 @@ NETCONF/RESTCONF/gNMI). Confirmed met without hardware:
 - t1 container tier green against real netopeer2, clixon, and the
   FlowSeer gNMI reference target.
 
-**Remaining, blocked on lab access (KD9):** the lab-outcome corpus
-rows are deliberately `pending` (`nc-t4-*`, `rc-t4-*`, `gn-t4-*`,
-`rc-depth-fields-unverified`, `gn-aruba-set-capability`), so the
-build-tagged completeness gates stay red by design until a lab pass
-runs. To close: supply targets via `YANG_NETCONF_T4_TARGETS` /
-`YANG_RESTCONF_T4_TARGETS` / `YANG_GNMI_T4_TARGETS`, run
-`go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/test/integration/`,
-then flip those rows to `covered` with the observed detail (or record
-the R14 Aruba conversion here) and regenerate the CONFORMANCE.md
-goldens.
+**Remaining, blocked on lab access (KD9):** only the gNMI rows
+(`gn-t4-*`, `gn-aruba-set-capability`) are still `pending`, so the
+gNMI completeness gate stays red by design. RESTCONF closed on
+2026-08-21 and NETCONF on 2026-09-18; both sections below record what
+the devices gave. To close the rest: supply targets via
+`YANG_GNMI_T4_TARGETS`, run
+`go test -tags yang_integration_t4 ./src/protocol/gnmi/test/integration/`,
+then flip those rows to `covered` with the observed detail, or record
+the R14 Aruba conversion here.
 
 ### RESTCONF lab pass (2026-08-21) — AE1 + R12 + depth/fields verified on real ICX
 
@@ -569,6 +568,50 @@ Corpus rows `rc-t4-identity`, `rc-t4-reversible-edit`,
 CONFORMANCE.md goldens regenerated. NETCONF (`nc-t4-*`) and gNMI
 (`gn-t4-*`, `gn-aruba-set-capability`) lab legs remain hardware-gated
 per the DoD status above.
+
+---
+
+### NETCONF lab pass (2026-09-18) — all six `nc-t4-*` rows on real IOS-XE
+
+A Cisco CSR1000v running **IOS-XE 17.3.2** joined the lab at
+172.16.0.42 with `netconf-yang` already enabled. All six NETCONF t4
+legs run green against it through the public library, and the
+`netconf_conformance_complete` gate is green for the first time (12
+covered, 0 pending).
+
+- **AE1 (identity, IOS-XE leg):** all four fields decode typed —
+  hostname `LABRT42`, version `17.3`, serial `9SWNSMT6GZ1`, model
+  `CSR1000V`. No surface gap, unlike the FastIron leg.
+- **AE2 (rejected edit):** a username with privilege 99 against the
+  uint8 0..15 range is refused with `application invalid-value`, which
+  the library surfaces as its RPC error code, and a read-back diff of
+  the native subtree proves running unchanged.
+- **R12 (reversible edit):** a username created and then deleted with
+  `nc:operation=delete`, each half proven by read-back.
+- **Walker / Watcher:** five interfaces decode; bringing
+  GigabitEthernet3 out of shutdown once inside a three-minute window
+  emits exactly one `Modified` for that row.
+- **R8 (revision drift):** 493 device modules compared against the
+  committed lockfile. Drift is the rule rather than the exception —
+  the device serves `Cisco-IOS-XE-native` 2020-07-02 against the
+  vendored 26.11 tree's 2026-02-01, and the widest gap is
+  `CISCO-RF-MIB` at vendored 2023-07-13 against device 2005-09-01.
+  Identity and interface reads survive that gap intact.
+
+**Two device facts worth keeping.** First, this build advertises
+`writable-running` and **no** `candidate` capability, so the edits
+above target running directly and the rollback proof is the read-back
+diff, not a candidate discard — R1's capability-driven datastore
+choice is what makes the suite work unmodified. Second, enabling
+`netconf-yang feature candidate-datastore` to exercise the candidate
+path left the server accepting SSH on 830 while never sending a
+`<hello>`, through a sixty-second wait and with every
+`yang-management` process reporting Running; removing the feature
+restored the hello immediately. The candidate/commit and
+confirmed-commit paths therefore stay unproven on hardware. The lab's
+Junos 24.4R1 node at 172.16.0.43 does advertise `candidate:1.0`,
+`confirmed-commit:1.0` and `validate:1.0`, and is the obvious place to
+prove them — at the cost of a family KD2 does not name.
 
 ---
 
