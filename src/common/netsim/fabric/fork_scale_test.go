@@ -15,6 +15,10 @@ import (
 // Measured on 2026-09-18.
 const forkAllocationBaseline = 16794
 
+// forkAllocationFixedFloor is the measured heap allocation count of Fabric.Fork
+// at representative scale with zero queued arrivals. Measured on 2026-09-18.
+const forkAllocationFixedFloor = 4511
+
 func TestRepresentativeFabricEnvelope(t *testing.T) {
 	fab := netsimtest.RepresentativeFabric()
 	cfg := fab.Config()
@@ -120,18 +124,23 @@ func TestRepresentativeFabricForkAllocs(t *testing.T) {
 }
 
 func TestRepresentativeFabricForkAllocsQueueScaling(t *testing.T) {
-	fab4x := netsimtest.RepresentativeFabricAtQueueDepth(4 * netsimtest.RepresentativeScaleQueueDepth)
+	fab1x := netsimtest.RepresentativeFabric()
+	allocs1x := testing.AllocsPerRun(5, func() {
+		_ = fab1x.Fork()
+	})
 
+	fab4x := netsimtest.RepresentativeFabricAtQueueDepth(4 * netsimtest.RepresentativeScaleQueueDepth)
 	allocs4x := testing.AllocsPerRun(5, func() {
 		_ = fab4x.Fork()
 	})
 
-	// Allocations scale linearly with mutable queue elements; 4x queue depth
-	// must not exceed 4.0x baseline allocations.
-	const maxMultiple = 4.0
-	maxAllowed := maxMultiple * float64(forkAllocationBaseline)
+	// Incremental allocations scale linearly with queue depth (3x queue delta).
+	// Allow slight headroom for map bucket growth over the linear multiple.
+	incremental1x := allocs1x - float64(forkAllocationFixedFloor)
+	const linearMultiple = 3.05
+	maxAllowed := allocs1x + linearMultiple*incremental1x
 	if allocs4x > maxAllowed {
-		t.Fatalf("Fabric.Fork at 4x queue depth allocated %.0f objects, want <= %.0f (%.1fx baseline %d)",
-			allocs4x, maxAllowed, maxMultiple, forkAllocationBaseline)
+		t.Fatalf("Fabric.Fork at 4x queue depth allocated %.0f objects, want <= %.0f (incremental growth %.0f > %.2fx 1x incremental %.0f)",
+			allocs4x, maxAllowed, allocs4x-allocs1x, linearMultiple, incremental1x)
 	}
 }

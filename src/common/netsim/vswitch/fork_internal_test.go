@@ -64,7 +64,7 @@ var switchFieldClasses = map[string]forkClass{
 	"nodeID":                   classImmutableShared,
 	"metadata":                 classImmutableShared,
 	"missingSTP":               classImmutableShared,
-	"operErr":                  classDeepCopied,
+	"operErr":                  classImmutableShared,
 	"lagRebalanceHits":         classResetOnFork,
 	"mcastQueryUnobservedHits": classResetOnFork,
 	"neighborUnresolvedHits":   classResetOnFork,
