@@ -4,9 +4,10 @@
 // 	protoc        (unknown)
 // source: flowseer/runtime/v1/message.proto
 
-// The durable envelope used by the service-local bus. Its package name,
-// message name, field numbers, and enum numbers are persisted identities;
-// changing any of them requires a queued-data migration.
+// The durable envelope used by the service-local bus. Field numbers and
+// enum numbers are persisted identities; changing one requires a
+// queued-data migration. The package and message full name are not: the
+// wire format carries neither.
 
 package runtimev1
 

@@ -1,4 +1,4 @@
-# Service messages
+# Runtime messages
 
 The `flowseer.runtime.v1` package owns the record stored in every durable
 service mailbox. A command, an event delivery, and a reply use the same
@@ -24,9 +24,16 @@ For example, a reply to `edge/ingest/syslog` is persisted with kind
 encoding. Delivery resolves the name through the runtime's allowlist before it
 decodes or invokes a handler.
 
-The package and message full names, enum numbers, field numbers, and logical
-module paths are storage contracts. Renaming or renumbering one while queued
-records exist requires a migration or an explicit compatibility path. Binary
+Enum numbers, field numbers, and the logical module paths carried in
+`source_path` and `target_path` are storage contracts: renaming or
+renumbering one while queued records exist requires a migration or an
+explicit compatibility path. The package and message full name are not,
+because the wire format carries neither; the 2026-09-18 rename from
+`flowseer.service.v1` to this package shipped without one for exactly that
+reason. What does carry the envelope's persisted identity is
+`RuntimeManifest.envelope_type`; see the [network model structure
+record](../../../../../docs/architecture/2026-08-20-network-model-structure-direction.md)'s
+2026-09-18 amendment for what a mismatch there requires on startup. Binary
 readers also preserve unknown fields. This lets an older compatible binary
 round-trip an envelope written with fields it does not yet understand.
 

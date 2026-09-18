@@ -8,13 +8,15 @@ status: proposed-direction
 
 # Streaming Frame Transport - Direction
 
-FlowSeer has no streaming RPC and no chunked payload anywhere in `spec/proto/`.
-Every landed method is unary, and the one bulk `bytes` field in the tree carries
-a single whole protobuf message for the process-local bus
-(`spec/proto/flowseer/service/v1/message.proto`). Remote packet capture is the
-first consumer that cannot fit its result in one response, so the framing,
-the accounting, and the authorization rules are settled here rather than
-invented once per feature.
+Five streaming RPCs exist in `spec/proto/flowseer/` today, in `edge/dispatch`,
+`edge/capture`, `api/capture` (twice), and `edge/attach`, and
+`model/capture/v1/capture_chunk.proto` carries a chunked payload with its own
+bulk `bytes` field. The process-local bus's own bulk `bytes` field still
+carries a single whole protobuf message
+(`spec/proto/flowseer/runtime/v1/message.proto`). Remote packet capture was
+the first consumer that could not fit its result in one response, so the
+framing, the accounting, and the authorization rules are settled here rather
+than invented once per feature.
 
 ## A stream carries chunks, not packets
 
@@ -61,7 +63,7 @@ operator's response differs for each.
 ## A long stream re-proves the caller
 
 `SignedEdgeAssertion` is valid for at most sixty seconds after it is issued
-(`spec/proto/flowseer/api/edge/v1/assertion.proto`), and the edge README records
+(`spec/proto/flowseer/model/edge/v1/assertion.proto`), and the edge README records
 that streams are checked when they open. A capture that runs for ten minutes was
 therefore authorized once by a credential that expired nine minutes ago, and the
 verifier has no chance to notice a retired edge until the stream ends.
@@ -106,11 +108,16 @@ rule. The counters are the observable surface of a stream; the records are not.
 
 Every claim here is checkable in this repository; nothing external is relied on.
 
-- No streaming method and no chunked payload exist yet: every `rpc` under
-  `spec/proto/flowseer/` is unary, and the one bulk `bytes` field is
-  `spec/proto/flowseer/service/v1/message.proto`.
+- Streaming RPCs and a chunked payload exist —
+  `spec/proto/flowseer/edge/dispatch/v1/dispatch.proto`,
+  `spec/proto/flowseer/edge/capture/v1/capture_edge_service.proto`,
+  `spec/proto/flowseer/api/capture/v1/capture_service.proto` (twice), and
+  `spec/proto/flowseer/edge/attach/v1/edge_service.proto` each declare a
+  streaming `rpc`, and `spec/proto/flowseer/model/capture/v1/capture_chunk.proto`
+  carries the chunked payload. The process-local bus's own bulk `bytes`
+  field is `spec/proto/flowseer/runtime/v1/message.proto`.
 - The assertion window, the nonce, and the replay check —
-  `spec/proto/flowseer/api/edge/v1/assertion.proto`, where the
+  `spec/proto/flowseer/model/edge/v1/assertion.proto`, where the
   `edge_assertion.short_lived` rule holds `expires_at` within 60 seconds of
   `issued_at`.
 - Streams are authorized once, and procedure and body are bound —
@@ -131,9 +138,7 @@ The `edge_assertion.short_lived` rule and the "streams are checked when they
 open" language now live in
 `spec/proto/flowseer/model/edge/v1/assertion.proto` and
 `spec/proto/flowseer/model/edge/v1/README.md`. The assertion's `procedure`
-example now names the `edge/attach` route. The bulk `bytes` field this
-record cites in its opening paragraph and its Sources list now lives in
-`spec/proto/flowseer/runtime/v1/message.proto`. See [the network model
+example now names the `edge/attach` route. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
 
@@ -142,14 +147,40 @@ record](2026-08-20-network-model-structure-direction.md#the-package-tree).
 The claim that the assertion "does not bind the RPC method or the body" was
 struck in place, along with the Sources citation of "does not bind the RPC
 method or the request body". This record quoted `api/edge/v1/README.md` as it
-stood on the branch where the document was written. The binding of `procedure`
-and `body_sha256`, together with the README correction documenting both checks,
-had already landed on 2026-09-05 in `3d06f2a9`. The claim was therefore false
-on the merged tree from the day this record landed rather than made false by the
-package moves.
+stood on the branch where the document was written. The field binding itself
+landed on 2026-09-05 in `3d06f2a9`, which added `procedure` and
+`body_sha256` to `assertion.proto`, its generated Go, and
+`test/conformance/proto/api_edge_rules_test.go`; the README correction
+documenting both checks landed the same day, one commit earlier, in
+`070d7d21`. The claim was therefore false on the merged tree from the day
+this record landed rather than made false by the package moves.
 
 The correction leaves one question open: a re-assertion frame arrives
-mid-stream, where there is no second HTTP body to hash and the procedure is the
-one the stream opened with. What `procedure` and `body_sha256` bind to on a
-mid-stream re-assertion frame is unsettled and requires a design decision
-before the first streaming RPC lands.
+mid-stream, where there is no second HTTP body to hash and the procedure is
+the one the stream opened with, so what `procedure` and `body_sha256` bind to
+on a re-assertion is still unsettled. `CaptureEdgeService.UploadCapture`
+(`spec/proto/flowseer/edge/capture/v1/capture_edge_service.proto`) is that
+first streaming RPC, and its README already commits to an answer without
+arguing for one: every re-assertion frame is verified exactly as the opening
+assertion, procedure and body hash included
+(`spec/proto/flowseer/edge/capture/v1/README.md`). This record does not
+settle whether reusing the opening call's values is the right rule, only
+that the capture path already assumes it.
+
+### 2026-09-18 — the bus envelope's package took its final name
+
+`service/v1` is now `runtime/v1`. The bulk `bytes` field this record cites
+in its opening paragraph and its Sources list now lives in
+`spec/proto/flowseer/runtime/v1/message.proto`. See [the network model
+structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree).
+
+### 2026-09-18 — streaming already landed the day this record was written
+
+The opening paragraph and the first Sources bullet said no streaming RPC and
+no chunked payload existed anywhere. That was true of the merged tree when
+this record landed at 15:04 on 2026-09-09; the capture chunk messages and
+the two capture services landed less than an hour later, at 16:00 the same
+day, in `e4df8a73`. The premise was overtaken within the hour, not wrong
+when written, and both places now state what exists: five streaming RPCs
+and the chunked payload in `model/capture/v1/capture_chunk.proto`.

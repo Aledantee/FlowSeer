@@ -948,11 +948,15 @@ Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md`.
 ### 2026-09-18 — the process-private roots take their names
 
 `service/v1` is now `runtime/v1`, and `store/edge` is now `store/agent`. The
-rename changes what a local bus store persists: a store written before it
-carries the old package name in its `RuntimeManifest`'s `envelope_type`
-field and in its queued `Message` records' full name, neither of which
-resolves after the rename, and no migration is written for it — a
-deployment holding one discards its bus store directory, because every
-store in existence belongs to a test or a lab run. `runtime/` remains the
-one root outside the import order in
+rename changes what a local bus store's `RuntimeManifest` persists: a store
+written before it carries the old package name only in `envelope_type`, and
+`reconcileRuntimeManifest` refuses to start once `manifestAdditionCompatible`
+finds that value stale (`src/common/service/manifest.go`). A queued
+`Message` record is not affected the same way: protobuf's wire format
+carries no package or message name, so `TestMessageV1Compatibility` decodes
+an unmodified pre-rename fixture into the renamed type and passes
+(`src/common/service/message_compat_test.go`). No migration is written for
+the manifest check, so a deployment holding a pre-rename store discards its
+bus store directory, because every store in existence belongs to a test or a
+lab run. `runtime/` remains the one root outside the import order in
 `test/conformance/proto/layering_test.go`.

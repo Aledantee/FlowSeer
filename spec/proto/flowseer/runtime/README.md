@@ -1,9 +1,10 @@
-# Service Mailbox and Runtime Records
+# Process-Local Runtime Records
 
 ## Identity
 
 The `runtime/` root holds process-local runtime messages, durable mailbox
-envelopes, and broker reconciliation records.
+envelopes, and broker reconciliation records. The name avoids suggesting a
+Connect RPC service, unlike `api/` and `edge/`.
 
 ## Admission
 

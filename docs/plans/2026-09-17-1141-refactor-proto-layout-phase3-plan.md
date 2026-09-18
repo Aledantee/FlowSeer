@@ -66,8 +66,9 @@ The parent's Decisions hold. Specific to this phase:
   rule tests for the Connect services reads as one of those.
 - Ruled: the streaming-frame record's claim that the edge assertion "does
   not bind the RPC method or the body" is corrected in this phase, in place.
-  Why: the binding landed on 2026-09-05 in `3d06f2a9` together with the
-  `api/edge/v1/README.md` correction, four days before
+  Why: the field binding landed on 2026-09-05 in `3d06f2a9`, and the
+  `api/edge/v1/README.md` correction landed the same day, one commit
+  earlier, in `070d7d21` — four days before
   `docs/architecture/2026-09-09-streaming-frame-transport-direction.md` was
   written on a branch that did not have it, so the record was false on the
   merged tree from the day it landed and this refactor did not make it so.
@@ -79,13 +80,19 @@ The parent's Decisions hold. Specific to this phase:
   HTTP body to hash — stays a question for a person, under Open questions.
   Cost if wrong: a person disagrees with the wording of one paragraph and
   one Sources bullet in a proposed record, and rewrites them.
-- Renaming `flowseer.service.v1` breaks a persisted local bus store. A store
-  written before U2 carries `envelope_type: "flowseer.service.v1.Message"`
-  in its `RuntimeManifest` and queued `Message` records whose descriptor
-  name no longer resolves. Nothing in the repository migrates them, and
-  `AGENTS.md` says to state such a break rather than shim it: a deployment
-  holding one discards its bus store directory. Why this is cheap here:
-  every store in existence belongs to a test or a lab run.
+- Renaming `flowseer.service.v1` breaks a persisted local bus store's
+  `RuntimeManifest`. A store written before U2 carries `envelope_type:
+  "flowseer.service.v1.Message"`, and `reconcileRuntimeManifest` refuses to
+  start once `manifestAdditionCompatible` finds that value stale:
+  `migrationRequired()` demands a migration this plan does not write. Queued
+  `Message` records are not broken the same way: the wire format carries no
+  package or message name, so `TestMessageV1Compatibility` decodes an
+  unmodified pre-rename fixture into the renamed type without a migration —
+  this plan wrongly said their descriptor name "no longer resolves"; nothing in
+  a persisted `Message` names a descriptor at all. `AGENTS.md` says to state a
+  break rather than shim it: a deployment holding a pre-rename manifest
+  discards its bus store directory. Why this is cheap here: every store in
+  existence belongs to a test or a lab run.
 
 ## Requirements
 
