@@ -794,3 +794,114 @@ func TestSubscribeCaptureAssignments_StopIsOwedOnlyForAStartedSession(t *testing
 		t.Fatalf("expected a stop for the started session %s, got: %s", startedID, got)
 	}
 }
+
+// One pcapng per session is written by one writer. Two streams uploading the
+// same session would interleave their packets into it, and each would discard
+// the other's partial file on its way out.
+func TestUploadCapture_RefusesASecondConcurrentStreamForOneSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	sessID := "0192e6a0-0000-7000-8000-00000000001b"
+	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{})
+	client := newUploadServer(t, edgeSvc)
+
+	openWithChunk := func(payload string) *connect.ClientStreamForClient[captureedgev1.UploadCaptureRequest, captureedgev1.UploadCaptureResponse] {
+		t.Helper()
+		stream := client.UploadCapture(ctx)
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+			Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+		}.Build()); err != nil {
+			t.Fatalf("send opening assertion: %v", err)
+		}
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+			Chunk: modelcapturev1.CapturePacketChunk_builder{
+				Session:       cfg.GetRef(),
+				FirstSequence: proto.Uint64(1),
+				Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte(payload))},
+			}.Build(),
+		}.Build()); err != nil {
+			t.Fatalf("send chunk: %v", err)
+		}
+		return stream
+	}
+
+	first := openWithChunk("first stream")
+	// The first stream's claim is taken while the handler processes its
+	// chunk; wait for the session to reach RUNNING, which that same block does.
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		rec, _, err := h.store.GetSession(ctx, sessID)
+		if err != nil {
+			t.Fatalf("get session: %v", err)
+		}
+		if rec.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	second := openWithChunk("second stream")
+	if _, err := second.CloseAndReceive(); connect.CodeOf(err) != connect.CodeAlreadyExists {
+		t.Fatalf("expected CodeAlreadyExists for a second concurrent upload, got: %v", err)
+	}
+
+	cancel()
+	_, _ = first.CloseAndReceive()
+}
+
+// A partial pcapng has no artifact descriptor, so the retention sweep — which
+// walks session records — can never reach it. Leaving one behind would put
+// captured payload outside retention for good.
+func TestUploadCapture_AbandonedStreamLeavesNoPartialArtifact(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	sessID := "0192e6a0-0000-7000-8000-00000000001c"
+	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{})
+	client := newUploadServer(t, edgeSvc)
+
+	stream := client.UploadCapture(ctx)
+	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+		Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+	}.Build()); err != nil {
+		t.Fatalf("send opening assertion: %v", err)
+	}
+	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+		Chunk: modelcapturev1.CapturePacketChunk_builder{
+			Session:       cfg.GetRef(),
+			FirstSequence: proto.Uint64(1),
+			Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte("packet 1"))},
+		}.Build(),
+	}.Build()); err != nil {
+		t.Fatalf("send chunk: %v", err)
+	}
+
+	// End the stream without a final chunk.
+	if _, err := stream.CloseAndReceive(); err == nil {
+		t.Fatal("expected an error for a stream that ended before its final chunk")
+	}
+
+	if h.store.ArtifactExists(sessID) {
+		t.Fatal("an abandoned upload left a partial pcapng the retention sweep cannot reach")
+	}
+	rec, _, err := h.store.GetSession(ctx, sessID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if got := rec.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+		t.Fatalf("expected the abandoned session to be FAILED, got: %v", got)
+	}
+}

@@ -659,13 +659,13 @@ func TestAppendPacketsRefusesToOverwriteAFinalizedArtifact(t *testing.T) {
 
 	err = s.AppendPackets(ctx, testSessionID, linkType, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("second capture"))})
-	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeConflict {
-		t.Fatalf("AppendPackets after finalization got %v, want ErrCodeConflict", err)
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeArtifactExists {
+		t.Fatalf("AppendPackets after finalization got %v, want ErrCodeArtifactExists", err)
 	}
 
 	_, err = s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
-	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeConflict {
-		t.Fatalf("FinalizeArtifact a second time got %v, want ErrCodeConflict", err)
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeArtifactExists {
+		t.Fatalf("FinalizeArtifact a second time got %v, want ErrCodeArtifactExists", err)
 	}
 
 	var size int64

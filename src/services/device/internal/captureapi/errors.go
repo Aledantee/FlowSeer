@@ -27,6 +27,10 @@ var ClientErrors = connecterr.Table{
 
 	ErrCodeConflict: {Code: connect.CodeAborted, UserMsg: "this capture session is being written concurrently; retry"},
 
+	// Retrying this one never helps, so it must not borrow the conflict
+	// above: the capture it names is already stored and is not reopened.
+	ErrCodeArtifactExists: {Code: connect.CodeFailedPrecondition, UserMsg: "this session's capture has already been stored"},
+
 	ErrCodeStore:  {Code: connect.CodeUnavailable, UserMsg: "the capture session's record cannot be reached right now"},
 	ErrCodeDecode: {Code: connect.CodeInternal},
 }

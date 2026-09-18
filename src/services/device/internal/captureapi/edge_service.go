@@ -140,6 +140,7 @@ type EdgeService struct {
 
 	mu       sync.Mutex
 	watchers map[chan struct{}]struct{}
+	uploads  map[string]struct{}
 }
 
 // Ensure EdgeService satisfies CaptureEdgeServiceHandler.
@@ -184,7 +185,30 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 		clock:           clock,
 		log:             logger,
 		watchers:        make(map[chan struct{}]struct{}),
+		uploads:         make(map[string]struct{}),
 	}
+}
+
+// claimUpload reserves a session for one upload stream, reporting whether this
+// stream got it. One pcapng file is written per session, by one writer, so two
+// streams uploading the same session would interleave their packets into it
+// and each would discard the other's partial file on its way out. Central
+// authenticates the edge but does not trust it to open a session once.
+func (s *EdgeService) claimUpload(sessionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, held := s.uploads[sessionID]; held {
+		return false
+	}
+	s.uploads[sessionID] = struct{}{}
+	return true
+}
+
+func (s *EdgeService) releaseUpload(sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.uploads, sessionID)
 }
 
 // NotifyStoreChange alerts all active assignment streams of a session state transition.
@@ -296,6 +320,17 @@ func (s *EdgeService) UploadCapture(
 ) (*connect.Response[captureedgev1.UploadCaptureResponse], error) {
 	procedure := capturev1connect.CaptureEdgeServiceUploadCaptureProcedure
 
+	// The window is enforced twice because neither check alone covers both
+	// ways an edge can exceed it. The transport deadline closes the read for
+	// an edge that goes silent, which the loop below could never observe; the
+	// arithmetic on lastAssertionAt covers an edge that keeps sending chunks
+	// without ever re-asserting, and is what remains where no transport
+	// supports a deadline. The deadline is armed here, before the opening
+	// read, so a caller that opens the stream and says nothing cannot hold it
+	// without ever being authenticated.
+	extendDeadline := s.deadlineExtender(ctx)
+	extendDeadline()
+
 	// The stream must open with a SignedEdgeAssertion.
 	if !stream.Receive() {
 		if err := stream.Err(); err != nil {
@@ -332,15 +367,17 @@ func (s *EdgeService) UploadCapture(
 	// the arithmetic on lastAssertionAt covers an edge that keeps sending
 	// chunks without ever re-asserting, and is the only check where no
 	// transport supports a deadline.
-	extendDeadline := s.deadlineExtender(ctx)
-	extendDeadline()
-
 	// An upload stream that ends without a final chunk leaves a partial
-	// pcapng and an open descriptor behind; both are this handler's to
-	// release, because nothing else knows the stream is over.
+	// pcapng, an open descriptor and a claimed session behind; all three are
+	// this handler's to release, because nothing else knows the stream is over.
 	finalized := false
+	claimed := false
 	defer func() {
-		if !finalized && sessionID != "" {
+		if !claimed {
+			return
+		}
+		s.releaseUpload(sessionID)
+		if !finalized {
 			s.store.AbandonWriter(sessionID)
 		}
 	}()
@@ -407,6 +444,11 @@ func (s *EdgeService) UploadCapture(
 			if captureIsOver(rec.GetState()) {
 				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("capture session has already stopped"))
 			}
+
+			if !s.claimUpload(sessionID) {
+				return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("another stream is already uploading this capture session"))
+			}
+			claimed = true
 
 			if rec.GetState().HasLinkType() {
 				linkType = rec.GetState().GetLinkType()

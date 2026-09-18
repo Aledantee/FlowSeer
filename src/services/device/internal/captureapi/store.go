@@ -32,6 +32,7 @@ var (
 	ErrCodeNotFound         = errs.NewCode("captureapi/not_found")
 	ErrCodeArtifactNotFound = errs.NewCode("captureapi/artifact_not_found")
 	ErrCodeBadSession       = errs.NewCode("captureapi/bad_session")
+	ErrCodeArtifactExists   = errs.NewCode("captureapi/artifact_exists")
 )
 
 const (
@@ -227,17 +228,32 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	return nil
 }
 
-// AbandonWriter closes and forgets the pcapng writer for a session whose
-// upload stream ended without a final chunk, leaving the partial file on disk
-// for the retention sweep or an operator delete to claim. Without it every
-// broken upload would leak an open descriptor for the life of the process.
+// AbandonWriter discards the partial pcapng of a session whose upload stream
+// ended without a final chunk: it closes the writer, forgets it, and unlinks
+// the file.
+//
+// Both halves are load-bearing. A writer nobody closes leaks a descriptor for
+// the life of the process. A partial file is worse: it holds captured payload
+// and has no artifact descriptor, so the sweep — which walks session records —
+// can never reach it, and it would sit outside retention forever. Unlinking it
+// also frees the path for a session that may still upload, since the artifact
+// path refuses to open over an existing file.
+//
+// It unlinks only when it held the writer, which is what keeps it away from a
+// finalized artifact: finalization drops the writer first.
 func (s *Store) AbandonWriter(sessionID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if w, ok := s.writers[sessionID]; ok {
-		_ = w.file.Close()
-		delete(s.writers, sessionID)
+	w, ok := s.writers[sessionID]
+	if !ok {
+		return
+	}
+	_ = w.file.Close()
+	delete(s.writers, sessionID)
+
+	if path, err := s.artifactPath(sessionID); err == nil {
+		_ = os.Remove(path)
 	}
 }
 
@@ -261,7 +277,7 @@ func (s *Store) AppendPackets(_ context.Context, sessionID string, linkType netc
 		// destroy the bytes its recorded digest and packet count describe.
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if errors.Is(err, os.ErrExist) {
-			return errs.From(err).Code(ErrCodeConflict).Attr("session", sessionID).Msg("artifact file already exists for this session")
+			return errs.From(err).Code(ErrCodeArtifactExists).Attr("session", sessionID).Msg("artifact file already exists for this session")
 		}
 		if err != nil {
 			return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("create artifact file")
@@ -327,7 +343,7 @@ func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType n
 		// capture whose writer this Store no longer holds.
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if errors.Is(err, os.ErrExist) {
-			return nil, errs.From(err).Code(ErrCodeConflict).Attr("session", sessionID).Msg("artifact file already exists for this session")
+			return nil, errs.From(err).Code(ErrCodeArtifactExists).Attr("session", sessionID).Msg("artifact file already exists for this session")
 		}
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("create empty artifact file")
