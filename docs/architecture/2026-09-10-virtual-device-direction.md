@@ -77,6 +77,11 @@ ownership across specialized packages:
   rate, and arrives after the cable's propagation. The run halts after a
   caller's step budget, and a snapshot exposes the clock, the frames in flight,
   and every device's forwarding database, port states, and counters as values.
+  A snapshot exposes none of it as something a caller can step forward: it
+  names what the run holds at that instant and nothing else. A fork is what a
+  caller steps instead, a running copy of the whole fabric that continues the
+  same run from that instant rather than starting a new one the way `Derive`
+  does; "State ownership, forking, and snapshots" below states the copy rule.
   Every frame's processing is a journey: hops, cable crossings, deliveries,
   and drops with reasons.
   This is the event model of ns-3 without goroutines. The queue also
@@ -170,6 +175,75 @@ To reproduce simulations without drift, `vswitch.ConstructionSpec` and
 `fabric.ConstructionSpec` pair normalized configuration with non-configuration
 seeds (such as preloaded forwarding database entries). Re-running a simulation
 from its construction specification yields identical state and trace records.
+
+### State ownership, forking, and snapshots
+
+A snapshot, a fork, and `Derive` answer three different questions about a
+switch or a fabric's execution history. A snapshot is a read-only report: it
+exposes what a device or a run holds — the clock, the frames in flight, each
+device's forwarding database, port and neighbor state, and held-frame depth
+— as values a caller can compare but never step forward. A fork is an
+executable copy: a second `Switch` or `Fabric` that starts identical to its
+source and diverges under its own steps from there. It is the input a
+current-against-candidate comparison will take once one exists;
+`fabric.Compare`'s present precondition that neither fabric has injected a
+frame is the next phase's to lift, not this one's. `Derive` is neither. It
+rebuilds a switch or a fabric from a target construction specification,
+carries forward only the runtime state each capability layer's retention key
+says still applies, and starts a fresh run rather than continuing one.
+
+`Fork`'s copy rule follows from what each field is, not from a rule written
+once and trusted. Construction fixes some fields and execution mutates the
+rest, so every field of `Switch`, `Bridge`, and `Fabric` carries one of three
+classes. An `immutableShared` field is unwritten after construction; the
+fork points at the same value the source does. A `deepCopied` field is
+mutated by execution; the fork gets its own copy the source's later writes
+cannot reach. A `resetOnFork` field is a binding back to the switch or
+bridge that holds it — the bridge's spanning-tree gate, its LAG selector,
+its multicast resolver — and is rebound to the fork's own layers rather than
+copied, because a copied binding would have the fork asking the source for a
+LAG member or a multicast resolution. Each class has its own assertion:
+pointer identity for the first, a mutation probe for the second, a
+zero-value check for the third before the switch rebinds it. A table
+recording a class per field and never checking it back is a defect this
+phase has already seen once; see [one slot, two
+roles](../solutions/architecture-patterns/one-slot-two-roles-is-a-defect-class-not-a-defect.md).
+
+An `ethernet.Frame` is an immutable value: nothing in the library writes
+into one after it is built. Every copy path shares the frame instead of
+copying it — `Fork`'s queues, egress queues, hold queues, and journeys, and
+`Snapshot`'s reported frames — because copying every queued and held payload
+would be the dominant cost at the declared scale and nothing needs the copy.
+`Report()` is the one exception: it deep-copies frames because it hands a
+journey to a caller outside the library, a contract already paid for before
+this phase.
+
+A retained record's provenance and its lifetime are two separate axes.
+`Origin` is `Configured` or `Observed`, naming who installed the record.
+`Lifetime` is `Static` or `Aging`, naming whether it expires on its own. The
+two vary independently: a configured record can still age out, and an
+observed one can be pinned past the interval that would otherwise expire it.
+A single `Static` boolean cannot say both at once, which is why
+`restoreMulticastState` used to synthesize a fabricated IGMP query just to
+get an aging router port back — there was no way to install an observed
+record with its own expiry directly. A record with only one reachable
+origin, such as `mcast.Entry`, keeps no `Origin` field; its package README
+says why, because splitting an axis nothing ever disagrees about would add a
+field with one value forever.
+
+Retention is keyed by an explicit per-layer dependency key, not by comparing
+a layer's own configuration. A layer's runtime state can depend on more than
+its own `Config`: spanning tree's roles depend on link state and speed that
+live on the port table, and LAG's member selection depends on the switch's
+base MAC, which reaches the layer only as a normalization input. Each
+capability layer exports `RetentionKey(...) string`, a canonical encoding of
+every normalized input its runtime state actually depends on, and `Derive`
+retains a layer only when the current switch's key and the target's agree.
+Both keys are computed from constructed switches, never from a raw target
+specification, because a raw spec has not yet run through the normalization
+and MAC assignment that decide what a field becomes; see [validate and
+derive judge what New
+builds](../solutions/architecture-patterns/validate-and-derive-judge-what-new-builds.md).
 
 ### Uncertainty localization and model loading
 
@@ -693,6 +767,11 @@ The following areas remain outside the foundation established here:
   generation search spaces, and multi-journey exploration budgets.
 - **Convergence guarantees**: automated loop detection and settling criteria
   across active fabric runs.
+- **The runtime cable fault lives in `fabric.Config`**: `SetFault` writes
+  `Config.Cables[idx].Fault` in place, which is exactly why a fork cannot
+  share `cfg` and must deep-copy it instead of treating it as construction
+  input. Moving the fault out of the configuration is worth doing and is not
+  this phase's subject.
 - **Comparison, fingerprints, failure cones, and blame**: dependency graphs,
   blast-radius cones, configuration change fingerprints, and automated blame
   attribution for forwarding regressions.
