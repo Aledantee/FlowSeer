@@ -20,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -89,7 +90,10 @@ func main() {
 	}
 
 	cmp := vswitch.Compare(sw, nextSw, now, "1/1/1", frame)
-	fmt.Printf("Same forwarding: %t\n", cmp.Same)
+	fmt.Printf("Disposition: %s\n", cmp.Disposition)
+	if cmp.Disposition == analysis.Different {
+		fmt.Printf("Difference: %s\n", cmp.Difference)
+	}
 }
 ```
 
