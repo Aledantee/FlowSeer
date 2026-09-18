@@ -36,7 +36,7 @@ cd "$dir" || exit 2
 case "$cli" in
   claude)
     env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" --model "$model" \
-      --output-format json --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
+      ${effort:+--effort "$effort"} --output-format json --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
   codex)
     codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
       -m "$model" ${effort:+-c model_reasoning_effort="$effort"} "$prompt" >"$raw" 2>"$raw.err" </dev/null ;;

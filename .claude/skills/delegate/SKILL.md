@@ -53,6 +53,9 @@ Pinning by pool: `claude` and `codex` take `--model` and `--effort`;
 `google` takes `--model gemini-3.8-flash-<effort>` on the `agy` launch;
 `go` and `zen` take the opencode agent named in the registry's
 `opencode_agents`, whose model is fixed in `~/.config/opencode/opencode.json`.
+A model whose `effort` list lacks the role's level gets the highest level it
+lists: `execute` routes at `xhigh`, and `gemini-3.8-flash-xhigh` is not a
+model id, so that lane launches as `gemini-3.8-flash-high`.
 The Herdr wrapper puts each of these on the worker's launch line from
 `--cli`, `--model`, `--effort`, and `--agent`; the Agent tool takes `model`.
 Name the model on every worker; never `inherit` or unset, and never the

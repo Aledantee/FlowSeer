@@ -54,3 +54,19 @@ Suggested change: when a change amends a record, check the record's premises
 against the tree, not only its paths and full names. A record whose paths are
 current and whose premise is false is worse than a stale one, because the fresh
 paths make the reader trust the premise.
+
+## 2026-09-18 tune: a calibration lane's effort and base commit were never recorded
+Skill or agent: `.claude/skills/tune/SKILL.md`, step 4, and
+`references/calibration.md`.
+What happened: `bench.sh` accepted `--effort` and dropped it on the `claude`
+branch, so the Claude lanes of the 2026-09-09 calibration ran at the CLI's
+default effort while the registry routes those roles at `xhigh`. Step 4
+writes `local.<role>: {pass, wall_s, cost_usd}` with no effort, run count,
+or base commit, so the registry could not show the mismatch, and
+`calibration.md`'s rule that a calibration names its base commit was not
+followed: `evidence.md` names none. A user who doubted one routing decision
+found it nine days later. The step was followed as written, apart from the
+base commit.
+Suggested change: have step 4 record `effort`, `runs`, and `base` in every
+`local` result, run each lane at the effort of the role it is graded for,
+and have `bench.sh` exit 2 on an `--effort` a CLI branch cannot apply.

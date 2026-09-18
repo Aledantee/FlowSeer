@@ -45,3 +45,10 @@ One line per claim the registry relies on: model, claim, source, date read.
 Execute (7 hidden acceptance tests, `-race`, verifier): Gemini 3.8 Flash high 7/7 in 201 s ($0.56 list, plan-covered); Kimi K3 on Go 7/7 in 1,235 s ($0.82 of the Go window); GPT-5.6 Sol high 7/7 on the staged files, uncommitted after 110 min because the user's global compound-engineering Codex plugin ran its own review workflow; Claude Sonnet 5 6/7 in 269 s ($0.69 list, plan-covered) with a deadlock on the source-error path that its own tests hid by hand-calling `Done`; GLM-5.3 on Go 0/7, 32K reasoning tokens then `finish: length` with no tool call (902 s, $0.17).
 
 Review of the Sonnet diff (known deadlock as ground truth): Opus 5 found it plus one valid extra (148 s, $0.66); Sol found it plus four (530 s, ~$3.5 list); Gemini 3.8 Flash found it plus four (275 s, $0.48); Sonnet 5 missed it and asserted no forwarder can block (140 s, $0.31); Qwen3.8-Max on Go missed it, one valid medium (1,669 s, $0.63).
+
+Limits of this calibration, found 2026-09-18 by reading `bench.sh` and this file; the raw outputs were not kept:
+
+- The three Claude lanes (Sonnet 5 execute, Sonnet 5 review, Opus 5 review) ran at the CLI's default effort. `bench.sh` accepted `--effort` and did not pass it to `claude -p`; it does now. Gemini and Sol ran at `high`. No lane ran at `xhigh`, the level the `execute` and `review-unit` roles route at, so Sonnet 5 at `xhigh` is unmeasured in either direction.
+- Each lane ran once. The fit-set changes made on these results (GLM-5.3 out of `execute`, Sonnet 5 and Qwen3.8-Max out of `review-unit`) rest on one sample each.
+- The review ground truth was Sonnet 5's own diff, so Sonnet 5's miss is a self-review, and Opus 5's hit is a same-vendor pairing that `review-unit` never dispatches.
+- The base commit was not recorded, although `calibration.md` requires it. `Merge` landed in d4421211 the same day; a lane branched after it measured verification, not implementation.
