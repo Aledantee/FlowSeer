@@ -3284,6 +3284,11 @@ func (s *Switch) configuredVLANs() []vlan.ID {
 					seen[vid] = struct{}{}
 				}
 			}
+			// Sample the CIST via VLAN 1 (which maps to MSTID 0 by default).
+			// Residual limitation: if VLAN 1 is itself assigned to an MSTI, VLAN 1
+			// no longer maps to the CIST and a fuller fix must sample the CIST directly
+			// via MSTID 0, which the vlan.ID-keyed TreeRoles shape cannot express.
+			seen[1] = struct{}{}
 		}
 	}
 	if s.cfg.Mcast != nil {
