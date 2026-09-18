@@ -5,7 +5,7 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -638,3 +638,10 @@ is a deliberate edit to that line, not a re-run.
 - The allocation constant itself, measured in U6. What is decided here is that a
   constant is recorded with its date and that the four-times case bounds the
   growth.
+- Residual from review (follow-up, not this phase): the diff-coverage gate
+  asserts that a perturbed leaf produces some change, not a change naming that
+  leaf. Removing the empty-`port.Table` spurious delta closed the one instance
+  that made the vswitch gate vacuous, but any future arm that always fires would
+  re-open the class. Closing it needs a uniform leaf-path→(subject, field)
+  mapping across the diffs so the gate can assert the named leaf; the capability
+  arms carry an empty field today, so this is a design change, not a patch.
