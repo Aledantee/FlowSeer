@@ -193,18 +193,21 @@ func TestT4SubscribeStream(t *testing.T) {
 			defer func() { _ = stream.Close() }()
 
 			// Counting updates only proves the stream did not error.
-			// A payload is asserted as well, since a decoder that
-			// dropped every value would still deliver updates.
-			sawSync, updates, withPayload, leafLists := false, 0, 0, 0
+			// The leaf-list count is the assertion that matters: a
+			// decoder that drops leaflist_val still delivers every
+			// scalar update, so breaking at the first payload would
+			// pass against exactly the defect this guards.
+			// The whole pre-sync snapshot is drained, because that is
+			// where a device sends its leaf-list leaves.
+			sawSync, postSync, withPayload, leafLists := false, 0, 0, 0
 			for ev := range stream.Iter() {
 				if ev.Sync {
 					sawSync = true
 					continue
 				}
-				if !sawSync {
-					continue
+				if sawSync {
+					postSync += len(ev.Updates)
 				}
-				updates += len(ev.Updates)
 				for _, u := range ev.Updates {
 					switch {
 					case u.Values != nil:
@@ -214,21 +217,28 @@ func TestT4SubscribeStream(t *testing.T) {
 						withPayload++
 					}
 				}
-				if withPayload > 0 {
+				if sawSync && postSync > 0 {
 					break
 				}
 			}
 			if !sawSync {
 				t.Errorf("no sync_response observed (stream err: %v)", stream.Err())
 			}
-			if updates == 0 {
+			if postSync == 0 {
 				t.Errorf("no updates after sync_response (stream err: %v)", stream.Err())
 			}
-			if updates > 0 && withPayload == 0 {
-				t.Errorf("%d update(s) after sync and none carried a payload (stream err: %v)", updates, stream.Err())
+			if withPayload == 0 {
+				t.Errorf("no update carried a payload (stream err: %v)", stream.Err())
 			}
-			t.Logf("observed sync=%v with %d update(s), %d carrying a payload, %d a leaf-list",
-				sawSync, updates, withPayload, leafLists)
+			// An /interfaces subtree on the lab's gNMI targets serves at
+			// least one leaf-list leaf (Arista: ethernet/state/supported-speeds).
+			// A target where that stops being true wants this assertion
+			// revisited, not deleted.
+			if leafLists == 0 {
+				t.Errorf("no leaf-list update decoded; a dropped leaflist_val would look exactly like this (stream err: %v)", stream.Err())
+			}
+			t.Logf("observed sync=%v, %d update(s) after sync, %d carrying a payload, %d a leaf-list",
+				sawSync, postSync, withPayload, leafLists)
 		})
 	}
 }

@@ -34,9 +34,7 @@ var gnmiCorpus = []conformance.Row{
 	},
 	{
 		ID: "gn-banner-newline-normalization", Clause: "gNMI spec §3.4 (Set/Get round-trip)",
-		Provenance: "Arista vEOS-lab 4.33.1.1F, lab device 2026-09-18. This row states how a Set/Get round-trip " +
-			"is compared on any device, so the Arista observation closes it; the gn-t4-* rows stay pending " +
-			"because they assert what a specific vendor family does, which this run cannot settle",
+		Provenance:  "Arista vEOS-lab 4.33.1.1F, lab device 2026-09-18",
 		Behavior:    "a device may normalize a written leaf rather than store it verbatim; EOS appends a trailing newline to /system/config/login-banner, so a Set/Get round-trip compares modulo that normalization instead of by exact equality",
 		Adversarial: "login-banner set to \"flowseer-t4\" and read back as \"flowseer-t4\\n\"",
 		Unit:        "gnmi/lab", Status: conformance.Covered,

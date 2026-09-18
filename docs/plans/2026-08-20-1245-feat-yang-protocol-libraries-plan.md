@@ -684,15 +684,14 @@ surfaces: `netconf.Session.ModuleRevisions`,
 `gnmi.Capabilities.ModelRevisions`, `yang.ParseLockfileRevisions` /
 `yang.DiffRevisions`).
 
-**Blocked:** executing these suites needs reachable lab devices for
-the three families (KD9). The corpus rows for the lab outcomes
-(`nc-t4-*`, `rc-t4-*`, `gn-t4-*`, `rc-depth-fields-unverified`,
-`gn-aruba-set-capability`) are deliberately `pending`, so the
-build-tagged completeness gates fail until the lab pass flips them —
-by design, that is the remaining Definition-of-Done gap. Once
-credentials/addresses are provided via the env contract, run:
+**Blocked, as of this section's date:** executing these suites needed
+reachable lab devices for the three families (KD9), and none were.
 
-	go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/test/integration/
+Superseded by the RESTCONF pass of 2026-08-21 and the NETCONF pass of
+2026-09-18, both recorded above: `rc-t4-*`, `rc-depth-fields-unverified`
+and `nc-t4-*` are `covered` and their completeness gates are green.
+Only `gn-t4-*` and `gn-aruba-set-capability` remain `pending`, for the
+scope reason the DoD status gives rather than for want of a device.
+The libraries have since moved to `src/protocol/`, so the command is:
 
-then flip the rows (Covered, with the observed adversarial detail) or
-record the R14 conversion here.
+	go test -tags yang_integration_t4 ./src/protocol/{netconf,restconf,gnmi}/test/integration/

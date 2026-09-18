@@ -12,12 +12,16 @@ import (
 // revisions.go is the runtime half of revision-drift detection: the
 // yanggen lockfile records the
 // module revisions the committed bindings were generated from; a
-// session's advertised revisions are compared against them and any
-// mismatch surfaces as a warning-grade drift list (warn-and-proceed
-// by default — the caller decides whether drift is fatal).
+// session's advertised revisions are compared against them and the
+// result is warning-grade (warn-and-proceed by default — the caller
+// decides whether a mismatch is fatal).
 
-// RevisionDrift is one module whose device-advertised revision
-// differs from the vendored revision the bindings were built from.
+// RevisionDrift is one module whose device-advertised revision is not
+// the vendored revision the bindings were built from. Which slice of
+// [DiffRevisions] it came from says what that means: in the drift
+// slice the two are comparable and differ, in the incomparable slice
+// they are in different vocabularies and nothing about difference has
+// been established.
 type RevisionDrift struct {
 	Module     string
 	Vendored   string

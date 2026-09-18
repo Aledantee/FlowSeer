@@ -33,7 +33,7 @@ comparison, and all three return `map[string]string`:
   generator lockfile and yields RFC 7950 revision dates.
 - `netconf.Session.ModuleRevisions` (`src/protocol/netconf/session.go:213`)
   pulls `revision=Y` out of the hello's capability URIs — also dates.
-- `gnmi.Capabilities.ModelRevisions` (`src/protocol/gnmi/session.go:65`)
+- `gnmi.Capabilities.ModelRevisions` (`src/protocol/gnmi/session.go:69`)
   returns each model's `Version`, which for an OpenConfig module is its
   `openconfig-version` semantic version.
 
@@ -92,7 +92,7 @@ Callers then decide what each set means. Over NETCONF every revision is a
 date, so an incomparable pair is a malformed advertisement and the lab suite
 fails on it; over gNMI it is the expected OpenConfig case and is logged
 (`src/protocol/netconf/test/integration/t4_lab_test.go:266`,
-`src/protocol/gnmi/test/integration/t4_lab_test.go:243`).
+`src/protocol/gnmi/test/integration/t4_lab_test.go:270`).
 
 When a diff reports a difference for most of its entries, suspect the
 comparison before believing the report. Check one entry by hand against both
@@ -101,7 +101,7 @@ diverge at all.
 
 ## Evidence
 
-`src/protocol/yang/revisions.go:82` splits the two outcomes, and
+`src/protocol/yang/revisions.go:87` splits the two outcomes, and
 `TestDiffRevisionsSeparatesIncomparableVocabularies`
 (`src/protocol/yang/revisions_test.go:55`) pins it with a semver, a matching
 date, and a genuinely drifted date in one table — the matching date proves the

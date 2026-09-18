@@ -481,3 +481,26 @@ func TestPathValueRejectsTwoPayloads(t *testing.T) {
 		t.Fatal("Set accepted a PathValue carrying both Value and Values")
 	}
 }
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestEmptyLeafListEncodesAsEmptyLeaflistVal(t *testing.T) {
+	f := &fakeServer{encodings: []gpb.Encoding{gpb.Encoding_PROTO}, setResp: &gpb.SetResponse{}}
+	s := dialFake(t, f)
+
+	err := s.Set(context.Background(), gnmi.SetRequest{Updates: []gnmi.PathValue{{
+		Path: ifacePath(), Values: []yang.Value{},
+	}}})
+	if err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if f.setReq == nil || len(f.setReq.Update) != 1 {
+		t.Fatalf("SetRequest = %+v, want one update", f.setReq)
+	}
+	arr := f.setReq.Update[0].GetVal().GetLeaflistVal()
+	if arr == nil {
+		t.Fatalf("update carries %T, want an empty leaflist_val not an absent value", f.setReq.Update[0].GetVal().GetValue())
+	}
+	if len(arr.Element) != 0 {
+		t.Errorf("elements = %d, want 0", len(arr.Element))
+	}
+}

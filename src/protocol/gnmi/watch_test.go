@@ -367,3 +367,42 @@ func TestWatchDecodesLeafListIntoRow(t *testing.T) {
 	}
 	t.Fatalf("watcher produced no Added row: %v", w.Err())
 }
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestWatchDecodesEmptyLeafListIntoRow(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		subscribe: func(srv gpb.GNMI_SubscribeServer) error {
+			if _, err := srv.Recv(); err != nil {
+				return err
+			}
+			_ = srv.Send(notif(leafListUpdate("Port-channel1", nil, "aggregation", "state", "member")))
+			_ = srv.Send(syncResp())
+			<-srv.Context().Done()
+			return nil
+		},
+	}
+	s := dialFake(t, f)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	w, err := gnmi.Watch(ctx, s, ocif.Interfaces_InterfaceDescriptor(), gnmi.WatchOptions{})
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	defer func() { _ = w.Close() }()
+
+	for ev := range w.Iter() {
+		if ev.Kind != yang.Added {
+			continue
+		}
+		// An empty leaf-list must render as [] and decode to an empty
+		// slice. Rendering it as null instead fails the row decode
+		// outright, which is how a dropped leaf-list looked before.
+		if got := ev.Row.Aggregation.State.Member; len(got) != 0 {
+			t.Fatalf("Member = %+v, want empty", got)
+		}
+		return
+	}
+	t.Fatalf("watcher produced no Added row: %v", w.Err())
+}

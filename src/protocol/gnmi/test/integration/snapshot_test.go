@@ -65,6 +65,7 @@ func TestSnapshotRestore(t *testing.T) {
 	path := yang.Path{Segments: []yang.Segment{{Name: "login-banner"}}}
 	other := yang.Path{Segments: []yang.Segment{{Name: "hostname"}}}
 	typed := &yang.Value{Type: yang.Type{Kind: yang.TypeString}, String: "original"}
+	list := []yang.Value{{Type: yang.Type{Kind: yang.TypeString}, String: "a"}}
 	json := []byte(`"original"`)
 	readErr := errors.New("snapshot unavailable")
 
@@ -93,7 +94,18 @@ func TestSnapshotRestore(t *testing.T) {
 		},
 		{name: "unrelated response", reader: snapshotStub{updates: []gnmi.Update{{Path: other, JSON: json}}}, wantErr: true},
 		{name: "missing payload", reader: snapshotStub{updates: []gnmi.Update{{Path: path}}}, wantErr: true},
+		{
+			name:   "leaf-list value",
+			reader: snapshotStub{updates: []gnmi.Update{{Path: path, Values: list}}},
+			want:   gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: path, Values: list}}},
+		},
+		{
+			name:   "empty leaf-list is a payload, not an absent one",
+			reader: snapshotStub{updates: []gnmi.Update{{Path: path, Values: []yang.Value{}}}},
+			want:   gnmi.SetRequest{Updates: []gnmi.PathValue{{Path: path, Values: []yang.Value{}}}},
+		},
 		{name: "ambiguous payload", reader: snapshotStub{updates: []gnmi.Update{{Path: path, JSON: json, Value: typed}}}, wantErr: true},
+		{name: "ambiguous payload with a leaf-list", reader: snapshotStub{updates: []gnmi.Update{{Path: path, JSON: json, Values: list}}}, wantErr: true},
 		{name: "duplicate path", reader: snapshotStub{updates: []gnmi.Update{{Path: path, JSON: json}, {Path: path, JSON: json}}}, wantErr: true},
 	}
 	for _, tt := range tests {
