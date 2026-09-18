@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Print, as YAML on stdout, what this machine can route delegated work to:
 # the agent CLIs present, which prepaid pools are signed in, what Orca can
-# pin with --model, the opencode model ids split by pool, and the Claude
-# rate-limit windows. Run unsandboxed: `orca` talks to a local socket.
+# pin with --model, every pool's rate-limit windows, and the opencode model
+# ids split by pool. Run unsandboxed: `orca` talks to a local socket, `agy`
+# reads the keyring, and `opencode` writes a log file.
 
 set -uo pipefail
 
@@ -30,34 +31,12 @@ else
 fi
 
 echo "pools:"
-# Claude: Orca reports the OAuth rate-limit windows.
-if have orca; then
-  orca account list --json 2>/dev/null | python3 -c '
-import json, sys
-try:
-    r = json.load(sys.stdin)["result"]
-except Exception:
-    print("  claude: {signed_in: null}"); print("  codex: {signed_in: null}"); sys.exit()
-rl = r.get("rateLimits", {}).get("claude", {})
-ok = rl.get("status") == "ok"
-win = {k: v["usedPercent"] for k, v in rl.items() if isinstance(v, dict) and "usedPercent" in v}
-print("  claude: {signed_in: %s, windows: %s}" % (str(ok).lower(), json.dumps(win)))
-cx = r.get("codex", {}).get("systemDefault", {})
-print("  codex: {signed_in: %s, windows: null}" % str(bool(cx.get("hasAuth"))).lower())
-'
-else
-  echo "  claude: {signed_in: null}"
-  echo "  codex: {signed_in: null}"
-fi
+# The four prepaid pools, each read from the source that owns its numbers.
+# Orca's `unavailable` rows for antigravity and opencodeGo say only that Orca
+# cannot read them, so they are not used.
+"$(dirname "$0")/../../delegate/scripts/pool-usage.sh" | sed 's/^/  /'
 
-# Google: `agy models` succeeds only with a live session.
-if have agy && agy models >/dev/null 2>&1; then
-  echo "  google: {signed_in: true, windows: null}"
-else
-  echo "  google: {signed_in: false}"
-fi
-
-# opencode: split the model list by provider prefix.
+# opencode: zen is per-token and has no window; list the model ids by pool.
 if have opencode; then
   opencode models 2>/dev/null | python3 -c '
 import sys
@@ -66,10 +45,11 @@ for line in sys.stdin:
     line = line.strip()
     if line.startswith("opencode-go/"): go.append(line.split("/", 1)[1])
     elif line.startswith("opencode/"): zen.append(line.split("/", 1)[1])
-print("  go: {signed_in: %s, windows: null, models: [%s]}" % (str(bool(go)).lower(), ", ".join(go)))
-print("  zen: {signed_in: %s, models: [%s]}" % (str(bool(zen)).lower(), ", ".join(zen)))
+print("  zen: {signed_in: %s}" % str(bool(zen)).lower())
+print("opencode_models:")
+print("  go: [%s]" % ", ".join(go))
+print("  zen: [%s]" % ", ".join(zen))
 '
 else
-  echo "  go: {signed_in: false}"
   echo "  zen: {signed_in: false}"
 fi

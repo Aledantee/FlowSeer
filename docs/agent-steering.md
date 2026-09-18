@@ -418,6 +418,15 @@ starting point chosen so that a three-worker wave cannot push a window
 over its limit mid-run; tune it when a wave gets cut off or when quota sits
 idle.
 
+Orca reads usage only for the providers it has credentials for. On
+2026-09-18 a selection dropped `google` and `go` because `orca account list`
+showed `antigravity` and `opencodeGo` as `unavailable`, although both pools
+were signed in and nearly idle: the status describes Orca's view, not the
+pool. `delegate/scripts/pool-usage.sh` therefore reads each pool from its
+own source (`agy -p /quota` answers from the quota service without a model
+turn, and opencode's database records the dollar cost of every `opencode-go`
+message), and the skill forbids dropping a pool on Orca's word alone.
+
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
 Context7 tools and the `ctx7` CLI as a fallback; Go dependencies stay with
