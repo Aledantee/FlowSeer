@@ -194,7 +194,7 @@ session is created, receives `UploadCapture` under the re-assertion rule, stores
 the pcapng, and serves `TailCaptureSession` and `DownloadCaptureSession`; the
 capture direction record is amended to store centrally and the network model
 structure record's `edge/capture` line names both streams.
-Landed:
+Landed: 2026-09-18, `4a675beb..0156e1c8`.
 
 ### U3c. Edge capture wiring
 
