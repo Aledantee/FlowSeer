@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 ---
 
 # Remote Packet Capture Phase 3a, Shared Subscribe-Loop Transport - Plan
+
+> Implemented. 2 units, 2026-09-18T12:51:08Z to 2026-09-18T13:00:40Z.
 
 ## Goal
 
@@ -175,15 +177,15 @@ statement that nothing observable changed.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `src/edge/agent/README.md` names `Contact`'s new home in the change that
+- [x] Verifier green for every changed path.
+- [x] `src/edge/agent/README.md` names `Contact`'s new home in the change that
       moves it.
-- [ ] The dispatch loop emits the same four event names and the same log
+- [x] The dispatch loop emits the same four event names and the same log
       attributes as before — including the `connections` and `messages` count
       attributes — asserted in a test.
-- [ ] This plan's `status` set with an outcome note under its title, and the
+- [x] This plan's `status` set with an outcome note under its title, and the
       parent's U3a `Landed:` line filled.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 
