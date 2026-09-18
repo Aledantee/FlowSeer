@@ -8,6 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -399,5 +400,63 @@ func TestRecordNormalizeDefaults(t *testing.T) {
 	}
 	if norm.Frame.Dst != frame.Dst {
 		t.Errorf("norm.Frame.Dst = %v, want %v", norm.Frame.Dst, frame.Dst)
+	}
+}
+
+func TestRecordNormalizeFrameDefaults(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	frame := ethernet.Frame{
+		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
+		Dst:     netaddr.MAC{0, 0, 0, 0, 0, 2},
+		Payload: []byte("frame-defaults"),
+	}
+	raw, err := frame.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	rec := Record{
+		At:     t0,
+		Source: "test.pcap",
+		Origin: Endpoint{Node: "h1"},
+		Frame:  &frame,
+	}
+
+	norm, err := rec.Normalize()
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	if norm.CapturedLen != len(raw) {
+		t.Errorf("norm.CapturedLen = %d, want %d", norm.CapturedLen, len(raw))
+	}
+	if norm.OriginalLen != len(raw) {
+		t.Errorf("norm.OriginalLen = %d, want %d", norm.OriginalLen, len(raw))
+	}
+}
+
+func TestRecordNormalizeEncodeError(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	invalidFrame := ethernet.Frame{
+		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
+		Dst:     netaddr.MAC{0, 0, 0, 0, 0, 2},
+		Payload: []byte("invalid-frame"),
+		Tags: []vlan.Tag{
+			{VID: 0xFFFF},
+		},
+	}
+
+	rec := Record{
+		At:     t0,
+		Source: "invalid.pcap",
+		Origin: Endpoint{Node: "h1"},
+		Frame:  &invalidFrame,
+	}
+
+	_, err := rec.Normalize()
+	if err == nil {
+		t.Fatal("Normalize with unencodable frame succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "encode record frame") {
+		t.Errorf("err = %q, want it to contain 'encode record frame'", err.Error())
 	}
 }

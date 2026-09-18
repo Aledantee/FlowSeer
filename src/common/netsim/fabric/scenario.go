@@ -345,28 +345,12 @@ type Scenario struct {
 }
 
 // Validate verifies that the scenario has a valid name, positive budget, non-negative window,
-// consistent action indices, and no actions scheduled before the specification start time.
+// consistent action indices, unique (At, Index) pairs in numbered mode, and no actions scheduled
+// before the specification start time.
 func (s Scenario) Validate() error {
-	if s.Name == "" {
-		return errs.Msg("scenario name cannot be empty")
-	}
-	if s.Budget <= 0 {
-		return errs.Msgf("scenario budget must be positive, got %d", s.Budget)
-	}
-	if s.Window < 0 {
-		return errs.Msgf("scenario window cannot be negative, got %d", s.Window)
-	}
-
-	var numbered, unnumbered int
-	for _, a := range s.Actions {
-		if a.Index > 0 {
-			numbered++
-		} else {
-			unnumbered++
-		}
-	}
-	if numbered > 0 && unnumbered > 0 {
-		return errs.Msg("scenario actions must be either all numbered or none numbered")
+	numbered, err := s.validateHeader()
+	if err != nil {
+		return err
 	}
 
 	for i, a := range s.Actions {
@@ -378,32 +362,57 @@ func (s Scenario) Validate() error {
 		}
 	}
 
+	if numbered {
+		type actionKey struct {
+			sec   int64
+			nsec  int32
+			index int
+		}
+		seen := make(map[actionKey]int, len(s.Actions))
+		for i, a := range s.Actions {
+			u := a.At.UTC()
+			k := actionKey{sec: u.Unix(), nsec: int32(u.Nanosecond()), index: a.Index}
+			if prev, ok := seen[k]; ok {
+				return errs.Msgf("duplicate action (At, Index) (%s, %d) at actions %d and %d", a.At, a.Index, prev, i)
+			}
+			seen[k] = i
+		}
+	}
+
 	return nil
+}
+
+func (s Scenario) validateHeader() (numbered bool, err error) {
+	if s.Name == "" {
+		return false, errs.Msg("scenario name cannot be empty")
+	}
+	if s.Budget <= 0 {
+		return false, errs.Msgf("scenario budget must be positive, got %d", s.Budget)
+	}
+	if s.Window < 0 {
+		return false, errs.Msgf("scenario window cannot be negative, got %d", s.Window)
+	}
+
+	var numCount, unnumCount int
+	for _, a := range s.Actions {
+		if a.Index > 0 {
+			numCount++
+		} else {
+			unnumCount++
+		}
+	}
+	if numCount > 0 && unnumCount > 0 {
+		return false, errs.Msg("scenario actions must be either all numbered or none numbered")
+	}
+	return numCount > 0, nil
 }
 
 // Normalize normalizes the underlying specification and actions, assigns 1-based indices
 // to unnumbered actions, and sorts actions by At then Index to guarantee declaration order.
 func (s Scenario) Normalize() (Scenario, error) {
-	if s.Name == "" {
-		return Scenario{}, errs.Msg("scenario name cannot be empty")
-	}
-	if s.Budget <= 0 {
-		return Scenario{}, errs.Msgf("scenario budget must be positive, got %d", s.Budget)
-	}
-	if s.Window < 0 {
-		return Scenario{}, errs.Msgf("scenario window cannot be negative, got %d", s.Window)
-	}
-
-	var numbered, unnumbered int
-	for _, a := range s.Actions {
-		if a.Index > 0 {
-			numbered++
-		} else {
-			unnumbered++
-		}
-	}
-	if numbered > 0 && unnumbered > 0 {
-		return Scenario{}, errs.Msg("scenario actions must be either all numbered or none numbered")
+	numbered, err := s.validateHeader()
+	if err != nil {
+		return Scenario{}, err
 	}
 
 	normSpec, err := s.Spec.Normalize()
@@ -417,7 +426,7 @@ func (s Scenario) Normalize() (Scenario, error) {
 		if err != nil {
 			return Scenario{}, err
 		}
-		if unnumbered > 0 {
+		if !numbered {
 			normA.Index = i + 1
 		}
 		actions[i] = normA
