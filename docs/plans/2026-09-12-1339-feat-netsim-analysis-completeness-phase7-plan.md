@@ -4,13 +4,21 @@ type: feat
 date: 2026-09-12
 artifact_contract: flowseer-plan/v1
 artifact_readiness: needs-decisions
-status: planned
+status: superseded
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
+superseded_by: docs/plans/2026-09-18-2129-feat-netsim-exact-comparison-phase7a-plan.md
 ---
 
 # Network simulation analysis completeness, phase 7: Exact comparison and bounded counterexamples - Plan
+
+> Superseded 2026-09-18. Re-planned against the landed tree and split into
+> phase 7a (exact comparison and dispositions,
+> `2026-09-18-2129-feat-netsim-exact-comparison-phase7a-plan.md`, implementation-ready)
+> and phase 7b (bounded search and conformance,
+> `2026-09-18-2129-feat-netsim-bounded-search-phase7b-plan.md`, to re-plan
+> against 7a's landed API). The parent's U7 line is now U7a and U7b.
 
 > Re-planned by plan when its turn comes; the tree will have moved.
 

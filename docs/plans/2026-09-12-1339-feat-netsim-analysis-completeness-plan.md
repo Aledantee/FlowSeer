@@ -708,18 +708,37 @@ area reads this before planning; a phase that closes one removes its entry.
   oscillation, host rejection, and clone-isolation tests.
 - **Verify:** Re-plan the phase against the landed tree before implementation.
 
-### U7: Replace shallow equality with exact comparison and bounded search
+### U7a: Exact comparison and dispositions
 
 - **Files:**
-  `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase7-plan.md`
+  `docs/plans/2026-09-18-2129-feat-netsim-exact-comparison-phase7a-plan.md`
 - **After:** U6
 - **Landed:**
-- **Change:** Compare complete switch and fabric observables on forks, return
-  explicit dispositions, enumerate finite domains, minimize
-  counterexamples, and align causal traces without using trace text as behavior.
-- **Tests:** Omitted-field regressions, non-consuming active-protocol comparison,
-  search coverage accounting, minimization, and conformance fixtures.
-- **Verify:** Re-plan the phase against the landed tree before implementation.
+- **Change:** Replace shallow switch and fabric equality with field-level
+  comparison over every behavioral observable, returning `Equivalent`,
+  `Different`, or `Inconclusive`; `fabric.Compare` forks its inputs internally so
+  it compares mid-run fabrics without consuming them, and new scenario journeys
+  pair by injection ordinal rather than frame id.
+- **Tests:** One mismatch per behavioral observable, no-op trace difference,
+  non-consuming active-protocol repeatability, mid-run lifted precondition, and
+  disposition truth table.
+- **Verify:** Focused switch and fabric comparison tests, then the netsim race
+  suite.
+
+### U7b: Bounded search, minimization, and conformance
+
+- **Files:**
+  `docs/plans/2026-09-18-2129-feat-netsim-bounded-search-phase7b-plan.md`
+- **After:** U7a
+- **Landed:**
+- **Change:** Add `src/common/netsim/search` with finite L2 and timed-fault
+  domains and an L3 interface, deterministic enumeration under a resource
+  contract, coverage-and-remainder accounting, deterministic minimization, and
+  first-divergence trace alignment over U7a's comparison; add cross-package
+  conformance fixtures. Re-plan against U7a's landed API before implementation.
+- **Tests:** Search coverage accounting, exhaustion remainder, minimization, and
+  the cross-package conformance matrix.
+- **Verify:** Re-plan the phase against U7a's landed tree before implementation.
 
 ## Verification
 
