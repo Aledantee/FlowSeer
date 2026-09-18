@@ -42,7 +42,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	// 1. Create and enroll an edge
+	// Create and enroll an edge.
 	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
 	if err != nil {
 		t.Fatalf("CreateEdge: %v", err)
@@ -81,7 +81,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatalf("Enroll: %v", err)
 	}
 
-	// Helper to sign HTTP header assertions for edge RPCs
+	// Header assertions for the edge RPCs that take one.
 	signHeaderAssertion := func(procedure string, body []byte) string {
 		nonce := make([]byte, 16)
 		if _, err := rand.Read(nonce); err != nil {
@@ -144,7 +144,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		}.Build()
 	}
 
-	// 2. Operator creates a capture session
+	// The operator creates a capture session.
 	createReq := operatorcapturev1.CreateCaptureSessionRequest_builder{
 		Edge: edgev1.EdgeGlobalRef_builder{
 			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
@@ -180,7 +180,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatalf("expected PENDING lifecycle, got: %v", createResp.Msg.GetSession().GetState().GetLifecycle())
 	}
 
-	// 3. Edge subscribes and receives the start assignment
+	// The edge subscribes and receives the start assignment.
 	// Connect client envelopes the request on the wire: 1 byte flags + 4 bytes length.
 	// For an empty message with 0 bytes payload, the wire body is [0, 0, 0, 0, 0].
 	connectEnvelopeEmpty := []byte{0, 0, 0, 0, 0}
@@ -204,13 +204,15 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatalf("assignment session ID = %q, want %q", startAssign.GetRef().GetCaptureSession().GetId(), sessionID)
 	}
 
-	// 4. Operator starts live tail in background
+	// The operator opens a live tail.
 	tailReceived := make(chan []*netcapturev1.PacketRecord, 10)
 	tailDone := make(chan error, 1)
 
 	tailReq := connect.NewRequest(operatorcapturev1.TailCaptureSessionRequest_builder{
 		Session: sessionRef,
 	}.Build())
+
+	tailAttached := make(chan struct{})
 
 	spawn.Go(ctx, "operator-tail", func() {
 		tailStream, err := c.captures().TailCaptureSession(ctx, tailReq)
@@ -220,16 +222,32 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		}
 		defer func() { _ = tailStream.Close() }()
 
+		attached := false
 		for tailStream.Receive() {
+			if msg := tailStream.Msg(); msg.GetAttached() {
+				attached = true
+				close(tailAttached)
+				continue
+			}
 			tailReceived <- tailStream.Msg().GetChunk().GetPackets()
+		}
+		if !attached {
+			close(tailAttached)
 		}
 		tailDone <- tailStream.Err()
 	})
 
-	// Allow operator tail stream to subscribe to broadcaster
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the tail to say it is attached rather than guessing how long
+	// the subscription takes: the handler reaches its subscription after a
+	// round trip and a store read, and a chunk broadcast before then reaches
+	// nobody and is not resent.
+	select {
+	case <-tailAttached:
+	case <-time.After(30 * time.Second):
+		t.Fatal("timed out waiting for the operator tail to attach")
+	}
 
-	// 5. Edge uploads packet chunks over client-streaming RPC
+	// The edge uploads its packets.
 	uploadStream := c.edgeCaptures().UploadCapture(ctx)
 
 	// The stream must open with a SignedEdgeAssertion
@@ -242,7 +260,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 
 	chunk1 := captureedgev1.UploadCaptureRequest_builder{
 		Chunk: modelcapturev1.CapturePacketChunk_builder{
-			Session: sessionRef,
+			Session:       sessionRef,
+			FirstSequence: proto.Uint64(1),
 			Packets: []*netcapturev1.PacketRecord{
 				netcapturev1.PacketRecord_builder{
 					Sequence:       proto.Uint64(1),
@@ -251,6 +270,10 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 					Data:           []byte("packet-payload-1"),
 				}.Build(),
 			},
+			Counters: netcapturev1.CaptureCounters_builder{
+				Received: proto.Uint64(1),
+				Accepted: proto.Uint64(1),
+			}.Build(),
 			Final: proto.Bool(false),
 		}.Build(),
 	}.Build()
@@ -272,7 +295,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	// Upload final chunk
 	chunk2 := captureedgev1.UploadCaptureRequest_builder{
 		Chunk: modelcapturev1.CapturePacketChunk_builder{
-			Session: sessionRef,
+			Session:       sessionRef,
+			FirstSequence: proto.Uint64(2),
 			Packets: []*netcapturev1.PacketRecord{
 				netcapturev1.PacketRecord_builder{
 					Sequence:       proto.Uint64(2),
@@ -322,7 +346,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatalf("response session id = %q, want %q", uploadResp.Msg.GetSession().GetCaptureSession().GetId(), sessionID)
 	}
 
-	// 6. Operator downloads the finalized pcapng artifact
+	// The operator downloads the finalized pcapng artifact.
 	downloadReq := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
 		Session: sessionRef,
 	}.Build())
@@ -353,6 +377,14 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	if !bytes.HasPrefix(downloadedData, pcapngMagic) {
 		t.Fatalf("downloaded file does not have pcapng magic header")
 	}
+	// The digest below is over what this store itself wrote, so it proves the
+	// download is faithful and nothing about the body. Both payloads have to
+	// be in it, or an empty pcapng would satisfy every check here.
+	for _, payload := range [][]byte{[]byte("packet-payload-1"), []byte("packet-payload-2")} {
+		if !bytes.Contains(downloadedData, payload) {
+			t.Fatalf("the downloaded artifact does not carry %q", payload)
+		}
+	}
 
 	// Check session state via GetCaptureSession
 	getResp, err := c.captures().GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
@@ -369,13 +401,22 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	if artifact == nil {
 		t.Fatal("expected non-nil artifact in session state")
 	}
+	if artifact.GetPacketCount() != 2 {
+		t.Fatalf("artifact packet count = %d, want 2", artifact.GetPacketCount())
+	}
+	if artifact.GetByteSize() != uint64(len(downloadedData)) {
+		t.Fatalf("artifact byte size = %d, downloaded %d bytes", artifact.GetByteSize(), len(downloadedData))
+	}
+	if sessionState.GetCounters().GetAccepted() != 2 {
+		t.Fatalf("session counters accepted = %d, want 2", sessionState.GetCounters().GetAccepted())
+	}
 	hasher := sha256.New()
 	hasher.Write(downloadedData)
 	if !bytes.Equal(hasher.Sum(nil), artifact.GetDigest()) {
 		t.Fatalf("downloaded data digest mismatch")
 	}
 
-	// 7. Verify artifact storage and sweeper cleanup
+	// Retention purges the payload and keeps the record.
 	artifactPath := filepath.Join(dir, "central-state", "captures", sessionID+".pcapng")
 	if _, err := os.Stat(artifactPath); err != nil {
 		t.Fatalf("expected artifact file on disk at %s: %v", artifactPath, err)
@@ -439,7 +480,22 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCaptureSession after sweep: %v", err)
 	}
-	if afterSweepResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
-		t.Fatalf("expected session to remain COMPLETED, got: %v", afterSweepResp.Msg.GetSession().GetState().GetLifecycle())
+	afterSweep := afterSweepResp.Msg.GetSession().GetState()
+	if afterSweep.GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
+		t.Fatalf("expected session to remain COMPLETED, got: %v", afterSweep.GetLifecycle())
+	}
+	// The retention departure: the payload goes, the record and its counters
+	// stay, and the descriptor says when the bytes were purged.
+	if afterSweep.GetCounters().GetAccepted() != 2 {
+		t.Fatalf("counters did not survive the sweep: accepted = %d, want 2", afterSweep.GetCounters().GetAccepted())
+	}
+	sweptArtifact := afterSweep.GetArtifact()
+	if sweptArtifact.GetPacketCount() != artifact.GetPacketCount() ||
+		sweptArtifact.GetByteSize() != artifact.GetByteSize() ||
+		!bytes.Equal(sweptArtifact.GetDigest(), artifact.GetDigest()) {
+		t.Fatal("the artifact descriptor did not survive the sweep")
+	}
+	if !sweptArtifact.HasPurgedAt() {
+		t.Fatal("expected the swept artifact to be stamped purged_at")
 	}
 }

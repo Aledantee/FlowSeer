@@ -21,7 +21,8 @@ Deliberately absent:
 - Raw packet capture filters and link types. Those are ref-free values in
   `net/capture/v1`.
 - Ambient tenancy. Scope is ambient from the authenticated request.
-- The edge-facing service that uploads packet chunks. `CaptureEdgeService`
-  moved to [`edge/capture/v1`](../../../edge/capture/v1/README.md), along
-  with the open question of how an operator-originated capture command
-  reaches the edge; an edge calls it and an operator never does.
+- The edge-facing service that carries assignments to an edge and takes its
+  packet chunks back. `CaptureEdgeService` lives in
+  [`edge/capture/v1`](../../../edge/capture/v1/README.md), which is also
+  where a session created here reaches the edge that runs it; an edge calls
+  it and an operator never does.

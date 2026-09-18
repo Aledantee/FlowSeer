@@ -14,7 +14,6 @@ import (
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
-	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const (
@@ -111,10 +110,7 @@ func (s *OperatorService) CreateCaptureSession(
 
 	rec, err := s.store.CreateSession(ctx, configBuilder.Build())
 	if err != nil {
-		if code, ok := errs.CodeOf(err); ok && code == ErrCodeConflict {
-			return nil, connect.NewError(connect.CodeAlreadyExists, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connectErr(err)
 	}
 
 	s.notifyChange()
@@ -151,10 +147,7 @@ func (s *OperatorService) StopCaptureSession(
 		return nil
 	})
 	if err != nil {
-		if code, ok := errs.CodeOf(err); ok && code == ErrCodeNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connectErr(err)
 	}
 
 	s.notifyChange()
@@ -177,10 +170,10 @@ func (s *OperatorService) GetCaptureSession(
 
 	rec, _, err := s.store.GetSession(ctx, sessionID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connectErr(err)
 	}
 	if rec == nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("capture session not found"))
+		return nil, errNoSuchSession()
 	}
 
 	resp := operatorcapturev1.GetCaptureSessionResponse_builder{
@@ -196,7 +189,7 @@ func (s *OperatorService) ListCaptureSessions(
 ) (*connect.Response[operatorcapturev1.ListCaptureSessionsResponse], error) {
 	all, err := s.store.ListSessions(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connectErr(err)
 	}
 
 	pageSize := defaultPageSize
@@ -251,7 +244,7 @@ func (s *OperatorService) DeleteCaptureSession(
 	}
 
 	if err := s.store.DeleteSession(ctx, sessionID); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connectErr(err)
 	}
 
 	s.broadcaster.CloseSession(sessionID)
@@ -273,14 +266,35 @@ func (s *OperatorService) TailCaptureSession(
 
 	rec, _, err := s.store.GetSession(ctx, sessionID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+		return connectErr(err)
 	}
 	if rec == nil {
-		return connect.NewError(connect.CodeNotFound, errors.New("capture session not found"))
+		return errNoSuchSession()
 	}
 
 	ch, unsub := s.broadcaster.Subscribe(sessionID)
 	defer unsub()
+
+	// Subscribe first, then read the session again. Only the upload relay
+	// closes a tail's channel, and it does so once, when the capture ends.
+	// A tail that opened after that moment would wait on a channel nobody
+	// will ever send to or close; re-reading under the subscription is what
+	// catches the session that finished in between.
+	rec, _, err = s.store.GetSession(ctx, sessionID)
+	if err != nil {
+		return connectErr(err)
+	}
+	if rec == nil || lifecycleIsTerminal(rec.GetState().GetLifecycle()) {
+		return nil
+	}
+
+	// Only now can the caller know that no chunk the session uploads will be
+	// missed, and only this side knows when that became true.
+	if err := stream.Send(operatorcapturev1.TailCaptureSessionResponse_builder{
+		Attached: proto.Bool(true),
+	}.Build()); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -316,14 +330,23 @@ func (s *OperatorService) DownloadCaptureSession(
 
 	rec, _, err := s.store.GetSession(ctx, sessionID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+		return connectErr(err)
 	}
 	if rec == nil {
-		return connect.NewError(connect.CodeNotFound, errors.New("capture session not found"))
+		return errNoSuchSession()
 	}
 
-	if !s.store.ArtifactExists(sessionID) {
-		return connect.NewError(connect.CodeNotFound, errors.New("artifact payload has expired or been deleted"))
+	// The record decides what may be served, not the file. A capture still
+	// running has a pcapng on disk that is missing its closing block and
+	// whose bytes will not match the digest the session is about to record,
+	// and an expired one may still be on disk for as long as a sweep tick:
+	// asking the filesystem alone would serve both as a finished artifact.
+	artifact := rec.GetState().GetArtifact()
+	switch {
+	case artifact == nil:
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("this capture has not finished; there is nothing to download yet"))
+	case artifact.HasPurgedAt() || !s.clock().Before(artifact.GetExpiresAt().AsTime()):
+		return connect.NewError(connect.CodeNotFound, errors.New("this session's capture is no longer retained"))
 	}
 
 	err = s.store.ReadArtifact(ctx, sessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
@@ -333,15 +356,14 @@ func (s *OperatorService) DownloadCaptureSession(
 		return stream.Send(resp)
 	})
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) || isArtifactNotFound(err) {
-			return connect.NewError(connect.CodeNotFound, errors.New("artifact not found"))
+		if errors.Is(err, os.ErrNotExist) {
+			return connect.NewError(connect.CodeNotFound, errors.New("this session's capture is no longer stored"))
 		}
-		return connect.NewError(connect.CodeInternal, err)
+		return connectErr(err)
 	}
 	return nil
 }
 
-func isArtifactNotFound(err error) bool {
-	code, ok := errs.CodeOf(err)
-	return ok && code == ErrCodeArtifactNotFound
+func errNoSuchSession() error {
+	return connect.NewError(connect.CodeNotFound, errors.New("no such capture session"))
 }

@@ -967,5 +967,7 @@ lab run. `runtime/` remains the one root outside the import order in
 `CaptureEdgeService` in `edge/capture/v1` serves both the assignment stream
 (`SubscribeCaptureAssignments`, where central delivers owed start and stop
 assignments to the edge) and the upload stream (`UploadCapture`, where the edge
-streams captured packet chunks to central). Both streams import `model/capture`
-and `model/edge`, keeping the existing package boundaries and import order.
+streams captured packet chunks to central). The assignment stream uses
+`model/capture`; the upload stream adds `model/edge` for the `SignedEdgeAssertion`
+it re-verifies mid-stream. The package's imports and its place in the import
+order are unchanged.

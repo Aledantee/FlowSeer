@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -528,21 +529,41 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 		t.Fatalf("create session: %v", err)
 	}
 
+	counters1 := netcapturev1.CaptureCounters_builder{
+		Received: proto.Uint64(1),
+		Accepted: proto.Uint64(1),
+	}.Build()
+	counters2 := netcapturev1.CaptureCounters_builder{
+		Received: proto.Uint64(2),
+		Accepted: proto.Uint64(2),
+	}.Build()
+
 	chunk1 := modelcapturev1.CapturePacketChunk_builder{
-		Session: cfg.GetRef(),
+		Session:       cfg.GetRef(),
+		FirstSequence: proto.Uint64(1),
 		Packets: []*netcapturev1.PacketRecord{
 			testPacketRecord(1, []byte("tail-packet-1")),
 		},
-		Final: proto.Bool(false),
+		Counters: counters1,
+		Final:    proto.Bool(false),
 	}.Build()
 
 	chunk2 := modelcapturev1.CapturePacketChunk_builder{
-		Session: cfg.GetRef(),
+		Session:       cfg.GetRef(),
+		FirstSequence: proto.Uint64(2),
 		Packets: []*netcapturev1.PacketRecord{
 			testPacketRecord(2, []byte("tail-packet-2")),
 		},
-		Final: proto.Bool(true),
+		Counters: counters2,
+		Final:    proto.Bool(true),
 	}.Build()
+
+	// A fixture is a claim the wire could deliver this message.
+	for _, chunk := range []*modelcapturev1.CapturePacketChunk{chunk1, chunk2} {
+		if err := protovalidate.Validate(chunk); err != nil {
+			t.Fatalf("chunk fixture is not a message the wire would accept: %v", err)
+		}
+	}
 
 	// Broadcast asynchronously once the tail handler has subscribed
 	spawn.Go(ctx, "test-tail-broadcast", func() {
@@ -569,6 +590,13 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	defer func() { _ = stream.Close() }()
 
 	if !stream.Receive() {
+		t.Fatalf("expected the attached marker from tail, stream ended: %v", stream.Err())
+	}
+	if !stream.Msg().GetAttached() {
+		t.Fatalf("expected the tail to open with its attached marker, got: %+v", stream.Msg())
+	}
+
+	if !stream.Receive() {
 		t.Fatalf("expected chunk 1 from tail, stream ended: %v", stream.Err())
 	}
 	gotChunk1 := stream.Msg().GetChunk()
@@ -578,6 +606,10 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	if len(gotChunk1.GetPackets()) != 1 || string(gotChunk1.GetPackets()[0].GetData()) != "tail-packet-1" {
 		t.Fatalf("unexpected chunk 1 payload: %+v", gotChunk1)
 	}
+	// What the edge sent has to arrive intact, sequence and counters with it.
+	if gotChunk1.GetFirstSequence() != 1 || gotChunk1.GetCounters().GetAccepted() != 1 {
+		t.Fatalf("chunk 1 lost its sequence or counters on the way through: %+v", gotChunk1)
+	}
 
 	if !stream.Receive() {
 		t.Fatalf("expected chunk 2 from tail, stream ended: %v", stream.Err())
@@ -585,6 +617,9 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	gotChunk2 := stream.Msg().GetChunk()
 	if !gotChunk2.GetFinal() {
 		t.Fatal("expected chunk 2 to be final")
+	}
+	if gotChunk2.GetFirstSequence() != 2 || gotChunk2.GetCounters().GetAccepted() != 2 {
+		t.Fatalf("chunk 2 lost its sequence or counters on the way through: %+v", gotChunk2)
 	}
 
 	// Stream should complete cleanly after final chunk
@@ -625,7 +660,9 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatalf("create session: %v", err)
 	}
 
-	// Session exists but artifact file is missing on disk -> CodeNotFound
+	// A session that has not produced an artifact is not the same answer as
+	// one whose artifact is gone: the first will have something to download
+	// later, the second never will again. Only the second is CodeNotFound.
 	{
 		downloadReq := operatorcapturev1.DownloadCaptureSessionRequest_builder{
 			Session: cfg.GetRef(),
@@ -635,10 +672,10 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 			t.Fatalf("download invocation: %v", err)
 		}
 		if stream.Receive() {
-			t.Fatal("expected no stream messages when artifact is absent")
+			t.Fatal("expected no stream messages when the capture has not finished")
 		}
-		if connect.CodeOf(stream.Err()) != connect.CodeNotFound {
-			t.Fatalf("expected CodeNotFound for missing artifact payload, got: %v", stream.Err())
+		if connect.CodeOf(stream.Err()) != connect.CodeFailedPrecondition {
+			t.Fatalf("expected CodeFailedPrecondition while the capture is unfinished, got: %v", stream.Err())
 		}
 		_ = stream.Close()
 	}
@@ -663,7 +700,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		Accepted: proto.Uint64(packetCount),
 	}.Build()
 
-	artifact, err := h.store.FinalizeArtifact(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, time.Now().Add(-time.Hour))
+	artifact, err := h.store.FinalizeArtifact(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, h.frozenClock.Add(time.Hour))
 	if err != nil {
 		t.Fatalf("finalize artifact: %v", err)
 	}
@@ -671,6 +708,9 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatal("expected non-nil artifact after finalization")
 	}
 	if _, err := h.store.MutateSession(ctx, sessID, func(r *modelcapturev1.CaptureSessionRecord) error {
+		r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+		r.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
+		r.GetState().SetCounters(counters)
 		r.GetState().SetArtifact(artifact)
 		return nil
 	}); err != nil {
@@ -722,12 +762,50 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatalf("downloaded sha256 digest mismatch")
 	}
 
-	// Now sweep expired artifact (expiresAt was set in the past)
-	if _, err := h.store.SweepExpired(ctx); err != nil {
+	// Move both clocks past the artifact's expiry and sweep.
+	expired := h.frozenClock.Add(2 * time.Hour)
+	h.frozenClock = expired
+	h.store.SetClock(func() time.Time { return expired })
+
+	removed, err := h.store.SweepExpired(ctx)
+	if err != nil {
 		t.Fatalf("sweep expired: %v", err)
+	}
+	if removed != 1 {
+		t.Fatalf("expected one artifact purged, got: %d", removed)
 	}
 	if h.store.ArtifactExists(sessID) {
 		t.Fatal("expected artifact to be swept from disk")
+	}
+
+	// What the retention departure keeps: the record, its counters, and the
+	// descriptor of what was captured, now stamped with when it was purged.
+	afterSweep, _, err := h.store.GetSession(ctx, sessID)
+	if err != nil {
+		t.Fatalf("get session after sweep: %v", err)
+	}
+	if got := afterSweep.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
+		t.Fatalf("expected the session record to survive the sweep as COMPLETED, got: %v", got)
+	}
+	if got := afterSweep.GetState().GetCounters().GetAccepted(); got != packetCount {
+		t.Fatalf("expected counters to survive the sweep with %d accepted, got: %d", packetCount, got)
+	}
+	swept := afterSweep.GetState().GetArtifact()
+	if swept.GetByteSize() != artifact.GetByteSize() || !bytes.Equal(swept.GetDigest(), artifact.GetDigest()) {
+		t.Fatal("expected the artifact descriptor to survive the sweep")
+	}
+	if !swept.HasPurgedAt() {
+		t.Fatal("expected the swept artifact to be stamped purged_at")
+	}
+
+	// A second sweep finds nothing left to do: the stamp is what stops a
+	// purged session being re-examined and re-unlinked on every tick.
+	again, err := h.store.SweepExpired(ctx)
+	if err != nil {
+		t.Fatalf("second sweep: %v", err)
+	}
+	if again != 0 {
+		t.Fatalf("expected the second sweep to purge nothing, got: %d", again)
 	}
 
 	// Attempting download after sweep returns CodeNotFound
@@ -742,4 +820,51 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatalf("expected CodeNotFound for swept artifact, got: %v", stream2.Err())
 	}
 	_ = stream2.Close()
+}
+
+// Only the upload relay closes a tail's channel, and only once, when the
+// capture ends. A tail opened after that moment waits on a channel nobody will
+// ever send to; the session's own state is what has to end it.
+func TestTailCaptureSession_ReturnsForASessionThatAlreadyEnded(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+
+	sessID := "0192e6a0-0000-7000-8000-000000000066"
+	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if _, err := h.store.MutateSession(ctx, sessID, func(r *modelcapturev1.CaptureSessionRecord) error {
+		r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+		r.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
+		return nil
+	}); err != nil {
+		t.Fatalf("complete session: %v", err)
+	}
+
+	// A deadline here is the failure signal, not the mechanism: the handler
+	// has to end the stream itself, well before this expires.
+	tailCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stream, err := h.client.TailCaptureSession(tailCtx, connect.NewRequest(operatorcapturev1.TailCaptureSessionRequest_builder{
+		Session: cfg.GetRef(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("open tail: %v", err)
+	}
+	defer func() { _ = stream.Close() }()
+
+	if stream.Receive() {
+		t.Fatal("expected no chunks for a session that already ended")
+	}
+	if stream.Err() != nil {
+		t.Fatalf("expected the tail to end cleanly, got: %v", stream.Err())
+	}
+	if tailCtx.Err() != nil {
+		t.Fatal("the tail blocked until its deadline instead of ending with the session")
+	}
+	if got := h.broadcaster.SubscriberCount(sessID); got != 0 {
+		t.Fatalf("expected the tail's subscription to be released, got %d subscribers", got)
+	}
 }

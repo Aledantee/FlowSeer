@@ -66,7 +66,7 @@ const (
 // Run assembles the device service and runs it until ctx ends or the runtime
 // stops it.
 //
-// The five modules are declared in dependency order and supervised
+// The six modules are declared in dependency order and supervised
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
@@ -374,8 +374,8 @@ func (h *assembly) setupDrift(ctx context.Context) (service.Attempt, error) {
 	return service.Attempt{Runner: poller.Run}, nil
 }
 
-// setupConnect serves the four edge-facing services and the two an operator
-// calls.
+// setupConnect serves the edge-facing services and the operator-facing ones;
+// [assembly.mux] says which is which and why.
 func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 	resources, err := h.hub.await(ctx)
 	if err != nil {
@@ -504,8 +504,18 @@ func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, er
 			case <-ctx.Done():
 				return nil
 			case <-ticker.C:
-				if _, err := resources.captures.SweepExpired(ctx); err != nil {
-					service.Logger(ctx).WarnContext(ctx, "capture sweeper could not purge expired artifacts", slog.Any("error", err))
+				// A sweep that removed some artifacts and failed on others
+				// reports both: purging expired payload is an obligation, so
+				// the count is not the whole answer.
+				removed, err := resources.captures.SweepExpired(ctx)
+				if err != nil {
+					service.Logger(ctx).ErrorContext(ctx, "capture sweeper could not purge every expired artifact",
+						slog.Int("capture_artifacts_purged", removed), slog.Any("error", err))
+					continue
+				}
+				if removed > 0 {
+					service.Logger(ctx).InfoContext(ctx, "capture sweeper purged expired artifacts",
+						slog.Int("capture_artifacts_purged", removed))
 				}
 			}
 		}

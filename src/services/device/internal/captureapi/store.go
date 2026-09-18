@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -30,6 +31,7 @@ var (
 	ErrCodeDecode           = errs.NewCode("captureapi/decode")
 	ErrCodeNotFound         = errs.NewCode("captureapi/not_found")
 	ErrCodeArtifactNotFound = errs.NewCode("captureapi/artifact_not_found")
+	ErrCodeBadSession       = errs.NewCode("captureapi/bad_session")
 )
 
 const (
@@ -51,6 +53,7 @@ type activeWriter struct {
 type Store struct {
 	kv          jetstream.KeyValue
 	capturesDir string
+	clock       func() time.Time
 
 	mu      sync.Mutex
 	writers map[string]*activeWriter
@@ -65,12 +68,28 @@ func NewStore(kv jetstream.KeyValue, capturesDir string) (*Store, error) {
 	return &Store{
 		kv:          kv,
 		capturesDir: capturesDir,
+		clock:       time.Now,
 		writers:     make(map[string]*activeWriter),
 	}, nil
 }
 
-func (s *Store) artifactPath(sessionID string) string {
-	return filepath.Join(s.capturesDir, sessionID+".pcapng")
+// SetClock replaces the clock the retention sweep reads. Tests use it to
+// place an artifact's expiry on either side of now without sleeping.
+func (s *Store) SetClock(clock func() time.Time) {
+	s.clock = clock
+}
+
+// artifactPath maps a session identifier onto its pcapng file. The identifier
+// reaches a filesystem path here, so it is checked against the shape the
+// schema gives it (CaptureSessionLocalRef.id is a uuid) rather than trusted:
+// an id carrying a separator would otherwise place the file outside
+// capturesDir, and the streaming RPCs are not covered by the validating
+// interceptor.
+func (s *Store) artifactPath(sessionID string) (string, error) {
+	if _, err := uuid.Parse(sessionID); err != nil {
+		return "", errs.From(err).Code(ErrCodeBadSession).Attr("session", sessionID).Msg("capture session identifier is not a uuid")
+	}
+	return filepath.Join(s.capturesDir, sessionID+".pcapng"), nil
 }
 
 // CreateSession persists a new capture session in the PENDING state.
@@ -179,11 +198,15 @@ func (s *Store) MutateSession(ctx context.Context, sessionID string, fn func(rec
 	return nil, errs.New().Code(ErrCodeConflict).Attr("session", sessionID).Msg("session record update did not settle")
 }
 
-// DeleteSession removes both the session metadata record and any artifact file on disk.
+// DeleteSession removes both the session metadata record and any artifact file
+// on disk. The writer is dropped under the same lock that admits a new one, so
+// an upload stream in flight cannot recreate the file between the unlink and
+// the record's removal: an artifact whose record is gone is one the retention
+// sweep can no longer reach, and its payload would stay on disk forever.
 func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
-	path := s.artifactPath(sessionID)
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("remove artifact file")
+	path, err := s.artifactPath(sessionID)
+	if err != nil {
+		return err
 	}
 
 	s.mu.Lock()
@@ -191,12 +214,31 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 		_ = w.file.Close()
 		delete(s.writers, sessionID)
 	}
+	rmErr := os.Remove(path)
 	s.mu.Unlock()
+
+	if rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+		return errs.From(rmErr).Code(ErrCodeStore).Attr("session", sessionID).Msg("remove artifact file")
+	}
 
 	if err := s.kv.Delete(ctx, sessionID); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
 		return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("delete capture session record")
 	}
 	return nil
+}
+
+// AbandonWriter closes and forgets the pcapng writer for a session whose
+// upload stream ended without a final chunk, leaving the partial file on disk
+// for the retention sweep or an operator delete to claim. Without it every
+// broken upload would leak an open descriptor for the life of the process.
+func (s *Store) AbandonWriter(sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if w, ok := s.writers[sessionID]; ok {
+		_ = w.file.Close()
+		delete(s.writers, sessionID)
+	}
 }
 
 // AppendPackets appends a slice of PacketRecords to the session's pcapng artifact.
@@ -210,8 +252,17 @@ func (s *Store) AppendPackets(_ context.Context, sessionID string, linkType netc
 
 	w, ok := s.writers[sessionID]
 	if !ok {
-		path := s.artifactPath(sessionID)
-		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		path, err := s.artifactPath(sessionID)
+		if err != nil {
+			return err
+		}
+		// O_EXCL, not O_TRUNC: an artifact already on disk belongs to a
+		// capture this Store is no longer writing, and truncating it would
+		// destroy the bytes its recorded digest and packet count describe.
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if errors.Is(err, os.ErrExist) {
+			return errs.From(err).Code(ErrCodeConflict).Attr("session", sessionID).Msg("artifact file already exists for this session")
+		}
 		if err != nil {
 			return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("create artifact file")
 		}
@@ -248,6 +299,11 @@ func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType n
 	}
 	s.mu.Unlock()
 
+	path, err := s.artifactPath(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
 	var packetCount uint64
 	if ok {
 		packetCount = w.packetCount
@@ -255,12 +311,24 @@ func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType n
 			_ = w.file.Close()
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close pcapng writer")
 		}
+		// The digest below is published into a record JetStream fsyncs. Sync
+		// the bytes first, so a crash between the two cannot leave a durable
+		// digest over a file that was never written.
+		if err := w.file.Sync(); err != nil {
+			_ = w.file.Close()
+			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("sync artifact file")
+		}
 		if err := w.file.Close(); err != nil {
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close artifact file")
 		}
 	} else {
-		path := s.artifactPath(sessionID)
-		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		// No writer means no chunk carried a packet. O_EXCL for the reason
+		// AppendPackets gives: a file that is already here belongs to a
+		// capture whose writer this Store no longer holds.
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if errors.Is(err, os.ErrExist) {
+			return nil, errs.From(err).Code(ErrCodeConflict).Attr("session", sessionID).Msg("artifact file already exists for this session")
+		}
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("create empty artifact file")
 		}
@@ -273,12 +341,15 @@ func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType n
 			_ = f.Close()
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close empty pcapng writer")
 		}
+		if err := f.Sync(); err != nil {
+			_ = f.Close()
+			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("sync empty artifact file")
+		}
 		if err := f.Close(); err != nil {
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close empty artifact file")
 		}
 	}
 
-	path := s.artifactPath(sessionID)
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("open finalized artifact file")
@@ -304,14 +375,23 @@ func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType n
 
 // ArtifactExists checks whether the on-disk pcapng artifact is present.
 func (s *Store) ArtifactExists(sessionID string) bool {
-	fi, err := os.Stat(s.artifactPath(sessionID))
-	return err == nil && !fi.IsDir()
+	path, err := s.artifactPath(sessionID)
+	if err != nil {
+		return false
+	}
+	fi, statErr := os.Stat(path)
+	return statErr == nil && !fi.IsDir()
 }
 
 // ReadArtifact reads the on-disk pcapng artifact in chunks of up to 1 MiB,
 // passing each chunk to fn in order.
+// Each chunk's Data aliases one reusable buffer and is valid only until fn
+// returns.
 func (s *Store) ReadArtifact(ctx context.Context, sessionID string, fn func(chunk *modelcapturev1.CaptureArtifactChunk) error) error {
-	path := s.artifactPath(sessionID)
+	path, err := s.artifactPath(sessionID)
+	if err != nil {
+		return err
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -326,6 +406,15 @@ func (s *Store) ReadArtifact(ctx context.Context, sessionID string, fn func(chun
 		return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("stat artifact file")
 	}
 	totalSize := stat.Size()
+
+	if totalSize == 0 {
+		// An empty artifact still owes the caller a final chunk: a stream
+		// that simply ends carries no way to tell completion from a reset.
+		return fn(modelcapturev1.CaptureArtifactChunk_builder{
+			Offset: proto.Uint64(0),
+			Final:  proto.Bool(true),
+		}.Build())
+	}
 
 	buf := make([]byte, maxChunkSize)
 	var offset uint64
@@ -359,8 +448,13 @@ func (s *Store) ReadArtifact(ctx context.Context, sessionID string, fn func(chun
 	return nil
 }
 
-// SweepExpired unlinks any on-disk artifact files whose expiration timestamp has passed,
-// preserving session metadata and counters in the JetStream bucket.
+// SweepExpired unlinks the on-disk artifact of every session past its
+// expires_at and stamps purged_at on the descriptor, leaving the session
+// record and its counters in the bucket. Purging the payload is the
+// obligation the capture direction record takes on, so a sweep that could
+// not unlink a file says so rather than returning a count that reads like
+// nothing was due; the stamp is also what keeps a purged session from being
+// re-swept on every tick for the life of the record.
 func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 	keys, err := s.kv.Keys(ctx)
 	if errors.Is(err, jetstream.ErrNoKeysFound) {
@@ -370,30 +464,60 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 		return 0, errs.From(err).Code(ErrCodeStore).Msg("list capture sessions for sweep")
 	}
 
-	now := time.Now()
+	now := s.clock()
 	removed := 0
+	var failures []error
 
 	for _, key := range keys {
 		rec, _, err := s.GetSession(ctx, key)
-		if err != nil || rec == nil {
+		if err != nil {
+			failures = append(failures, err)
+			continue
+		}
+		if rec == nil {
 			continue
 		}
 		artifact := rec.GetState().GetArtifact()
-		if artifact == nil || artifact.GetExpiresAt() == nil {
+		if artifact == nil || artifact.GetExpiresAt() == nil || artifact.HasPurgedAt() {
 			continue
 		}
-		if now.After(artifact.GetExpiresAt().AsTime()) {
-			path := s.artifactPath(key)
-			if err := os.Remove(path); err == nil {
-				removed++
-			}
-			s.mu.Lock()
-			if w, ok := s.writers[key]; ok {
-				_ = w.file.Close()
-				delete(s.writers, key)
-			}
-			s.mu.Unlock()
+		if !now.After(artifact.GetExpiresAt().AsTime()) {
+			continue
 		}
+
+		path, err := s.artifactPath(key)
+		if err != nil {
+			failures = append(failures, err)
+			continue
+		}
+
+		s.mu.Lock()
+		if w, ok := s.writers[key]; ok {
+			_ = w.file.Close()
+			delete(s.writers, key)
+		}
+		rmErr := os.Remove(path)
+		s.mu.Unlock()
+
+		if rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			failures = append(failures, errs.From(rmErr).Code(ErrCodeStore).Attr("session", key).Msg("remove expired artifact file"))
+			continue
+		}
+		if rmErr == nil {
+			removed++
+		}
+
+		if _, err := s.MutateSession(ctx, key, func(r *modelcapturev1.CaptureSessionRecord) error {
+			if a := r.GetState().GetArtifact(); a != nil {
+				a.SetPurgedAt(timestamppb.New(now))
+			}
+			return nil
+		}); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	if len(failures) > 0 {
+		return removed, errors.Join(failures...)
 	}
 	return removed, nil
 }

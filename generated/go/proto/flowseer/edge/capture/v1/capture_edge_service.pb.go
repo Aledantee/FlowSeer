@@ -5,8 +5,9 @@
 // source: flowseer/edge/capture/v1/capture_edge_service.proto
 
 // The service an edge calls to receive capture assignments and upload a
-// running capture's packets. Authorized as the edge named in the stream's
-// assertion; central never calls it.
+// running capture's packets. The assignment stream is authorized as the edge
+// its call's assertion names; the upload stream carries its assertions as
+// messages and is authorized as the most recent one. Central never calls it.
 
 package capturev1
 
@@ -202,7 +203,8 @@ type SubscribeCaptureAssignmentsResponse_builder struct {
 	// Fields of oneof xxx_hidden_Assignment:
 	// Start a capture session with the given configuration.
 	Start *v1.CaptureSessionConfig
-	// Stop an active capture session.
+	// Stop a capture session the edge was told to start. Repeats carry no
+	// further meaning: an edge that is not running the session discards it.
 	Stop *v1.CaptureSessionGlobalRef
 	// -- end of xxx_hidden_Assignment
 }
@@ -240,7 +242,8 @@ type subscribeCaptureAssignmentsResponse_Start struct {
 }
 
 type subscribeCaptureAssignmentsResponse_Stop struct {
-	// Stop an active capture session.
+	// Stop a capture session the edge was told to start. Repeats carry no
+	// further meaning: an edge that is not running the session discards it.
 	Stop *v1.CaptureSessionGlobalRef `protobuf:"bytes,2,opt,name=stop,oneof"`
 }
 

@@ -3,8 +3,9 @@
 // Source: flowseer/edge/capture/v1/capture_edge_service.proto
 
 // The service an edge calls to receive capture assignments and upload a
-// running capture's packets. Authorized as the edge named in the stream's
-// assertion; central never calls it.
+// running capture's packets. The assignment stream is authorized as the edge
+// its call's assertion names; the upload stream carries its assertions as
+// messages and is authorized as the most recent one. Central never calls it.
 package capturev1connect
 
 import (

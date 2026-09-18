@@ -47,12 +47,21 @@ func panicRecovery() connect.HandlerOption {
 //
 // Which side a service sits on is decided by who calls it. An edge signs every
 // call with the key central registered at enrollment, so EdgeService,
-// DispatchService and AuditService are verified before Connect decodes
-// anything. An operator holds no edge key, so EdgeAdminService and
-// DeviceService cannot be behind that check — putting them there would refuse
-// every operator. Neither carries an authorization check of its own today;
-// OpenFGA is out of this plan's scope, and the deployment that runs this puts
-// the operator surface behind its own boundary until it lands.
+// DispatchService, AuditService and CaptureEdgeService are verified before
+// Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
+// DeviceService and CaptureService cannot be behind that check — putting them
+// there would refuse every operator. None carries an authorization check of
+// its own today; OpenFGA is out of this plan's scope, and the deployment that
+// runs this puts the operator surface behind its own boundary until it lands.
+// CaptureService is the one that makes that boundary matter most: behind it is
+// other people's traffic, not only an inventory.
+//
+// Two edge procedures are mounted in front of the middleware, each for the
+// same reason and each paying for it explicitly. Enroll happens before central
+// holds a key to verify with. UploadCapture holds a stream open for the length
+// of a capture, which no body-hashing middleware can read, so it authenticates
+// from the stream's own assertions instead. Both are bounded where the
+// middleware's limit would have been.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
 	recoverPanic := panicRecovery()
 	interceptors := connect.WithInterceptors(
@@ -148,11 +157,23 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, interceptors, recoverPanic)
 	mux.Handle(capturePath, captureHandler)
 
-	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(captureEdgeService, interceptors, recoverPanic)
+	// Every message on the upload stream is bounded the way the assertion
+	// middleware bounds a unary edge body. The middleware cannot do it here:
+	// it reads the body whole to hash it, and an upload stream has no whole.
+	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(
+		captureEdgeService, interceptors, recoverPanic, connect.WithReadMaxBytes(maxEdgeBody),
+	)
 	mux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
-	// UploadCapture is client-streaming with continuous chunks and in-stream
-	// assertion verification rather than header assertions.
-	mux.Handle(captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure, captureEdgeHandler)
+	// UploadCapture carries its assertions as messages rather than headers,
+	// so it is served in front of the middleware and authenticates itself
+	// from the stream's first message. That leaves it the second procedure an
+	// unauthenticated caller can reach, and the read bound above is what that
+	// costs. The handler also needs the read deadline that enforces its
+	// assertion window, which only this layer can hand it.
+	mux.Handle(
+		captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure,
+		captureapi.WithUploadReadDeadline(captureEdgeHandler),
+	)
 
 	return mux, nil
 }

@@ -113,8 +113,18 @@ message TailCaptureSessionRequest {
 }
 
 message TailCaptureSessionResponse {
-  // The next chunk of packets. Must be present.
-  flowseer.model.capture.v1.CapturePacketChunk chunk = 1 [(buf.validate.field).required = true];
+  // Exactly one of: the tail is live, or the next chunk of packets.
+  oneof body {
+    option (buf.validate.oneof).required = true;
+
+    // Sent once, before any chunk, when the tail is attached and no packet
+    // the session uploads from here on can be missed. Without it a caller
+    // cannot tell an idle capture from one whose packets it arrived too late
+    // to see. Always true.
+    bool attached = 1;
+    // The next chunk of packets.
+    flowseer.model.capture.v1.CapturePacketChunk chunk = 2;
+  }
 }
 
 message DownloadCaptureSessionRequest {

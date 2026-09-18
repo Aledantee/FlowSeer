@@ -1,8 +1,9 @@
 edition = "2024";
 
 // The service an edge calls to receive capture assignments and upload a
-// running capture's packets. Authorized as the edge named in the stream's
-// assertion; central never calls it.
+// running capture's packets. The assignment stream is authorized as the edge
+// its call's assertion names; the upload stream carries its assertions as
+// messages and is authorized as the most recent one. Central never calls it.
 package flowseer.edge.capture.v1;
 
 import "flowseer/model/capture/v1/capture_chunk.proto";
@@ -33,7 +34,8 @@ message SubscribeCaptureAssignmentsResponse {
 
     // Start a capture session with the given configuration.
     flowseer.model.capture.v1.CaptureSessionConfig start = 1;
-    // Stop an active capture session.
+    // Stop a capture session the edge was told to start. Repeats carry no
+    // further meaning: an edge that is not running the session discards it.
     flowseer.model.capture.v1.CaptureSessionGlobalRef stop = 2;
   }
 }

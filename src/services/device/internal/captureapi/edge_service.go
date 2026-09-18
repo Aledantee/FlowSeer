@@ -19,6 +19,10 @@ import (
 )
 
 const (
+	// failStreamTimeout bounds the record write that closes out a broken
+	// upload stream, which runs on a context detached from the dead request.
+	failStreamTimeout = 10 * time.Second
+
 	defaultAssertionWindow = 60 * time.Second
 	defaultResendInterval  = 5 * time.Second
 	defaultRetentionPeriod = 7 * 24 * time.Hour
@@ -63,22 +67,28 @@ func (b *Broadcaster) Subscribe(sessionID string) (<-chan *modelcapturev1.Captur
 	return ch, unsub
 }
 
-// Broadcast distributes a packet chunk to all subscribers of sessionID.
-func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CapturePacketChunk) {
+// Broadcast distributes a packet chunk to all subscribers of sessionID and
+// returns how many subscribers were too far behind to take it. A tail that
+// cannot keep up loses chunks rather than stalling the upload it is watching,
+// which makes the live stream a subsequence of what the edge sent; the count
+// is what lets the caller say so instead of leaving the gap invisible.
+func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CapturePacketChunk) int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	set, ok := b.subs[sessionID]
 	if !ok {
-		return
+		return 0
 	}
+	dropped := 0
 	for ch := range set {
 		select {
 		case ch <- chunk:
 		default:
-			// Subscriber buffer full; drop to prevent blocking the upload stream
+			dropped++
 		}
 	}
+	return dropped
 }
 
 // CloseSession closes subscriber channels for sessionID and clears the subscriber set.
@@ -224,7 +234,7 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 	sendOwed := func() error {
 		sessions, err := s.store.ListSessions(ctx)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return connectErr(err)
 		}
 		for _, rec := range sessions {
 			cfg := rec.GetConfig()
@@ -241,7 +251,13 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 				if err := stream.Send(resp); err != nil {
 					return err
 				}
-			case lifecycle == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED && rec.GetState().GetArtifact() == nil:
+			// A stop is owed only for a session an edge actually started.
+			// started_at is set at the PENDING to RUNNING transition, so a
+			// session canceled while it was still pending owes nothing —
+			// without that arm it would owe a stop on every resend tick for
+			// the life of the record, for a capture no edge ever ran.
+			case lifecycle == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED &&
+				rec.GetState().HasStartedAt() && rec.GetState().GetArtifact() == nil:
 				resp := captureedgev1.SubscribeCaptureAssignmentsResponse_builder{
 					Stop: cfg.GetRef(),
 				}.Build()
@@ -302,59 +318,55 @@ func (s *EdgeService) UploadCapture(
 	callingEdgeID := firstAssertion.GetEdge().GetEdge().GetId()
 	lastAssertionAt := s.clock()
 
-	streamCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	var (
 		sessionID      string
 		sessionRef     *modelcapturev1.CaptureSessionGlobalRef
 		sessionStarted bool
 		linkType              = netcapturev1.LinkType_LINK_TYPE_ETHERNET
 		snapLen        uint32 = 128
-		timerMu        sync.Mutex
-		lapsed         bool
 	)
 
-	timer := time.AfterFunc(s.assertionWindow, func() {
-		timerMu.Lock()
-		lapsed = true
-		timerMu.Unlock()
-		cancel()
-	})
-	defer timer.Stop()
+	// The window is enforced twice because neither check alone covers both
+	// ways an edge can exceed it. The transport deadline closes the read for
+	// an edge that goes silent, which the loop below could never observe;
+	// the arithmetic on lastAssertionAt covers an edge that keeps sending
+	// chunks without ever re-asserting, and is the only check where no
+	// transport supports a deadline.
+	extendDeadline := s.deadlineExtender(ctx)
+	extendDeadline()
+
+	// An upload stream that ends without a final chunk leaves a partial
+	// pcapng and an open descriptor behind; both are this handler's to
+	// release, because nothing else knows the stream is over.
+	finalized := false
+	defer func() {
+		if !finalized && sessionID != "" {
+			s.store.AbandonWriter(sessionID)
+		}
+	}()
 
 	for stream.Receive() {
 		now := s.clock()
-		timerMu.Lock()
-		timeLapsed := lapsed || now.Sub(lastAssertionAt) > s.assertionWindow
-		timerMu.Unlock()
-
-		if timeLapsed {
-			if sessionID != "" {
-				_ = s.failSession(sessionID)
-			}
+		if now.Sub(lastAssertionAt) > s.assertionWindow {
+			s.failStream(ctx, sessionID, "assertion window lapsed")
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("assertion window lapsed past deadline"))
 		}
 
 		msg := stream.Msg()
 
 		if signed := msg.GetAssertion(); signed != nil {
-			assertion, err := s.verifier.VerifySigned(streamCtx, signed, procedure, nil)
+			assertion, err := s.verifier.VerifySigned(ctx, signed, procedure, nil)
 			if err != nil {
-				if sessionID != "" {
-					_ = s.failSession(sessionID)
-				}
+				s.failStream(ctx, sessionID, "mid-stream assertion did not verify")
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
 			if assertion.GetEdge().GetEdge().GetId() != callingEdgeID {
-				if sessionID != "" {
-					_ = s.failSession(sessionID)
-				}
+				s.failStream(ctx, sessionID, "assertion edge changed mid-stream")
 				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("assertion edge changed mid-stream"))
 			}
 
 			lastAssertionAt = s.clock()
-			timer.Reset(s.assertionWindow)
+			extendDeadline()
 			continue
 		}
 
@@ -373,16 +385,27 @@ func (s *EdgeService) UploadCapture(
 			sessionRef = chunk.GetSession()
 			sessionID = sessionRef.GetCaptureSession().GetId()
 
-			rec, _, err := s.store.GetSession(streamCtx, sessionID)
+			rec, _, err := s.store.GetSession(ctx, sessionID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connectErr(err)
 			}
 			if rec == nil {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("capture session not found"))
+				return nil, errNoSuchSession()
 			}
 
 			if rec.GetConfig().GetRef().GetEdge().GetEdge().GetId() != callingEdgeID {
 				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("session does not belong to calling edge"))
+			}
+
+			// A session that has already produced its artifact is an audit
+			// record. Central authenticates the edge but does not trust its
+			// view of the session, so a second stream naming a finished
+			// session is refused here rather than allowed to rewrite the
+			// stored capture and the digest that describes it. A canceled
+			// session stays open until its artifact exists: flushing the
+			// final chunk is how the edge answers a stop.
+			if captureIsOver(rec.GetState()) {
+				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("capture session has already stopped"))
 			}
 
 			if rec.GetState().HasLinkType() {
@@ -396,7 +419,7 @@ func (s *EdgeService) UploadCapture(
 			}
 
 			if rec.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
-				_, err = s.store.MutateSession(streamCtx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
+				_, err = s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
 					if r.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
 						r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
 						r.GetState().SetStartedAt(timestamppb.New(s.clock()))
@@ -405,7 +428,7 @@ func (s *EdgeService) UploadCapture(
 					return nil
 				})
 				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
+					return nil, connectErr(err)
 				}
 				s.NotifyStoreChange()
 			}
@@ -413,21 +436,26 @@ func (s *EdgeService) UploadCapture(
 		}
 
 		if len(chunk.GetPackets()) > 0 {
-			if err := s.store.AppendPackets(streamCtx, sessionID, linkType, snapLen, chunk.GetPackets()); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+			if err := s.store.AppendPackets(ctx, sessionID, linkType, snapLen, chunk.GetPackets()); err != nil {
+				return nil, connectErr(err)
 			}
 		}
 
-		s.broadcaster.Broadcast(sessionID, chunk)
+		if dropped := s.broadcaster.Broadcast(sessionID, chunk); dropped > 0 {
+			s.log.WarnContext(ctx, "live capture tail fell behind and lost a chunk",
+				slog.String("capture_session_id", sessionID),
+				slog.Uint64("capture_chunk_first_sequence", chunk.GetFirstSequence()),
+				slog.Int("capture_tail_subscribers_dropped", dropped))
+		}
 
 		if chunk.GetFinal() {
 			expiresAt := s.clock().Add(s.retentionPeriod)
-			artifact, err := s.store.FinalizeArtifact(streamCtx, sessionID, linkType, snapLen, chunk.GetCounters(), expiresAt)
+			artifact, err := s.store.FinalizeArtifact(ctx, sessionID, linkType, snapLen, chunk.GetCounters(), expiresAt)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connectErr(err)
 			}
 
-			_, err = s.store.MutateSession(streamCtx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
+			_, err = s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
 				r.GetState().SetCounters(chunk.GetCounters())
 				r.GetState().SetEndedAt(timestamppb.New(s.clock()))
 				r.GetState().SetArtifact(artifact)
@@ -440,9 +468,10 @@ func (s *EdgeService) UploadCapture(
 				return nil
 			})
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connectErr(err)
 			}
 
+			finalized = true
 			s.broadcaster.CloseSession(sessionID)
 			s.NotifyStoreChange()
 
@@ -453,45 +482,113 @@ func (s *EdgeService) UploadCapture(
 		}
 	}
 
-	timerMu.Lock()
-	timeLapsed := lapsed || s.clock().Sub(lastAssertionAt) > s.assertionWindow
-	timerMu.Unlock()
-
-	if timeLapsed {
-		if sessionID != "" {
-			_ = s.failSession(sessionID)
-		}
+	// The read ended. Whether that was the transport deadline this handler
+	// set, a reset, or an orderly half-close, the stream carried no final
+	// chunk, so the session stops here either way: a session left RUNNING
+	// with no stream behind it is one nothing ever retries or reports.
+	if s.clock().Sub(lastAssertionAt) > s.assertionWindow {
+		s.failStream(ctx, sessionID, "assertion window lapsed")
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("assertion window lapsed past deadline"))
 	}
 
 	if err := stream.Err(); err != nil {
-		if errors.Is(err, context.Canceled) {
-			timerMu.Lock()
-			wasLapsed := lapsed
-			timerMu.Unlock()
-			if wasLapsed {
-				if sessionID != "" {
-					_ = s.failSession(sessionID)
-				}
-				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("assertion window lapsed past deadline"))
-			}
-		}
+		s.failStream(ctx, sessionID, "upload stream failed")
 		return nil, connect.NewError(connect.CodeUnknown, err)
 	}
 
+	s.failStream(ctx, sessionID, "upload stream ended before its final chunk")
 	return nil, connect.NewError(connect.CodeDataLoss, errors.New("upload stream terminated before final chunk"))
 }
 
-func (s *EdgeService) failSession(sessionID string) error {
-	ctx := context.Background()
-	_, err := s.store.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+// deadlineExtender returns a func that pushes the transport read deadline out
+// by one assertion window. Where the transport carries no deadline it logs
+// once and returns a no-op, because the caller's other check still holds for
+// an edge that keeps sending.
+func (s *EdgeService) deadlineExtender(ctx context.Context) func() {
+	set := readDeadlineFrom(ctx)
+	if set == nil {
+		s.log.WarnContext(ctx, "capture upload stream carries no read deadline; a silent edge holds it open until the client disconnects")
+		return func() {}
+	}
+	unsupported := false
+	return func() {
+		if unsupported {
+			return
+		}
+		if err := set(time.Now().Add(s.assertionWindow)); err != nil {
+			unsupported = true
+			s.log.WarnContext(ctx, "capture upload stream could not take a read deadline", slog.Any("error", err))
+		}
+	}
+}
+
+// failStream records that an upload ended without completing its capture. It
+// is a no-op before the first chunk named a session, and it never overwrites a
+// session that already reached a terminal state: an operator's cancellation
+// and its recorded reason outlive the stream that was serving it.
+func (s *EdgeService) failStream(ctx context.Context, sessionID, reason string) {
+	if sessionID == "" {
+		return
+	}
+
+	// The reasons this is reached are mostly reasons ctx is already dead: the
+	// read deadline fired, or the peer went away. Recording why the capture
+	// stopped is the last thing this handler owes, and it cannot be done on a
+	// canceled context, so cancellation is dropped and a bound put back.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), failStreamTimeout)
+	defer cancel()
+
+	changed := false
+	if _, err := s.store.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		if lifecycleIsTerminal(rec.GetState().GetLifecycle()) {
+			changed = false
+			return nil
+		}
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED)
 		rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR)
 		rec.GetState().SetEndedAt(timestamppb.New(s.clock()))
+		changed = true
 		return nil
-	})
+	}); err != nil {
+		s.log.ErrorContext(ctx, "capture session could not be marked failed",
+			slog.String("capture_session_id", sessionID), slog.String("reason", reason), slog.Any("error", err))
+		return
+	}
+
+	if !changed {
+		return
+	}
+	s.log.WarnContext(ctx, "capture session failed",
+		slog.String("capture_session_id", sessionID), slog.String("reason", reason))
+	// The tails watching this session end with it; only the final-chunk path
+	// closes them otherwise, and this stream will not reach it.
+	s.broadcaster.CloseSession(sessionID)
 	s.NotifyStoreChange()
-	return err
+}
+
+// lifecycleIsTerminal reports whether a session's lifecycle has settled. A
+// cancellation is settled the moment an operator records it; what the edge
+// still owes is the artifact, not a lifecycle change.
+func lifecycleIsTerminal(lifecycle modelcapturev1.CaptureLifecycle) bool {
+	switch lifecycle {
+	case modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED,
+		modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED,
+		modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED:
+		return true
+	default:
+		return false
+	}
+}
+
+// captureIsOver reports whether a session will accept no further packets: it
+// stopped for good, or it was canceled and the edge already flushed the final
+// chunk that produced its artifact.
+func captureIsOver(state *modelcapturev1.CaptureSessionState) bool {
+	if state.GetArtifact() != nil {
+		return true
+	}
+	return state.GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED &&
+		lifecycleIsTerminal(state.GetLifecycle())
 }
 
 func deriveStopReason(budget *modelcapturev1.CaptureBudget, counters *netcapturev1.CaptureCounters) modelcapturev1.CaptureStopReason {

@@ -1,6 +1,7 @@
 package captureapi_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -544,5 +545,252 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	}
 	if !h.store.ArtifactExists(sessID) {
 		t.Fatalf("expected artifact file on disk for session %s", sessID)
+	}
+}
+
+// newUploadServer mounts the handler the way the host does: the upload
+// procedure behind the wrapper that hands it a transport read deadline.
+func newUploadServer(t *testing.T, svc *captureapi.EdgeService) capturev1connect.CaptureEdgeServiceClient {
+	t.Helper()
+	path, handler := capturev1connect.NewCaptureEdgeServiceHandler(svc)
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	mux.Handle(capturev1connect.CaptureEdgeServiceUploadCaptureProcedure, captureapi.WithUploadReadDeadline(handler))
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return capturev1connect.NewCaptureEdgeServiceClient(srv.Client(), srv.URL)
+}
+
+// An edge that stops sending is the case the arrival-time check cannot see:
+// nothing arrives to trigger it. Central has to close the stream on its own
+// and stop leaving the session RUNNING behind a connection nobody is using.
+func TestUploadCapture_SilentStreamLapsesAndFailsTheSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	sessID := "0192e6a0-0000-7000-8000-000000000016"
+	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{
+		AssertionWindow: 50 * time.Millisecond,
+	})
+	client := newUploadServer(t, edgeSvc)
+
+	uploadStream := client.UploadCapture(ctx)
+	if err := uploadStream.Send(captureedgev1.UploadCaptureRequest_builder{
+		Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+	}.Build()); err != nil {
+		t.Fatalf("send opening assertion: %v", err)
+	}
+	chunk := modelcapturev1.CapturePacketChunk_builder{
+		Session:       cfg.GetRef(),
+		FirstSequence: proto.Uint64(1),
+		Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte("packet 1"))},
+	}.Build()
+	if err := uploadStream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: chunk}.Build()); err != nil {
+		t.Fatalf("send chunk: %v", err)
+	}
+
+	// Send nothing more, and do not half-close: this side goes quiet and
+	// stays connected, which is the case that has to be enforced without any
+	// further action from the caller. Polling the record rather than the
+	// stream is the point — an implementation that only notices on the next
+	// message never gets one.
+	defer func() {
+		cancel()
+		_, _ = uploadStream.CloseAndReceive()
+	}()
+
+	deadline := time.Now().Add(10 * time.Second)
+	var rec *modelcapturev1.CaptureSessionRecord
+	for time.Now().Before(deadline) {
+		var err error
+		rec, _, err = h.store.GetSession(context.Background(), sessID)
+		if err != nil {
+			t.Fatalf("get session: %v", err)
+		}
+		if rec.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if got := rec.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+		t.Fatalf("the silent stream's session rests in %v; the lapsed window never closed it", got)
+	}
+	if got := rec.GetState().GetStopReason(); got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
+		t.Fatalf("expected stop reason ERROR, got: %v", got)
+	}
+}
+
+// A completed capture is an audit record. An edge is authenticated, not
+// trusted with the session's state, so a second stream naming a finished
+// session must not rewrite the stored artifact or the digest describing it.
+func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	sessID := "0192e6a0-0000-7000-8000-000000000017"
+	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{})
+	client := newUploadServer(t, edgeSvc)
+
+	upload := func(payload string, packets int) error {
+		stream := client.UploadCapture(ctx)
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+			Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+		}.Build()); err != nil {
+			t.Fatalf("send opening assertion: %v", err)
+		}
+		records := make([]*netcapturev1.PacketRecord, packets)
+		for i := range records {
+			records[i] = testPacketRecord(uint64(i+1), []byte(payload))
+		}
+		final := modelcapturev1.CapturePacketChunk_builder{
+			Session:       cfg.GetRef(),
+			FirstSequence: proto.Uint64(1),
+			Packets:       records,
+			Counters: netcapturev1.CaptureCounters_builder{
+				Received: proto.Uint64(uint64(packets)),
+				Accepted: proto.Uint64(uint64(packets)),
+			}.Build(),
+			Final: proto.Bool(true),
+		}.Build()
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: final}.Build()); err != nil {
+			t.Fatalf("send final chunk: %v", err)
+		}
+		_, err := stream.CloseAndReceive()
+		return err
+	}
+
+	if err := upload("first capture", 5); err != nil {
+		t.Fatalf("first upload: %v", err)
+	}
+	first, _, err := h.store.GetSession(ctx, sessID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+
+	err = upload("second capture", 1)
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("expected CodeFailedPrecondition for a stopped session, got: %v", err)
+	}
+
+	second, _, err := h.store.GetSession(ctx, sessID)
+	if err != nil {
+		t.Fatalf("get session again: %v", err)
+	}
+	firstArtifact, secondArtifact := first.GetState().GetArtifact(), second.GetState().GetArtifact()
+	if secondArtifact.GetPacketCount() != firstArtifact.GetPacketCount() ||
+		secondArtifact.GetByteSize() != firstArtifact.GetByteSize() ||
+		!bytes.Equal(secondArtifact.GetDigest(), firstArtifact.GetDigest()) {
+		t.Fatalf("the completed capture's artifact was rewritten: %d packets became %d",
+			firstArtifact.GetPacketCount(), secondArtifact.GetPacketCount())
+	}
+	if !h.store.ArtifactExists(sessID) {
+		t.Fatal("the completed capture's file is gone")
+	}
+}
+
+// A chunk naming a session that does not exist is refused by the chunk's own
+// edge check, not by the store lookup behind it: with that check removed the
+// answer would be NotFound rather than PermissionDenied.
+func TestUploadCapture_ChunkEdgeCheckRefusesBeforeTheStoreIsRead(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{})
+	client := newUploadServer(t, edgeSvc)
+
+	// Edge 2 uploads a chunk naming edge 1's unknown session.
+	unknown := newEdgeSessionConfig(testEdge1ID, "0192e6a0-0000-7000-8000-000000000018")
+
+	stream := client.UploadCapture(ctx)
+	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+		Assertion: h.signAssertion(t, testEdge2ID, h.privKey2),
+	}.Build()); err != nil {
+		t.Fatalf("send opening assertion: %v", err)
+	}
+	chunk := modelcapturev1.CapturePacketChunk_builder{
+		Session:       unknown.GetRef(),
+		FirstSequence: proto.Uint64(1),
+		Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte("packet 1"))},
+	}.Build()
+	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: chunk}.Build()); err != nil {
+		t.Fatalf("send chunk: %v", err)
+	}
+	_, err := stream.CloseAndReceive()
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected CodePermissionDenied from the chunk's edge check, got: %v", err)
+	}
+}
+
+// A stop is owed for a session an edge started and an operator then canceled,
+// and for no other: a session canceled while it was still pending would
+// otherwise owe one on every resend tick for the life of the record.
+func TestSubscribeCaptureAssignments_StopIsOwedOnlyForAStartedSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	// The never-started session sorts first, so a missing started_at guard
+	// sends its ref before the started session's.
+	neverRanID := "0192e6a0-0000-7000-8000-000000000019"
+	startedID := "0192e6a0-0000-7000-8000-00000000001a"
+
+	for _, id := range []string{startedID, neverRanID} {
+		if _, err := h.store.CreateSession(ctx, newEdgeSessionConfig(testEdge1ID, id)); err != nil {
+			t.Fatalf("create session %s: %v", id, err)
+		}
+	}
+	cancelSession := func(id string, started bool) {
+		t.Helper()
+		if _, err := h.store.MutateSession(ctx, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
+			if started {
+				rec.GetState().SetStartedAt(timestamppb.Now())
+			}
+			rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
+			rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
+			return nil
+		}); err != nil {
+			t.Fatalf("cancel session %s: %v", id, err)
+		}
+	}
+	cancelSession(startedID, true)
+	cancelSession(neverRanID, false)
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{
+		EdgeID:         func(context.Context) (string, error) { return testEdge1ID, nil },
+		ResendInterval: 10 * time.Minute,
+	})
+	path, handler := capturev1connect.NewCaptureEdgeServiceHandler(edgeSvc)
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	client := capturev1connect.NewCaptureEdgeServiceClient(srv.Client(), srv.URL)
+
+	stream, err := client.SubscribeCaptureAssignments(ctx, connect.NewRequest(&captureedgev1.SubscribeCaptureAssignmentsRequest{}))
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	defer func() { _ = stream.Close() }()
+
+	if !stream.Receive() {
+		t.Fatalf("expected a stop assignment, stream closed: %v", stream.Err())
+	}
+	got := stream.Msg().GetStop().GetCaptureSession().GetId()
+	if got != startedID {
+		t.Fatalf("expected a stop for the started session %s, got: %s", startedID, got)
 	}
 }

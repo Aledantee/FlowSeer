@@ -1065,6 +1065,7 @@ type CaptureArtifact struct {
 	xxx_hidden_Digest      []byte                 `protobuf:"bytes,3,opt,name=digest"`
 	xxx_hidden_LinkType    v11.LinkType           `protobuf:"varint,4,opt,name=link_type,json=linkType,enum=flowseer.net.capture.v1.LinkType"`
 	xxx_hidden_ExpiresAt   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt"`
+	xxx_hidden_PurgedAt    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=purged_at,json=purgedAt"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -1133,14 +1134,21 @@ func (x *CaptureArtifact) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *CaptureArtifact) GetPurgedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_PurgedAt
+	}
+	return nil
+}
+
 func (x *CaptureArtifact) SetByteSize(v uint64) {
 	x.xxx_hidden_ByteSize = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *CaptureArtifact) SetPacketCount(v uint64) {
 	x.xxx_hidden_PacketCount = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *CaptureArtifact) SetDigest(v []byte) {
@@ -1148,16 +1156,20 @@ func (x *CaptureArtifact) SetDigest(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Digest = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *CaptureArtifact) SetLinkType(v v11.LinkType) {
 	x.xxx_hidden_LinkType = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
 func (x *CaptureArtifact) SetExpiresAt(v *timestamppb.Timestamp) {
 	x.xxx_hidden_ExpiresAt = v
+}
+
+func (x *CaptureArtifact) SetPurgedAt(v *timestamppb.Timestamp) {
+	x.xxx_hidden_PurgedAt = v
 }
 
 func (x *CaptureArtifact) HasByteSize() bool {
@@ -1195,6 +1207,13 @@ func (x *CaptureArtifact) HasExpiresAt() bool {
 	return x.xxx_hidden_ExpiresAt != nil
 }
 
+func (x *CaptureArtifact) HasPurgedAt() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_PurgedAt != nil
+}
+
 func (x *CaptureArtifact) ClearByteSize() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ByteSize = 0
@@ -1219,6 +1238,10 @@ func (x *CaptureArtifact) ClearExpiresAt() {
 	x.xxx_hidden_ExpiresAt = nil
 }
 
+func (x *CaptureArtifact) ClearPurgedAt() {
+	x.xxx_hidden_PurgedAt = nil
+}
+
 type CaptureArtifact_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1233,6 +1256,11 @@ type CaptureArtifact_builder struct {
 	LinkType *v11.LinkType
 	// When the stored pcapng file is no longer retained. Must be present.
 	ExpiresAt *timestamppb.Timestamp
+	// When retention deleted the stored pcapng file. Unset means the file is
+	// still on disk. The descriptor outlives the bytes it describes: an audit
+	// asks what was captured and how large it was long after the capture
+	// itself has been purged.
+	PurgedAt *timestamppb.Timestamp
 }
 
 func (b0 CaptureArtifact_builder) Build() *CaptureArtifact {
@@ -1240,22 +1268,23 @@ func (b0 CaptureArtifact_builder) Build() *CaptureArtifact {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.ByteSize != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_ByteSize = *b.ByteSize
 	}
 	if b.PacketCount != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_PacketCount = *b.PacketCount
 	}
 	if b.Digest != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_Digest = b.Digest
 	}
 	if b.LinkType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_LinkType = *b.LinkType
 	}
 	x.xxx_hidden_ExpiresAt = b.ExpiresAt
+	x.xxx_hidden_PurgedAt = b.PurgedAt
 	return m0
 }
 
@@ -2055,7 +2084,7 @@ const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\boperator\x12%\n" +
 	"\x06reason\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x10R\x06reason\x12<\n" +
-	"\x16full_payload_requested\x18\x03 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\x14fullPayloadRequested\"\x90\x02\n" +
+	"\x16full_payload_requested\x18\x03 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\x14fullPayloadRequested\"\xc9\x02\n" +
 	"\x0fCaptureArtifact\x12#\n" +
 	"\tbyte_size\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\bbyteSize\x12)\n" +
 	"\fpacket_count\x18\x02 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\vpacketCount\x12\"\n" +
@@ -2063,7 +2092,8 @@ const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\xbaH\a\xc8\x01\x01z\x02h R\x06digest\x12F\n" +
 	"\tlink_type\x18\x04 \x01(\x0e2!.flowseer.net.capture.v1.LinkTypeB\x06\xbaH\x03\xc8\x01\x01R\blinkType\x12A\n" +
 	"\n" +
-	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\"\xe5\x03\n" +
+	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x127\n" +
+	"\tpurged_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\bpurgedAt\"\xe5\x03\n" +
 	"\x14CaptureSessionConfig\x12L\n" +
 	"\x03ref\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -2148,29 +2178,30 @@ var file_flowseer_model_capture_v1_capture_session_proto_depIdxs = []int32{
 	16, // 5: flowseer.model.capture.v1.CaptureBudget.max_duration:type_name -> google.protobuf.Duration
 	17, // 6: flowseer.model.capture.v1.CaptureArtifact.link_type:type_name -> flowseer.net.capture.v1.LinkType
 	18, // 7: flowseer.model.capture.v1.CaptureArtifact.expires_at:type_name -> google.protobuf.Timestamp
-	3,  // 8: flowseer.model.capture.v1.CaptureSessionConfig.ref:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	6,  // 9: flowseer.model.capture.v1.CaptureSessionConfig.source:type_name -> flowseer.model.capture.v1.CaptureSource
-	19, // 10: flowseer.model.capture.v1.CaptureSessionConfig.filter:type_name -> flowseer.net.capture.v1.CaptureFilter
-	7,  // 11: flowseer.model.capture.v1.CaptureSessionConfig.budget:type_name -> flowseer.model.capture.v1.CaptureBudget
-	8,  // 12: flowseer.model.capture.v1.CaptureSessionConfig.authorization:type_name -> flowseer.model.capture.v1.CaptureAuthorization
-	3,  // 13: flowseer.model.capture.v1.CaptureSessionState.ref:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	0,  // 14: flowseer.model.capture.v1.CaptureSessionState.lifecycle:type_name -> flowseer.model.capture.v1.CaptureLifecycle
-	1,  // 15: flowseer.model.capture.v1.CaptureSessionState.stop_reason:type_name -> flowseer.model.capture.v1.CaptureStopReason
-	18, // 16: flowseer.model.capture.v1.CaptureSessionState.started_at:type_name -> google.protobuf.Timestamp
-	18, // 17: flowseer.model.capture.v1.CaptureSessionState.ended_at:type_name -> google.protobuf.Timestamp
-	20, // 18: flowseer.model.capture.v1.CaptureSessionState.counters:type_name -> flowseer.net.capture.v1.CaptureCounters
-	17, // 19: flowseer.model.capture.v1.CaptureSessionState.link_type:type_name -> flowseer.net.capture.v1.LinkType
-	9,  // 20: flowseer.model.capture.v1.CaptureSessionState.artifact:type_name -> flowseer.model.capture.v1.CaptureArtifact
-	3,  // 21: flowseer.model.capture.v1.CaptureSessionEvent.ref:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	0,  // 22: flowseer.model.capture.v1.CaptureSessionEvent.from:type_name -> flowseer.model.capture.v1.CaptureLifecycle
-	0,  // 23: flowseer.model.capture.v1.CaptureSessionEvent.to:type_name -> flowseer.model.capture.v1.CaptureLifecycle
-	10, // 24: flowseer.model.capture.v1.CaptureSessionRecord.config:type_name -> flowseer.model.capture.v1.CaptureSessionConfig
-	11, // 25: flowseer.model.capture.v1.CaptureSessionRecord.state:type_name -> flowseer.model.capture.v1.CaptureSessionState
-	26, // [26:26] is the sub-list for method output_type
-	26, // [26:26] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	18, // 8: flowseer.model.capture.v1.CaptureArtifact.purged_at:type_name -> google.protobuf.Timestamp
+	3,  // 9: flowseer.model.capture.v1.CaptureSessionConfig.ref:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	6,  // 10: flowseer.model.capture.v1.CaptureSessionConfig.source:type_name -> flowseer.model.capture.v1.CaptureSource
+	19, // 11: flowseer.model.capture.v1.CaptureSessionConfig.filter:type_name -> flowseer.net.capture.v1.CaptureFilter
+	7,  // 12: flowseer.model.capture.v1.CaptureSessionConfig.budget:type_name -> flowseer.model.capture.v1.CaptureBudget
+	8,  // 13: flowseer.model.capture.v1.CaptureSessionConfig.authorization:type_name -> flowseer.model.capture.v1.CaptureAuthorization
+	3,  // 14: flowseer.model.capture.v1.CaptureSessionState.ref:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	0,  // 15: flowseer.model.capture.v1.CaptureSessionState.lifecycle:type_name -> flowseer.model.capture.v1.CaptureLifecycle
+	1,  // 16: flowseer.model.capture.v1.CaptureSessionState.stop_reason:type_name -> flowseer.model.capture.v1.CaptureStopReason
+	18, // 17: flowseer.model.capture.v1.CaptureSessionState.started_at:type_name -> google.protobuf.Timestamp
+	18, // 18: flowseer.model.capture.v1.CaptureSessionState.ended_at:type_name -> google.protobuf.Timestamp
+	20, // 19: flowseer.model.capture.v1.CaptureSessionState.counters:type_name -> flowseer.net.capture.v1.CaptureCounters
+	17, // 20: flowseer.model.capture.v1.CaptureSessionState.link_type:type_name -> flowseer.net.capture.v1.LinkType
+	9,  // 21: flowseer.model.capture.v1.CaptureSessionState.artifact:type_name -> flowseer.model.capture.v1.CaptureArtifact
+	3,  // 22: flowseer.model.capture.v1.CaptureSessionEvent.ref:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	0,  // 23: flowseer.model.capture.v1.CaptureSessionEvent.from:type_name -> flowseer.model.capture.v1.CaptureLifecycle
+	0,  // 24: flowseer.model.capture.v1.CaptureSessionEvent.to:type_name -> flowseer.model.capture.v1.CaptureLifecycle
+	10, // 25: flowseer.model.capture.v1.CaptureSessionRecord.config:type_name -> flowseer.model.capture.v1.CaptureSessionConfig
+	11, // 26: flowseer.model.capture.v1.CaptureSessionRecord.state:type_name -> flowseer.model.capture.v1.CaptureSessionState
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_model_capture_v1_capture_session_proto_init() }

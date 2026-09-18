@@ -31,6 +31,14 @@ const (
 
 func newTestStore(t *testing.T) *captureapi.Store {
 	t.Helper()
+	store, _ := newTestStoreDir(t)
+	return store
+}
+
+// newTestStoreDir also hands back the directory the artifacts land in, for the
+// tests that have to look at the files themselves.
+func newTestStoreDir(t *testing.T) (*captureapi.Store, string) {
+	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
@@ -51,7 +59,7 @@ func newTestStore(t *testing.T) *captureapi.Store {
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
-	return store
+	return store, capturesDir
 }
 
 func newSessionConfig(t *testing.T, sessionID string) *modelcapturev1.CaptureSessionConfig {
@@ -547,5 +555,182 @@ func TestListSessions(t *testing.T) {
 	}
 	if list[1].GetConfig().GetRef().GetCaptureSession().GetId() != id2 {
 		t.Errorf("list[1] id = %s, want %s", list[1].GetConfig().GetRef().GetCaptureSession().GetId(), id2)
+	}
+}
+
+// A sweep that unlinks every artifact it walks, regardless of expiry, passes a
+// test holding only an expired session. The unexpired session is the input only
+// the expiry check rejects.
+func TestSweepExpiredLeavesUnexpiredArtifacts(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	now := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
+	s.SetClock(func() time.Time { return now })
+
+	const (
+		expiredID   = "0192e6a0-0000-7000-8000-0000000000e1"
+		retainedID  = "0192e6a0-0000-7000-8000-0000000000e2"
+		unfinishedI = "0192e6a0-0000-7000-8000-0000000000e3"
+	)
+
+	finalize := func(sessionID string, expiresAt time.Time) {
+		t.Helper()
+		if _, err := s.CreateSession(ctx, newSessionConfig(t, sessionID)); err != nil {
+			t.Fatalf("CreateSession %s: %v", sessionID, err)
+		}
+		packets := []*netcapturev1.PacketRecord{newPacket([]byte("test packet"))}
+		if err := s.AppendPackets(ctx, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, packets); err != nil {
+			t.Fatalf("AppendPackets %s: %v", sessionID, err)
+		}
+		counters := netcapturev1.CaptureCounters_builder{
+			Received: proto.Uint64(1),
+			Accepted: proto.Uint64(1),
+		}.Build()
+		artifact, err := s.FinalizeArtifact(ctx, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, counters, expiresAt)
+		if err != nil {
+			t.Fatalf("FinalizeArtifact %s: %v", sessionID, err)
+		}
+		if _, err := s.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+			rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+			rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
+			rec.GetState().SetArtifact(artifact)
+			rec.GetState().SetCounters(counters)
+			return nil
+		}); err != nil {
+			t.Fatalf("MutateSession %s: %v", sessionID, err)
+		}
+	}
+
+	finalize(expiredID, now.Add(-time.Hour))
+	finalize(retainedID, now.Add(time.Hour))
+
+	// A session still capturing has a file on disk and no artifact
+	// descriptor; nothing about it is expired yet.
+	if _, err := s.CreateSession(ctx, newSessionConfig(t, unfinishedI)); err != nil {
+		t.Fatalf("CreateSession %s: %v", unfinishedI, err)
+	}
+	if err := s.AppendPackets(ctx, unfinishedI, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
+		[]*netcapturev1.PacketRecord{newPacket([]byte("in flight"))}); err != nil {
+		t.Fatalf("AppendPackets %s: %v", unfinishedI, err)
+	}
+
+	removed, err := s.SweepExpired(ctx)
+	if err != nil {
+		t.Fatalf("SweepExpired: %v", err)
+	}
+	if removed != 1 {
+		t.Fatalf("got %d removed files, want only the expired one", removed)
+	}
+	if s.ArtifactExists(expiredID) {
+		t.Error("the expired artifact is still on disk")
+	}
+	if !s.ArtifactExists(retainedID) {
+		t.Error("an artifact inside its retention window was purged")
+	}
+	if !s.ArtifactExists(unfinishedI) {
+		t.Error("an in-flight capture's file was purged")
+	}
+}
+
+// The artifact's recorded digest, byte size and packet count describe bytes
+// that must still be there when someone downloads them.
+func TestAppendPacketsRefusesToOverwriteAFinalizedArtifact(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
+	packets := []*netcapturev1.PacketRecord{newPacket([]byte("first capture"))}
+	if err := s.AppendPackets(ctx, testSessionID, linkType, 128, packets); err != nil {
+		t.Fatalf("AppendPackets: %v", err)
+	}
+	counters := netcapturev1.CaptureCounters_builder{
+		Received: proto.Uint64(1),
+		Accepted: proto.Uint64(1),
+	}.Build()
+	artifact, err := s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("FinalizeArtifact: %v", err)
+	}
+
+	err = s.AppendPackets(ctx, testSessionID, linkType, 128,
+		[]*netcapturev1.PacketRecord{newPacket([]byte("second capture"))})
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeConflict {
+		t.Fatalf("AppendPackets after finalization got %v, want ErrCodeConflict", err)
+	}
+
+	_, err = s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeConflict {
+		t.Fatalf("FinalizeArtifact a second time got %v, want ErrCodeConflict", err)
+	}
+
+	var size int64
+	hasher := sha256.New()
+	if err := s.ReadArtifact(ctx, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+		size += int64(len(chunk.GetData()))
+		hasher.Write(chunk.GetData())
+		return nil
+	}); err != nil {
+		t.Fatalf("ReadArtifact: %v", err)
+	}
+	if uint64(size) != artifact.GetByteSize() || !bytes.Equal(hasher.Sum(nil), artifact.GetDigest()) {
+		t.Fatal("the stored artifact no longer matches the digest recorded for it")
+	}
+}
+
+// A session identifier reaches a filesystem path, so a value that is not the
+// uuid the schema promises is refused before one is built.
+func TestArtifactPathsRefuseANonUUIDSession(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	escape := "../../escaped"
+
+	if err := s.DeleteSession(ctx, escape); err == nil {
+		t.Error("DeleteSession accepted a session id that is not a uuid")
+	}
+	if err := s.ReadArtifact(ctx, escape, func(_ *modelcapturev1.CaptureArtifactChunk) error {
+		return nil
+	}); err == nil {
+		t.Error("ReadArtifact accepted a session id that is not a uuid")
+	}
+	if err := s.AppendPackets(ctx, escape, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
+		[]*netcapturev1.PacketRecord{newPacket([]byte("x"))}); err == nil {
+		t.Error("AppendPackets accepted a session id that is not a uuid")
+	}
+	if s.ArtifactExists(escape) {
+		t.Error("ArtifactExists answered for a session id that is not a uuid")
+	}
+}
+
+// An empty artifact still ends its download with a final chunk; a stream that
+// simply stops carries no way to tell completion from a reset.
+func TestReadArtifactEmitsAFinalChunkForAnEmptyArtifact(t *testing.T) {
+	s, dir := newTestStoreDir(t)
+	ctx := context.Background()
+
+	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, testSessionID+".pcapng"), nil, 0o600); err != nil {
+		t.Fatalf("write empty artifact: %v", err)
+	}
+
+	var chunks []*modelcapturev1.CaptureArtifactChunk
+	if err := s.ReadArtifact(ctx, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+		chunks = append(chunks, chunk)
+		return nil
+	}); err != nil {
+		t.Fatalf("ReadArtifact: %v", err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("got %d chunks for an empty artifact, want 1", len(chunks))
+	}
+	if !chunks[0].GetFinal() || len(chunks[0].GetData()) != 0 {
+		t.Fatalf("got chunk %+v, want one empty final chunk", chunks[0])
 	}
 }

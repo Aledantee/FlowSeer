@@ -26,14 +26,34 @@ Deliberately absent:
 
 ## Assignments stream
 
-`SubscribeCaptureAssignments` delivers owed assignments to the connected edge,
-authenticated by its opening assertion. Central delivers only assignments for
-sessions scoped to that edge (`ref.edge.edge.id == edgeID`). Assignments carry
-either `start` with `CaptureSessionConfig` (for sessions in
-`CAPTURE_LIFECYCLE_PENDING` before upload begins) or `stop` with
-`CaptureSessionGlobalRef` (when an operator requests cancellation of an active
-session). Once the edge begins uploading packet chunks for a session, central
-marks the session `RUNNING` and withdraws the start assignment.
+This is how an operator-originated capture command reaches the edge. The edge
+calls `SubscribeCaptureAssignments` and holds the server stream open; central
+never calls the edge.
+
+A capture session belongs to one edge by the `EdgeGlobalRef` inside its
+`CaptureSessionGlobalRef`, so central delivers an assignment only where
+`ref.edge` names the edge the call's assertion authenticated. There is no field
+on the request for an edge to name itself with, and that is deliberate: a
+request field would be a second answer to a question the assertion has already
+settled.
+
+Central does not track what it has delivered. It derives what each session is
+owed from that session's state, sends it, and derives it again when the state
+changes or a resend interval passes:
+
+- a `start` carrying `CaptureSessionConfig` while the session is
+  `CAPTURE_LIFECYCLE_PENDING`. It stops being owed when the edge opens
+  `UploadCapture` and delivers a first chunk, which moves the session to
+  `CAPTURE_LIFECYCLE_RUNNING`;
+- a `stop` carrying `CaptureSessionGlobalRef` while a session the edge started
+  is `CAPTURE_LIFECYCLE_CANCELED` and has no artifact. It stops being owed when
+  the edge flushes its final chunk, which produces one. A session canceled
+  before any edge started it was never owed a stop.
+
+Both are therefore re-delivered until the edge's own progress withdraws them,
+so an edge takes each one as a statement of what central currently wants rather
+than as an event. Starting a session it is already running, or stopping one it
+is not, is a repeat to discard, not an error to report.
 
 ## Re-assertion on the upload stream
 
@@ -46,15 +66,20 @@ capture session runs, which routinely outlives that window, so
 `SignedEdgeAssertion` rather than a plain stream of chunks. The edge sends a
 fresh assertion on the stream at an interval shorter than the 60-second
 window. The server verifies each one exactly as it verifies the opening
-one, nonce replay check included, and closes the stream if the interval
-passes without one arriving.
+one, nonce replay check included, and closes the stream if the window passes
+without one arriving — including when nothing at all arrives, which it bounds
+with a read deadline rather than waiting for a message it can check.
 
-## Reaching the edge
+## What the upload stream's assertions cover
 
-An operator-originated capture command reaches the edge via
-`SubscribeCaptureAssignments`. The edge calls central and holds the
-server-streaming RPC open. Central originates a `start` assignment carrying
-`CaptureSessionConfig` for every pending session configured for that edge, and
-re-originates it until the edge connects `UploadCapture` and delivers the first
-packet chunk. An operator cancellation similarly originates a `stop` assignment
-carrying `CaptureSessionGlobalRef`.
+An assertion on this stream is verified with an empty body hash, unlike the
+header assertion on a unary call, which commits to the request body. There is
+no whole body to commit to here and no single request to bind to, so what an
+assertion binds is the edge, the procedure, the audience, its clock window, and
+its nonce. Its window is what keeps the stream honest, which is why a lapsed
+one closes it.
+
+Central still checks every chunk against the session it names: the chunk's
+`session.edge.edge.id` must be the edge the stream authenticated, and the
+session record must agree. An edge cannot upload into another edge's session,
+and cannot reopen one that has already produced its artifact.
