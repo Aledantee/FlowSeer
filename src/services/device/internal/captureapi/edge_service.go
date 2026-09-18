@@ -94,6 +94,13 @@ func (b *Broadcaster) CloseSession(sessionID string) {
 	}
 }
 
+// SubscriberCount returns the number of active subscribers for sessionID.
+func (b *Broadcaster) SubscriberCount(sessionID string) int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return len(b.subs[sessionID])
+}
+
 // AssertionVerifier checks SignedEdgeAssertion envelopes.
 type AssertionVerifier interface {
 	VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAssertion, procedure string, body []byte) (*edgev1.EdgeAssertion, error)
