@@ -31,7 +31,7 @@ while IFS= read -r -d '' entry; do
   fi
 done < <(git status --porcelain=v1 -z --no-renames --untracked-files=all 2>/dev/null)
 
-{
+listing() {
   if [[ ${#deleted[@]} -gt 0 ]]; then
     printf 'deleted\t%s\n' "${deleted[@]}"
   fi
@@ -40,4 +40,14 @@ done < <(git status --porcelain=v1 -z --no-renames --untracked-files=all 2>/dev/
     paste <(printf '%s\n' "${present[@]}" | git hash-object --stdin-paths) \
       <(printf '%s\n' "${present[@]}")
   fi
-} | sort
+}
+
+# During a merge every incoming file is a staged change. One whose content
+# is the other side's blob is that branch's verified work, not an edit made
+# here; only a path the merge or a person changed beyond it stays listed.
+if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+  comm -23 <(listing | sort) \
+    <(git ls-tree -r MERGE_HEAD | awk -F'[ \t]' '{print $3 "\t" substr($0, index($0, "\t") + 1)}' | sort)
+else
+  listing | sort
+fi

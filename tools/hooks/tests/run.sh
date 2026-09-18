@@ -495,6 +495,32 @@ ok "a Bash change to the module graph keeps the full-scope verification"
 # The marker stays: the Stop assertion below reads it.
 rm -f "$fixture/go.mod"
 
+# A merge in progress stages every incoming file. Those are the other
+# branch's verified work: only the file changed beyond the merge is marked.
+merge_repo=$fixture_parent/merge
+mkdir -p "$merge_repo"
+(
+  cd "$merge_repo"
+  git init -q -b main .
+  git config user.email hooks@example.invalid
+  git config user.name hooks
+  printf 'package a\n' >a.go
+  git add a.go && git commit -q -m base
+  git checkout -q -b other
+  printf 'package b\n' >b.go
+  printf 'package c\n' >c.go
+  git add b.go c.go && git commit -q -m other
+  git checkout -q main
+  printf 'package a // main\n' >a.go
+  git commit -q -am main
+  git merge -q --no-commit --no-ff other
+  printf 'package c // resolved by hand\n' >c.go
+)
+merge_input=$(jq -n --arg cwd "$merge_repo" '{cwd:$cwd,tool_input:{command:"git merge other"}}')
+assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$merge_input"
+[[ $(cat "$merge_repo/.git/flowseer-verification-dirty") == c.go ]]
+ok "a merge in progress marks only what changed beyond the incoming branch"
+
 # The format hook resolves gofumpt and goimports from $(go env GOPATH)/bin
 # when PATH does not carry it: a stub go names a GOPATH whose bin holds
 # stubs that record the call, and both must run with only the stub go on
