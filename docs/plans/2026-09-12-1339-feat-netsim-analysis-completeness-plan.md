@@ -686,7 +686,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase5-plan.md`
 - **After:** U2, U3c, U3e, U3f, U4, U4b, U4c
-- **Landed:**
+- **Landed:** `0371f131..5b35d60b`
 - **Change:** Separate state ownership, key retained runtime state by complete
   dependencies, reconstruct static state from construction inputs, and make
   executable forks deeply independent while snapshots remain observational.
