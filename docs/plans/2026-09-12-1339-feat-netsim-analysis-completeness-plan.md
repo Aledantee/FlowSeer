@@ -713,7 +713,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase7-plan.md`
 - **After:** U6
-- **Landed:** `d56a73e4..0d62c94f`
+- **Landed:**
 - **Change:** Compare complete switch and fabric observables on forks, return
   explicit dispositions, enumerate finite domains, minimize
   counterexamples, and align causal traces without using trace text as behavior.
