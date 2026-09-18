@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Protobuf Tree by Kind of Contract - Plan
+
+> Implemented. 3 units, 2026-09-17T17:21Z to 2026-09-18T10:20:47+02:00.
 
 ## Goal
 
@@ -212,7 +214,7 @@ Landed: `61fa0be4..0b8ca670`
 
 Files: docs/plans/2026-09-17-1141-refactor-proto-layout-phase3-plan.md
 After: U2
-Landed:
+Landed: `bb4a8f53..19796401`
 
 Waves: U1 | U2 | U3
 
