@@ -131,7 +131,9 @@ The `edge_assertion.short_lived` rule and the "streams are checked when they
 open" language now live in
 `spec/proto/flowseer/model/edge/v1/assertion.proto` and
 `spec/proto/flowseer/model/edge/v1/README.md`. The assertion's `procedure`
-example now names the `edge/attach` route. See [the network model
+example now names the `edge/attach` route. The bulk `bytes` field this
+record cites in its opening paragraph and its Sources list now lives in
+`spec/proto/flowseer/runtime/v1/message.proto`. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
 

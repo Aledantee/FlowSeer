@@ -177,7 +177,8 @@ or `api/inventory` package, that import now names the matching `model/`
 package. `integration/device` now reads `edge/dispatch`; `event/device`
 split, its `AuditService` into `edge/audit` and its `DeviceOperationEvent`
 into `event/access`. `api/edge`'s `EdgeService` reads `edge/attach` while
-`EdgeAdminService` stays. See [the
+`EdgeAdminService` stays. Decision 12's process-local bus package now reads
+`flowseer.runtime.v1`. See [the
 network model structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree)
 for the tree and import graph as they stand.

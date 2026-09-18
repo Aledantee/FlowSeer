@@ -75,20 +75,18 @@ spec/proto/flowseer/
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
   integration/          holds only a README; fabric contract reserved
-  service/v1/           process-local runtime messages and durable mailbox contracts (pending rename to runtime/v1)
+  runtime/v1/           process-local runtime messages and durable mailbox contracts
   store/
     device/v1/          the device service's persisted records; imported by nothing
-    edge/v1/            the edge agent's persisted configuration; imported by nothing (pending rename to store/agent/v1)
+    agent/v1/           the edge agent's persisted configuration; imported by nothing
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
 families beyond those present in the repository remain reserved locations.
 `integration/` holds only a README, with its own fabric contract (announce,
-kind descriptor, event subjects) reserved. `runtime/` and `store/agent` do
-not exist yet; they are pending renames of today's `service/v1` and today's
-`store/edge`. `flowseer.service.v1` names the process-local service
-runtime contract; it must not be treated as a ConnectRPC API package by
-inference.
+kind descriptor, event subjects) reserved. `flowseer.runtime.v1` names the
+process-local service runtime contract; it must not be treated as a
+ConnectRPC API package by inference.
 
 There is no base package. Ref pairs and lifecycle enums, when a family has
 them, live in the package that owns the entity. The rules and deliberate
@@ -748,8 +746,9 @@ network primitives. The earlier package tree split those families across
 `device/v1`, `inventory/v1`, and `integration/v1`; those exact paths no longer
 describe the repository.
 
-The service runtime later claimed `flowseer.service.v1` for process-local
-module messages and durable mailbox contracts. This amendment does not choose
+The service runtime later claimed `flowseer.service.v1` (now
+`flowseer.runtime.v1`) for process-local module messages and durable mailbox
+contracts. This amendment does not choose
 new paths for the central integration execution API, ConnectRPC services, or
 the event envelope. Their separation remains accepted, while their protobuf
 names stay open until the first boundary schema is designed. It also does not
@@ -901,8 +900,8 @@ first.
   calls. `edge/`, the rest of `integration/`, `store/`, and `runtime/` are
   reserved for the Connect plane between central and an edge, the
   integration fabric contract, one process's own files, and the
-  process-local bus contract; the tree above marks what still sits where
-  until each move lands.
+  process-local bus contract; the amendments below, dated 2026-09-17 and
+  2026-09-18, record where each one lands.
 - **A package that declares a service is a sink.** Nothing may import a
   package that declares a Connect service, and no package under `model/`
   declares one. `test/conformance/proto/layering_test.go` enforces both
@@ -945,3 +944,15 @@ Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md`.
   the procedure, so the signed assertion changes with the route. The
   assertion's deployment-configured `audience` is unaffected, so persisted
   enrollments remain valid across the rename.
+
+### 2026-09-18 — the process-private roots take their names
+
+`service/v1` is now `runtime/v1`, and `store/edge` is now `store/agent`. The
+rename changes what a local bus store persists: a store written before it
+carries the old package name in its `RuntimeManifest`'s `envelope_type`
+field and in its queued `Message` records' full name, neither of which
+resolves after the rename, and no migration is written for it — a
+deployment holding one discards its bus store directory, because every
+store in existence belongs to a test or a lab run. `runtime/` remains the
+one root outside the import order in
+`test/conformance/proto/layering_test.go`.
