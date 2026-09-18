@@ -201,3 +201,17 @@ scratchpad directory only for a reviewer's diff file.
 Suggested change: say that a brief, like a diff, is written to the session
 scratchpad directory, because every runtime command runs unsandboxed and
 `$TMPDIR` does not mean the same directory on both sides of that boundary.
+
+## 2026-09-18 review: a record's premise went stale while its paths were kept current
+Skill or agent: `.claude/skills/review/SKILL.md`, and the amendment step every
+phase plan writes.
+What happened: three phases of a refactor amended six architecture records so
+every path they cite matches the tree, and a reviewer then found that one
+record's opening premise ("FlowSeer has no streaming RPC and no chunked payload
+anywhere in spec/proto") had been false since an earlier phase landed five of
+them. Each amendment pass checked the citations it was given and nothing else.
+The step was followed as written.
+Suggested change: when a change amends a record, check the record's premises
+against the tree, not only its paths and full names. A record whose paths are
+current and whose premise is false is worse than a stale one, because the fresh
+paths make the reader trust the premise.
