@@ -15,8 +15,8 @@ pools:
 
 models:
   claude-fable-5-1: {pool: claude, vendor: anthropic, price: [10, 50], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: high}
-  claude-opus-5: {pool: claude, vendor: anthropic, price: [5, 25], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: medium, local: {review-seam: {found_known_bug: true, extra_valid: 1, wall_s: 148, cost_usd: 0.66}}}
-  claude-sonnet-5: {pool: claude, vendor: anthropic, price: [2, 10], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, local: {execute: {pass: 6/7, wall_s: 269, cost_usd: 0.69, note: deadlock on source error}, review-unit: {found_known_bug: false, wall_s: 140, cost_usd: 0.31}}}
+  claude-opus-5: {pool: claude, vendor: anthropic, price: [5, 25], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: medium, local: {review-seam: {effort: default, found_known_bug: true, extra_valid: 1, wall_s: 148, cost_usd: 0.66}}}
+  claude-sonnet-5: {pool: claude, vendor: anthropic, price: [2, 10], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, local: {execute: {effort: default, pass: 6/7, wall_s: 269, cost_usd: 0.69, note: deadlock on source error}, review-unit: {effort: default, found_known_bug: false, wall_s: 140, cost_usd: 0.31}}}
   claude-haiku-4-5: {pool: claude, vendor: anthropic, price: [1, 5], context: 200000, effort: [], refusal_cyber: low}
   gpt-6-astra: {pool: codex, vendor: openai, price: [10, 50], context: 1050000, effort: [low, medium, high, xhigh, max], refusal_cyber: high}
   gpt-5.6-sol: {pool: codex, vendor: openai, price: [4, 20], context: 1050000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, terminal_bench: null, local: {execute: {pass: 7/7, wall_s: '>6600 (global codex plugin self-review)', cost_usd: null}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 530, cost_usd: 3.5}}}
@@ -34,7 +34,12 @@ models:
 
 # A role names what a piece of delegated work needs. `fit` lists the models
 # that do it, in no order: `delegate` picks by pool headroom. `effort` is the
-# level passed where the model supports one.
+# level passed where the model supports one; a model whose `effort` list lacks
+# the level gets the highest level it lists. A `local` result carries the
+# effort it was measured at when that differs from the role's: `default`
+# means the CLI's own default, because `bench.sh` dropped `--effort` on the
+# `claude` lanes until 2026-09-18. Such a result says nothing about the
+# model at the role's level, and every `local` result is one run.
 roles:
   lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash, deepseek-v4-flash]}
   research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash, deepseek-v4-flash]}
