@@ -198,3 +198,50 @@ Every admitted case must define:
 ordered steps and changes, the evaluated metadata scope, canonical issues,
 assumptions, and every evidence entry. Composite results compare both sides of
 a switch comparison and the model-loading and forwarding metadata separately.
+
+## Diff coverage
+
+[AssertDiffCoversConfig] walks a seeded `Config` by reflection — structs,
+non-nil pointers, map values, and slice elements — and for every leaf it
+finds, perturbs a fresh copy at that leaf alone and asserts the package's
+`Diff` reports at least one change. A leaf whose perturbation produced the
+same value fails outright rather than being skipped, because a check that
+plants a value proves nothing unless the plant is known to differ from what
+was there:
+
+```go
+seed := bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}}}
+netsimtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
+```
+
+The value chosen for each leaf matters: normalization can silently absorb a
+perturbation into a default that happens to equal the seed's own value (a
+non-default enum toggled to its zero value, a priority normalized from
+absence), which reads as "no arm" when the real defect is the fixture's
+choice of value, not a gap in `Diff`. `lag.Config.Normalize` additionally
+takes the port table and the switch's base MAC, unlike its niladic siblings;
+its diff_coverage_test.go supplies both through the `normalize` closure.
+
+`port.Diff` takes a `Table` whose fields are unexported and built only
+through `NewBuilder`, so [AssertDiffCoversPort] walks the exported
+`port.Port` instead and builds each side's table through the builder,
+alongside fixed companion ports a perturbed field needs to stay valid (a
+paired LAG port for a member's `lag_parent`, for one).
+
+A leaf legitimately outside `Diff`'s contract — evidence that is provenance
+rather than compared configuration, one arm of a value that only applies
+under a specific discriminant like `Fault.Kind` — is named in the
+`exemptions` map with a reason, not silently skipped: an exemption naming a
+leaf the walk did not find fails, so a renamed or removed field cannot hide
+behind a stale exemption.
+
+[AssertEveryDiffPackageIsCovered] walks `src/common/netsim/vswitch/`, its
+direct subdirectories, and `src/common/netsim/fabric/` for a file named
+`diff.go` and fails on any path absent from the package's own
+`diffCoveredPackages` literal, and on any entry in that literal the walk did
+not find. Go builds one test binary per package, so no single package's
+`diff_coverage_test.go` can see whether a sibling's exists; this enumeration,
+run once from `TestEveryDiffPackageIsCovered`, is what proves the full set
+ran. The literal is what a person edits deliberately when a package gains a
+`diff.go`; the walk is what would otherwise let that package ship silently
+uncovered.

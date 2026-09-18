@@ -154,6 +154,9 @@ func writeQuotedStrings(b *strings.Builder, values []string) {
 // Diff computes field-level changes between two traffic configurations.
 // Mirror selector slices are sets, so their order does not produce a change.
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize()
+	b = b.Normalize()
+
 	var changes []trace.Change
 
 	aMirrors := mirrorsByName(a.Mirrors)
@@ -231,14 +234,14 @@ func diffMirror(changes []trace.Change, name string, a, b Mirror) []trace.Change
 	if a.SelectAll != b.SelectAll {
 		appendChange("select_all", SelectAllFact(a.SelectAll), SelectAllFact(b.SelectAll))
 	}
-	if from, to := normalizedStrings(a.SelectSrcPorts), normalizedStrings(b.SelectSrcPorts); !slices.Equal(from, to) {
-		appendChange("select_src_ports", PortsFact(from), PortsFact(to))
+	if !slices.Equal(a.SelectSrcPorts, b.SelectSrcPorts) {
+		appendChange("select_src_ports", PortsFact(a.SelectSrcPorts), PortsFact(b.SelectSrcPorts))
 	}
-	if from, to := normalizedStrings(a.SelectDstPorts), normalizedStrings(b.SelectDstPorts); !slices.Equal(from, to) {
-		appendChange("select_dst_ports", PortsFact(from), PortsFact(to))
+	if !slices.Equal(a.SelectDstPorts, b.SelectDstPorts) {
+		appendChange("select_dst_ports", PortsFact(a.SelectDstPorts), PortsFact(b.SelectDstPorts))
 	}
-	if from, to := normalizedVLANs(a.SelectVLANs), normalizedVLANs(b.SelectVLANs); !slices.Equal(from, to) {
-		appendChange("select_vlans", VLANsFact(from), VLANsFact(to))
+	if !slices.Equal(a.SelectVLANs, b.SelectVLANs) {
+		appendChange("select_vlans", VLANsFact(a.SelectVLANs), VLANsFact(b.SelectVLANs))
 	}
 	if a.OutputPort != b.OutputPort {
 		appendChange("output_port", OutputPortFact(a.OutputPort), OutputPortFact(b.OutputPort))
