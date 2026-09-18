@@ -7,8 +7,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,6 +29,8 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/spawn"
+	"go.aledante.io/FlowSeer/src/modules/capture"
+	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 )
@@ -498,5 +503,505 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 	if !sweptArtifact.HasPurgedAt() {
 		t.Fatal("expected the swept artifact to be stamped purged_at")
+	}
+}
+
+type integrationCaptureSource struct {
+	frames chan rawsocket.Frame
+	closed chan struct{}
+}
+
+func newIntegrationCaptureSource(buffer int) *integrationCaptureSource {
+	return &integrationCaptureSource{
+		frames: make(chan rawsocket.Frame, buffer),
+		closed: make(chan struct{}),
+	}
+}
+
+func (s *integrationCaptureSource) pushFrame(data []byte) {
+	s.frames <- rawsocket.Frame{
+		Data:           data,
+		OriginalLength: uint32(len(data)),
+		CapturedAt:     time.Now(),
+	}
+}
+
+func (s *integrationCaptureSource) Receive(_ context.Context) <-chan rawsocket.Frame {
+	return s.frames
+}
+
+func (s *integrationCaptureSource) Stats() (uint64, uint64, error) {
+	return 0, 0, nil
+}
+
+func (s *integrationCaptureSource) Close() error {
+	select {
+	case <-s.closed:
+	default:
+		close(s.closed)
+	}
+	return nil
+}
+
+func pollSessionCondition(
+	ctx context.Context,
+	t *testing.T,
+	c *central,
+	sessionRef *modelcapturev1.CaptureSessionGlobalRef,
+	cond func(*modelcapturev1.CaptureSessionState) bool,
+	description string,
+) *modelcapturev1.CaptureSessionState {
+	t.Helper()
+
+	const timeout = 30 * time.Second
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := c.captures().GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
+			Session: sessionRef,
+		}.Build()))
+		if err == nil {
+			state := resp.Msg.GetSession().GetState()
+			if cond(state) {
+				return state
+			}
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("context canceled while waiting for %s: %v", description, ctx.Err())
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+
+	resp, err := c.captures().GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("timed out waiting for %s; GetCaptureSession error: %v", description, err)
+	}
+	t.Fatalf("timed out waiting for %s; current lifecycle is %v (stop reason: %v, artifact: %v)",
+		description, resp.Msg.GetSession().GetState().GetLifecycle(), resp.Msg.GetSession().GetState().GetStopReason(), resp.Msg.GetSession().GetState().GetArtifact() != nil)
+	return nil
+}
+
+type testLogRecorder struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (l *testLogRecorder) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.Write(p)
+}
+
+func (l *testLogRecorder) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.String()
+}
+
+func TestRemotePacketCapture_EndToEndWithAgent(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := created.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	provisioning := created.Msg.GetProvisioning()
+
+	c.shutdown()
+	writeRegistry(t, registryPath, edgeID, 0)
+	c.start()
+
+	source := newIntegrationCaptureSource(20)
+	for i := 1; i <= 10; i++ {
+		source.pushFrame([]byte(fmt.Sprintf("synthetic-agent-frame-%d", i)))
+	}
+
+	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+			return source, false, nil
+		},
+	})
+	defer a.shutdown()
+
+	createReq := operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
+		}.Build(),
+		Name:        proto.String("agent-e2e-capture"),
+		Description: proto.String("live agent packet capture test"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+				Promiscuous:   proto.Bool(true),
+			}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Operator:             proto.String("alice"),
+			Reason:               proto.String("e2e agent test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()
+
+	createResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(createReq))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
+
+	state := pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
+		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED && s.GetArtifact() != nil
+	}, "COMPLETED with artifact")
+
+	if state.GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT {
+		t.Errorf("stop reason = %v, want PACKET_COUNT", state.GetStopReason())
+	}
+	if state.GetCounters().GetAccepted() != 10 {
+		t.Errorf("accepted packets = %d, want 10", state.GetCounters().GetAccepted())
+	}
+
+	downloadReq := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	downloadStream, err := c.captures().DownloadCaptureSession(ctx, downloadReq)
+	if err != nil {
+		t.Fatalf("DownloadCaptureSession: %v", err)
+	}
+	defer func() { _ = downloadStream.Close() }()
+
+	var downloaded []byte
+	for downloadStream.Receive() {
+		chunk := downloadStream.Msg().GetChunk()
+		if chunk != nil {
+			downloaded = append(downloaded, chunk.GetData()...)
+		}
+	}
+	if err := downloadStream.Err(); err != nil {
+		t.Fatalf("download stream: %v", err)
+	}
+
+	pcapngMagic := []byte{0x0a, 0x0d, 0x0d, 0x0a}
+	if !bytes.HasPrefix(downloaded, pcapngMagic) {
+		t.Fatal("downloaded artifact missing pcapng magic header")
+	}
+	for i := 1; i <= 10; i++ {
+		payload := []byte(fmt.Sprintf("synthetic-agent-frame-%d", i))
+		if !bytes.Contains(downloaded, payload) {
+			t.Errorf("downloaded artifact missing frame payload %q", payload)
+		}
+	}
+}
+
+func TestRemotePacketCapture_OperatorCancellation(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := created.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	provisioning := created.Msg.GetProvisioning()
+
+	c.shutdown()
+	writeRegistry(t, registryPath, edgeID, 0)
+	c.start()
+
+	source := newIntegrationCaptureSource(50)
+	for i := 1; i <= 20; i++ {
+		source.pushFrame([]byte(fmt.Sprintf("cancel-frame-%d", i)))
+	}
+
+	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+			return source, false, nil
+		},
+	})
+	defer a.shutdown()
+
+	createReq := operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
+		}.Build(),
+		Name:        proto.String("cancel-capture"),
+		Description: proto.String("operator cancellation test"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+				Promiscuous:   proto.Bool(true),
+			}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(1000),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Operator:             proto.String("alice"),
+			Reason:               proto.String("cancellation test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()
+
+	createResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(createReq))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
+
+	// Wait until running (agent opened UploadCapture and sent first chunk)
+	pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
+		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
+	}, "RUNNING")
+
+	// Operator stops session
+	stopReq := operatorcapturev1.StopCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()
+	if _, err := c.captures().StopCaptureSession(ctx, connect.NewRequest(stopReq)); err != nil {
+		t.Fatalf("StopCaptureSession: %v", err)
+	}
+
+	state := pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
+		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED && s.GetArtifact() != nil
+	}, "CANCELED with artifact")
+
+	if state.GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+		t.Errorf("stop reason = %v, want OPERATOR", state.GetStopReason())
+	}
+	if state.GetArtifact() == nil {
+		t.Fatal("expected non-nil artifact attached to canceled session")
+	}
+
+	downloadReq := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	downloadStream, err := c.captures().DownloadCaptureSession(ctx, downloadReq)
+	if err != nil {
+		t.Fatalf("DownloadCaptureSession: %v", err)
+	}
+	defer func() { _ = downloadStream.Close() }()
+
+	var downloaded []byte
+	for downloadStream.Receive() {
+		chunk := downloadStream.Msg().GetChunk()
+		if chunk != nil {
+			downloaded = append(downloaded, chunk.GetData()...)
+		}
+	}
+	if err := downloadStream.Err(); err != nil {
+		t.Fatalf("download stream: %v", err)
+	}
+
+	pcapngMagic := []byte{0x0a, 0x0d, 0x0d, 0x0a}
+	if !bytes.HasPrefix(downloaded, pcapngMagic) {
+		t.Fatal("downloaded artifact missing pcapng magic header")
+	}
+}
+
+func TestRemotePacketCapture_InactivityTimeout(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := created.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	provisioning := created.Msg.GetProvisioning()
+
+	c.shutdown()
+	writeRegistry(t, registryPath, edgeID, 0)
+	c.start()
+
+	// Empty source: no frames ever pushed
+	source := newIntegrationCaptureSource(10)
+
+	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+			return source, false, nil
+		},
+		captureInactivityTimeout: 1 * time.Second,
+	})
+	defer a.shutdown()
+
+	createReq := operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
+		}.Build(),
+		Name:        proto.String("idle-capture"),
+		Description: proto.String("inactivity timeout test"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+				Promiscuous:   proto.Bool(true),
+			}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(100),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Operator:             proto.String("alice"),
+			Reason:               proto.String("inactivity test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()
+
+	createResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(createReq))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
+
+	// Wait for transition to RUNNING (initial chunk claimed session)
+	pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
+		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
+	}, "RUNNING")
+
+	// After 1s of inactivity, agent aborts upload without final chunk,
+	// and central transitions session to FAILED with stop_reason: ERROR.
+	state := pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
+		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
+	}, "FAILED")
+
+	if state.GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
+		t.Errorf("stop reason = %v, want ERROR", state.GetStopReason())
+	}
+	if state.GetArtifact() != nil {
+		t.Error("expected nil artifact on failed session")
+	}
+}
+
+func TestRemotePacketCapture_TelemetryPrivacy(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := created.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	provisioning := created.Msg.GetProvisioning()
+
+	c.shutdown()
+	writeRegistry(t, registryPath, edgeID, 0)
+	c.start()
+
+	secretMarker := "TOPSECRET_PAYLOAD_MARKER_998877"
+	source := newIntegrationCaptureSource(120)
+	for i := 1; i <= 100; i++ {
+		source.pushFrame([]byte(fmt.Sprintf("%s_packet_%03d", secretMarker, i)))
+	}
+
+	logSink := &testLogRecorder{}
+	logger := slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	a := startAgentWithOptions(t, dir, provisioning, c.baseURL(), agentOptions{
+		openCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+			return source, false, nil
+		},
+		logger: logger,
+	})
+	defer a.shutdown()
+
+	createReq := operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
+		}.Build(),
+		Name:        proto.String("privacy-capture"),
+		Description: proto.String("telemetry privacy test"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+				Promiscuous:   proto.Bool(true),
+			}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(100),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Operator:             proto.String("alice"),
+			Reason:               proto.String("privacy test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()
+
+	createResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(createReq))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
+	sessionID := sessionRef.GetCaptureSession().GetId()
+
+	pollSessionCondition(ctx, t, c, sessionRef, func(s *modelcapturev1.CaptureSessionState) bool {
+		return s.GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED && s.GetArtifact() != nil
+	}, "COMPLETED with artifact")
+
+	// Verify artifact contains payload
+	downloadReq := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	downloadStream, err := c.captures().DownloadCaptureSession(ctx, downloadReq)
+	if err != nil {
+		t.Fatalf("DownloadCaptureSession: %v", err)
+	}
+	defer func() { _ = downloadStream.Close() }()
+
+	var downloaded []byte
+	for downloadStream.Receive() {
+		chunk := downloadStream.Msg().GetChunk()
+		if chunk != nil {
+			downloaded = append(downloaded, chunk.GetData()...)
+		}
+	}
+	if !bytes.Contains(downloaded, []byte(secretMarker)) {
+		t.Fatal("downloaded artifact does not contain the packet payload")
+	}
+
+	// Verify logs DO NOT contain packet payload data anywhere
+	logs := logSink.String()
+	if bytes.Contains([]byte(logs), []byte(secretMarker)) {
+		t.Errorf("agent logs leaked packet payload bytes %q", secretMarker)
+	}
+
+	// Verify logs DO contain session identifier
+	if !bytes.Contains([]byte(logs), []byte(sessionID)) {
+		t.Errorf("agent logs missing session ID %q", sessionID)
 	}
 }

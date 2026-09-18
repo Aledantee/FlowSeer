@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
@@ -97,6 +98,13 @@ type signingTransport struct {
 }
 
 func (t *signingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// UploadCapture carries in-stream assertions rather than an Authorization
+	// header. A client-streaming call has no last byte to sign in advance, so
+	// draining its body would deadlock until the upload ends.
+	if req.URL.Path == capturev1connect.CaptureEdgeServiceUploadCaptureProcedure {
+		return t.base.RoundTrip(req)
+	}
+
 	if header, encoding := compressedBy(req); header != "" {
 		// Closed first: a RoundTripper owns the body it is handed and must
 		// close it on every return, error paths included.

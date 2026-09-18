@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
@@ -55,6 +56,12 @@ type Options struct {
 	// OpenCaptureSource replaces the packet source factory used for capture
 	// sessions. Nil means [capture.New].
 	OpenCaptureSource CaptureSourceOpener
+	// Logger overrides the base logger the agent logs to. Nil means stderr with
+	// [Config.LogLevel].
+	Logger *slog.Logger
+	// CaptureInactivityTimeout overrides the idle duration before an in-flight
+	// capture session aborts. Zero uses the default (60 seconds).
+	CaptureInactivityTimeout time.Duration
 	// Clock is what the lane reads the time from: every audit record's
 	// timestamp, the operation-duration measurement, the moment a mutation
 	// was submitted, and the recovery runner's own waiting. Nil means

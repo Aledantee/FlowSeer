@@ -103,7 +103,10 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	if cfg == nil {
 		return errs.New().Code(ErrCodeStart).Msg("the agent was given no configuration")
 	}
-	base := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel()}))
+	base := opts.Logger
+	if base == nil {
+		base = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel()}))
+	}
 
 	store, err := identity.NewStore(cfg.StateDir())
 	if err != nil {
@@ -433,6 +436,7 @@ func (ca *captureAssembly) setup(ctx context.Context) (service.Attempt, error) {
 			return ca.signer.SignedAssertion(capturev1connect.CaptureEdgeServiceUploadCaptureProcedure, nil)
 		},
 		OpenCaptureSource: ca.opts.OpenCaptureSource,
+		InactivityTimeout: ca.opts.CaptureInactivityTimeout,
 		Logger:            log,
 	})
 	if err != nil {
