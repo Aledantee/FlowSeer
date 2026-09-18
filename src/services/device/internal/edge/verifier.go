@@ -112,6 +112,12 @@ func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []
 	if err := proto.Unmarshal(wire, signed); err != nil {
 		return nil, errs.From(err).Code(ErrCodeBadHeader).Msg("unmarshal signed assertion")
 	}
+	return v.VerifySigned(ctx, signed, procedure, body)
+}
+
+// VerifySigned checks a SignedEdgeAssertion against the invoked procedure's
+// full Connect method name and the uncompressed HTTP request body bytes.
+func (v *Verifier) VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAssertion, procedure string, body []byte) (*edgev1.EdgeAssertion, error) {
 	if err := protovalidate.Validate(signed); err != nil {
 		return nil, errs.From(err).Code(ErrCodeBadHeader).Msg("validate signed assertion envelope")
 	}
