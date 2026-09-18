@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -233,6 +234,38 @@ func (s Snapshot) Fingerprint() string {
 				b.WriteString(strconv.FormatUint(uint64(ga.RemainderMilliwatts), 10))
 			}
 			b.WriteString("}")
+		}
+		b.WriteString("]|")
+
+		// 7. Neighbor resolution entries, in (VRF, Interface, Addr) order.
+		b.WriteString("neighbors:[")
+		if len(dev.Neighbors) > 0 {
+			nbrs := slices.Clone(dev.Neighbors)
+			slices.SortFunc(nbrs, func(a, b routing.NeighborEntry) int {
+				if c := cmp.Compare(a.VRF, b.VRF); c != 0 {
+					return c
+				}
+				if c := cmp.Compare(a.Interface, b.Interface); c != 0 {
+					return c
+				}
+				return a.Addr.Compare(b.Addr)
+			})
+			for i, n := range nbrs {
+				if i > 0 {
+					b.WriteString(";")
+				}
+				b.WriteString(escapeFingerprint(n.VRF))
+				b.WriteString(",")
+				b.WriteString(escapeFingerprint(n.Interface))
+				b.WriteString(",")
+				b.WriteString(escapeFingerprint(n.Addr.String()))
+				b.WriteString(",")
+				b.WriteString(escapeFingerprint(n.MAC.String()))
+				b.WriteString(",")
+				b.WriteString(escapeFingerprint(string(n.State)))
+				b.WriteString(",")
+				b.WriteString(strconv.Itoa(n.HoldDepth))
+			}
 		}
 		b.WriteString("]|")
 	}

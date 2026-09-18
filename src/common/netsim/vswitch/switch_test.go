@@ -2010,7 +2010,7 @@ func TestSwitchTreeRoles(t *testing.T) {
 	if treeRolesMST == nil {
 		t.Fatalf("swMST.TreeRoles() = nil, want per-VLAN roles")
 	}
-	for _, vid := range []vlan.ID{10, 20} {
+	for _, vid := range []vlan.ID{1, 10, 20} {
 		if _, ok := treeRolesMST[vid]; !ok {
 			t.Errorf("swMST.TreeRoles() missing VID %d: %+v", vid, treeRolesMST)
 		}

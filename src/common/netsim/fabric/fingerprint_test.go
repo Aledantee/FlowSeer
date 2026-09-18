@@ -1,13 +1,15 @@
 package fabric
 
 import (
-	"math/rand/v2"
 	"net/netip"
 	"reflect"
 	"slices"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -16,6 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -45,7 +48,7 @@ var deviceFieldClasses = map[string]fieldClassification{
 	"Roles":         fieldExcluded,
 	"TreeRoles":     fieldIncluded,
 	"RelayCounters": fieldExcluded,
-	"Neighbors":     fieldExcluded,
+	"Neighbors":     fieldIncluded,
 }
 
 var portInfoFieldClasses = map[string]fieldClassification{
@@ -66,6 +69,15 @@ var portInfoFieldClasses = map[string]fieldClassification{
 	"RxBPDUs":            fieldExcluded,
 	"BadBPDUs":           fieldExcluded,
 	"SendRSTP":           fieldIncluded,
+}
+
+var neighborEntryFieldClasses = map[string]fieldClassification{
+	"VRF":       fieldIncluded,
+	"Interface": fieldIncluded,
+	"Addr":      fieldIncluded,
+	"MAC":       fieldIncluded,
+	"State":     fieldIncluded,
+	"HoldDepth": fieldIncluded,
 }
 
 func checkFieldClasses(t *testing.T, typ reflect.Type, classes map[string]fieldClassification) {
@@ -96,6 +108,7 @@ func TestFingerprintFieldClassificationWalk(t *testing.T) {
 	checkFieldClasses(t, reflect.TypeOf(Snapshot{}), snapshotFieldClasses)
 	checkFieldClasses(t, reflect.TypeOf(Device{}), deviceFieldClasses)
 	checkFieldClasses(t, reflect.TypeOf(stp.PortInfo{}), portInfoFieldClasses)
+	checkFieldClasses(t, reflect.TypeOf(routing.NeighborEntry{}), neighborEntryFieldClasses)
 }
 
 func baseSnapshotForTest() Snapshot {
@@ -171,6 +184,16 @@ func baseSnapshotForTest() Snapshot {
 						},
 					},
 				},
+				Neighbors: []routing.NeighborEntry{
+					{
+						VRF:       "default",
+						Interface: "1/1/1",
+						Addr:      netip.MustParseAddr("10.0.0.1"),
+						MAC:       netaddr.MAC{0, 1, 2, 3, 4, 6},
+						State:     routing.NeighborReachable,
+						HoldDepth: 0,
+					},
+				},
 			},
 		},
 		Links: []Link{
@@ -235,6 +258,7 @@ func cloneSnapshot(s Snapshot) Snapshot {
 				}
 				d.Power.Allocation = phy.Allocation{Ports: pMap, Groups: gMap}
 			}
+			d.Neighbors = slices.Clone(v.Neighbors)
 			cp.Devices[k] = d
 		}
 	}
@@ -618,6 +642,54 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 				s.Links[0].Medium = MultimodeFiber
 			},
 		},
+		{
+			name: "neighbor_vrf",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].VRF = "red"
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "neighbor_interface",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].Interface = "1/1/2"
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "neighbor_addr",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].Addr = netip.MustParseAddr("10.0.0.2")
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "neighbor_mac",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].MAC = netaddr.MAC{0, 1, 2, 3, 4, 7}
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "neighbor_state",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].State = routing.NeighborIncomplete
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "neighbor_hold_depth",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].HoldDepth = 3
+				s.Devices["sw1"] = dev
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -888,5 +960,549 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 	}
 }
 
-// Unused helper to prevent compiler warning when importing rand/v2.
-var _ = rand.IntN
+func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
+	t.Parallel()
+
+	base := baseSnapshotForTest()
+	baseFP := base.Fingerprint()
+
+	type fieldMutation struct {
+		typ    reflect.Type
+		field  string
+		mutate func(s *Snapshot)
+	}
+
+	mutations := []fieldMutation{
+		// Snapshot fields
+		{
+			typ:   reflect.TypeOf(Snapshot{}),
+			field: "Devices",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				delete(s.Devices, "sw1")
+				s.Devices["sw2"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Snapshot{}),
+			field: "Links",
+			mutate: func(s *Snapshot) {
+				s.Links[0].A.Oper = port.Down
+			},
+		},
+		// Device fields
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "Ports",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Ports[0].OperStatus = port.Down
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "TreeRoles",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.Role = stp.RoleAlternate
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "Entries",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Entries[0].Port = "1/1/2"
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "Groups",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Groups[10][0].Mode = mcast.Exclude
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "RouterPorts",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.RouterPorts[10][0].Port = "1/1/2"
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "Power",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				pa := dev.Power.Ports["1/1/1"]
+				pa.State = phy.PowerDenied
+				dev.Power.Ports["1/1/1"] = pa
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(Device{}),
+			field: "Neighbors",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].State = routing.NeighborIncomplete
+				s.Devices["sw1"] = dev
+			},
+		},
+		// stp.PortInfo fields
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "MSTID",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.MSTID = 2
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "Role",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.Role = stp.RoleDesignated
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "State",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.State = stp.StateDiscarding
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "BlockReason",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.BlockReason = stp.BlockReasonBPDUGuard
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "Priority",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.Priority = 64
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "PathCost",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.PathCost = 40000
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "DesignatedRoot",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.DesignatedRoot.Priority = 8192
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "Designated",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.Designated.Priority = 8192
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "DesignatedPort",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.DesignatedPort = 2
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "DesignatedCost",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.DesignatedCost = 100
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "PointToPoint",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.PointToPoint = false
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "Edge",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.Edge = true
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(stp.PortInfo{}),
+			field: "SendRSTP",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.SendRSTP = false
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		// routing.NeighborEntry fields
+		{
+			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			field: "VRF",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].VRF = "red"
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			field: "Interface",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].Interface = "1/1/2"
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			field: "Addr",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].Addr = netip.MustParseAddr("10.0.0.2")
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			field: "MAC",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].MAC = netaddr.MAC{0, 1, 2, 3, 4, 7}
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			field: "State",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].State = routing.NeighborIncomplete
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			field: "HoldDepth",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				dev.Neighbors[0].HoldDepth = 3
+				s.Devices["sw1"] = dev
+			},
+		},
+	}
+
+	tables := []struct {
+		typ     reflect.Type
+		classes map[string]fieldClassification
+	}{
+		{reflect.TypeOf(Snapshot{}), snapshotFieldClasses},
+		{reflect.TypeOf(Device{}), deviceFieldClasses},
+		{reflect.TypeOf(stp.PortInfo{}), portInfoFieldClasses},
+		{reflect.TypeOf(routing.NeighborEntry{}), neighborEntryFieldClasses},
+	}
+
+	type key struct {
+		typ   reflect.Type
+		field string
+	}
+	mutMap := make(map[key]func(*Snapshot), len(mutations))
+	for _, m := range mutations {
+		k := key{typ: m.typ, field: m.field}
+		if _, exists := mutMap[k]; exists {
+			t.Fatalf("duplicate mutation for %s.%s", m.typ.Name(), m.field)
+		}
+		mutMap[k] = m.mutate
+	}
+
+	// 1. Assert every field marked fieldIncluded has a mutator, and mutating it changes the fingerprint.
+	for _, tbl := range tables {
+		for fieldName, class := range tbl.classes {
+			if class != fieldIncluded {
+				continue
+			}
+			k := key{typ: tbl.typ, field: fieldName}
+			mut, ok := mutMap[k]
+			if !ok {
+				t.Errorf("field %s.%s is marked fieldIncluded in classification table but has no mutation check", tbl.typ.Name(), fieldName)
+				continue
+			}
+			mutated := cloneSnapshot(base)
+			mut(&mutated)
+			mutFP := mutated.Fingerprint()
+			if mutFP == baseFP {
+				t.Errorf("field %s.%s marked fieldIncluded but perturbing it produced identical fingerprint:\n%s", tbl.typ.Name(), fieldName, baseFP)
+			}
+		}
+	}
+
+	// 2. Assert no mutations exist for fields that are not marked fieldIncluded.
+	for _, m := range mutations {
+		var found bool
+		for _, tbl := range tables {
+			if tbl.typ == m.typ {
+				if tbl.classes[m.field] != fieldIncluded {
+					t.Errorf("mutation defined for %s.%s, but field is not marked fieldIncluded", m.typ.Name(), m.field)
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("mutation defined for unknown type %s", m.typ.Name())
+		}
+	}
+}
+
+func TestFingerprintNeighborResolutionState(t *testing.T) {
+	t.Parallel()
+
+	// 1. Snapshot-level verification: moving Incomplete -> Reachable changes fingerprint.
+	base := baseSnapshotForTest()
+	snapIncomplete := cloneSnapshot(base)
+	devIncomp := snapIncomplete.Devices["sw1"]
+	devIncomp.Neighbors = []routing.NeighborEntry{
+		{
+			VRF:       "default",
+			Interface: "1/1/1",
+			Addr:      netip.MustParseAddr("10.0.0.1"),
+			MAC:       netaddr.MAC{},
+			State:     routing.NeighborIncomplete,
+			HoldDepth: 1,
+		},
+	}
+	snapIncomplete.Devices["sw1"] = devIncomp
+	fpIncomplete := snapIncomplete.Fingerprint()
+
+	snapReachable := cloneSnapshot(snapIncomplete)
+	devReach := snapReachable.Devices["sw1"]
+	devReach.Neighbors = []routing.NeighborEntry{
+		{
+			VRF:       "default",
+			Interface: "1/1/1",
+			Addr:      netip.MustParseAddr("10.0.0.1"),
+			MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+			State:     routing.NeighborReachable,
+			HoldDepth: 0,
+		},
+	}
+	snapReachable.Devices["sw1"] = devReach
+	fpReachable := snapReachable.Fingerprint()
+
+	if fpIncomplete == fpReachable {
+		t.Fatalf("neighbor moving Incomplete -> Reachable produced identical fingerprint:\n%s", fpIncomplete)
+	}
+
+	// 2. Fabric-level verification: Incomplete -> Reachable changes fingerprint,
+	// while advancing neighbor expiry alone leaves it unchanged.
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw1MAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	sw2MAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	nextHop := netip.MustParseAddr("10.0.60.7")
+	vid10 := vlan.ID(10)
+
+	twoPorts := func() port.Table {
+		tbl, _ := port.NewBuilder().
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Build()
+		return tbl
+	}
+
+	cfg := Config{
+		Start: start,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   sw1MAC,
+				Ports: twoPorts(),
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table:       map[vlan.ID]string{10: "vlan10"},
+						Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{10}}},
+					},
+				},
+				Routing: &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"vlan10": {VLAN: 10, MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+								"rp2":    {Port: "1/1/2", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")}},
+							},
+						},
+					},
+				},
+			},
+			"sw2": {MAC: sw2MAC, Ports: twoPorts()},
+		},
+		Hosts: map[string]Host{"h1": {Address: macH1}},
+		Cables: []Cable{
+			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+		},
+		PhyAssumption: &PhyAssumption{
+			Medium: TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
+			},
+		},
+	}
+
+	fab, err := New(cfg)
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	packet, _ := ip.Header{
+		Src:      netip.MustParseAddr("10.0.50.7"),
+		Dst:      nextHop,
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}.Encode([]byte("payload"))
+	taggedFrame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       sw1MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+		Payload:   packet,
+	}
+
+	if _, err := fab.Inject(Injection{
+		At:     start,
+		Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
+		Frame:  taggedFrame,
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("fab.Step failed")
+	}
+
+	snap1 := fab.Snapshot()
+	if len(snap1.Devices["sw1"].Neighbors) != 1 || snap1.Devices["sw1"].Neighbors[0].State != routing.NeighborIncomplete {
+		t.Fatalf("expected 1 Incomplete neighbor on sw1, got %+v", snap1.Devices["sw1"].Neighbors)
+	}
+	fp1 := snap1.Fingerprint()
+
+	replyFrame, _ := arp.Encode(arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    sw2MAC,
+		SenderAddr:   nextHop,
+		TargetMAC:    sw1MAC,
+		TargetAddr:   netip.MustParseAddr("10.0.60.1"),
+	}, sw1MAC)
+
+	if _, err := fab.Inject(Injection{
+		At:     snap1.Clock.Add(time.Millisecond),
+		Origin: Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame:  replyFrame,
+	}); err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("fab.Step failed")
+	}
+
+	snap2 := fab.Snapshot()
+	if len(snap2.Devices["sw1"].Neighbors) != 1 || snap2.Devices["sw1"].Neighbors[0].State != routing.NeighborReachable {
+		t.Fatalf("expected 1 Reachable neighbor on sw1, got %+v", snap2.Devices["sw1"].Neighbors)
+	}
+	fp2 := snap2.Fingerprint()
+
+	if fp1 == fp2 {
+		t.Fatalf("resolving neighbor Incomplete -> Reachable did not change fingerprint:\n%s", fp1)
+	}
+
+	// Advance expiry alone: inject another ARP reply 10 seconds later from sw2.
+	// This updates the neighbor entry's internal expiry to (tLater + ReachableTime),
+	// but resolution state remains Reachable, MAC remains unchanged, hold depth remains 0.
+	if _, err := fab.Inject(Injection{
+		At:     snap2.Clock.Add(10 * time.Second),
+		Origin: Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame:  replyFrame,
+	}); err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("fab.Step failed")
+	}
+
+	snap3 := fab.Snapshot()
+	fp3 := snap3.Fingerprint()
+
+	if fp2 != fp3 {
+		t.Errorf("advancing neighbor expiry alone changed fingerprint:\n%s\nvs\n%s", fp2, fp3)
+	}
+}
