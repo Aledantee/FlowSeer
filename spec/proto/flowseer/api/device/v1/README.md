@@ -8,8 +8,26 @@ are decided behind the service and reported back as provenance, never chosen
 by the caller. The
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 fixes that split, and
-[`device/access/v1`](../../../device/access/v1/README.md) holds the messages
+[`model/access/v1`](../../../model/access/v1/README.md) holds the messages
 the RPCs exchange.
+
+## Boundaries
+
+Imports: model/access, model/inventory
+
+Imported by: nothing
+
+Deliberately absent:
+
+- A protocol, a path, or a raw command on any request. Raw access is a
+  diagnostics concern and will not land in this service.
+- A guarantee level on the apply response. Semantic verification through a
+  fresh read replaces it.
+- Secrets. Credentials reach an edge over its own authenticated channel and
+  appear in no message here.
+- A tenant. Scope is ambient, from the authenticated request.
+- Streaming. A mutation that takes time is followed through status, not a
+  stream.
 
 ## Reading
 
@@ -53,15 +71,3 @@ expectation and admits nothing, `restore` admits a reconciliation intent
 that puts the expected state back, and `replace` admits the new intent it
 carries. Under `AUTHORITATIVE` management the service restores on its own
 and this call is only needed after an abandonment.
-
-## What is deliberately absent
-
-- A protocol, a path, or a raw command on any request. Raw access is a
-  diagnostics concern and will not land in this service.
-- A guarantee level on the apply response. Semantic verification through a
-  fresh read replaces it.
-- Secrets. Credentials reach an edge over its own authenticated channel and
-  appear in no message here.
-- A tenant. Scope is ambient, from the authenticated request.
-- Streaming. A mutation that takes time is followed through status, not a
-  stream.

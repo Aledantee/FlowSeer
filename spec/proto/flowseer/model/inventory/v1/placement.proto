@@ -1,0 +1,119 @@
+edition = "2024";
+
+// The placement family — "device X belongs to scope Z from a point in
+// time", append-only. Deliberately partial: a placement is a dated record
+// whose intended and observed sides never diverge, so the family is
+// Placement plus PlacementEvent; the source field says who asserted it.
+package flowseer.model.inventory.v1;
+
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/model/inventory/v1/integration_scope.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a placement.
+message PlacementLocalRef {
+  // FlowSeer-assigned placement identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a placement.
+message PlacementGlobalRef {
+  // The placement's own key. Must be present.
+  PlacementLocalRef placement = 1 [(buf.validate.field).required = true];
+}
+
+// Who asserted a placement.
+enum PlacementSource {
+  // No source named. Placements reject the zero value.
+  PLACEMENT_SOURCE_UNSPECIFIED = 0;
+  // An operator asserted it. Wins over a derived placement for the same
+  // device.
+  PLACEMENT_SOURCE_OPERATOR = 1;
+  // Derived from the platform scope the device appeared under.
+  PLACEMENT_SOURCE_DERIVED_FROM_SCOPE = 2;
+}
+
+// One placement of one device: the scope it belongs to, who said so, and
+// for what span. Placements close and accumulate rather than mutate; a
+// move is a new placement and a close, never an edit.
+message Placement {
+  option (buf.validate.message).cel = {
+    id: "placement.effective_ordered"
+    message: "effective_until must be after effective_from"
+    expression:
+      "!has(this.effective_from) || !has(this.effective_until) || "
+      "this.effective_until > this.effective_from"
+  };
+
+  // The ref to this placement. Must be present.
+  PlacementGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The placed device. Must be present.
+  DeviceGlobalRef device = 2 [(buf.validate.field).required = true];
+  // The scope the device belongs to. Must be present.
+  IntegrationScopeGlobalRef scope = 3 [(buf.validate.field).required = true];
+  // Who asserted the placement. Must be present; the zero value is
+  // rejected.
+  PlacementSource source = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // When the placement took effect. Must be present.
+  google.protobuf.Timestamp effective_from = 5 [(buf.validate.field).required = true];
+  // When the placement ended. Unset means this is the device's current
+  // placement.
+  google.protobuf.Timestamp effective_until = 6;
+}
+
+// One transition of a placement, carried as the record before and after.
+message PlacementEvent {
+  option (buf.validate.message).cel = {
+    id: "placement_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.placement.id == this.ref.placement.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "placement_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.placement.id == this.ref.placement.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "placement_event.immutable_core"
+    message: "a placement transition may change only effective_until"
+    expression:
+      "!has(this.before) || !has(this.after) || "
+      "(this.before.device == this.after.device && "
+      "this.before.scope == this.after.scope && "
+      "this.before.source == this.after.source && "
+      "this.before.effective_from == this.after.effective_from)"
+  };
+  option (buf.validate.message).cel = {
+    id: "placement_event.close_is_final"
+    message: "a closed placement stays closed with the same end"
+    expression:
+      "!has(this.before) || !has(this.after) || "
+      "!has(this.before.effective_until) || "
+      "(has(this.after.effective_until) && "
+      "this.before.effective_until == this.after.effective_until)"
+  };
+
+  // The ref to the placement that changed. Must be present.
+  PlacementGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The record before the transition. Unset means the placement was
+  // created.
+  Placement before = 2;
+  // The record after the transition. Must be present: placements are
+  // never removed, and closing is an ordinary transition that sets
+  // effective_until.
+  Placement after = 3 [(buf.validate.field).required = true];
+}

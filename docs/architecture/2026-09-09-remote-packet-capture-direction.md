@@ -241,3 +241,22 @@ documentation, EU legislation) and from schemas already vendored here.
   replacing Regulation was withdrawn in the 2025 Commission work programme,
   COM(2025) 45 final of 11 February 2025, Annex IV —
   https://commission.europa.eu/document/download/7617998c-86e6-4a74-b33c-249e8a7938cd_en?filename=COM_2025_45_1_annexes_EN.pdf
+
+## Amendments
+
+### 2026-09-17 — the CaptureSession entity moved to model/capture
+
+"Two packages, split on the existing rule" above describes
+`flowseer/api/capture/v1` as holding the CaptureSession entity together
+with its services. The entity — the ref pair, the lifecycle, and the chunk
+frames `CapturePacketChunk` and `CaptureArtifactChunk` — split out to
+`model/capture/v1`, which imports `model/edge` for the owning ref in place
+of `api/edge`. `api/capture/v1` keeps `CaptureService` and imports
+`model/capture` for the entity it returns; `CaptureEdgeService` left
+`api/capture` for `edge/capture`, and the open question about reaching the
+edge moved with it. The import-order line in Consequences reads
+`{model/capture, model/edge, net/capture} ← api/capture`,
+`{model/edge, net/capture} ← model/capture`, and
+`{model/capture, model/edge} ← edge/capture` now. See [the network model
+structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree).

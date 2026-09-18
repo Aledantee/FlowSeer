@@ -13,7 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
@@ -28,7 +29,7 @@ import (
 // calling again. Repeating it with the same key and a different public key is
 // refused and logged: that is what a setup key read out of a shipped box looks
 // like, and the operator's answer is to retire the edge.
-func (s *Service) Enroll(ctx context.Context, req *connect.Request[edgev1.EnrollRequest]) (*connect.Response[edgev1.EnrollResponse], error) {
+func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.EnrollRequest]) (*connect.Response[attachv1.EnrollResponse], error) {
 	key := req.Msg.GetSetupKey()
 	keyID, ok := setupKeyID(key)
 	if !ok {
@@ -185,7 +186,7 @@ func consumeSetupKey(current *storev1.StoredEdge, key, edgeID string, public ed2
 // bounds it. Rekey replaces which key signs, not who the edge is. Ending the
 // edge's standing outright is RetireEdge, which does reach an open stream,
 // because its pulse loop re-reads the lifecycle every tick.
-func (s *Service) Rekey(ctx context.Context, req *connect.Request[edgev1.RekeyRequest]) (*connect.Response[edgev1.RekeyResponse], error) {
+func (s *Service) Rekey(ctx context.Context, req *connect.Request[attachv1.RekeyRequest]) (*connect.Response[attachv1.RekeyResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return nil, unauthenticated(err)
@@ -226,11 +227,11 @@ func (s *Service) Rekey(ctx context.Context, req *connect.Request[edgev1.RekeyRe
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.RekeyResponse_builder{ServerTime: timestamppb.New(now)}.Build()), nil
+	return connect.NewResponse(attachv1.RekeyResponse_builder{ServerTime: timestamppb.New(now)}.Build()), nil
 }
 
-func (s *Service) enrollResponse(edgeID string, now time.Time) *connect.Response[edgev1.EnrollResponse] {
-	return connect.NewResponse(edgev1.EnrollResponse_builder{
+func (s *Service) enrollResponse(edgeID string, now time.Time) *connect.Response[attachv1.EnrollResponse] {
+	return connect.NewResponse(attachv1.EnrollResponse_builder{
 		Edge:         edgeRef(edgeID),
 		ServerTime:   timestamppb.New(now),
 		Audience:     proto.String(s.cfg.Audience),

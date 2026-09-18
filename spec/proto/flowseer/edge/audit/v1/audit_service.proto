@@ -1,0 +1,24 @@
+edition = "2024";
+
+// The Connect call an edge delivers a DeviceOperationEvent through. Central
+// is the audit stream's only writer and answers only once the stream holds
+// the record, which is what lets the edge release state only after its
+// record is durable.
+package flowseer.edge.audit.v1;
+
+import "flowseer/event/access/v1/operation_event.proto";
+import option "buf/validate/validate.proto";
+
+service AuditService {
+  // Delivers one record. Answers after the audit stream has acknowledged
+  // it; a duplicate event_id is stored once. An error means the record is
+  // not held and the caller must not release the state it describes.
+  rpc Deliver(DeliverRequest) returns (DeliverResponse);
+}
+
+message DeliverRequest {
+  // Must be present.
+  flowseer.event.access.v1.DeviceOperationEvent event = 1 [(buf.validate.field).required = true];
+}
+
+message DeliverResponse {}

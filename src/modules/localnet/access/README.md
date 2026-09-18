@@ -7,7 +7,7 @@ interface capability through the mutation state machine (plan, checkpoint,
 execute, observe, compare, result), recovers from ambiguity, honors a
 control-plane freeze,
 and reports a subset of the named OpenTelemetry signals plus the durable
-`flowseer.event.device.v1.DeviceOperationEvent` audit record before
+`flowseer.event.access.v1.DeviceOperationEvent` audit record before
 releasing the lane — see "Named events, spans, and the audit record" below
 for exactly which signals are wired and which are defined but not yet
 emitted. Grounded in
@@ -157,7 +157,7 @@ engage a recovery hold over a mutation central has already released.
 ## Lane position vs. central sequence
 
 `ExecuteRequest.sequence` is central's: assigned before dispatch and
-delivered to the edge on the envelope (`spec/proto/flowseer/integration/device/v1/README.md`).
+delivered to the edge on the envelope (`spec/proto/flowseer/edge/dispatch/v1/README.md`).
 This module's own `internal/lane.Item.Position` is a separate, edge-local
 counter assigned at admission into one device's `lane.Queue` — it orders
 FIFO dispatch and poll coalescing before dispatch, has no relation to

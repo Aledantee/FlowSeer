@@ -1,0 +1,78 @@
+edition = "2024";
+
+// The assertion an enrolled edge sends with every call, and its signed
+// envelope. The two are one contract: the verifier reads only the edge
+// ref from the payload, checks the signature over the payload bytes
+// exactly as received with that edge's key, and only then trusts the rest.
+package flowseer.model.edge.v1;
+
+import "flowseer/model/edge/v1/edge.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// What the edge asserts on one call: who it is, whom it is talking to, and
+// for how long the assertion holds.
+message EdgeAssertion {
+  option (buf.validate.message).cel = {
+    id: "edge_assertion.short_lived"
+    message: "an assertion expires after issued_at and within 60 seconds of it"
+    expression:
+      "!has(this.issued_at) || !has(this.expires_at) || "
+      "(this.expires_at > this.issued_at && "
+      "this.expires_at - this.issued_at <= duration('60s'))"
+  };
+
+  // The calling edge. Must be present.
+  EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  // The central deployment the assertion is for, as configured on both
+  // sides. Must be present.
+  string audience = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // When the edge signed it. Must be present.
+  google.protobuf.Timestamp issued_at = 3 [(buf.validate.field).required = true];
+  // When the verifier stops accepting it, at most 60 seconds after
+  // issued_at. Must be present.
+  google.protobuf.Timestamp expires_at = 4 [(buf.validate.field).required = true];
+  // 16 random bytes; the verifier refuses a repeat within the validity
+  // window. Must be present.
+  bytes nonce = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 16
+  ];
+  // The full Connect procedure name this assertion authorizes, for example
+  // "/flowseer.edge.attach.v1.EdgeService/Heartbeat". Must be present.
+  string procedure = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^/[^/]+/[^/]+$"
+  ];
+  // SHA-256 of the uncompressed HTTP request body bytes exactly as
+  // received — for a server-stream open, the Connect-enveloped request
+  // message, since that is what a middleware hashing the body sees on the
+  // wire. Must be present.
+  bytes body_sha256 = 7 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 32
+  ];
+}
+
+// A serialized EdgeAssertion and its Ed25519 signature.
+message SignedEdgeAssertion {
+  // The serialized EdgeAssertion, signed as these exact bytes. Must be
+  // present.
+  bytes payload = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.min_len = 1,
+    (buf.validate.field).bytes.max_len = 1024
+  ];
+  // Ed25519 signature over payload by the edge's registered key, 64 bytes.
+  // Must be present.
+  bytes signature = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 64
+  ];
+}

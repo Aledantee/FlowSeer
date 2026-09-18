@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -45,7 +45,7 @@ type epochSpy struct {
 	changes [][2]string
 }
 
-func (d *epochSpy) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *epochSpy) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if change := event.GetFirmwareEpochChanged(); change != nil {
 		d.mu.Lock()
 		d.changes = append(d.changes, [2]string{change.GetPreviousFingerprint(), change.GetNewFingerprint()})
@@ -77,7 +77,7 @@ func newEpochLane(t *testing.T, identity *switchableIdentity, deliverer auditDel
 	})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Hour},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: identity.session(), Close: func() error { return nil }}, nil
 		},
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
@@ -107,7 +107,7 @@ func TestAFirmwareChangeBeforeTheCommandStopsIt(t *testing.T) {
 	// Replace the device's submit hook so the test can count commands.
 	if err := l.AddDevice(context.Background(), "dev-2", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Hour},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: identity.session(), Close: func() error { return nil }}, nil
 		},
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {

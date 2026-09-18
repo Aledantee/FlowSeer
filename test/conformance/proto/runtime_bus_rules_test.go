@@ -1,0 +1,189 @@
+package conformance
+
+import (
+	"testing"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
+)
+
+func TestRuntimeBusControlRecordValidation(t *testing.T) {
+	manifest := validRuntimeManifest()
+	cases := []validationCase{
+		{name: "complete runtime manifest", message: manifest, wantValid: true},
+		{name: "empty runtime manifest", message: &runtimev1.RuntimeManifest{}},
+		{
+			name: "complete reconciliation record",
+			message: runtimev1.ReconciliationRecord_builder{
+				Desired:         manifest,
+				DesiredChecksum: make([]byte, 32),
+				Phase:           runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED.Enum(),
+			}.Build(),
+			wantValid: true,
+		},
+		{name: "empty reconciliation record", message: &runtimev1.ReconciliationRecord{}},
+		{
+			name: "wrong reconciliation checksum size",
+			message: runtimev1.ReconciliationRecord_builder{
+				Desired:         manifest,
+				DesiredChecksum: []byte("short"),
+				Phase:           runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED.Enum(),
+			}.Build(),
+		},
+		{
+			name: "complete store provenance",
+			message: runtimev1.StoreProvenance_builder{
+				FormatVersion:    proto.Uint32(1),
+				NatsVersion:      proto.String("2.14.6"),
+				ServiceNamespace: proto.String("flowseer"),
+				ServiceName:      proto.String("edge"),
+				Domain:           proto.String("v1_abc234"),
+			}.Build(),
+			wantValid: true,
+		},
+		{name: "empty store provenance", message: &runtimev1.StoreProvenance{}},
+		{
+			name: "complete settlement",
+			message: runtimev1.Settlement_builder{
+				TargetPath:    proto.String("edge/worker"),
+				MessageId:     proto.String("aa36b80e-88b5-4e2b-9ff6-6412d106cf80"),
+				RetryCount:    proto.Uint32(1),
+				DispositionId: proto.String("5a9434af-d74f-4183-ba88-30fda520d2ee"),
+				State:         runtimev1.SettlementState_SETTLEMENT_STATE_RETRY.Enum(),
+			}.Build(),
+			wantValid: true,
+		},
+		{name: "empty settlement", message: &runtimev1.Settlement{}},
+	}
+
+	runValidationCases(t, cases)
+}
+
+func TestRuntimeManifestRequiresCapacityAndDeduplicationFields(t *testing.T) {
+	fields := []protoreflect.Name{
+		"max_store_bytes",
+		"mailbox_max_bytes",
+		"metadata_max_bytes",
+		"reserve_bytes",
+		"duplicate_window_seconds",
+	}
+	for _, name := range fields {
+		t.Run(string(name), func(t *testing.T) {
+			manifest := validRuntimeManifest()
+			field := manifest.ProtoReflect().Descriptor().Fields().ByName(name)
+			manifest.ProtoReflect().Clear(field)
+			runValidationCases(t, []validationCase{{name: "absent", message: manifest}})
+		})
+	}
+}
+
+func validRuntimeManifest() *runtimev1.RuntimeManifest {
+	return runtimev1.RuntimeManifest_builder{
+		ServiceNamespace:       proto.String("flowseer"),
+		ServiceName:            proto.String("edge"),
+		Domain:                 proto.String("v1_abc234"),
+		EnvelopeType:           proto.String("flowseer.runtime.v1.Message"),
+		EnvelopeVersion:        proto.Uint32(1),
+		SubjectVersion:         proto.Uint32(1),
+		NatsVersion:            proto.String("2.14.6"),
+		ModulePaths:            []string{"edge/worker"},
+		MailboxStream:          proto.String("FLOWSEER_MAILBOX"),
+		MetadataStream:         proto.String("FLOWSEER_METADATA"),
+		MaxStoreBytes:          proto.Uint64(1 << 30),
+		MailboxMaxBytes:        proto.Uint64(768 << 20),
+		MetadataMaxBytes:       proto.Uint64(64 << 20),
+		ReserveBytes:           proto.Uint64(192 << 20),
+		DuplicateWindowSeconds: proto.Uint64(24 * 60 * 60),
+		Modules: []*runtimev1.ModuleContract{
+			runtimev1.ModuleContract_builder{
+				Path:                proto.String("edge/worker"),
+				PathToken:           proto.String("ZWRnZS93b3JrZXI"),
+				DurableName:         proto.String("v1_abc234"),
+				DeliveryConcurrency: proto.Uint32(1),
+			}.Build(),
+		},
+	}.Build()
+}
+
+func TestRuntimeBusControlRecordWireContracts(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		name    protoreflect.FullName
+		fields  map[protoreflect.Name]protoreflect.FieldNumber
+	}{
+		{
+			message: (&runtimev1.RuntimeManifest{}).ProtoReflect().Descriptor(),
+			name:    "flowseer.runtime.v1.RuntimeManifest",
+			fields: map[protoreflect.Name]protoreflect.FieldNumber{
+				"service_namespace":        1,
+				"service_name":             2,
+				"domain":                   3,
+				"envelope_type":            4,
+				"envelope_version":         5,
+				"subject_version":          6,
+				"nats_version":             7,
+				"modules":                  8,
+				"module_paths":             9,
+				"mailbox_stream":           10,
+				"metadata_stream":          11,
+				"max_store_bytes":          12,
+				"mailbox_max_bytes":        13,
+				"metadata_max_bytes":       14,
+				"reserve_bytes":            15,
+				"duplicate_window_seconds": 16,
+			},
+		},
+		{
+			message: (&runtimev1.ReconciliationRecord{}).ProtoReflect().Descriptor(),
+			name:    "flowseer.runtime.v1.ReconciliationRecord",
+			fields: map[protoreflect.Name]protoreflect.FieldNumber{
+				"previous":         1,
+				"desired":          2,
+				"desired_checksum": 3,
+				"phase":            4,
+			},
+		},
+		{
+			message: (&runtimev1.Settlement{}).ProtoReflect().Descriptor(),
+			name:    "flowseer.runtime.v1.Settlement",
+			fields: map[protoreflect.Name]protoreflect.FieldNumber{
+				"target_path":    1,
+				"message_id":     2,
+				"retry_count":    3,
+				"disposition_id": 4,
+				"state":          5,
+			},
+		},
+		{
+			message: (&runtimev1.StoreProvenance{}).ProtoReflect().Descriptor(),
+			name:    "flowseer.runtime.v1.StoreProvenance",
+			fields: map[protoreflect.Name]protoreflect.FieldNumber{
+				"format_version":    1,
+				"nats_version":      2,
+				"service_namespace": 3,
+				"service_name":      4,
+				"domain":            5,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.name), func(t *testing.T) {
+			if got := tt.message.FullName(); got != tt.name {
+				t.Errorf("message full name = %q, want %q", got, tt.name)
+			}
+			for name, want := range tt.fields {
+				field := tt.message.Fields().ByName(name)
+				if field == nil {
+					t.Errorf("field %q is missing", name)
+					continue
+				}
+				if got := field.Number(); got != want {
+					t.Errorf("field %q number = %d, want %d", name, got, want)
+				}
+			}
+		})
+	}
+}

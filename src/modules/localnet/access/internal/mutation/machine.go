@@ -8,10 +8,10 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -62,7 +62,7 @@ type Deps struct {
 	// grant's own material. The grant is passed rather than captured
 	// because it is acquired inside Execute, immediately before the command
 	// and after the authority check, and is one-use.
-	Submit func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error
+	Submit func(ctx context.Context, grant *attachv1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error
 
 	Submission credential.SubmissionCredentialSource
 	Freeze     *freeze.Gate
@@ -74,7 +74,7 @@ type Deps struct {
 // Machine is one admitted operation's typestate. The zero value is not
 // usable; construct with [Admitted]. Safe for concurrent use.
 type Machine struct {
-	req  *integrationv1.ExecuteRequest
+	req  *dispatchv1.ExecuteRequest
 	deps Deps
 
 	// done is closed exactly once, when the mutation reaches a terminal
@@ -113,7 +113,7 @@ type Machine struct {
 	// owed are the audit records this mutation could not deliver, kept as
 	// the values that were built so a retry carries the same event id and
 	// the stream reads it as a duplicate rather than a second fact.
-	owed []*eventv1.DeviceOperationEvent
+	owed []*eventaccessv1.DeviceOperationEvent
 	// cancelWaits cancels the context [Machine.Execute] runs its waits
 	// under, and is nil whenever Execute is not parked in one.
 	cancelWaits context.CancelFunc
@@ -132,7 +132,7 @@ type Machine struct {
 // comes from access.Lane's own re-probe, which compares one probe's output
 // against an earlier probe's; see the access module README's "Firmware
 // epoch" section.
-func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
+func Admitted(req *dispatchv1.ExecuteRequest, deps Deps) (*Machine, error) {
 	if mutationIntent := req.GetMutation(); mutationIntent != nil {
 		if expected := mutationIntent.GetExpectedFirmwareFingerprint(); expected != deps.CurrentFingerprint {
 			// No FirmwareEpochChanged event here: this comparison is
@@ -228,7 +228,7 @@ func (m *Machine) terminalLocked() bool {
 }
 
 // Submitted reports whether the command was handed to the device. It is
-// what an [integrationv1.ExecuteResult] carries as submitted, and what
+// what an [dispatchv1.ExecuteResult] carries as submitted, and what
 // decides whether an error means "provably nothing was sent" (central may
 // dispose it REJECTED) or "the effect is unknown" (it must not).
 func (m *Machine) Submitted() bool {
@@ -486,7 +486,7 @@ func (m *Machine) block(ctx context.Context, reason accessv1.BlockReason) error 
 // sequence and moves the phase to POSSIBLY_APPLIED: central durably
 // records that the intent may reach the device before any command is
 // submitted. It is invalid for a read, which never checkpoints.
-func (m *Machine) Checkpoint(ctx context.Context, req *integrationv1.CheckpointRequest) (*integrationv1.CheckpointAck, error) {
+func (m *Machine) Checkpoint(ctx context.Context, req *dispatchv1.CheckpointRequest) (*dispatchv1.CheckpointAck, error) {
 	if m.IsRead() {
 		return nil, errs.New().Code(ErrCodeOutOfOrder).Msg("checkpoint is not valid for a read operation")
 	}
@@ -503,7 +503,7 @@ func (m *Machine) Checkpoint(ctx context.Context, req *integrationv1.CheckpointR
 		return nil, err
 	}
 
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(req.GetSequence())
 	return ack, nil
 }
@@ -512,7 +512,7 @@ func (m *Machine) Checkpoint(ctx context.Context, req *integrationv1.CheckpointR
 // SUBMISSION_AUTHORITY_AUTHORIZED immediately before doing so — not merely
 // the absence of a seen revocation, which a
 // not-yet-delivered pulse could satisfy while a revocation is already in
-// flight. For a read it is a no-op: integration/device/v1's README states a
+// flight. For a read it is a no-op: edge/dispatch/v1's README states a
 // read's phase_reached is OBSERVING, so a read's device contact happens in
 // [Machine.Observe], not here.
 func (m *Machine) Execute(ctx context.Context) error {
@@ -566,7 +566,7 @@ func (m *Machine) Execute(ctx context.Context) error {
 	}
 	defer func() { _ = handle.Close() }()
 
-	if handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+	if handle.Authority() != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 		return errs.New().Code(ErrCodeRevoked).
 			Msg("submission authority is not AUTHORIZED; the command is not sent")
 	}
@@ -890,7 +890,7 @@ func (m *Machine) InRecovery() bool {
 // event_id, and the audit stream deduplicates on exactly that id — so a
 // rebuilt record is a second record rather than a retry, and an account with
 // duplicates is as wrong as one with holes while looking healthier.
-func (m *Machine) retainOwed(event *eventv1.DeviceOperationEvent) {
+func (m *Machine) retainOwed(event *eventaccessv1.DeviceOperationEvent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.owed = append(m.owed, event)
@@ -920,7 +920,7 @@ func (m *Machine) DeliverOwed(ctx context.Context) error {
 	m.owed = nil
 	m.mu.Unlock()
 
-	var failed []*eventv1.DeviceOperationEvent
+	var failed []*eventaccessv1.DeviceOperationEvent
 	var err error
 	for _, event := range pending {
 		if emitErr := m.deps.Audit.Emit(ctx, event); emitErr != nil {
@@ -1080,7 +1080,7 @@ func (m *Machine) Abandon(ctx context.Context) error {
 // refuse the re-send and the mutation would never reach a terminal state at
 // all. Re-entry is keyed on the phase and disposition already written,
 // which is the durable record of which walk was chosen.
-func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalResultAck) error {
+func (m *Machine) Acknowledge(ctx context.Context, ack *dispatchv1.TerminalResultAck) error {
 	if ack.GetSequence() != m.req.GetSequence() {
 		return errs.New().Code(ErrCodeOutOfOrder).
 			Attr("ack_sequence", ack.GetSequence()).
@@ -1217,11 +1217,11 @@ func (m *Machine) release(ctx context.Context) error {
 // called before Observe ever ran) still cannot leave the oneof unset, so it
 // falls back to reporting that absence as the error arm rather than
 // emitting an invalid message.
-func (m *Machine) Result(err error) *integrationv1.ExecuteResult {
+func (m *Machine) Result(err error) *dispatchv1.ExecuteResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	result := &integrationv1.ExecuteResult{}
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(m.req.GetSequence())
 	result.SetPhaseReached(m.phase)
 	result.SetSubmitted(m.submitted)
@@ -1239,17 +1239,17 @@ func (m *Machine) Result(err error) *integrationv1.ExecuteResult {
 
 // Progress builds a non-terminal report: where the mutation has reached and
 // whether its command went out, with the empty progress arm
-// integration/device/v1 defines for a report that is neither an observation
+// edge/dispatch/v1 defines for a report that is neither an observation
 // nor an error. Admission and entry into recovery are reported this way —
 // central needs to know a mutation moved without being told it finished.
-func (m *Machine) Progress() *integrationv1.ExecuteResult {
+func (m *Machine) Progress() *dispatchv1.ExecuteResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	result := &integrationv1.ExecuteResult{}
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(m.req.GetSequence())
 	result.SetPhaseReached(m.phase)
 	result.SetSubmitted(m.submitted)
-	result.SetProgress(&integrationv1.Progress{})
+	result.SetProgress(&dispatchv1.Progress{})
 	return result
 }

@@ -84,13 +84,16 @@ a device to a site — is top-level, and carries the related Entities' `GlobalRe
 as ordinary fields. A ref never has two parents; the relationship is the
 Entity's own content.
 
-**Refs live beside the triad, in the Entity's own package.** There is no shared
-refs package: a package holding every ref would have to know every Entity above
-it, which is exactly the upward-import the layering forbids. An eventual
-`InterfaceRef` lives with the Interface *entity*, not in `net/interface/v1`;
-the landed Device ref lives in `api/inventory/v1` and the Edge ref in
-`api/edge/v1`, beside the services that take it. The Interface entity package
-is intentionally undecided. Do not add the entity or infer an `api/interface`
+**Refs live beside the triad, in the Entity's own package, never in a package
+that declares a service.** There is no shared refs package: a package holding
+every ref would have to know every Entity above it, which is exactly the
+upward-import the layering forbids. A ref in a service package would tie
+every reader of that ref to every RPC the service also declares, so the Edge
+ref lives apart from `EdgeService` and `EdgeAdminService` the same way its
+triad does: an eventual `InterfaceRef` lives with the Interface *entity*, not
+in `net/interface/v1`; the landed Device ref lives in `model/inventory/v1`
+and the Edge ref in `model/edge/v1`. The Interface entity package is
+intentionally undecided. Do not add the entity or infer an `api/interface`
 package until an accepted direction record chooses that boundary.
 
 **Entity identifiers are UUID strings**, FlowSeer-assigned and opaque to the
@@ -116,7 +119,7 @@ every consumer party to that decision.
 
 The typed `LocalRef`/`GlobalRef` pair stays the norm for every reference whose
 target kind is known when the schema is written. `EntityRef` in
-`api/inventory/v1/entity.proto` exists for the one case the pair cannot express:
+`model/inventory/v1/entity.proto` exists for the one case the pair cannot express:
 a field that points at "some entity of a kind decided at runtime", such as the
 owner of an attribute value:
 
@@ -144,13 +147,13 @@ Three boundaries keep it from eroding the typed refs:
   until the Tenant identity and store land, and the inventory service rejects
   it during semantic existence checks in the meantime. The enum value reserves
   the future contract; it is not permission to invent a tenant identifier.
-  The Edge in `api/edge/v1` is the opposite exception: a landed, UUID-keyed
+  The Edge in `model/edge/v1` is the opposite exception: a landed, UUID-keyed
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
   nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `api/inventory/v1` are the same class: UUID-keyed,
+  `Cable`, and `Link` in `model/inventory/v1` are the same class: UUID-keyed,
   landed, and outside the enum until the inventory store answers for them. `AccessPolicyHandle`,
-  `CredentialHandle`, and `HostTrustHandle` in `device/policy/v1` are the
+  `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
   the enum, because nothing else points at one and the store that would
@@ -179,7 +182,7 @@ stay reserved for Entities so that the hook's family check means one thing.
 
 ## Tenancy is ambient
 
-The landed `api/inventory/v1/tenant.proto` defines a deliberately keyless
+The landed `model/inventory/v1/tenant.proto` defines a deliberately keyless
 `TenantRef` for content relationships. It carries no tenant identifier and
 never scopes a request or record. Tenancy is resolved from context at the edge
 of the system:
@@ -196,7 +199,7 @@ can lie about it.
 
 "Observed at" and "which binding answered" describe a *live response or an
 event*, not a stored thing. One provenance message is defined beside `Binding`
-in `api/inventory/v1`, and is embedded by value in the integration,
+in `model/inventory/v1`, and is embedded by value in the integration,
 service-response, and event envelopes. It also names the protocol that
 produced the payload, the edge that performed the observation, and the
 device's firmware fingerprint at that moment, because a route is chosen per
@@ -300,7 +303,7 @@ that way when a new message does not obviously match either shape.
 
 ## A worked example
 
-Not compiled, and not the current `api/inventory/v1` package. The Device family
+Not compiled, and not the current `model/inventory/v1` package. The Device family
 has landed there, while the Interface entity has not. This example shows the
 shapes the rules above produce together for a `Device` that owns an
 `Interface`.

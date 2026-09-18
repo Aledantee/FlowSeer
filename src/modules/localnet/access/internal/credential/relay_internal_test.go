@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 )
 
 // panicOnceStream panics from its first Receive call, simulating a failure
@@ -13,10 +13,10 @@ import (
 // goroutine actually runs on.
 type panicOnceStream struct{}
 
-func (panicOnceStream) Receive() bool                             { panic("simulated stream panic") }
-func (panicOnceStream) Msg() *edgev1.OpenDeviceSubmissionResponse { return nil }
-func (panicOnceStream) Err() error                                { return nil }
-func (panicOnceStream) Close() error                              { return nil }
+func (panicOnceStream) Receive() bool                               { panic("simulated stream panic") }
+func (panicOnceStream) Msg() *attachv1.OpenDeviceSubmissionResponse { return nil }
+func (panicOnceStream) Err() error                                  { return nil }
+func (panicOnceStream) Close() error                                { return nil }
 
 // TestSubmissionHandleRelayPanicRecordsErrInsteadOfStaleAuthority is
 // evidence for this change: it forces a real panic on the goroutine
@@ -26,7 +26,7 @@ func (panicOnceStream) Close() error                              { return nil }
 // way; what this test proves is that ReportTo reaches the same field when
 // relay never gets there itself.
 func TestSubmissionHandleRelayPanicRecordsErrInsteadOfStaleAuthority(t *testing.T) {
-	h := &submissionHandle{authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED}
+	h := &submissionHandle{authority: attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED}
 	h.startRelay(context.Background(), panicOnceStream{})
 
 	deadline := time.Now().Add(5 * time.Second)
@@ -39,7 +39,7 @@ func TestSubmissionHandleRelayPanicRecordsErrInsteadOfStaleAuthority(t *testing.
 
 	// The handle must not have quietly kept reporting AUTHORIZED as if
 	// nothing happened: Err() is what a caller checks, and it is now set.
-	if got := h.Authority(); got != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+	if got := h.Authority(); got != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 		t.Fatalf("Authority() changed unexpectedly to %v; relay never read a pulse before it panicked", got)
 	}
 }

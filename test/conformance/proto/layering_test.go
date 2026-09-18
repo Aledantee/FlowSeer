@@ -17,6 +17,11 @@ import (
 // anything else it imports must be listed here. Adding a package to the tree
 // is one line in this table — leaving it out fails
 // TestImportOrderCoversEveryPackage rather than silently escaping the order.
+//
+// A package that declares a service is a sink: importing one is always
+// rejected, so it never appears as a value in this table. layeringViolation
+// enforces that independently of any row here, and TestModelDeclaresNoService
+// keeps every package under model/ from declaring one.
 var importOrder = map[string][]string{
 	"net/addr":   nil,
 	"net/packet": nil,
@@ -33,88 +38,159 @@ var importOrder = map[string][]string{
 	"net/protocol/lacp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
-	// Boundary packages consume the primitives and never feed them.
-	// device/policy imports nothing FlowSeer-owned, the one leaf that lets
-	// inventory name a policy without a cycle. api/edge may import
-	// device/policy for the credential and host-trust handles its
-	// credential RPCs return, because device/policy imports nothing back.
-	// device/credential imports nothing either: api/edge carries the typed
-	// credential material on its credential responses, so it sits beside
-	// device/policy as a second leaf below api/edge. net/addr is the third,
-	// for the management address the device listing carries — a primitive
-	// that imports nothing FlowSeer-owned, so it cannot cycle back, and the
-	// alternative of a formatted string would make an address the edge
-	// parses out of prose.
-	"api/edge":          {"device/credential", "device/policy", "net/addr"},
-	"device/credential": nil,
-	"device/policy":     nil,
+	// The operator-facing service that creates, provisions, and retires an
+	// edge. It hands back EdgeRecord and takes EdgeGlobalRef, and needs
+	// nothing else.
+	"api/edge": {"model/edge"},
 
-	// The error wire payload. A leaf like device/policy: every boundary may
-	// carry an error, so nothing may depend on it.
+	// The service an edge calls to get and keep its standing: enrollment,
+	// rekey, heartbeat, bus attachment, the device listing, and the two
+	// credential lifecycles. The listing and the credentials are what reach
+	// past the entity into the policy handles, the credential material, and
+	// the management address.
+	"edge/attach": {"model/edge", "model/policy", "model/credential", "net/addr"},
+
+	"model/edge":       nil,
+	"model/credential": nil,
+	"model/policy":     nil,
+
+	// The error wire payload, a leaf like model/policy: it imports nothing,
+	// and every boundary that carries an error imports it.
 	"errs": nil,
 
-	// A capture session's identity, lifecycle and services. It holds
-	// net/capture's counters, link type and packet records rather than
-	// copies of their fields, and takes only the owning ref and the
-	// assertion its upload stream re-verifies from api/edge.
-	"api/capture": {"api/edge", "net/capture"},
+	// A capture session's identity, lifecycle, and the chunk frames its two
+	// services share. It takes the owning ref and the assertion its upload
+	// stream re-verifies from model/edge, and holds net/capture's counters,
+	// link type and packet records rather than copies of their fields.
+	"model/capture": {"model/edge", "net/capture"},
 
-	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	// The two Connect services around a capture session: the one an operator
+	// calls to create, control, and read one back, and the one an edge calls
+	// to upload one. Neither adds an import model/capture does not already
+	// carry.
+	"api/capture": {"model/capture", "model/edge", "net/capture"},
+
+	// The Connect service an edge calls to upload a running capture
+	// session's packets. Takes the entity and the assertion it re-verifies
+	// on the stream from model/capture and model/edge; adds no import
+	// model/capture does not already carry.
+	"edge/capture": {"model/capture", "model/edge"},
+
+	// The execution envelope between central and the edge hosting a
+	// device's lane: what central dispatches and what the edge reports
+	// back.
+	"edge/dispatch": {"model/access", "errs"},
+
+	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
-	// api/edge for the responsible edge, so a boundary that imports them
-	// reaches api/edge only through here.
-	"device/access": {"api/edge", "api/inventory", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	// model/edge for the responsible edge, so a boundary that imports them
+	// reaches model/edge only through here.
+	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operator API, the execution envelope, and the audit event are
-	// sibling boundary consumers of device/access and errs, and none of the
-	// three imports another. api/inventory and device/policy predate the
-	// errs amendment and stay direct api/device dependencies; the envelope
-	// carries no device or edge ref at all (the transport already names
-	// both), while the audit event needs api/inventory directly because it
-	// is read outside any live transport context.
-	"api/device": {"api/inventory", "device/access", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	// sibling boundary consumers of model/access, and none of the three
+	// imports another. This row is an allowlist and is wider than the tree:
+	// api/device's files reach model/access and model/inventory, while
+	// model/policy and errs are permitted and unused. The envelope carries no
+	// device or edge ref at all (the transport already names both), and the
+	// audit event needs model/inventory directly because it is read outside
+	// any live transport context.
+	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
-	"integration/device": {"device/access", "errs"},
+	// The Connect call an edge delivers a DeviceOperationEvent through.
+	"edge/audit": {"event/access"},
 
-	"event/device": {"api/inventory", "device/access", "errs"},
+	// The durable audit record of what happened on one device's lane, read
+	// outside any live transport context, so it names the device and its
+	// operation vocabulary directly instead of relying on the transport.
+	"event/access": {"model/inventory", "model/access", "errs"},
 
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
-	"store/device": {"api/edge", "api/inventory", "device/access", "device/credential", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"store/device": {"model/edge", "model/inventory", "model/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The agent's own deployment file. It imports nothing FlowSeer-owned and
 	// is imported by nothing: what an edge is told about central lives in
-	// api/edge's EdgeProvisioning, which this package names by path rather
+	// model/edge's EdgeProvisioning, which this package names by path rather
 	// than by type, so the dependency an entry here would suggest does not
 	// exist.
-	"store/edge": nil,
+	"store/agent": nil,
 }
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.
-// flowseer/service stays out: it is the process-local bus contract and no
-// boundary package may import it.
 var orderedRoots = []string{
-	"flowseer/net", "flowseer/api", "flowseer/device",
+	"flowseer/net", "flowseer/api", "flowseer/edge", "flowseer/model",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
 	"flowseer/store",
 }
 
+// unorderedRoots are the trees deliberately outside the import order, relative
+// to spec/proto. flowseer/runtime is the process-local bus contract rather than
+// a boundary between packages, so "which packages may it import" has no answer
+// to put in importOrder; what keeps it out of everyone's way instead is that it
+// imports nothing FlowSeer-owned, which
+// TestUnorderedRootsImportNothingFlowSeerOwned holds it to.
+var unorderedRoots = []string{"flowseer/runtime"}
+
 func TestImportOrder(t *testing.T) {
-	for _, file := range orderedProtoFiles(t) {
+	files := orderedProtoFiles(t)
+	services := servicePackages(files)
+
+	for _, file := range files {
 		pkg := protoPackage(file.rel)
 		for _, imported := range file.imports {
 			if !strings.HasPrefix(imported, "flowseer/") {
 				continue
 			}
 
-			if reason := layeringViolation(pkg, protoPackage(imported)); reason != "" {
+			if reason := layeringViolation(pkg, protoPackage(imported), services); reason != "" {
 				t.Errorf("%s: %s", file.rel, reason)
 			}
 		}
 	}
+}
+
+// TestModelDeclaresNoService fails on any service declaration under model/,
+// the sink rule's other half: a package that carries identity never gets to
+// be the thing everything else waits on.
+func TestModelDeclaresNoService(t *testing.T) {
+	files := protoFilesUnder(t, filepath.Join(repoRoot(t), "spec", "proto"), "flowseer/model")
+	for _, rel := range modelServiceViolations(files) {
+		t.Errorf("%s: package under model declares a service", rel)
+	}
+
+	synthetic := []protoFile{
+		{
+			rel:        "flowseer/model/access/v1/operation.proto",
+			hasService: scanServices("message Operation {}\n"),
+		},
+		{
+			rel:        "flowseer/model/access/v1/x.proto",
+			hasService: scanServices("service Probe {}\n"),
+		},
+	}
+	got := modelServiceViolations(synthetic)
+	want := []string{"flowseer/model/access/v1/x.proto"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// modelServiceViolations returns the relative paths of files that declare a
+// service, so TestModelDeclaresNoService can check the real tree and a
+// synthetic case with the same logic.
+func modelServiceViolations(files []protoFile) []string {
+	var violations []string
+	for _, file := range files {
+		if file.hasService {
+			violations = append(violations, file.rel)
+		}
+	}
+
+	return violations
 }
 
 func TestImportOrderCoversEveryPackage(t *testing.T) {
@@ -129,11 +205,9 @@ func TestImportOrderCoversEveryPackage(t *testing.T) {
 }
 
 // TestOrderedRootsCoverEveryTopLevelTree fails when a new top-level tree lands
-// under spec/proto/flowseer without being added to orderedRoots, so a whole
-// new root cannot escape the coverage and layering checks above the way a
-// package inside an existing root cannot. flowseer/service is the one
-// declared exception: it is the process-local bus contract, and no boundary
-// package may import it.
+// under spec/proto/flowseer without being added to orderedRoots or to
+// unorderedRoots, so a whole new root cannot escape the coverage and layering
+// checks above the way a package inside an existing root cannot.
 func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
 	flowseerRoot := filepath.Join(repoRoot(t), "spec", "proto", "flowseer")
 
@@ -143,19 +217,63 @@ func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
 	}
 
 	declared := map[string]bool{}
-	for _, root := range orderedRoots {
+	for _, root := range slices.Concat(orderedRoots, unorderedRoots) {
 		declared[strings.TrimPrefix(root, "flowseer/")] = true
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == "service" || declared[entry.Name()] {
+		if !entry.IsDir() || declared[entry.Name()] {
 			continue
 		}
 		if len(protoFilesUnder(t, filepath.Join(repoRoot(t), "spec", "proto"), "flowseer/"+entry.Name())) == 0 {
 			continue
 		}
-		t.Errorf("flowseer/%s carries schemas but is missing from orderedRoots", entry.Name())
+		t.Errorf("flowseer/%s carries schemas but is in neither orderedRoots nor unorderedRoots", entry.Name())
 	}
+}
+
+// TestUnorderedRootsImportNothingFlowSeerOwned holds the roots importOrder does
+// not govern. Nothing in the table constrains what such a root imports, so
+// without this a schema under flowseer/runtime could reach a Connect service
+// package or another process's private store with every other gate green.
+func TestUnorderedRootsImportNothingFlowSeerOwned(t *testing.T) {
+	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
+	for _, root := range unorderedRoots {
+		for _, found := range crossPackageImports(protoFilesUnder(t, protoRoot, root)) {
+			t.Errorf("%s: %s is outside the import order and may import nothing FlowSeer-owned", found, root)
+		}
+	}
+
+	synthetic := []protoFile{{
+		rel: "flowseer/runtime/v1/x.proto",
+		imports: []string{
+			"google/protobuf/timestamp.proto",
+			"flowseer/runtime/v1/message.proto",
+			"flowseer/model/edge/v1/edge.proto",
+		},
+	}}
+	got := crossPackageImports(synthetic)
+	want := []string{"flowseer/runtime/v1/x.proto imports flowseer/model/edge/v1/edge.proto"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// crossPackageImports returns one "<file> imports <schema>" line per
+// FlowSeer-owned import a file declares outside its own package.
+func crossPackageImports(files []protoFile) []string {
+	var found []string
+	for _, file := range files {
+		pkg := protoPackage(file.rel)
+		for _, imported := range file.imports {
+			if !strings.HasPrefix(imported, "flowseer/") || protoPackage(imported) == pkg {
+				continue
+			}
+			found = append(found, fmt.Sprintf("%s imports %s", file.rel, imported))
+		}
+	}
+
+	return found
 }
 
 // TestLayeringViolationRules pins the order's shape against synthetic pairs, so
@@ -165,7 +283,14 @@ func TestLayeringViolationRules(t *testing.T) {
 		name     string
 		importer string
 		imported string
+		// services replaces the tree's service-declaring packages, for a case
+		// that must be rejected by the sink rule alone.
+		services map[string]bool
 		want     bool
+		// wantReason, when set, is the reason layeringViolation must give, so
+		// the case pins which rule rejected the import and not merely that one
+		// did.
+		wantReason string
 	}{
 		{name: "leaf imports nothing FlowSeer-owned", importer: "net/addr", imported: "net/packet"},
 		{name: "package imports itself", importer: "net/addr", imported: "net/addr", want: true},
@@ -177,37 +302,87 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "protocol imports a layer", importer: "net/protocol/lldp", imported: "net/interface", want: true},
 		{name: "protocol imports another protocol", importer: "net/protocol/lldp", imported: "net/protocol/stp"},
 		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
-		{name: "primitive imports a boundary", importer: "net/interface", imported: "api/inventory"},
-		{name: "inventory imports a leaf boundary", importer: "api/inventory", imported: "device/policy", want: true},
-		{name: "edge imports its credential handles", importer: "api/edge", imported: "device/policy", want: true},
-		{name: "leaf boundary imports edge", importer: "device/policy", imported: "api/edge"},
-		{name: "access values import inventory", importer: "device/access", imported: "api/inventory", want: true},
-		{name: "access values import the operator api", importer: "device/access", imported: "api/device"},
-		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
-		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
-		{name: "leaf boundary imports inventory", importer: "device/policy", imported: "api/inventory"},
-		{name: "execution envelope imports access values", importer: "integration/device", imported: "device/access", want: true},
-		{name: "execution envelope imports errs", importer: "integration/device", imported: "errs", want: true},
-		{name: "execution envelope imports the audit event", importer: "integration/device", imported: "event/device"},
-		{name: "audit event imports access values", importer: "event/device", imported: "device/access", want: true},
-		{name: "audit event imports inventory", importer: "event/device", imported: "api/inventory", want: true},
-		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
-		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
+		{name: "primitive imports a boundary", importer: "net/interface", imported: "model/inventory"},
+		{name: "inventory imports a leaf boundary", importer: "model/inventory", imported: "model/policy", want: true},
+		{name: "edge attachment imports its credential handles", importer: "edge/attach", imported: "model/policy", want: true},
+		{name: "leaf boundary imports edge", importer: "model/policy", imported: "api/edge"},
+		{name: "access values import inventory", importer: "model/access", imported: "model/inventory", want: true},
+		{name: "access values import the operator api", importer: "model/access", imported: "api/device"},
+		{name: "operator api imports access values", importer: "api/device", imported: "model/access", want: true},
+		{name: "operator api imports the bus contract", importer: "api/device", imported: "runtime"},
+		{name: "leaf boundary imports inventory", importer: "model/policy", imported: "model/inventory"},
+		{name: "execution envelope imports access values", importer: "edge/dispatch", imported: "model/access", want: true},
+		{name: "execution envelope imports errs", importer: "edge/dispatch", imported: "errs", want: true},
+		{name: "execution envelope imports the audit event", importer: "edge/dispatch", imported: "event/access"},
+		{name: "audit event imports access values", importer: "event/access", imported: "model/access", want: true},
+		{name: "audit event imports inventory", importer: "event/access", imported: "model/inventory", want: true},
+		{name: "audit event imports the execution envelope", importer: "event/access", imported: "edge/dispatch"},
+		{name: "audit event imports api/edge directly", importer: "event/access", imported: "api/edge"},
+		{name: "the audit service imports the record it delivers", importer: "edge/audit", imported: "event/access", want: true},
 		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
-		{name: "edge imports credential material", importer: "api/edge", imported: "device/credential", want: true},
-		{name: "credential material imports edge", importer: "device/credential", imported: "api/edge"},
-		{name: "credential material imports policy handles", importer: "device/credential", imported: "device/policy"},
-		{name: "storage imports access values", importer: "store/device", imported: "device/access", want: true},
-		{name: "storage imports credential material", importer: "store/device", imported: "device/credential", want: true},
-		{name: "access values import storage", importer: "device/access", imported: "store/device"},
+		{name: "edge attachment imports credential material", importer: "edge/attach", imported: "model/credential", want: true},
+		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
+		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
+		{name: "storage imports access values", importer: "store/device", imported: "model/access", want: true},
+		{name: "storage imports credential material", importer: "store/device", imported: "model/credential", want: true},
+		{name: "storage imports the edge service package", importer: "store/device", imported: "api/edge"},
+		{name: "storage imports the edge entity", importer: "store/device", imported: "model/edge", want: true},
+		{name: "access values import storage", importer: "model/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
-		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
+		{name: "operator api imports the execution envelope", importer: "api/device", imported: "edge/dispatch"},
+		{name: "capture upload imports the entity and the chunk frames", importer: "edge/capture", imported: "model/capture", want: true},
+		{
+			name:       "the entity imports the service that carries it",
+			importer:   "model/capture",
+			imported:   "edge/capture",
+			wantReason: "edge/capture declares a service and is imported by nothing",
+		},
+		{
+			name:       "storage imports a sink",
+			importer:   "store/device",
+			imported:   "api/device",
+			wantReason: "api/device declares a service and is imported by nothing",
+		},
+		{
+			name:       "access values import a sink",
+			importer:   "model/access",
+			imported:   "edge/dispatch",
+			wantReason: "edge/dispatch declares a service and is imported by nothing",
+		},
+		{
+			name:       "the record imports the service that delivers it",
+			importer:   "event/access",
+			imported:   "edge/audit",
+			wantReason: "edge/audit declares a service and is imported by nothing",
+		},
+		// The sink rule's own case. Every other rejection above is one the
+		// table would make anyway, so this is the pair that fails when the rule
+		// goes: model/access declares model/inventory, and only a service
+		// declaration in it can stand in the way.
+		{
+			name:       "declared import of a package that declares a service",
+			importer:   "model/access",
+			imported:   "model/inventory",
+			services:   map[string]bool{"model/inventory": true},
+			wantReason: "model/inventory declares a service and is imported by nothing",
+		},
 	}
+
+	treeServices := servicePackages(orderedProtoFiles(t))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if allowed := layeringViolation(tt.importer, tt.imported) == ""; allowed != tt.want {
+			services := treeServices
+			if tt.services != nil {
+				services = tt.services
+			}
+
+			reason := layeringViolation(tt.importer, tt.imported, services)
+			if allowed := reason == ""; allowed != tt.want {
 				t.Errorf("got allowed=%t, want %t", allowed, tt.want)
+			}
+			if tt.wantReason != "" && reason != tt.wantReason {
+				t.Errorf("got reason %q, want %q", reason, tt.wantReason)
 			}
 		})
 	}
@@ -240,6 +415,31 @@ import public "flowseer/net/addr/v1/eui.proto";
 	}
 }
 
+// TestScanServices pins the forms the sink rule must recognize. An indented
+// declaration is the one that would let a model package declare a service and
+// still read as service-free.
+func TestScanServices(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		want   bool
+	}{
+		{name: "declaration at the margin", source: "service Probe {\n}\n", want: true},
+		{name: "indented declaration", source: "  service Probe {\n  }\n", want: true},
+		{name: "commented out", source: "// service Probe {}\n"},
+		{name: "message whose name begins with the keyword", source: "message ServiceProbe {\n}\n"},
+		{name: "rpc inside a service body", source: "  rpc Probe(ProbeRequest) returns (ProbeResponse);\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := scanServices(tt.source); got != tt.want {
+				t.Errorf("got %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUndeclaredPackages(t *testing.T) {
 	got := undeclaredPackages([]string{"net/addr", "net/routing", "net/interface", "net/wlan"})
 	want := []string{"net/routing", "net/wlan"}
@@ -250,10 +450,14 @@ func TestUndeclaredPackages(t *testing.T) {
 }
 
 // layeringViolation reports why importer may not import imported, or "" when the
-// import is within the declared order.
-func layeringViolation(importer, imported string) string {
+// import is within the declared order. services holds the service-declaring
+// packages the sink rule blocks, from servicePackages.
+func layeringViolation(importer, imported string, services map[string]bool) string {
 	if importer == imported {
 		return ""
+	}
+	if services[imported] {
+		return fmt.Sprintf("%s declares a service and is imported by nothing", imported)
 	}
 
 	allowed, declared := importOrder[importer]
@@ -266,6 +470,19 @@ func layeringViolation(importer, imported string) string {
 
 	return fmt.Sprintf("importing %s is outside %s's declared layer (%s)",
 		imported, importer, strings.Join(allowed, ", "))
+}
+
+// servicePackages returns the packages among files that declare at least one
+// service, the sink rule's blocklist.
+func servicePackages(files []protoFile) map[string]bool {
+	services := map[string]bool{}
+	for _, file := range files {
+		if file.hasService {
+			services[protoPackage(file.rel)] = true
+		}
+	}
+
+	return services
 }
 
 // undeclaredPackages returns the schema-bearing packages the table does not cover.
@@ -296,12 +513,14 @@ func protoPackage(protoPath string) string {
 var (
 	versionSegment = regexp.MustCompile(`^v\d+(alpha|beta)?\d*$`)
 	importLine     = regexp.MustCompile(`^\s*import\s+(?:option\s+|public\s+|weak\s+)?"([^"]+)"\s*;`)
+	serviceLine    = regexp.MustCompile(`^\s*service\s+\w+\s*\{`)
 )
 
 type protoFile struct {
 	// rel is the file's path relative to spec/proto, in slash form.
-	rel     string
-	imports []string
+	rel        string
+	imports    []string
+	hasService bool
 }
 
 // orderedProtoFiles collects every .proto file under the ordered roots with the
@@ -340,12 +559,16 @@ func protoFilesUnder(t *testing.T, protoRoot, root string) []protoFile {
 			return err
 		}
 
-		imports, err := protoImports(path)
+		source, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
 
-		files = append(files, protoFile{rel: filepath.ToSlash(rel), imports: imports})
+		files = append(files, protoFile{
+			rel:        filepath.ToSlash(rel),
+			imports:    scanImports(string(source)),
+			hasService: scanServices(string(source)),
+		})
 
 		return nil
 	})
@@ -354,15 +577,6 @@ func protoFilesUnder(t *testing.T, protoRoot, root string) []protoFile {
 	}
 
 	return files
-}
-
-func protoImports(path string) ([]string, error) {
-	source, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return scanImports(string(source)), nil
 }
 
 func scanImports(source string) []string {
@@ -374,4 +588,15 @@ func scanImports(source string) []string {
 	}
 
 	return imports
+}
+
+// scanServices reports whether source declares at least one service.
+func scanServices(source string) bool {
+	for line := range strings.SplitSeq(source, "\n") {
+		if serviceLine.MatchString(line) {
+			return true
+		}
+	}
+
+	return false
 }

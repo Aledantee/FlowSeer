@@ -3,7 +3,7 @@ package capture
 import (
 	"context"
 
-	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
@@ -16,11 +16,11 @@ import (
 // package").
 type Config struct {
 	// Source is required.
-	Source *apicapturev1.CaptureSource
+	Source *modelcapturev1.CaptureSource
 	// Filter is optional; an absent or empty filter accepts every packet.
 	Filter *capturev1.CaptureFilter
 	// Budget is required.
-	Budget *apicapturev1.CaptureBudget
+	Budget *modelcapturev1.CaptureBudget
 }
 
 // Batch is one bounded slice of a run's packets, in delivery order,
@@ -40,8 +40,8 @@ type Batch struct {
 // counters, link type) without the ref and artifact fields a library does
 // not own.
 type State struct {
-	Lifecycle  apicapturev1.CaptureLifecycle
-	StopReason apicapturev1.CaptureStopReason
+	Lifecycle  modelcapturev1.CaptureLifecycle
+	StopReason modelcapturev1.CaptureStopReason
 	Counters   *capturev1.CaptureCounters
 	LinkType   capturev1.LinkType
 }

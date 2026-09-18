@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/lane"
@@ -24,12 +24,12 @@ import (
 // took so a test can ask what the account ended up holding.
 type refusingDeliverer struct {
 	mu       sync.Mutex
-	refuse   func(*eventv1.DeviceOperationEvent) bool
+	refuse   func(*eventaccessv1.DeviceOperationEvent) bool
 	refused  []string
-	accepted []*eventv1.DeviceOperationEvent
+	accepted []*eventaccessv1.DeviceOperationEvent
 }
 
-func (d *refusingDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *refusingDeliverer) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.refuse != nil && d.refuse(event) {
@@ -48,7 +48,7 @@ func (d *refusingDeliverer) refusedIDs() []string {
 
 // acceptedOfKind is the ids of the records the deliverer took that satisfy
 // match, in the order it took them.
-func (d *refusingDeliverer) acceptedOfKind(match func(*eventv1.DeviceOperationEvent) bool) []string {
+func (d *refusingDeliverer) acceptedOfKind(match func(*eventaccessv1.DeviceOperationEvent) bool) []string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	var ids []string
@@ -121,7 +121,7 @@ func deviceWhoseChangeNeverShows(t *testing.T, l *access.Lane, reads *atomic.Int
 	}
 }
 
-func isLaneBlocked(e *eventv1.DeviceOperationEvent) bool { return e.HasLaneBlocked() }
+func isLaneBlocked(e *eventaccessv1.DeviceOperationEvent) bool { return e.HasLaneBlocked() }
 
 // A mutation whose lane-blocked record central will not take still gets a
 // recovery poll, and the record is delivered once the stream takes it.
@@ -151,7 +151,7 @@ func TestARefusedRecordCostsTheMutationNeitherItsPollNorItsAccount(t *testing.T)
 	var refuseBlocked atomic.Bool
 	refuseBlocked.Store(true)
 	deliverer := &refusingDeliverer{
-		refuse: func(e *eventv1.DeviceOperationEvent) bool { return isLaneBlocked(e) && refuseBlocked.Load() },
+		refuse: func(e *eventaccessv1.DeviceOperationEvent) bool { return isLaneBlocked(e) && refuseBlocked.Load() },
 	}
 
 	log := &safeBuilder{}
@@ -219,7 +219,7 @@ func TestAPollThatEndsStillOwingRecordsReportsTheGap(t *testing.T) {
 	go func() {
 		deadline := time.Now().Add(30 * time.Second)
 		for time.Now().Before(deadline) {
-			checkpoint := &integrationv1.CheckpointRequest{}
+			checkpoint := &dispatchv1.CheckpointRequest{}
 			checkpoint.SetSequence(req.GetSequence())
 			if err := l.HandleCheckpoint("dev-1", checkpoint); err == nil {
 				return
@@ -263,7 +263,7 @@ func waitFor(t *testing.T, budget time.Duration, what string, done func() bool) 
 
 // isRecoveringTransition matches the PhaseTransitioned record EnterRecovering
 // delivers as its first step, before the block and the RecoveryStarted.
-func isRecoveringTransition(e *eventv1.DeviceOperationEvent) bool {
+func isRecoveringTransition(e *eventaccessv1.DeviceOperationEvent) bool {
 	return e.GetPhaseTransitioned().GetTo() == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING
 }
 
@@ -288,7 +288,7 @@ func TestARefusedRecoveryTransitionDoesNotStrandTheMutation(t *testing.T) {
 	var refuseTransition atomic.Bool
 	refuseTransition.Store(true)
 	deliverer := &refusingDeliverer{
-		refuse: func(e *eventv1.DeviceOperationEvent) bool {
+		refuse: func(e *eventaccessv1.DeviceOperationEvent) bool {
 			return isRecoveringTransition(e) && refuseTransition.Load()
 		},
 	}

@@ -1,46 +1,27 @@
-# Capture Session
+# Capture services
 
-The `flowseer.api.capture.v1` package holds the CaptureSession entity — its
-ref pair, its lifecycle, its config and state — and the two Connect services
-around it: the one an operator calls to create, control, and read back a
-capture, and the one an edge calls to upload one. The values a capture
-produces and matches against — `LinkType`, `CaptureCounters`,
-`CaptureFilter`, the mirror encapsulation, and `PacketRecord` — live in
-[`flowseer.net.capture.v1`](../../../net/capture/v1/README.md) and are
-ref-free by design. This package embeds them by value and adds everything
-that needs an identity to exist: the ref, the lifecycle, the authorization
-record, and the streaming contracts.
+The `flowseer.api.capture.v1` package holds `CaptureService`, which an
+operator calls to create, control, and read back a capture. The
+CaptureSession entity and the chunk frames both services share live in
+[`model/capture/v1`](../../../model/capture/v1/README.md), which this
+package imports and returns as `CaptureSessionRecord` from every call that
+hands back a session.
 
-## The owning edge
+## Boundaries
 
-A capture session's one owning parent is the edge that runs it:
-`CaptureSessionGlobalRef` wraps `EdgeGlobalRef` plus the session's own
-`CaptureSessionLocalRef`. A session is not scoped to a device: both
-`CaptureSource` arms name something local to the edge itself, a host
-interface name or a UDP port to listen on, never a device in inventory.
-Nothing here imports `api/inventory`.
+Imports: model/capture, model/edge, net/capture
 
-## Re-assertion on the upload stream
+Imported by: nothing
 
-[The edge assertion contract](../../edge/v1/README.md#the-assertion-header)
-checks a `SignedEdgeAssertion` when a call opens, and states plainly that
-streams are checked only there — an assertion itself is valid for at most 60
-seconds. `UploadCapture` is a stream an edge holds open for as long as the
-capture session runs, which routinely outlives that window, so
-`UploadCaptureRequest` is a required `oneof` of `CapturePacketChunk` and
-`SignedEdgeAssertion` rather than a plain stream of chunks. The edge sends a
-fresh assertion on the stream at an interval shorter than the 60-second
-window. The server verifies each one exactly as it verifies the opening
-one, nonce replay check included, and closes the stream if the interval
-passes without one arriving.
+Deliberately absent:
 
-## Open question: reaching the edge
-
-How an operator-originated capture command reaches the edge that must run
-it is not decided by this schema. The edge calls central; central never
-calls the edge. `EdgeService` has three RPCs — `Enroll`, `Rekey`,
-`Heartbeat` — and none of them carries a command channel.
-`CaptureService.CreateCaptureSession` records the operator's intent as a
-`CaptureSessionConfig` on an edge, but nothing here specifies how that
-intent reaches the edge that must act on it. A reader of this schema alone
-should not conclude the command path is settled; it isn't.
+- The CaptureSession entity, its ref pair, its lifecycle, and its chunk frames.
+  They live in `model/capture/v1` so the model stays separate from the RPC
+  surface.
+- Raw packet capture filters and link types. Those are ref-free values in
+  `net/capture/v1`.
+- Ambient tenancy. Scope is ambient from the authenticated request.
+- The edge-facing service that uploads packet chunks. `CaptureEdgeService`
+  moved to [`edge/capture/v1`](../../../edge/capture/v1/README.md), along
+  with the open question of how an operator-originated capture command
+  reaches the edge; an edge calls it and an operator never does.

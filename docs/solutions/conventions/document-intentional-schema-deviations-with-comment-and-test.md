@@ -2,7 +2,7 @@
 title: Documenting Intentional Protobuf Validation Deviations (Comment + Conformance Test)
 date: 2026-08-30
 category: conventions
-module: spec/proto/flowseer/api/inventory/v1
+module: spec/proto/flowseer/model/inventory/v1
 problem_type: convention
 component: data_model
 severity: medium
@@ -22,12 +22,12 @@ tags: [protovalidate, proto-conventions, forward-compatibility, conformance-test
 ## Context
 
 During a multi-source code review of the inventory protobuf package
-(`spec/proto/flowseer/api/inventory/v1/`), reviewers flagged the enum
+(`spec/proto/flowseer/model/inventory/v1/`), reviewers flagged the enum
 validation rule on `CapabilitySet.capabilities`
-(`spec/proto/flowseer/api/inventory/v1/capability.proto:30-37`). Every other
+(`spec/proto/flowseer/model/inventory/v1/capability.proto:30-37`). Every other
 enum field rule in the package pairs `defined_only: true` with `not_in: [0]`
 — for example `ManagementProtocol protocol` and `BindingStatus status` in
-`spec/proto/flowseer/api/inventory/v1/binding.proto:89-95` and
+`spec/proto/flowseer/model/inventory/v1/binding.proto:89-95` and
 `binding.proto:121-127`. The `capabilities` field's `items.enum` block
 carries only `not_in: [0]`, with no `defined_only`. Against the rest of the
 package this reads as an omission — "it accepts undefined values like 99,
@@ -36,7 +36,7 @@ that must be a missed rule" — and the review proposed adding
 
 Applying that edit broke an existing conformance test:
 `TestInventoryCapabilityRules/unknown_nonzero_capabilities_remain_valid` in
-`test/conformance/proto/api_inventory_rules_test.go:36-42`, which
+`test/conformance/proto/model_inventory_rules_test.go:36-42`, which
 constructs a `CapabilitySet` holding `inventoryv1.Capability(99)` — a value
 with no defined enum entry — and pins `wantValid: true`. The looseness was
 not a gap; it was deliberate forward compatibility: capabilities are
@@ -94,7 +94,7 @@ package-wide pattern, close the gap in two layers, not one:
    name says the behavior is wanted**, not just that it is tolerated:
 
    ```go
-   // test/conformance/proto/api_inventory_rules_test.go:36-42
+   // test/conformance/proto/model_inventory_rules_test.go:36-42
    {
        name: "unknown nonzero capabilities remain valid",
        message: inventoryv1.CapabilitySet_builder{
@@ -166,7 +166,7 @@ like a bug" is a plausible reading.
 comment, so it reads as a missed validation:
 
 ```protobuf
-// spec/proto/flowseer/api/inventory/v1/capability.proto (prior state)
+// spec/proto/flowseer/model/inventory/v1/capability.proto (prior state)
 message CapabilitySet {
   // Supported capability areas.
   repeated Capability capabilities = 1 [(buf.validate.field).repeated = {
@@ -182,7 +182,7 @@ message CapabilitySet {
 
 Compare the strict pattern used elsewhere in the same package,
 `ManagementProtocol protocol` in
-`spec/proto/flowseer/api/inventory/v1/binding.proto:89-95`:
+`spec/proto/flowseer/model/inventory/v1/binding.proto:89-95`:
 
 ```protobuf
 // The management protocol spoken at the endpoint. Must be present; the
@@ -200,13 +200,13 @@ Set side by side, `capabilities` looks like an unfinished version of
 `protocol` — same package, same enum-rule shape, one field missing
 `defined_only`. Adding it broke
 `TestInventoryCapabilityRules/unknown_nonzero_capabilities_remain_valid`
-(`test/conformance/proto/api_inventory_rules_test.go:36-42`).
+(`test/conformance/proto/model_inventory_rules_test.go:36-42`).
 
 **After** — the comment states the contract next to the loose rule, so the
 deviation reads as intentional:
 
 ```protobuf
-// spec/proto/flowseer/api/inventory/v1/capability.proto (current tree)
+// spec/proto/flowseer/model/inventory/v1/capability.proto (current tree)
 message CapabilitySet {
   // Supported capability areas. An empty list means the binding exposes
   // none. Unknown non-zero values stay valid so a newer writer's

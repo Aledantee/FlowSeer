@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -28,7 +28,7 @@ type frozenSpy struct {
 
 func newFrozenSpy() *frozenSpy { return &frozenSpy{failFor: map[string]bool{}} }
 
-func (d *frozenSpy) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *frozenSpy) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if event.GetLaneFrozen() == nil {
 		return nil
 	}
@@ -206,7 +206,7 @@ func assertNoDeviceWriteWhileFrozen(t *testing.T, l *access.Lane, submits *atomi
 
 	// Let it past the checkpoint so it reaches the execute step, which is
 	// the step the gate stops.
-	req := &integrationv1.CheckpointRequest{}
+	req := &dispatchv1.CheckpointRequest{}
 	req.SetSequence(1)
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
@@ -245,7 +245,7 @@ func newBlockingFrozenSpy() *blockingFrozenSpy {
 	}
 }
 
-func (d *blockingFrozenSpy) Emit(ctx context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *blockingFrozenSpy) Emit(ctx context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if event.GetLaneFrozen() != nil {
 		d.once.Do(func() { close(d.entered) })
 		<-d.release

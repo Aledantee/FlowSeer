@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -242,8 +242,8 @@ func TestValidateDeclarationRejectsInvalidTelemetryDeclaration(t *testing.T) {
 
 func TestValidateAttemptHandlersExactStaticDeclaration(t *testing.T) {
 	subscriptions := []plannedSubscription{
-		{kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
-		{kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
+		{kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
+		{kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, fullName: "google.protobuf.Empty", typeOf: (&emptypb.Empty{}).ProtoReflect().Type()},
 	}
 	handle := func(context.Context, proto.Message) error { return nil }
 	tests := []struct {
@@ -254,25 +254,25 @@ func TestValidateAttemptHandlersExactStaticDeclaration(t *testing.T) {
 		{
 			name: "exact",
 			handlers: []Handler{
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}, Handle: handle},
 			},
 		},
-		{name: "missing", handlers: []Handler{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle}}, wantErr: true},
+		{name: "missing", handlers: []Handler{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle}}, wantErr: true},
 		{
 			name: "extra",
 			handlers: []Handler{
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}, Handle: handle},
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_REPLY, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_REPLY, Message: &emptypb.Empty{}, Handle: handle},
 			},
 			wantErr: true,
 		},
 		{
 			name: "duplicate",
 			handlers: []Handler{
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
-				{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
+				{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Handle: handle},
 			},
 			wantErr: true,
 		},
@@ -300,7 +300,7 @@ func TestValidateAttemptHandlersRejectsAliasAsHandlerName(t *testing.T) {
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{
-				Kind:    servicev1.MessageKind_MESSAGE_KIND_COMMAND,
+				Kind:    runtimev1.MessageKind_MESSAGE_KIND_COMMAND,
 				Message: &durationpb.Duration{},
 				Aliases: []protoreflect.FullName{"google.protobuf.Empty"},
 			}}},
@@ -311,7 +311,7 @@ func TestValidateAttemptHandlersRejectsAliasAsHandlerName(t *testing.T) {
 	}
 
 	handler := Handler{
-		Kind:    servicev1.MessageKind_MESSAGE_KIND_COMMAND,
+		Kind:    runtimev1.MessageKind_MESSAGE_KIND_COMMAND,
 		Message: &emptypb.Empty{},
 		Handle:  func(context.Context, proto.Message) error { return nil },
 	}
@@ -327,7 +327,7 @@ func TestRunRejectsHandlerMismatchBeforeRunnerStarts(t *testing.T) {
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{
-				Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}},
+				Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}},
 				Setup: func(context.Context) (Attempt, error) {
 					return Attempt{Runner: func(context.Context) error {
 						runnerCalls++

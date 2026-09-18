@@ -18,12 +18,12 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -235,7 +235,7 @@ type central struct {
 // is a sequence but no such guarantee — central writes its own records at its
 // own moments — so an ordering claim is only sound within one producer's
 // records, which is what the assertions here confine themselves to.
-func (c *central) auditRecords(t *testing.T) []*eventv1.DeviceOperationEvent {
+func (c *central) auditRecords(t *testing.T) []*accessv1.DeviceOperationEvent {
 	t.Helper()
 	c.mu.Lock()
 	hub := c.hub
@@ -256,7 +256,7 @@ func (c *central) auditRecords(t *testing.T) []*eventv1.DeviceOperationEvent {
 		t.Fatalf("audit stream info: %v", err)
 	}
 
-	var records []*eventv1.DeviceOperationEvent
+	var records []*accessv1.DeviceOperationEvent
 	for seq := info.State.FirstSeq; seq <= info.State.LastSeq; seq++ {
 		msg, err := stream.GetMsg(ctx, seq)
 		if err != nil {
@@ -264,7 +264,7 @@ func (c *central) auditRecords(t *testing.T) []*eventv1.DeviceOperationEvent {
 			// stream ages records out, and this walk is over what is there.
 			continue
 		}
-		event := &eventv1.DeviceOperationEvent{}
+		event := &accessv1.DeviceOperationEvent{}
 		if err := proto.Unmarshal(msg.Data, event); err != nil {
 			t.Fatalf("audit record at sequence %d does not decode: %v", seq, err)
 		}

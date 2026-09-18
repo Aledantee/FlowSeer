@@ -4,6 +4,17 @@ The `flowseer.net.protocol.lacp.v1` package holds what the Link Aggregation
 Control Protocol owns: an aggregator's protocol state and its member ports'
 states, as device-scoped rows naming interfaces.
 
+## Boundaries
+
+Imports: net/addr
+
+Imported by: nothing
+
+Deliberately absent:
+
+- Device and interface entity references. Rows use device-local interface names.
+- Observation time, provenance, and tenant context.
+
 Rows name the local interface by device-local name, so walking aggregator and
 member states stands on its own without embedding protocol facets into the
 interface table.

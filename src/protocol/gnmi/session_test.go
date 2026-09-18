@@ -29,6 +29,7 @@ type fakeServer struct {
 	get       func(context.Context, *gpb.GetRequest) (*gpb.GetResponse, error)
 	setResp   *gpb.SetResponse
 	setErr    error
+	setReq    *gpb.SetRequest // captured by Set for assertions
 	subscribe func(gpb.GNMI_SubscribeServer) error
 }
 
@@ -47,7 +48,8 @@ func (f *fakeServer) Get(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResp
 	return f.getResp, nil
 }
 
-func (f *fakeServer) Set(context.Context, *gpb.SetRequest) (*gpb.SetResponse, error) {
+func (f *fakeServer) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+	f.setReq = req
 	return f.setResp, f.setErr
 }
 
@@ -354,5 +356,154 @@ func TestRPCTimeoutCapsLaterCallerDeadline(t *testing.T) {
 	}
 	if got := <-remaining; got <= 0 || got > 2*time.Second {
 		t.Errorf("server deadline remaining = %v, want positive and at most 2s for 1s RPC timeout", got)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestLeafListTypedValueDecodes(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		getResp: &gpb.GetResponse{Notification: []*gpb.Notification{{
+			Timestamp: 42,
+			Update: []*gpb.Update{{
+				Path: &gpb.Path{Elem: []*gpb.PathElem{
+					{Name: "interfaces"},
+					{Name: "interface", Key: map[string]string{"name": "Ethernet5"}},
+					{Name: "ethernet"},
+					{Name: "state"},
+					{Name: "supported-speeds"},
+				}},
+				Val: &gpb.TypedValue{Value: &gpb.TypedValue_LeaflistVal{
+					LeaflistVal: &gpb.ScalarArray{Element: []*gpb.TypedValue{
+						{Value: &gpb.TypedValue_StringVal{StringVal: "SPEED_10GB"}},
+						{Value: &gpb.TypedValue_StringVal{StringVal: "SPEED_25GB"}},
+					}},
+				}},
+			}},
+		}}},
+	}
+	s := dialFake(t, f)
+
+	updates, err := s.Get(context.Background(), ifacePath())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if len(updates) != 1 {
+		t.Fatalf("updates = %d, want 1", len(updates))
+	}
+	u := updates[0]
+	if u.Value != nil {
+		t.Errorf("Value = %+v, want nil for a leaf-list", u.Value)
+	}
+	if len(u.Values) != 2 {
+		t.Fatalf("Values = %d, want 2", len(u.Values))
+	}
+	if u.Values[0].String != "SPEED_10GB" || u.Values[1].String != "SPEED_25GB" {
+		t.Errorf("Values = %+v, want SPEED_10GB then SPEED_25GB", u.Values)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestEmptyLeafListDecodesToEmptySlice(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		getResp: &gpb.GetResponse{Notification: []*gpb.Notification{{
+			Timestamp: 42,
+			Update: []*gpb.Update{{
+				Path: &gpb.Path{Elem: []*gpb.PathElem{
+					{Name: "interfaces"},
+					{Name: "interface", Key: map[string]string{"name": "Ethernet5"}},
+					{Name: "ethernet"},
+					{Name: "state"},
+					{Name: "supported-speeds"},
+				}},
+				Val: &gpb.TypedValue{Value: &gpb.TypedValue_LeaflistVal{
+					LeaflistVal: &gpb.ScalarArray{},
+				}},
+			}},
+		}}},
+	}
+	s := dialFake(t, f)
+
+	updates, err := s.Get(context.Background(), ifacePath())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if len(updates) != 1 {
+		t.Fatalf("updates = %d, want 1", len(updates))
+	}
+	if got := updates[0].Values; got == nil || len(got) != 0 {
+		t.Errorf("Values = %+v, want an empty non-nil slice", got)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestLeafListRoundTripsThroughSet(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		setResp:   &gpb.SetResponse{},
+	}
+	s := dialFake(t, f)
+
+	err := s.Set(context.Background(), gnmi.SetRequest{Updates: []gnmi.PathValue{{
+		Path: ifacePath(),
+		Values: []yang.Value{
+			{Type: yang.Type{Kind: yang.TypeString}, String: "SPEED_10GB"},
+			{Type: yang.Type{Kind: yang.TypeString}, String: "SPEED_25GB"},
+		},
+	}}})
+	if err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if f.setReq == nil || len(f.setReq.Update) != 1 {
+		t.Fatalf("SetRequest = %+v, want one update", f.setReq)
+	}
+	arr := f.setReq.Update[0].GetVal().GetLeaflistVal()
+	if arr == nil {
+		t.Fatalf("update carries %T, want a leaflist_val", f.setReq.Update[0].GetVal().GetValue())
+	}
+	if len(arr.Element) != 2 ||
+		arr.Element[0].GetStringVal() != "SPEED_10GB" ||
+		arr.Element[1].GetStringVal() != "SPEED_25GB" {
+		t.Errorf("elements = %+v, want the two values in wire order", arr.Element)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestPathValueRejectsTwoPayloads(t *testing.T) {
+	f := &fakeServer{encodings: []gpb.Encoding{gpb.Encoding_PROTO}, setResp: &gpb.SetResponse{}}
+	s := dialFake(t, f)
+	v := yang.Value{Type: yang.Type{Kind: yang.TypeString}, String: "x"}
+	err := s.Set(context.Background(), gnmi.SetRequest{Updates: []gnmi.PathValue{{
+		Path: ifacePath(), Value: &v, Values: []yang.Value{v},
+	}}})
+	if err == nil {
+		t.Fatal("Set accepted a PathValue carrying both Value and Values")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != gnmi.ErrCodeEncoding {
+		t.Errorf("error code = %v, want %v", code, gnmi.ErrCodeEncoding)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestEmptyLeafListEncodesAsEmptyLeaflistVal(t *testing.T) {
+	f := &fakeServer{encodings: []gpb.Encoding{gpb.Encoding_PROTO}, setResp: &gpb.SetResponse{}}
+	s := dialFake(t, f)
+
+	err := s.Set(context.Background(), gnmi.SetRequest{Updates: []gnmi.PathValue{{
+		Path: ifacePath(), Values: []yang.Value{},
+	}}})
+	if err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if f.setReq == nil || len(f.setReq.Update) != 1 {
+		t.Fatalf("SetRequest = %+v, want one update", f.setReq)
+	}
+	arr := f.setReq.Update[0].GetVal().GetLeaflistVal()
+	if arr == nil {
+		t.Fatalf("update carries %T, want an empty leaflist_val not an absent value", f.setReq.Update[0].GetVal().GetValue())
+	}
+	if len(arr.Element) != 0 {
+		t.Errorf("elements = %d, want 0", len(arr.Element))
 	}
 }

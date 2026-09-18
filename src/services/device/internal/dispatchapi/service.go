@@ -19,10 +19,10 @@ import (
 	connect "connectrpc.com/connect"
 	"github.com/nats-io/nats.go/jetstream"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
@@ -139,7 +139,7 @@ func New(cfg Config) *Service {
 // Subscribe holds the stream open for one edge, deriving and sending every row
 // its devices owe on open and re-deriving within one Resend step of a record
 // change. A send failure ends the stream; what is owed stays in the record.
-func (s *Service) Subscribe(ctx context.Context, _ *connect.Request[integrationv1.SubscribeRequest], stream *connect.ServerStream[integrationv1.SubscribeResponse]) error {
+func (s *Service) Subscribe(ctx context.Context, _ *connect.Request[dispatchv1.SubscribeRequest], stream *connect.ServerStream[dispatchv1.SubscribeResponse]) error {
 	edgeID, err := s.cfg.EdgeID(ctx)
 	if err != nil {
 		return connectErr(errs.From(err).Code(ErrCodeEdge).Msg("identify subscribing edge"))

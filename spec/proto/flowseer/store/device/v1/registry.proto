@@ -7,11 +7,11 @@ edition = "2024";
 // pair.
 package flowseer.store.device.v1;
 
-import "flowseer/api/edge/v1/edge.proto";
-import "flowseer/api/inventory/v1/binding.proto";
-import "flowseer/api/inventory/v1/device.proto";
-import "flowseer/api/inventory/v1/integration.proto";
-import "flowseer/device/policy/v1/handle.proto";
+import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/inventory/v1/binding.proto";
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/model/inventory/v1/integration.proto";
+import "flowseer/model/policy/v1/handle.proto";
 import "flowseer/net/addr/v1/ip.proto";
 import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
@@ -43,18 +43,18 @@ message DeviceRegistry {
 // hosts it.
 message RegistryIntegration {
   // Must be present.
-  flowseer.api.inventory.v1.IntegrationGlobalRef ref = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.IntegrationGlobalRef ref = 1 [(buf.validate.field).required = true];
   // Must be present.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 2 [(buf.validate.field).required = true];
+  flowseer.model.edge.v1.EdgeGlobalRef edge = 2 [(buf.validate.field).required = true];
 }
 
 // One device the service serves: its configuration, the binding that
 // reaches it, and what the edge needs to open a session.
 message RegistryDevice {
   // Must be present.
-  flowseer.api.inventory.v1.DeviceConfig config = 1 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.DeviceConfig config = 1 [(buf.validate.field).required = true];
   // The binding through the registry's integration. Must be present.
-  flowseer.api.inventory.v1.BindingGlobalRef binding = 2 [(buf.validate.field).required = true];
+  flowseer.model.inventory.v1.BindingGlobalRef binding = 2 [(buf.validate.field).required = true];
   // The management address. Must be present.
   flowseer.net.addr.v1.IpAddress ip = 3 [(buf.validate.field).required = true];
   // Unset means 161.
@@ -91,14 +91,14 @@ message RegistryDevice {
 // deliver and which host key to require.
 message RegistryPolicy {
   // Must be present.
-  flowseer.device.policy.v1.AccessPolicyHandle handle = 1 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.AccessPolicyHandle handle = 1 [(buf.validate.field).required = true];
   // The credential delivered for reads and the onboarding probe. Must be
   // present.
-  flowseer.device.policy.v1.CredentialHandle read_credential = 2 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.CredentialHandle read_credential = 2 [(buf.validate.field).required = true];
   // The credential delivered in a submission grant. Must be present.
-  flowseer.device.policy.v1.CredentialHandle submission_credential = 3 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.CredentialHandle submission_credential = 3 [(buf.validate.field).required = true];
   // The host trust version the edge is told to require. Must be present.
-  flowseer.device.policy.v1.HostTrustHandle host_trust = 4 [(buf.validate.field).required = true];
+  flowseer.model.policy.v1.HostTrustHandle host_trust = 4 [(buf.validate.field).required = true];
   // The device's SSH host key as "SHA256:" followed by the unpadded base64
   // digest, the one spelling ssh-keygen and the Go ssh package produce;
   // the material of host_trust, delivered verbatim. Must be present.

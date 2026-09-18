@@ -5,6 +5,18 @@ protocol-independent Ethernet switching values. It owns VLAN database rows,
 exact 802.1Q tag stacks, port-side VLAN membership, aggregation attributes, and
 unicast forwarding database rows.
 
+## Boundaries
+
+Imports: net/addr, net/packet
+
+Imported by: net/capture, net/interface
+
+Deliberately absent:
+
+- Protocol-specific state (STP, LACP).
+- Device and interface entity references.
+- Observation time, provenance, and tenant context.
+
 VLAN identifiers remain scalar `uint32` fields. The package's predefined
 Protovalidate rules distinguish usable VLAN identifiers (`1..4094`) from the
 tag VID field (`0..4094`), where zero represents a priority tag. Exact tag

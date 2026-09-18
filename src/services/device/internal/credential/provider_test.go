@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 

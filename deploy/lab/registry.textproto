@@ -49,7 +49,7 @@ policies {
   handle { key: "icx7150-lab" version: 1 }
 
   # Credential file names under the service's credential_root, one prototext
-  # flowseer.device.credential.v1.CredentialMaterial per key, mode 0600, each
+  # flowseer.model.credential.v1.CredentialMaterial per key, mode 0600, each
   # with a "<key>.meta.json" sidecar naming its version. Regular files, not
   # symlinks: the provider opens each one O_NOFOLLOW, so a Kubernetes secret
   # volume needs an adapter that resolves its links first.

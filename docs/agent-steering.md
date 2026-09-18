@@ -576,6 +576,28 @@ loop stops at a round with no correctness findings, and after three
 rounds on one mechanism the work goes to `plan`, the cap `implement` puts
 on a red unit.
 
+Sequence a parent plan's stages from the files, in a skill that owns only
+the order. Twice, on 2026-09-11 and 2026-09-17, the user typed the loop by
+hand ("plan -> implement -> review -> compound loop for each phase, review
+and fix multiple times", then "use sub worktrees for all stages"), and
+drove it afterwards with "status", "resume phase 3", and "pause after
+phase 2"; "what plan is not finished yet" was asked in two sessions on one
+day. The improvised loop also drifted: over the first two phases of the
+protobuf tree refactor the coordinator loaded `implement`, `delegate`, and
+`compound` once each and never `plan` or `review`, whose work went to
+workers as hand-written briefs, and both phases were reviewed and fixed
+with no `review` field written, the verdict `close` refuses to merge
+without. `drive` therefore names the stage and loads the skill that owns it,
+restating none of their rules, so a correction to a stage still has one
+place to go. Its state is `plan-state.py` over the parent's `Landed:`
+lines and the phase plans' frontmatter, the fields the other skills
+already write, for the reason the ledger exists: that coordinator's
+transcript reached 5 MB, and a resumed session has to find its place
+without it. A phase whose last commit is on `main` needs no stage, since
+`close` gated it there and older phases predate the `review` and
+`compound` fields. The skill stops before `close`, which stays a person's
+request like every other merge into `main`.
+
 The integration branch is `main`. The skills named `master` until
 2026-09-15, so `--base master` and `master..HEAD` failed in this
 repository, and sessions passed explicit paths instead.
@@ -618,20 +640,21 @@ agent invents a roadmap. `GOALS.md` is the guard: one line per decided
 goal with its record, no status, and `next` proposes a gap only for a
 goal that file states.
 
-Drive a plan through its stages in fresh sessions, from files. `drive`
-takes one plan through `plan` when it needs re-planning, `implement`,
-`review` with its fix loop, and `compound`, each stage a worker session,
-and takes a parent through its phases the same way. It is the loop GSD's
-`auto` and the Ralph pattern run, with their two properties kept: a fresh
-context per step, and progress read from files at the start of every
-round. It adds no progress file of its own, because the plans' `status`,
-`review`, and `compound` fields, the parent's `Landed:` lines, and the
-branches already say where a drive stands, and a second record would
-disagree with them. A decision that is the user's parks that plan in its
-Open questions and lets independent phases continue, so one question does
-not idle three pools; the questions are asked together when the drive
-stops. It stops before `close`: what reaches `main` stays a person's
-answer.
+Run each stage of a drive in a session of its own, and drive a plan
+without phases the same way. `drive` first sequenced a parent's phases
+from one coordinating session that loaded `plan`, `implement`, `review`,
+and `compound` in turn. It now hands each stage to a worker session, the
+two properties GSD's `auto` and the Ralph pattern share being a fresh
+context per step and progress read from files at the start of every
+round; the coordinator keeps the state command's output, the merges, and
+the verifier. A plan without phases goes through the same four stages,
+because the loop typed by hand was the same for it. The per-unit ledger
+lives in the implement worker's git directory, so `drive` reads it before
+the child worktree goes and reports it as the gate `close` would have
+read. The stage worker counts against `delegate`'s three and may hold two
+of its own, which is why one phase is driven at a time. A decision that
+is the user's parks that plan in its Open questions and lets independent
+phases continue; the questions are asked together when the drive stops.
 
 Write hot-path text as procedure, and keep the story here. A pass over
 the skills and agent definitions against Anthropic's skill, subagent, and

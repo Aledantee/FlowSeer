@@ -122,9 +122,10 @@ func TestT4IdentityRead(t *testing.T) {
 	}
 }
 
-// TestT4InvalidEditRollback stages an invalid change to the candidate
-// datastore, expects the device's rejection, and proves by read-back
-// diff that running is unchanged.
+// TestT4InvalidEditRollback applies an invalid change to the datastore
+// the session's capabilities select — running, on a device that
+// advertises writable-running and no candidate — expects the device's
+// rejection, and proves by read-back diff that it is unchanged.
 //
 // Covers the invalid-edit rollback proof. Covers conformance matrix row: nc-t4-invalid-rollback
 func TestT4InvalidEditRollback(t *testing.T) {
@@ -254,9 +255,15 @@ func TestT4RevisionDrift(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
 			s := dialT4(t, target)
-			drift := yang.DiffRevisions(vendored, s.ModuleRevisions())
+			drift, incomparable := yang.DiffRevisions(vendored, s.ModuleRevisions())
 			for _, d := range drift {
 				t.Logf("revision drift: %s vendored %s, device %s", d.Module, d.Vendored, d.Advertised)
+			}
+			// A NETCONF hello carries revision dates throughout, so
+			// anything incomparable here is a malformed advertisement
+			// rather than the gNMI semver case.
+			for _, d := range incomparable {
+				t.Errorf("incomparable revision from a NETCONF hello: %s vendored %s, device %s", d.Module, d.Vendored, d.Advertised)
 			}
 			t.Logf("%d module(s) drifted (warn-and-proceed)", len(drift))
 		})

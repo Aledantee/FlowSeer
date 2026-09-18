@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 )
 
 // The report kinds this queue distinguishes. They are part of the key
@@ -25,7 +25,7 @@ const (
 // operation — so it keys on the device alone and a second one supersedes the
 // first. That is right: an edge sends it at every start, and two of them mean
 // two starts, of which only the latest describes the device now.
-func keyOf(report *integrationv1.ReportRequest) key {
+func keyOf(report *dispatchv1.ReportRequest) key {
 	device := report.GetDeviceId()
 	switch {
 	case report.HasResult():
@@ -61,10 +61,10 @@ func keyOf(report *integrationv1.ReportRequest) key {
 // result or a refusal always follows. An Onboarded report is about the
 // device rather than an operation, and an arm this build does not know
 // carries no operation to release.
-func closesOperation(k key, report *integrationv1.ReportRequest) bool {
+func closesOperation(k key, report *dispatchv1.ReportRequest) bool {
 	switch k.kind {
 	case kindResult:
-		return report.GetResult().WhichOutcome() != integrationv1.ExecuteResult_Progress_case
+		return report.GetResult().WhichOutcome() != dispatchv1.ExecuteResult_Progress_case
 	case kindRefused:
 		return true
 	default:

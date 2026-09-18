@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
 )
 
@@ -24,7 +24,7 @@ func TestPublicBusPublishesAndDeliversDurableCommand(t *testing.T) {
 		Modules: []service.Module{{
 			Name: "worker",
 			Leaf: &service.Leaf{
-				Subscriptions: []service.Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}},
+				Subscriptions: []service.Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}},
 				Setup: func(attemptCtx context.Context) (service.Attempt, error) {
 					setupResult <- service.Bus(attemptCtx).Command(attemptCtx, "edge/worker", &emptypb.Empty{})
 					return service.Attempt{
@@ -33,7 +33,7 @@ func TestPublicBusPublishesAndDeliversDurableCommand(t *testing.T) {
 							return nil
 						},
 						Handlers: []service.Handler{{
-							Kind:    servicev1.MessageKind_MESSAGE_KIND_COMMAND,
+							Kind:    runtimev1.MessageKind_MESSAGE_KIND_COMMAND,
 							Message: &emptypb.Empty{},
 							Handle: func(context.Context, proto.Message) error {
 								close(delivered)

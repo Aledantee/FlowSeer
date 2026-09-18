@@ -1,0 +1,185 @@
+edition = "2024";
+
+// The component family — the physical parts of one device as the device
+// reports them: chassis, backplane, containers, power supplies, fans,
+// sensors, modules, ports, stack members, and transceivers, in the tree
+// the Entity MIB (RFC 6933) and openconfig-platform describe. Deliberately
+// partial: there is no ComponentConfig, because the tree is read off the
+// device and nothing about it is intended. A component is owned by its
+// device and keyed by a device-local name, so it has no place in
+// EntityType; the flat kind-and-id shape cannot address it.
+package flowseer.model.inventory.v1;
+
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/net/phy/v1/pluggable_module.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a component within its device.
+message ComponentLocalRef {
+  // The device-local name, unique within the device, as the source
+  // renders it: entPhysicalName where the device keeps it unique, otherwise
+  // the path of names from the chassis down. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+}
+
+// The global reference to a component.
+message ComponentGlobalRef {
+  // The owning device. Must be present.
+  DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // The component's own key. Must be present.
+  ComponentLocalRef component = 2 [(buf.validate.field).required = true];
+}
+
+// What a component is, after the physical classes of RFC 6933 with the
+// transceiver added because a pluggable module is what a cable terminates
+// on and what carries per-lane diagnostics.
+enum ComponentKind {
+  // No kind named. Components reject the zero value.
+  COMPONENT_KIND_UNSPECIFIED = 0;
+  // A class the device reported that none of the values below name.
+  COMPONENT_KIND_OTHER = 1;
+  COMPONENT_KIND_CHASSIS = 2;
+  COMPONENT_KIND_BACKPLANE = 3;
+  // A slot or bay something else plugs into.
+  COMPONENT_KIND_CONTAINER = 4;
+  COMPONENT_KIND_POWER_SUPPLY = 5;
+  COMPONENT_KIND_FAN = 6;
+  COMPONENT_KIND_SENSOR = 7;
+  // A line card, supervisor, or other field-replaceable board.
+  COMPONENT_KIND_MODULE = 8;
+  // A physical connector a cable terminates on; interface_name joins it to
+  // the interface it fronts.
+  COMPONENT_KIND_PORT = 9;
+  // One member of a stack or virtual chassis.
+  COMPONENT_KIND_STACK_MEMBER = 10;
+  COMPONENT_KIND_CPU = 11;
+  COMPONENT_KIND_STORAGE = 12;
+  // A pluggable module seated in a port; module carries its diagnostics.
+  COMPONENT_KIND_TRANSCEIVER = 13;
+}
+
+// The observed definition of one component: where it sits in the device's
+// tree, what it is, and the identity read off it.
+message ComponentState {
+  option (buf.validate.message).cel = {
+    id: "component_state.parent_not_self"
+    message: "a component cannot be its own parent"
+    expression:
+      "!has(this.ref) || !has(this.parent) || "
+      "this.parent.name != this.ref.component.name"
+  };
+  option (buf.validate.message).cel = {
+    id: "component_state.module_only_transceiver"
+    message: "module is set only on a transceiver"
+    expression: "!has(this.module) || this.kind == 13"
+  };
+
+  // The ref to this component. Must be present.
+  ComponentGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The component this one is contained in, within the same device. Unset
+  // means this is a root of the device's tree, normally the chassis.
+  ComponentLocalRef parent = 2;
+  // What the component is. Must be present; the zero value is rejected.
+  ComponentKind kind = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The device's description of the component (entPhysicalDescr). Unset
+  // means the device reports none.
+  string description = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // The maker, as the device spells it (entPhysicalMfgName). Unset means
+  // the device reports none.
+  string vendor = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The model or part number, as the device spells it
+  // (entPhysicalModelName). Unset means the device reports none.
+  string model = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The part's own serial number (entPhysicalSerialNum). Unset means the
+  // device reports none; the chassis serial is also DeviceState.serial.
+  string serial = 7 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Hardware revision (entPhysicalHardwareRev). Unset means none reported.
+  string hardware_revision = 8 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Firmware revision (entPhysicalFirmwareRev). Unset means none reported.
+  string firmware_revision = 9 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Software revision (entPhysicalSoftwareRev). Unset means none reported.
+  string software_revision = 10 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // The component's position among its siblings under parent
+  // (entPhysicalParentRelPos), such as the slot number. Unset means the
+  // device reports no ordering.
+  uint32 position = 11;
+  // Whether the device reports the part as field-replaceable. Unset means
+  // the device does not say.
+  bool field_replaceable = 12;
+  // For a port, the name of the interface it fronts, as the device spells
+  // it (the entAliasMappingTable join). Unset means the port fronts no
+  // interface the device exposes, or the source did not read the join.
+  string interface_name = 13 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // For a transceiver, the module identity and diagnostics read from it.
+  // Set only on a transceiver; unset there means the module was not read.
+  flowseer.net.phy.v1.PluggableModule module = 20;
+}
+
+// One transition of a component, carried as the observed definition
+// before and after.
+message ComponentEvent {
+  option (buf.validate.message).cel = {
+    id: "component_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "(this.before.ref.device.device.id == this.ref.device.device.id && "
+      "this.before.ref.component.name == this.ref.component.name)"
+  };
+  option (buf.validate.message).cel = {
+    id: "component_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "(this.after.ref.device.device.id == this.ref.device.device.id && "
+      "this.after.ref.component.name == this.ref.component.name)"
+  };
+  option (buf.validate.message).cel = {
+    id: "component_event.one_side"
+    message: "an event carries at least one side"
+    expression: "has(this.before) || has(this.after)"
+  };
+
+  // The ref to the component that changed. Must be present.
+  ComponentGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The observed definition before the transition. Unset means the
+  // component appeared.
+  ComponentState before = 2;
+  // The observed definition after the transition. Unset means the device
+  // stopped reporting the component.
+  ComponentState after = 3;
+}

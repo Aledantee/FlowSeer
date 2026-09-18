@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -38,7 +38,7 @@ func TestRuntimeContractMatrix(t *testing.T) {
 	type dispositionCase struct {
 		name    string
 		retries int
-		state   servicev1.SettlementState
+		state   runtimev1.SettlementState
 	}
 
 	gates := []gateCase{
@@ -55,9 +55,9 @@ func TestRuntimeContractMatrix(t *testing.T) {
 	exhaustion := []bool{false, true}
 	deliveries := []deliveryCase{{name: "sequential", concurrency: 1}, {name: "parallel", concurrency: 4}}
 	dispositions := []dispositionCase{
-		{name: "acknowledge", state: servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE},
-		{name: "retry", retries: 1, state: servicev1.SettlementState_SETTLEMENT_STATE_RETRY},
-		{name: "discard", state: servicev1.SettlementState_SETTLEMENT_STATE_DISCARD},
+		{name: "acknowledge", state: runtimev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE},
+		{name: "retry", retries: 1, state: runtimev1.SettlementState_SETTLEMENT_STATE_RETRY},
+		{name: "discard", state: runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD},
 	}
 	telemetry, err := newTelemetry(Config{})
 	if err != nil {
@@ -120,7 +120,7 @@ func assertRuntimeMatrixTuple(
 	action Action,
 	exhausted bool,
 	concurrency, retries int,
-	settlementState servicev1.SettlementState,
+	settlementState runtimev1.SettlementState,
 ) {
 	t.Helper()
 	budgetMax := 2
@@ -205,11 +205,11 @@ func assertRuntimeMatrixTuple(
 
 	var handler HandlerFunc
 	switch settlementState {
-	case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
+	case runtimev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
 		handler = func(context.Context, proto.Message) error { return nil }
-	case servicev1.SettlementState_SETTLEMENT_STATE_RETRY:
+	case runtimev1.SettlementState_SETTLEMENT_STATE_RETRY:
 		handler = func(context.Context, proto.Message) error { return errs.New().Retryable().Msg("matrix retry") }
-	case servicev1.SettlementState_SETTLEMENT_STATE_DISCARD:
+	case runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD:
 		handler = func(context.Context, proto.Message) error { return errors.New("matrix discard") }
 	default:
 		t.Fatalf("invalid settlement state %v", settlementState)

@@ -1,0 +1,165 @@
+edition = "2024";
+
+// The execution envelope between central and the integration that runs one
+// device's lane: what central dispatches, what the edge reports back, and
+// the checkpoint and terminal-result acknowledgements the central journal
+// barrier requires.
+// Every message here is scoped to a channel already addressed to one device
+// and one edge, so nothing here carries a device or edge ref; MutationIntent
+// carries its own device ref for the mutation case, and a TypedRead needs
+// none because the transport supplies it.
+package flowseer.edge.dispatch.v1;
+
+import "flowseer/errs/v1/error.proto";
+import "flowseer/model/access/v1/interface.proto";
+import "flowseer/model/access/v1/operation.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// Central's dispatch of one operation to the edge hosting the device's lane.
+message ExecuteRequest {
+  option (buf.validate.message).cel = {
+    id: "execute_request.resume_is_a_mutation"
+    message: "resume applies to a mutation and carries its admission time"
+    expression: "!this.resume || (has(this.mutation) && has(this.admitted_at))"
+  };
+  option (buf.validate.message).cel = {
+    id: "execute_request.admitted_at_needs_resume"
+    message: "admitted_at is set only with resume"
+    expression: "!has(this.admitted_at) || this.resume"
+  };
+
+  // The device's lane sequence this operation was admitted at. Must be
+  // present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // By when the edge must complete the operation. Must be present.
+  google.protobuf.Timestamp deadline = 2 [(buf.validate.field).required = true];
+  // De-duplicates a resubmission of this dispatch after a connection
+  // interruption. Must be present.
+  string idempotency_key = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+
+  // Central has already recorded that the command may have reached the
+  // device: the edge admits the mutation straight into recovery and
+  // observes before any retry, never submitting first. Unset means false,
+  // the ordinary path. Implicit presence: false and unset are one state.
+  bool resume = 4 [features.field_presence = IMPLICIT];
+  // When central admitted the mutation. A resumed mutation measures its
+  // delayed-apply horizon from here, since the moment the command was
+  // handed to the device is lost with the edge that held it; the horizon
+  // therefore also covers dispatch and checkpoint, the conservative
+  // direction. Set exactly with resume.
+  google.protobuf.Timestamp admitted_at = 5;
+
+  // Exactly one operation.
+  oneof operation {
+    option (buf.validate.oneof).required = true;
+
+    flowseer.model.access.v1.MutationIntent mutation = 10;
+    flowseer.model.access.v1.TypedRead read = 11;
+  }
+}
+
+// What the edge reports back after running one ExecuteRequest.
+message ExecuteResult {
+  // The sequence this result answers. Must be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // The phase the edge reached before returning. Must be present; the zero
+  // value is rejected.
+  flowseer.model.access.v1.OperationPhase phase_reached = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+
+  // Whether the command was handed to the device before this report.
+  // False on a report from before submission, so central may dispose the
+  // mutation as rejected; true afterwards, so it may not. Implicit
+  // presence: false and unset are one state.
+  bool submitted = 3 [features.field_presence = IMPLICIT];
+
+  // Exactly one outcome.
+  oneof outcome {
+    option (buf.validate.oneof).required = true;
+
+    flowseer.model.access.v1.InterfaceObservation observation = 10;
+    flowseer.errs.v1.ErrorPayload error = 11;
+    // A report of a phase reached with nothing to show yet.
+    Progress progress = 12;
+  }
+}
+
+// The outcome arm of a report on a non-terminal phase: the edge reports
+// where the operation stands and nothing more.
+message Progress {}
+
+// Central's durable record that a command may reach the device, sent before
+// submission so a lost connection cannot become a duplicate command.
+message CheckpointRequest {
+  // The sequence entering POSSIBLY_APPLIED. Must be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}
+
+// The edge's acknowledgement that it received the checkpoint and may submit
+// the command.
+message CheckpointAck {
+  // The sequence acknowledged. Must be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}
+
+// Central's durable acknowledgement that it holds the mutation's terminal
+// disposition, which frees the device's lane for the next sequence.
+message TerminalResultAck {
+  // The sequence whose terminal disposition central now holds. Must be
+  // present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // The disposition central recorded. Must be present; the zero value is
+  // rejected.
+  flowseer.model.access.v1.Disposition disposition = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// Central's durable record that the hold an abandonment or a drift block
+// engaged on the device's lane is resolved, so the edge admits mutations
+// again.
+message HoldResolved {
+  // The abandoned or desynchronized sequence whose hold is resolved. Must
+  // be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}
+
+// The edge's confirmation that it cleared the hold.
+message HoldResolvedAck {
+  // The sequence whose hold was cleared. Must be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}

@@ -14,8 +14,9 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
@@ -27,7 +28,7 @@ const testEdgeID = "0192e6a0-0000-7000-8000-0000000000ed"
 // with an assertion, which is what the agent's startup order is visible as
 // from the other end.
 type orderedCentral struct {
-	edgev1connect.UnimplementedEdgeServiceHandler
+	attachv1connect.UnimplementedEdgeServiceHandler
 
 	mu       sync.Mutex
 	calls    []call
@@ -60,8 +61,8 @@ func (c *orderedCentral) seen() []call {
 }
 
 func (c *orderedCentral) Enroll(
-	_ context.Context, _ *connect.Request[edgev1.EnrollRequest],
-) (*connect.Response[edgev1.EnrollResponse], error) {
+	_ context.Context, _ *connect.Request[attachv1.EnrollRequest],
+) (*connect.Response[attachv1.EnrollResponse], error) {
 	if c.refuse {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("the request was refused"))
 	}
@@ -69,7 +70,7 @@ func (c *orderedCentral) Enroll(
 	if anchors == nil {
 		anchors = [][]byte{make([]byte, 32)}
 	}
-	return connect.NewResponse(edgev1.EnrollResponse_builder{
+	return connect.NewResponse(attachv1.EnrollResponse_builder{
 		Edge: edgev1.EdgeGlobalRef_builder{
 			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
 		}.Build(),
@@ -83,8 +84,8 @@ func (c *orderedCentral) Enroll(
 // belongs to the end-to-end test; what this file covers is everything that
 // has to be true before it.
 func (c *orderedCentral) AttachBus(
-	context.Context, *connect.Request[edgev1.AttachBusRequest],
-) (*connect.Response[edgev1.AttachBusResponse], error) {
+	context.Context, *connect.Request[attachv1.AttachBusRequest],
+) (*connect.Response[attachv1.AttachBusResponse], error) {
 	c.mu.Lock()
 	c.attached = true
 	c.mu.Unlock()
@@ -96,7 +97,7 @@ func (c *orderedCentral) AttachBus(
 func agentAgainst(t *testing.T, central *orderedCentral) *host.Config {
 	t.Helper()
 	mux := http.NewServeMux()
-	path, handler := edgev1connect.NewEdgeServiceHandler(central)
+	path, handler := attachv1connect.NewEdgeServiceHandler(central)
 	mux.Handle(path, central.record(handler))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)

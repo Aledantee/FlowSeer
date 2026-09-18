@@ -14,8 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -79,7 +80,7 @@ func newAdmin(t *testing.T) (*edgeapi.AdminService, *edgestore.Store) {
 
 func createEdge(t *testing.T, admin *edgeapi.AdminService) (*edgev1.EdgeRecord, string) {
 	t.Helper()
-	resp, err := admin.CreateEdge(context.Background(), connect.NewRequest(edgev1.CreateEdgeRequest_builder{
+	resp, err := admin.CreateEdge(context.Background(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
 		Name: proto.String("site-a"),
 	}.Build()))
 	if err != nil {
@@ -148,7 +149,7 @@ func TestCreateEdgeShowsTheSetupKeyOnceAndStoresOnlyItsDigest(t *testing.T) {
 		t.Fatal("the stored record carries the setup key string")
 	}
 
-	got, err := admin.GetEdge(context.Background(), connect.NewRequest(edgev1.GetEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	got, err := admin.GetEdge(context.Background(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("GetEdge: %v", err)
 	}
@@ -179,7 +180,7 @@ func TestEveryIssuedSetupKeyIsDistinct(t *testing.T) {
 
 func TestCreateEdgeRefusesAnExpiryThatIsNotInTheFuture(t *testing.T) {
 	admin, _ := newAdmin(t)
-	_, err := admin.CreateEdge(context.Background(), connect.NewRequest(edgev1.CreateEdgeRequest_builder{
+	_, err := admin.CreateEdge(context.Background(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
 		SetupKeyExpiresAt: timestamppb.New(testClock.Add(-time.Second)),
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeInvalidArgument)
@@ -190,7 +191,7 @@ func TestIssueSetupKeyReplacesTheUnusedKeyAndTheOldDigestIsGone(t *testing.T) {
 	record, first := createEdge(t, admin)
 	firstDigest := sha256.Sum256([]byte(first))
 
-	resp, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{
+	resp, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
 		Edge: refOf(record),
 	}.Build()))
 	if err != nil {
@@ -220,11 +221,11 @@ func TestIssueSetupKeyReplacesTheUnusedKeyAndTheOldDigestIsGone(t *testing.T) {
 func TestIssueSetupKeyReturnsARetiredEdgeToPending(t *testing.T) {
 	admin, _ := newAdmin(t)
 	record, _ := createEdge(t, admin)
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build())); err != nil {
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
 	}
 
-	resp, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("IssueSetupKey on a retired edge: %v", err)
 	}
@@ -238,7 +239,7 @@ func TestIssueSetupKeyRefusesAnEnrolledEdge(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	enroll(t, store, refOf(record))
 
-	_, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	_, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	wantConnectCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -263,7 +264,7 @@ func TestRevokeSetupKeyClearsTheDigestAndRecordsTheStatus(t *testing.T) {
 	admin, store := newAdmin(t)
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RevokeSetupKey(context.Background(), connect.NewRequest(edgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.RevokeSetupKey(context.Background(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("RevokeSetupKey: %v", err)
 	}
@@ -277,7 +278,7 @@ func TestRevokeSetupKeyClearsTheDigestAndRecordsTheStatus(t *testing.T) {
 		t.Fatal("a revoked key still enrolls: its digest is still stored")
 	}
 
-	_, err = admin.RevokeSetupKey(context.Background(), connect.NewRequest(edgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	_, err = admin.RevokeSetupKey(context.Background(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	wantConnectCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -286,7 +287,7 @@ func TestRevokeSetupKeyRefusesAConsumedKey(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	enroll(t, store, refOf(record))
 
-	_, err := admin.RevokeSetupKey(context.Background(), connect.NewRequest(edgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	_, err := admin.RevokeSetupKey(context.Background(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	wantConnectCode(t, err, connect.CodeFailedPrecondition)
 	if got := storedEdge(t, store, refOf(record)).GetRecord().GetState().GetLifecycle(); got != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
 		t.Errorf("lifecycle = %v, want the enrollment left alone", got)
@@ -297,7 +298,7 @@ func TestRetireEdgeWithdrawsTheOutstandingKeyAndIsIdempotent(t *testing.T) {
 	admin, store := newAdmin(t)
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("RetireEdge: %v", err)
 	}
@@ -314,7 +315,7 @@ func TestRetireEdgeWithdrawsTheOutstandingKeyAndIsIdempotent(t *testing.T) {
 		t.Fatal("a retired edge's setup key still enrolls: its digest is still stored")
 	}
 
-	again, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	again, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("a repeated RetireEdge failed: %v", err)
 	}
@@ -330,19 +331,19 @@ func TestUnknownEdgeIsNotFoundOnEveryOperation(t *testing.T) {
 	}.Build()
 	ctx := context.Background()
 
-	_, err := admin.GetEdge(ctx, connect.NewRequest(edgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
+	_, err := admin.GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
-	_, err = admin.IssueSetupKey(ctx, connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{Edge: ref}.Build()))
+	_, err = admin.IssueSetupKey(ctx, connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: ref}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
-	_, err = admin.RevokeSetupKey(ctx, connect.NewRequest(edgev1.RevokeSetupKeyRequest_builder{Edge: ref}.Build()))
+	_, err = admin.RevokeSetupKey(ctx, connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: ref}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
-	_, err = admin.RetireEdge(ctx, connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: ref}.Build()))
+	_, err = admin.RetireEdge(ctx, connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: ref}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
 }
 
 func TestARequestNamingNoEdgeIsRefused(t *testing.T) {
 	admin, _ := newAdmin(t)
-	_, err := admin.GetEdge(context.Background(), connect.NewRequest(&edgev1.GetEdgeRequest{}))
+	_, err := admin.GetEdge(context.Background(), connect.NewRequest(&apiedgev1.GetEdgeRequest{}))
 	wantConnectCode(t, err, connect.CodeInvalidArgument)
 }
 
@@ -361,7 +362,7 @@ func TestListEdgesPagesEveryEdgeExactlyOnce(t *testing.T) {
 		if pages > len(want) {
 			t.Fatal("listing did not terminate")
 		}
-		resp, err := admin.ListEdges(context.Background(), connect.NewRequest(edgev1.ListEdgesRequest_builder{
+		resp, err := admin.ListEdges(context.Background(), connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
 			PageSize:  proto.Uint32(3),
 			PageToken: optional(token),
 		}.Build()))
@@ -409,7 +410,7 @@ func optional(s string) *string {
 
 func TestListEdgesRefusesATokenItDidNotIssue(t *testing.T) {
 	admin, _ := newAdmin(t)
-	_, err := admin.ListEdges(context.Background(), connect.NewRequest(edgev1.ListEdgesRequest_builder{
+	_, err := admin.ListEdges(context.Background(), connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
 		PageToken: proto.String("not base64!"),
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeInvalidArgument)
@@ -475,12 +476,12 @@ func TestWithdrawingASetupKeyDropsItsIndexEntry(t *testing.T) {
 		withdraw func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef)
 	}{
 		{"revoke", func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef) {
-			if _, err := admin.RevokeSetupKey(ctx, connect.NewRequest(edgev1.RevokeSetupKeyRequest_builder{Edge: ref}.Build())); err != nil {
+			if _, err := admin.RevokeSetupKey(ctx, connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: ref}.Build())); err != nil {
 				t.Fatalf("RevokeSetupKey: %v", err)
 			}
 		}},
 		{"retire", func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef) {
-			if _, err := admin.RetireEdge(ctx, connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: ref}.Build())); err != nil {
+			if _, err := admin.RetireEdge(ctx, connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: ref}.Build())); err != nil {
 				t.Fatalf("RetireEdge: %v", err)
 			}
 		}},
@@ -508,7 +509,7 @@ func TestReissuingMovesTheIndexToTheNewKey(t *testing.T) {
 	admin, store := newAdmin(t)
 	record, first := createEdge(t, admin)
 
-	resp, err := admin.IssueSetupKey(ctx, connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.IssueSetupKey(ctx, connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("IssueSetupKey: %v", err)
 	}
@@ -535,7 +536,7 @@ func TestRetiringAnEnrolledEdgeSucceedsWithNoOutstandingKey(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	enroll(t, store, refOf(record))
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("RetireEdge on an enrolled edge: %v", err)
 	}
@@ -550,7 +551,7 @@ func TestListEdgesSkipsTheSetupKeyIndexEntries(t *testing.T) {
 		createEdge(t, admin)
 	}
 
-	resp, err := admin.ListEdges(context.Background(), connect.NewRequest(&edgev1.ListEdgesRequest{}))
+	resp, err := admin.ListEdges(context.Background(), connect.NewRequest(&apiedgev1.ListEdgesRequest{}))
 	if err != nil {
 		t.Fatalf("ListEdges: %v", err)
 	}
@@ -613,7 +614,7 @@ func TestRetireEdgeForgetsWhatItsDevicesOwedIt(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
@@ -638,7 +639,7 @@ func TestRetireEdgeEndsNoMutation(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
@@ -665,7 +666,7 @@ func TestRetireEdgeReportsAFailedDropAndFinishesOnRetry(t *testing.T) {
 		t.Fatalf("NewAdminService: %v", err)
 	}
 	record, _ := createEdge(t, admin)
-	req := edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()
+	req := apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()
 
 	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(req)); err == nil {
 		t.Fatal("a failed hold drop was swallowed")
@@ -696,7 +697,7 @@ func TestRetireEdgeSucceedsWhenTheRegistryDescribesAnotherEdge(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build()))
 	if err != nil {
@@ -729,7 +730,7 @@ func TestRetireEdgeNamesTheLanesItOrphaned(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build()))
 	if err != nil {
@@ -769,7 +770,7 @@ func TestRetireEdgeRefusesRatherThanReportingAShortOrphanList(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build())); err == nil {
 		t.Fatal("an unreadable lane record was reported as no open mutation")

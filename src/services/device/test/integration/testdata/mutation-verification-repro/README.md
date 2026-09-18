@@ -27,7 +27,7 @@ t+10s: sessions acquired=4 shell ops=2
 ...
 t+1m40s: sessions acquired=4 shell ops=2
 
-rpc.method: flowseer.api.edge.v1.EdgeService/AcquireReadCredential
+rpc.method: flowseer.edge.attach.v1.EdgeService/AcquireReadCredential
 rpc.response.status_code: invalid_argument
 error: request fails its schema rules: access_policy: value is required
 ```

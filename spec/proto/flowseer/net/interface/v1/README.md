@@ -4,6 +4,19 @@ The `flowseer.net.interface.v1` package defines the normalized interface: the
 attributes every consumer reads, one arm per interface kind, the administrative
 and operational status taxonomies, and generic traffic counters.
 
+## Boundaries
+
+Imports: net/addr, net/ip, net/phy, net/switching
+
+Imported by: model/access
+
+Deliberately absent:
+
+- Device refs and an Interface entity ref pair. Primitives here are ref-free and
+  use device-local names.
+- Observation time and provenance. Those belong to the carrying envelope.
+- Routing domains and VRFs.
+
 Kind is a required `oneof`, so an interface cannot carry attributes its kind
 has no meaning for. The IP facet sits outside that `oneof` because routing is a
 persona rather than a kind: a routed port, a routed aggregation, a switched

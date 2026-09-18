@@ -25,8 +25,8 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	storeedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -51,7 +51,7 @@ const (
 // Config is one agent deployment: its own file, and the provisioning that file
 // names. It is immutable after [LoadConfig] and safe for concurrent use.
 type Config struct {
-	msg          *storeedgev1.AgentConfig
+	msg          *agentv1.AgentConfig
 	provisioning *edgev1.EdgeProvisioning
 }
 
@@ -69,7 +69,7 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, errs.From(err).Code(ErrCodeConfigLoad).Attr("path", path).Msg("read agent configuration")
 	}
 
-	msg := &storeedgev1.AgentConfig{}
+	msg := &agentv1.AgentConfig{}
 	if err := prototext.Unmarshal(data, msg); err != nil {
 		return nil, errs.From(err).Code(ErrCodeConfigLoad).Attr("path", path).
 			Msg("parse agent configuration prototext")
@@ -152,11 +152,11 @@ func (c *Config) Buffer() (maxBytes int64, maxAge time.Duration) {
 // what an engineer raises it to during an incident.
 func (c *Config) LogLevel() slog.Level {
 	switch c.msg.GetLogLevel() {
-	case storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_DEBUG:
+	case agentv1.AgentLogLevel_AGENT_LOG_LEVEL_DEBUG:
 		return slog.LevelDebug
-	case storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_WARN:
+	case agentv1.AgentLogLevel_AGENT_LOG_LEVEL_WARN:
 		return slog.LevelWarn
-	case storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_ERROR:
+	case agentv1.AgentLogLevel_AGENT_LOG_LEVEL_ERROR:
 		return slog.LevelError
 	default:
 		// Unspecified, info, and a level from a newer build than this one all

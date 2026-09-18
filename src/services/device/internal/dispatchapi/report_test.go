@@ -9,25 +9,25 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
-func report(t *testing.T, svc *Service, req *integrationv1.ReportRequest) {
+func report(t *testing.T, svc *Service, req *dispatchv1.ReportRequest) {
 	t.Helper()
 	if _, err := svc.Report(context.Background(), connect.NewRequest(req)); err != nil {
 		t.Fatalf("report: %v", err)
 	}
 }
 
-func resultReport(seq uint64, phase accessv1.OperationPhase, outcome func(*integrationv1.ExecuteResult)) *integrationv1.ReportRequest {
-	result := &integrationv1.ExecuteResult{}
+func resultReport(seq uint64, phase accessv1.OperationPhase, outcome func(*dispatchv1.ExecuteResult)) *dispatchv1.ReportRequest {
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(seq)
 	result.SetPhaseReached(phase)
 	outcome(result)
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetResult(result)
 	return req
@@ -39,8 +39,8 @@ func TestReportResultConfirmsDispatch(t *testing.T) {
 	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	report(t, svc, resultReport(1, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, func(r *integrationv1.ExecuteResult) {
-		r.SetProgress(&integrationv1.Progress{})
+	report(t, svc, resultReport(1, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, func(r *dispatchv1.ExecuteResult) {
+		r.SetProgress(&dispatchv1.Progress{})
 	}))
 	rec, _ := j.Record(ctx, deviceID)
 	if !rec.GetDispatched() || !rec.GetDispatchConfirmed() ||
@@ -62,7 +62,7 @@ func TestReportObservationClosesReadAndLearnsFingerprint(t *testing.T) {
 	prov := &inventoryv1.Provenance{}
 	prov.SetFirmwareFingerprint("ICX7150-24P SPS10010h")
 	obs.SetProvenance(prov)
-	report(t, svc, resultReport(seq, accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, func(r *integrationv1.ExecuteResult) {
+	report(t, svc, resultReport(seq, accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, func(r *dispatchv1.ExecuteResult) {
 		r.SetObservation(obs)
 	}))
 	rec, _ := j.Record(ctx, deviceID)
@@ -83,9 +83,9 @@ func TestReportOnboardedClearsConfirmationsAndLearnsFingerprint(t *testing.T) {
 	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	onboarded := &integrationv1.Onboarded{}
+	onboarded := &dispatchv1.Onboarded{}
 	onboarded.SetFirmwareFingerprint("ICX7150-24P SPS10010i")
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetOnboarded(onboarded)
 	report(t, svc, req)
@@ -112,7 +112,7 @@ func TestReportRefusedTerminalAckClosesRecord(t *testing.T) {
 			t.Fatalf("apply %v: %v", r.Kind, err)
 		}
 	}
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
 	rec, _ := j.Record(ctx, deviceID)
 	if rec.HasMutation() {
 		t.Fatal("a refused terminal ack did not close the released mutation")
@@ -125,7 +125,7 @@ func TestReportRefusedFirmwareEpochDisposesRejected(t *testing.T) {
 	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b04"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "mutation/firmware-epoch"))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "mutation/firmware-epoch"))
 	rec, _ := j.Record(ctx, deviceID)
 	// The refusal frees the lane without setting dispatched or owing a terminal
 	// ack for a command the edge refused before it reached the device.
@@ -158,9 +158,9 @@ func TestReportCheckpointAckConfirmsTheCheckpoint(t *testing.T) {
 		t.Fatalf("owed = %+v, want the checkpoint row", rows)
 	}
 
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(1)
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetCheckpointAck(ack)
 	report(t, svc, req)
@@ -185,7 +185,7 @@ func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	}
 	// At ADMITTED the refusal leaves the checkpoint owed: the checkpoint was
 	// not received.
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
 	rec, _ := j.Record(ctx, deviceID)
 	if rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal at ADMITTED wrongly confirmed the checkpoint")
@@ -195,7 +195,7 @@ func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
 		t.Fatalf("recovering: %v", err)
 	}
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
 	rec, _ = j.Record(ctx, deviceID)
 	if !rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal past POSSIBLY_APPLIED did not confirm the checkpoint")
@@ -210,7 +210,7 @@ func TestRetryableExecuteRefusalLeavesTheRowOwed(t *testing.T) {
 	}
 	// A retryable code is not terminal: the record is unchanged and the execute
 	// row stays owed until the edge admits it or an operator ends it.
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/lane-closed"))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/lane-closed"))
 	rec, _ := j.Record(ctx, deviceID)
 	if rec.GetMutation() == nil || rec.GetMutation().HasDisposition() {
 		t.Fatalf("a retryable refusal disposed the mutation: %+v", rec.GetMutation())
@@ -235,7 +235,7 @@ func TestRefusedTerminalAckOnAbandonmentConfirmsIt(t *testing.T) {
 	// The edge holds no machine for an abandoned sequence and refuses the
 	// terminal ack. That must confirm the ack, not be dropped and re-sent
 	// forever.
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
 	rec, _ := j.Record(ctx, deviceID)
 	for _, o := range journal.OwedRows(rec, time.Now()) {
 		if o.Kind == journal.OwedTerminalAck {
@@ -266,11 +266,11 @@ func TestARefusedHoldResolvedConfirmsTheRow(t *testing.T) {
 	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
-	refused := &integrationv1.Refused{}
+	refused := &dispatchv1.Refused{}
 	refused.SetSequence(seq)
-	refused.SetKind(integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED)
+	refused.SetKind(dispatchv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED)
 	refused.SetCode("access/lane-closed")
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetRefused(refused)
 	report(t, svc, req)
@@ -294,9 +294,9 @@ func TestReportRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 		Watch:    kv,
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
 	})
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(1)
 	req.SetCheckpointAck(ack)
 	_, err := svc.Report(context.Background(), connect.NewRequest(req))
@@ -308,12 +308,12 @@ func TestReportRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 	}
 }
 
-func refusedReport(kind integrationv1.DispatchKind, code string) *integrationv1.ReportRequest {
-	refused := &integrationv1.Refused{}
+func refusedReport(kind dispatchv1.DispatchKind, code string) *dispatchv1.ReportRequest {
+	refused := &dispatchv1.Refused{}
 	refused.SetSequence(1)
 	refused.SetKind(kind)
 	refused.SetCode(code)
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetRefused(refused)
 	return req
@@ -335,7 +335,7 @@ func TestListsFailureLeavesTheExecuteRowOwed(t *testing.T) {
 	// An unknown-device refusal is terminal only if the registry says the
 	// device is gone. When the registry cannot answer, the row stays owed
 	// rather than disposing on a transient failure.
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unknown-device"))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unknown-device"))
 	rec, _ := j.Record(ctx, deviceID)
 	if rec.GetMutation() == nil || rec.GetMutation().HasDisposition() {
 		t.Fatalf("a refusal under a Lists failure disposed the mutation: %+v", rec.GetMutation())
@@ -353,9 +353,9 @@ func TestHostsFailureIsSurfaced(t *testing.T) {
 		Watch:    kv,
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
 	})
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(1)
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetCheckpointAck(ack)
 	// A binding lookup that fails is surfaced, not read as permission granted.
@@ -376,9 +376,9 @@ func TestReportSendsNoResolverDetailToTheReportingEdge(t *testing.T) {
 		Watch:    kv,
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
 	})
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(1)
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetCheckpointAck(ack)
 
@@ -432,7 +432,7 @@ func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
 		t.Fatalf("admitted: %v", err)
 	}
 
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, CodeFirmwareEpoch))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, CodeFirmwareEpoch))
 
 	if audit.calls != 1 {
 		t.Fatalf("central recorded %d rejections, want 1", audit.calls)
@@ -466,7 +466,7 @@ func TestARetryableRefusalRecordsNothing(t *testing.T) {
 		t.Fatalf("admit: %v", err)
 	}
 
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unreachable"))
+	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unreachable"))
 
 	if audit.calls != 0 {
 		t.Errorf("central recorded %d rejections for a retryable refusal, want 0", audit.calls)

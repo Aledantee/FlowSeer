@@ -13,19 +13,19 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
 )
 
 // centralStream serves Subscribe: it sends what a test queued, then ends the
 // stream or fails, and counts how many times it was opened.
 type centralStream struct {
-	devicev1connect.UnimplementedDispatchServiceHandler
+	dispatchv1connect.UnimplementedDispatchServiceHandler
 
 	mu       sync.Mutex
 	opens    int
-	messages [][]*integrationv1.SubscribeResponse
+	messages [][]*dispatchv1.SubscribeResponse
 	failOpen bool
 	// onOpen, when set, runs as the stream is served, so a test can order
 	// the open against what the loop did before it.
@@ -33,8 +33,8 @@ type centralStream struct {
 }
 
 func (c *centralStream) Subscribe(
-	_ context.Context, _ *connect.Request[integrationv1.SubscribeRequest],
-	stream *connect.ServerStream[integrationv1.SubscribeResponse],
+	_ context.Context, _ *connect.Request[dispatchv1.SubscribeRequest],
+	stream *connect.ServerStream[dispatchv1.SubscribeResponse],
 ) error {
 	c.mu.Lock()
 	c.opens++
@@ -43,7 +43,7 @@ func (c *centralStream) Subscribe(
 	}
 	open := c.opens
 	failOpen := c.failOpen
-	var batch []*integrationv1.SubscribeResponse
+	var batch []*dispatchv1.SubscribeResponse
 	if open-1 < len(c.messages) {
 		batch = c.messages[open-1]
 	}
@@ -72,7 +72,7 @@ type handlerFake struct {
 	err  error
 }
 
-func (h *handlerFake) Handle(_ context.Context, message *integrationv1.SubscribeResponse) error {
+func (h *handlerFake) Handle(_ context.Context, message *dispatchv1.SubscribeResponse) error {
 	h.mu.Lock()
 	h.seen = append(h.seen, message.GetDeviceId())
 	h.mu.Unlock()
@@ -85,19 +85,19 @@ func (h *handlerFake) devices() []string {
 	return append([]string(nil), h.seen...)
 }
 
-func servedClient(t *testing.T, handler *centralStream) devicev1connect.DispatchServiceClient {
+func servedClient(t *testing.T, handler *centralStream) dispatchv1connect.DispatchServiceClient {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.Handle(devicev1connect.NewDispatchServiceHandler(handler))
+	mux.Handle(dispatchv1connect.NewDispatchServiceHandler(handler))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
-	return devicev1connect.NewDispatchServiceClient(server.Client(), server.URL)
+	return dispatchv1connect.NewDispatchServiceClient(server.Client(), server.URL)
 }
 
-func dispatchTo(device string) *integrationv1.SubscribeResponse {
-	message := &integrationv1.SubscribeResponse{}
+func dispatchTo(device string) *dispatchv1.SubscribeResponse {
+	message := &dispatchv1.SubscribeResponse{}
 	message.SetDeviceId(device)
-	message.SetCheckpoint(&integrationv1.CheckpointRequest{})
+	message.SetCheckpoint(&dispatchv1.CheckpointRequest{})
 	return message
 }
 
@@ -154,7 +154,7 @@ func TestAClientThatNeverConnectsIsVisibleAsANumber(t *testing.T) {
 // the stream and the edge comes back. Counting opens on the server proves the
 // reconnect happened rather than that the loop merely survived.
 func TestTheStreamIsReopenedAfterItEnds(t *testing.T) {
-	central := &centralStream{messages: [][]*integrationv1.SubscribeResponse{
+	central := &centralStream{messages: [][]*dispatchv1.SubscribeResponse{
 		{dispatchTo("dev-1")},
 		{dispatchTo("dev-2")},
 	}}
@@ -182,7 +182,7 @@ func TestTheStreamIsReopenedAfterItEnds(t *testing.T) {
 // owed, and the handler has already answered a message it cannot apply with a
 // refusal.
 func TestAHandlerErrorDoesNotDropTheStream(t *testing.T) {
-	central := &centralStream{messages: [][]*integrationv1.SubscribeResponse{
+	central := &centralStream{messages: [][]*dispatchv1.SubscribeResponse{
 		{dispatchTo("dev-1"), dispatchTo("dev-2"), dispatchTo("dev-3")},
 	}}
 	contact := &dispatch.Contact{}
@@ -245,7 +245,7 @@ func TestEveryAttemptRelistsBeforeTheStreamOpens(t *testing.T) {
 	}
 
 	central := &centralStream{onOpen: func() { record("open") }}
-	central.messages = [][]*integrationv1.SubscribeResponse{{dispatchTo("dev-1")}, {dispatchTo("dev-2")}}
+	central.messages = [][]*dispatchv1.SubscribeResponse{{dispatchTo("dev-1")}, {dispatchTo("dev-2")}}
 	contact := &dispatch.Contact{}
 
 	runFor(t, dispatch.Config{

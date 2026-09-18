@@ -14,8 +14,9 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
-	eventv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1/devicev1connect"
-	integrationv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
@@ -101,7 +102,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	)
 
 	mux := http.NewServeMux()
-	edgePath, edgeHandler := edgev1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
+	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
 	// Enroll is the one edge call made before central holds a key to verify
 	// it with, so it sits in front of the middleware. It carries its own
@@ -111,12 +112,12 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	// served in front of that middleware because an edge has no identity to
 	// sign with yet — which makes it the one procedure an unauthenticated
 	// caller can reach, and the one the bound exists for.
-	mux.Handle(edgev1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
+	mux.Handle(attachv1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
 
-	dispatchPath, dispatchHandler := integrationv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
+	dispatchPath, dispatchHandler := dispatchv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
 	mux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))
 
-	auditPath, auditHandler := eventv1connect.NewAuditServiceHandler(auditService, interceptors, recoverPanic)
+	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(auditService, interceptors, recoverPanic)
 	mux.Handle(auditPath, middleware.Wrap(auditHandler))
 
 	adminPath, adminHandler := edgev1connect.NewEdgeAdminServiceHandler(adminService, interceptors, recoverPanic)

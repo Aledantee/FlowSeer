@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
@@ -47,7 +47,7 @@ func TestLaneDrainReleasesItsLockAfterAPanicSoALaterDrainProceeds(t *testing.T) 
 	session := &panicFirstReadSession{walkingSession: &walkingSession{vbs: interfaceRows("ethernet 1/1/1", snmpDescription, true)}}
 	if err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: session, Close: func() error { return nil }}, nil
 		},
 	}); err != nil {

@@ -9,10 +9,10 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
 )
 
@@ -21,14 +21,14 @@ import (
 // the adapter test exercises a real Connect stream rather than a fake of
 // the adapter's own interfaces.
 type stubEdgeService struct {
-	edgev1connect.UnimplementedEdgeServiceHandler
+	attachv1connect.UnimplementedEdgeServiceHandler
 
-	submissionUpdates []func() (*edgev1.OpenDeviceSubmissionResponse, error)
-	acquireResponse   *edgev1.AcquireReadCredentialResponse
+	submissionUpdates []func() (*attachv1.OpenDeviceSubmissionResponse, error)
+	acquireResponse   *attachv1.AcquireReadCredentialResponse
 	acquireErr        error
 }
 
-func (s *stubEdgeService) AcquireReadCredential(_ context.Context, _ *connect.Request[edgev1.AcquireReadCredentialRequest]) (*connect.Response[edgev1.AcquireReadCredentialResponse], error) {
+func (s *stubEdgeService) AcquireReadCredential(_ context.Context, _ *connect.Request[attachv1.AcquireReadCredentialRequest]) (*connect.Response[attachv1.AcquireReadCredentialResponse], error) {
 	if s.acquireErr != nil {
 		return nil, s.acquireErr
 	}
@@ -36,7 +36,7 @@ func (s *stubEdgeService) AcquireReadCredential(_ context.Context, _ *connect.Re
 	return connect.NewResponse(s.acquireResponse), nil
 }
 
-func (s *stubEdgeService) OpenDeviceSubmission(_ context.Context, _ *connect.Request[edgev1.OpenDeviceSubmissionRequest], stream *connect.ServerStream[edgev1.OpenDeviceSubmissionResponse]) error {
+func (s *stubEdgeService) OpenDeviceSubmission(_ context.Context, _ *connect.Request[attachv1.OpenDeviceSubmissionRequest], stream *connect.ServerStream[attachv1.OpenDeviceSubmissionResponse]) error {
 	for _, next := range s.submissionUpdates {
 		msg, err := next()
 		if err != nil {
@@ -50,25 +50,25 @@ func (s *stubEdgeService) OpenDeviceSubmission(_ context.Context, _ *connect.Req
 	return nil
 }
 
-func grantMessage(grant *edgev1.SubmissionGrant) *edgev1.OpenDeviceSubmissionResponse {
-	msg := &edgev1.OpenDeviceSubmissionResponse{}
+func grantMessage(grant *attachv1.SubmissionGrant) *attachv1.OpenDeviceSubmissionResponse {
+	msg := &attachv1.OpenDeviceSubmissionResponse{}
 	msg.SetGrant(grant)
 
 	return msg
 }
 
-func pulseMessage(pulse *edgev1.AuthorityPulse) *edgev1.OpenDeviceSubmissionResponse {
-	msg := &edgev1.OpenDeviceSubmissionResponse{}
+func pulseMessage(pulse *attachv1.AuthorityPulse) *attachv1.OpenDeviceSubmissionResponse {
+	msg := &attachv1.OpenDeviceSubmissionResponse{}
 	msg.SetPulse(pulse)
 
 	return msg
 }
 
-func newTestGrant() *edgev1.SubmissionGrant {
-	cred := &edgev1.DeviceCredential{}
+func newTestGrant() *attachv1.SubmissionGrant {
+	cred := &attachv1.DeviceCredential{}
 	cred.SetTypedMaterial(shellMaterial("material"))
 
-	grant := &edgev1.SubmissionGrant{}
+	grant := &attachv1.SubmissionGrant{}
 	grant.SetCredential(cred)
 
 	return grant
@@ -76,7 +76,7 @@ func newTestGrant() *edgev1.SubmissionGrant {
 
 func newTestServer(t *testing.T, svc *stubEdgeService) *httptest.Server {
 	t.Helper()
-	path, handler := edgev1connect.NewEdgeServiceHandler(svc)
+	path, handler := attachv1connect.NewEdgeServiceHandler(svc)
 	mux := httptest.NewServer(handler)
 	_ = path
 	t.Cleanup(mux.Close)
@@ -91,18 +91,18 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 	// one that proves the relay goroutine actually wrote what it read: the
 	// test would pass unchanged against a relay that never touched
 	// h.authority at all if this pulse stayed AUTHORIZED.
-	pulse := &edgev1.AuthorityPulse{}
-	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED)
+	pulse := &attachv1.AuthorityPulse{}
+	pulse.SetAuthority(attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED)
 
 	svc := &stubEdgeService{
-		submissionUpdates: []func() (*edgev1.OpenDeviceSubmissionResponse, error){
-			func() (*edgev1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil },
-			func() (*edgev1.OpenDeviceSubmissionResponse, error) { return pulseMessage(pulse), nil },
+		submissionUpdates: []func() (*attachv1.OpenDeviceSubmissionResponse, error){
+			func() (*attachv1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil },
+			func() (*attachv1.OpenDeviceSubmissionResponse, error) { return pulseMessage(pulse), nil },
 		},
 	}
 	server := newTestServer(t, svc)
 
-	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+	adapter := &credential.ConnectAdapter{Client: attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	handle, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
 	if err != nil {
@@ -118,7 +118,7 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 	// anything is polling at that instant — poll with a deadline rather
 	// than blocking on a channel receive.
 	deadline := time.Now().Add(5 * time.Second)
-	for handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
+	for handle.Authority() != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for Authority() to reflect the REVOKED pulse, got %v", handle.Authority())
 		}
@@ -138,7 +138,7 @@ func TestConnectAdapterOpenErrorsWhenStreamClosesBeforeGrant(t *testing.T) {
 	svc := &stubEdgeService{submissionUpdates: nil}
 	server := newTestServer(t, svc)
 
-	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+	adapter := &credential.ConnectAdapter{Client: attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	_, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
 	if err == nil {
@@ -148,21 +148,21 @@ func TestConnectAdapterOpenErrorsWhenStreamClosesBeforeGrant(t *testing.T) {
 
 func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 	grant := newTestGrant()
-	pulse := &edgev1.AuthorityPulse{}
-	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
+	pulse := &attachv1.AuthorityPulse{}
+	pulse.SetAuthority(attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
 
 	// Enough pulses that the relay goroutine is still sending when the
 	// context is canceled, proving the goroutine exits instead of leaking.
-	updates := make([]func() (*edgev1.OpenDeviceSubmissionResponse, error), 0, 101)
-	updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil })
+	updates := make([]func() (*attachv1.OpenDeviceSubmissionResponse, error), 0, 101)
+	updates = append(updates, func() (*attachv1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil })
 	for range 100 {
-		updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return pulseMessage(pulse), nil })
+		updates = append(updates, func() (*attachv1.OpenDeviceSubmissionResponse, error) { return pulseMessage(pulse), nil })
 	}
 
 	svc := &stubEdgeService{submissionUpdates: updates}
 	server := newTestServer(t, svc)
 
-	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+	adapter := &credential.ConnectAdapter{Client: attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	handle, err := adapter.Open(ctx, "device-1", "binding-1", 1)
@@ -193,14 +193,14 @@ func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 // receiving paced pulses for the full ~2 seconds.
 func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T) {
 	grant := newTestGrant()
-	pulse := &edgev1.AuthorityPulse{}
-	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
+	pulse := &attachv1.AuthorityPulse{}
+	pulse.SetAuthority(attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
 
 	const pacedPulses = 200 // 10ms apart: ~2s to complete naturally
-	updates := make([]func() (*edgev1.OpenDeviceSubmissionResponse, error), 0, pacedPulses+1)
-	updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil })
+	updates := make([]func() (*attachv1.OpenDeviceSubmissionResponse, error), 0, pacedPulses+1)
+	updates = append(updates, func() (*attachv1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil })
 	for range pacedPulses {
-		updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) {
+		updates = append(updates, func() (*attachv1.OpenDeviceSubmissionResponse, error) {
 			time.Sleep(10 * time.Millisecond)
 			return pulseMessage(pulse), nil
 		})
@@ -209,7 +209,7 @@ func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T)
 	svc := &stubEdgeService{submissionUpdates: updates}
 	server := newTestServer(t, svc)
 
-	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+	adapter := &credential.ConnectAdapter{Client: attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	handle, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
 	if err != nil {
@@ -217,7 +217,7 @@ func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T)
 	}
 
 	deadline := time.Now().Add(5 * time.Second)
-	for handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+	for handle.Authority() != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 		if time.Now().After(deadline) {
 			t.Fatal("timed out waiting for the relay to read the first pulse")
 		}
@@ -240,15 +240,15 @@ func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T)
 }
 
 func TestConnectAdapterAcquireReadCredentialTranslatesResponse(t *testing.T) {
-	cred := &edgev1.DeviceCredential{}
+	cred := &attachv1.DeviceCredential{}
 	cred.SetTypedMaterial(shellMaterial("read-material"))
-	resp := &edgev1.AcquireReadCredentialResponse{}
+	resp := &attachv1.AcquireReadCredentialResponse{}
 	resp.SetCredential(cred)
 
 	svc := &stubEdgeService{acquireResponse: resp}
 	server := newTestServer(t, svc)
 
-	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+	adapter := &credential.ConnectAdapter{Client: attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	policy := &policyv1.AccessPolicyHandle{}
 	policy.SetKey("icx7150-lab")
@@ -278,7 +278,7 @@ func TestConnectAdapterAcquireReadCredentialWrapsError(t *testing.T) {
 	svc := &stubEdgeService{acquireErr: connect.NewError(connect.CodeUnavailable, errors.New("down"))}
 	server := newTestServer(t, svc)
 
-	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+	adapter := &credential.ConnectAdapter{Client: attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	policy := &policyv1.AccessPolicyHandle{}
 	policy.SetKey("icx7150-lab")

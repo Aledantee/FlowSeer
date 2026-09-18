@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/lane"
@@ -94,7 +94,7 @@ func TestAnAbandonmentHoldsTheDeviceEvenWhenItsRecordIsRefused(t *testing.T) {
 
 	req := mutationRequest(1)
 	done := make(chan struct{})
-	var firstResult *integrationv1.ExecuteResult
+	var firstResult *dispatchv1.ExecuteResult
 	var firstErr error
 	go func() {
 		defer close(done)
@@ -123,7 +123,7 @@ func TestAnAbandonmentHoldsTheDeviceEvenWhenItsRecordIsRefused(t *testing.T) {
 	}
 }
 
-func isAbandonTransition(e *eventv1.DeviceOperationEvent) bool {
+func isAbandonTransition(e *eventaccessv1.DeviceOperationEvent) bool {
 	transition := e.GetPhaseTransitioned()
 	return transition != nil && transition.GetTo() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
 }

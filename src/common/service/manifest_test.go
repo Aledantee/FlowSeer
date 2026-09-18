@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -72,7 +72,7 @@ func TestRuntimeManifestSortsSubscriptionsByKindAndType(t *testing.T) {
 	if len(subscriptions) != 3 {
 		t.Fatalf("manifest subscriptions = %v, want three", subscriptions)
 	}
-	wantKinds := []servicev1.MessageKind{MessageKindCommand, MessageKindCommand, MessageKindEvent}
+	wantKinds := []runtimev1.MessageKind{MessageKindCommand, MessageKindCommand, MessageKindEvent}
 	wantTypes := []string{"google.protobuf.Empty", "google.protobuf.Int32Value", "google.protobuf.Int32Value"}
 	for i, subscription := range subscriptions {
 		if subscription.GetKind() != wantKinds[i] || subscription.GetTypeName() != wantTypes[i] {
@@ -122,7 +122,7 @@ func TestStoreProvenanceRejectsDifferentNATSPinBeforeOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provenance := &servicev1.StoreProvenance{}
+	provenance := &runtimev1.StoreProvenance{}
 	if err := proto.Unmarshal(data, provenance); err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestPreparedManifestCanResumeOrRestore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			prepared, err := newReconciliation(current.GetDesired(), desired, servicev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED)
+			prepared, err := newReconciliation(current.GetDesired(), desired, runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -228,7 +228,7 @@ func TestPreparedManifestCanResumeOrRestore(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if committed.GetPhase() != servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED || !proto.Equal(committed.GetDesired(), want) {
+			if committed.GetPhase() != runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED || !proto.Equal(committed.GetDesired(), want) {
 				t.Fatalf("committed manifest = %v, want %v", committed, want)
 			}
 		})
@@ -250,8 +250,8 @@ func TestSettlementReconciliationRemovesOnlyOrphans(t *testing.T) {
 
 	target := "bus_test/worker"
 	messageID := "7d92135e-832f-4a83-aeda-27f0d66b0d11"
-	envelope := servicev1.Message_builder{
-		Kind:        servicev1.MessageKind_MESSAGE_KIND_COMMAND.Enum(),
+	envelope := runtimev1.Message_builder{
+		Kind:        runtimev1.MessageKind_MESSAGE_KIND_COMMAND.Enum(),
 		MessageId:   proto.String(messageID),
 		SourcePath:  proto.String("bus_test/source"),
 		TargetPath:  proto.String(target),
@@ -274,13 +274,13 @@ func TestSettlementReconciliationRemovesOnlyOrphans(t *testing.T) {
 	messages := newMessageRuntime(bus.resources, runtime.registry, nil, telemetry{})
 	extantSubject := settlementSubject(target, messageID)
 	if _, err := messages.commitSettlement(ctx, extantSubject, 0, ack.Sequence,
-		newSettlement(target, messageID, 0, servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE)); err != nil {
+		newSettlement(target, messageID, 0, runtimev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE)); err != nil {
 		t.Fatal(err)
 	}
 	orphanID := "00ccde45-1fb6-42ef-a4ad-aadf03f298dd"
 	orphanSubject := settlementSubject(target, orphanID)
 	if _, err := messages.commitSettlement(ctx, orphanSubject, 0, ack.Sequence+1000,
-		newSettlement(target, orphanID, 0, servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)); err != nil {
+		newSettlement(target, orphanID, 0, runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD)); err != nil {
 		t.Fatal(err)
 	}
 	closeBus(t, bus, true)

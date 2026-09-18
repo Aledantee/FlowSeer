@@ -12,14 +12,14 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const (
 	testEdgeID    = "0192e6a0-0000-7000-8000-0000000000ed"
 	testAudience  = "flowseer-central"
-	testProcedure = "/flowseer.api.edge.v1.EdgeService/Heartbeat"
+	testProcedure = "/flowseer.edge.attach.v1.EdgeService/Heartbeat"
 )
 
 var testIssuedAt = time.Date(2026, time.September, 5, 12, 0, 0, 0, time.UTC)
@@ -116,7 +116,7 @@ func testVerifier(at time.Time, skew time.Duration, lookup KeyLookup) *Verifier 
 }
 
 // readmeVector is the worked header published in
-// spec/proto/flowseer/api/edge/v1/README.md, character for character.
+// spec/proto/flowseer/model/edge/v1/README.md, character for character.
 //
 // It has to be the literal. This test was named for the vector and built its
 // own header with signHeader and this package's own HeaderScheme, so it was a
@@ -126,7 +126,7 @@ func testVerifier(at time.Time, skew time.Duration, lookup KeyLookup) *Verifier 
 // contract at all — and this is the side that decides whether a real edge is
 // accepted, so a drift here rejects every edge in the field with no test
 // anywhere noticing.
-const readmeVector = "FlowSeer-Edge Cq0BCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzIrL2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL0hlYXJ0YmVhdDog47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUSQBNz5MF25z/nq9bRdOT4oJEWA17sTJTatD0nn1TIfYuyFyicifeP7cpA1NCP0JzyZsCjx+MxN4zhY+4dpgi8WwU"
+const readmeVector = "FlowSeer-Edge CrABCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzIuL2Zsb3dzZWVyLmVkZ2UuYXR0YWNoLnYxLkVkZ2VTZXJ2aWNlL0hlYXJ0YmVhdDog47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUSQFTvraPhC4Oqv5YZ2M5g/C7gPGXFrUoZOO2fGBux7F5ymuCZkyRbfx1gZOOwhBZ3hT+vgHxR8yYexZ2LLktvZwM"
 
 // The verifier accepts the published vector as it is written: the edge
 // agent's signer produces exactly this string, and a conformance test keeps
@@ -259,7 +259,7 @@ func TestVerifierRejectsEachStep(t *testing.T) {
 			header: func() string {
 				return signHeader(t, private, testAssertion(nil))
 			},
-			procedure: "/flowseer.api.edge.v1.EdgeService/Rekey",
+			procedure: "/flowseer.edge.attach.v1.EdgeService/Rekey",
 			lookup:    lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_RETIRED),
 			at:        testIssuedAt.Add(3 * time.Second),
 			skew:      5 * time.Second,
@@ -279,7 +279,7 @@ func TestVerifierRejectsEachStep(t *testing.T) {
 		{
 			name:      "procedure does not match the invoked RPC",
 			header:    func() string { return signHeader(t, private, testAssertion(nil)) },
-			procedure: "/flowseer.api.edge.v1.EdgeService/Rekey",
+			procedure: "/flowseer.edge.attach.v1.EdgeService/Rekey",
 			lookup:    lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED),
 			at:        testIssuedAt.Add(3 * time.Second),
 			skew:      5 * time.Second,

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -167,7 +167,7 @@ func submitRecoveringMutation(t *testing.T, l *access.Lane, deviceKey string) ch
 
 	// Retried until accepted: the mutation has to have reached its
 	// checkpoint wait before the lane will take one.
-	req := &integrationv1.CheckpointRequest{}
+	req := &dispatchv1.CheckpointRequest{}
 	req.SetSequence(recoverySequence)
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {

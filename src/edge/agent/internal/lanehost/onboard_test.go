@@ -14,8 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -33,14 +34,14 @@ const (
 // have to say the same thing twice.
 type listerFake struct {
 	mu       sync.Mutex
-	listings [][]*edgev1.ListedDevice
+	listings [][]*attachv1.ListedDevice
 	calls    int
 	err      error
 }
 
 func (l *listerFake) ListDevices(
-	_ context.Context, _ *connect.Request[edgev1.ListDevicesRequest],
-) (*connect.Response[edgev1.ListDevicesResponse], error) {
+	_ context.Context, _ *connect.Request[attachv1.ListDevicesRequest],
+) (*connect.Response[attachv1.ListDevicesResponse], error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.calls++
@@ -48,7 +49,7 @@ func (l *listerFake) ListDevices(
 		return nil, l.err
 	}
 	batch := l.listings[min(l.calls-1, len(l.listings)-1)]
-	return connect.NewResponse(edgev1.ListDevicesResponse_builder{Devices: batch}.Build()), nil
+	return connect.NewResponse(attachv1.ListDevicesResponse_builder{Devices: batch}.Build()), nil
 }
 
 // registrarFake records every AddDevice, and fails for whichever devices a
@@ -113,20 +114,20 @@ type endpointRecorder struct {
 	shell []lanehost.Endpoint
 }
 
-func (r *endpointRecorder) openSNMP(endpoint lanehost.Endpoint) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+func (r *endpointRecorder) openSNMP(endpoint lanehost.Endpoint) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 	r.mu.Lock()
 	r.snmp = append(r.snmp, endpoint)
 	r.mu.Unlock()
-	return func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+	return func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 		return access.SNMPSession{}, nil
 	}
 }
 
-func (r *endpointRecorder) openShell(endpoint lanehost.Endpoint) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+func (r *endpointRecorder) openShell(endpoint lanehost.Endpoint) func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
 	r.mu.Lock()
 	r.shell = append(r.shell, endpoint)
 	r.mu.Unlock()
-	return func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+	return func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
 		return access.ShellSession{}, nil
 	}
 }
@@ -173,8 +174,8 @@ func (h *recordingLogs) event(name string) (map[string]string, bool) {
 	return nil, false
 }
 
-func listedDevice(deviceID string, horizon time.Duration) *edgev1.ListedDevice {
-	listed := edgev1.ListedDevice_builder{
+func listedDevice(deviceID string, horizon time.Duration) *attachv1.ListedDevice {
+	listed := attachv1.ListedDevice_builder{
 		DeviceId:  proto.String(deviceID),
 		BindingId: proto.String(bindingID),
 		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build(),
@@ -225,7 +226,7 @@ func newOnboarderOver(t *testing.T, lister *listerFake, registrar *registrarFake
 // one source — the listing — and each is what a later call needs to be able
 // to name.
 func TestTheAgentOnboardsWhatItIsToldToServe(t *testing.T) {
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{
 		listedDevice(deviceOne, 30*time.Second),
 		listedDevice(deviceTwo, time.Minute),
 	}}}
@@ -279,7 +280,7 @@ func TestTheSessionFactoriesAreBuiltForWhereTheDeviceAnswers(t *testing.T) {
 	withPorts.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 7}}.Build()}.Build())
 	withPorts.SetSnmpPort(1161)
 	withPorts.SetSshPort(2222)
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{listedDevice(deviceOne, time.Minute), withPorts}}}
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{listedDevice(deviceOne, time.Minute), withPorts}}}
 	endpoints := &endpointRecorder{}
 
 	if err := newOnboarderOver(t, lister, newRegistrar(), nil, endpoints).Sync(context.Background()); err != nil {
@@ -304,7 +305,7 @@ func TestTheSessionFactoriesAreBuiltForWhereTheDeviceAnswers(t *testing.T) {
 // what the lane refuses a mutation on, and the agent says so at onboarding
 // rather than leaving the first mutation to discover it.
 func TestADeviceListedWithNoHorizonIsStillOnboarded(t *testing.T) {
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{listedDevice(deviceOne, 0)}}}
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{listedDevice(deviceOne, 0)}}}
 	registrar := newRegistrar()
 	logs := &recordingLogs{}
 
@@ -331,7 +332,7 @@ func TestADeviceListedWithNoHorizonIsStillOnboarded(t *testing.T) {
 // not, a device whose listing changed keeps its first values, which is why
 // the divergence is recorded rather than passed over.
 func TestARelistDoesNotReAddADeviceAlreadyOnboarded(t *testing.T) {
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
 		{listedDevice(deviceOne, 0)},
 		{listedDevice(deviceOne, 30*time.Second)},
 	}}
@@ -374,7 +375,7 @@ func TestARelistDoesNotReAddADeviceAlreadyOnboarded(t *testing.T) {
 // reading. It is emitted on every reconnection, so one that fired for an
 // unchanged device would be one an operator learns to ignore.
 func TestARelistIsSilentAboutADeviceThatDidNotChange(t *testing.T) {
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{listedDevice(deviceOne, 30*time.Second)}}}
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{listedDevice(deviceOne, 30*time.Second)}}}
 	logs := &recordingLogs{}
 	onboarder := newOnboarder(t, lister, newRegistrar(), logs)
 
@@ -393,7 +394,7 @@ func TestARelistIsSilentAboutADeviceThatDidNotChange(t *testing.T) {
 // to be tried again. A device unreachable at this moment is the ordinary
 // case; costing every other device on the edge for it is not.
 func TestOneDeviceFailingToOnboardLeavesTheRestServed(t *testing.T) {
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{
 		listedDevice(deviceOne, 30*time.Second),
 		listedDevice(deviceTwo, time.Minute),
 	}}}
@@ -473,7 +474,7 @@ func TestDivergedFieldsNamesEachChangeAndItsValues(t *testing.T) {
 func TestADeviceThatNeverAnswersDoesNotHoldTheListingUp(t *testing.T) {
 	registrar := newRegistrar()
 	registrar.stalling[deviceOne] = true
-	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{
 		listedDevice(deviceOne, time.Minute), listedDevice(deviceTwo, time.Minute),
 	}}}
 	onboarder := newOnboarder(t, lister, registrar, nil)

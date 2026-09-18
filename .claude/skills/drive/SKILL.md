@@ -23,13 +23,17 @@ The argument names a plan. Without one, run `next` first and drive what
 the user picks there.
 
 ```bash
-python3 .claude/skills/next/scripts/plan-queue.py
+python3 .claude/skills/drive/scripts/plan-state.py <plan>
 ```
 
-- A plan with no phases is driven as step 2 describes.
-- A parent plan is driven phase by phase: the drive list is every line of
-  that output that reads `phase of <this parent>`, the `unchecked` ones
-  included, and step 2 runs once per phase, as step 3 orders them.
+- For a parent plan it prints, per phase, the stage the phase needs next
+  (`plan`, `implement`, `review`, `compound`), or that it is done on this
+  branch, on `main`, or waiting for other phases, and its last line names
+  the phases that can run now. Step 2 runs once per phase, as step 3
+  orders them.
+- A plan it calls "not a parent plan" has no phases and is driven as
+  step 2 describes, its stages read off its own frontmatter.
+- With `status` as the request, report that output and stop.
 
 Before the first dispatch:
 
@@ -100,10 +104,15 @@ stops, so what sends a plan back is a parked question, not another try.
 
 ## 3. Drive a parent's phases
 
-Re-run the script at the start of every round and take the list from its
-output; the tree moves under a drive, and a list held in memory goes
-stale first. A round takes the first phase line, in the parent's unit
-order, that is not `waiting` and not parked, and runs step 2 on it. One
+Re-run the state command at the start of every round, and after a
+compaction, and take the order from its output; the tree moves under a
+drive, and a list held in memory goes stale first. When its output
+disagrees with the tree (a phase reads `implemented` with an empty
+`Landed:`, or the parent reads `implemented` while a phase still needs a
+stage), stop and report it: the run that left it was interrupted, and
+guessing which side is right is how a phase lands twice. A round takes
+the first phase its last line names that is not parked, and runs step 2
+on it from the stage the command printed. One
 phase is driven at a time, because its stage worker already spends the
 worker budget. Phases with disjoint packages and no `After:` between them
 can run at once in separate worktrees, one drive each, as

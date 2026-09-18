@@ -18,7 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -703,7 +703,7 @@ func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
 							return runCtx.Err()
 						},
 						Handlers: []Handler{{
-							Kind:    servicev1.MessageKind_MESSAGE_KIND_COMMAND,
+							Kind:    runtimev1.MessageKind_MESSAGE_KIND_COMMAND,
 							Message: &emptypb.Empty{},
 							Handle: func(context.Context, proto.Message) error {
 								handlerCalls++

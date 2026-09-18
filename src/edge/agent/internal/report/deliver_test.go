@@ -8,14 +8,15 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
 )
 
 type auditFake struct {
 	mu       sync.Mutex
-	received []*eventv1.DeviceOperationEvent
+	received []*accessv1.DeviceOperationEvent
 	err      error
 	// blocked, when set, holds Deliver open so a test can observe that the
 	// caller is waiting rather than proceeding.
@@ -24,8 +25,8 @@ type auditFake struct {
 }
 
 func (a *auditFake) Deliver(
-	_ context.Context, req *connect.Request[eventv1.DeliverRequest],
-) (*connect.Response[eventv1.DeliverResponse], error) {
+	_ context.Context, req *connect.Request[auditv1.DeliverRequest],
+) (*connect.Response[auditv1.DeliverResponse], error) {
 	a.mu.Lock()
 	gate, entered := a.blocked, a.entered
 	a.received = append(a.received, req.Msg.GetEvent())
@@ -44,7 +45,7 @@ func (a *auditFake) Deliver(
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&eventv1.DeliverResponse{}), nil
+	return connect.NewResponse(&auditv1.DeliverResponse{}), nil
 }
 
 func (a *auditFake) count() int {
@@ -53,8 +54,8 @@ func (a *auditFake) count() int {
 	return len(a.received)
 }
 
-func operationEvent(id string) *eventv1.DeviceOperationEvent {
-	event := &eventv1.DeviceOperationEvent{}
+func operationEvent(id string) *accessv1.DeviceOperationEvent {
+	event := &accessv1.DeviceOperationEvent{}
 	event.SetEventId(id)
 	return event
 }

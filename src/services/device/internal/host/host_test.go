@@ -22,10 +22,10 @@ import (
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
@@ -364,7 +364,7 @@ func TestEnrollRefusesABodyPastTheBound(t *testing.T) {
 // test is how far it gets, not what it says.
 func postEnroll(t *testing.T, client *http.Client, base string, body []byte) int {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, base+edgev1connect.EdgeServiceEnrollProcedure, bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, base+attachv1connect.EdgeServiceEnrollProcedure, bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("build the request: %v", err)
 	}

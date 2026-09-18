@@ -8,6 +8,23 @@ fixes what a payload may carry and to whom; this package is the wire shape
 alone. The Go encoder and decoder live in `src/common/errs/wire.go`, not
 here, so the schema stays free of any process's error-handling logic.
 
+## Boundaries
+
+Imports: nothing FlowSeer-owned
+
+Imported by: edge/dispatch, store/device
+
+Deliberately absent:
+
+- Any process-local field: an exit code, a log level, a trace ID. The
+  error-wire record excludes the exit code by name — it describes the
+  process that failed, not the failure — and the rest never cleared the
+  `src/common/errs` payload's own bar in the first place.
+- A discriminated cause "kind." Every cause is a plain `ErrorPayload`; there
+  is nothing here for a decoder to fail to recognize.
+- Any RPC or broker-specific framing. A Connect status code or a NATS
+  header wraps this payload; it does not appear inside it.
+
 ## Two projections, one message
 
 The same `ErrorPayload` message serves two different fillings:
@@ -34,14 +51,3 @@ from a package the decoder does not import still arrives as a node carrying
 whatever it set, and a foreign (non-`errs`) cause the encoder could not
 introspect further arrives as a leaf carrying only its rendered message. The
 chain's shape survives even when its original Go types do not.
-
-## What is deliberately absent
-
-- Any process-local field: an exit code, a log level, a trace ID. The
-  error-wire record excludes the exit code by name — it describes the
-  process that failed, not the failure — and the rest never cleared the
-  `src/common/errs` payload's own bar in the first place.
-- A discriminated cause "kind." Every cause is a plain `ErrorPayload`; there
-  is nothing here for a decoder to fail to recognize.
-- Any RPC or broker-specific framing. A Connect status code or a NATS
-  header wraps this payload; it does not appear inside it.

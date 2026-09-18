@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
@@ -305,19 +305,19 @@ type grantingSubmission struct {
 }
 
 func (s grantingSubmission) Open(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
-	credential := &edgev1.DeviceCredential{}
+	credential := &attachv1.DeviceCredential{}
 	credential.SetTypedMaterial(s.material)
-	grant := &edgev1.SubmissionGrant{}
+	grant := &attachv1.SubmissionGrant{}
 	grant.SetCredential(credential)
 	grant.SetSshHostKeySha256(s.hostKey)
 	return grantedHandle{grant: grant}, nil
 }
 
-type grantedHandle struct{ grant *edgev1.SubmissionGrant }
+type grantedHandle struct{ grant *attachv1.SubmissionGrant }
 
-func (h grantedHandle) Grant() *edgev1.SubmissionGrant { return h.grant }
-func (grantedHandle) Authority() edgev1.SubmissionAuthority {
-	return edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
+func (h grantedHandle) Grant() *attachv1.SubmissionGrant { return h.grant }
+func (grantedHandle) Authority() attachv1.SubmissionAuthority {
+	return attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
 }
 func (grantedHandle) Err() error   { return nil }
 func (grantedHandle) Close() error { return nil }
@@ -333,14 +333,14 @@ type gatedCredentials struct {
 
 func (c *gatedCredentials) AcquireReadCredential(
 	context.Context, string, string, *policyv1.AccessPolicyHandle,
-) (*edgev1.AcquireReadCredentialResponse, error) {
+) (*attachv1.AcquireReadCredentialResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.count++
 	if c.closed {
 		return nil, errors.New("central refused the acquisition")
 	}
-	return &edgev1.AcquireReadCredentialResponse{}, nil
+	return &attachv1.AcquireReadCredentialResponse{}, nil
 }
 
 func (c *gatedCredentials) close() {
@@ -420,7 +420,7 @@ func TestACoalescedJoinerWhoseAcquisitionFailsIsRefusedAndReported(t *testing.T)
 		t.Errorf("the device was read %d times, want 1: the refused joiner must not reach it", got)
 	}
 
-	var reported *integrationv1.ExecuteResult
+	var reported *dispatchv1.ExecuteResult
 	for _, result := range reporter.reported() {
 		if result.GetSequence() == 42 {
 			reported = result

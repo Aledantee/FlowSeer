@@ -1,0 +1,118 @@
+edition = "2024";
+
+package flowseer.model.inventory.v1;
+
+import option "buf/validate/validate.proto";
+
+// The local reference to a tag.
+message TagLocalRef {
+  // FlowSeer-assigned tag identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a tag.
+message TagGlobalRef {
+  // The tag's own key. Must be present.
+  TagLocalRef tag = 1 [(buf.validate.field).required = true];
+}
+
+// The intended definition of one tag: its name, its description, and its
+// place in the tag tree. Sibling-name uniqueness and cycle-freedom
+// of the parent chain need state the message does not contain and are
+// enforced by the inventory service.
+message TagConfig {
+  option (buf.validate.message).cel = {
+    id: "tag_config.parent_not_self"
+    message: "a tag cannot be its own parent"
+    expression:
+      "!has(this.ref) || !has(this.parent) || "
+      "this.parent.tag.id != this.ref.tag.id"
+  };
+
+  // The ref to this tag. Must be present.
+  TagGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The ref to the parent tag. Unset means this tag is a root of the
+  // tag tree.
+  TagGlobalRef parent = 2;
+  // Operator-assigned name, unique among the siblings under one parent.
+  // Reads carry it localized per the RPC's language header when a
+  // translation exists; otherwise it comes back in English. The translation
+  // mapping is server-side and never part of the payload. Must be present.
+  string name = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of what the tag groups. Unset means none was
+  // provided. When set, must not be empty.
+  string description = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+}
+
+// The observed placement of one tag in the tag tree. Nothing on a
+// device reports tags; this state is derived by the inventory service from
+// the configured parent chain and rewritten on every rename or reparent
+// below or above the tag. It is denormalized so that consumers resolve a
+// tag's ancestry and full display path from one read instead of one lookup
+// per level.
+message TagState {
+  option (buf.validate.message).cel = {
+    id: "tag_state.path_covers_ancestors"
+    message: "path must hold one name per ancestor plus the tag's own name"
+    expression: "this.path.size() == this.ancestors.size() + 1"
+  };
+
+  // The ref to this tag. Must be present.
+  TagGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The ancestor chain from the root of the tree to the direct parent,
+  // root first, excluding this tag. Empty means this tag is a root.
+  repeated TagGlobalRef ancestors = 2;
+  // The configured names along the same chain, root first, ending with this
+  // tag's own name, localized the same way as TagConfig.name. Element i
+  // names the tag at ancestors[i]; the last element has no ancestor entry.
+  repeated string path = 3 [(buf.validate.field).repeated = {
+    items: {
+      string: {
+        min_len: 1
+        max_len: 128
+      }
+    }
+  }];
+}
+
+// One transition of a tag's intended definition.
+message TagEvent {
+  option (buf.validate.message).cel = {
+    id: "tag_event.has_side"
+    message: "a tag event must carry a before or an after"
+    expression: "has(this.before) || has(this.after)"
+  };
+  option (buf.validate.message).cel = {
+    id: "tag_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.tag.id == this.ref.tag.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "tag_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.tag.id == this.ref.tag.id"
+  };
+
+  // The ref to the tag that changed. Must be present.
+  TagGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The intended definition before the transition. Unset means the tag was
+  // created.
+  TagConfig before = 2;
+  // The intended definition after the transition. Unset means the tag was
+  // deleted.
+  TagConfig after = 3;
+}

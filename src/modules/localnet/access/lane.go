@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -92,13 +92,13 @@ type Reporter interface {
 	// its first recovery transition durable; the receiver must preserve the
 	// mutation as indeterminate rather than treating the error as proof that
 	// nothing happened.
-	Reported(ctx context.Context, deviceKey string, result *integrationv1.ExecuteResult)
+	Reported(ctx context.Context, deviceKey string, result *dispatchv1.ExecuteResult)
 	// CheckpointAcked carries the acknowledgement of central's
 	// CheckpointRequest.
-	CheckpointAcked(ctx context.Context, deviceKey string, ack *integrationv1.CheckpointAck)
+	CheckpointAcked(ctx context.Context, deviceKey string, ack *dispatchv1.CheckpointAck)
 	// HoldResolvedAcked carries the acknowledgement of central's
 	// HoldResolved.
-	HoldResolvedAcked(ctx context.Context, deviceKey string, ack *integrationv1.HoldResolvedAck)
+	HoldResolvedAcked(ctx context.Context, deviceKey string, ack *dispatchv1.HoldResolvedAck)
 	// Onboarded carries the firmware fingerprint the identity probe learned
 	// when this device was added, and with it the fact that the device was
 	// added at all.
@@ -200,12 +200,12 @@ type DeviceSession struct {
 	// OpenSNMP opens an SNMP session from material acquired for this
 	// operation. Required: the identity probe at onboarding and every read
 	// go through it.
-	OpenSNMP func(ctx context.Context, cred *edgev1.DeviceCredential) (SNMPSession, error)
+	OpenSNMP func(ctx context.Context, cred *attachv1.DeviceCredential) (SNMPSession, error)
 	// OpenShell opens a shell session. Used for the fallback read route
 	// and for a mutation's own command, and may be nil for a device with
 	// no shell adapter — a mutation on such a device fails rather than
 	// silently doing nothing.
-	OpenShell func(ctx context.Context, cred *edgev1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
+	OpenShell func(ctx context.Context, cred *attachv1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
 
 	// AccessPolicy is the handle the onboarding identity probe acquires
 	// its credential under. A read carries its own on TypedRead, since
@@ -249,12 +249,12 @@ type submission struct {
 	// would let one caller's cancellation spuriously fail every other
 	// item queued behind it on the same device.
 	ctx     context.Context
-	request *integrationv1.ExecuteRequest
+	request *dispatchv1.ExecuteRequest
 	result  chan submissionOutcome
 }
 
 type submissionOutcome struct {
-	result *integrationv1.ExecuteResult
+	result *dispatchv1.ExecuteResult
 	err    error
 }
 
@@ -266,7 +266,7 @@ type deviceState struct {
 
 	waitMu       sync.Mutex
 	waitingSeq   uint64
-	checkpointCh chan *integrationv1.CheckpointRequest
+	checkpointCh chan *dispatchv1.CheckpointRequest
 
 	stateMu     sync.Mutex
 	fingerprint string
@@ -555,7 +555,7 @@ func NewLane(cfg Config) *Lane {
 // name one to use this module at all.
 type noopDeliverer struct{}
 
-func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+func (noopDeliverer) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error { return nil }
 
 // noopReadSource is Config's default ReadCredentialSource when a host has
 // not wired a real one: it returns an empty credential immediately, which a
@@ -563,8 +563,8 @@ func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error 
 // configured with".
 type noopReadSource struct{}
 
-func (noopReadSource) AcquireReadCredential(context.Context, string, string, *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error) {
-	return &edgev1.AcquireReadCredentialResponse{}, nil
+func (noopReadSource) AcquireReadCredential(context.Context, string, string, *policyv1.AccessPolicyHandle) (*attachv1.AcquireReadCredentialResponse, error) {
+	return &attachv1.AcquireReadCredentialResponse{}, nil
 }
 
 // noopSubmissionSource is Config's default SubmissionCredentialSource when
@@ -579,9 +579,9 @@ func (noopSubmissionSource) Open(context.Context, string, string, uint64) (crede
 
 type noopSubmissionHandle struct{}
 
-func (noopSubmissionHandle) Grant() *edgev1.SubmissionGrant { return &edgev1.SubmissionGrant{} }
-func (noopSubmissionHandle) Authority() edgev1.SubmissionAuthority {
-	return edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
+func (noopSubmissionHandle) Grant() *attachv1.SubmissionGrant { return &attachv1.SubmissionGrant{} }
+func (noopSubmissionHandle) Authority() attachv1.SubmissionAuthority {
+	return attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
 }
 func (noopSubmissionHandle) Err() error   { return nil }
 func (noopSubmissionHandle) Close() error { return nil }
@@ -718,7 +718,7 @@ func (l *Lane) probeIdentity(ctx context.Context, deviceKey string, session Devi
 // the caller's: a read passes the one TypedRead.access_policy carries,
 // since central decides per read which policy admitted it, and onboarding
 // passes the device's own.
-func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session DeviceSession, handle *policyv1.AccessPolicyHandle) (*edgev1.DeviceCredential, string, error) {
+func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session DeviceSession, handle *policyv1.AccessPolicyHandle) (*attachv1.DeviceCredential, string, error) {
 	response, err := l.cfg.ReadCredentials.AcquireReadCredential(ctx, deviceKey, session.BindingID, handle)
 	if err != nil {
 		return nil, "", errs.Wrap(err, "acquire read credential")
@@ -734,8 +734,8 @@ func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session Device
 // [mutation.Machine.Result] reports from the machine's own state. A joiner
 // refused at credential acquisition never opened a session, and reporting it
 // as OBSERVING would tell central the device was read.
-func readFailure(sequence uint64, phase accessv1.OperationPhase, err error) *integrationv1.ExecuteResult {
-	result := &integrationv1.ExecuteResult{}
+func readFailure(sequence uint64, phase accessv1.OperationPhase, err error) *dispatchv1.ExecuteResult {
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(sequence)
 	result.SetPhaseReached(phase)
 	result.SetError(errs.EncodeForClient(err))
@@ -832,7 +832,7 @@ type SubmitOptions struct {
 	// edge ref of its own (the transport already addresses one), so the
 	// caller supplies it here.
 	DeviceKey string
-	Request   *integrationv1.ExecuteRequest
+	Request   *dispatchv1.ExecuteRequest
 	Priority  Priority
 }
 
@@ -842,7 +842,7 @@ type SubmitOptions struct {
 // result or an explicit cancellation, even if this call's own context ends
 // first (the drain loop that already started keeps running for whichever
 // goroutine is driving it).
-func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.ExecuteResult, error) {
+func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*dispatchv1.ExecuteResult, error) {
 	if opts.Request.GetSequence() == 0 && opts.Request.GetMutation() != nil {
 		return nil, errs.New().Code(ErrCodeMalformedRequest).
 			Msg("mutation request must carry a sequence")
@@ -930,7 +930,7 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 				}
 				return nil, err
 			}
-			execResult, _ := shared.(*integrationv1.ExecuteResult)
+			execResult, _ := shared.(*dispatchv1.ExecuteResult)
 			// Every joiner gets its own copy carrying its own sequence, and
 			// reports it. Central admitted each of these reads separately and
 			// is owed an answer for each; that the edge served them with one
@@ -939,7 +939,7 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 			// the same message and a shared sequence field would be the last
 			// writer's.
 			if execResult != nil {
-				joined, _ := proto.Clone(execResult).(*integrationv1.ExecuteResult)
+				joined, _ := proto.Clone(execResult).(*dispatchv1.ExecuteResult)
 				joined.SetSequence(opts.Request.GetSequence())
 				l.report(ctx, opts.DeviceKey, joined)
 				return joined, nil
@@ -967,7 +967,7 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 // submitAndCoalesce is Submit's path for the first caller of a coalescing
 // key: it admits the item as usual, then delivers the result to every
 // coalesced waiter through the Coalescer ticket once processing completes.
-func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts SubmitOptions, finish func(any, error)) (*integrationv1.ExecuteResult, error) {
+func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts SubmitOptions, finish func(any, error)) (*dispatchv1.ExecuteResult, error) {
 	// The actual work is detached from this caller's own cancellation: a
 	// joiner with a longer deadline is depending on this read completing,
 	// so the owner giving up early must not kill it, and the owner's
@@ -1127,7 +1127,7 @@ func (l *Lane) drainOnce(ds *deviceState) bool {
 // currently in-flight mutation, if one is waiting for exactly this
 // sequence. A future host's message loop calls this from the execution
 // envelope's CheckpointRequest, per the checkpoint barrier.
-func (l *Lane) HandleCheckpoint(deviceKey string, req *integrationv1.CheckpointRequest) error {
+func (l *Lane) HandleCheckpoint(deviceKey string, req *dispatchv1.CheckpointRequest) error {
 	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
 		return err
@@ -1173,7 +1173,7 @@ func (l *Lane) HandleCheckpoint(deviceKey string, req *integrationv1.CheckpointR
 // does not fit the phase. An error from the acknowledgement's own audit
 // delivery is returned too, with the decision already marked, so central
 // re-sends and the identical acknowledgement completes the walk.
-func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *integrationv1.TerminalResultAck) error {
+func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *dispatchv1.TerminalResultAck) error {
 	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
 		return err
@@ -1255,7 +1255,7 @@ var errMutationEnded = errors.New("mutation ended before this step completed")
 // arriving between the report and the block is then delivered into the
 // buffered channel rather than refused for a wait that does not exist yet.
 func (ds *deviceState) armCheckpoint(seq uint64) *checkpointWait {
-	ch := make(chan *integrationv1.CheckpointRequest, 1)
+	ch := make(chan *dispatchv1.CheckpointRequest, 1)
 	ds.waitMu.Lock()
 	ds.waitingSeq = seq
 	ds.checkpointCh = ch
@@ -1267,7 +1267,7 @@ func (ds *deviceState) armCheckpoint(seq uint64) *checkpointWait {
 // already be delivered into it, and not yet blocked on.
 type checkpointWait struct {
 	ds *deviceState
-	ch chan *integrationv1.CheckpointRequest
+	ch chan *dispatchv1.CheckpointRequest
 }
 
 func (w *checkpointWait) release() {
@@ -1280,7 +1280,7 @@ func (w *checkpointWait) release() {
 // or ctx does. It selects on the machine's Done because a REJECTED
 // acknowledgement is accepted at ADMITTED — which is exactly where this wait
 // sits — and a mutation released here must never go on to execute.
-func (w *checkpointWait) wait(ctx context.Context, m *mutation.Machine) (*integrationv1.CheckpointRequest, error) {
+func (w *checkpointWait) wait(ctx context.Context, m *mutation.Machine) (*dispatchv1.CheckpointRequest, error) {
 	ch := w.ch
 
 	select {
@@ -1318,7 +1318,7 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
 	}
 
 	var (
-		result *integrationv1.ExecuteResult
+		result *dispatchv1.ExecuteResult
 		err    error
 		open   *openMutation
 		// owed is whether this call still owes its caller an answer. It
@@ -1395,7 +1395,7 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
 
 // processRead runs a read to its observation. A read never enters recovery
 // and never waits on central, so it always has an outcome to return.
-func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Machine, req *integrationv1.ExecuteRequest, fingerprint string) (*integrationv1.ExecuteResult, error) {
+func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Machine, req *dispatchv1.ExecuteRequest, fingerprint string) (*dispatchv1.ExecuteResult, error) {
 	obs, err := m.Observe(ctx)
 	if err != nil {
 		err = errs.Wrap(err, "observe")
@@ -1438,13 +1438,13 @@ func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Mac
 // nor handed off leaves Submit blocked with nothing left running that could
 // unblock it.
 type stepOutcome struct {
-	result *integrationv1.ExecuteResult
+	result *dispatchv1.ExecuteResult
 	err    error
 	owed   bool
 }
 
 // processMutation runs a mutation's phases.
-func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openMutation, req *integrationv1.ExecuteRequest, fingerprint string) stepOutcome {
+func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openMutation, req *dispatchv1.ExecuteRequest, fingerprint string) stepOutcome {
 	m := open.machine
 
 	if req.GetResume() {
@@ -1718,7 +1718,7 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 // central's acknowledgement can all be the one that ends a mutation, and
 // sub.result holds exactly one buffered send — a second would block that
 // goroutine forever.
-func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutation, result *integrationv1.ExecuteResult, err error) {
+func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutation, result *dispatchv1.ExecuteResult, err error) {
 	open.answered.Do(func() {
 		// Reported here rather than where the poll ends, because the poll is
 		// only one of the three things that can end a mutation and the
@@ -1754,14 +1754,14 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 }
 
 // report hands one result to the host's Reporter, if it wired one.
-func (l *Lane) report(ctx context.Context, deviceKey string, result *integrationv1.ExecuteResult) {
+func (l *Lane) report(ctx context.Context, deviceKey string, result *dispatchv1.ExecuteResult) {
 	if l.cfg.Reporter == nil {
 		return
 	}
 	l.cfg.Reporter.Reported(ctx, deviceKey, result)
 }
 
-func (l *Lane) reportCheckpoint(ctx context.Context, deviceKey string, ack *integrationv1.CheckpointAck) {
+func (l *Lane) reportCheckpoint(ctx context.Context, deviceKey string, ack *dispatchv1.CheckpointAck) {
 	if l.cfg.Reporter == nil {
 		return
 	}
@@ -2041,7 +2041,7 @@ func classifyErrorOrEmpty(err error) string {
 
 // interfaceName returns the device-local interface name req's mutation or
 // read arm targets, whichever is set.
-func interfaceName(req *integrationv1.ExecuteRequest) string {
+func interfaceName(req *dispatchv1.ExecuteRequest) string {
 	if mutationIntent := req.GetMutation(); mutationIntent != nil {
 		return mutationIntent.GetInterfaceDescription().GetInterfaceName()
 	}
@@ -2063,12 +2063,12 @@ func interfaceName(req *integrationv1.ExecuteRequest) string {
 // violation three layers from the code that had nothing to send — which is
 // how the mutation arm stayed broken through every test on both sides. The
 // next arm added hits this in its own package instead.
-func readPolicyFor(req *integrationv1.ExecuteRequest) (*policyv1.AccessPolicyHandle, error) {
+func readPolicyFor(req *dispatchv1.ExecuteRequest) (*policyv1.AccessPolicyHandle, error) {
 	var handle *policyv1.AccessPolicyHandle
 	switch which := req.WhichOperation(); which {
-	case integrationv1.ExecuteRequest_Mutation_case:
+	case dispatchv1.ExecuteRequest_Mutation_case:
 		handle = req.GetMutation().GetAccessPolicy()
-	case integrationv1.ExecuteRequest_Read_case:
+	case dispatchv1.ExecuteRequest_Read_case:
 		handle = req.GetRead().GetAccessPolicy()
 	default:
 		return nil, errs.New().Code(ErrCodeNoAccessPolicy).Attr("operation", int(which)).
@@ -2090,7 +2090,7 @@ func readPolicyFor(req *integrationv1.ExecuteRequest) (*policyv1.AccessPolicyHan
 // [mutation.Deps.Submit] carry no target of their own — every other field
 // this module's route-selection and submission machinery needs is already
 // in prov and sess.
-func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integrationv1.ExecuteRequest) mutation.Deps {
+func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *dispatchv1.ExecuteRequest) mutation.Deps {
 	sess := ds.session
 	name := interfaceName(req)
 
@@ -2146,7 +2146,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 			prov.FirmwareFingerprint = fingerprint
 			return interfaces.Read(ctx, opened.Session, openShell, name, prov, nil, interfaces.Freshness{}, l.cfg.Clock())
 		},
-		Submit: func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error {
+		Submit: func(ctx context.Context, grant *attachv1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error {
 			if sess.SubmitOverride != nil {
 				return sess.SubmitOverride(ctx, intent)
 			}
@@ -2187,7 +2187,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 // becomes a reader that silently finds nothing and re-probes forever, which
 // is the same shape as the baseline that never ran: a degraded path
 // indistinguishable from the healthy one from outside.
-func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *integrationv1.ExecuteRequest, obs *accessv1.InterfaceObservation) {
+func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *dispatchv1.ExecuteRequest, obs *accessv1.InterfaceObservation) {
 	if obs.GetCompleteness() != accessv1.Completeness_COMPLETENESS_COMPLETE {
 		return
 	}
@@ -2338,7 +2338,7 @@ func (l *Lane) Unfreeze(ctx context.Context) {
 // than preceding it: central takes it as proof that this edge will accept
 // the next mutation, and one sent ahead of the clear would be a promise
 // about a lane still refusing work.
-func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *integrationv1.HoldResolved) error {
+func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *dispatchv1.HoldResolved) error {
 	ds, err := l.device(deviceKey)
 	if err != nil {
 		return err
@@ -2358,7 +2358,7 @@ func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *inte
 	}
 
 	if l.cfg.Reporter != nil {
-		ack := &integrationv1.HoldResolvedAck{}
+		ack := &dispatchv1.HoldResolvedAck{}
 		ack.SetSequence(resolved.GetSequence())
 		l.cfg.Reporter.HoldResolvedAcked(ctx, deviceKey, ack)
 	}

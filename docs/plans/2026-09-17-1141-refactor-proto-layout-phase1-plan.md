@@ -4,13 +4,22 @@ type: refactor
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
+review: accept after fixes
+compound: docs/solutions/conventions/a-refusal-test-needs-an-input-only-the-refusal-rejects.md
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Protobuf Tree Phase 1 - The Model Root, the Record, and the Gates - Plan
+
+> Implemented. 6 units, 2026-09-17T17:21Z to 2026-09-17T19:20Z.
+>
+> Reviewed in two passes. The first found two blockers: no test failed when
+> the sink rule was deleted, and nothing governed what the process-local bus
+> root imports. Both were fixed and pinned by tests that fail against the
+> defect; the second pass found no blocker.
 
 ## Goal
 
@@ -57,6 +66,72 @@ The parent's Decisions hold. Specific to this phase:
   landed form is `<root><leaf>v1` for the package that is not the file's
   main one, and a fixed name keeps phase 2's rename a search-and-replace.
 
+Ruled: `model/inventory/v1/README.md`'s `Deliberately absent:` line in U1
+names only the three package-wide absences already stated in the body prose
+(Config messages for the discovered-only families, `EntityRef` admission for
+the four entities that have not joined `EntityType`, and a `Tenant` entity
+with an id surface) rather than restating every per-family "no
+`XConfig`" aside. Why: the README coverage and `Imports:`/`Imported by:`
+gates land in a later unit, so U1 only has to leave the section accurate,
+not exhaustive, and duplicating each family's own absence note would drift
+from the prose that already carries it. Cost if wrong: the later README
+pass rewrites or expands the line; no test depends on its contents yet.
+
+Ruled: `model/edge/v1/README.md`, created in U2, opens with the full package
+name, a one-paragraph identity, the four moved sections, and a `## Boundaries`
+section (`Imports:`, `Imported by:`, `Deliberately absent:`), matching the
+shape U1 already gave the three package READMEs it created rather than
+waiting for U5's pass. Why: the parent's README-shape decision holds for
+every unit in this phase, and U1 already established the precedent of adding
+`## Boundaries` to a new package README ahead of the gate. Cost if wrong:
+U5's pass rewrites the section; no test depends on its contents until then.
+
+Ruled: U3 gives `model/access/v1/README.md` (moved from `device/access/v1`)
+and `model/capture/v1/README.md` (newly created from the split-out entity
+and chunk frames) a `## Boundaries` section immediately, matching the shape
+U1 and U2 already gave the packages they moved or created rather than
+waiting for U5's pass. Why: the same precedent U2's ruling cites applies
+here — a package that lands under `model/` in this phase gets the section
+when it lands, not when U5 sweeps the tree. Cost if wrong: U5's pass
+rewrites or reorders the section; no test depends on its contents until
+then.
+
+Ruled: `model/policy/v1/README.md` omits `api/device` from `Imported by:`, and `model/edge/v1/README.md` adds `model/capture`. Why: the `Imported by:` gate checks the actual imports declared by `.proto` files in the tree rather than the wider allowlist in `layering_test.go`, and `api/device/v1/device_service.proto` imports `model/access` and `model/inventory` but not `model/policy`, while `model/capture/v1/capture_session.proto` imports `model/edge`. Cost if wrong: a future change adding a direct import from `api/device` to `model/policy` will update the README's `Imported by:` line.
+
+Ruled: U6's six pointer amendments say only that `api/inventory`, `device/policy`, `device/credential`, `device/access`, and the entity halves of `api/edge` and `api/capture` now read under `model/`; none claims `integration/device` or `event/device` now reads under `edge/` or `event/access`. Why: neither root exists yet, and an amendment dated today that named one would be false the day it was written; the record that cites `integration/device/v1`'s `DispatchService.Subscribe` and `event/device/v1`'s `AuditService.Deliver` says those two are unchanged instead. Cost if wrong: the pointer amendments need a second one-line addition when the edge plane move lands.
+
+Ruled: a root that the import order leaves out imports nothing
+FlowSeer-owned, and `TestUnorderedRootsImportNothingFlowSeerOwned` holds it
+to that. Why: `importOrder` answers "which packages may this one import",
+and a root with no row in it is answered by nothing — a schema under
+`flowseer/service` could import a Connect service package or another
+process's private store with every gate green, which is the opposite of
+what putting the bus contract outside the order was for. Cost if wrong: a
+runtime schema that legitimately needs a FlowSeer-owned message takes a row
+in `importOrder` instead of the exemption, and the unordered list shrinks.
+
+Ruled: a root or intermediate README's `## Boundaries` carries the same
+`Imports:` and `Imported by:` lines a package README does, naming packages
+rather than roots — `Imports:` the packages its schemas reach outside it,
+`Imported by:` the packages outside it that reach in — and the imports gate
+reads them. `spec/proto/flowseer/README.md` is left out, because no import
+crosses the edge of the tree that holds every FlowSeer package. Why: the
+nine root and intermediate READMEs already made boundary claims in the
+gate's own heading and vocabulary and no gate read them, so a false claim
+was invisible; package names are what a walk can check, while "which roots
+it may import" is a permission it cannot. That permission stays in the
+section, as prose under the two lines. Cost if wrong: a root README's lines
+grow long enough that a reader skips them, and the prose beneath carries
+the rule alone.
+
+Ruled: a version directory holding no schema needs no README. Why:
+`TestProtoPathPolicy` blesses a `.gitkeep` placeholder under a version
+directory, so requiring a README of a directory whose only file is that
+placeholder would set the two gates against each other, and a directory
+with no schema has no package identity to state. Cost if wrong: the
+directory gains the requirement when it gains a schema, which is when the
+README has something to say.
+
 ## Requirements
 
 1. `spec/proto/flowseer/model/` holds `policy`, `credential`, `edge`,
@@ -72,10 +147,12 @@ The parent's Decisions hold. Specific to this phase:
    `model/`. Example: a synthetic `service Probe {}` under
    `model/access/v1` is reported by path.
 4. Every directory under `spec/proto/flowseer/` that is not a bare version
-   holder has a README, and every versioned package README's `Imports:`
-   and `Imported by:` lines match the tree. Example: deleting
-   `model/README.md` fails `TestProtoReadmeCoverage` naming
-   `flowseer/model`; `net/addr/` has no README and passes.
+   holder has a README, and the `Imports:` and `Imported by:` lines of every
+   versioned package README and of every root and intermediate README match
+   the tree. Example: deleting `model/README.md` fails
+   `TestProtoReadmeCoverage` naming `flowseer/model`; `net/addr/` has no
+   README and passes; dropping a package from `net/README.md`'s
+   `Imported by:` line fails `TestProtoReadmeImports`.
 5. The structure record's tree names `model/` with its six packages and
    the five service packages phase 2 moves, and every row of its import
    graph is within `importOrder`. Example: the record's row for
@@ -105,9 +182,10 @@ generated/go/proto/flowseer/**, test/conformance/proto/layering_test.go,
 test/conformance/proto/{device_policy,device_credential,api_inventory,api_inventory_event,api_inventory_topology,api_attribute}_rules_test.go,
 test/conformance/proto/{field_constraint_class,api_edge_bus_credential,store_device}_test.go,
 every Go file importing the three generated packages,
+src/services/device/test/integration/testdata/mutation-verification-repro/{e2e_test.go.repro,fixture_test.go.repro},
 docs/solutions/conventions/document-intentional-schema-deviations-with-comment-and-test.md,
-deploy/lab/registry.textproto, src/modules/localnet/README.md,
-docs/runbooks/lab-icx7150-first-write.md
+deploy/lab/registry.textproto,
+src/modules/localnet/access/internal/capability/interfaces/doc.go
 After: none
 Change: `git mv` moves `device/policy` to `model/policy`,
 `device/credential` to `model/credential`, and `api/inventory` to
@@ -124,9 +202,11 @@ directories). Go imports change path only; `policyv1`, `credentialv1`, and
 change import paths. `importOrder` renames the three keys and every entry
 naming them; `orderedRoots` adds `flowseer/model` and keeps
 `flowseer/device` until U3 empties it. The solution entry's `module:` and
-cited paths, the registry comment naming `CredentialMaterial`, the
-localnet README, and the runbook read the new full names. The three
-package READMEs open with their new full name and gain `## Boundaries`.
+cited paths, the registry comment naming `CredentialMaterial`, and the
+`localnet` capability doc comment naming `Provenance` read the new full
+names; `src/modules/localnet/README.md` and the runbook cite neither
+package by path and need no edit. The three package READMEs open with
+their new full name and gain `## Boundaries`.
 Tests: the renamed rules tests pass unchanged in body;
 `TestSharedFieldNamesCarryTheSameConstraints` passes with no unmatched
 exemption; `TestImportOrder`, `TestImportOrderCoversEveryPackage`, and
@@ -137,9 +217,12 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto tes
 ### U2. Split the Edge entity out of api/edge
 
 Files: spec/proto/flowseer/api/edge/v1/{edge,assertion,key_proof,provisioning,edge_admin_service}.proto,
+spec/proto/flowseer/api/edge/v1/README.md,
 spec/proto/flowseer/model/edge/v1/*,
 spec/proto/flowseer/model/inventory/v1/{integration,provenance}.proto,
-spec/proto/flowseer/api/capture/v1/*.proto, spec/proto/flowseer/device/access/v1/operation.proto,
+spec/proto/flowseer/model/inventory/v1/README.md,
+spec/proto/flowseer/api/capture/v1/*.proto, spec/proto/flowseer/api/capture/v1/README.md,
+spec/proto/flowseer/device/access/v1/operation.proto,
 spec/proto/flowseer/store/device/v1/{edge_record,registry,service_config}.proto,
 generated/go/proto/flowseer/**, test/conformance/proto/layering_test.go,
 test/conformance/proto/{api_edge,api_edge_bus_credential,store_device}_rules_test.go,
@@ -165,8 +248,12 @@ cases stay. `importOrder` gains `"model/edge": nil`; `api/edge` becomes
 lifetimes", "The assertion header", "Lifecycle and contact", and "What
 central holds and what an attacker gets" sections from the `api/edge`
 README, which keeps the rest and gains a first paragraph saying the entity
-moved. The solution entry, the provisioning file's first-line comment, and
-the script's comment read `flowseer.model.edge.v1`.
+moved, and a `## Boundaries` section (imports nothing FlowSeer-owned; imported
+by `api/capture, api/edge, device/access, model/inventory, store/device`).
+The solution entry, the provisioning file's first-line comment, and the
+script's comment read `flowseer.model.edge.v1`. `api/capture/v1/README.md`'s
+link to the assertion-header section and `model/inventory/v1/README.md`'s
+`Imports:` line follow the entity to `model/edge`.
 Tests: `model_edge_rules_test.go` and the reduced `api_edge_rules_test.go`
 pass; `TestLayeringViolationRules` gains `{importer: "store/device",
 imported: "api/edge"}` expecting a violation and `{importer: "store/device",
@@ -216,10 +303,13 @@ nothing"; the set of service-declaring packages is scanned from the tree.
 `TestModelDeclaresNoService` walks `flowseer/model/` and fails on any
 `service` declaration. The comments that explained `api/edge` being
 imported are deleted; the table's comment states the rule in two
-sentences.
+sentences. A root the table does not govern is held to importing nothing
+FlowSeer-owned, since no row constrains it.
 Tests: `TestLayeringViolationRules` gains `{importer: "store/device",
 imported: "api/device"}` and `{importer: "model/access", imported:
-"integration/device"}` expecting violations naming the sink rule;
+"integration/device"}` expecting violations naming the sink rule, and a
+case whose service set makes an import the table permits a sink violation,
+asserting the reason rather than only the boolean;
 `TestModelDeclaresNoService` has a synthetic case with `service Probe {}`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- test/conformance/proto`
 
@@ -242,12 +332,14 @@ identity paragraph and has `## Boundaries` with `Imports:`,
 `Imported by:`, and `Deliberately absent:`; an existing "deliberately
 absent" section's content moves under that line. `layout_test.go` gains
 `TestProtoReadmeCoverage` (a README in every directory under `flowseer/`
-whose children are not all version directories) and
-`TestProtoReadmeImports` (for every versioned package, the packages on
-`Imports:` equal those its files import outside itself, and those on
-`Imported by:` equal the packages whose files import it; `nothing
-FlowSeer-owned` and `nothing` mean the empty set), each with a synthetic
-tree case for the failing shape.
+whose children are not all version directories, except a version directory
+holding no schema) and `TestProtoReadmeImports` (for every versioned
+package, the packages on `Imports:` equal those its files import outside
+itself, and those on `Imported by:` equal the packages whose files import
+it; for every root and intermediate README, the same two lines over the
+packages crossing that root's edge; `nothing FlowSeer-owned` and `nothing`
+mean the empty set), each with a synthetic tree case for the failing
+shape.
 Tests: `TestProtoReadmeCoverage` on a temporary tree with `x/v1/a.proto`
 and no README reports `x/v1` and not `x`; `TestProtoReadmeImports` on a
 README naming one package too many on `Imports:` and one too few on
@@ -268,11 +360,12 @@ block lists the imports that exist after U3, each within the landed
 amendment, "2026-09-17 — the tree is cut by kind of contract", states the
 parent's root decisions, the sink rule, and the README shape, and names
 this plan. Each of the six other records gains a one-paragraph dated
-amendment saying the paths it cites under `api/inventory`, `api/edge`,
-`device/`, `api/capture`'s entity files, `integration/device`, and
-`event/device` now read under `model/`, `edge/`, and `event/access`, with
-a pointer to the structure record. `docs/conventions/protobuf.md` replaces
-every `api/inventory/v1`, `api/edge/v1`, and `device/policy/v1` citation
+amendment saying the paths it cites under `api/inventory`, `device/`, and
+the entity halves of `api/edge` and `api/capture` now read under `model/`;
+a record that also cites `integration/device` or `event/device` says those
+are unchanged, with a pointer to the structure record.
+`docs/conventions/protobuf.md` replaces every `api/inventory/v1`,
+`api/edge/v1`, and `device/policy/v1` citation
 with the `model/` path, and its "Refs live beside the triad" paragraph adds
 that a ref never lives in a service package. The architecture README's
 "Read when" cell for the structure record adds "or a README under

@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 )
@@ -23,7 +23,7 @@ import (
 const (
 	testEdgeID   = "0192e6a0-0000-7000-8000-0000000000ed"
 	testAudience = "flowseer-central"
-	testPath     = "/flowseer.api.edge.v1.EdgeService/Heartbeat"
+	testPath     = "/flowseer.edge.attach.v1.EdgeService/Heartbeat"
 )
 
 func keypair(t *testing.T) (ed25519.PrivateKey, ed25519.PublicKey) {

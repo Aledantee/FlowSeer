@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 )
 
 // registry remembers, per device and sequence, the report this edge last made
@@ -38,7 +38,7 @@ type registry struct {
 	// operation is in flight and this edge has made no report about it yet,
 	// which is distinct from an absent key: absent means never dispatched.
 	// Guarded by mu.
-	reports map[operationKey]*integrationv1.ExecuteResult
+	reports map[operationKey]*dispatchv1.ExecuteResult
 }
 
 // operationKey names one operation: central's sequence is unique per device,
@@ -49,7 +49,7 @@ type operationKey struct {
 }
 
 func newRegistry() *registry {
-	return &registry{reports: make(map[operationKey]*integrationv1.ExecuteResult)}
+	return &registry{reports: make(map[operationKey]*dispatchv1.ExecuteResult)}
 }
 
 // admit records that this edge is taking on an operation, and reports whether
@@ -76,7 +76,7 @@ func (r *registry) admit(device string, sequence uint64) bool {
 // record stores the latest report for an operation. A report for a sequence
 // this registry does not know is kept: the lane reports on its own schedule
 // and a caller should not have to reason about whether admit ran first.
-func (r *registry) record(device string, result *integrationv1.ExecuteResult) {
+func (r *registry) record(device string, result *dispatchv1.ExecuteResult) {
 	if result == nil {
 		return
 	}
@@ -91,7 +91,7 @@ func (r *registry) record(device string, result *integrationv1.ExecuteResult) {
 // registry knows the operation at all. A known operation with no report yet
 // returns nil and true: it is in flight, and the answer is "nothing to
 // re-send", not "never heard of it".
-func (r *registry) report(device string, sequence uint64) (*integrationv1.ExecuteResult, bool) {
+func (r *registry) report(device string, sequence uint64) (*dispatchv1.ExecuteResult, bool) {
 	key := operationKey{device: device, sequence: sequence}
 
 	r.mu.Lock()
@@ -103,7 +103,7 @@ func (r *registry) report(device string, sequence uint64) (*integrationv1.Execut
 	// Cloned, because the caller sends this onward and the registry keeps
 	// holding it: handing out the stored message would let a re-send and a
 	// later record write the same object from two goroutines.
-	cloned, _ := proto.Clone(result).(*integrationv1.ExecuteResult)
+	cloned, _ := proto.Clone(result).(*dispatchv1.ExecuteResult)
 	return cloned, true
 }
 

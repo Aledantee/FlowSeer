@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 )
@@ -16,12 +16,12 @@ import (
 // snmpDevice registers "dev-1" reading over a real SNMP walk rather than a
 // ReadOverride: this file is about which route a read takes, and an override
 // takes none of them.
-func snmpDevice(t *testing.T, l *access.Lane, aliased bool, openShell func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error)) {
+func snmpDevice(t *testing.T, l *access.Lane, aliased bool, openShell func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error)) {
 	t.Helper()
 	session := &walkingSession{vbs: interfaceRows("ethernet 1/1/1", snmpDescription, aliased)}
 	if err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: session, Close: func() error { return nil }}, nil
 		},
 		OpenShell: openShell,
@@ -91,7 +91,7 @@ func TestALaneReadThatSNMPAnswersNeverOpensTheShell(t *testing.T) {
 func TestALaneReadSurvivesAShellItCannotOpen(t *testing.T) {
 	l := laneWithReporter(t, &recordingReporter{}, noopDeliverer{})
 	var attempts atomic.Int64
-	snmpDevice(t, l, true, func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+	snmpDevice(t, l, true, func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
 		attempts.Add(1)
 		return access.ShellSession{}, errors.New("ssh: unable to authenticate")
 	})

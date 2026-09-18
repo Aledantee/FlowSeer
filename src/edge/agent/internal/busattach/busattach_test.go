@@ -14,20 +14,20 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
 type attachFake struct {
 	calls    int
-	response *edgev1.AttachBusResponse
+	response *attachv1.AttachBusResponse
 	err      error
 }
 
 func (f *attachFake) AttachBus(
-	context.Context, *connect.Request[edgev1.AttachBusRequest],
-) (*connect.Response[edgev1.AttachBusResponse], error) {
+	context.Context, *connect.Request[attachv1.AttachBusRequest],
+) (*connect.Response[attachv1.AttachBusResponse], error) {
 	f.calls++
 	if f.err != nil {
 		return nil, f.err

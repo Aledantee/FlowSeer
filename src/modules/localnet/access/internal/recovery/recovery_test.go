@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -20,7 +20,7 @@ import (
 
 type noopDeliverer struct{}
 
-func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+func (noopDeliverer) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error { return nil }
 
 // failsOnLaneBlockedDeliverer fails only for a LaneBlocked event whose
 // reason is RECOVERY_HOLD, so PhaseTransitioned, EnterRecovering's own
@@ -29,7 +29,7 @@ func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error 
 // sees the simulated outage.
 type failsOnLaneBlockedDeliverer struct{}
 
-func (failsOnLaneBlockedDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (failsOnLaneBlockedDeliverer) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if event.GetLaneBlocked().GetReason() == accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD {
 		return errors.New("audit delivery unavailable")
 	}
@@ -86,7 +86,7 @@ func recoveringMachineWithDeliverer(t *testing.T, deliverer audit.Deliverer, rea
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
@@ -94,7 +94,7 @@ func recoveringMachineWithDeliverer(t *testing.T, deliverer audit.Deliverer, rea
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -129,14 +129,14 @@ func TestObserveAlwaysPrecedesARetryDecision(t *testing.T) {
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
 	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -360,7 +360,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
@@ -368,7 +368,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)

@@ -40,7 +40,7 @@ The pattern has five parts. All code cited is at the current tree.
 **1. Extract before applying policy.** `deliveryTrace` always builds a carrier from the envelope's `traceparent` and `tracestate`, clears whatever span the local context carried, and extracts. Only after extraction does it consult the module's trace policy (`src/common/service/delivery.go:469-500`):
 
 ```go
-func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *servicev1.Message, delivered uint64, telemetry telemetryView) (context.Context, trace.Span) {
+func (r *messageRuntime) deliveryTrace(ctx context.Context, envelope *runtimev1.Message, delivered uint64, telemetry telemetryView) (context.Context, trace.Span) {
 	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
 	if envelope.HasTraceparent() {
 		carrier.Set("traceparent", envelope.GetTraceparent())
@@ -67,7 +67,7 @@ The `ContextWithSpanContext(ctx, trace.SpanContext{})` line at `delivery.go:477`
 **2. Disabled means "keep the non-recording context", never "start a span" and never "strip the carrier".** With traces off, `deliveryTrace` returns the extracted context and `trace.SpanFromContext(extracted)`, which is a non-recording span wrapping the remote span context (`delivery.go:484-486`). On the publish side, `startPublicationTrace` does the mirror image (`src/common/service/message.go:217-236`):
 
 ```go
-func (b *MessageBus) startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
+func (b *MessageBus) startPublicationTrace(ctx context.Context, kind runtimev1.MessageKind) (context.Context, trace.Span) {
 	if !b.telemetry.policy.traces {
 		ctx = contextWithoutRecordingSpan(ctx)
 		return ctx, trace.SpanFromContext(ctx)

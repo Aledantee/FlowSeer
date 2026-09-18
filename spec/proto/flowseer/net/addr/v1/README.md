@@ -4,6 +4,18 @@ The `flowseer.net.addr.v1` package defines reusable address-domain primitives
 for FlowSeer-owned schemas. Its messages are value types rather than entities,
 facets, configuration, state, or events.
 
+## Boundaries
+
+Imports: nothing FlowSeer-owned
+
+Imported by: edge/attach, model/inventory, net/capture, net/interface, net/ip, net/protocol/lacp, net/protocol/lldp, net/protocol/stp, net/switching, store/device
+
+Deliberately absent:
+
+- Identity, tenant, observation time, and lifecycle. Primitives here are pure values with no entity context.
+- Interface scope and routing domains. Interface-specific address bindings live in `net/ip/v1`.
+- A MAC address message distinct from EUI-48. An Ethernet MAC address is an EUI-48.
+
 ## Contents
 
 The package contains:

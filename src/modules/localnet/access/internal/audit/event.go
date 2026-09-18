@@ -8,16 +8,16 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 )
 
 // Deliverer durably delivers one DeviceOperationEvent. A caller (the
 // mutation state machine) blocks on Emit's return before reporting the
 // phase the event describes as released, per the audit-before-state rule.
 type Deliverer interface {
-	Emit(ctx context.Context, event *eventv1.DeviceOperationEvent) error
+	Emit(ctx context.Context, event *eventaccessv1.DeviceOperationEvent) error
 }
 
 // Clock supplies the current time, so a test can control occurred_at.
@@ -36,7 +36,7 @@ type Common struct {
 }
 
 // Device names the device a Common event set concerns, narrowed to what
-// this package needs from api/inventory/v1.DeviceGlobalRef so callers do not
+// this package needs from model/inventory/v1.DeviceGlobalRef so callers do not
 // have to import that package just to build one. Tenant scope is ambient
 // and never named here, per the schema's own convention.
 type Device struct {
@@ -98,8 +98,8 @@ func truncateUTF8(s string, maxBytes int) string {
 	return s[:maxBytes]
 }
 
-func newEvent(clock Clock, common Common) *eventv1.DeviceOperationEvent {
-	event := &eventv1.DeviceOperationEvent{}
+func newEvent(clock Clock, common Common) *eventaccessv1.DeviceOperationEvent {
+	event := &eventaccessv1.DeviceOperationEvent{}
 	event.SetDevice(common.ref())
 	event.SetEventId(uuid.NewString())
 	event.SetOccurredAt(timestamppb.New(clock()))
@@ -117,8 +117,8 @@ func (c Common) ref() *inventoryv1.DeviceGlobalRef { return c.Device.ref() }
 // BuildPhaseTransitioned constructs the event for one mutation's phase
 // change. from is the zero value's absence (unset) when the mutation was
 // just recorded and has no earlier phase.
-func BuildPhaseTransitioned(clock Clock, common Common, from, to accessv1.OperationPhase) *eventv1.DeviceOperationEvent {
-	detail := &eventv1.PhaseTransitioned{}
+func BuildPhaseTransitioned(clock Clock, common Common, from, to accessv1.OperationPhase) *eventaccessv1.DeviceOperationEvent {
+	detail := &eventaccessv1.PhaseTransitioned{}
 	if from != accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED {
 		detail.SetFrom(from)
 	}
@@ -131,8 +131,8 @@ func BuildPhaseTransitioned(clock Clock, common Common, from, to accessv1.Operat
 
 // BuildLaneBlocked constructs the event for the device's lane refusing the
 // next mutation.
-func BuildLaneBlocked(clock Clock, common Common, reason accessv1.BlockReason) *eventv1.DeviceOperationEvent {
-	detail := &eventv1.LaneBlocked{}
+func BuildLaneBlocked(clock Clock, common Common, reason accessv1.BlockReason) *eventaccessv1.DeviceOperationEvent {
+	detail := &eventaccessv1.LaneBlocked{}
 	detail.SetReason(reason)
 
 	event := newEvent(clock, common)
@@ -142,15 +142,15 @@ func BuildLaneBlocked(clock Clock, common Common, reason accessv1.BlockReason) *
 
 // BuildLaneReleased constructs the event for the device's lane becoming free
 // for the next mutation.
-func BuildLaneReleased(clock Clock, common Common) *eventv1.DeviceOperationEvent {
+func BuildLaneReleased(clock Clock, common Common) *eventaccessv1.DeviceOperationEvent {
 	event := newEvent(clock, common)
-	event.SetLaneReleased(&eventv1.LaneReleased{})
+	event.SetLaneReleased(&eventaccessv1.LaneReleased{})
 	return event
 }
 
 // BuildRouteSelected constructs the event for one route resolution.
-func BuildRouteSelected(clock Clock, common Common, protocol inventoryv1.ManagementProtocol, fellThrough bool) *eventv1.DeviceOperationEvent {
-	detail := &eventv1.RouteSelected{}
+func BuildRouteSelected(clock Clock, common Common, protocol inventoryv1.ManagementProtocol, fellThrough bool) *eventaccessv1.DeviceOperationEvent {
+	detail := &eventaccessv1.RouteSelected{}
 	detail.SetProtocol(protocol)
 	if fellThrough {
 		detail.SetFellThrough(true)
@@ -163,8 +163,8 @@ func BuildRouteSelected(clock Clock, common Common, protocol inventoryv1.Managem
 
 // BuildDiscoveryCompleted constructs the event for identity and capability
 // discovery finishing for a device.
-func BuildDiscoveryCompleted(clock Clock, common Common, firmwareFingerprint string) *eventv1.DeviceOperationEvent {
-	detail := &eventv1.DiscoveryCompleted{}
+func BuildDiscoveryCompleted(clock Clock, common Common, firmwareFingerprint string) *eventaccessv1.DeviceOperationEvent {
+	detail := &eventaccessv1.DiscoveryCompleted{}
 	detail.SetFirmwareFingerprint(firmwareFingerprint)
 
 	event := newEvent(clock, common)
@@ -177,8 +177,8 @@ func BuildDiscoveryCompleted(clock Clock, common Common, firmwareFingerprint str
 // check needs a fresh probe at observation time compared against an earlier
 // probe's own output. The lane runs that probe and calls this; this module
 // does not compare fingerprints itself.
-func BuildFirmwareEpochChanged(clock Clock, common Common, previous, next string) *eventv1.DeviceOperationEvent {
-	detail := &eventv1.FirmwareEpochChanged{}
+func BuildFirmwareEpochChanged(clock Clock, common Common, previous, next string) *eventaccessv1.DeviceOperationEvent {
+	detail := &eventaccessv1.FirmwareEpochChanged{}
 	detail.SetPreviousFingerprint(previous)
 	detail.SetNewFingerprint(next)
 
@@ -189,16 +189,16 @@ func BuildFirmwareEpochChanged(clock Clock, common Common, previous, next string
 
 // BuildRecoveryStarted constructs the event for a mutation whose effect
 // could not be established entering recovery.
-func BuildRecoveryStarted(clock Clock, common Common) *eventv1.DeviceOperationEvent {
+func BuildRecoveryStarted(clock Clock, common Common) *eventaccessv1.DeviceOperationEvent {
 	event := newEvent(clock, common)
-	event.SetRecoveryStarted(&eventv1.RecoveryStarted{})
+	event.SetRecoveryStarted(&eventaccessv1.RecoveryStarted{})
 	return event
 }
 
 // BuildLaneFrozen constructs the event for the lane pausing because the
 // hosting edge's own contact could not be confirmed.
-func BuildLaneFrozen(clock Clock, common Common) *eventv1.DeviceOperationEvent {
+func BuildLaneFrozen(clock Clock, common Common) *eventaccessv1.DeviceOperationEvent {
 	event := newEvent(clock, common)
-	event.SetLaneFrozen(&eventv1.LaneFrozen{})
+	event.SetLaneFrozen(&eventaccessv1.LaneFrozen{})
 	return event
 }

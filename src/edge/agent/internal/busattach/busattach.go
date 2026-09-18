@@ -17,7 +17,7 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -30,7 +30,7 @@ var ErrCodeAttach = errs.NewCode("agent/bus-attach")
 // Attacher is the one EdgeService call this package makes. Satisfied by the
 // generated client; an interface so the assembly can be tested without a hub.
 type Attacher interface {
-	AttachBus(context.Context, *connect.Request[edgev1.AttachBusRequest]) (*connect.Response[edgev1.AttachBusResponse], error)
+	AttachBus(context.Context, *connect.Request[attachv1.AttachBusRequest]) (*connect.Response[attachv1.AttachBusResponse], error)
 }
 
 // Config is what Attach needs beyond the call itself.
@@ -89,7 +89,7 @@ func Attach(ctx context.Context, client Attacher, cfg Config) (_ *Attachment, er
 			Msg("this edge has no trust anchors; it would refuse every certificate central presents")
 	}
 
-	response, err := client.AttachBus(ctx, connect.NewRequest(&edgev1.AttachBusRequest{}))
+	response, err := client.AttachBus(ctx, connect.NewRequest(&attachv1.AttachBusRequest{}))
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeAttach).Msg("attach to the bus")
 	}

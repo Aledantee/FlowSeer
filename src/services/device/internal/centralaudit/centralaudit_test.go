@@ -9,9 +9,9 @@ import (
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/centralaudit"
@@ -61,7 +61,7 @@ func TestDispatchRejectedRecordsTheDispositionAndTheReason(t *testing.T) {
 	if want := edgebus.AuditSubject(edgebus.DefaultTenant, deviceID); pub.subject != want {
 		t.Errorf("subject = %q, want %q", pub.subject, want)
 	}
-	event := &eventv1.DeviceOperationEvent{}
+	event := &eventaccessv1.DeviceOperationEvent{}
 	if err := proto.Unmarshal(pub.data, event); err != nil {
 		t.Fatalf("unmarshal published event: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestDriftDetectedRecordsBothValues(t *testing.T) {
 		t.Fatalf("DriftDetected: %v", err)
 	}
 
-	event := &eventv1.DeviceOperationEvent{}
+	event := &eventaccessv1.DeviceOperationEvent{}
 	if err := proto.Unmarshal(pub.data, event); err != nil {
 		t.Fatalf("unmarshal published event: %v", err)
 	}

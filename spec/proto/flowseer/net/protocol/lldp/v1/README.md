@@ -4,6 +4,18 @@ The `flowseer.net.protocol.lldp.v1` package holds what the Link Layer
 Discovery Protocol owns: what a device announces about itself, how each of
 its ports runs the protocol, and what its neighbors announced back.
 
+## Boundaries
+
+Imports: net/addr
+
+Imported by: nothing
+
+Deliberately absent:
+
+- Device and interface entity references. Rows use device-local interface names.
+- Raw LLDPDU wire decoders.
+- Observation time, provenance, and tenant context.
+
 Neighbors are a device-scoped table, not an attribute of an interface. A row
 names the local interface it was heard on by that interface's device-local
 name, so a walk of the neighbor table stands on its own and nothing has to be

@@ -13,14 +13,15 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // HeaderScheme is the Authorization scheme every assertion-bearing call
 // uses. The verifier has its own copy (the device service's internal/edge
 // package, which nothing outside that service may import), so this is a
-// mirrored constant. Neither copy is authoritative: the api/edge README's
+// mirrored constant. Neither copy is authoritative: the model/edge README's
 // worked header vector is, and both sides are tested against it as a literal
 // — this package's signer must produce that exact string, and the verifier's
 // TestVerifierAcceptsTheReadmeVector must accept it. Change either copy alone
@@ -62,7 +63,7 @@ type Signer struct {
 }
 
 // NewSigner builds the signer for an enrolled edge.
-func NewSigner(key ed25519.PrivateKey, enrollment *edgev1.EnrollResponse, now func() time.Time) *Signer {
+func NewSigner(key ed25519.PrivateKey, enrollment *attachv1.EnrollResponse, now func() time.Time) *Signer {
 	if now == nil {
 		now = time.Now
 	}
@@ -90,7 +91,7 @@ func (s *Signer) AdoptServerTime(ctx context.Context, serverTime time.Time) {
 }
 
 // Header returns the Authorization value for one call: the procedure as
-// Connect names it ("/flowseer.api.edge.v1.EdgeService/Heartbeat") and the
+// Connect names it ("/flowseer.edge.attach.v1.EdgeService/Heartbeat") and the
 // exact request body bytes that will go on the wire.
 //
 // The body must be the uncompressed bytes central will hash, which for a

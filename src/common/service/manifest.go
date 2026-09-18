@@ -17,7 +17,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -36,7 +36,7 @@ var (
 // reconcileStoreProvenance prevents opening a populated store whose service,
 // domain, format, or NATS version does not match this runtime.
 func reconcileStoreProvenance(config normalizedBusConfig) error {
-	want := servicev1.StoreProvenance_builder{
+	want := runtimev1.StoreProvenance_builder{
 		FormatVersion:    proto.Uint32(manifestVersion),
 		NatsVersion:      proto.String(server.VERSION),
 		ServiceNamespace: proto.String(config.serviceNamespace),
@@ -56,7 +56,7 @@ func reconcileStoreProvenance(config normalizedBusConfig) error {
 	if err != nil {
 		return busUnhealthy(err, "read local bus store provenance")
 	}
-	got := &servicev1.StoreProvenance{}
+	got := &runtimev1.StoreProvenance{}
 	if err := proto.Unmarshal(data, got); err != nil {
 		return errs.From(err).Code(errCodeBusMigration).Attr("nats_version", server.VERSION).Msg("local bus store provenance is malformed")
 	}
@@ -88,7 +88,7 @@ func storeContainsBrokerData(storeDir string) (bool, error) {
 
 // writeProvenance publishes a fully written and synced temporary file by rename
 // so readers never observe a partial store marker.
-func writeProvenance(path string, provenance *servicev1.StoreProvenance) error {
+func writeProvenance(path string, provenance *runtimev1.StoreProvenance) error {
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(provenance)
 	if err != nil {
 		return busUnhealthy(err, "encode local bus store provenance")
@@ -135,18 +135,18 @@ func writeProvenance(path string, provenance *servicev1.StoreProvenance) error {
 	return nil
 }
 
-func runtimeManifest(config runtimeConfig) (*servicev1.RuntimeManifest, error) {
+func runtimeManifest(config runtimeConfig) (*runtimev1.RuntimeManifest, error) {
 	if config.bus == nil {
 		return nil, errs.New().Code(errCodeBusManifest).Msg("build manifest for disabled local bus")
 	}
 	modules := manifestModules(config.modules)
 	paths := config.modulePaths()
 	slices.Sort(paths)
-	manifest := servicev1.RuntimeManifest_builder{
+	manifest := runtimev1.RuntimeManifest_builder{
 		ServiceNamespace:       proto.String(config.identity.Namespace),
 		ServiceName:            proto.String(config.identity.Name),
 		Domain:                 proto.String(config.bus.domain),
-		EnvelopeType:           proto.String("flowseer.service.v1.Message"),
+		EnvelopeType:           proto.String("flowseer.runtime.v1.Message"),
 		EnvelopeVersion:        proto.Uint32(manifestVersion),
 		SubjectVersion:         proto.Uint32(subjectVersion),
 		NatsVersion:            proto.String(server.VERSION),
@@ -166,33 +166,33 @@ func runtimeManifest(config runtimeConfig) (*servicev1.RuntimeManifest, error) {
 	return manifest, nil
 }
 
-func manifestModules(modules []plannedModule) []*servicev1.ModuleContract {
-	var contracts []*servicev1.ModuleContract
+func manifestModules(modules []plannedModule) []*runtimev1.ModuleContract {
+	var contracts []*runtimev1.ModuleContract
 	var appendModules func([]plannedModule)
 	appendModules = func(items []plannedModule) {
 		for _, module := range items {
 			if module.leaf != nil {
-				subscriptions := make([]*servicev1.SubscriptionContract, 0, len(module.leaf.subscriptions))
+				subscriptions := make([]*runtimev1.SubscriptionContract, 0, len(module.leaf.subscriptions))
 				for _, subscription := range module.leaf.subscriptions {
 					aliases := make([]string, len(subscription.aliases))
 					for i, alias := range subscription.aliases {
 						aliases[i] = string(alias)
 					}
 					slices.Sort(aliases)
-					subscriptions = append(subscriptions, servicev1.SubscriptionContract_builder{
+					subscriptions = append(subscriptions, runtimev1.SubscriptionContract_builder{
 						Kind:     subscription.kind.Enum(),
 						TypeName: proto.String(string(subscription.fullName)),
 						Aliases:  aliases,
 						Retries:  proto.Uint32(uint32(subscription.retries)),
 					}.Build())
 				}
-				slices.SortFunc(subscriptions, func(left, right *servicev1.SubscriptionContract) int {
+				slices.SortFunc(subscriptions, func(left, right *runtimev1.SubscriptionContract) int {
 					if left.GetKind() != right.GetKind() {
 						return cmp.Compare(left.GetKind(), right.GetKind())
 					}
 					return strings.Compare(left.GetTypeName(), right.GetTypeName())
 				})
-				contracts = append(contracts, servicev1.ModuleContract_builder{
+				contracts = append(contracts, runtimev1.ModuleContract_builder{
 					Path:                proto.String(module.path),
 					PathToken:           proto.String(module.pathToken),
 					DurableName:         proto.String(module.durableName),
@@ -204,7 +204,7 @@ func manifestModules(modules []plannedModule) []*servicev1.ModuleContract {
 		}
 	}
 	appendModules(modules)
-	slices.SortFunc(contracts, func(left, right *servicev1.ModuleContract) int {
+	slices.SortFunc(contracts, func(left, right *runtimev1.ModuleContract) int {
 		return strings.Compare(left.GetPath(), right.GetPath())
 	})
 	return contracts
@@ -227,11 +227,11 @@ func reconcileRuntimeManifest(config runtimeConfig) busReconciler {
 			if err := validateReconciliation(current); err != nil {
 				return err
 			}
-			if current.GetPhase() == servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED && proto.Equal(current.GetDesired(), desired) {
+			if current.GetPhase() == runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED && proto.Equal(current.GetDesired(), desired) {
 				return reconcileSettlements(ctx, resources)
 			}
-			if current.GetPhase() == servicev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED && proto.Equal(current.GetPrevious(), desired) {
-				committed, commitErr := newReconciliation(current.GetPrevious(), desired, servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED)
+			if current.GetPhase() == runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED && proto.Equal(current.GetPrevious(), desired) {
+				committed, commitErr := newReconciliation(current.GetPrevious(), desired, runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED)
 				if commitErr != nil {
 					return commitErr
 				}
@@ -245,15 +245,15 @@ func reconcileRuntimeManifest(config runtimeConfig) busReconciler {
 			}
 		}
 
-		var previous *servicev1.RuntimeManifest
+		var previous *runtimev1.RuntimeManifest
 		if current != nil {
-			if current.GetPhase() == servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED {
+			if current.GetPhase() == runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED {
 				previous = current.GetDesired()
 			} else {
 				previous = current.GetPrevious()
 			}
 		}
-		prepared, err := newReconciliation(previous, desired, servicev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED)
+		prepared, err := newReconciliation(previous, desired, runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_PREPARED)
 		if err != nil {
 			return err
 		}
@@ -261,7 +261,7 @@ func reconcileRuntimeManifest(config runtimeConfig) busReconciler {
 		if err != nil {
 			return err
 		}
-		committed, err := newReconciliation(previous, desired, servicev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED)
+		committed, err := newReconciliation(previous, desired, runtimev1.ReconciliationPhase_RECONCILIATION_PHASE_COMMITTED)
 		if err != nil {
 			return err
 		}
@@ -324,7 +324,7 @@ func reconcileSettlements(ctx context.Context, resources busResources) error {
 }
 
 func settlementMatchesMailbox(ctx context.Context, mailbox jetstream.Stream, message jetstream.Msg) (bool, error) {
-	settlement := &servicev1.Settlement{}
+	settlement := &runtimev1.Settlement{}
 	if err := proto.Unmarshal(message.Data(), settlement); err != nil {
 		return false, nil
 	}
@@ -339,7 +339,7 @@ func settlementMatchesMailbox(ctx context.Context, mailbox jetstream.Stream, mes
 	if err != nil {
 		return false, busUnhealthy(err, "read mailbox record for local bus settlement")
 	}
-	envelope := &servicev1.Message{}
+	envelope := &runtimev1.Message{}
 	if err := proto.Unmarshal(stored.Data, envelope); err != nil {
 		return false, nil
 	}
@@ -350,7 +350,7 @@ func settlementMatchesMailbox(ctx context.Context, mailbox jetstream.Stream, mes
 
 // readReconciliation returns the latest manifest journal record and its
 // sequence. An absent record returns nil and zero.
-func readReconciliation(ctx context.Context, metadata jetstream.Stream) (*servicev1.ReconciliationRecord, uint64, error) {
+func readReconciliation(ctx context.Context, metadata jetstream.Stream) (*runtimev1.ReconciliationRecord, uint64, error) {
 	message, err := metadata.GetLastMsgForSubject(ctx, manifestSubject)
 	if errors.Is(err, jetstream.ErrMsgNotFound) {
 		return nil, 0, nil
@@ -358,19 +358,19 @@ func readReconciliation(ctx context.Context, metadata jetstream.Stream) (*servic
 	if err != nil {
 		return nil, 0, busUnhealthy(err, "read local bus manifest")
 	}
-	record := &servicev1.ReconciliationRecord{}
+	record := &runtimev1.ReconciliationRecord{}
 	if err := proto.Unmarshal(message.Data, record); err != nil {
 		return nil, 0, errs.From(err).Code(errCodeBusMigration).Attr("nats_version", server.VERSION).Msg("local bus manifest journal is malformed")
 	}
 	return record, message.Sequence, nil
 }
 
-func newReconciliation(previous, desired *servicev1.RuntimeManifest, phase servicev1.ReconciliationPhase) (*servicev1.ReconciliationRecord, error) {
+func newReconciliation(previous, desired *runtimev1.RuntimeManifest, phase runtimev1.ReconciliationPhase) (*runtimev1.ReconciliationRecord, error) {
 	checksum, err := manifestChecksum(desired)
 	if err != nil {
 		return nil, err
 	}
-	record := servicev1.ReconciliationRecord_builder{
+	record := runtimev1.ReconciliationRecord_builder{
 		Previous:        previous,
 		Desired:         desired,
 		DesiredChecksum: checksum,
@@ -382,7 +382,7 @@ func newReconciliation(previous, desired *servicev1.RuntimeManifest, phase servi
 	return record, nil
 }
 
-func validateReconciliation(record *servicev1.ReconciliationRecord) error {
+func validateReconciliation(record *runtimev1.ReconciliationRecord) error {
 	if err := protovalidate.Validate(record); err != nil {
 		return errs.From(err).Code(errCodeBusMigration).Attr("nats_version", server.VERSION).Msg("local bus manifest journal is invalid")
 	}
@@ -396,7 +396,7 @@ func validateReconciliation(record *servicev1.ReconciliationRecord) error {
 	return nil
 }
 
-func manifestChecksum(manifest *servicev1.RuntimeManifest) ([]byte, error) {
+func manifestChecksum(manifest *runtimev1.RuntimeManifest) ([]byte, error) {
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(manifest)
 	if err != nil {
 		return nil, errs.From(err).Code(errCodeBusManifest).Msg("encode local bus manifest")
@@ -405,7 +405,7 @@ func manifestChecksum(manifest *servicev1.RuntimeManifest) ([]byte, error) {
 	return sum[:], nil
 }
 
-func publishReconciliation(ctx context.Context, resources busResources, record *servicev1.ReconciliationRecord, previousSequence uint64) (uint64, error) {
+func publishReconciliation(ctx context.Context, resources busResources, record *runtimev1.ReconciliationRecord, previousSequence uint64) (uint64, error) {
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(record)
 	if err != nil {
 		return 0, errs.From(err).Code(errCodeBusManifest).Msg("encode local bus reconciliation record")
@@ -425,12 +425,12 @@ func publishReconciliation(ctx context.Context, resources busResources, record *
 
 // manifestAdditionCompatible permits only additive changes that preserve every
 // persisted module path and contract.
-func manifestAdditionCompatible(previous, desired *servicev1.RuntimeManifest) bool {
+func manifestAdditionCompatible(previous, desired *runtimev1.RuntimeManifest) bool {
 	if previous == nil || desired == nil {
 		return previous == nil
 	}
-	previousCopy := proto.Clone(previous).(*servicev1.RuntimeManifest)
-	desiredCopy := proto.Clone(desired).(*servicev1.RuntimeManifest)
+	previousCopy := proto.Clone(previous).(*runtimev1.RuntimeManifest)
+	desiredCopy := proto.Clone(desired).(*runtimev1.RuntimeManifest)
 	previousModules := previousCopy.GetModules()
 	desiredModules := desiredCopy.GetModules()
 	previousPaths := previousCopy.GetModulePaths()
@@ -442,7 +442,7 @@ func manifestAdditionCompatible(previous, desired *servicev1.RuntimeManifest) bo
 	if !proto.Equal(previousCopy, desiredCopy) || !containsAll(desiredPaths, previousPaths) {
 		return false
 	}
-	desiredByPath := make(map[string]*servicev1.ModuleContract, len(desiredModules))
+	desiredByPath := make(map[string]*runtimev1.ModuleContract, len(desiredModules))
 	for _, module := range desiredModules {
 		desiredByPath[module.GetPath()] = module
 	}
@@ -457,9 +457,9 @@ func manifestAdditionCompatible(previous, desired *servicev1.RuntimeManifest) bo
 
 // moduleAdditionCompatible permits added subscriptions and aliases while
 // preserving each persisted module contract.
-func moduleAdditionCompatible(previous, desired *servicev1.ModuleContract) bool {
-	previousCopy := proto.Clone(previous).(*servicev1.ModuleContract)
-	desiredCopy := proto.Clone(desired).(*servicev1.ModuleContract)
+func moduleAdditionCompatible(previous, desired *runtimev1.ModuleContract) bool {
+	previousCopy := proto.Clone(previous).(*runtimev1.ModuleContract)
+	desiredCopy := proto.Clone(desired).(*runtimev1.ModuleContract)
 	previousSubscriptions := previousCopy.GetSubscriptions()
 	desiredSubscriptions := desiredCopy.GetSubscriptions()
 	previousCopy.SetSubscriptions(nil)
@@ -475,8 +475,8 @@ func moduleAdditionCompatible(previous, desired *servicev1.ModuleContract) bool 
 			}
 			oldAliases := oldSubscription.GetAliases()
 			newAliases := newSubscription.GetAliases()
-			oldCopy := proto.Clone(oldSubscription).(*servicev1.SubscriptionContract)
-			newCopy := proto.Clone(newSubscription).(*servicev1.SubscriptionContract)
+			oldCopy := proto.Clone(oldSubscription).(*runtimev1.SubscriptionContract)
+			newCopy := proto.Clone(newSubscription).(*runtimev1.SubscriptionContract)
 			oldCopy.SetAliases(nil)
 			newCopy.SetAliases(nil)
 			found = proto.Equal(oldCopy, newCopy) && containsAll(newAliases, oldAliases)

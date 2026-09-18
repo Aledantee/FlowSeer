@@ -118,8 +118,9 @@ interface description on that switch.
     the credential responses gained typed material); `device/access`
     imports `api/inventory`, `api/edge`, `device/policy`, and `net/*`;
     `api/device`, `integration/device`, and `event/device` each import
-    `device/access` and `errs` and none of them imports another. The event
-    envelope therefore reaches `api/edge` only through `device/access`,
+    `device/access`, and none of them imports another. Only
+    `integration/device` also imports `errs`. The event envelope therefore
+    reaches `api/edge` only through `device/access`,
     which amends the network-model record's sentence that it never does.
     Provenance stays the one message in `api/inventory`, extended with the
     answering protocol, the Edge, and the firmware fingerprint.
@@ -160,3 +161,30 @@ interface description on that switch.
   never replace it.
 - Every write path needs measured delayed-apply and recovery bounds from the
   real fixture before it is enabled; an absent bound blocks mutation.
+
+## Amendments
+
+### 2026-09-17 — the boundary packages moved to model/
+
+Decision 12's tree and import list describe the boundary packages as they
+stood on 2026-09-05. `device/policy`, `device/credential`, and
+`api/inventory` now read `model/policy`, `model/credential`, and
+`model/inventory`; `device/access` now reads `model/access`; the Edge ref
+and lifecycle that `api/edge` carried split out to `model/edge`, and
+`api/edge` keeps only `EdgeAdminService`. `api/device` and `store/device`
+keep their names; where this decision says one of them imports a `device/`
+or `api/inventory` package, that import now names the matching `model/`
+package. `integration/device` now reads `edge/dispatch`; `event/device`
+split, its `AuditService` into `edge/audit` and its `DeviceOperationEvent`
+into `event/access`. `api/edge`'s `EdgeService` reads `edge/attach` while
+`EdgeAdminService` stays. See [the
+network model structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree)
+for the tree and import graph as they stand.
+
+### 2026-09-18 — the process-local bus package took its final name
+
+Decision 12's process-local bus package, `flowseer.service.v1` as of
+2026-09-05, now reads `flowseer.runtime.v1`. See [the network model
+structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree).

@@ -5,6 +5,17 @@ exact values, and small reusable match atoms. ACL, QoS, firewall, flow,
 protocol, and telemetry schemas may import these values without making this
 package aware of their policy or service semantics.
 
+## Boundaries
+
+Imports: nothing FlowSeer-owned
+
+Imported by: net/capture, net/switching
+
+Deliberately absent:
+
+- Universal packet matchers, flow records, counters, and packet directions.
+- Observation time, provenance, and tenant context.
+
 An exact value represents bits observed on the wire. A match value represents
 a predicate: alternatives within a repeated field are ORed, while populated
 fields are ANDed. Absence of a containing matcher means unconstrained; the

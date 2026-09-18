@@ -5,7 +5,8 @@
 // can inject a fake instead of a real EdgeService. Per
 // docs/architecture/2026-09-05-verified-device-access-direction.md,
 // "Credentials and write authority never ride the bus", credentials never
-// ride the local bus and never cross this module's own public API; they exist only behind these two interfaces and the adapter
-// in connect_adapter.go that satisfies them against a real
-// edgev1connect.EdgeServiceClient.
+// ride the local bus and never cross this module's own public API; they
+// exist only behind these two interfaces and the adapter in
+// connect_adapter.go that satisfies them against a real
+// attachv1connect.EdgeServiceClient.
 package credential

@@ -11,9 +11,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
-	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -140,7 +140,7 @@ func NewService(store *edgestore.Store, reg *registry.Registry, lanes LaneRecord
 // A heartbeat that reports nothing buffered clears the stored timestamp. Each
 // one describes the edge as it is now, so leaving the last one standing would
 // show an operator a backlog that has already drained.
-func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[edgev1.HeartbeatRequest]) (*connect.Response[edgev1.HeartbeatResponse], error) {
+func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[attachv1.HeartbeatRequest]) (*connect.Response[attachv1.HeartbeatResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return nil, unauthenticated(err)
@@ -164,14 +164,14 @@ func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[edgev1.Hea
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.HeartbeatResponse_builder{ServerTime: timestamppb.New(now)}.Build()), nil
+	return connect.NewResponse(attachv1.HeartbeatResponse_builder{ServerTime: timestamppb.New(now)}.Build()), nil
 }
 
 // AttachBus hands the calling edge the NATS identity its embedded leaf node
 // authenticates with, the subjects it publishes on, and the endpoints to dial.
 // The user is minted by the hub with the hub's own permission set; this handler
 // chooses nothing about what the edge may reach.
-func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[edgev1.AttachBusRequest]) (*connect.Response[edgev1.AttachBusResponse], error) {
+func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[attachv1.AttachBusRequest]) (*connect.Response[attachv1.AttachBusResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return nil, unauthenticated(err)
@@ -186,7 +186,7 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[edgev1.Attac
 		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("render edge bus credential"))
 	}
 
-	return connect.NewResponse(edgev1.AttachBusResponse_builder{
+	return connect.NewResponse(attachv1.AttachBusResponse_builder{
 		AccountJwt:     []byte(creds.AccountJWT),
 		UserCredential: credsFile,
 		Subjects:       edgebus.EdgePublishSubjects(s.bus.Tenant(), edgeID),
@@ -213,7 +213,7 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[edgev1.Attac
 // listing would instead leave the edge unable to tell a device it must not
 // mutate from one central has never heard of, and would stop its reads for a
 // property only mutations depend on.
-func (s *Service) ListDevices(ctx context.Context, _ *connect.Request[edgev1.ListDevicesRequest]) (*connect.Response[edgev1.ListDevicesResponse], error) {
+func (s *Service) ListDevices(ctx context.Context, _ *connect.Request[attachv1.ListDevicesRequest]) (*connect.Response[attachv1.ListDevicesResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return nil, unauthenticated(err)
@@ -231,13 +231,13 @@ func (s *Service) ListDevices(ctx context.Context, _ *connect.Request[edgev1.Lis
 	}
 	slices.Sort(ids)
 
-	listed := make([]*edgev1.ListedDevice, 0, len(ids))
+	listed := make([]*attachv1.ListedDevice, 0, len(ids))
 	for _, id := range ids {
 		device, ok := s.registry.Device(id)
 		if !ok {
 			continue
 		}
-		entry := edgev1.ListedDevice_builder{
+		entry := attachv1.ListedDevice_builder{
 			DeviceId:     proto.String(id),
 			BindingId:    proto.String(device.GetBinding().GetBinding().GetId()),
 			Ip:           device.GetIp(),
@@ -255,14 +255,14 @@ func (s *Service) ListDevices(ctx context.Context, _ *connect.Request[edgev1.Lis
 		listed = append(listed, entry.Build())
 	}
 
-	return connect.NewResponse(edgev1.ListDevicesResponse_builder{Devices: listed}.Build()), nil
+	return connect.NewResponse(attachv1.ListDevicesResponse_builder{Devices: listed}.Build()), nil
 }
 
 // AcquireReadCredential delivers a read credential for one binding, under the
 // access policy version the device pins. There is no standing lease: the
 // response carries an expiry and the edge acquires a fresh credential for the
 // next read.
-func (s *Service) AcquireReadCredential(ctx context.Context, req *connect.Request[edgev1.AcquireReadCredentialRequest]) (*connect.Response[edgev1.AcquireReadCredentialResponse], error) {
+func (s *Service) AcquireReadCredential(ctx context.Context, req *connect.Request[attachv1.AcquireReadCredentialRequest]) (*connect.Response[attachv1.AcquireReadCredentialResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return nil, unauthenticated(err)
@@ -282,8 +282,8 @@ func (s *Service) AcquireReadCredential(ctx context.Context, req *connect.Reques
 			Attr("credential_key", handle.GetKey()).Msg("read credential material"))
 	}
 
-	resp := edgev1.AcquireReadCredentialResponse_builder{
-		Credential: edgev1.DeviceCredential_builder{
+	resp := attachv1.AcquireReadCredentialResponse_builder{
+		Credential: attachv1.DeviceCredential_builder{
 			Credential:    handle,
 			TypedMaterial: material,
 		}.Build(),

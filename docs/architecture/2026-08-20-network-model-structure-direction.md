@@ -30,7 +30,7 @@ switching, and ip boundary is recorded in the
 Two kinds of message, two trees, one import rule. **Primitives** under
 `flowseer/net/…` are networking *values* — an address, a VLAN, a neighbor
 entry, an interface — with no identity, tenant, lifecycle, or provenance.
-**Entities** currently under `flowseer/api/inventory/v1` embed primitives by
+**Entities** currently under `flowseer/model/inventory/v1` embed primitives by
 value. UUID-identified entities carry ref pairs; intended-and-observed families
 use the applicable lifecycle and Config/State/Event shapes. Deliberately partial
 families, including the keyless Tenant sketch, follow the exceptions in the
@@ -55,28 +55,36 @@ spec/proto/flowseer/
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
-  api/
-    inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, provenance
-    edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
-    capture/v1/         CaptureSession and its lifecycle, CaptureService and CaptureEdgeService
-    device/v1/          DeviceService, the operator-facing typed device API
-  device/
+  model/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
-    credential/v1/      the typed secret material a device login carries; imports nothing
+    credential/v1/      CredentialMaterial, the typed secret an edge carries; imports nothing
+    edge/v1/            the Edge entity: ref pair, lifecycle, setup key, registered key, assertion, key proof, and provisioning file
+    inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, Tag, provenance
+    capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
     access/v1/          the operation vocabulary every device-access boundary shares
-  integration/device/v1/  execution envelopes between central and an integration (reserved)
-  event/device/v1/      the durable DeviceOperationEvent audit record (reserved)
-  errs/v1/              the error wire payload (reserved)
-  service/v1/           process-local runtime messages and durable mailbox contracts
+  api/
+    edge/v1/            EdgeAdminService, the operator-facing Connect service for edge administration
+    capture/v1/         CaptureService, the operator-facing Connect service around the CaptureSession entity
+    device/v1/          DeviceService, the operator-facing typed device API
+  edge/
+    attach/v1/          EdgeService, what an edge calls to enroll, stay attached, list its devices, and acquire credentials
+    dispatch/v1/        DispatchService, the execution envelope central and the edge hosting a device's lane exchange
+    audit/v1/           AuditService, delivering the durable DeviceOperationEvent audit record
+    capture/v1/         CaptureEdgeService, the upload stream for packet capture sessions
+  errs/v1/              the error wire payload
+  event/
+    access/v1/          DeviceOperationEvent, the durable audit record of lane operations
+  integration/          holds only a README; fabric contract reserved
+  runtime/v1/           process-local runtime messages and durable mailbox contracts
   store/
     device/v1/          the device service's persisted records; imported by nothing
-    edge/v1/            the edge agent's persisted configuration; imported by nothing
+    agent/v1/           the edge agent's persisted configuration; imported by nothing
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
-families beyond those present in the repository remain reserved locations,
-as are the execution, audit, and error wire packages, whose paths the
-2026-09-05 amendment below settles. `flowseer.service.v1` names the
+families beyond those present in the repository remain reserved locations.
+`integration/` holds only a README, with its own fabric contract (announce,
+kind descriptor, event subjects) reserved. `flowseer.runtime.v1` names the
 process-local service runtime contract; it must not be treated as a
 ConnectRPC API package by inference.
 
@@ -94,16 +102,22 @@ is wider where a package may still grow into a permitted import:
 net/addr ← {net/switching, net/ip, net/protocol/*}
 net/packet ← net/switching
 {net/addr, net/packet, net/switching} ← net/capture
-{net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
-{device/credential, device/policy, net/addr} ← api/edge
-{api/edge, device/policy, net/addr, net/phy} ← api/inventory
-{api/inventory, api/edge, device/policy, net/interface} ← device/access
-{device/access, api/inventory} ← api/device
-device/access ← {integration/device, event/device}
-api/inventory ← event/device
-errs ← {integration/device, store/device}
-{net/capture, api/edge} ← api/capture
-{api/edge, api/inventory, device/access, device/policy, errs, net/addr} ← store/device
+{net/addr, net/phy, net/switching, net/ip} ← net/interface
+model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
+model/policy ← {edge/attach, model/access, model/inventory, store/device}
+model/credential ← edge/attach
+{model/edge, net/capture} ← model/capture
+{model/edge, model/policy, model/credential, net/addr} ← edge/attach
+{model/edge, model/policy, net/addr, net/phy} ← model/inventory
+{model/edge, model/inventory, model/policy, net/interface} ← model/access
+{model/capture, model/edge, net/capture} ← api/capture
+{model/capture, model/edge} ← edge/capture
+{model/access, model/inventory} ← api/device
+model/access ← {edge/dispatch, event/access}
+model/inventory ← event/access
+errs ← {edge/dispatch, store/device}
+event/access ← edge/audit
+{model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
@@ -111,25 +125,31 @@ never import a protocol; a protocol package imports the address values it
 renders and nothing above them.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
-imports address values. Future integration, service API, and event packages
-consume the entity model without introducing a downward import. `api/edge`
-is the Edge's entity package and, as the first Connect service package, also
-holds the Edge's services; below it sit only the two `device/` leaves it
-carries handles and secret material from, and the address values. `api/inventory`
-imports it because an integration names its hosting edge, and imports
-`net/phy` because a component embeds the pluggable module and a cable
-names its connector. `api/inventory` does not yet embed the interface
-model: the interface entity is undecided, and the device-access boundary is
-where `net/interface` values cross today. The service API, the execution
-envelope, and the event envelope are sibling boundary consumers of
-`device/access` and never import one another; the event envelope reaches
-`api/edge` only through `device/access`, which names the edge responsible
-for a mutation, and names the device directly through `api/inventory`. The
-allowlist also grants `errs` to `api/device` and `event/device`, which do
-not use it yet. The `store/` packages are imported by nothing. The order's
-home for automated checking is `test/conformance/proto/layering_test.go`;
-`spec/proto/` holds only `.proto` and `README.md` files, so no test can sit
-beside the schemas.
+imports address values. `model/edge`, `model/credential`, and `model/policy`
+are leaves too: every package that needs the Edge ref, a credential, or an
+access-policy handle imports the matching one of the three, and none of
+them imports anything FlowSeer-owned back. `edge/attach` imports `model/edge`
+for the entity, `model/credential` and `model/policy` for the handles and
+secret material its services hand out, and `net/addr` for the IP address a
+listed device reports; `api/edge` imports `model/edge` alone. `api/capture`
+imports `model/capture` for the entity and the chunk frames, `model/edge`
+for the owning ref, and `net/capture` for the values a capture observes;
+`edge/capture` imports `model/capture` and `model/edge` for the assertion
+its upload stream re-verifies. `model/inventory` imports `model/edge`
+because an integration names its hosting edge, `model/policy` because a
+device pins an access-policy handle, and `net/phy` because a component
+embeds the pluggable module and a cable names its connector; it does not
+yet embed the interface model, because the interface entity is undecided
+and `model/access` is where `net/interface` values cross today.
+`model/access` is the operation vocabulary the operator API, the execution
+envelope, and the audit event share; none of the three imports another, and
+the audit event reaches `model/edge` only through `model/access`, which
+names the edge responsible for a mutation, and reaches the device directly
+through `model/inventory`. The allowlist also grants `errs` to `api/device`
+and `event/access`, which do not use it yet. The `store/` packages are
+imported by nothing. The order's home for automated checking is
+`test/conformance/proto/layering_test.go`; `spec/proto/` holds only
+`.proto` and `README.md` files, so no test can sit beside the schemas.
 
 ## Why this shape
 
@@ -473,7 +493,7 @@ API_OPAQUE`.
    `<Entity>LocalRef`/`<Entity>GlobalRef` pair beside its triad in its own
    package — an eventual `InterfaceRef` is an entity-package concern, not a
    `net/interface/v1` one; the landed Device ref lives in
-   `api/inventory/v1` — because a package holding every ref would have to
+   `model/inventory/v1` — because a package holding every ref would have to
    know every entity above it, which is the upward import this layering
    forbids. Refs do not carry tenancy scope: tenancy is ambient, resolved from
    the request context for RPC and from the producing integration for events.
@@ -481,7 +501,7 @@ API_OPAQUE`.
    [The model conventions](../conventions/protobuf.md) hold the detail.
 9. **Provenance rides the envelope, not State.** `observed_at` and the
    answering binding describe a live response or an event, so they are one
-   message defined beside `Binding` in `api/inventory/v1` and embedded by the
+   message defined beside `Binding` in `model/inventory/v1` and embedded by the
    integration, service-response, and event envelopes — never a field of an
    `<Entity>State`, and never on a primitive. Rule 3 of
    [the device service direction](2026-08-20-device-service-and-inventory-direction.md)
@@ -536,12 +556,12 @@ one commit with regenerated `generated/`:
    conformance coverage outside the schema source tree.
 2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
    `loopback`, `other` arms. A separate Interface entity slice remains
-   unlanded; the Device family currently lives in `api/inventory/v1`.
+   unlanded; the Device family currently lives in `model/inventory/v1`.
 3. `net/switching` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`,
    `AggregationFacet`, `FdbEntry`) and `net/protocol/lldp` — three of the five
    v1 capabilities (interfaces, neighbors, VLANs) via
    `qbridgemib`/`bridgemib`/`lldpmib`.
-4. `api/inventory/v1` for the landed Device, Integration, Binding, Placement,
+4. `model/inventory/v1` for the landed Device, Integration, Binding, Placement,
    and provenance families. Central integration execution, event envelopes,
    and ConnectRPC APIs still need settled package paths.
 5. `net/ip` (`IpFacet`, `InterfaceAddress`, `NeighborEntry`) via `ipmib`; needed
@@ -726,8 +746,9 @@ network primitives. The earlier package tree split those families across
 `device/v1`, `inventory/v1`, and `integration/v1`; those exact paths no longer
 describe the repository.
 
-The service runtime later claimed `flowseer.service.v1` for process-local
-module messages and durable mailbox contracts. This amendment does not choose
+The service runtime later claimed `flowseer.service.v1` (now
+`flowseer.runtime.v1`) for process-local module messages and durable mailbox
+contracts. This amendment does not choose
 new paths for the central integration execution API, ConnectRPC services, or
 the event envelope. Their separation remains accepted, while their protobuf
 names stay open until the first boundary schema is designed. It also does not
@@ -862,3 +883,80 @@ undecided; the port component's `interface_name` is the join to the
 interface model. A link's end is an interface name, because that is what
 LLDP and LACP report. None of the four top-level families joins
 `EntityType` until its store table lands.
+
+### 2026-09-17 — the tree is cut by kind of contract
+
+Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md`,
+the first of three plans that re-cut this tree by what kind of contract each
+package is rather than by which entity or boundary happened to define it
+first.
+
+- **The axis becomes the kind of contract.** The roots become `net`, `errs`,
+  `model`, `event`, `api`, `edge`, `integration`, `store`, and `runtime`.
+  `net/` stays ref-free values and `errs/` the error wire payload. `model/`
+  gains every package that carries or names identity: entities with their
+  refs and triads, the device-access operation vocabulary, and the policy
+  and credential leaves. `api/` keeps the northbound services an operator
+  calls. `edge/`, the rest of `integration/`, `store/`, and `runtime/` are
+  reserved for the Connect plane between central and an edge, the
+  integration fabric contract, one process's own files, and the
+  process-local bus contract; the amendments below, dated 2026-09-17 and
+  2026-09-18, record where each one lands.
+- **A package that declares a service is a sink.** Nothing may import a
+  package that declares a Connect service, and no package under `model/`
+  declares one. `test/conformance/proto/layering_test.go` enforces both
+  halves. The rule already held for what `api/edge` and `api/capture`
+  export as services — nothing ever imported either package to call
+  `EdgeService` or `CaptureService`, only for the ref each also carried —
+  and splitting the ref out makes that fact checkable instead of
+  incidental.
+- **Every directory carries a README in one shape.** A root or intermediate
+  directory states its identity, the test a new package passes to live
+  there, and which roots it may import and be imported by. A versioned
+  package README states its full package name, one identity paragraph, and
+  a `## Boundaries` section with `Imports:`, `Imported by:`, and
+  `Deliberately absent:` lines, checked against the tree by
+  `TestProtoReadmeCoverage` and `TestProtoReadmeImports`.
+- **The device-access packages move to `model/`.** `device/policy`,
+  `device/credential`, and `api/inventory` move there unsplit; the Edge
+  entity splits out of `api/edge/v1` and the CaptureSession entity and its
+  chunk frames split out of `api/capture/v1`, so each service package keeps
+  only its Connect services and imports the entity package for the ref. The
+  tree and import graph above describe the result.
+
+### 2026-09-17 — the edge plane is its own root
+
+Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md`.
+
+- **The edge-facing Connect services move to `edge/`.** `EdgeService` moves
+  from `api/edge/v1` to `edge/attach/v1`, leaving `api/edge/v1` holding
+  `EdgeAdminService` alone. `CaptureEdgeService` moves from `api/capture/v1` to
+  `edge/capture/v1`. `DispatchService` and the execution envelope move from
+  `integration/device/v1` to `edge/dispatch/v1`, leaving `integration/` holding
+  only a README with its fabric contract reserved. `AuditService` moves from
+  `event/device/v1` to `edge/audit/v1`.
+- **`DeviceOperationEvent` moves to `event/access/v1`.** `event/` holds durable
+  event records that other packages read, not services; `edge/audit` imports
+  `event/access` for the record it delivers.
+- **Connect routes change with the package names.** The procedure path on the
+  wire changes to match the new packages (for example,
+  `/flowseer.edge.attach.v1.EdgeService/Heartbeat`). The edge assertion signs
+  the procedure, so the signed assertion changes with the route. The
+  assertion's deployment-configured `audience` is unaffected, so persisted
+  enrollments remain valid across the rename.
+
+### 2026-09-18 — the process-private roots take their names
+
+`service/v1` is now `runtime/v1`, and `store/edge` is now `store/agent`. The
+rename changes what a local bus store's `RuntimeManifest` persists: a store
+written before it carries the old package name only in `envelope_type`, and
+`reconcileRuntimeManifest` refuses to start once `manifestAdditionCompatible`
+finds that value stale (`src/common/service/manifest.go`). A queued
+`Message` record is not affected the same way: protobuf's wire format
+carries no package or message name, so `TestMessageV1Compatibility` decodes
+an unmodified pre-rename fixture into the renamed type and passes
+(`src/common/service/message_compat_test.go`). No migration is written for
+the manifest check, so a deployment holding a pre-rename store discards its
+bus store directory, because every store in existence belongs to a test or a
+lab run. `runtime/` remains the one root outside the import order in
+`test/conformance/proto/layering_test.go`.

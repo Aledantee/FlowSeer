@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Protobuf Tree by Kind of Contract - Plan
+
+> Implemented. 3 phases, 16 units, 2026-09-17T17:21Z to 2026-09-18T08:20Z.
 
 ## Goal
 
@@ -123,10 +125,13 @@ them is created.
   (`apicapturev1` beside `capturev1` in `src/modules/capture/engine.go`).
 - **The Connect route names change, and that is a wire break.** A route is
   `/<package>.<Service>/<Method>`, and the edge assertion signs it as its
-  audience (`src/edge/agent/internal/identity/assertion.go`), so phase 2
-  changes what every edge signs and central verifies. Nothing external
-  consumes it, and `AGENTS.md` says to state such a break as a fact rather
-  than shim it; no compatibility route is kept.
+  `procedure` (`src/edge/agent/internal/identity/assertion.go` signs
+  `req.URL.Path`; the verifier compares it at step 5), so phase 2 changes
+  what every edge signs and central verifies. The assertion's `audience` is
+  a separate, deployment-configured string that does not change with the
+  route, so a persisted enrollment survives the rename. Nothing external
+  consumes the routes, and `AGENTS.md` says to state such a break as a fact
+  rather than shim it; no compatibility route is kept.
 - **Moves use `git mv`, and every phase leaves `buf lint`, `buf generate`,
   and `go test -race ./...` green.** Why: a directory rename that git records
   as delete-and-add loses the blame history that the schema comments cite,
@@ -197,19 +202,19 @@ them is created.
 
 Files: docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md
 After: none
-Landed:
+Landed: `aaa269e3..a688f322`
 
 ### U2. Phase 2: the edge plane, the northbound api, and the event root
 
 Files: docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md
 After: U1
-Landed:
+Landed: `61fa0be4..0b8ca670`
 
 ### U3. Phase 3: the process-private roots and the root README pass
 
 Files: docs/plans/2026-09-17-1141-refactor-proto-layout-phase3-plan.md
 After: U2
-Landed:
+Landed: `bb4a8f53..19796401`
 
 Waves: U1 | U2 | U3
 
@@ -232,17 +237,17 @@ and do not change.
 
 ## Definition of done
 
-- [ ] Each phase plan reads `implemented` and its `Landed:` line above
+- [x] Each phase plan reads `implemented` and its `Landed:` line above
       carries the commit range.
-- [ ] Verifier green with `--full` after each phase.
-- [ ] Every directory under `spec/proto/flowseer/` has a README in the shape
+- [x] Verifier green with `--full` after each phase.
+- [x] Every directory under `spec/proto/flowseer/` has a README in the shape
       the Decisions fix, and the two gates pass.
-- [ ] The network model structure record's tree matches `ls`, and every
+- [x] The network model structure record's tree matches `ls`, and every
       row of its import graph is within `importOrder`.
-- [ ] `docs/conventions/protobuf.md`, the two `docs/solutions/` entries
+- [x] `docs/conventions/protobuf.md`, the two `docs/solutions/` entries
       whose `module:` names a moved package, the runbook, the lab
       `deploy/` files, and the `.repro` fixtures point at the new paths.
-- [ ] This plan's `status` is `implemented` with an outcome note under the
+- [x] This plan's `status` is `implemented` with an outcome note under the
       title, and no plan label appears in code or commit messages.
 
 ## Open questions

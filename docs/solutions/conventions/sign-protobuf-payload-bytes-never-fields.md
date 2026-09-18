@@ -3,7 +3,7 @@ title: A Signature Over a Protobuf Message Covers Carried Payload Bytes, Never R
 date: 2026-09-05
 last_verified: 2026-09-05
 category: conventions
-module: spec/proto/flowseer/api/edge/v1
+module: spec/proto/flowseer/model/edge/v1
 problem_type: convention
 component: data_model
 severity: high
@@ -52,7 +52,7 @@ bytes it received. So the signed thing is carried as an opaque `payload`
 and the signature sits beside it:
 
 ```protobuf
-// spec/proto/flowseer/api/edge/v1/assertion.proto:47-61
+// spec/proto/flowseer/model/edge/v1/assertion.proto:47-61
 message SignedEdgeAssertion {
   // The serialized EdgeAssertion, signed as these exact bytes. Must be
   // present.
@@ -90,7 +90,7 @@ on anything but the selector.
   `GetPayload()` as carried, not over a re-marshal:
 
 ```go
-// test/conformance/proto/api_edge_rules_test.go:316-333
+// test/conformance/proto/model_edge_rules_test.go:332-347
 payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(edgeAssertion(30 * time.Second))
 ...
 signed := edgev1.SignedEdgeAssertion_builder{
@@ -103,10 +103,10 @@ if !ed25519.Verify(private.Public().(ed25519.PublicKey), signed.GetPayload(), si
 
 ## Evidence
 
-- `spec/proto/flowseer/api/edge/v1/assertion.proto:47-61` and
-  `spec/proto/flowseer/api/edge/v1/key_proof.proto:31-45` carry the
+- `spec/proto/flowseer/model/edge/v1/assertion.proto:47-61` and
+  `spec/proto/flowseer/model/edge/v1/key_proof.proto:31-45` carry the
   payload-plus-signature shape.
-- `test/conformance/proto/api_edge_rules_test.go:316-333` signs and
+- `test/conformance/proto/model_edge_rules_test.go:332-347` signs and
   verifies over the carried bytes.
 - The independent review of plan
   `docs/plans/2026-09-05-1715-feat-edge-attachment-contracts-plan.md`

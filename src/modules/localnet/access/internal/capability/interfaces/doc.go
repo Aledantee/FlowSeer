@@ -2,8 +2,8 @@
 // handler: it reads one interface's description, admin status, and oper
 // status over whichever route completeness selects, verifies a mutation
 // through a fresh read, and reports every result as a
-// flowseer.device.access.v1.InterfaceObservation with a
-// flowseer.api.inventory.v1.Provenance.
+// flowseer.model.access.v1.InterfaceObservation with a
+// flowseer.model.inventory.v1.Provenance.
 //
 // snmp.go builds an observation through src/modules/localnet/collect and
 // src/modules/localnet/snmpmap. completeness.go holds the typed

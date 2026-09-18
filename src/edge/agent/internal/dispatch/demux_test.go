@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -30,7 +30,7 @@ type laneFake struct {
 	entered     chan struct{}
 }
 
-func (l *laneFake) Submit(_ context.Context, opts access.SubmitOptions) (*integrationv1.ExecuteResult, error) {
+func (l *laneFake) Submit(_ context.Context, opts access.SubmitOptions) (*dispatchv1.ExecuteResult, error) {
 	l.mu.Lock()
 	l.submits = append(l.submits, opts.Request.GetSequence())
 	gate, entered := l.release, l.entered
@@ -51,28 +51,28 @@ func (l *laneFake) Submit(_ context.Context, opts access.SubmitOptions) (*integr
 	if l.submitErr != nil {
 		return nil, l.submitErr
 	}
-	result := &integrationv1.ExecuteResult{}
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(opts.Request.GetSequence())
 	result.SetPhaseReached(1)
-	result.SetProgress(&integrationv1.Progress{})
+	result.SetProgress(&dispatchv1.Progress{})
 	return result, nil
 }
 
-func (l *laneFake) HandleCheckpoint(_ string, req *integrationv1.CheckpointRequest) error {
+func (l *laneFake) HandleCheckpoint(_ string, req *dispatchv1.CheckpointRequest) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.checkpoints = append(l.checkpoints, req.GetSequence())
 	return l.otherErr
 }
 
-func (l *laneFake) HandleTerminalAck(_ context.Context, _ string, ack *integrationv1.TerminalResultAck) error {
+func (l *laneFake) HandleTerminalAck(_ context.Context, _ string, ack *dispatchv1.TerminalResultAck) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.acks = append(l.acks, ack.GetSequence())
 	return l.otherErr
 }
 
-func (l *laneFake) ResolveHold(_ context.Context, _ string, resolved *integrationv1.HoldResolved) error {
+func (l *laneFake) ResolveHold(_ context.Context, _ string, resolved *dispatchv1.HoldResolved) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.holds = append(l.holds, resolved.GetSequence())
@@ -87,27 +87,27 @@ func (l *laneFake) submitted() []uint64 {
 
 type outboundFake struct {
 	mu      sync.Mutex
-	reports []*integrationv1.ReportRequest
+	reports []*dispatchv1.ReportRequest
 }
 
-func (o *outboundFake) Report(_ context.Context, report *integrationv1.ReportRequest) {
+func (o *outboundFake) Report(_ context.Context, report *dispatchv1.ReportRequest) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.reports = append(o.reports, report)
 }
 
-func (o *outboundFake) sent() []*integrationv1.ReportRequest {
+func (o *outboundFake) sent() []*dispatchv1.ReportRequest {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	return append([]*integrationv1.ReportRequest(nil), o.reports...)
+	return append([]*dispatchv1.ReportRequest(nil), o.reports...)
 }
 
-func executeDispatch(device string, sequence uint64) *integrationv1.SubscribeResponse {
-	request := &integrationv1.ExecuteRequest{}
+func executeDispatch(device string, sequence uint64) *dispatchv1.SubscribeResponse {
+	request := &dispatchv1.ExecuteRequest{}
 	request.SetSequence(sequence)
 	request.SetRead(readIntent())
 
-	message := &integrationv1.SubscribeResponse{}
+	message := &dispatchv1.SubscribeResponse{}
 	message.SetDeviceId(device)
 	message.SetExecute(request)
 	return message
@@ -120,25 +120,25 @@ func TestEachArmReachesItsLaneCall(t *testing.T) {
 	out := &outboundFake{}
 	demux := dispatch.NewDemux(lane, out, nil)
 
-	checkpoint := &integrationv1.SubscribeResponse{}
+	checkpoint := &dispatchv1.SubscribeResponse{}
 	checkpoint.SetDeviceId("dev-1")
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(4)
 	checkpoint.SetCheckpoint(checkpointReq)
 
-	ack := &integrationv1.SubscribeResponse{}
+	ack := &dispatchv1.SubscribeResponse{}
 	ack.SetDeviceId("dev-1")
-	ackMsg := &integrationv1.TerminalResultAck{}
+	ackMsg := &dispatchv1.TerminalResultAck{}
 	ackMsg.SetSequence(5)
 	ack.SetTerminalAck(ackMsg)
 
-	hold := &integrationv1.SubscribeResponse{}
+	hold := &dispatchv1.SubscribeResponse{}
 	hold.SetDeviceId("dev-1")
-	holdMsg := &integrationv1.HoldResolved{}
+	holdMsg := &dispatchv1.HoldResolved{}
 	holdMsg.SetSequence(6)
 	hold.SetHoldResolved(holdMsg)
 
-	for _, message := range []*integrationv1.SubscribeResponse{checkpoint, ack, hold} {
+	for _, message := range []*dispatchv1.SubscribeResponse{checkpoint, ack, hold} {
 		if err := demux.Handle(context.Background(), message); err != nil {
 			t.Fatalf("Handle: %v", err)
 		}
@@ -269,9 +269,9 @@ func TestALaneRefusalReachesCentralWithItsOwnCode(t *testing.T) {
 	out := &outboundFake{}
 	demux := dispatch.NewDemux(lane, out, nil)
 
-	checkpoint := &integrationv1.SubscribeResponse{}
+	checkpoint := &dispatchv1.SubscribeResponse{}
 	checkpoint.SetDeviceId("dev-1")
-	req := &integrationv1.CheckpointRequest{}
+	req := &dispatchv1.CheckpointRequest{}
 	req.SetSequence(9)
 	checkpoint.SetCheckpoint(req)
 
@@ -290,7 +290,7 @@ func TestALaneRefusalReachesCentralWithItsOwnCode(t *testing.T) {
 	if refused.GetCode() != string(access.ErrCodeNoPendingWait) {
 		t.Errorf("code = %q, want %q", refused.GetCode(), string(access.ErrCodeNoPendingWait))
 	}
-	if refused.GetKind() != integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT {
+	if refused.GetKind() != dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT {
 		t.Errorf("kind = %v, want CHECKPOINT", refused.GetKind())
 	}
 	if refused.GetSequence() != 9 {
@@ -303,9 +303,9 @@ func TestAnUncodedLaneRefusalDoesNotClaimTheDeviceIsUnknown(t *testing.T) {
 	out := &outboundFake{}
 	demux := dispatch.NewDemux(lane, out, nil)
 
-	checkpoint := &integrationv1.SubscribeResponse{}
+	checkpoint := &dispatchv1.SubscribeResponse{}
 	checkpoint.SetDeviceId("dev-1")
-	req := &integrationv1.CheckpointRequest{}
+	req := &dispatchv1.CheckpointRequest{}
 	req.SetSequence(9)
 	checkpoint.SetCheckpoint(req)
 

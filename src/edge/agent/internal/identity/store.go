@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/prototext"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -89,7 +89,7 @@ func (s *Store) SaveKey(key ed25519.PrivateKey) error {
 // LoadEnrollment returns central's persisted answer, or nil when the edge has
 // not recorded one. A key with no enrollment is the ordinary state after a
 // crash between the two writes, and means "enroll again".
-func (s *Store) LoadEnrollment() (*edgev1.EnrollResponse, error) {
+func (s *Store) LoadEnrollment() (*attachv1.EnrollResponse, error) {
 	body, err := os.ReadFile(s.enrollmentPath())
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -98,7 +98,7 @@ func (s *Store) LoadEnrollment() (*edgev1.EnrollResponse, error) {
 		return nil, errs.From(err).Code(ErrCodeState).Attr("path", s.enrollmentPath()).
 			Msg("read the persisted enrollment")
 	}
-	msg := &edgev1.EnrollResponse{}
+	msg := &attachv1.EnrollResponse{}
 	if err := prototext.Unmarshal(body, msg); err != nil {
 		return nil, errs.From(err).Code(ErrCodeState).Attr("path", s.enrollmentPath()).
 			Msg("parse the persisted enrollment")
@@ -122,7 +122,7 @@ func (s *Store) LoadEnrollment() (*edgev1.EnrollResponse, error) {
 // It is what central said, and an agent that stored a summary would have to
 // re-enroll to learn anything it had not thought to keep — which it cannot
 // do once the setup key is consumed.
-func (s *Store) SaveEnrollment(response *edgev1.EnrollResponse) error {
+func (s *Store) SaveEnrollment(response *attachv1.EnrollResponse) error {
 	body, err := prototext.MarshalOptions{Multiline: true}.Marshal(response)
 	if err != nil {
 		return errs.From(err).Code(ErrCodeState).Msg("encode the enrollment answer")

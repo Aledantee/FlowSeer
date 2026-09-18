@@ -9,11 +9,11 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
-	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -35,7 +35,7 @@ import (
 // seams cannot be filled, this file does not build, which is the failure.
 // What it asserts beyond that is that the lane it built is the real one.
 func TestALaneCanBeAssembledFromOutsideTheAccessModule(t *testing.T) {
-	client := edgev1connect.NewEdgeServiceClient(http.DefaultClient, "https://central.example.test")
+	client := attachv1connect.NewEdgeServiceClient(http.DefaultClient, "https://central.example.test")
 	read, submission := access.NewConnectCredentials(client)
 	telemetry, err := access.NewTelemetry(access.TelemetryConfig{})
 	if err != nil {
@@ -72,12 +72,12 @@ func TestALaneCanBeAssembledFromOutsideTheAccessModule(t *testing.T) {
 func TestTheCredentialSourcesReachCentral(t *testing.T) {
 	central := &recordingEdge{}
 	mux := http.NewServeMux()
-	path, handler := edgev1connect.NewEdgeServiceHandler(central)
+	path, handler := attachv1connect.NewEdgeServiceHandler(central)
 	mux.Handle(path, handler)
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	read, _ := access.NewConnectCredentials(edgev1connect.NewEdgeServiceClient(server.Client(), server.URL))
+	read, _ := access.NewConnectCredentials(attachv1connect.NewEdgeServiceClient(server.Client(), server.URL))
 	if _, err := read.AcquireReadCredential(context.Background(), "0192e6a0-0000-7000-8000-0000000000d1",
 		"0192e6a0-0000-7000-8000-0000000000b1", nil); err != nil {
 		t.Fatalf("AcquireReadCredential: %v", err)
@@ -96,15 +96,15 @@ func TestEachReportIsAddressedToItsDevice(t *testing.T) {
 	reporter := host.LaneReporterForTest(out)
 	ctx := context.Background()
 
-	result := &integrationv1.ExecuteResult{}
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(7)
 	reporter.Reported(ctx, "dev-1", result)
 
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(7)
 	reporter.CheckpointAcked(ctx, "dev-2", ack)
 
-	hold := &integrationv1.HoldResolvedAck{}
+	hold := &dispatchv1.HoldResolvedAck{}
 	hold.SetSequence(7)
 	reporter.HoldResolvedAcked(ctx, "dev-3", hold)
 
@@ -124,40 +124,40 @@ func TestEachReportIsAddressedToItsDevice(t *testing.T) {
 
 type auditNoop struct{}
 
-func (auditNoop) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+func (auditNoop) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error { return nil }
 
 type recordingOutbound struct {
-	seen []*integrationv1.ReportRequest
+	seen []*dispatchv1.ReportRequest
 }
 
-func (r *recordingOutbound) Report(_ context.Context, report *integrationv1.ReportRequest) {
+func (r *recordingOutbound) Report(_ context.Context, report *dispatchv1.ReportRequest) {
 	r.seen = append(r.seen, report)
 }
 
-func (r *recordingOutbound) reports() []*integrationv1.ReportRequest { return r.seen }
+func (r *recordingOutbound) reports() []*dispatchv1.ReportRequest { return r.seen }
 
 // recordingEdge answers AcquireReadCredential and remembers who it was for.
 type recordingEdge struct {
-	edgev1connect.UnimplementedEdgeServiceHandler
+	attachv1connect.UnimplementedEdgeServiceHandler
 
 	device string
 }
 
 func (e *recordingEdge) AcquireReadCredential(
-	_ context.Context, req *connect.Request[edgev1.AcquireReadCredentialRequest],
-) (*connect.Response[edgev1.AcquireReadCredentialResponse], error) {
+	_ context.Context, req *connect.Request[attachv1.AcquireReadCredentialRequest],
+) (*connect.Response[attachv1.AcquireReadCredentialResponse], error) {
 	e.device = req.Msg.GetDeviceId()
-	return connect.NewResponse(&edgev1.AcquireReadCredentialResponse{}), nil
+	return connect.NewResponse(&attachv1.AcquireReadCredentialResponse{}), nil
 }
 
 func (e *recordingEdge) acquired() string { return e.device }
 
-func readRequest() *integrationv1.ExecuteRequest {
+func readRequest() *dispatchv1.ExecuteRequest {
 	intent := &accessv1.InterfaceReadIntent{}
 	intent.SetInterfaceName("ethernet 1/1/1")
 	typed := &accessv1.TypedRead{}
 	typed.SetInterface(intent)
-	request := &integrationv1.ExecuteRequest{}
+	request := &dispatchv1.ExecuteRequest{}
 	request.SetRead(typed)
 	request.SetSequence(1)
 	return request
@@ -169,4 +169,4 @@ func readRequest() *integrationv1.ExecuteRequest {
 // exists to prevent invisible in production too.
 type discardOutbound struct{}
 
-func (discardOutbound) Report(context.Context, *integrationv1.ReportRequest) {}
+func (discardOutbound) Report(context.Context, *dispatchv1.ReportRequest) {}

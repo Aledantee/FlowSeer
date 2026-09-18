@@ -8,8 +8,9 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
@@ -20,21 +21,21 @@ const deviceID = "0192e6a0-0000-7000-8000-0000000000d1"
 // tenant is the tenant the hub's audit stream is scoped to.
 var tenant = edgebus.DefaultTenant
 
-func event(id string) *eventv1.DeviceOperationEvent {
+func event(id string) *accessv1.DeviceOperationEvent {
 	device := &inventoryv1.DeviceGlobalRef{}
 	local := &inventoryv1.DeviceLocalRef{}
 	local.SetId(deviceID)
 	device.SetDevice(local)
-	ev := &eventv1.DeviceOperationEvent{}
+	ev := &accessv1.DeviceOperationEvent{}
 	ev.SetDevice(device)
 	ev.SetEventId(id)
-	ev.SetLaneReleased(&eventv1.LaneReleased{})
+	ev.SetLaneReleased(&accessv1.LaneReleased{})
 	return ev
 }
 
 func deliver(t *testing.T, svc *auditapi.Service, id string) error {
 	t.Helper()
-	req := &eventv1.DeliverRequest{}
+	req := &auditv1.DeliverRequest{}
 	req.SetEvent(event(id))
 	_, err := svc.Deliver(context.Background(), connect.NewRequest(req))
 	return err
