@@ -1,4 +1,4 @@
-package captureapi_test
+package captureapi
 
 import (
 	"context"
@@ -13,10 +13,13 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
-	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
 // Three rounds of review each found a defect in the previous round's fix for
@@ -43,7 +46,7 @@ import (
 // A sequence that violates one is printed in full, because the sequence is
 // the finding.
 func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
-	store, dir := newTestStoreDir(t)
+	store, dir := newInvariantStore(t)
 	ctx := context.Background()
 
 	now := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
@@ -57,7 +60,7 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 		run  func(sessionID string)
 	}
 
-	packets := []*netcapturev1.PacketRecord{newPacket([]byte("captured payload"))}
+	packets := []*netcapturev1.PacketRecord{invariantPacket()}
 	counters := netcapturev1.CaptureCounters_builder{
 		Received: proto.Uint64(1),
 		Accepted: proto.Uint64(1),
@@ -66,7 +69,7 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 
 	steps := []step{
 		{"create", func(id string) {
-			_, _ = store.CreateSession(ctx, newSessionConfig(t, id))
+			_, _ = store.CreateSession(ctx, invariantConfig(id))
 		}},
 		{"append", func(id string) {
 			_ = store.AppendPackets(ctx, id, linkType, 128, packets)
@@ -97,6 +100,24 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 				return nil
 			})
 		}},
+		{"cancel", func(id string) {
+			// The record half moves without the file half: an operator's stop.
+			_, _ = store.MutateSession(ctx, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
+				rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
+				rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
+				return nil
+			})
+		}},
+		{"finalize_record_lost", func(id string) {
+			// The artifact is written and its descriptor never reaches the
+			// record — the shape every FinalizeArtifact failure path and a
+			// failed post-finalize record write leave behind. Whoever wrote
+			// the bytes owns them until a record names them.
+			if _, err := store.FinalizeArtifact(ctx, id, linkType, 128, counters, now.Add(time.Hour)); err != nil {
+				return
+			}
+			store.DiscardArtifact(id)
+		}},
 		{"abandon", func(id string) { store.AbandonWriter(id) }},
 		{"delete", func(id string) { _ = store.DeleteSession(ctx, id) }},
 		{"sweep", func(string) { _, _ = store.SweepExpired(ctx) }},
@@ -113,7 +134,7 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 	for {
 		sessionID := uuid.NewString()
 		taken := []string{"create"}
-		if _, err := store.CreateSession(ctx, newSessionConfig(t, sessionID)); err != nil {
+		if _, err := store.CreateSession(ctx, invariantConfig(sessionID)); err != nil {
 			t.Fatalf("create: %v", err)
 		}
 		if failure := checkArtifactInvariant(ctx, store, dir); failure != "" {
@@ -167,7 +188,7 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 }
 
 // checkArtifactInvariant returns the first violation it finds, or "".
-func checkArtifactInvariant(ctx context.Context, store *captureapi.Store, dir string) string {
+func checkArtifactInvariant(ctx context.Context, store *Store, dir string) string {
 	records, err := store.ListSessions(ctx)
 	if err != nil {
 		return fmt.Sprintf("ListSessions: %v", err)
@@ -191,7 +212,16 @@ func checkArtifactInvariant(ctx context.Context, store *captureapi.Store, dir st
 		if !ok {
 			return fmt.Sprintf("%s is on disk with no session record; the sweep walks records, so its payload can never expire", entry.Name())
 		}
-		if artifact := rec.GetState().GetArtifact(); artifact != nil && artifact.HasPurgedAt() {
+		artifact := rec.GetState().GetArtifact()
+		switch {
+		case artifact == nil && !store.hasOpenWriter(id):
+			// A file whose record claims no artifact is legitimate only while
+			// a writer owns it. Exempting the state outright would bless the
+			// orphan class this property exists to catch: bytes with no
+			// writer and no descriptor, which the record-walking sweep can
+			// never reach.
+			return fmt.Sprintf("%s is on disk with no writer and no artifact descriptor; nothing owns those bytes and no sweep can reach them", entry.Name())
+		case artifact != nil && artifact.HasPurgedAt():
 			return fmt.Sprintf("%s is on disk although its record says the payload was purged", entry.Name())
 		}
 	}
@@ -230,4 +260,67 @@ func fileDigest(path string) string {
 
 func digestHex(digest []byte) string {
 	return hex.EncodeToString(digest)
+}
+
+func newInvariantStore(t *testing.T) (*Store, string) {
+	t.Helper()
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+
+	dir := filepath.Join(t.TempDir(), "captures")
+	store, err := NewStore(kv, dir)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	return store, dir
+}
+
+func invariantConfig(sessionID string) *modelcapturev1.CaptureSessionConfig {
+	return modelcapturev1.CaptureSessionConfig_builder{
+		Ref: modelcapturev1.CaptureSessionGlobalRef_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{
+					Id: proto.String("0192e6a0-0000-7000-8000-0000000000ed"),
+				}.Build(),
+			}.Build(),
+			CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{
+				Id: proto.String(sessionID),
+			}.Build(),
+		}.Build(),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+			}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Operator:             proto.String("alice"),
+			Reason:               proto.String("investigation"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()
+}
+
+func invariantPacket() *netcapturev1.PacketRecord {
+	data := []byte("captured payload")
+	return netcapturev1.PacketRecord_builder{
+		Sequence:       proto.Uint64(1),
+		CapturedAt:     timestamppb.Now(),
+		OriginalLength: proto.Uint32(uint32(len(data))),
+		Data:           data,
+	}.Build()
 }

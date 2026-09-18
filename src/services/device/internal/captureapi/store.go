@@ -38,6 +38,13 @@ var (
 const (
 	casRetries   = 8
 	maxChunkSize = 1024 * 1024 // 1 MiB per download chunk
+
+	// deletedRetention is how long a deleted session is remembered so an
+	// upload stream in flight cannot recreate its file. It only has to
+	// outlive the window between a stream reading the record and opening the
+	// file, and session identifiers are never reused, so without a bound the
+	// map would grow for the life of the process.
+	deletedRetention = time.Hour
 )
 
 // activeWriter tracks an open pcapng file and renderer for an in-flight upload.
@@ -58,7 +65,7 @@ type Store struct {
 
 	mu      sync.Mutex
 	writers map[string]*activeWriter
-	deleted map[string]struct{}
+	deleted map[string]time.Time
 }
 
 // NewStore initializes a Store over the captures JetStream bucket and
@@ -72,7 +79,7 @@ func NewStore(kv jetstream.KeyValue, capturesDir string) (*Store, error) {
 		capturesDir: capturesDir,
 		clock:       time.Now,
 		writers:     make(map[string]*activeWriter),
-		deleted:     make(map[string]struct{}),
+		deleted:     make(map[string]time.Time),
 	}, nil
 }
 
@@ -225,7 +232,8 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	// its next chunk would open the path again. The file it wrote would then
 	// have no record, and the sweep walks records, so its payload could never
 	// expire. The tombstone is what refuses that chunk.
-	s.deleted[sessionID] = struct{}{}
+	s.deleted[sessionID] = s.clock()
+	s.pruneDeletedLocked()
 	rmErr := os.Remove(path)
 	s.mu.Unlock()
 
@@ -237,6 +245,30 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 		return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("delete capture session record")
 	}
 	return nil
+}
+
+// DiscardArtifact unlinks a session's artifact file without touching its
+// record. It is for the one window the Store cannot close on its own: a
+// caller that finalized an artifact and then failed to write the descriptor
+// into the record. The bytes are then owned by nobody — no writer, no
+// descriptor — and the sweep walks records, so they would never expire.
+func (s *Store) DiscardArtifact(sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if path, err := s.artifactPath(sessionID); err == nil {
+		_ = os.Remove(path)
+	}
+}
+
+// hasOpenWriter reports whether this Store is still writing the session's
+// artifact. The artifact-file invariant reads it: a file with no descriptor is
+// legitimate only while a writer owns it.
+func (s *Store) hasOpenWriter(sessionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, open := s.writers[sessionID]
+	return open
 }
 
 // AbandonWriter discards the partial pcapng of a session whose upload stream
@@ -300,6 +332,17 @@ func (s *Store) mayWriteArtifact(ctx context.Context, sessionID string) error {
 		return errs.New().Code(ErrCodeArtifactExists).Attr("session", sessionID).Msg("capture session has already produced its artifact")
 	}
 	return nil
+}
+
+// pruneDeletedLocked drops tombstones no stream can still be racing. The
+// caller holds s.mu.
+func (s *Store) pruneDeletedLocked() {
+	cutoff := s.clock().Add(-deletedRetention)
+	for id, at := range s.deleted {
+		if at.Before(cutoff) {
+			delete(s.deleted, id)
+		}
+	}
 }
 
 // AppendPackets appends a slice of PacketRecords to the session's pcapng artifact.
@@ -389,22 +432,33 @@ func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType
 		return nil, err
 	}
 
+	// Taking the writer out of the map above made this the only owner of the
+	// file. Every failure from here leaves bytes with no writer and no
+	// artifact descriptor, which is a file the record-walking sweep can never
+	// reach — so each one discards what it wrote rather than returning over it.
+	discard := func(err error) error {
+		if path, pathErr := s.artifactPath(sessionID); pathErr == nil {
+			_ = os.Remove(path)
+		}
+		return err
+	}
+
 	var packetCount uint64
 	if ok {
 		packetCount = w.packetCount
 		if err := w.writer.Close(counters); err != nil {
 			_ = w.file.Close()
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close pcapng writer")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close pcapng writer"))
 		}
 		// The digest below is published into a record JetStream fsyncs. Sync
 		// the bytes first, so a crash between the two cannot leave a durable
 		// digest over a file that was never written.
 		if err := w.file.Sync(); err != nil {
 			_ = w.file.Close()
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("sync artifact file")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("sync artifact file"))
 		}
 		if err := w.file.Close(); err != nil {
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close artifact file")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close artifact file"))
 		}
 	} else {
 		// No writer means no chunk carried a packet. O_EXCL for the reason
@@ -420,31 +474,31 @@ func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType
 		pw, err := pcapng.NewWriter(f, linkType, snapLen)
 		if err != nil {
 			_ = f.Close()
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("initialize empty pcapng writer")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("initialize empty pcapng writer"))
 		}
 		if err := pw.Close(counters); err != nil {
 			_ = f.Close()
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close empty pcapng writer")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close empty pcapng writer"))
 		}
 		if err := f.Sync(); err != nil {
 			_ = f.Close()
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("sync empty artifact file")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("sync empty artifact file"))
 		}
 		if err := f.Close(); err != nil {
-			return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close empty artifact file")
+			return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("close empty artifact file"))
 		}
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("open finalized artifact file")
+		return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("open finalized artifact file"))
 	}
 	defer func() { _ = f.Close() }()
 
 	hasher := sha256.New()
 	size, err := io.Copy(hasher, f)
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("compute artifact digest")
+		return nil, discard(errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("compute artifact digest"))
 	}
 
 	artifact := modelcapturev1.CaptureArtifact_builder{

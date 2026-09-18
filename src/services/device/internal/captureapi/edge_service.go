@@ -253,7 +253,7 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 ) error {
 	edgeID, err := s.edgeID(ctx)
 	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, err)
+		return connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
 	}
 
 	notifyCh, unwatch := s.registerWatcher()
@@ -384,10 +384,14 @@ func (s *EdgeService) UploadCapture(
 		if !claimed {
 			return
 		}
-		s.releaseUpload(sessionID)
+		// Drop the writer before releasing the claim, never after. The claim
+		// is what keeps a second stream out; releasing first opens a window
+		// where the retry is admitted, finds this stream's writer still in
+		// the map, and appends into a file this one is about to unlink.
 		if !finalized {
 			s.store.AbandonWriter(sessionID)
 		}
+		s.releaseUpload(sessionID)
 	}()
 
 	for stream.Receive() {
@@ -536,6 +540,9 @@ func (s *EdgeService) UploadCapture(
 				return nil
 			})
 			if err != nil {
+				// The artifact exists and its record does not name it, so
+				// nothing will ever reach those bytes again.
+				s.store.DiscardArtifact(sessionID)
 				return nil, connectErr(err)
 			}
 
