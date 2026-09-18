@@ -3,7 +3,7 @@ title: Remote Packet Capture Operator Authorization - Plan
 type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md
@@ -44,12 +44,20 @@ operator and admin services.
   carrying the identity provider's stable subject (`subject`). Using
   `OperatorRef` aligns capture provenance with `model/access/v1` and prepares
   for identity provider integration (Zitadel subject propagation).
-- The choice of interim versus unified authorization architecture belongs to
-  the user and is recorded as an Open question. Why: Deciding whether to block
-  capture authorization until OpenFGA direction is accepted, introduce an
-  edge-level policy handle (`CapturePolicyHandle`), or wire an interim
-  JWT/subject validator interceptor commits the repository to an architectural
-  direction across multiple services.
+- Capture follows the repository-wide OpenFGA direction rather than carrying
+  an authorization mechanism of its own. Service-level enforcement waits for
+  the OpenFGA record that covers `DeviceService`, `EdgeAdminService`, and
+  `CaptureService` together; this plan does schema alignment only, adopting
+  `OperatorRef` and naming the relations capture will need (`edge#capture`,
+  `session#download`, `tenant#full_payload`) so that record has them to work
+  from. Why: [GOALS.md](../../GOALS.md) already decides that the operator and
+  admin API surfaces are authorized through OpenFGA, and
+  [the device service README](../../src/services/device/README.md) records the
+  present gap as an accepted deferral behind the deployment's network
+  boundary. An interim policy handle or JWT interceptor would be a second
+  mechanism to remove once that record lands. The user took this decision on
+  2026-09-18, choosing it over an interim `CapturePolicyHandle` and over a
+  process-level identity interceptor.
 - Artifact download must emit a durable audit event when served. Why:
   [docs/architecture/2026-09-09-remote-packet-capture-direction.md](../architecture/2026-09-09-remote-packet-capture-direction.md)
   line 182 specifies that an artifact is served only to a caller authorized for
@@ -141,25 +149,5 @@ go test -race ./src/services/device/...
 
 ## Open questions
 
-1. Which authorization architecture should govern operator actions on `CaptureService`?
-   - Option 1 (Recommended): Repository-wide OpenFGA direction. Defer
-     service-level enforcement until the OpenFGA architecture record lands for
-     all operator and admin services (`DeviceService`, `EdgeAdminService`, and
-     `CaptureService`), as established in `GOALS.md` line 29 and
-     `src/services/device/README.md` lines 162-167. In this phase, implement
-     schema alignment (U1) to adopt `flowseer.model.access.v1.OperatorRef` and
-     document the OpenFGA relations for capture (`edge#capture`,
-     `session#download`, `tenant#full_payload`). This avoids inventing a
-     disposable authorization engine.
-   - Option 2: Interim Capture Policy Handle. Add `CapturePolicyHandle` to
-     `flowseer.model.policy.v1` (analogous to `AccessPolicyHandle` on device
-     mutations) and attach policy constraints to `EdgeConfig` or tenant
-     configuration. Each capture request must pin a policy version defining
-     allowable filters, max durations, and full-payload permissions.
-   - Option 3: Process-level identity interceptor. Add Connect middleware to
-     `src/services/device/internal/host/` that inspects HTTP headers (such as
-     `Authorization: Bearer <jwt>`), verifies caller subject with Zitadel, and
-     enforces a static role-based check prior to OpenFGA.
-   Reason this decision belongs to the user: Committing to an authorization
-   architecture commits the project to a direction across multiple services and
-   policy surfaces.
+None. The authorization architecture question was decided by the user on
+2026-09-18 and is recorded in Decisions.
