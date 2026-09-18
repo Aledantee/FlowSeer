@@ -1291,6 +1291,18 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 	}
 }
 
+func twoPorts(t *testing.T) port.Table {
+	t.Helper()
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	return ports
+}
+
 // TestFabricReleasedFrameQueuesAtItsIngressPriority is the end of the priority's journey: the
 // switch carries a released frame's priority on the Emission, and the fabric has to queue on
 // that rather than re-derive one from a frame whose egress tag is gone. The baseline is the same
@@ -1302,18 +1314,6 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 	nextHop := netip.MustParseAddr("10.0.60.7")
 	vid10 := vlan.ID(10)
 	start := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
-
-	twoPorts := func(t *testing.T) port.Table {
-		t.Helper()
-		b := port.NewBuilder()
-		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-		ports, err := b.Build()
-		if err != nil {
-			t.Fatalf("build ports: %v", err)
-		}
-		return ports
-	}
 
 	// sw1's 1/1/1 is tagged, so a frame arrives carrying a priority; 1/1/2 is a routed port, so
 	// the frame leaves with no tag at all and nothing but the emission can carry it. The far end
@@ -1450,5 +1450,225 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 	}
 	if heldPCP != 5 {
 		t.Errorf("released frame queued at PCP %d, want 5, the priority it arrived with", heldPCP)
+	}
+}
+
+// A held frame survives Derive over an unchanged routing configuration and
+// releases on the next Wake once resolved.
+func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw1MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	sw2MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x02}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	nextHop := netip.MustParseAddr("10.0.60.2")
+
+	vid10 := vlan.ID(10)
+
+	cfg := fabric.Config{
+		Start: start,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   sw1MAC,
+				Ports: twoPorts(t),
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table:       map[vlan.ID]string{10: "vlan10"},
+						Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{10}}},
+					},
+				},
+				Routing: &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"vlan10": {VLAN: 10, MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+								"rp2":    {Port: "1/1/2", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")}},
+							},
+						},
+					},
+				},
+			},
+			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
+		},
+		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	packet, _ := ip.Header{
+		Src:      netip.MustParseAddr("10.0.50.7"),
+		Dst:      nextHop,
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}.Encode([]byte("payload"))
+	taggedFrame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       sw1MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+		Payload:   packet,
+	}
+
+	if _, err := fab.Inject(fabric.Injection{
+		At:     start,
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Frame:  taggedFrame,
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("fab.Step failed")
+	}
+
+	snap := fab.Snapshot()
+	if len(snap.Devices["sw1"].Neighbors) != 1 || snap.Devices["sw1"].Neighbors[0].HoldDepth != 1 {
+		t.Fatalf("sw1 neighbors before derive = %+v, want one neighbor with HoldDepth 1", snap.Devices["sw1"].Neighbors)
+	}
+
+	// Unrelated edit: derive with unchanged routing
+	nextCfg := cfg.Clone()
+	derived, err := fabric.Derive(fab, constructionSpec(statedPhysical(nextCfg)))
+	if err != nil {
+		t.Fatalf("fabric.Derive: %v", err)
+	}
+	if !derived.Retention()["sw1"].Routing.Kept {
+		t.Fatalf("sw1 routing retention = %+v, want Kept: true", derived.Retention()["sw1"].Routing)
+	}
+	snapDerived := derived.Snapshot()
+	if len(snapDerived.Devices["sw1"].Neighbors) != 1 || snapDerived.Devices["sw1"].Neighbors[0].HoldDepth != 1 {
+		t.Errorf("sw1 neighbors on derived = %+v, want HoldDepth 1", snapDerived.Devices["sw1"].Neighbors)
+	}
+
+	// Resolve neighbor via ARP reply on derived fabric
+	replyFrame, _ := arp.Encode(arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    sw2MAC,
+		SenderAddr:   nextHop,
+		TargetMAC:    sw1MAC,
+		TargetAddr:   netip.MustParseAddr("10.0.60.1"),
+	}, sw1MAC)
+	if _, err := derived.Inject(fabric.Injection{
+		At:     snapDerived.Clock.Add(time.Millisecond),
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame:  replyFrame,
+	}); err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+	derived.Run(200)
+
+	// Held frame was released and crossed into sw2
+	var released bool
+	for _, j := range derived.Report() {
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
+				released = true
+			}
+		}
+	}
+	if !released {
+		t.Error("held frame was not released across derive")
+	}
+}
+
+// Changing NeighborPolicy.ResolutionTimeout rebuilds the routing layer and
+// reports held frames as failed.
+func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw1MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	sw2MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x02}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	nextHop := netip.MustParseAddr("10.0.60.2")
+
+	vid10 := vlan.ID(10)
+
+	cfg := fabric.Config{
+		Start: start,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   sw1MAC,
+				Ports: twoPorts(t),
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table:       map[vlan.ID]string{10: "vlan10"},
+						Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{10}}},
+					},
+				},
+				Routing: &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"vlan10": {VLAN: 10, MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+								"rp2":    {Port: "1/1/2", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")}},
+							},
+						},
+					},
+				},
+			},
+			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
+		},
+		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	packet, _ := ip.Header{
+		Src:      netip.MustParseAddr("10.0.50.7"),
+		Dst:      nextHop,
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}.Encode([]byte("payload"))
+	taggedFrame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       sw1MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+		Payload:   packet,
+	}
+
+	if _, err := fab.Inject(fabric.Injection{
+		At:     start,
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Frame:  taggedFrame,
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("fab.Step failed")
+	}
+
+	targetCfg := cfg.Clone()
+	sw1Cfg := targetCfg.Switches["sw1"]
+	vrf := sw1Cfg.Routing.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	sw1Cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+	targetCfg.Switches["sw1"] = sw1Cfg
+
+	derived, err := fabric.Derive(fab, constructionSpec(statedPhysical(targetCfg)))
+	if err != nil {
+		t.Fatalf("fabric.Derive: %v", err)
+	}
+	if derived.Retention()["sw1"].Routing.Kept {
+		t.Errorf("sw1 routing retention = %+v, want Kept: false", derived.Retention()["sw1"].Routing)
+	}
+	failures := derived.Switch("sw1").DrainNeighborFailures()
+	if len(failures) != 1 {
+		t.Errorf("sw1 neighbor failures = %d, want 1 failed held frame", len(failures))
 	}
 }

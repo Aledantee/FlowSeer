@@ -2,7 +2,9 @@ package stp
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -2583,4 +2585,49 @@ func (l *Layer) Wake(now time.Time) Effects {
 		Emissions: emissions,
 		Flush:     flushes,
 	}
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it, port link states,
+// and resolved phy speeds.
+func RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string {
+	if len(cfg.Ports) == 0 && cfg.Address == (netaddr.MAC{}) && cfg.MST == nil && cfg.PVST == nil &&
+		cfg.Priority == 0 && cfg.HelloTime == 0 && cfg.MaxAge == 0 && cfg.ForwardDelay == 0 && cfg.TxHoldCount == 0 {
+		return ""
+	}
+	norm := cfg.Normalize()
+	var b strings.Builder
+	b.WriteString("config=")
+	fmt.Fprintf(&b, "addr=%s;prio=%d;prio_pres=%t;hello=%s;max_age=%s;fwd_delay=%s;tx_hold=%d;",
+		norm.Address, norm.Priority, norm.PriorityPresent, norm.HelloTime, norm.MaxAge, norm.ForwardDelay, norm.TxHoldCount)
+	portNames := sortedKeys(norm.Ports)
+	for _, name := range portNames {
+		p := norm.Ports[name]
+		fmt.Fprintf(&b, "p:%s:%s;", name, p.Canonical())
+	}
+	if norm.MST != nil {
+		b.WriteString(";mst=")
+		b.WriteString(norm.MST.Canonical())
+	}
+	if norm.PVST != nil {
+		b.WriteString(";pvst=")
+		b.WriteString(norm.PVST.Canonical())
+	}
+
+	b.WriteString("\nport-state=")
+	for _, name := range portNames {
+		if pt, ok := ports.Port(name); ok {
+			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
+		} else {
+			fmt.Fprintf(&b, "%s:absent;", name)
+		}
+	}
+
+	b.WriteString("\nresolved-speed=")
+	for _, name := range portNames {
+		sp := speeds[name]
+		fmt.Fprintf(&b, "%s:%d;", name, sp)
+	}
+
+	return b.String()
 }

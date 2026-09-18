@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -450,5 +451,85 @@ func TestDeriveKeepsUnknownPointToPointIssue(t *testing.T) {
 	res := next.Forward(t0.Add(time.Second), "1/1/1", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Errorf("derived issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+}
+
+// A derived switch does not claim a link property it has not observed: when the
+// target changes a port's supported speeds so its resolved speed differs, the
+// derived switch drops both duplex and speed for that port and raises
+// IssueProtocolLinkUnknown, which a subsequent LinkChange clears. A sibling port
+// left alone keeps both.
+func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
+	t.Parallel()
+
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	baseCfg := vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports: map[string]stp.Port{
+				"1/1/1": {PathCost: 20000, PointToPoint: stp.PointToPointAuto},
+				"1/1/2": {PathCost: 20000, PointToPoint: stp.PointToPointAuto},
+				"1/1/3": {PathCost: 20000, PointToPoint: stp.PointToPointAuto},
+			},
+		},
+		Phy: &phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/2": {
+					SupportedSpeedsBPS: []uint64{1_000_000_000},
+					Setting:            &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+				},
+				"1/1/3": {
+					SupportedSpeedsBPS: []uint64{1_000_000_000},
+					Setting:            &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+				},
+			},
+		},
+	}
+
+	sw, err := vswitch.New(baseCfg)
+	if err != nil {
+		t.Fatalf("new switch: %v", err)
+	}
+	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	sw.LinkChange(t0, "1/1/3", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+
+	targetCfg := baseCfg.Clone()
+	targetCfg.Phy.Ethernet["1/1/3"] = phy.Ethernet{
+		SupportedSpeedsBPS: []uint64{100_000_000},
+		Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
+	}
+
+	next, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
+	if err != nil {
+		t.Fatalf("derive: %v", err)
+	}
+
+	frame := ethernet.Frame{
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	res := next.Forward(t0.Add(time.Second), "1/1/1", frame)
+	if !hasProtocolLinkIssue(res) {
+		t.Fatalf("derived issues = %v, want %q for unobserved 1/1/3", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+
+	// LinkChange on 1/1/3 clears the issue
+	next.LinkChange(t0.Add(2*time.Second), "1/1/3", port.Up, vswitch.PointToPointTrue, 100_000_000)
+	resAfter := next.Forward(t0.Add(3*time.Second), "1/1/1", frame)
+	if hasProtocolLinkIssue(resAfter) {
+		t.Errorf("after LinkChange on 1/1/3, issues = %v, want issue cleared", resAfter.Metadata.Issues())
 	}
 }

@@ -1,9 +1,13 @@
 package traffic
 
 import (
+	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
 // Bucket is a lazily refilled ingress token bucket whose tokens are octets.
@@ -62,4 +66,54 @@ func (b *Bucket) Clone() *Bucket {
 	cp := *b
 
 	return &cp
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it.
+func RetentionKey(cfg Config) string {
+	if len(cfg.Mirrors) == 0 && len(cfg.Policers) == 0 && len(cfg.Queues) == 0 {
+		return ""
+	}
+	norm := cfg.Normalize()
+	var b strings.Builder
+	b.WriteString("config=")
+	b.WriteString("mirrors=[")
+	for i, m := range norm.Mirrors {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(string(snapshotMirror(m)))
+	}
+	b.WriteString("];policers=[")
+	for i, name := range sortedKeys(norm.Policers) {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		p := norm.Policers[name]
+		fmt.Fprintf(&b, "%s:{rate=%d,burst=%d}", name, p.RateBPS, p.BurstOctets)
+	}
+	b.WriteString("];queues=[")
+	for i, name := range sortedKeys(norm.Queues) {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		q := norm.Queues[name]
+		b.WriteString(name)
+		b.WriteString(":{")
+		pcps := make([]int, 0, len(q.MaxRateBPS))
+		for p := range q.MaxRateBPS {
+			pcps = append(pcps, int(p))
+		}
+		slices.Sort(pcps)
+		for j, pcp := range pcps {
+			if j > 0 {
+				b.WriteByte(',')
+			}
+			fmt.Fprintf(&b, "%d=%d", pcp, q.MaxRateBPS[vlan.PCP(pcp)])
+		}
+		b.WriteByte('}')
+	}
+	b.WriteString("]")
+
+	return b.String()
 }

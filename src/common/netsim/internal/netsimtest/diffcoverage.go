@@ -557,3 +557,60 @@ func mustBuildPortTable(p port.Port, companions []port.Port) port.Table {
 	}
 	return t
 }
+
+// AssertRetentionKeyCoversConfig walks seed by reflection and, for every leaf not named in
+// exemptions, perturbs a fresh deep copy's value at that leaf alone, and asserts keyFn reports
+// a different retention key. It fails outright, rather than skipping, a leaf whose perturbation
+// did not actually change the value.
+func AssertRetentionKeyCoversConfig[C any](t *testing.T, seed C, keyFn func(C) string, exemptions map[string]string) {
+	t.Helper()
+
+	leaves, seedVal, err := leavesOrEmpty(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, msg := range exemptionProblems(leaves, exemptions) {
+		t.Error(msg)
+	}
+
+	for _, l := range leaves {
+		l := l
+		if _, exempt := exemptions[l.matchPath]; exempt {
+			continue
+		}
+		t.Run(l.displayPath, func(t *testing.T) {
+			t.Helper()
+			if err := checkLeafRetention(seed, seedVal, l, keyFn); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func checkLeafRetention[C any](seed C, seedVal reflect.Value, l coverageLeaf, keyFn func(C) string) error {
+	perturbedRoot := deepCopyValue(seedVal)
+	leafVal, commit := navigateForMutation(perturbedRoot, l.path)
+	origLeafVal := navigateReadOnly(seedVal, l.path)
+	origCopy := reflect.New(origLeafVal.Type()).Elem()
+	origCopy.Set(origLeafVal)
+
+	if err := mutateLeaf(leafVal); err != nil {
+		return fmt.Errorf("perturbing %s: %w", l.displayPath, err)
+	}
+	commit()
+
+	if reflect.DeepEqual(origCopy.Interface(), leafVal.Interface()) {
+		return fmt.Errorf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
+			l.displayPath, leafVal.Interface(), leafVal.Type())
+	}
+
+	perturbed, ok := perturbedRoot.Interface().(C)
+	if !ok {
+		return fmt.Errorf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
+	}
+
+	if keyFn(seed) == keyFn(perturbed) {
+		return fmt.Errorf("retention key reported no change after perturbing %s", l.displayPath)
+	}
+	return nil
+}

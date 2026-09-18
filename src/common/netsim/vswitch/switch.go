@@ -258,6 +258,8 @@ type Switch struct {
 	// A frame that vanished with no record would be the same silent answer
 	// the neighbor lifecycle exists to remove.
 	neighborFailures []NeighborDrop
+
+	retention Retention
 }
 
 // pvstBoundaryHit names one port and VLAN a journey crossed while the port
@@ -517,7 +519,14 @@ func (s *Switch) Fork() *Switch {
 			cp.bridge.SetGroupResolver(cp, protocolScope(cp.nodeID, port.LayerMcast))
 		}
 	}
+	cp.retention = AllKeptRetention()
 	return cp
+}
+
+// Retention reports what capability runtime state Derive retained from the
+// current switch and what differed. On a forked switch, every layer is reported kept.
+func (s *Switch) Retention() Retention {
+	return s.retention
 }
 
 // Neighbors returns the current neighbor table entries across all VRFs.

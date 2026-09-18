@@ -1,7 +1,9 @@
 package loopprotect
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -413,4 +415,36 @@ func (l *Layer) Clear(_ time.Time, portName string) bool {
 	ps.waitUntil = time.Time{}
 
 	return true
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it, port link states,
+// and the switch base MAC.
+func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
+	if len(cfg.Ports) == 0 && cfg.Interval == 0 && mac == (netaddr.MAC{}) {
+		return ""
+	}
+	norm := cfg.Normalize()
+	var b strings.Builder
+	b.WriteString("config=")
+	fmt.Fprintf(&b, "interval=%s;", norm.Interval)
+	portNames := sortedKeys(norm.Ports)
+	for _, name := range portNames {
+		p := norm.Ports[name]
+		fmt.Fprintf(&b, "p:%s:%s;", name, p.Canonical())
+	}
+
+	b.WriteString("\nport-state=")
+	for _, name := range portNames {
+		if pt, ok := ports.Port(name); ok {
+			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
+		} else {
+			fmt.Fprintf(&b, "%s:absent;", name)
+		}
+	}
+
+	b.WriteString("\nmac=")
+	b.WriteString(mac.String())
+
+	return b.String()
 }

@@ -51,6 +51,12 @@ policing.
 `Config.MaxRate` looks up a port and PCP in the queue table. A missing entry
 means that priority has no configured maximum.
 
+## State retention
+
+`RetentionKey(cfg Config) string` encodes the normalized traffic configuration
+as `Diff` sees it. `vswitch.Derive` retains active token buckets per matching
+policer when the layer's retention key is unchanged.
+
 ## Sources
 
 The shapes follow the Open vSwitch database schema on

@@ -186,6 +186,14 @@ included) actually let a probe onto the wire is the switch's decision, not
 this layer's; `Disable` is the one action defined to stop probing, which is
 also why pairing it with `LoopCleared` recovery is refused at construction.
 
+## State retention
+
+`RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string` encodes
+every normalized input the loop-protection runtime state depends on: its own
+configuration as `Diff` sees it, port administrative and operational states, and
+the switch's base MAC. `vswitch.Derive` retains the runtime layer only when both
+keys match and rebuilds it otherwise.
+
 ## Not modeled
 
 - Vendor probe formats, SNMP traps, and log actions.

@@ -263,6 +263,14 @@ the first one that applies:
 3. `unsynchronized`: it is attached to the lead partner but that partner has
    not advertised `StateSynchronization` (`At` is its next receive timeout).
 
+## State retention
+
+`RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string` encodes
+every normalized input the link-aggregation runtime state depends on: its own
+configuration normalized against the port table and switch system ID, member port
+administrative and operational states, and the switch's system ID. `vswitch.Derive`
+retains the runtime layer only when both keys match and rebuilds it otherwise.
+
 ## Sources
 
 The state machine, bond hashing, and configuration fields replicate the behavior

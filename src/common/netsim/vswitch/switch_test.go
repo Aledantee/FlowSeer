@@ -5177,9 +5177,9 @@ func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
 // TestDeriveKeepsObservedNeighborsAndDropsHeldFrames covers the Decisions
 // section's retention rule: an observed neighbor survives Derive over an
 // unchanged configuration, so a later frame to it resolves without holding,
-// but a frame the old switch was holding does not, because it belongs to
-// the run that queued it and not to retained configuration.
-func TestDeriveKeepsObservedNeighborsAndDropsHeldFrames(t *testing.T) {
+// Derive retains the routing layer's neighbor table and hold queues when the
+// routing retention key is unchanged, and drops them when it is not.
+func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
 	cur := buildBaseRoutingSwitch(t)
 
 	dstA := netip.MustParseAddr("10.0.20.77")
@@ -5187,8 +5187,8 @@ func TestDeriveKeepsObservedNeighborsAndDropsHeldFrames(t *testing.T) {
 	pktA := makeIPv4Packet(t, ipH1, dstA, 64, []byte("a"))
 	frameA := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktA}
 	cur.Forward(fixedTime, "1/1/1", frameA)
-	reply := makeARPReply(t, dstA, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
-	cur.Forward(fixedTime.Add(time.Millisecond), "1/1/2", reply)
+	replyA := makeARPReply(t, dstA, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	cur.Forward(fixedTime.Add(time.Millisecond), "1/1/2", replyA)
 	cur.Wake(fixedTime.Add(time.Millisecond))
 	cur.Drain()
 
@@ -5203,23 +5203,54 @@ func TestDeriveKeepsObservedNeighborsAndDropsHeldFrames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
+	if !next.Retention().Routing.Kept {
+		t.Errorf("Routing retention = %+v, want Kept: true", next.Retention().Routing)
+	}
 
 	resA := next.Forward(fixedTime.Add(3*time.Millisecond), "1/1/1", frameA)
 	if resA.Outcome != trace.Flooded && resA.Outcome != trace.Forwarded {
 		t.Fatalf("outcome for the retained neighbor = %v, want Forwarded or Flooded", resA.Outcome)
 	}
 
-	// frameB was held at fixedTime+2ms, so its resolution deadline is
-	// fixedTime+3s+2ms: waking at fixedTime+3s exactly is still before that
-	// deadline and would pass vacuously whether or not Derive discarded the
-	// held queue. Waking well past the deadline instead makes the assertion
-	// below fail if a held frame survived Derive.
-	next.Wake(fixedTime.Add(4 * time.Second))
-	if emissions := next.Drain(); len(emissions) != 0 {
-		t.Errorf("emissions = %d, want 0: a held frame must not survive Derive", len(emissions))
+	// Held frame survived Derive: resolve it via ARP reply and Wake
+	learnedMACB := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x88}
+	replyB := makeARPReply(t, dstB, netip.MustParseAddr("10.0.20.1"), learnedMACB, macRouter)
+	next.Forward(fixedTime.Add(4*time.Millisecond), "1/1/2", replyB)
+	next.Wake(fixedTime.Add(4 * time.Millisecond))
+	if emissions := next.Drain(); len(emissions) == 0 {
+		t.Errorf("emissions = 0, want released held frame")
 	}
 	if failures := next.DrainNeighborFailures(); len(failures) != 0 {
-		t.Errorf("neighbor failures = %d, want 0: a held frame must not survive Derive", len(failures))
+		t.Errorf("neighbor failures = %d, want 0", len(failures))
+	}
+}
+
+func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
+	cur := buildBaseRoutingSwitch(t)
+
+	dstB := netip.MustParseAddr("10.0.20.88")
+	pktB := makeIPv4Packet(t, ipH1, dstB, 64, []byte("b"))
+	frameB := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktB}
+	if held := cur.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB); held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+
+	// Perturb NeighborPolicy.ResolutionTimeout to change routing retention key
+	nextCfg := cur.Config()
+	vrf := nextCfg.Routing.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	nextCfg.Routing.VRFs[routing.DefaultVRF] = vrf
+
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	if err != nil {
+		t.Fatalf("Derive failed: %v", err)
+	}
+	if next.Retention().Routing.Kept {
+		t.Errorf("Routing retention = %+v, want Kept: false", next.Retention().Routing)
+	}
+	// Held frame is reported as failed rather than silently lost
+	if failures := next.DrainNeighborFailures(); len(failures) != 1 {
+		t.Errorf("neighbor failures = %d, want 1", len(failures))
 	}
 }
 

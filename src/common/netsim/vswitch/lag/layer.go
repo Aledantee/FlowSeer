@@ -1,7 +1,9 @@
 package lag
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -823,4 +825,47 @@ func (l *Layer) BadLACPDU(member string) {
 	if m, ok := l.members[member]; ok {
 		m.badLACPDUs++
 	}
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it, member link states,
+// and the switch system ID.
+func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
+	hasLagPorts := false
+	for _, p := range ports.Ports() {
+		if p.Kind == port.Lag {
+			hasLagPorts = true
+			break
+		}
+	}
+	if len(cfg.LAGs) == 0 && !hasLagPorts {
+		return ""
+	}
+	norm := cfg.Normalize(ports, systemID)
+	var b strings.Builder
+	b.WriteString("config=")
+	for _, name := range sortedKeys(norm.LAGs) {
+		b.WriteString(name)
+		b.WriteByte(':')
+		b.WriteString(string(snapshotLAG(norm.LAGs[name])))
+		b.WriteByte(';')
+	}
+
+	b.WriteString("\nmember-state=")
+	var memberNames []string
+	for _, p := range ports.Ports() {
+		if p.LagParent != "" {
+			memberNames = append(memberNames, p.Name)
+		}
+	}
+	slices.Sort(memberNames)
+	for _, name := range memberNames {
+		p, _ := ports.Port(name)
+		fmt.Fprintf(&b, "%s:parent=%s,admin=%s,oper=%s;", name, p.LagParent, p.AdminStatus, p.OperStatus)
+	}
+
+	b.WriteString("\nsystem-id=")
+	b.WriteString(systemID.String())
+
+	return b.String()
 }

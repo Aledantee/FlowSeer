@@ -2,6 +2,7 @@
 package mcast
 
 import (
+	"fmt"
 	"maps"
 	"net/netip"
 	"slices"
@@ -492,4 +493,37 @@ func learnRouter(now time.Time, portName string, state *vlanState) {
 	}
 
 	state.routers[portName] = routerPortState{expires: now.Add(state.routerPortInterval), origin: Observed, lifetime: Aging}
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it and the port link
+// states for configured router ports.
+func RetentionKey(cfg Config, ports port.Table) string {
+	if len(cfg.VLANs) == 0 {
+		return ""
+	}
+	norm := cfg.Normalize()
+	var b strings.Builder
+	b.WriteString("config=")
+	var allRouterPorts []string
+	vids := sortedVLANIDs(norm.VLANs)
+	for _, vid := range vids {
+		v := norm.VLANs[vid]
+		fmt.Fprintf(&b, "%d:{%s};", vid, v.Canonical())
+		allRouterPorts = append(allRouterPorts, v.RouterPorts...)
+	}
+
+	slices.Sort(allRouterPorts)
+	allRouterPorts = slices.Compact(allRouterPorts)
+
+	b.WriteString("\nport-state=")
+	for _, name := range allRouterPorts {
+		if pt, ok := ports.Port(name); ok {
+			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
+		} else {
+			fmt.Fprintf(&b, "%s:absent;", name)
+		}
+	}
+
+	return b.String()
 }

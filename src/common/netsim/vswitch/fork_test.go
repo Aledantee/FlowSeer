@@ -35,6 +35,7 @@ var switchDeepCopiedProbes = map[string]func(t *testing.T){
 	"seeds":            probeSwitchSeeds,
 	"operErr":          probeSwitchOperErr,
 	"neighborFailures": probeSwitchNeighborFailures,
+	"retention":        probeSwitchRetention,
 }
 
 func probeSwitchBridge(t *testing.T) {
@@ -360,5 +361,19 @@ func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 	res := fork.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Forwarded {
 		t.Errorf("fork forward outcome = %v, want Forwarded", res.Outcome)
+	}
+}
+
+func probeSwitchRetention(t *testing.T) {
+	sw := newTestSwitchForFork(t)
+	sw.retention = Retention{
+		STP: LayerRetention{Kept: false, Difference: "port-state"},
+	}
+	fork := sw.Fork()
+	if !fork.Retention().STP.Kept {
+		t.Errorf("fork STP kept = false, want true")
+	}
+	if sw.Retention().STP.Kept {
+		t.Errorf("source STP kept = true, want false")
 	}
 }

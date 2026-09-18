@@ -571,6 +571,22 @@ remains a consulted, normalized port with explicit Unknown states, so its scoped
 construction issues still reach hub, bridge, routing, and protocol-interception
 results.
 
+## Derivation and state retention
+
+`Derive(cur, spec)` produces an updated switch while retaining capability layer
+runtime state whose inputs have not changed. Each capability layer exports a
+`RetentionKey` computed from constructed switches rather than raw specs. When
+both keys match, the runtime layer is retained; otherwise it is rebuilt from the
+target specification. `Switch.Retention()` reports each layer's outcome and the
+differing dependency name (`config`, `port-state`, `resolved-speed`,
+`member-state`, `mac`, or `system-id`). `Switch.Fork()` marks all layers kept.
+
+Runtime duplex and speed are carried per port independently of STP retention,
+retained only where the target's port and PHY resolved speed match. A port whose
+resolved speed changed clears its carried duplex and speed and raises
+`IssueProtocolLinkUnknown` until a subsequent `LinkChange` confirms the new
+negotiation.
+
 ## Concurrency contract
 
 A `vswitch.Switch` holds the forwarding database and is not safe for

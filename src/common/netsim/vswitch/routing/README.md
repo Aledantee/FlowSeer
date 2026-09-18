@@ -419,3 +419,12 @@ defaults: `ReachableTime` 30 seconds, `ResolutionTimeout` 3 seconds
 `NeighborDisabled` is for a VRF — a host stack, say — that never resolves an
 address it was not told about: every miss there is `neighbor-miss`, never
 `neighbor-pending`.
+
+## State retention
+
+`RetentionKey(cfg Config, ports port.Table) string` encodes every normalized
+input the routing runtime state depends on: its own configuration as `Diff`
+sees it and the administrative and operational state of interfaces that reference
+a port. When `vswitch.Derive` finds the routing retention key unchanged, it
+retains the neighbor table and hold queues. When the key differs, the layer is
+rebuilt and all held frames are reported as failed under `neighbor-fail-derive`.

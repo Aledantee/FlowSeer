@@ -524,3 +524,46 @@ func (l *Layer) Neighbors() []NeighborEntry {
 	}
 	return entries
 }
+
+// FailHeld drains every held frame across all VRFs with cause HeldTimedOut,
+// transitions any Incomplete entry to Failed, and returns the resulting effects.
+func (l *Layer) FailHeld() Effects {
+	var eff Effects
+	var rows []neighborTableEntry
+	for vrfName, vs := range l.vrfs {
+		for key, entry := range vs.neighbors {
+			rows = append(rows, neighborTableEntry{vrfName: vrfName, key: key, entry: entry})
+		}
+	}
+	slices.SortFunc(rows, func(a, b neighborTableEntry) int {
+		if c := cmp.Compare(a.vrfName, b.vrfName); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.key.iface, b.key.iface); c != 0 {
+			return c
+		}
+		return a.key.addr.Compare(b.key.addr)
+	})
+
+	for _, row := range rows {
+		entry := row.entry
+		for _, h := range entry.evicted {
+			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); ok {
+				eff.Exits = append(eff.Exits, hf)
+			}
+		}
+		entry.evicted = nil
+
+		for _, h := range entry.queue {
+			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); ok {
+				eff.Exits = append(eff.Exits, hf)
+			}
+		}
+		if entry.state == NeighborIncomplete {
+			entry.state = NeighborFailed
+			entry.expiry = time.Time{}
+		}
+		entry.queue = nil
+	}
+	return eff
+}

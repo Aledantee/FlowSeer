@@ -70,6 +70,7 @@ var switchFieldClasses = map[string]forkClass{
 	"neighborUnresolvedHits":   classResetOnFork,
 	"pvstBoundaryHits":         classResetOnFork,
 	"neighborFailures":         classDeepCopied,
+	"retention":                classDeepCopied,
 }
 
 func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {

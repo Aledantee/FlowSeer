@@ -249,3 +249,10 @@ run once from `TestEveryDiffPackageIsCovered`, is what proves the full set
 ran. The literal is what a person edits deliberately when a package gains a
 `diff.go`; the walk is what would otherwise let that package ship silently
 uncovered.
+
+## Retention key coverage
+
+[AssertRetentionKeyCoversConfig] walks a seeded `Config` by reflection and, for
+every leaf not named in `exemptions`, perturbs a fresh copy at that leaf alone
+and asserts the layer's `RetentionKey` changes. An exemption naming a leaf the
+walk did not find fails, ensuring exemption tables do not go stale.

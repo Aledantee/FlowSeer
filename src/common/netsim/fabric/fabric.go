@@ -902,6 +902,15 @@ func (f *Fabric) Config() Config {
 	return f.cfg.Clone()
 }
 
+// Retention reports the per-switch layer retention outcome of the most recent Derive or Fork.
+func (f *Fabric) Retention() map[string]vswitch.Retention {
+	ret := make(map[string]vswitch.Retention, len(f.switches))
+	for name, sw := range f.switches {
+		ret[name] = sw.Retention()
+	}
+	return ret
+}
+
 // linkTrust holds what a link's resolution could not decide from stated facts.
 type linkTrust struct {
 	issues     []analysis.Issue

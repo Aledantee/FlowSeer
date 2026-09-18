@@ -149,3 +149,13 @@ preserves every timer in an independent layer.
 returns the admitted port union, membership registration, and the pending-
 query signal. The caller decides whether an unregistered group floods or uses
 the returned router ports, and how a pending query surfaces as an issue.
+
+## State retention
+
+`RetentionKey(cfg Config, ports port.Table) string` encodes every normalized
+input the multicast snooping runtime state depends on: its own configuration as
+`Diff` sees it and port states for configured router ports. When both switches
+have multicast snooping enabled, `vswitch.Derive` retains the layer across
+derivation by calling `InstallObserved` with each prior observed router port's
+expiry, keeping group memberships and active router ports while dropping
+router ports whose ports were removed.

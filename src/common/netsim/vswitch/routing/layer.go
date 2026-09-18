@@ -2,9 +2,11 @@ package routing
 
 import (
 	"cmp"
+	"fmt"
 	"net/netip"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -1121,4 +1123,48 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		Payload:   pktBytes,
 	}
 	return res
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it and the port link
+// states for interfaces that reference a port.
+func RetentionKey(cfg Config, ports port.Table) string {
+	if len(cfg.VRFs) == 0 {
+		return ""
+	}
+	norm := cfg.Normalize()
+	var b strings.Builder
+	b.WriteString("config=")
+	var ifacePorts []string
+	vrfNames := make([]string, 0, len(norm.VRFs))
+	for name := range norm.VRFs {
+		vrfNames = append(vrfNames, name)
+	}
+	slices.Sort(vrfNames)
+	for _, name := range vrfNames {
+		vrf := norm.VRFs[name]
+		b.WriteString(name)
+		b.WriteByte(':')
+		b.WriteString(string(snapshotVRF(vrf)))
+		b.WriteByte(';')
+		for _, iface := range vrf.Interfaces {
+			if iface.Port != "" {
+				ifacePorts = append(ifacePorts, iface.Port)
+			}
+		}
+	}
+
+	slices.Sort(ifacePorts)
+	ifacePorts = slices.Compact(ifacePorts)
+
+	b.WriteString("\nport-state=")
+	for _, name := range ifacePorts {
+		if pt, ok := ports.Port(name); ok {
+			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
+		} else {
+			fmt.Fprintf(&b, "%s:absent;", name)
+		}
+	}
+
+	return b.String()
 }

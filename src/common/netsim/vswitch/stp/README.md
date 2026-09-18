@@ -411,6 +411,14 @@ strictly must, costing a round of flooding to relearn entries that were never
 stale. Narrowing it would need a target that can say
 "every FID except these", which `FlushTarget` deliberately cannot.
 
+## State retention
+
+`RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string`
+encodes every normalized input the spanning tree runtime state depends on: its
+own configuration as `Diff` sees it, the administrative and operational state of
+configured ports, and resolved physical link speeds. `vswitch.Derive` retains the
+runtime layer only when both keys match and rebuilds it otherwise.
+
 ## Not modeled
 
 - 802.1D spanning tree per VLAN, and the PVST inconsistency states other than

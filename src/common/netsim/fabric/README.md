@@ -706,6 +706,13 @@ The package declares reasons for link failures and frame discards:
 | `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
 | `reflector-no-address` | Target attachment names no address of the accepted datagram's family |
 
+## Derivation and state retention
+
+`Fabric.Derive(candidate)` derives the simulation fabric against an updated
+candidate configuration. Each virtual switch is derived with `vswitch.Derive`,
+retaining capability layers whose inputs have not changed. `Fabric.Retention()`
+reports the retention outcome for every switch on the fabric.
+
 ## Concurrency contract
 
 A `Fabric` is not safe for concurrent use. Simulators mutate internal clock

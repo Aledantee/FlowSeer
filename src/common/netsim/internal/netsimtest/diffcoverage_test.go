@@ -3,6 +3,7 @@ package netsimtest
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -54,6 +55,36 @@ func TestCheckLeafCatchesAnOmittedField(t *testing.T) {
 	}
 	if err := checkLeaf(seed, seedVal, byPath[".Uncovered"], normalize, diff); err == nil {
 		t.Error("checkLeaf(.Uncovered) = nil, want an error naming the field Diff never compares")
+	}
+}
+
+// TestCheckLeafRetentionCatchesAnOmittedField proves the per-leaf retention check reports
+// a problem for exactly the field a fixture's key function never includes, and reports
+// none for the field it does.
+func TestCheckLeafRetentionCatchesAnOmittedField(t *testing.T) {
+	type fixtureConfig struct {
+		Covered   int
+		Uncovered int
+	}
+	keyFn := func(c fixtureConfig) string {
+		return strconv.Itoa(c.Covered)
+	}
+	seed := fixtureConfig{Covered: 1, Uncovered: 2}
+
+	leaves, seedVal, err := leavesOrEmpty(seed)
+	if err != nil {
+		t.Fatalf("leavesOrEmpty: %v", err)
+	}
+	byPath := make(map[string]coverageLeaf, len(leaves))
+	for _, l := range leaves {
+		byPath[l.matchPath] = l
+	}
+
+	if err := checkLeafRetention(seed, seedVal, byPath[".Covered"], keyFn); err != nil {
+		t.Errorf("checkLeafRetention(.Covered) = %v, want nil", err)
+	}
+	if err := checkLeafRetention(seed, seedVal, byPath[".Uncovered"], keyFn); err == nil {
+		t.Error("checkLeafRetention(.Uncovered) = nil, want an error naming the omitted field")
 	}
 }
 
