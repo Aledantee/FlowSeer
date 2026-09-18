@@ -5,7 +5,7 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -614,6 +614,17 @@ in-memory inputs and a logical clock, as parent R38 requires.
    example is a two-cycle. This plan allows periods up to the window, which
    costs a quadratic scan over at most `2*window` entries. If the window is ever
    set large by a caller, that cost is unbounded by anything this plan declares.
+4. **Regression test for reflection through a policed or mirrored switch
+   (follow-up from review).** The review fix classified a reflector-originated
+   copy as `OriginMirror` for provenance, and the round-two review found that
+   the two SPAN behaviors keyed on `Origin.Kind == OriginMirror` — the ingress
+   policing skip and the downstream-copy suppression in `run.go` — then applied
+   to reflections too. The fix re-keys both on a non-empty `Origin.Mirror`, so a
+   reflection is policed and mirrorable while a SPAN copy is not; it is covered
+   by mechanism and by the existing reflector/mirror/policer tests passing, but
+   no test yet cables a reflector to a switch port carrying a mirror session or
+   a policer and asserts the reflected frame is copied or dropped. That topology
+   test is worth adding to make the property executable.
 
 ## Where the parent plan's U6 description missed the landed tree
 
