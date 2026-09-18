@@ -212,3 +212,38 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 		}
 	})
 }
+
+func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) {
+	t.Parallel()
+
+	f := &Fabric{
+		journeys: make(map[FrameID]*Journey),
+		switches: make(map[string]*vswitch.Switch),
+	}
+	f.initRunState()
+
+	em := vswitch.Emission{
+		Port:     "swp1",
+		Frame:    ethernet.Frame{Payload: []byte("non-protocol-payload")},
+		Protocol: false,
+	}
+
+	f.injectEmission(time.Now(), "sw1", em)
+
+	if len(f.journeys) != 1 {
+		t.Fatalf("len(journeys) = %d, want 1", len(f.journeys))
+	}
+	var j *Journey
+	for _, journey := range f.journeys {
+		j = journey
+	}
+	if err := j.Origin.Validate(); err != nil {
+		t.Errorf("journey.Origin.Validate() failed: %v", err)
+	}
+	if j.Origin.Kind != OriginInjection {
+		t.Errorf("journey.Origin.Kind = %v, want %v", j.Origin.Kind, OriginInjection)
+	}
+	if j.Origin.Of != 0 {
+		t.Errorf("journey.Origin.Of = %v, want 0", j.Origin.Of)
+	}
+}

@@ -744,8 +744,11 @@ func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflecto
 		Frame:  copyFrame,
 	}
 	copyJourney := &Journey{
-		FrameID:   fid,
-		Origin:    JourneyOrigin{Kind: OriginInjection},
+		FrameID: fid,
+		Origin: JourneyOrigin{
+			Kind: OriginMirror,
+			Of:   parent.FrameID,
+		},
 		Injection: inj,
 	}
 	f.journeys[fid] = copyJourney
@@ -1163,10 +1166,11 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 
 	origin := JourneyOrigin{Kind: OriginInjection}
 	if !em.Protocol {
-		holdingFID := f.findAndPopHeld(device, em.Frame)
-		origin = JourneyOrigin{
-			Kind: OriginRelease,
-			Of:   holdingFID,
+		if holdingFID := f.findAndPopHeld(device, em.Frame); holdingFID != 0 {
+			origin = JourneyOrigin{
+				Kind: OriginRelease,
+				Of:   holdingFID,
+			}
 		}
 	}
 
@@ -1324,15 +1328,19 @@ func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	if err != nil {
 		return RunResult{}, err
 	}
+	replayScenario := norm.Clone()
+	replayScenario.Spec = ConstructionSpec{}
 	res.Replay = ReplaySpec{
 		Contract: ReplayContract,
 		Spec:     initialSpec,
-		Scenario: norm.Clone(),
+		Scenario: replayScenario,
 	}
 	return res, nil
 }
 
-// Replay executes a simulation from a recorded replay specification.
+// Replay executes a simulation from a recorded replay specification. Spec is the authoritative
+// construction specification for the fabric topology; any Spec declared on Scenario is ignored
+// to eliminate topology divergence.
 func Replay(spec ReplaySpec) (RunResult, error) {
 	if spec.Contract != ReplayContract {
 		return RunResult{}, errs.New().
@@ -1344,7 +1352,9 @@ func Replay(spec ReplaySpec) (RunResult, error) {
 	if err != nil {
 		return RunResult{}, err
 	}
-	return fab.RunScenario(spec.Scenario)
+	scenario := spec.Scenario.Clone()
+	scenario.Spec = ConstructionSpec{}
+	return fab.RunScenario(scenario)
 }
 
 func (f *Fabric) applyAction(a Action) error {
@@ -1405,11 +1415,11 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 	f.initRunState()
 
 	if budget <= 0 {
-		return f.buildRunResult(StopNotRun, 0, nil, nil, budget), nil
+		return f.buildRunResult(StopNotRun, 0, nil, nil, budget, len(actions)), nil
 	}
 
 	if f.err != nil {
-		return f.buildRunResult(StopFault, 0, nil, nil, budget), nil
+		return f.buildRunResult(StopFault, 0, nil, nil, budget, len(actions)), nil
 	}
 
 	var (
@@ -1489,7 +1499,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 		stop = StopBudget
 	}
 
-	return f.buildRunResult(stop, steps, fingerprints, cycle, budget), nil
+	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, len(pendingActions)), nil
 }
 
 func detectCycle(fps []string, window int) ([]string, bool) {
@@ -1576,7 +1586,7 @@ func (f *Fabric) pendingWork() PendingWork {
 	}
 }
 
-func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle []string, budget int) RunResult {
+func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle []string, budget int, droppedActions int) RunResult {
 	rep := f.Report()
 	var issues []analysis.Issue
 	for _, j := range rep {
@@ -1595,6 +1605,18 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 			Status:  analysis.Exhausted,
 			Scope:   analysis.WholeScope(),
 			Message: fmt.Sprintf("step budget %d exhausted", budget),
+		})
+	}
+	if droppedActions > 0 {
+		noun := "actions"
+		if droppedActions == 1 {
+			noun = "action"
+		}
+		uniqueIssues = append(uniqueIssues, analysis.Issue{
+			Code:    IssueActionsDropped,
+			Status:  analysis.Exhausted,
+			Scope:   analysis.WholeScope(),
+			Message: fmt.Sprintf("%d timed %s did not fire before budget exhaustion", droppedActions, noun),
 		})
 	}
 	if f.err != nil {
@@ -1618,16 +1640,17 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 	canonicalIssues := analysis.CanonicalIssues(uniqueIssues)
 
 	return RunResult{
-		Stop:         stop,
-		Steps:        steps,
-		Clock:        f.clock,
-		Pending:      f.pendingWork(),
-		Status:       status,
-		Issues:       canonicalIssues,
-		Err:          f.err,
-		Replay:       ReplaySpec{Contract: ReplayContract, Spec: f.Spec()},
-		Fingerprints: fingerprints,
-		Cycle:        cycle,
+		Stop:           stop,
+		Steps:          steps,
+		Clock:          f.clock,
+		Pending:        f.pendingWork(),
+		Status:         status,
+		Issues:         canonicalIssues,
+		Err:            f.err,
+		Replay:         ReplaySpec{},
+		Fingerprints:   fingerprints,
+		Cycle:          cycle,
+		DroppedActions: droppedActions,
 	}
 }
 

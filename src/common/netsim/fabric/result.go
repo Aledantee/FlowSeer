@@ -32,6 +32,8 @@ const (
 	IssueSchedulingFault analysis.IssueCode = "scheduling-fault"
 	// IssueOscillating is the issue code raised when a run halts because the state is oscillating.
 	IssueOscillating analysis.IssueCode = "oscillating"
+	// IssueActionsDropped is the issue code raised when a run halts before all timed scenario actions have fired.
+	IssueActionsDropped analysis.IssueCode = "actions-dropped"
 )
 
 // PendingWork summarizes remaining work across all queues at the time a run halted.
@@ -46,6 +48,8 @@ type PendingWork struct {
 const ReplayContract = "netsim-fabric/v1"
 
 // ReplaySpec captures the construction specification, contract version, and scenario needed to replay a run.
+// Spec is authoritative for the fabric topology; Scenario captures scheduled actions, budget, and window,
+// with its embedded Spec zeroed to eliminate topology divergence.
 type ReplaySpec struct {
 	Contract string
 	Spec     ConstructionSpec
@@ -53,15 +57,17 @@ type ReplaySpec struct {
 }
 
 // RunResult captures the complete outcome of executing a simulation run.
+// Replay is populated and replayable only for RunScenario and Replay; plain Run leaves Replay zero.
 type RunResult struct {
-	Stop         StopReason
-	Steps        int
-	Clock        time.Time
-	Pending      PendingWork
-	Status       analysis.Status
-	Issues       []analysis.Issue
-	Err          error
-	Replay       ReplaySpec
-	Fingerprints []string
-	Cycle        []string
+	Stop           StopReason
+	Steps          int
+	Clock          time.Time
+	Pending        PendingWork
+	Status         analysis.Status
+	Issues         []analysis.Issue
+	Err            error
+	Replay         ReplaySpec
+	Fingerprints   []string
+	Cycle          []string
+	DroppedActions int
 }

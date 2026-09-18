@@ -16,14 +16,14 @@ import (
 )
 
 type originClassificationRule struct {
-	requireOf     bool
-	requireMirror bool
+	requireOf    bool
+	forbidMirror bool
 }
 
 var originClassificationTable = map[JourneyOriginKind]originClassificationRule{
-	OriginInjection: {requireOf: false, requireMirror: false},
-	OriginMirror:    {requireOf: true, requireMirror: true},
-	OriginRelease:   {requireOf: true, requireMirror: false},
+	OriginInjection: {requireOf: false, forbidMirror: true},
+	OriginMirror:    {requireOf: true, forbidMirror: false},
+	OriginRelease:   {requireOf: true, forbidMirror: true},
 }
 
 var allDeclaredOriginKinds = []JourneyOriginKind{
@@ -56,9 +56,6 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			if rule.requireOf {
 				validOrigin.Of = 42
 			}
-			if rule.requireMirror {
-				validOrigin.Mirror = "span-session"
-			}
 			if err := validOrigin.Validate(); err != nil {
 				t.Errorf("valid baseline for %s failed Validate: %v", kind, err)
 			}
@@ -79,17 +76,22 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			}
 
 			// Check Mirror violations
-			if rule.requireMirror {
-				invalid := validOrigin
-				invalid.Mirror = ""
-				if err := invalid.Validate(); err == nil {
-					t.Errorf("%s with Mirror=\"\" passed Validate, want error (requireMirror=true)", kind)
-				}
-			} else {
+			if rule.forbidMirror {
 				invalid := validOrigin
 				invalid.Mirror = "unexpected-mirror"
 				if err := invalid.Validate(); err == nil {
-					t.Errorf("%s with Mirror set passed Validate, want error (requireMirror=false)", kind)
+					t.Errorf("%s with Mirror set passed Validate, want error (forbidMirror=true)", kind)
+				}
+			} else {
+				withMirror := validOrigin
+				withMirror.Mirror = "span-session"
+				if err := withMirror.Validate(); err != nil {
+					t.Errorf("%s with Mirror set failed Validate: %v", kind, err)
+				}
+				withoutMirror := validOrigin
+				withoutMirror.Mirror = ""
+				if err := withoutMirror.Validate(); err != nil {
+					t.Errorf("%s with Mirror unset failed Validate: %v", kind, err)
 				}
 			}
 		})
