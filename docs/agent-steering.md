@@ -100,8 +100,8 @@ delegation does not transfer responsibility for the final result.
 
 ## Project skills
 
-FlowSeer ships six workflow skills under `.claude/skills/`: `plan`,
-`implement`, `review`, `compound`, `close`, and `steer`, next to the
+FlowSeer ships seven workflow skills under `.claude/skills/`: `plan`,
+`implement`, `review`, `compound`, `close`, `steer`, and `drive`, next to the
 `verify-change` gate and the `delegate` routing skill that the others load
 before dispatching an agent. The decisions below were taken against published
 measurements, the research listed at the end of this document, and this
@@ -528,6 +528,28 @@ round undo the previous round's fix: fixes are dispatched through
 loop stops at a round with no correctness findings, and after three
 rounds on one mechanism the work goes to `plan`, the cap `implement` puts
 on a red unit.
+
+Sequence a parent plan's stages from the files, in a skill that owns only
+the order. Twice, on 2026-09-11 and 2026-09-17, the user typed the loop by
+hand ("plan -> implement -> review -> compound loop for each phase, review
+and fix multiple times", then "use sub worktrees for all stages"), and
+drove it afterwards with "status", "resume phase 3", and "pause after
+phase 2"; "what plan is not finished yet" was asked in two sessions on one
+day. The improvised loop also drifted: over the first two phases of the
+protobuf tree refactor the coordinator loaded `implement`, `delegate`, and
+`compound` once each and never `plan` or `review`, whose work went to
+workers as hand-written briefs, and both phases were reviewed and fixed
+with no `review` field written, the verdict `close` refuses to merge
+without. `drive` therefore names the stage and loads the skill that owns it,
+restating none of their rules, so a correction to a stage still has one
+place to go. Its state is `plan-state.py` over the parent's `Landed:`
+lines and the phase plans' frontmatter, the fields the other skills
+already write, for the reason the ledger exists: that coordinator's
+transcript reached 5 MB, and a resumed session has to find its place
+without it. A phase whose last commit is on `main` needs no stage, since
+`close` gated it there and older phases predate the `review` and
+`compound` fields. The skill stops before `close`, which stays a person's
+request like every other merge into `main`.
 
 The integration branch is `main`. The skills named `master` until
 2026-09-15, so `--base master` and `master..HEAD` failed in this
