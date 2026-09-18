@@ -63,9 +63,10 @@ func (r Record) Normalize() (Record, error) {
 			cp.CapturedLen = len(cp.Bytes)
 		} else if cp.Frame != nil {
 			encoded, err := cp.Frame.Encode()
-			if err == nil {
-				cp.CapturedLen = len(encoded)
+			if err != nil {
+				return Record{}, errs.Wrap(err, "encode record frame")
 			}
+			cp.CapturedLen = len(encoded)
 		}
 	}
 	if cp.OriginalLen == 0 {

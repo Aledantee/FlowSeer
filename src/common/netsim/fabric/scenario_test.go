@@ -295,6 +295,27 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 				Budget: 10,
 			},
 		},
+		{
+			name: "duplicate numbered at and index",
+			sc: Scenario{
+				Name:   "duplicate-at-index",
+				Budget: 10,
+				Actions: []Action{
+					{
+						At:     t0,
+						Index:  1,
+						Kind:   ActionInject,
+						Inject: validInject,
+					},
+					{
+						At:    t0,
+						Index: 1,
+						Kind:  ActionFault,
+						Fault: validFault,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -303,6 +324,49 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 				t.Errorf("tc.sc.Validate() succeeded, want error for %s", tc.name)
 			}
 		})
+	}
+}
+
+func TestScenarioNumberedIndexUniqueness(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	validInject := &Injection{
+		At:     t0,
+		Origin: Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Payload: []byte("x")},
+	}
+	validFault := &FaultAction{
+		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
+		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+		Fault: Fault{Kind: FaultCut},
+	}
+
+	scValidSameTimeDiffIndex := Scenario{
+		Name:   "valid-same-time-diff-index",
+		Budget: 10,
+		Actions: []Action{
+			{At: t0, Index: 1, Kind: ActionInject, Inject: validInject},
+			{At: t0, Index: 2, Kind: ActionFault, Fault: validFault},
+		},
+	}
+	if err := scValidSameTimeDiffIndex.Validate(); err != nil {
+		t.Fatalf("Validate failed for valid distinct indices at same time: %v", err)
+	}
+
+	validFaultLater := &FaultAction{
+		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
+		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+		Fault: Fault{Kind: FaultCut},
+	}
+	scValidDiffTimeSameIndex := Scenario{
+		Name:   "valid-diff-time-same-index",
+		Budget: 10,
+		Actions: []Action{
+			{At: t0, Index: 1, Kind: ActionInject, Inject: validInject},
+			{At: t0.Add(time.Second), Index: 1, Kind: ActionFault, Fault: validFaultLater},
+		},
+	}
+	if err := scValidDiffTimeSameIndex.Validate(); err != nil {
+		t.Fatalf("Validate failed for valid same index at different times: %v", err)
 	}
 }
 
@@ -551,6 +615,153 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 		if len(j1[i].Entries) != len(j2[i].Entries) {
 			t.Errorf("journey %d entries len mismatch: %d != %d", i, len(j1[i].Entries), len(j2[i].Entries))
 		}
+	}
+}
+
+func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
+	t.Helper()
+	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 1}
+	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 2}
+	macH3 := netaddr.MAC{0, 0, 0, 0, 0, 3}
+
+	ports, _ := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+
+	cfg := Config{
+		Start:         t0,
+		PhyAssumption: testPhyAssumption(),
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports,
+				Bridge: &bridge.Config{},
+			},
+		},
+		Hosts: map[string]Host{
+			"h1": {Address: macH1},
+			"h2": {Address: macH2},
+			"h3": {Address: macH3},
+		},
+		Cables: []Cable{
+			{A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}},
+			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}},
+			{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "h3"}},
+		},
+	}
+
+	fab, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+	return fab, cfg
+}
+
+func TestScenarioReplaySeededFabricEquality(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	fab, cfg := newTestThreeHostFabric(t, t0)
+
+	macH2 := cfg.Hosts["h2"].Address
+	if err := fab.Switch("sw1").Learn([]bridge.Seed{
+		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+	}); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
+
+	frame := ethernet.Frame{
+		Src:     cfg.Hosts["h1"].Address,
+		Dst:     macH2,
+		Payload: []byte("seeded-payload"),
+	}
+
+	sc := Scenario{
+		Name: "seeded-unicast",
+		Spec: ConstructionSpec{
+			Start:         cfg.Start,
+			Switches:      fab.Spec().Switches,
+			Hosts:         cfg.Hosts,
+			Cables:        cfg.Cables,
+			PhyAssumption: cfg.PhyAssumption,
+		},
+		Actions: []Action{
+			{
+				At:   t0.Add(time.Second),
+				Kind: ActionInject,
+				Inject: &Injection{
+					Origin: Endpoint{Node: "h1"},
+					Frame:  frame,
+				},
+			},
+		},
+		Budget: 20,
+		Window: 3,
+	}
+
+	res1, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatalf("RunScenario 1: %v", err)
+	}
+
+	res2, err := Replay(res1.Replay)
+	if err != nil {
+		t.Fatalf("Replay 2: %v", err)
+	}
+
+	if res1.Stop != res2.Stop {
+		t.Errorf("res1.Stop=%v != res2.Stop=%v", res1.Stop, res2.Stop)
+	}
+	if res1.Steps != res2.Steps {
+		t.Errorf("res1.Steps=%d != res2.Steps=%d", res1.Steps, res2.Steps)
+	}
+	if !slices.Equal(res1.Fingerprints, res2.Fingerprints) {
+		t.Errorf("res1.Fingerprints != res2.Fingerprints")
+	}
+
+	j1 := fab.Report()
+	fab2, err := NewWithSpec(res1.Replay.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	_, _ = fab2.RunScenario(res1.Replay.Scenario)
+	j2 := fab2.Report()
+
+	if len(j1) != len(j2) {
+		t.Fatalf("len(j1)=%d != len(j2)=%d", len(j1), len(j2))
+	}
+	if len(j1) != 1 {
+		t.Fatalf("len(j1)=%d, want 1 (seeded unicast delivery)", len(j1))
+	}
+	for i := range j1 {
+		if j1[i].State != j2[i].State {
+			t.Errorf("journey %d state mismatch: %v != %v", i, j1[i].State, j2[i].State)
+		}
+		if len(j1[i].Entries) != len(j2[i].Entries) {
+			t.Errorf("journey %d entries len mismatch: %d != %d", i, len(j1[i].Entries), len(j2[i].Entries))
+		}
+	}
+
+	// Dropping seeds from the recorded replay spec must fail to match seeded execution.
+	droppedSpec := res1.Replay
+	swSpec := droppedSpec.Spec.Switches["sw1"]
+	swSpec.Seeds = nil
+	droppedSpec.Spec.Switches["sw1"] = swSpec
+
+	droppedRes, err := Replay(droppedSpec)
+	if err != nil {
+		t.Fatalf("Replay dropped seeds: %v", err)
+	}
+	if slices.Equal(res1.Fingerprints, droppedRes.Fingerprints) {
+		t.Errorf("expected fingerprints to differ when seeds are dropped")
+	}
+	droppedFab, err := NewWithSpec(droppedSpec.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec dropped seeds: %v", err)
+	}
+	_, _ = droppedFab.RunScenario(droppedSpec.Scenario)
+	droppedJourneys := droppedFab.Report()
+	if len(droppedJourneys[0].Entries) == len(j1[0].Entries) {
+		t.Errorf("expected unseeded flooding to produce more journey entries than seeded unicast (%d == %d)", len(droppedJourneys[0].Entries), len(j1[0].Entries))
 	}
 }
 
