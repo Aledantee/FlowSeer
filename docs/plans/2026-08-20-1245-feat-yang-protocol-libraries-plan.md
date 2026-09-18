@@ -5,26 +5,33 @@ date: 2026-08-20
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: partially-implemented
+compound: docs/solutions/conventions/same-typed-metadata-maps-can-carry-different-vocabularies.md
 execution: code
 ---
 
 # YANG Protocol Libraries - Plan
 
-> Code complete; live validation is no longer obtainable. The libraries below
+> Code complete; two of three families are now validated. The libraries below
 > landed and later moved from `src/common/{yang,netconf,restconf,gnmi}` to the
-> corresponding `src/protocol/` packages. What stays open is R12 and R14 — write
-> validation per family on lab hardware, which KD8 and KD9 make a v1 acceptance
-> criterion rather than a nicety. The lab is closed as of 2026-09-10 (see
-> [the runbook](../runbooks/lab-icx7150-first-write.md)), so those rows cannot be
-> filled by anyone working from this tree, and this plan stays
-> `partially-implemented` for a reason that will not resolve on its own.
+> corresponding `src/protocol/` packages. RESTCONF closed on 2026-08-21 against
+> a Ruckus ICX7150, and NETCONF on 2026-09-18 against a Cisco CSR1000v running
+> IOS-XE 17.3.2 after the lab gained virtual nodes; both passes are recorded
+> below. The earlier reading that live validation could never be obtained (the
+> lab closure of 2026-09-10, see
+> [the runbook](../runbooks/lab-icx7150-first-write.md)) held only until the
+> lab was rebuilt.
 >
-> This is a decision to record, not an omission to carry: v1 as scoped here
-> cannot close without devices. Whoever picks it up chooses between acquiring
-> hardware for the three families, or amending KD8 and KD9 to accept
-> containers and fixtures and saying plainly what that costs — the write path,
-> including transaction error and rollback behavior, would then ship unproven
-> against any real device.
+> What stays open is the gNMI leg, and it is a scope question rather than a
+> missing device. KD2 names Aruba CX, and no Aruba device serves gNMI: the
+> 10.07 switch simulator has no `gnmi` command and neither 830 nor 9339
+> listens on it. All four gNMI legs do pass against an Arista vEOS-lab 4.33
+> node, which is a real vendor NOS but not a family KD2 names, so the
+> `gn-t4-*` rows stay `pending`. Closing them means amending KD2 and KD9 to
+> say which devices count as validation — a product call, not an
+> implementation one. The IOS-XE candidate/commit path is also unproven:
+> enabling `netconf-yang feature candidate-datastore` on 17.3.2 kills the
+> server's `<hello>`, and the lab's Junos node is where that path would be
+> proven instead.
 
 ## Goal Capsule
 
