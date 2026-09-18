@@ -45,10 +45,11 @@ type PendingWork struct {
 // ReplayContract identifies the fabric replay specification schema version.
 const ReplayContract = "netsim-fabric/v1"
 
-// ReplaySpec captures the construction specification and contract version needed to replay a run.
+// ReplaySpec captures the construction specification, contract version, and scenario needed to replay a run.
 type ReplaySpec struct {
 	Contract string
 	Spec     ConstructionSpec
+	Scenario Scenario
 }
 
 // RunResult captures the complete outcome of executing a simulation run.

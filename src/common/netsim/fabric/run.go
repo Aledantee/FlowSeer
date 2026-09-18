@@ -1308,15 +1308,108 @@ func (f *Fabric) Run(budget int) RunResult {
 	return f.run(budget, 0)
 }
 
+// RunScenario validates and executes a declared scenario under its specified budget and window.
+func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
+	norm, err := s.Normalize()
+	if err != nil {
+		return RunResult{}, err
+	}
+	if err := norm.Validate(); err != nil {
+		return RunResult{}, err
+	}
+
+	initialSpec := f.Spec()
+
+	res, err := f.runWithActions(norm.Budget, norm.Window, norm.Actions)
+	if err != nil {
+		return RunResult{}, err
+	}
+	res.Replay = ReplaySpec{
+		Contract: ReplayContract,
+		Spec:     initialSpec,
+		Scenario: norm.Clone(),
+	}
+	return res, nil
+}
+
+// Replay executes a simulation from a recorded replay specification.
+func Replay(spec ReplaySpec) (RunResult, error) {
+	if spec.Contract != ReplayContract {
+		return RunResult{}, errs.New().
+			Attr("contract", spec.Contract).
+			Attr("expected", ReplayContract).
+			Msgf("replay refused: unexpected contract %q, want %q", spec.Contract, ReplayContract)
+	}
+	fab, err := NewWithSpec(spec.Spec)
+	if err != nil {
+		return RunResult{}, err
+	}
+	return fab.RunScenario(spec.Scenario)
+}
+
+func (f *Fabric) applyAction(a Action) error {
+	switch a.Kind {
+	case ActionInject:
+		_, err := f.Inject(*a.Inject)
+		return err
+	case ActionFault:
+		if a.At.After(f.clock) {
+			f.clock = a.At
+		}
+		return f.SetFault(a.Fault.A, a.Fault.B, a.Fault.Fault)
+	case ActionMcheck:
+		if a.At.After(f.clock) {
+			f.clock = a.At
+		}
+		return f.Mcheck(a.Mcheck.Node, a.Mcheck.Port)
+	case ActionRecord:
+		rec := a.Record
+		inj := Injection{
+			At:     rec.At,
+			Origin: rec.Origin,
+			Frame:  *rec.Frame,
+		}
+		fid, err := f.Inject(inj)
+		if err != nil {
+			return err
+		}
+		if rec.OriginalLen > rec.CapturedLen {
+			if j := f.journeys[fid]; j != nil {
+				j.State = JourneyTruncated
+				issue := analysis.Issue{
+					Code:    IssueTruncatedRecord,
+					Status:  analysis.Incomplete,
+					Scope:   analysis.WholeScope(),
+					Message: fmt.Sprintf("record from source %q truncated: captured %d octets of %d", rec.Source, rec.CapturedLen, rec.OriginalLen),
+				}
+				j.Metadata = analysis.NewMetadata(
+					analysis.WholeScope(),
+					append(j.Metadata.Issues(), issue),
+					j.Metadata.Evidence(),
+					j.Metadata.Assumptions(),
+				)
+			}
+		}
+		return nil
+	default:
+		return errs.Msgf("unknown action kind %q", a.Kind)
+	}
+}
+
 func (f *Fabric) run(budget int, window int) RunResult {
+	res, _ := f.runWithActions(budget, window, nil)
+	return res
+}
+
+func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunResult, error) {
 	f.initRunState()
 
 	if budget <= 0 {
-		return f.buildRunResult(StopNotRun, 0, nil, nil, budget)
+		return f.buildRunResult(StopNotRun, 0, nil, nil, budget), nil
 	}
 
 	if f.err != nil {
-		return f.buildRunResult(StopFault, 0, nil, nil, budget)
+		return f.buildRunResult(StopFault, 0, nil, nil, budget), nil
 	}
 
 	var (
@@ -1326,6 +1419,7 @@ func (f *Fabric) run(budget int, window int) RunResult {
 		steps                   int
 		lastFingerprint         = f.Fingerprint()
 		wakeArrivalsSinceChange int
+		pendingActions          = actions
 	)
 
 	for steps < budget {
@@ -1333,6 +1427,18 @@ func (f *Fabric) run(budget int, window int) RunResult {
 			stop = StopFault
 			break
 		}
+
+		if len(pendingActions) > 0 {
+			if len(f.queue) == 0 || !pendingActions[0].At.After(f.queue[0].At) {
+				act := pendingActions[0]
+				pendingActions = pendingActions[1:]
+				if err := f.applyAction(act); err != nil {
+					return RunResult{}, err
+				}
+				continue
+			}
+		}
+
 		if len(f.queue) == 0 {
 			stop = StopQueueDrained
 			break
@@ -1368,7 +1474,7 @@ func (f *Fabric) run(budget int, window int) RunResult {
 			}
 		}
 
-		if window > 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
+		if window > 0 && len(pendingActions) == 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
 			stop = StopConverged
 			break
 		}
@@ -1383,7 +1489,7 @@ func (f *Fabric) run(budget int, window int) RunResult {
 		stop = StopBudget
 	}
 
-	return f.buildRunResult(stop, steps, fingerprints, cycle, budget)
+	return f.buildRunResult(stop, steps, fingerprints, cycle, budget), nil
 }
 
 func detectCycle(fps []string, window int) ([]string, bool) {
