@@ -31,8 +31,10 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 
 Resolve a role to a lane in this order, once per lane:
 
-1. Drop models whose pool `host.local.yaml` shows `signed_in` false or
-   null, or over 85% on any window.
+1. Drop models whose pool row (`host.local.yaml`, refreshed per wave by
+   `scripts/pool-usage.sh`) shows `signed_in` false or null, or over 85% on
+   a window that applies to the model. Orca reporting a provider as
+   `unavailable` is not a pool row; see Dispatch by quota.
 2. Drop `zen` unless every fitting prepaid pool is hot. `zen` is per-token;
    a wave that reaches it says so.
 3. Drop models the role `exclude`s. For `review-unit`, also drop the
@@ -40,9 +42,9 @@ Resolve a role to a lane in this order, once per lane:
 4. Move a pool that already holds a running lane of this wave to the back
    until that lane settles.
 5. Take the model whose pool has the most headroom, and within ten points
-   the one with the lower registry price. A signed-in pool that reports no
-   window (`windows: null`) counts as full headroom, so it is taken before
-   a Claude window with a number on it.
+   the one with the lower registry price. A signed-in pool whose source
+   failed (`windows: null`) counts as full headroom until it answers with a
+   429.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
@@ -73,42 +75,55 @@ Before the first dispatch of a session:
 
 The file records the agent CLIs present (`claude`, `codex`, `agy`,
 `opencode`), whether Orca is reachable, each pool's sign-in state and
-rate-limit windows, and the opencode model ids split by pool. Run it
-unsandboxed: `orca` uses a local socket. Then `herdr agent list
+rate-limit windows (through `scripts/pool-usage.sh`), and the opencode
+model ids split by pool. Run it unsandboxed: `orca` uses a local socket,
+`agy` reads the keyring, and `opencode` writes a log file. Then `herdr agent list
 >/dev/null && echo herdr up`, also unsandboxed: success means the Herdr
 lane is open. Native subagents always run on Claude; a Herdr worker runs
 on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
 
-`account list` reports `rateLimits` per provider: a `status` and windows
-(`session`, `weekly`, `fableWeekly`, `monthly`) with `usedPercent` and
-`resetsAt`. Reading it is a step of every dispatch, not advice before one:
-run it immediately before each wave, and again first whenever a delegated
-session goes quiet, because an exhausted pool is the cheapest of the four
-causes of silence to rule out and the only one visible without touching the
-worker. A window at 0% may have just rolled over; the `resetsAt` in the
-same row says whether it did. The worst window of every provider:
+No single tool sees all four pools, so `scripts/pool-usage.sh` reads each
+from the source that owns its numbers and prints one row per pool with
+`signed_in`, the used percent of every window, and the `worst` one with its
+reset time:
 
 ```bash
-orca account list --json | python3 -c '
-import json, sys
-limits = json.load(sys.stdin)["result"]["rateLimits"]
-for name, v in limits.items():
-    if not isinstance(v, dict) or v.get("status") != "ok":
-        continue
-    windows = [(k, w["usedPercent"], w["resetDescription"]) for k, w in v.items()
-               if isinstance(w, dict) and "usedPercent" in w]
-    print(name, max(windows, key=lambda t: t[1]) if windows else "no window data")'
+.claude/skills/delegate/scripts/pool-usage.sh    # unsandboxed
 ```
 
-- A pool is usable when it is signed in and every window it reports is under
-  85%. Claude and Codex windows come from `account list`; `google` and `go`
-  report none, so read their usage pages before a wave larger than three
-  units and treat a 429 or a "limit reached" reply as the pool going hot
-  for the rest of the wave. `go` meters in dollars ($12 per 5 hours, $30
-  per week, $60 per month): a lane's estimated spend from the registry
-  price counts against it.
+| Pool | Source | Windows |
+| --- | --- | --- |
+| `claude`, `codex` | `orca account list --json`, `rateLimits` | `session`, `weekly`, `fableWeekly` |
+| `google` | `agy -p /quota --output-format json`, answered without a model turn | `gemini-5h`, `gemini-weekly`, `3p-5h`, `3p-weekly` |
+| `go` | `opencode db`, the cost of `opencode-go` messages against the registry `caps` | `5h`, `week`, `month` |
+
+`orca account list` also carries `antigravity` and `opencodeGo` rows with
+`status: unavailable`. That status says Orca cannot read their usage (no
+Gemini CLI sign-in, no session cookie); it says nothing about the pool.
+Never drop `google` or `go` on it. A pool is out only when its own row from
+`pool-usage.sh` shows `signed_in: false` or a window over the threshold. A
+row with `windows: null` and an `error` means the source failed: say so in
+the report and treat the pool as signed in with unknown headroom.
+
+Reading the rows is a step of every dispatch, not advice before one: run the
+script immediately before each wave, and again first whenever a delegated
+session goes quiet, because an exhausted pool is the cheapest of the four
+causes of silence to rule out and the only one visible without touching the
+worker. A window at 0% may have just rolled over; `resets` in the same row
+says whether it did.
+
+- A pool is usable when it is signed in and every window that applies to the
+  lane is under 85%. On `google` the `gemini-*` windows meter Gemini models
+  and the `3p-*` windows meter Claude and GPT models run through `agy`; only
+  the group of the lane's model counts.
+- `go` meters rolling windows in dollars, and its database holds only this
+  machine's sessions, so spend from another host is missing from the
+  number. A lane's estimated spend from the registry price counts against
+  the window before it starts.
+- A 429 or a "limit reached" reply marks the pool hot for the rest of the
+  wave, whatever the row said.
 - The coordinating session and every native subagent draw on the Claude
   pool, a Fable session also on `fableWeekly`. Past 85% there, keep native
   delegation to `review-seam` and `judge` and send the rest to the other
