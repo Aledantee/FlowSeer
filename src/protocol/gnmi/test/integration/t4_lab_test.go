@@ -30,7 +30,8 @@ func dialT4(t *testing.T, target t4Target) *gnmi.Session {
 }
 
 // identityPaths are the identity leaves (hostname, version, serial,
-// model) per the OpenConfig models AOS-CX advertises.
+// model) per the OpenConfig models the gNMI target advertises. On the
+// Arista vEOS-lab node these are standard OpenConfig paths.
 func identityPaths() []yang.Path {
 	mk := func(names ...string) yang.Path {
 		var p yang.Path
@@ -50,7 +51,7 @@ func identityPaths() []yang.Path {
 // TestT4CapabilitiesAndIdentity records the peer's capability surface
 // and reads the identity leaves as typed values.
 //
-// Covers the typed identity read (Aruba leg). Covers conformance matrix row: gn-t4-identity
+// Covers the typed identity read (gNMI leg, Arista vEOS-lab). Covers conformance matrix row: gn-t4-identity
 func TestT4CapabilitiesAndIdentity(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -82,13 +83,13 @@ func TestT4CapabilitiesAndIdentity(t *testing.T) {
 	}
 }
 
-// TestT4ArubaSetCapability restores the login banner after checking Set.
+// TestT4SetCapability restores the login banner after checking Set.
 // A rejected write is recorded as unsupported; a failed restoration fails
 // the test because the device may still carry the test banner.
 //
 // Covers conformance matrix row: gn-t4-set-verdict
 // Covers conformance matrix row: gn-banner-newline-normalization
-func TestT4ArubaSetCapability(t *testing.T) {
+func TestT4SetCapability(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
 			s := dialT4(t, target)
@@ -253,6 +254,10 @@ func TestT4RevisionDrift(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read lockfile: %v", err)
 	}
+	// No Arista tree is vendored, so the drift runs against the aruba-cx
+	// bucket, which holds the plain OpenConfig models Arista also advertises.
+	// The overlap by module name is what exercises the drift mechanism; every
+	// pair is semver-versus-date, so the expected result is all-incomparable.
 	vendored, err := yang.ParseLockfileRevisions(lock, "aruba-cx")
 	if err != nil {
 		t.Fatal(err)

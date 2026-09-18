@@ -4,7 +4,7 @@ type: feat
 date: 2026-08-20
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: accept after fixes
 compound: docs/solutions/conventions/same-typed-metadata-maps-can-carry-different-vocabularies.md
 execution: code
@@ -12,27 +12,28 @@ execution: code
 
 # YANG Protocol Libraries - Plan
 
-> Code complete; two of three families are now validated. The libraries below
-> landed and later moved from `src/common/{yang,netconf,restconf,gnmi}` to the
-> corresponding `src/protocol/` packages. RESTCONF closed on 2026-08-21 against
-> a Ruckus ICX7150, and NETCONF on 2026-09-18 against a Cisco CSR1000v running
-> IOS-XE 17.3.2 after the lab gained virtual nodes; both passes are recorded
-> below. The earlier reading that live validation could never be obtained (the
-> lab closure of 2026-09-10, see
-> [the runbook](../runbooks/lab-icx7150-first-write.md)) held only until the
-> lab was rebuilt.
+> Code complete and all three protocols are validated on real hardware. The
+> libraries below landed and later moved from `src/common/{yang,netconf,restconf,gnmi}`
+> to the corresponding `src/protocol/` packages. RESTCONF closed on 2026-08-21
+> against a Ruckus ICX7150, NETCONF on 2026-09-18 against a Cisco CSR1000v
+> running IOS-XE 17.3.2, and gNMI on 2026-09-18 against an Arista vEOS-lab 4.33
+> node after the lab gained virtual nodes; all three passes are recorded below.
+> The earlier reading that live validation could never be obtained (the lab
+> closure of 2026-09-10, see [the runbook](../runbooks/lab-icx7150-first-write.md))
+> held only until the lab was rebuilt.
 >
-> What stays open is the gNMI leg, and it is a scope question rather than a
-> missing device. KD2 names Aruba CX, and no Aruba device serves gNMI: the
-> 10.07 switch simulator has no `gnmi` command and neither 830 nor 9339
-> listens on it. All four gNMI legs do pass against an Arista vEOS-lab 4.33
-> node, which is a real vendor NOS but not a family KD2 names, so the
-> `gn-t4-*` rows stay `pending`. Closing them means amending KD2 and KD9 to
-> say which devices count as validation — a product call, not an
-> implementation one. The IOS-XE candidate/commit path is also unproven:
-> enabling `netconf-yang feature candidate-datastore` on 17.3.2 kills the
-> server's `<hello>`, and the lab's Junos node is where that path would be
-> proven instead.
+> The gNMI leg closed as a scope decision, amended into KD2 and KD9 below:
+> Arista vEOS-lab 4.33 is the gNMI validation authority, because no family KD2
+> first named serves gNMI in the lab — the Aruba 10.07 switch simulator has no
+> `gnmi` command and neither 830 nor 9339 listens on it, and AOS-CX gNMI is
+> telemetry-oriented with a proprietary REST config plane. Arista is a real
+> vendor NOS serving OpenConfig over gNMI; Get, Subscribe, and a reversible Set
+> all run green against it. R14's escape hatch fired as predicted: the
+> Aruba-specific write criterion is a documented accepted-risk gap
+> (`gn-aruba-set-capability`), and Set is proven on Arista instead. What stays
+> unproven is the IOS-XE candidate/commit path: enabling `netconf-yang feature
+> candidate-datastore` on 17.3.2 kills the server's `<hello>`, and the lab's
+> Junos node is where that path would be proven instead.
 
 ## Goal Capsule
 
@@ -56,14 +57,14 @@ FlowSeer ingests from network devices over SNMP today, but the fleet's richer ma
 ### Key Decisions
 
 - KD1. **Config-first, full protocol support** — the libraries cover the complete protocol surface (config read/write and operational state), not a monitoring-only subset. (session-settled: user-directed — chosen over state-only or config-only scope: matches how the SNMP library covers its protocol fully.) Governs R1, R2, R3.
-- KD2. **All three device families from day one** — IOS-XE, ICX, and Aruba CX are all v1 coverage requirements. (session-settled: user-directed — chosen over phased vendor rollout.) Governs R11, R12.
+- KD2. **All three device families from day one** — IOS-XE, ICX, and Aruba CX are all v1 coverage requirements. (session-settled: user-directed — chosen over phased vendor rollout.) Governs R11, R12. *(Amended 2026-09-18: gNMI validation authority is Arista vEOS-lab 4.33, not Aruba CX. Aruba CX serves no gNMI in the lab — AOS-CX gNMI is telemetry-oriented with a proprietary REST config plane — so the gNMI family's validation device is the real NOS that serves the protocol. Library coverage of all three families is unchanged.)
 - KD3. **gNMI is a third first-class protocol** — Aruba CX is served via gNMI rather than a native-REST adapter or deferral; gNMI is where all three vendors are heading. (session-settled: user-directed — chosen over lab-verify-then-decide, native REST adapter, and two-family v1.) Governs R3, R14.
 - KD4. **Sibling protocol libraries, no unified facade** — each library is idiomatic to its protocol; NETCONF's candidate/commit model cannot be flattened into RESTCONF's immediate edits without gutting config-first. A thin facade can be added later if a real caller wants one. (session-settled: user-approved — chosen over protocol-transparent session: transaction semantics diverge and the fleet forces per-device protocol choice anyway.) Governs R4.
 - KD5. **Full vendor surface codegen** — every vendored module is generated, not an allowlist or a typed-core-plus-dynamic hybrid; compile and repo weight are accepted costs, contained by per-module packages and Go's import-graph pruning. (session-settled: user-directed — chosen over allowlist-driven and hybrid generation.) Governs R5, R9. *Conflict call-out:* repo research found mibgen's byte-diff check mode and per-file SHA headers strain at 1,071 modules — workable, addressed by KTD7 and the R9 measurement gate, not a blocker.
 - KD6. **In-house `yanggen` over adopting ygot** — goyang resolves the schema (groupings, augments, deviations), jennifer emits house-style Go under mibgen's conventions; ygot emits no NETCONF XML and its output style conflicts with the generated-code house rules. External research confirmed ygot fails outright on the full IOS-XE native tree (enumeration name clashes in flat-namespace codegen — openconfig/ygot issue 888). (session-settled: user-directed — chosen over ygot adoption and transport-first sequencing.) Governs R5, R6, R7, R8.
 - KD7. **State reads extend the Collection Primitives contract** — Walker/Watcher analogs over YANG paths with the same lifecycle semantics, rather than one-shot read helpers. (session-settled: user-directed — chosen over one-shot reads and Walker-only.) Governs R10.
 - KD8. **Full write validation in v1** — the write path is proven on lab hardware before v1 closes, including transaction error and rollback behavior, not just a happy-path change. (session-settled: user-directed — chosen over reads-only acceptance and one-write-per-family.) Governs R12, R14.
-- KD9. **Lab hardware is the validation authority** — real devices for the three families back conformance capture, like the SNMP quirk corpus. (session-settled: user-directed — chosen over containers-and-fixtures-only.) Governs R12, R13.
+- KD9. **Lab hardware is the validation authority** — real devices back conformance capture, like the SNMP quirk corpus. NETCONF/RESTCONF are validated on IOS-XE and ICX; gNMI is validated on Arista vEOS-lab 4.33, the real NOS that serves the protocol, since no KD2 family does (see the KD2 amendment). (session-settled: user-directed — chosen over containers-and-fixtures-only; gNMI-device amendment 2026-09-18.) Governs R12, R13.
 
 One generated source of truth fans out to three wire protocols:
 
@@ -103,7 +104,7 @@ flowchart TB
 
 - R12. v1 acceptance includes write validation on lab hardware per family: candidate, validate, commit, and rollback exercised on NETCONF including error paths; RESTCONF edits verified on ICX; gNMI Set verified on Aruba CX subject to R14. Rollback is proven by read-back diff of the affected subtree, not by trusting the device's success response.
 - R13. The conformance-corpus discipline extends to the new libraries: device and server quirks encountered during lab validation are recorded with provenance and covered by cited tests.
-- R14. Aruba CX write capability over gNMI is verified on lab hardware early; if Set proves insufficient for config writes there, the Aruba write-acceptance criterion converts to a documented gap with the fallback path recorded, without blocking v1 for the other families. External research indicates AOS-CX gNMI is likely telemetry-oriented, making this escape hatch probable.
+- R14. Aruba CX write capability over gNMI is verified on lab hardware early; if Set proves insufficient for config writes there, the Aruba write-acceptance criterion converts to a documented gap with the fallback path recorded, without blocking v1 for the other families. External research indicates AOS-CX gNMI is likely telemetry-oriented, making this escape hatch probable. *(Exercised 2026-09-18: no lab Aruba CX serves gNMI, so the escape hatch fired — `gn-aruba-set-capability` is a documented accepted-risk gap, and gNMI Set is proven on Arista vEOS-lab instead. See the gNMI lab pass below.)*
 
 ### Key Flows
 
@@ -510,12 +511,14 @@ Merge gate remains the repo standard: build + vet + lint + `go test -race ./...`
 
 ### DoD status (2026-08-20, clause list superseded where the passes below say so)
 
-Every clause above is **met except AE3 and the R14 verdict**. AE1, AE2
-and AE4 were hardware-gated when this section was written and have
-since been proven on real devices: RESTCONF on 2026-08-21 and NETCONF
-on 2026-09-18, both recorded below. AE3 and R14 need an Aruba CX
-device serving gNMI, which the lab does not have. Confirmed met
-without hardware at the time of writing:
+Every clause above is now **met**. AE1, AE2 and AE4 were hardware-gated
+when this section was written and have since been proven on real
+devices: RESTCONF on 2026-08-21 and NETCONF on 2026-09-18. AE3 and the
+R14 verdict closed on 2026-09-18 against Arista vEOS-lab under the KD2
+amendment: gNMI Get, Subscribe, and a reversible Set all pass, and the
+Aruba-specific write criterion is a documented accepted-risk gap. All
+four passes are recorded below. Confirmed met without hardware at the
+time of writing:
 
 - All ten units' code complete and committed in dependency order;
   U10's t4 suites and the R8 revision-drift runtime are implemented
@@ -529,15 +532,14 @@ without hardware at the time of writing:
 - t1 container tier green against real netopeer2, clixon, and the
   FlowSeer gNMI reference target.
 
-**Remaining, blocked on lab access (KD9):** only the gNMI rows
-(`gn-t4-*`, `gn-aruba-set-capability`) are still `pending`, so the
-gNMI completeness gate stays red by design. RESTCONF closed on
-2026-08-21 and NETCONF on 2026-09-18; both sections below record what
-the devices gave. To close the rest: supply targets via
-`YANG_GNMI_T4_TARGETS`, run
-`go test -tags yang_integration_t4 ./src/protocol/gnmi/test/integration/`,
-then flip those rows to `covered` with the observed detail, or record
-the R14 Aruba conversion here.
+**All lab passes complete (KD9):** RESTCONF closed on 2026-08-21,
+NETCONF on 2026-09-18, and gNMI on 2026-09-18 against Arista vEOS-lab;
+each section below records what the device gave. The four `gn-t4-*`
+rows are `covered` with Arista provenance and `gn-aruba-set-capability`
+is an allowlisted `accepted-risk` gap, so the gNMI completeness gate is
+green. The suite runs through the public library only via
+`YANG_GNMI_T4_TARGETS=<arista host:port@user:password>
+go test -tags yang_integration_t4 ./src/protocol/gnmi/test/integration/`.
 
 ### RESTCONF lab pass (2026-08-21) — AE1 + R12 + depth/fields verified on real ICX
 
@@ -622,6 +624,50 @@ confirmed-commit paths therefore stay unproven on hardware. The lab's
 Junos 24.4R1 node at 172.16.0.43 does advertise `candidate:1.0`,
 `confirmed-commit:1.0` and `validate:1.0`, and is the obvious place to
 prove them — at the cost of a family KD2 does not name.
+
+---
+
+### gNMI lab pass (2026-09-18) — AE3 + R14 verdict on Arista vEOS-lab
+
+gNMI is validated on an **Arista vEOS-lab 4.33.1.1F** node (172.16.0.31,
+hostname `LABSW31`) under the KD2/KD9 amendment (no lab Aruba CX serves
+gNMI). All four `gn-t4-*` legs run green against it through the public
+library only (dial → Capabilities → Get/Subscribe/Set → typed decode),
+and the `gnmi_conformance_complete` gate is green for the first time.
+Capabilities reports gNMI 0.7.0, 236 models, encodings JSON / JSON_IETF
+/ ASCII.
+
+- **AE1 (identity, gNMI leg):** all four fields decode typed via Get —
+  hostname `LABSW31` (`/system/state/hostname`), software version
+  `4.33.1.1F` (`/system/state/software-version`), serial
+  `5D6E2AC69607FB2063326FDFC6357C94` and part number `vEOS-lab`
+  (`/components/component[name=Chassis]/state/{serial-no,part-no}`). No
+  surface gap, unlike the FastIron leg.
+- **AE3 / R12 / R14 (reversible Set):** a reversible
+  `/system/config/login-banner` Set to `flowseer-t4` is verified by
+  read-back and restored; EOS normalizes the banner with a trailing
+  newline (read back as `flowseer-t4\n`), so the round-trip compares
+  modulo that normalization (corpus `gn-banner-newline-normalization`).
+  Set round-trips on this device. This is the Arista Set proof that
+  stands in for the Aruba criterion; `gn-aruba-set-capability` is the
+  recorded accepted-risk gap.
+- **Subscribe STREAM:** a STREAM subscription over `interfaces` delivers
+  `sync_response` and keeps flowing — updates arrive past sync, 16 of
+  them carrying a leaf-list that decodes into the update's `Values`
+  (corpus `gn-leaf-list-typed-value`).
+- **R8 (revision drift):** no Arista tree is vendored, so the device's
+  advertised models are diffed against the vendored OpenConfig baseline
+  (the `aruba-cx` bucket, which holds the plain OpenConfig models Arista
+  also serves); 68 modules overlap by name — 0 drifted, 68 incomparable
+  (warn-and-proceed): EOS advertises OpenConfig `openconfig-version`
+  semver (e.g. `openconfig-interfaces` 3.7.1, `openconfig-system` 2.3.0)
+  while the lockfile carries RFC 7950 revision dates, and a semver never
+  equals a date (KTD12). Identity and interface reads survive intact.
+
+Corpus rows `gn-t4-identity`, `gn-t4-set-verdict`, `gn-t4-stream`, and
+`gn-t4-revision-drift` are flipped to **covered** with the observed
+detail; `gn-aruba-set-capability` is **accepted-risk** and allowlisted;
+CONFORMANCE.md regenerated.
 
 ---
 

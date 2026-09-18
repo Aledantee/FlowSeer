@@ -84,33 +84,40 @@ var gnmiCorpus = []conformance.Row{
 	},
 	{
 		ID: "gn-aruba-set-capability", Clause: "gNMI spec §3.4",
-		Provenance: "Aruba CX lab capability check (pending)",
-		Behavior:   "the lab check records whether the device supports config writes through Set and captures the rejection when it does not",
-		Unit:       "gnmi/lab", Status: conformance.Pending,
+		Provenance: "Aruba CX lab capability check — no lab device serves gNMI",
+		Behavior:   "records that Aruba CX gNMI write capability is unverifiable in this lab, and where the config write goes instead",
+		Accepted: "No lab Aruba CX serves gNMI: the 10.07 switch simulator has no gnmi command and neither 830 nor 9339 listens. " +
+			"AOS-CX gNMI is telemetry-oriented and its config plane is proprietary REST, so write capability cannot be proven here. " +
+			"The Aruba write criterion converts to a documented gap; gNMI Set is proven on Arista vEOS-lab instead (row gn-t4-set-verdict).",
+		Unit: "gnmi/lab", Status: conformance.AcceptedRisk,
 	},
 	{
 		ID: "gn-t4-identity", Clause: "device identity reads",
-		Provenance: "Aruba CX lab device (pending)",
-		Behavior:   "hostname, software version, serial, and part number return via Get over the advertised OpenConfig models",
-		Unit:       "gnmi/lab", Status: conformance.Pending,
+		Provenance:  "Arista vEOS-lab 4.33, lab device 2026-09-18",
+		Behavior:    "hostname, software version, serial, and part number return via Get over the advertised OpenConfig models",
+		Adversarial: "live Get of system/state/{hostname,software-version} and components/component/state/{serial-no,part-no} against the Arista node",
+		Unit:        "gnmi/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "gn-t4-set-verdict", Clause: "config write capability",
-		Provenance: "Aruba CX lab device (pending)",
-		Behavior:   "a reversible login-banner Set is verified by Get; if the device rejects the write, the check records the rejection",
-		Unit:       "gnmi/lab", Status: conformance.Pending,
+		Provenance:  "Arista vEOS-lab 4.33, lab device 2026-09-18",
+		Behavior:    "a reversible login-banner Set is verified by Get; EOS normalizes the banner with a trailing newline, so the round-trip compares modulo that normalization, and the banner is restored",
+		Adversarial: "live Set of /system/config/login-banner to \"flowseer-t4\", read back and restored, against the Arista node",
+		Unit:        "gnmi/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "gn-t4-stream", Clause: "interface state subscription",
-		Provenance: "Aruba CX lab device (pending)",
-		Behavior:   "a STREAM subscription over interface state delivers sync and keeps flowing on hardware",
-		Unit:       "gnmi/lab", Status: conformance.Pending,
+		Provenance:  "Arista vEOS-lab 4.33, lab device 2026-09-18",
+		Behavior:    "a STREAM subscription over interface state delivers sync and keeps flowing on hardware",
+		Adversarial: "live STREAM subscription over interfaces against the Arista node, counting leaf-list updates past sync",
+		Unit:        "gnmi/lab", Status: conformance.Covered,
 	},
 	{
 		ID: "gn-t4-revision-drift", Clause: "model revision comparison",
-		Provenance: "Aruba CX lab device (pending)",
-		Behavior:   "advertised model versions diff against the committed lockfile; drift surfaces as warnings",
-		Unit:       "gnmi/lab", Status: conformance.Pending,
+		Provenance:  "Arista vEOS-lab 4.33, lab device 2026-09-18",
+		Behavior:    "advertised model versions diff against the committed lockfile; drift surfaces as warnings",
+		Adversarial: "live Capabilities model set from the Arista node diffed against the committed lockfile",
+		Unit:        "gnmi/lab", Status: conformance.Covered,
 	},
 }
 
@@ -119,9 +126,12 @@ var gnmiFamilies = []conformance.Family{
 	{Prefix: "gn-", Title: "gNMI encoding, Set, and Subscribe behavior"},
 }
 
-// gnmiAllowlist gates accepted-risk rows; empty until one is
-// ratified.
-var gnmiAllowlist = map[string]bool{}
+// gnmiAllowlist gates accepted-risk rows. gn-aruba-set-capability is
+// ratified: no lab Aruba CX serves gNMI, so its write capability is
+// unverifiable here and gNMI Set is proven on Arista instead.
+var gnmiAllowlist = map[string]bool{
+	"gn-aruba-set-capability": true,
+}
 
 // TestConformanceCorpusIntegrity is the always-on gate.
 func TestConformanceCorpusIntegrity(t *testing.T) {

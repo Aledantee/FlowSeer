@@ -8,8 +8,8 @@
 //     the committed generated fixture bindings.
 //   - yang_integration_t4: opt-in live lab devices via the
 //     YANG_GNMI_T4_TARGETS environment contract (unset = skip,
-//     malformed = fail). Owns the typed identity read on Aruba CX
-//     and the Set write-capability verdict.
+//     malformed = fail). Owns the typed identity read on the gNMI
+//     target and the Set write-capability verdict.
 //
 // Each tier installs its own TestMain in a build-tag-guarded file.
 // Both tiers skip before opening connections when -short is set.

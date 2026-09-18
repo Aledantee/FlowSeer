@@ -12,8 +12,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
-// gnmiT4TargetsEnv discovers the live Aruba CX (and, where enabled,
-// IOS-XE) gNMI endpoints to verify against. Format (comma-separated):
+// gnmiT4TargetsEnv discovers the live gNMI endpoints to verify against
+// (Arista vEOS-lab, and where enabled IOS-XE). Format (comma-separated):
 //
 //	YANG_GNMI_T4_TARGETS="host:port@user:password[,...]"
 //

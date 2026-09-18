@@ -2,7 +2,7 @@
 
 <!-- Generated from conformance_corpus_test.go; run the corpus golden test with -update-conformance to refresh. Do not edit by hand. -->
 
-Rows: 8 covered, 0 accepted-risk, 5 pending.
+Rows: 12 covered, 1 accepted-risk, 0 pending.
 
 ## gNMI encoding, Set, and Subscribe behavior
 
@@ -16,9 +16,9 @@ Rows: 8 covered, 0 accepted-risk, 5 pending.
 | `gn-presync-buffering` | gNMI spec §3.5.1.4 | sync_response is the cold-start-complete signal | updates before sync_response buffer as initial state and emit as Added at sync; each post-sync notification batch emits at most one event per affected row | covered |
 | `gn-subscribe-once-snapshot` | gNMI spec §3.5.1.5.1 | FlowSeer reference target (t1) | Subscribe ONCE assembles the snapshot's leaf updates into typed rows through the generated descriptor and ends cleanly at sync | covered |
 | `gn-stream-sync-cold-start` | gNMI spec §3.5.1.5.2 | FlowSeer reference target (t1) | STREAM cold start emits Added per row at sync, then the target's periodic leaf change arrives as one Modified per batch | covered |
-| `gn-aruba-set-capability` | gNMI spec §3.4 | Aruba CX lab capability check (pending) | the lab check records whether the device supports config writes through Set and captures the rejection when it does not | pending |
-| `gn-t4-identity` | device identity reads | Aruba CX lab device (pending) | hostname, software version, serial, and part number return via Get over the advertised OpenConfig models | pending |
-| `gn-t4-set-verdict` | config write capability | Aruba CX lab device (pending) | a reversible login-banner Set is verified by Get; if the device rejects the write, the check records the rejection | pending |
-| `gn-t4-stream` | interface state subscription | Aruba CX lab device (pending) | a STREAM subscription over interface state delivers sync and keeps flowing on hardware | pending |
-| `gn-t4-revision-drift` | model revision comparison | Aruba CX lab device (pending) | advertised model versions diff against the committed lockfile; drift surfaces as warnings | pending |
+| `gn-aruba-set-capability` | gNMI spec §3.4 | Aruba CX lab capability check — no lab device serves gNMI | records that Aruba CX gNMI write capability is unverifiable in this lab, and where the config write goes instead | accepted-risk |
+| `gn-t4-identity` | device identity reads | Arista vEOS-lab 4.33, lab device 2026-09-18 | hostname, software version, serial, and part number return via Get over the advertised OpenConfig models | covered |
+| `gn-t4-set-verdict` | config write capability | Arista vEOS-lab 4.33, lab device 2026-09-18 | a reversible login-banner Set is verified by Get; EOS normalizes the banner with a trailing newline, so the round-trip compares modulo that normalization, and the banner is restored | covered |
+| `gn-t4-stream` | interface state subscription | Arista vEOS-lab 4.33, lab device 2026-09-18 | a STREAM subscription over interface state delivers sync and keeps flowing on hardware | covered |
+| `gn-t4-revision-drift` | model revision comparison | Arista vEOS-lab 4.33, lab device 2026-09-18 | advertised model versions diff against the committed lockfile; drift surfaces as warnings | covered |
 
