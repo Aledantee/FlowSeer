@@ -213,12 +213,12 @@ func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
 
 	var copyJourney fabric.Journey
 	for _, j := range fab.Report() {
-		if j.FrameID != parentID {
+		if j.Origin.Kind == fabric.OriginMirror && j.Origin.Of == parentID {
 			copyJourney = j
 		}
 	}
 	if copyJourney.FrameID == 0 {
-		t.Fatalf("no copy journey found for parent %d", parentID)
+		t.Fatalf("no copy journey found with OriginMirror of parent %d", parentID)
 	}
 	if len(copyJourney.Deliveries) != 0 {
 		t.Fatalf("copy deliveries = %+v, want none: the egress link to h2 is Unknown", copyJourney.Deliveries)

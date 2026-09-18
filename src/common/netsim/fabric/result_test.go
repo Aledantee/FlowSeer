@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -577,4 +578,97 @@ func hasIssueCode(issues []analysis.Issue, code analysis.IssueCode) bool {
 	return slices.ContainsFunc(issues, func(iss analysis.Issue) bool {
 		return iss.Code == code
 	})
+}
+
+func TestPlainRunLeavesReplayZero(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	fab := newTestHostSwitchFabric(t, t0)
+	res := fab.Run(10)
+	if res.Replay.Contract != "" || len(res.Replay.Spec.Switches) != 0 || res.Replay.Scenario.Name != "" {
+		t.Errorf("plain Run returned non-zero Replay: %+v", res.Replay)
+	}
+}
+
+func TestScenarioReplayZeroesScenarioSpec(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	fab, cfg := newTestTwoSwitchSTPFabric(t, t0)
+
+	sc := Scenario{
+		Name: "test-zeroes-scenario-spec",
+		Spec: ConstructionSpec{
+			Start:         cfg.Start,
+			Switches:      fab.Spec().Switches,
+			Hosts:         cfg.Hosts,
+			Cables:        cfg.Cables,
+			PhyAssumption: cfg.PhyAssumption,
+		},
+		Budget: 10,
+		Window: 1,
+	}
+
+	res, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatalf("RunScenario: %v", err)
+	}
+	if len(res.Replay.Scenario.Spec.Switches) != 0 || len(res.Replay.Scenario.Spec.Hosts) != 0 {
+		t.Errorf("res.Replay.Scenario.Spec is not empty: %+v", res.Replay.Scenario.Spec)
+	}
+}
+
+func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	fab := newTestSTPFabric(t, t0, 8192, 16384)
+
+	frame := ethernet.Frame{
+		Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
+		Dst:     netaddr.MAC{0, 0, 0, 0, 0, 2},
+		Payload: []byte("ping"),
+	}
+
+	sc := Scenario{
+		Name:   "budget-drops-actions",
+		Budget: 1,
+		Window: 0,
+		Actions: []Action{
+			{
+				At:   t0.Add(time.Second),
+				Kind: ActionInject,
+				Inject: &Injection{
+					Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
+					Frame:  frame,
+				},
+			},
+			{
+				At:   t0.Add(2 * time.Second),
+				Kind: ActionInject,
+				Inject: &Injection{
+					Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
+					Frame:  frame,
+				},
+			},
+		},
+	}
+
+	res, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatalf("RunScenario: %v", err)
+	}
+	if res.Stop != StopBudget {
+		t.Fatalf("res.Stop = %v, want StopBudget", res.Stop)
+	}
+	if res.DroppedActions != 2 {
+		t.Errorf("res.DroppedActions = %d, want 2", res.DroppedActions)
+	}
+	var found bool
+	for _, iss := range res.Issues {
+		if iss.Code == IssueActionsDropped {
+			found = true
+			if !strings.Contains(iss.Message, "2 timed actions did not fire before budget exhaustion") {
+				t.Errorf("issue message = %q, want naming 2 timed actions did not fire before budget exhaustion", iss.Message)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("res.Issues missing IssueActionsDropped (%q): %+v", IssueActionsDropped, res.Issues)
+	}
 }

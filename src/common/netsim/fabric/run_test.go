@@ -2528,13 +2528,13 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 
 	var copyJourney fabric.Journey
 	for _, j := range journeys {
-		if j.FrameID != parentID {
+		if j.Origin.Kind == fabric.OriginMirror && j.Origin.Of == parentID {
 			copyJourney = j
 			break
 		}
 	}
 	if copyJourney.FrameID == 0 {
-		t.Fatalf("no copy journey found among: %+v", journeys)
+		t.Fatalf("no copy journey found with OriginMirror of parent %d among: %+v", parentID, journeys)
 	}
 
 	ipHeader, ipPayload, err := ip.Decode(copyJourney.Injection.Frame.Payload)
