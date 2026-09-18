@@ -2,14 +2,10 @@ package dispatch_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"sync"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	connect "connectrpc.com/connect"
 
@@ -19,17 +15,13 @@ import (
 )
 
 // centralStream serves Subscribe: it sends what a test queued, then ends the
-// stream or fails, and counts how many times it was opened.
+// stream, and counts how many times it was opened.
 type centralStream struct {
 	dispatchv1connect.UnimplementedDispatchServiceHandler
 
 	mu       sync.Mutex
 	opens    int
-	messages [][]*dispatchv1.SubscribeResponse
-	failOpen bool
-	// onOpen, when set, runs as the stream is served, so a test can order
-	// the open against what the loop did before it.
-	onOpen func()
+	messages []*dispatchv1.SubscribeResponse
 }
 
 func (c *centralStream) Subscribe(
@@ -38,20 +30,9 @@ func (c *centralStream) Subscribe(
 ) error {
 	c.mu.Lock()
 	c.opens++
-	if c.onOpen != nil {
-		c.onOpen()
-	}
-	open := c.opens
-	failOpen := c.failOpen
-	var batch []*dispatchv1.SubscribeResponse
-	if open-1 < len(c.messages) {
-		batch = c.messages[open-1]
-	}
+	batch := c.messages
 	c.mu.Unlock()
 
-	if failOpen {
-		return connect.NewError(connect.CodeUnavailable, errors.New("central is down"))
-	}
 	for _, message := range batch {
 		if err := stream.Send(message); err != nil {
 			return err
@@ -64,25 +45,6 @@ func (c *centralStream) openCount() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.opens
-}
-
-type handlerFake struct {
-	mu   sync.Mutex
-	seen []string
-	err  error
-}
-
-func (h *handlerFake) Handle(_ context.Context, message *dispatchv1.SubscribeResponse) error {
-	h.mu.Lock()
-	h.seen = append(h.seen, message.GetDeviceId())
-	h.mu.Unlock()
-	return h.err
-}
-
-func (h *handlerFake) devices() []string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return append([]string(nil), h.seen...)
 }
 
 func servedClient(t *testing.T, handler *centralStream) dispatchv1connect.DispatchServiceClient {
@@ -101,191 +63,42 @@ func dispatchTo(device string) *dispatchv1.SubscribeResponse {
 	return message
 }
 
-// runFor drives the loop until it has made n attempts, then stops it.
-func runFor(t *testing.T, cfg dispatch.Config, contact *dispatch.Contact, attempts int) {
-	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// TestOpenUsesAnEmptySubscribeRequest: the adapter opens central's stream
+// with nothing but an empty request, and hands back something the loop can
+// read from — proven by reading a real message off it.
+func TestOpenUsesAnEmptySubscribeRequest(t *testing.T) {
+	central := &centralStream{messages: []*dispatchv1.SubscribeResponse{dispatchTo("dev-1")}}
+	client := servedClient(t, central)
 
-	var waited atomic.Int64
-	cfg.Wait = func(ctx context.Context, _ time.Duration) bool {
-		if waited.Add(1) >= int64(attempts) {
-			return false
-		}
-		return ctx.Err() == nil
+	stream, err := dispatch.Open(client)(context.Background())
+	if err != nil {
+		t.Fatalf("Open(client)(ctx) = %v", err)
 	}
-	done := make(chan error, 1)
-	go func() { done <- dispatch.Run(ctx, cfg, contact) }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("Run: %v", err)
-		}
-	case <-time.After(20 * time.Second):
-		t.Fatal("the dispatch loop never stopped")
+	defer func() { _ = stream.Close() }()
+
+	if got := central.openCount(); got != 1 {
+		t.Errorf("openCount() = %d, want 1", got)
 	}
-}
-
-// TestAClientThatNeverConnectsIsVisibleAsANumber is the failure a
-// reconnecting loop hides. A client dead since its first attempt looks
-// exactly like one with nothing to do: no messages, no errors reaching
-// anyone, a quiet fleet. Connections is what tells them apart, and asserting
-// it is zero here is the same assertion that is non-zero in every other test
-// in this file.
-func TestAClientThatNeverConnectsIsVisibleAsANumber(t *testing.T) {
-	central := &centralStream{failOpen: true}
-	contact := &dispatch.Contact{}
-	handler := &handlerFake{}
-
-	runFor(t, dispatch.Config{
-		Client: servedClient(t, central), Handler: handler,
-		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
-	}, contact, 3)
-
-	if got := contact.Connections(); got != 0 {
-		t.Errorf("Connections() = %d, want 0: no stream was ever served", got)
+	if !stream.Receive() {
+		t.Fatalf("Receive() = false, want a message; Err() = %v", stream.Err())
 	}
-	if got := contact.Failures(); got == 0 {
-		t.Error("Failures() = 0: a loop that never connected must not look idle")
+	if got := stream.Msg().GetDeviceId(); got != "dev-1" {
+		t.Errorf("Msg().GetDeviceId() = %q, want %q", got, "dev-1")
 	}
 }
 
-// TestTheStreamIsReopenedAfterItEnds covers the ordinary case: central closes
-// the stream and the edge comes back. Counting opens on the server proves the
-// reconnect happened rather than that the loop merely survived.
-func TestTheStreamIsReopenedAfterItEnds(t *testing.T) {
-	central := &centralStream{messages: [][]*dispatchv1.SubscribeResponse{
-		{dispatchTo("dev-1")},
-		{dispatchTo("dev-2")},
-	}}
-	contact := &dispatch.Contact{}
-	handler := &handlerFake{}
-
-	runFor(t, dispatch.Config{
-		Client: servedClient(t, central), Handler: handler,
-		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
-	}, contact, 2)
-
-	if central.openCount() < 2 {
-		t.Errorf("the stream was opened %d times, want at least 2", central.openCount())
+// TestLogAttrsCarriesTheDeviceIDOntoTheDroppedEvent: the dropped event's one
+// caller-supplied attribute is the device id, so a drop can be traced back
+// to the device whose message it was.
+func TestLogAttrsCarriesTheDeviceIDOntoTheDroppedEvent(t *testing.T) {
+	attrs := dispatch.LogAttrs(dispatchTo("dev-1"))
+	if len(attrs) != 1 {
+		t.Fatalf("LogAttrs returned %d attrs, want 1: %v", len(attrs), attrs)
 	}
-	if got := contact.Connections(); got < 2 {
-		t.Errorf("Connections() = %d, want at least 2", got)
+	if got, want := attrs[0].Key, "flowseer.device.id"; got != want {
+		t.Errorf("attrs[0].Key = %q, want %q", got, want)
 	}
-	if devices := handler.devices(); len(devices) < 2 || devices[0] != "dev-1" || devices[1] != "dev-2" {
-		t.Errorf("handled %v, want dev-1 then dev-2 across the reconnect", devices)
-	}
-}
-
-// TestAHandlerErrorDoesNotDropTheStream: one device's message failing must
-// not cost every other device on the same stream. Central re-sends what it is
-// owed, and the handler has already answered a message it cannot apply with a
-// refusal.
-func TestAHandlerErrorDoesNotDropTheStream(t *testing.T) {
-	central := &centralStream{messages: [][]*dispatchv1.SubscribeResponse{
-		{dispatchTo("dev-1"), dispatchTo("dev-2"), dispatchTo("dev-3")},
-	}}
-	contact := &dispatch.Contact{}
-	handler := &handlerFake{err: errors.New("cannot apply")}
-
-	runFor(t, dispatch.Config{
-		Client: servedClient(t, central), Handler: handler,
-		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
-	}, contact, 1)
-
-	if got := len(handler.devices()); got != 3 {
-		t.Errorf("handled %d messages, want all 3: one failure must not end the stream", got)
-	}
-}
-
-// TestACentralThatServesAndClosesLooksHealthyExceptForMessages is the case
-// Contact's doc had no story for. A central accepting every stream and
-// closing it immediately leaves Connections climbing and Failures at zero,
-// which reads as a working edge — and the backoff is meanwhile doubling to
-// its ceiling, because it resets on a delivered message and none arrive.
-//
-// The test exists to keep the doc honest rather than to change behavior:
-// Messages is the number that separates this from a healthy loop, and it must
-// stay at zero here or the doc's advice is wrong.
-func TestACentralThatServesAndClosesLooksHealthyExceptForMessages(t *testing.T) {
-	central := &centralStream{}
-	contact := &dispatch.Contact{}
-	handler := &handlerFake{}
-
-	runFor(t, dispatch.Config{
-		Client: servedClient(t, central), Handler: handler,
-		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
-	}, contact, 3)
-
-	if got := contact.Connections(); got < 3 {
-		t.Errorf("Connections() = %d, want at least 3: central served every stream", got)
-	}
-	if got := contact.Failures(); got != 0 {
-		t.Errorf("Failures() = %d, want 0: nothing failed", got)
-	}
-	if got := contact.Messages(); got != 0 {
-		t.Errorf("Messages() = %d, want 0: this is the number that shows nothing is arriving", got)
-	}
-}
-
-// TestEveryAttemptRelistsBeforeTheStreamOpens covers the ordering the whole
-// re-list depends on. A dispatch for a device this edge has not onboarded
-// has nowhere to go — the lane refuses it and central has to send it again —
-// so the listing has to be in before the stream that carries the dispatch is
-// open, on every attempt and not only the first.
-func TestEveryAttemptRelistsBeforeTheStreamOpens(t *testing.T) {
-	var (
-		mu    sync.Mutex
-		order []string
-	)
-	record := func(what string) {
-		mu.Lock()
-		defer mu.Unlock()
-		order = append(order, what)
-	}
-
-	central := &centralStream{onOpen: func() { record("open") }}
-	central.messages = [][]*dispatchv1.SubscribeResponse{{dispatchTo("dev-1")}, {dispatchTo("dev-2")}}
-	contact := &dispatch.Contact{}
-
-	runFor(t, dispatch.Config{
-		Client: servedClient(t, central), Handler: &handlerFake{},
-		Resync:     func(context.Context) error { record("resync"); return nil },
-		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
-	}, contact, 2)
-
-	// The streams were served: without this, an order holding only re-lists
-	// would read as "every open was preceded by one".
-	if got := central.openCount(); got != 2 {
-		t.Fatalf("the stream was opened %d times, want 2", got)
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-	want := []string{"resync", "open", "resync", "open"}
-	if !slices.Equal(order, want) {
-		t.Errorf("order = %v, want %v", order, want)
-	}
-}
-
-// TestAFailedRelistStillOpensTheStream. Whatever kept the listing from
-// answering will most likely stop the stream too; if it does not, an edge
-// that can still serve the devices it already holds is worth more than one
-// that stops for the ones it does not.
-func TestAFailedRelistStillOpensTheStream(t *testing.T) {
-	central := &centralStream{}
-	contact := &dispatch.Contact{}
-
-	runFor(t, dispatch.Config{
-		Client: servedClient(t, central), Handler: &handlerFake{},
-		Resync:     func(context.Context) error { return errors.New("central did not answer the listing") },
-		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
-	}, contact, 2)
-
-	if got := central.openCount(); got != 2 {
-		t.Errorf("the stream was opened %d times, want 2: a failed listing must not stop the attempt", got)
-	}
-	if got := contact.Connections(); got != 2 {
-		t.Errorf("Connections() = %d, want 2", got)
+	if got, want := attrs[0].Value.String(), "dev-1"; got != want {
+		t.Errorf("attrs[0].Value = %q, want %q", got, want)
 	}
 }

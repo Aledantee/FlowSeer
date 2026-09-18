@@ -15,7 +15,8 @@ orderings between them.
 | --- | --- |
 | `internal/identity` | The Ed25519 key pair central registered, the enrollment answer, and the assertion signer every call except `Enroll` carries |
 | `internal/busattach` | `AttachBus`, the embedded leaf node, and the loopback receiver the agent's own telemetry goes to |
-| `internal/dispatch` | The `Subscribe` loop with backoff, and the routing of each dispatch to its lane call |
+| `internal/subscribeloop` | The reconnecting stream loop with backoff and its `Contact` counters, generic over the streamed message type |
+| `internal/dispatch` | The dispatch stream's `subscribeloop` wiring, and the routing of each dispatch to its lane call |
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
 
@@ -118,7 +119,7 @@ A dispatch stream and a heartbeat, and both are mechanisms that act when
 nothing is happening — which is the shape that hides a total failure as
 silence.
 
-`dispatch.Contact` counts streams central served, failures, and messages, so a
+`subscribeloop.Contact` counts streams central served, failures, and messages, so a
 client dead since its first attempt is a number rather than a quiet fleet. All
 three are exported as counters —
 `flowseer.edge.dispatch.connections`, `.failures` and `.messages` — because

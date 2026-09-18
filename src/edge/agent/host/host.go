@@ -12,6 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -22,6 +23,7 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
 
@@ -240,7 +242,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 	}
 
 	backoffFloor, backoffCeiling := a.cfg.DispatchBackoff()
-	contact := &dispatch.Contact{}
+	contact := &subscribeloop.Contact{}
 	if err := registerContactInstruments(ctx, contact, queue); err != nil {
 		return service.Attempt{}, err
 	}
@@ -266,13 +268,22 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 				})
 			},
 			func(ctx context.Context) error {
-				return dispatch.Run(ctx, dispatch.Config{
-					Client:     a.dispatch,
+				return subscribeloop.Run(ctx, subscribeloop.Config[dispatchv1.SubscribeResponse]{
+					Open:       dispatch.Open(a.dispatch),
 					Handler:    demux,
 					Resync:     onboarder.Sync,
 					MinBackoff: backoffFloor,
 					MaxBackoff: backoffCeiling,
-					Logger:     log,
+					Events: subscribeloop.Events{
+						Connected:          "flowseer.edge.dispatch.connected",
+						Disconnected:       "flowseer.edge.dispatch.disconnected",
+						Dropped:            "flowseer.edge.dispatch.dropped",
+						ResyncFailed:       "flowseer.edge.devices.listing_failed",
+						ConnectionCountKey: "flowseer.edge.dispatch.connections",
+						MessageCountKey:    "flowseer.edge.dispatch.messages",
+					},
+					LogAttrs: dispatch.LogAttrs,
+					Logger:   log,
 				}, contact)
 			})
 	}}, nil
@@ -289,7 +300,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 // at zero connections and climbing failures, which emits one record per
 // attempt and no total, or a first stream still open, which emits nothing at
 // all. These are the totals that tell those apart.
-func registerContactInstruments(ctx context.Context, contact *dispatch.Contact, queue *report.Queue) error {
+func registerContactInstruments(ctx context.Context, contact *subscribeloop.Contact, queue *report.Queue) error {
 	meter := service.Meter(ctx)
 	observe := func(name, unit, description string, read func() int64) error {
 		_, err := meter.Int64ObservableCounter(name,
