@@ -345,6 +345,53 @@ progress. A scenario declares its observation window and positive step budget as
 an in-memory Go value; it carries no file persistence, no packet-capture parser,
 and no pseudo-random seed.
 
+### Current-against-candidate comparison
+
+A caller compares a current network or switch against a candidate to detect
+regressions and verify equivalence. Comparison evaluates behavioral observables
+rather than whole-state fingerprints or shallow boolean equality:
+
+- **Switch observables.** For `vswitch.ForwardResult`, comparison checks
+  forwarded frames per egress port with rewritten fields, the selected LAG
+  member, mirror copies, PCP, and the typed forwarding outcome (`Forwarded`,
+  `Flooded`, `Dropped`, or `Consumed`, with domain reason). Semantic trace
+  steps and metadata are diagnostic and never cause a `Different` verdict.
+- **Fabric observables.** Per paired journey in `fabric.Journey`, comparison
+  checks `State`, `Origin`, ordered `Entries` (path hops, cable crossings,
+  deliveries, and drops with reason and location), `Deliveries`, `Protocol`, and
+  carried frame content. Across the run, it compares `Stop` reason, `Status`,
+  `Pending` work count, and `Issues`, followed by the final `Snapshot`
+  behavioral state. Metadata, evidence, semantic trace text, and raw
+  `Fingerprints`/`Cycle` diagnostics are diagnostic only.
+- **Three honest dispositions.** Comparison returns `analysis.Disposition`,
+  defined as `Equivalent`, `Different`, or `Inconclusive`. Dispositions are
+  non-empty strings with no zero value. The disposition is derived rather than
+  stored:
+  - `Equivalent` requires both sides' `Status` to be `Complete` and every
+    behavioral observable to match.
+  - `Different` requires a proven behavioral observable mismatch, naming the
+    first differing observable and carrying an immutable `ReplaySpec`.
+  - `Inconclusive` occurs when either side reports `Incomplete`, `Exhausted`,
+    `Unstable`, or `Unsupported`, or when budget stopped a run that still held
+    pending work. Equivalence over partial evaluation is never assumed.
+- **Internal forking and lifted precondition.** `fabric.Compare` forks both
+  inputs internally via `a.Fork()` and `b.Fork()`, injects the scenario, runs
+  the forks to budget, and compares. The caller's `a` and `b` fabrics are never
+  stepped, injected, or learned into. This lifts the former restriction that
+  fabrics must not have injected frames prior to comparison; mid-run fabrics
+  are directly comparable without consuming caller state.
+- **Injection-ordinal journey pairing.** Forks of running fabrics assign frame
+  identifiers from divergent local histories, so new scenario journeys cannot
+  pair by frame ID. Instead, journeys pair by injection ordinal: the nth
+  scenario injection's journey on side A pairs with the nth injection's journey
+  on side B. Pre-scenario journeys represent shared history and are excluded
+  from the diff.
+- **Separation from convergence fingerprints.** `Snapshot.Fingerprint()` remains
+  the convergence oracle covering device and link convergence across periodic
+  protocol boundaries. It does not capture per-journey paths, arrival timing, or
+  multiplicity. Comparison is an independent field-level walk over all
+  behavioral observables.
+
 ### LAG bucket selection and multicast query observation
 
 - **LAG buckets are runtime state, not a stateless hash.** A `BalanceSLB` or
@@ -821,3 +868,11 @@ The following areas remain outside the foundation established here:
 `flowseer.device.access.v1` in Consequences above now reads
 `flowseer.model.access.v1`. See [the network model structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
+
+### 2026-09-18 — Current-against-candidate comparison
+
+Landed with phase 7a exact comparison (`docs/plans/2026-09-18-2129-feat-netsim-exact-comparison-phase7a-plan.md`).
+Added the [Current-against-candidate comparison](#current-against-candidate-comparison)
+subsection establishing exact switch and fabric comparison over behavioral
+observables with `Equivalent`, `Different`, and `Inconclusive` dispositions,
+internal forking of inputs, and injection-ordinal journey pairing.
