@@ -509,3 +509,28 @@ func TestApplyDropAccounting_TrimsFIFOToPumpCapacity(t *testing.T) {
 		t.Errorf("pending drops = %d, want 13 (the oldest batch still actually buffered, not an already-delivered one)", pending)
 	}
 }
+
+// TestNewWithSource proves NewWithSource constructs a functional Engine around
+// a custom Source without requiring OS raw socket permissions.
+func TestNewWithSource(t *testing.T) {
+	src := newFakeSource(1)
+	src.frames <- testFrame(0xaa)
+
+	e := NewWithSource(src, testBudget(1), true)
+	if e == nil {
+		t.Fatal("NewWithSource returned nil")
+	}
+
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	batches := drainAll(p)
+	if len(batches) != 1 {
+		t.Fatalf("delivered %d batches, want 1", len(batches))
+	}
+	if len(batches[0].Records) != 1 {
+		t.Fatalf("batch has %d records, want 1", len(batches[0].Records))
+	}
+}

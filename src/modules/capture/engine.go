@@ -104,6 +104,18 @@ func New(cfg Config) (*Engine, error) {
 	return newEngine(src, cfg.Budget, reportsInterfaceDrops), nil
 }
 
+// NewWithSource builds an Engine around an already-open source, exposing the
+// constructor for callers supplying their own Source. reportsInterfaceDrops
+// distinguishes a local-interface source, whose Stats reports a real kernel
+// drop count, from a mirror receiver, whose Stats always returns zero for
+// droppedByInterface because no such counter exists at that layer: per
+// capture_counters.proto, an absent counter means the stage does not report
+// one, so a mirror-sourced run never sets dropped_by_interface rather than
+// reporting a misleading zero.
+func NewWithSource(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
+	return newEngine(src, budget, reportsInterfaceDrops)
+}
+
 // newEngine builds an Engine around an already-open source, so a test
 // supplies a fake Source without going through New's real socket-opening
 // path. reportsInterfaceDrops distinguishes a local-interface source, whose
