@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/holding-a-secondary-file-store-to-a-swept-record-requires-in-memory-ownership.md
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
