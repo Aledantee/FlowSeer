@@ -70,3 +70,34 @@ base commit.
 Suggested change: have step 4 record `effort`, `runs`, and `base` in every
 `local` result, run each lane at the effort of the role it is graded for,
 and have `bench.sh` exit 2 on an `--effort` a CLI branch cannot apply.
+
+## 2026-09-18 drive: a stage worker was pinned to `claude` because the stage is a skill
+Skill or agent: `.claude/skills/drive/SKILL.md`, step 1 preconditions and
+step 2's brief; `.claude/skills/delegate/SKILL.md`, "Resolve a role to a
+lane".
+What happened: a drive reported quota for `claude` and `codex` only, then
+chose `claude` and `claude-sonnet-5` for the implement stage because
+"implement is a Claude Code skill", with `google` at 1% and `go` at 19%.
+`delegate`'s resolution was not followed: step 5 would have taken
+`gemini-3.8-flash`. Nothing in the stage skills needs Claude, but the
+skills exist only under `.claude/skills/` and `drive` said "runs
+`implement`", which left room for the inference. The wording is fixed in
+4f60f404; the user had to point both out. The native fallback for editing
+work still has no registry answer now that `execute` lists no Claude
+model.
+Suggested change: have `delegate` say that a constraint on the CLI is
+stated by the role in the registry and nowhere else, and name the model
+the native `general-purpose` fallback runs on when the role's fit set
+holds no Claude model.
+
+## 2026-09-18 tune: one `go test` run undercounts a lane whose code deadlocks
+Skill or agent: `.claude/skills/tune/references/calibration.md`,
+"Acceptance tests".
+What happened: the grading command runs the whole package once. A
+`testing/synctest` deadlock panics, which ends the test binary, so the
+acceptance tests after the failing one never run and the pass count read
+off that output is wrong. Both Sonnet 5 `xhigh` lanes showed it; each of
+the 7 tests was run on its own with `-run` to get 6/7 and 5/7. The step
+was followed as written first and then replaced by hand.
+Suggested change: grade with one `go test -race -count=3 -run
+'^<name>$'` per acceptance test, and record partial credit from those.
