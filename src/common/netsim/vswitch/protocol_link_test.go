@@ -75,7 +75,7 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new stp switch: %v", err)
 	}
-	if err := swSTP.Learn([]bridge.Seed{{MAC: macDest, Port: "1/1/1", Static: true}}); err != nil {
+	if err := swSTP.Learn([]bridge.Seed{{MAC: macDest, Port: "1/1/1", Lifetime: bridge.Static}}); err != nil {
 		t.Fatalf("learn static entry: %v", err)
 	}
 	swSTP.Start(t0)
@@ -118,7 +118,7 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new non-stp switch: %v", err)
 	}
-	if err := swNoSTP.Learn([]bridge.Seed{{MAC: macDest, Port: "1/1/1", Static: true}}); err != nil {
+	if err := swNoSTP.Learn([]bridge.Seed{{MAC: macDest, Port: "1/1/1", Lifetime: bridge.Static}}); err != nil {
 		t.Fatalf("learn static entry on non-stp: %v", err)
 	}
 	swNoSTP.Start(t0)
@@ -161,8 +161,8 @@ func TestUnknownLAGMemberDowngradesOnlyLAG(t *testing.T) {
 		t.Fatalf("new switch: %v", err)
 	}
 	if err := sw.Learn([]bridge.Seed{
-		{Port: "lag1", MAC: macLagDest, Static: true},
-		{Port: "1/1/4", MAC: macPort4Dest, Static: true},
+		{Port: "lag1", MAC: macLagDest, Lifetime: bridge.Static},
+		{Port: "1/1/4", MAC: macPort4Dest, Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("learn seeds: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 		t.Fatalf("new switch: %v", err)
 	}
 	if err := sw.Learn([]bridge.Seed{
-		{Port: "lag1", MAC: macLagDest, Static: true},
+		{Port: "lag1", MAC: macLagDest, Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("learn seed: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Fatalf("new switch: %v", err)
 	}
 	if err := swAuto.Learn([]bridge.Seed{
-		{Port: "1/1/2", MAC: macDest, Static: true},
+		{Port: "1/1/2", MAC: macDest, Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("learn seed: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Fatalf("new forced switch: %v", err)
 	}
 	if err := swForced.Learn([]bridge.Seed{
-		{Port: "1/1/2", MAC: macDest, Static: true},
+		{Port: "1/1/2", MAC: macDest, Lifetime: bridge.Static},
 	}); err != nil {
 		t.Fatalf("learn seed: %v", err)
 	}

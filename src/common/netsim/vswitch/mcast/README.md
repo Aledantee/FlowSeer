@@ -118,16 +118,32 @@ was met:
 ## Router ports
 
 An IGMP query learns its ingress as a router port when its IPv4 source is not
-`0.0.0.0`. An MLD query requires an IPv6 link-local source. Static router
-ports come from configuration and never expire.
+`0.0.0.0`. An MLD query requires an IPv6 link-local source. A router port's
+`Origin` (`Configured` or `Observed`) names which of the two installed it,
+and its `Lifetime` (`Static` or `Aging`) names whether `Age` removes it. The
+two axes replace a single `Static` boolean that used to answer both
+questions at once: a record from configuration is always `Configured` and
+`Static`, and one a learned query installs is always `Observed` and
+`Aging`, but the fields are independent so a caller reconstructing runtime
+state — `InstallObserved` — can install an `Observed`, `Aging` record
+carrying an expiry of its own choosing rather than one the layer computes.
+`InstallObserved` refuses to override a port a static `Config` entry already
+claims.
+
+`mcast.Entry`, the learned group membership record `Groups` returns, has no
+`Origin` field: nothing in `Config` can preload a group membership, so every
+`Entry` is observed and the axis has one reachable value. Adding a field
+that never varies would document a distinction nothing ever makes.
 
 ## Aging and snapshots
 
 Learned router-port entries expire after their configured interval (default
-260 seconds, same as `MembershipInterval`). `Age(now)` removes them, and the
-group timer and source timer expiry above, in one pass; it does not touch
-static router ports. `Groups` and `RouterPorts` return sorted snapshots, and
-`Clone` preserves every timer in an independent layer.
+260 seconds, same as `MembershipInterval`), or, when installed through
+`InstallObserved`, after the expiry the caller gave. `Age(now)` removes
+every `Aging` router port whose expiry has passed, and the group timer and
+source timer expiry above, in one pass; it does not touch `Static` router
+ports. `Groups` and `RouterPorts` return sorted snapshots, and `Clone`
+preserves every timer in an independent layer.
 
 `Resolve` is intentionally narrower than a bridge forwarding policy. It
 returns the admitted port union, membership registration, and the pending-

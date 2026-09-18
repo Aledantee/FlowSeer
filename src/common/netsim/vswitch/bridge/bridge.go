@@ -218,7 +218,7 @@ func (b *Bridge) Flush(targets []FlushTarget) {
 		}
 	}
 	for key, e := range b.fdb {
-		if e.Static {
+		if e.Lifetime == Static {
 			continue
 		}
 		fids, ok := byPort[e.Port]
@@ -272,7 +272,7 @@ func validateOperStatus(portName string, state port.LinkState) error {
 // Learn validates and preloads the forwarding database with the provided seeds. A seed naming a
 // LAG member is stored under the LAG, as the relay learns it, so a later lookup
 // treats the aggregation as one port. Invalid or duplicate seeds leave the table unchanged.
-// Non-static seeds count as learned and are bounded by MaxEntries, evicting the
+// Aging seeds count as learned and are bounded by MaxEntries, evicting the
 // oldest dynamic entry when the table exceeds the bound. Static seeds count nothing.
 func (b *Bridge) Learn(seeds []Seed) error {
 	normalized, err := NormalizeSeeds(b.cfg, b.ports, seeds)
@@ -283,15 +283,15 @@ func (b *Bridge) Learn(seeds []Seed) error {
 	for _, s := range normalized {
 		key := fdbKey{fid: s.FID, mac: s.MAC}
 		existing, exists := b.fdb[key]
-		if s.Static {
-			if exists && !existing.Static {
+		if s.Lifetime == Static {
+			if exists && existing.Lifetime != Static {
 				b.dynamic--
 			}
 			b.fdb[key] = Entry(s)
 			continue
 		}
 
-		if !exists || existing.Static {
+		if !exists || existing.Lifetime == Static {
 			if b.cfg.MaxEntries > 0 && b.dynamic >= b.cfg.MaxEntries {
 				b.evictOldestDynamic()
 			}
@@ -338,7 +338,7 @@ func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 		return false
 	}
 	delete(b.fdb, key)
-	if !e.Static {
+	if e.Lifetime != Static {
 		b.dynamic--
 	}
 
@@ -348,7 +348,7 @@ func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 // Age removes dynamic forwarding database entries older than the configured aging time relative to now.
 func (b *Bridge) Age(now time.Time) {
 	for key, e := range b.fdb {
-		if !e.Static && now.Sub(e.LearnedAt) > b.agingTime {
+		if e.Lifetime != Static && now.Sub(e.LearnedAt) > b.agingTime {
 			delete(b.fdb, key)
 			b.dynamic--
 			b.counters.Expired++
@@ -363,7 +363,7 @@ func (b *Bridge) evictOldestDynamic() (Entry, bool) {
 		found     bool
 	)
 	for key, e := range b.fdb {
-		if e.Static {
+		if e.Lifetime == Static {
 			continue
 		}
 		if !found {
@@ -808,7 +808,8 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 				FID:       classifiedFID,
 				MAC:       f.Src,
 				Port:      res.Ingress,
-				Static:    false,
+				Origin:    Observed,
+				Lifetime:  Aging,
 				LearnedAt: now,
 			}
 			b.dynamic++
@@ -826,11 +827,11 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 					Op:      trace.OpLearn,
 					RuleID:  trace.RuleID("evict"),
 					Subject: trace.Subject{Kind: "mac", Key: evicted.MAC.String()},
-					Inputs:  []trace.Fact{fdbSnapshot(evicted.FID, evicted.MAC, true, evicted.Port, evicted.Static)},
+					Inputs:  []trace.Fact{fdbSnapshot(evicted.FID, evicted.MAC, true, evicted.Port, evicted.Lifetime == Static)},
 					Outputs: []trace.Fact{fdbSnapshot(evicted.FID, evicted.MAC, false, "", false)},
 				})
 			}
-		} else if !existing.Static {
+		} else if existing.Lifetime != Static {
 			before := existing
 			ruleID := trace.RuleID("learn")
 			if existing.Port != res.Ingress {
@@ -845,8 +846,8 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 				Op:      trace.OpLearn,
 				RuleID:  ruleID,
 				Subject: trace.Subject{Kind: "mac", Key: f.Src.String()},
-				Inputs:  []trace.Fact{fdbSnapshot(before.FID, before.MAC, true, before.Port, before.Static)},
-				Outputs: []trace.Fact{fdbSnapshot(existing.FID, existing.MAC, true, existing.Port, existing.Static)},
+				Inputs:  []trace.Fact{fdbSnapshot(before.FID, before.MAC, true, before.Port, before.Lifetime == Static)},
+				Outputs: []trace.Fact{fdbSnapshot(existing.FID, existing.MAC, true, existing.Port, existing.Lifetime == Static)},
 			})
 		}
 	}
@@ -927,7 +928,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 					RuleID:  trace.RuleID("unicast-hit"),
 					Subject: trace.Subject{Kind: "mac", Key: f.Dst.String()},
 					Inputs:  []trace.Fact{frameSnapshot(f)},
-					Outputs: []trace.Fact{fdbSnapshot(entry.FID, entry.MAC, true, entry.Port, entry.Static)},
+					Outputs: []trace.Fact{fdbSnapshot(entry.FID, entry.MAC, true, entry.Port, entry.Lifetime == Static)},
 				})
 			} else {
 				res.Steps = append(res.Steps, trace.Step{

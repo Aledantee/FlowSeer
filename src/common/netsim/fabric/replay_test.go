@@ -147,7 +147,7 @@ func TestReplayUntaggedLearnAndFlood(t *testing.T) {
 		t.Fatalf("len(entries) = %d, want 1", len(entries))
 	}
 	e := entries[0]
-	if e.FID != 10 || e.MAC != macA || e.Port != "1/1/1" || e.Static {
+	if e.FID != 10 || e.MAC != macA || e.Port != "1/1/1" || e.Lifetime == bridge.Static {
 		t.Errorf("learned entry = %+v, want dynamic (10, %s) -> 1/1/1", e, macA)
 	}
 }

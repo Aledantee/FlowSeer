@@ -348,7 +348,7 @@ func newLayer(cfg Config, nodeID string) *Layer {
 			vs.neighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = &neighborEntry{
 				state:  NeighborReachable,
 				mac:    n.MAC,
-				origin: originConfigured,
+				origin: configured,
 			}
 		}
 
@@ -893,7 +893,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 			RuleID:  trace.RuleID(ReasonNeighborPending),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 			Inputs:  []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
-			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state, lookup.origin)},
 		})
 		return res
 	}
@@ -905,7 +905,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 			RuleID:  trace.RuleID(ReasonNeighborMiss),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 			Inputs:  []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
-			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state, lookup.origin)},
 		})
 		return res
 	}
@@ -918,7 +918,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		Op:      trace.OpRewrite,
 		RuleID:  trace.RuleID("decrement-ttl"),
 		Subject: trace.Subject{Kind: "interface", Key: targetIface},
-		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state)},
+		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state, lookup.origin)},
 		Outputs: []trace.Fact{packetSnapshot(targetIface, f, heldHdr, true, "")},
 	})
 
@@ -1085,7 +1085,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 			RuleID:  trace.RuleID(ReasonNeighborPending),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, sel)},
-			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state, lookup.origin)},
 		})
 		res.Reason = ReasonNeighborPending
 		res.Interface = targetIface
@@ -1100,7 +1100,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 			RuleID:  trace.RuleID(ReasonNeighborMiss),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, sel)},
-			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state, lookup.origin)},
 		})
 		res.Reason = ReasonNeighborMiss
 		res.Interface = targetIface
@@ -1108,7 +1108,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		return res
 	}
 
-	steps[len(steps)-1].Outputs = append(steps[len(steps)-1].Outputs, neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state))
+	steps[len(steps)-1].Outputs = append(steps[len(steps)-1].Outputs, neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state, lookup.origin))
 
 	egressIfaceObj := l.ifaces[targetIface]
 	res.Steps = steps

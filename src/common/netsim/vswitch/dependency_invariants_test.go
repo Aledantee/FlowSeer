@@ -190,7 +190,7 @@ func TestExactAggregatorDependenciesAcrossSwitchPaths(t *testing.T) {
 				trafficConfig := &traffic.Config{Mirrors: []traffic.Mirror{{
 					Name: "span", SelectSrcPorts: []string{"in"}, OutputVLAN: new(outputVLAN),
 				}}}
-				seeds := []bridge.Seed{{FID: 10, MAC: macH2, Port: "out", Static: true}}
+				seeds := []bridge.Seed{{FID: 10, MAC: macH2, Port: "out", Lifetime: bridge.Static}}
 				sw := newAggregatorDependencySwitch(t, aggregate, metadata, trafficConfig, seeds, outputVLAN)
 				return sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			},
@@ -256,7 +256,7 @@ func TestAggregatorDependencyExcludedBeforePhysicalShortCircuit(t *testing.T) {
 			var seeds []bridge.Seed
 			if withBridge {
 				cfg.Bridge = &bridge.Config{}
-				seeds = []bridge.Seed{{FID: 0, MAC: macH2, Port: "out", Static: true}}
+				seeds = []bridge.Seed{{FID: 0, MAC: macH2, Port: "out", Lifetime: bridge.Static}}
 			}
 			sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 				Config: cfg, Seeds: seeds, NodeID: "sw1", Metadata: metadata,

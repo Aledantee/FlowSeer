@@ -198,10 +198,10 @@ func TestConstructorValidationAndNormalization(t *testing.T) {
 	spec := vswitch.ConstructionSpec{
 		Config: validCfg,
 		Seeds: []bridge.Seed{{
-			FID:    10,
-			MAC:    macSeed,
-			Port:   "1/1/1",
-			Static: true,
+			FID:      10,
+			MAC:      macSeed,
+			Port:     "1/1/1",
+			Lifetime: bridge.Static,
 		}},
 	}
 	sw, err := vswitch.NewWithSpec(spec)

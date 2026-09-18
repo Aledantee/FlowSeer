@@ -147,10 +147,10 @@ func CasePlanningPortVLANChange() Case {
 			specCur := vswitch.ConstructionSpec{
 				Config: cfgCur,
 				Seeds: []bridge.Seed{{
-					FID:    10,
-					MAC:    macH2,
-					Port:   "1/1/2",
-					Static: true,
+					FID:      10,
+					MAC:      macH2,
+					Port:     "1/1/2",
+					Lifetime: bridge.Static,
 				}},
 			}
 
@@ -457,10 +457,10 @@ func CaseTroubleshootingUnicastForwarding() Case {
 			spec := vswitch.ConstructionSpec{
 				Config: cfg,
 				Seeds: []bridge.Seed{{
-					FID:    10,
-					MAC:    macH2,
-					Port:   "1/1/2",
-					Static: true,
+					FID:      10,
+					MAC:      macH2,
+					Port:     "1/1/2",
+					Lifetime: bridge.Static,
 				}},
 			}
 
@@ -534,8 +534,8 @@ func unresolvedTransceiverSpec() fabric.ConstructionSpec {
 					Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": observed, "1/1/3": gigabit}},
 				},
 				Seeds: []bridge.Seed{
-					{MAC: transceiverH2, Port: "1/1/2", Static: true},
-					{MAC: transceiverH3, Port: "1/1/3", Static: true},
+					{MAC: transceiverH2, Port: "1/1/2", Lifetime: bridge.Static},
+					{MAC: transceiverH3, Port: "1/1/3", Lifetime: bridge.Static},
 				},
 			},
 		},
@@ -855,8 +855,8 @@ func CaseTopologyShadowingUncabledPortDefiniteDrop() Case {
 							Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}},
 						},
 						Seeds: []bridge.Seed{
-							{MAC: uncabledBehind3, Port: "3", Static: true},
-							{MAC: uncabledBehind4, Port: "4", Static: true},
+							{MAC: uncabledBehind3, Port: "3", Lifetime: bridge.Static},
+							{MAC: uncabledBehind4, Port: "4", Lifetime: bridge.Static},
 						},
 					},
 				},
@@ -993,7 +993,7 @@ func CaseTopologyShadowingUnreportedNegotiation() Case {
 							Bridge: &bridge.Config{},
 							Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit}},
 						},
-						Seeds: []bridge.Seed{{MAC: unreportedNegotiationH2, Port: "1/1/2", Static: true}},
+						Seeds: []bridge.Seed{{MAC: unreportedNegotiationH2, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
 				Hosts: map[string]fabric.Host{
@@ -1169,8 +1169,8 @@ func CaseTopologyShadowingUnknownUplinkSTP() Case {
 			spec := fabric.ConstructionSpec{
 				Start: t0,
 				Switches: map[string]vswitch.ConstructionSpec{
-					"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Static: true}}},
-					"sw2": {NodeID: "sw2", Config: sw2Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/3", Static: true}}},
+					"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Lifetime: bridge.Static}}},
+					"sw2": {NodeID: "sw2", Config: sw2Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/3", Lifetime: bridge.Static}}},
 				},
 				Hosts: map[string]fabric.Host{
 					"h1": {Address: unknownUplinkH1, Ethernet: gigabit},
@@ -1285,7 +1285,7 @@ func CaseTroubleshootingHostRejectsForeignUnicast() Case {
 							Bridge: &bridge.Config{},
 							Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit}},
 						},
-						Seeds: []bridge.Seed{{MAC: foreignUnicastForeign, Port: "1/1/2", Static: true}},
+						Seeds: []bridge.Seed{{MAC: foreignUnicastForeign, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
 				Hosts: map[string]fabric.Host{
@@ -1412,8 +1412,8 @@ func CasePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 					}},
 				},
 				Seeds: []bridge.Seed{
-					{MAC: dst1, Port: "lag1", Static: true},
-					{MAC: dst2, Port: "lag1", Static: true},
+					{MAC: dst1, Port: "lag1", Lifetime: bridge.Static},
+					{MAC: dst2, Port: "lag1", Lifetime: bridge.Static},
 				},
 			}
 
@@ -1527,7 +1527,7 @@ func CaseTroubleshootingActiveBackupNoFailback() Case {
 						},
 					}},
 				},
-				Seeds: []bridge.Seed{{MAC: dst, Port: "lag1", Static: true}},
+				Seeds: []bridge.Seed{{MAC: dst, Port: "lag1", Lifetime: bridge.Static}},
 			}
 
 			sw, err := vswitch.NewWithSpec(spec)
@@ -1913,7 +1913,7 @@ func CasePlanningECMPCandidatesRecorded() Case {
 			`interface="out-a";kind="static";hash_src="10.0.10.7";hash_dst="10.0.99.5";hash_flow_label=0;`+
 			`hash=2072557066;chosen=0;candidates=[10.0.20.7|out-a|10.0.20.7,10.0.30.7|out-b|10.0.30.7]`)
 	neighbor := expectedFact("routing.neighbor_decision",
-		`interface="out-a";address="10.0.20.7";state="reachable";mac="02:00:00:00:00:a1"`)
+		`interface="out-a";address="10.0.20.7";state="reachable";mac="02:00:00:00:00:a1";origin="configured"`)
 	packetOut := expectedFact("routing.packet_decision",
 		`interface="out-a";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=63;valid=true;reason=""`)
 
@@ -2034,7 +2034,7 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 			`interface="out";kind="connected";hash_src="10.0.10.7";hash_dst="10.0.20.77";hash_flow_label=0;`+
 			`hash=336306069;chosen=0;candidates=[invalid IP|out|invalid IP]`)
 	neighborPending := expectedFact("routing.neighbor_decision",
-		`interface="out";address="10.0.20.77";state="incomplete";mac="00:00:00:00:00:00"`)
+		`interface="out";address="10.0.20.77";state="incomplete";mac="00:00:00:00:00:00";origin="observed"`)
 
 	neighborScope := routing.NeighborLookupScope("", "default", "out", destination)
 	var cat analysis.EvidenceCatalog
@@ -2204,7 +2204,7 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 			`interface="out";kind="static";hash_src="10.0.10.7";hash_dst="10.0.99.5";hash_flow_label=0;`+
 			`hash=2072557066;chosen=0;candidates=[10.0.20.7|out|10.0.20.7]`)
 	neighbor := expectedFact("routing.neighbor_decision",
-		`interface="out";address="10.0.20.7";state="reachable";mac="02:00:00:00:00:a1"`)
+		`interface="out";address="10.0.20.7";state="reachable";mac="02:00:00:00:00:a1";origin="configured"`)
 	packetOut := expectedFact("routing.packet_decision",
 		`interface="out";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=63;valid=true;reason=""`)
 

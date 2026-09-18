@@ -60,7 +60,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 	})
 	if seedH2 {
 		sw1 := spec.Switches["sw1"]
-		sw1.Seeds = []bridge.Seed{{MAC: journeyH2, Port: "1/1/2", Static: true}}
+		sw1.Seeds = []bridge.Seed{{MAC: journeyH2, Port: "1/1/2", Lifetime: bridge.Static}}
 		spec.Switches["sw1"] = sw1
 	}
 	fab, err := fabric.NewWithSpec(spec)

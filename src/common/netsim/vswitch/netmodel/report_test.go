@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -107,13 +108,13 @@ func TestLoad_CompleteModel(t *testing.T) {
 		t.Fatalf("len(res.Spec.Seeds) = %d, want 1", len(res.Spec.Seeds))
 	}
 	seed := res.Spec.Seeds[0]
-	if !seed.Static || seed.Port != "1/1/1" || seed.FID != 10 {
+	if seed.Lifetime != bridge.Static || seed.Port != "1/1/1" || seed.FID != 10 {
 		t.Errorf("retained seed = %+v, want static seed on 1/1/1 fid 10", seed)
 	}
 
 	// Switch built from spec retains seeds
 	swSpec := sw.Spec()
-	if len(swSpec.Seeds) != 1 || !swSpec.Seeds[0].Static {
+	if len(swSpec.Seeds) != 1 || swSpec.Seeds[0].Lifetime != bridge.Static {
 		t.Errorf("sw.Spec().Seeds = %+v, want 1 static seed", swSpec.Seeds)
 	}
 

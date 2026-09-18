@@ -665,7 +665,8 @@ func switchConstructionInputs(spec vswitch.ConstructionSpec) constructionInputsF
 		writeUintField(&out, "fid", uint64(seed.FID))
 		writeStringField(&out, "mac", seed.MAC.String())
 		writeStringField(&out, "port", seed.Port)
-		writeStringField(&out, "static", strconv.FormatBool(seed.Static))
+		writeStringField(&out, "origin", string(seed.Origin))
+		writeStringField(&out, "lifetime", string(seed.Lifetime))
 		writeStringField(&out, "learned_at", seed.LearnedAt.UTC().Format(time.RFC3339Nano))
 		out.WriteByte('}')
 	}

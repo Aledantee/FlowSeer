@@ -112,9 +112,9 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	cfg.Switches["sw1"] = sw1
 	spec := constructionSpec(statedPhysical(cfg))
 	seed := bridge.Seed{
-		MAC:    netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
-		Port:   "1/1/1",
-		Static: true,
+		MAC:      netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
+		Port:     "1/1/1",
+		Lifetime: bridge.Static,
 	}
 	catalog, ref := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{
 		Kind:    "snapshot",
@@ -358,7 +358,7 @@ func TestFabricConstructionSpecNormalizesSeedInstantsToUTC(t *testing.T) {
 	switchSpec.Seeds = []bridge.Seed{{
 		MAC:       netaddr.MAC{0, 1, 2, 3, 4, 5},
 		Port:      "1/1/1",
-		Static:    true,
+		Lifetime:  bridge.Static,
 		LearnedAt: instant,
 	}}
 	a.Switches["sw1"] = switchSpec

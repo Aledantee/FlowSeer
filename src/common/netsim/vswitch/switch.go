@@ -128,7 +128,7 @@ func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
 	}
 	for i := range s.Seeds {
 		a, b := s.Seeds[i], other.Seeds[i]
-		if a.FID != b.FID || a.MAC != b.MAC || a.Port != b.Port || a.Static != b.Static || !a.LearnedAt.Equal(b.LearnedAt) {
+		if a.FID != b.FID || a.MAC != b.MAC || a.Port != b.Port || a.Origin != b.Origin || a.Lifetime != b.Lifetime || !a.LearnedAt.Equal(b.LearnedAt) {
 			return false
 		}
 	}

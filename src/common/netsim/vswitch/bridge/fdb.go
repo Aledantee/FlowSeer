@@ -32,12 +32,41 @@ type Counters struct {
 	Moved   uint64
 }
 
+// Origin names who installed a forwarding database record: an operator or a
+// preloaded seed (Configured), or ingress learning from a live frame's
+// source address (Observed). It is independent of Lifetime: a configured
+// record can still age, and an observed one can be pinned past its aging
+// time.
+type Origin string
+
+const (
+	// Configured is the zero value: an operator or a preloaded seed
+	// installed the record.
+	Configured Origin = ""
+
+	// Observed is a record ingress learning installed from a live frame.
+	Observed Origin = "observed"
+)
+
+// Lifetime names whether a forwarding database record ages out on its own.
+type Lifetime string
+
+const (
+	// Aging is the zero value: [Bridge.Age] removes the record once it has
+	// sat longer than the bridge's configured aging time.
+	Aging Lifetime = ""
+
+	// Static is a record [Bridge.Age] never removes.
+	Static Lifetime = "static"
+)
+
 // Seed represents a forwarding database entry to preload into a [Bridge].
 type Seed struct {
 	FID       vlan.ID
 	MAC       netaddr.MAC
 	Port      string
-	Static    bool
+	Origin    Origin
+	Lifetime  Lifetime
 	LearnedAt time.Time
 }
 
@@ -46,7 +75,8 @@ type Entry struct {
 	FID       vlan.ID
 	MAC       netaddr.MAC
 	Port      string
-	Static    bool
+	Origin    Origin
+	Lifetime  Lifetime
 	LearnedAt time.Time
 }
 

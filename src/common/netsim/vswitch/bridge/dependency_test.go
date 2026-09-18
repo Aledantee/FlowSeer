@@ -20,7 +20,7 @@ func TestForwardingDependenciesMatchConsultedPorts(t *testing.T) {
 			port.Port{Name: "unknown", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
 		)
 		br := mustNewBridge(t, bridge.Config{}, ports)
-		mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "out", Static: true}})
+		mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "out", Lifetime: bridge.Static}})
 
 		res := br.Forward(testTime0, "in", ethernet.Frame{Src: macA, Dst: macB})
 
@@ -90,7 +90,7 @@ func TestForwardingDependenciesMatchConsultedPorts(t *testing.T) {
 		)
 		br := mustNewBridge(t, bridge.Config{}, ports)
 		br.SetSelector(stubSelector{member: "member-a", ok: true}, analysis.ProtocolScope("sw1", "lag", "0"))
-		mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "lag1", Static: true}})
+		mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "lag1", Lifetime: bridge.Static}})
 
 		res := br.Forward(testTime0, "in", ethernet.Frame{Src: macA, Dst: macB})
 

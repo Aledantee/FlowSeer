@@ -104,6 +104,31 @@ func wantMACInFact(t *testing.T, res routing.Result, mac netaddr.MAC) {
 	}
 }
 
+func wantOrigin(t *testing.T, res routing.Result, origin string) {
+	t.Helper()
+	fact := neighborFact(t, res)
+	if !strings.Contains(fact, `origin="`+origin+`"`) {
+		t.Errorf("neighbor fact = %s, want origin %q", fact, origin)
+	}
+}
+
+// TestNeighborFactReportsOrigin is R4's acceptance example for the neighbor entry: a configured
+// binding's decision fact names it "configured" and an entry NeighborObserved resolution creates
+// names it "observed", the vocabulary [bridge.Origin] and [mcast.Origin] also use.
+func TestNeighborFactReportsOrigin(t *testing.T) {
+	t.Parallel()
+
+	cfg := neighborLifecycleConfig(routing.NeighborPolicy{})
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Neighbors = []routing.Neighbor{{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC}}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+	configured := mustNewRouting(t, cfg)
+	wantOrigin(t, routeToV4(t, configured, testNow, lifecycleDstV4, []byte("data"), true), "configured")
+
+	observed := mustNewLifecycleLayer(t, routing.NeighborPolicy{Mode: routing.NeighborObserved})
+	wantOrigin(t, routeToV4(t, observed, testNow, lifecycleDstV4, []byte("data"), true), "observed")
+}
+
 // TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame is R20a's first acceptance example: a
 // destination nothing resolved yet does not vanish as a plain drop.
 func TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame(t *testing.T) {

@@ -317,7 +317,14 @@ state at all.
 
 A configured `routing.Neighbor` enters the table as `Reachable` with no
 expiry, so a static binding never ages out; that is `New`'s job, not the state
-machine's. Everything else on the table is driven by two calls:
+machine's. Every entry also carries an internal origin, `configured` or
+`observed`, in the same vocabulary `bridge.Origin` and `mcast.Origin` use for
+their own retained records; `Observe` reads it to refuse ever overwriting a
+configured binding, and the `routing.neighbor_decision` trace fact a lookup
+produces names it alongside the state and the bound MAC. There is no second,
+exported `Lifetime` field here: the five-state machine above already answers
+"does this age" with more precision than a boolean would, so the origin axis
+stands alone. Everything else on the table is driven by two calls:
 
 - **`Layer.Observe(now, Advertisement)`** applies RFC 4861 section 7.2.5 to
   an observed link-layer address binding, over both families through one

@@ -239,7 +239,7 @@ func TestUntaggedIngressClassifiesToPVIDAndLearns(t *testing.T) {
 		t.Fatalf("len(entries) = %d, want 1", len(entries))
 	}
 	e := entries[0]
-	if e.FID != 10 || e.MAC != macA || e.Port != "1/1/1" || e.Static {
+	if e.FID != 10 || e.MAC != macA || e.Port != "1/1/1" || e.Lifetime == bridge.Static {
 		t.Errorf("learned entry = %+v, want dynamic (10, %s) -> 1/1/1", e, macA)
 	}
 }
@@ -591,7 +591,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 			FID:       10,
 			MAC:       macC,
 			Port:      "1/1/2",
-			Static:    true,
+			Lifetime:  bridge.Static,
 			LearnedAt: testTime0,
 		},
 	})
@@ -1229,7 +1229,7 @@ func TestFDBHitWithDownPortDropsPortDown(t *testing.T) {
 			FID:       10,
 			MAC:       macB,
 			Port:      "1/1/2",
-			Static:    true,
+			Lifetime:  bridge.Static,
 			LearnedAt: testTime0,
 		},
 	})
@@ -2162,7 +2162,7 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 	br := mustNewBridge(t, cfg, ports)
 
 	mustLearn(t, br, []bridge.Seed{
-		{FID: 10, MAC: macD, Port: "1/1/3", Static: true, LearnedAt: testTime0},
+		{FID: 10, MAC: macD, Port: "1/1/3", Lifetime: bridge.Static, LearnedAt: testTime0},
 	})
 
 	broadcastMAC := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
@@ -2186,8 +2186,8 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("len(Entries()) after Age = %d, want 1", len(entries))
 	}
-	if entries[0].MAC != macD || !entries[0].Static {
-		t.Errorf("Entries()[0] = %+v, want D with Static: true", entries[0])
+	if entries[0].MAC != macD || entries[0].Lifetime != bridge.Static {
+		t.Errorf("Entries()[0] = %+v, want D with Lifetime: bridge.Static", entries[0])
 	}
 
 	if !br.Forget(10, macD) {
@@ -2199,6 +2199,46 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 
 	if br.Forget(10, macD) {
 		t.Errorf("second Forget(10, D) = true, want false")
+	}
+}
+
+// TestAgeActsOnLifetimeNotOrigin is R4's acceptance example: Origin and Lifetime are
+// independent axes, so Age removes exactly the Aging entries regardless of who installed
+// them, and a Configured, Aging entry ages while an Observed, Static one does not — a
+// combination the old Static boolean could not express, since it answered both questions at
+// once.
+func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	br := mustNewBridge(t, bridge.Config{}, ports)
+
+	mustLearn(t, br, []bridge.Seed{
+		{MAC: macA, Port: "1/1/1", Origin: bridge.Configured, Lifetime: bridge.Static, LearnedAt: testTime0},
+		{MAC: macB, Port: "1/1/2", Origin: bridge.Configured, Lifetime: bridge.Aging, LearnedAt: testTime0},
+		{MAC: macC, Port: "1/1/3", Origin: bridge.Observed, Lifetime: bridge.Static, LearnedAt: testTime0},
+		{MAC: macD, Port: "1/1/4", Origin: bridge.Observed, Lifetime: bridge.Aging, LearnedAt: testTime0},
+	})
+
+	br.Age(testTime0.Add(301 * time.Second))
+
+	entries := br.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("len(Entries()) after Age = %d, want 2, got %+v", len(entries), entries)
+	}
+	byMAC := make(map[netaddr.MAC]bridge.Entry, len(entries))
+	for _, e := range entries {
+		byMAC[e.MAC] = e
+	}
+	if a, ok := byMAC[macA]; !ok || a.Origin != bridge.Configured || a.Lifetime != bridge.Static {
+		t.Errorf("Configured, Static entry (A) = %+v, ok=%v, want present and unchanged", a, ok)
+	}
+	if _, ok := byMAC[macB]; ok {
+		t.Errorf("Configured, Aging entry (B) survived Age, want removed")
+	}
+	if c, ok := byMAC[macC]; !ok || c.Origin != bridge.Observed || c.Lifetime != bridge.Static {
+		t.Errorf("Observed, Static entry (C) = %+v, ok=%v, want present and unchanged", c, ok)
+	}
+	if _, ok := byMAC[macD]; ok {
+		t.Errorf("Observed, Aging entry (D) survived Age, want removed")
 	}
 }
 
@@ -2592,7 +2632,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	t.Run("customer tagged frame to tagged port emits service tag", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
 		mustLearn(t, br, []bridge.Seed{
-			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
+			{MAC: macB, Port: "1/1/3", FID: 10, Lifetime: bridge.Static},
 		})
 
 		frame := ethernet.Frame{
@@ -2625,7 +2665,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	t.Run("customer tagged frame to untagged port pops service tag", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
 		mustLearn(t, br, []bridge.Seed{
-			{MAC: macB, Port: "1/1/1", FID: 10, Static: true},
+			{MAC: macB, Port: "1/1/1", FID: 10, Lifetime: bridge.Static},
 		})
 
 		frame := ethernet.Frame{
@@ -2657,7 +2697,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	t.Run("customer tag outside permitted list is dropped", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
 		mustLearn(t, br, []bridge.Seed{
-			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
+			{MAC: macB, Port: "1/1/3", FID: 10, Lifetime: bridge.Static},
 		})
 
 		frame := ethernet.Frame{
@@ -2676,7 +2716,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	t.Run("untagged frame on tunnel port classifies to tunnel VID", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
 		mustLearn(t, br, []bridge.Seed{
-			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
+			{MAC: macB, Port: "1/1/3", FID: 10, Lifetime: bridge.Static},
 		})
 
 		frame := ethernet.Frame{
@@ -2705,7 +2745,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	t.Run("tagged frame from trunk to tunnel port pops service tag", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
 		mustLearn(t, br, []bridge.Seed{
-			{MAC: macA, Port: "1/1/4", FID: 10, Static: true},
+			{MAC: macA, Port: "1/1/4", FID: 10, Lifetime: bridge.Static},
 		})
 
 		frame := ethernet.Frame{
@@ -2743,7 +2783,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 
 		br := mustNewBridge(t, filtCfg, ports)
 		mustLearn(t, br, []bridge.Seed{
-			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
+			{MAC: macB, Port: "1/1/3", FID: 10, Lifetime: bridge.Static},
 		})
 
 		frame := ethernet.Frame{
@@ -2811,7 +2851,7 @@ func TestPriorityTagPolicyOnUntaggedEgress(t *testing.T) {
 			t.Run(string(tc.policy), func(t *testing.T) {
 				br := mustNewBridge(t, baseCfg(tc.policy), ports)
 				mustLearn(t, br, []bridge.Seed{
-					{MAC: macB, Port: "1/1/2", FID: 10, Static: true},
+					{MAC: macB, Port: "1/1/2", FID: 10, Lifetime: bridge.Static},
 				})
 
 				frame := ethernet.Frame{
@@ -2868,7 +2908,7 @@ func TestPriorityTagPolicyOnUntaggedEgress(t *testing.T) {
 			t.Run(string(tc.policy), func(t *testing.T) {
 				br := mustNewBridge(t, baseCfg(tc.policy), ports)
 				mustLearn(t, br, []bridge.Seed{
-					{MAC: macB, Port: "1/1/2", FID: 10, Static: true},
+					{MAC: macB, Port: "1/1/2", FID: 10, Lifetime: bridge.Static},
 				})
 
 				frame := ethernet.Frame{

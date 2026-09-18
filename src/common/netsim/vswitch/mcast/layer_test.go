@@ -156,8 +156,8 @@ func TestRouterPortLearningRequiresProtocolSource(t *testing.T) {
 		t.Errorf("RouterPorts() = %+v, want 1/1/2 and 1/1/4", routers)
 	}
 	for _, router := range routers {
-		if router.Static || !router.Expires.Equal(now.Add(mcast.DefaultMembershipInterval)) {
-			t.Errorf("learned router port = %+v, want dynamic default expiry", router)
+		if router.Origin != mcast.Observed || router.Lifetime != mcast.Aging || !router.Expires.Equal(now.Add(mcast.DefaultMembershipInterval)) {
+			t.Errorf("learned router port = %+v, want Observed, Aging with the dynamic default expiry", router)
 		}
 	}
 
@@ -176,8 +176,36 @@ func TestStaticRouterPortsNeverExpire(t *testing.T) {
 	layer.Age(time.Unix(1_000_000, 0))
 
 	routers := layer.RouterPorts(vid)
-	if len(routers) != 1 || routers[0].Port != "1/1/4" || !routers[0].Static || !routers[0].Expires.IsZero() {
-		t.Errorf("RouterPorts() = %+v, want one non-expiring static port", routers)
+	if len(routers) != 1 || routers[0].Port != "1/1/4" || routers[0].Origin != mcast.Configured ||
+		routers[0].Lifetime != mcast.Static || !routers[0].Expires.IsZero() {
+		t.Errorf("RouterPorts() = %+v, want one non-expiring Configured, Static port", routers)
+	}
+}
+
+func TestInstallObservedRouterPort(t *testing.T) {
+	t.Parallel()
+
+	const vidStatic vlan.ID = 20
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+		vid:       {RouterPortInterval: 999 * time.Second},
+		vidStatic: {RouterPorts: []string{"1/1/4"}},
+	}}, mcastPortTable(t))
+	// expires is unrelated to vid's RouterPortInterval, proving InstallObserved carries the
+	// given expiry through rather than computing one from the VLAN's interval.
+	expires := time.Unix(5_000, 0)
+
+	layer.InstallObserved(vid, "1/1/4", expires)
+	routers := layer.RouterPorts(vid)
+	if len(routers) != 1 || routers[0].Port != "1/1/4" || routers[0].Origin != mcast.Observed ||
+		routers[0].Lifetime != mcast.Aging || !routers[0].Expires.Equal(expires) {
+		t.Errorf("RouterPorts() = %+v, want one Observed, Aging port with the given expiry", routers)
+	}
+
+	// A static router port refuses the override.
+	layer.InstallObserved(vidStatic, "1/1/4", expires)
+	routers2 := layer.RouterPorts(vidStatic)
+	if len(routers2) != 1 || routers2[0].Origin != mcast.Configured || routers2[0].Lifetime != mcast.Static {
+		t.Errorf("RouterPorts() = %+v, want the static port left alone", routers2)
 	}
 }
 

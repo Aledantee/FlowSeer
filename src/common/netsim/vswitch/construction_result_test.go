@@ -162,10 +162,10 @@ func TestConstructionSpecIdentityAndSeedDifferences(t *testing.T) {
 
 	// Now add different static seeds
 	seed1 := bridge.Seed{
-		FID:    10,
-		MAC:    netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
-		Port:   "1/1/1",
-		Static: true,
+		FID:      10,
+		MAC:      netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Port:     "1/1/1",
+		Lifetime: bridge.Static,
 	}
 	specWithSeed := spec1.Clone()
 	specWithSeed.Seeds = append(specWithSeed.Seeds, seed1)
@@ -287,16 +287,16 @@ func TestConstructionSpecValidatesAndNormalizesSeeds(t *testing.T) {
 	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 		Config: vswitch.Config{Ports: ports, Bridge: bridgeConfig},
 		Seeds: []bridge.Seed{
-			{FID: vid10, MAC: secondMAC, Port: "access", Static: true},
-			{FID: vid10, MAC: validMAC, Port: "member", Static: true},
+			{FID: vid10, MAC: secondMAC, Port: "access", Lifetime: bridge.Static},
+			{FID: vid10, MAC: validMAC, Port: "member", Lifetime: bridge.Static},
 		},
 	})
 	if err != nil {
 		t.Fatalf("NewWithSpec() error = %v", err)
 	}
 	wantSeeds := []bridge.Seed{
-		{FID: vid10, MAC: validMAC, Port: "lag1", Static: true},
-		{FID: vid10, MAC: secondMAC, Port: "access", Static: true},
+		{FID: vid10, MAC: validMAC, Port: "lag1", Lifetime: bridge.Static},
+		{FID: vid10, MAC: secondMAC, Port: "access", Lifetime: bridge.Static},
 	}
 	if got := sw.Spec().Seeds; !slices.Equal(got, wantSeeds) {
 		t.Errorf("normalized seeds = %+v, want %+v", got, wantSeeds)

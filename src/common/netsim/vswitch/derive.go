@@ -138,7 +138,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	nextVLAN := next.cfg.Bridge != nil && next.cfg.Bridge.VLAN != nil
 	targetSeeds := make(map[bridgeSeedKey]struct{}, len(next.seeds))
 	for _, seed := range next.seeds {
-		if !seed.Static {
+		if seed.Lifetime != bridge.Static {
 			continue
 		}
 		targetSeeds[bridgeSeedKey{fid: seed.FID, mac: seed.MAC}] = struct{}{}
@@ -146,7 +146,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 
 	var seeds []bridge.Seed
 	for _, entry := range cur.Entries() {
-		if entry.Static {
+		if entry.Lifetime == bridge.Static {
 			continue
 		}
 		if _, configured := targetSeeds[bridgeSeedKey{fid: entry.FID, mac: entry.MAC}]; configured {
@@ -172,19 +172,14 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 			if !admitted {
 				continue
 			}
-			seeds = append(seeds, bridge.Seed{
-				FID:       entry.FID,
-				MAC:       entry.MAC,
-				Port:      entry.Port,
-				Static:    false,
-				LearnedAt: entry.LearnedAt,
-			})
+			seeds = append(seeds, bridge.Seed(entry))
 		} else if !curVLAN {
 			seeds = append(seeds, bridge.Seed{
 				FID:       0,
 				MAC:       entry.MAC,
 				Port:      entry.Port,
-				Static:    false,
+				Origin:    entry.Origin,
+				Lifetime:  entry.Lifetime,
 				LearnedAt: entry.LearnedAt,
 			})
 		}
@@ -285,7 +280,7 @@ func restoreMulticastState(next *Switch, retained *mcast.Layer) {
 			routerInterval = mcast.DefaultMembershipInterval
 		}
 		for _, router := range retained.RouterPorts(vid) {
-			if router.Static || slices.Contains(cfg.RouterPorts, router.Port) {
+			if router.Lifetime == mcast.Static || slices.Contains(cfg.RouterPorts, router.Port) {
 				continue
 			}
 			next.mcast.Learn(router.Expires.Add(-routerInterval), vid, router.Port,

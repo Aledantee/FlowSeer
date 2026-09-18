@@ -120,7 +120,7 @@ func TestKnownBridgeEgressUsesItsOwnPortState(t *testing.T) {
 				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: test.admin, OperStatus: test.oper}).
 				Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
 			sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
-			mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH2, Port: "out", Static: true}})
+			mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH2, Port: "out", Lifetime: bridge.Static}})
 
 			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			if got := res.Metadata.Status(); got != test.wantStatus {

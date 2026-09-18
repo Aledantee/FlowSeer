@@ -408,8 +408,8 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 	spec.Evidence = catalog
 	sw1 := spec.Switches["sw1"]
 	sw1.Seeds = []bridge.Seed{
-		{MAC: behind3, Port: "3", Static: true},
-		{MAC: behind4, Port: "4", Static: true},
+		{MAC: behind3, Port: "3", Lifetime: bridge.Static},
+		{MAC: behind4, Port: "4", Lifetime: bridge.Static},
 	}
 	spec.Switches["sw1"] = sw1
 
@@ -532,7 +532,7 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 		Uncabled: []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "5"}}},
 	})
 	sw1 := spec.Switches["sw1"]
-	sw1.Seeds = []bridge.Seed{{MAC: macs["h3"], Port: "3", Static: true}}
+	sw1.Seeds = []bridge.Seed{{MAC: macs["h3"], Port: "3", Lifetime: bridge.Static}}
 	spec.Switches["sw1"] = sw1
 
 	fab, err := fabric.NewWithSpec(spec)
@@ -596,6 +596,67 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	}
 	if got := journey.Metadata.Status(); got != analysis.Complete {
 		t.Errorf("known-unicast journey status = %s, issues %+v; want complete", got, journey.Metadata.Issues())
+	}
+}
+
+// TestSnapshotDevicesEntriesCarryOriginAndLifetime is R4's acceptance example through
+// Snapshot().Devices: a seeded entry and one a live frame taught the bridge both appear in
+// Entries reporting their own Origin and Lifetime.
+func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
+	gigabit := autoEthernet(1_000_000_000)
+	macs := map[string]netaddr.MAC{
+		"h2": {0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
+		"h3": {0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
+	}
+
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ethernetFacts := map[string]phy.Ethernet{"2": gigabit, "3": gigabit}
+	hosts := map[string]fabric.Host{
+		"h2": {Address: macs["h2"], Ethernet: gigabit},
+		"h3": {Address: macs["h3"], Ethernet: gigabit},
+	}
+	cables := []fabric.Cable{
+		{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "2"}, Medium: fabric.TwistedPair},
+		{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "3"}, Medium: fabric.TwistedPair},
+	}
+
+	spec := constructionSpec(fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: mustTable(t, b), Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: ethernetFacts}},
+		},
+		Hosts:  hosts,
+		Cables: cables,
+	})
+	sw1 := spec.Switches["sw1"]
+	sw1.Seeds = []bridge.Seed{{MAC: macs["h3"], Port: "3", Lifetime: bridge.Static}}
+	spec.Switches["sw1"] = sw1
+
+	fab, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	if _, err := fab.Inject(fabric.Injection{
+		At:     fixedTime,
+		Origin: fabric.Endpoint{Node: "h2"},
+		Frame:  ethernet.Frame{Dst: macs["h3"], Src: macs["h2"], EtherType: ethernet.EtherTypeIPv4},
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(10)
+
+	entries := fab.Snapshot().Devices["sw1"].Entries
+	byMAC := make(map[netaddr.MAC]bridge.Entry, len(entries))
+	for _, e := range entries {
+		byMAC[e.MAC] = e
+	}
+	if seeded, ok := byMAC[macs["h3"]]; !ok || seeded.Origin != bridge.Configured || seeded.Lifetime != bridge.Static {
+		t.Errorf("seeded entry (h3) = %+v, ok=%v, want Origin: Configured, Lifetime: Static", seeded, ok)
+	}
+	if learned, ok := byMAC[macs["h2"]]; !ok || learned.Origin != bridge.Observed || learned.Lifetime != bridge.Aging {
+		t.Errorf("learned entry (h2) = %+v, ok=%v, want Origin: Observed, Lifetime: Aging", learned, ok)
 	}
 }
 

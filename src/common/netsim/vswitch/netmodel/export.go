@@ -49,7 +49,7 @@ func FdbEntries(entries []bridge.Entry) ([]*switchingv1.FdbEntry, error) {
 		}.Build()
 
 		kind := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_DYNAMIC
-		if e.Static {
+		if e.Lifetime == bridge.Static {
 			kind = switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 		}
 		status := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE

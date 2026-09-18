@@ -20,6 +20,7 @@ import (
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
@@ -560,7 +561,8 @@ func TestLoadKeepsExplicitActiveFDBKindsAndDeduplicatesEqualRows(t *testing.T) {
 			input.validate(t)
 			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
 
-			if len(result.Spec.Seeds) != 1 || result.Spec.Seeds[0].Static != tt.isStatic {
+			isStatic := result.Spec.Seeds[0].Lifetime == bridge.Static
+			if len(result.Spec.Seeds) != 1 || isStatic != tt.isStatic {
 				t.Errorf("seeds = %+v, want one seed with static=%t", result.Spec.Seeds, tt.isStatic)
 			}
 			if len(result.Report.Conflicts) != 0 || result.Readiness() != analysis.Complete {

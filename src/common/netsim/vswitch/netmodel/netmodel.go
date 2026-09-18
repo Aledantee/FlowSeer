@@ -1934,11 +1934,16 @@ func Load(
 		entry := fdbRows[fdbKey]
 		vid := vlan.ID(entry.GetVlanId())
 		mac, _ := parseEUI48(entry.GetMac())
+		origin, lifetime := bridge.Observed, bridge.Aging
+		if entry.GetKind() == switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC {
+			origin, lifetime = bridge.Configured, bridge.Static
+		}
 		seed, why, code, ok := normalizeLoadedFDBSeed(normCfg, bridge.Seed{
 			FID:       vid,
 			MAC:       mac,
 			Port:      entry.GetInterfaceName(),
-			Static:    entry.GetKind() == switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC,
+			Origin:    origin,
+			Lifetime:  lifetime,
 			LearnedAt: now.UTC(),
 		})
 		if !ok {
@@ -1988,8 +1993,8 @@ func Load(
 		if r := cmp.Compare(a.Port, b.Port); r != 0 {
 			return r
 		}
-		if a.Static != b.Static {
-			if a.Static {
+		if a.Lifetime != b.Lifetime {
+			if a.Lifetime == bridge.Static {
 				return -1
 			}
 			return 1

@@ -690,7 +690,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 	}
 
 	// Seed should be marked static
-	if len(seeds) != 1 || !seeds[0].Static {
+	if len(seeds) != 1 || seeds[0].Lifetime != bridge.Static {
 		t.Errorf("expected static seed, got: %+v", seeds)
 	}
 
@@ -701,7 +701,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 			FID:       0,
 			MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 			Port:      "1/1/1",
-			Static:    false,
+			Lifetime:  bridge.Aging,
 			LearnedAt: testTime,
 		},
 	}

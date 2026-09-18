@@ -103,7 +103,7 @@ func stpCaseSwitch(stpPorts map[string]stp.Port) (*vswitch.Switch, error) {
 				Ports:    stpPorts,
 			},
 		},
-		Seeds: []bridge.Seed{{MAC: stpCaseTarget, Port: "p1", Static: true}},
+		Seeds: []bridge.Seed{{MAC: stpCaseTarget, Port: "p1", Lifetime: bridge.Static}},
 	})
 	if err != nil {
 		return nil, err
@@ -282,9 +282,9 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 					}},
 				},
 				Seeds: []bridge.Seed{
-					{FID: 10, MAC: stpMSTDst10, Port: "l2", Static: true},
-					{FID: 20, MAC: stpMSTDst20, Port: "l1", Static: true},
-					{FID: 10, MAC: stpMSTDst10ViaAlternate, Port: "l1", Static: true},
+					{FID: 10, MAC: stpMSTDst10, Port: "l2", Lifetime: bridge.Static},
+					{FID: 20, MAC: stpMSTDst20, Port: "l1", Lifetime: bridge.Static},
+					{FID: 10, MAC: stpMSTDst10ViaAlternate, Port: "l1", Lifetime: bridge.Static},
 				},
 			},
 			"sw2": {
@@ -298,8 +298,8 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 					}},
 				},
 				Seeds: []bridge.Seed{
-					{FID: 10, MAC: stpMSTDst10, Port: "d10", Static: true},
-					{FID: 20, MAC: stpMSTDst20, Port: "d20", Static: true},
+					{FID: 10, MAC: stpMSTDst10, Port: "d10", Lifetime: bridge.Static},
+					{FID: 20, MAC: stpMSTDst20, Port: "d20", Lifetime: bridge.Static},
 				},
 			},
 		},

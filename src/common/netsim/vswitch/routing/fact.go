@@ -75,13 +75,15 @@ func routeSnapshot(vrf string, destination netip.Addr, sel *selection) trace.Fac
 }
 
 // neighborSnapshot records what a neighbor lookup found: the state the entry was in (including
-// [NeighborUnobserved] for no entry at all) and its bound MAC, if any, so a trace says which of
-// the lifecycle's answers a lookup produced.
-func neighborSnapshot(iface string, addr netip.Addr, mac netaddr.MAC, state NeighborState) trace.Fact {
+// [NeighborUnobserved] for no entry at all), its bound MAC if any, and whether it was configured
+// or observed (empty for no entry), so a trace says which of the lifecycle's answers a lookup
+// produced and who put the entry there.
+func neighborSnapshot(iface string, addr netip.Addr, mac netaddr.MAC, state NeighborState, origin neighborOrigin) trace.Fact {
 	return neighborDecisionFact("interface=" + strconv.Quote(iface) +
 		";address=" + strconv.Quote(addr.String()) +
 		";state=" + strconv.Quote(string(state)) +
-		";mac=" + strconv.Quote(mac.String()))
+		";mac=" + strconv.Quote(mac.String()) +
+		";origin=" + strconv.Quote(string(origin)))
 }
 
 // EgressFact returns an immutable snapshot of the routed interface and selected

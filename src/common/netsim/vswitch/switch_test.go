@@ -217,7 +217,7 @@ func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 	)
 	cur, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 		Config:   cfg,
-		Seeds:    []bridge.Seed{{MAC: oldMAC, Port: "out", Static: true}},
+		Seeds:    []bridge.Seed{{MAC: oldMAC, Port: "out", Lifetime: bridge.Static}},
 		NodeID:   "old",
 		Metadata: oldMetadata,
 	})
@@ -226,7 +226,7 @@ func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 	}
 	target := vswitch.ConstructionSpec{
 		Config:   cfg,
-		Seeds:    []bridge.Seed{{MAC: newMAC, Port: "out", Static: true}},
+		Seeds:    []bridge.Seed{{MAC: newMAC, Port: "out", Lifetime: bridge.Static}},
 		NodeID:   "new",
 		Metadata: newMetadata,
 	}
@@ -262,19 +262,19 @@ func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		name       string
-		static     bool
-		wantPort   string
-		wantTime   time.Time
-		wantStatic bool
+		name         string
+		lifetime     bridge.Lifetime
+		wantPort     string
+		wantTime     time.Time
+		wantLifetime bridge.Lifetime
 	}{
 		{name: "dynamic target yields to newer current state", wantPort: "current", wantTime: fixedTime},
-		{name: "static target remains authoritative", static: true, wantPort: "old", wantTime: oldTime, wantStatic: true},
+		{name: "static target remains authoritative", lifetime: bridge.Static, wantPort: "old", wantTime: oldTime, wantLifetime: bridge.Static},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{
 				Config: cfg,
-				Seeds:  []bridge.Seed{{MAC: mac, Port: "old", Static: test.static, LearnedAt: oldTime}},
+				Seeds:  []bridge.Seed{{MAC: mac, Port: "old", Lifetime: test.lifetime, LearnedAt: oldTime}},
 			})
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -284,8 +284,8 @@ func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
 			if len(entries) != 1 {
 				t.Fatalf("entries = %+v, want one", entries)
 			}
-			if got := entries[0]; got.Port != test.wantPort || got.LearnedAt != test.wantTime || got.Static != test.wantStatic {
-				t.Errorf("entry = %+v, want port=%q learned_at=%s static=%t", got, test.wantPort, test.wantTime, test.wantStatic)
+			if got := entries[0]; got.Port != test.wantPort || got.LearnedAt != test.wantTime || got.Lifetime != test.wantLifetime {
+				t.Errorf("entry = %+v, want port=%q learned_at=%s lifetime=%s", got, test.wantPort, test.wantTime, test.wantLifetime)
 			}
 		})
 	}
@@ -321,6 +321,33 @@ func mustSwitchLearn(t *testing.T, sw *vswitch.Switch, seeds []bridge.Seed) {
 	t.Helper()
 	if err := sw.Learn(seeds); err != nil {
 		t.Fatalf("Learn: %v", err)
+	}
+}
+
+// TestEntriesCarryOriginAndLifetime is R4's acceptance example at the switch level: a seeded
+// entry and a live-learned one for different MACs both appear in Entries() reporting their own
+// Origin and Lifetime.
+func TestEntriesCarryOriginAndLifetime(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
+
+	mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH1, Port: "1/1/1", Lifetime: bridge.Static, LearnedAt: fixedTime}})
+	sw.Forward(fixedTime, "1/1/2", ethernet.Frame{Src: macH2, Dst: macH1})
+
+	entries := sw.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("len(Entries()) = %d, want 2, got %+v", len(entries), entries)
+	}
+	byMAC := make(map[netaddr.MAC]bridge.Entry, len(entries))
+	for _, e := range entries {
+		byMAC[e.MAC] = e
+	}
+	if seeded, ok := byMAC[macH1]; !ok || seeded.Origin != bridge.Configured || seeded.Lifetime != bridge.Static {
+		t.Errorf("seeded entry = %+v, ok=%v, want Origin: Configured, Lifetime: Static", seeded, ok)
+	}
+	if learned, ok := byMAC[macH2]; !ok || learned.Origin != bridge.Observed || learned.Lifetime != bridge.Aging {
+		t.Errorf("learned entry = %+v, ok=%v, want Origin: Observed, Lifetime: Aging", learned, ok)
 	}
 }
 
@@ -623,7 +650,7 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 	if copies := sw.Copies(); len(copies) != 0 {
 		t.Errorf("second Copies() = %+v, want empty", copies)
 	}
-	mustSwitchLearn(t, sw, []bridge.Seed{{FID: 10, MAC: frame.Dst, Port: "1/1/4", Static: true}})
+	mustSwitchLearn(t, sw, []bridge.Seed{{FID: 10, MAC: frame.Dst, Port: "1/1/4", Lifetime: bridge.Static}})
 	reservedOnly := sw.Forward(fixedTime, "1/1/1", frame)
 	if reservedOnly.Outcome != trace.Dropped || reservedOnly.Reason != traffic.ReasonMirrorOutput {
 		t.Errorf("reserved-only trace = %+v, want mirror-output drop", reservedOnly.Trace)
@@ -5211,7 +5238,7 @@ func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
 
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 		mustSwitchLearn(t, sw, []bridge.Seed{
-			{FID: 0, MAC: mac, Port: "1/1/1", Static: true, LearnedAt: now},
+			{FID: 0, MAC: mac, Port: "1/1/1", Lifetime: bridge.Static, LearnedAt: now},
 		})
 		entries := sw.Entries()
 		if len(entries) != 1 || entries[0].MAC != mac {
@@ -5245,7 +5272,7 @@ func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
 
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 		err := sw.Learn([]bridge.Seed{
-			{FID: 0, MAC: mac, Port: "1/1/1", Static: true, LearnedAt: now},
+			{FID: 0, MAC: mac, Port: "1/1/1", Lifetime: bridge.Static, LearnedAt: now},
 		})
 		if err == nil {
 			t.Fatal("Learn() on hub = nil error, want bridge-required error")
@@ -6277,8 +6304,8 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		t.Errorf("Groups(10) after configuration change = %+v, want retained original expiry", groups)
 	}
 	routers := retained.RouterPorts(10)
-	if len(routers) != 2 || routers[0].Port != "1/1/3" || !routers[0].Static ||
-		routers[1].Port != "1/1/4" || routers[1].Static || routers[1].Expires != fixedTime.Add(mcast.DefaultMembershipInterval) {
+	if len(routers) != 2 || routers[0].Port != "1/1/3" || routers[0].Lifetime != mcast.Static ||
+		routers[1].Port != "1/1/4" || routers[1].Lifetime == mcast.Static || routers[1].Expires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("RouterPorts(10) after configuration change = %+v, want new static 1/1/3 and retained learned 1/1/4", routers)
 	}
 }
@@ -6438,8 +6465,8 @@ func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {
 	lagDst := netaddr.MAC{0x02, 0, 0, 0, 0, 9}
 	outDst := netaddr.MAC{0x02, 0, 0, 0, 0, 8}
 	mustSwitchLearn(t, sw, []bridge.Seed{
-		{MAC: lagDst, Port: "lag1", Static: true},
-		{MAC: outDst, Port: "out", Static: true},
+		{MAC: lagDst, Port: "lag1", Lifetime: bridge.Static},
+		{MAC: outDst, Port: "out", Lifetime: bridge.Static},
 	})
 
 	lagFrame := ethernet.Frame{Dst: lagDst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
@@ -6518,8 +6545,8 @@ func TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame(t *testing.
 	sw := mustSwitch(t, cfg)
 
 	mustSwitchLearn(t, sw, []bridge.Seed{
-		{FID: 20, MAC: staticMAC, Port: "lag1", Static: true},
-		{FID: 20, MAC: learnedMAC, Port: "lag1", Static: true},
+		{FID: 20, MAC: staticMAC, Port: "lag1", Lifetime: bridge.Static},
+		{FID: 20, MAC: learnedMAC, Port: "lag1", Lifetime: bridge.Static},
 	})
 
 	t0 := fixedTime
@@ -6821,8 +6848,8 @@ func TestRoutedEgressNamesTheEqualCostCandidateSet(t *testing.T) {
 			}},
 		})
 		mustSwitchLearn(t, sw, []bridge.Seed{
-			{FID: 20, MAC: macH2, Port: "1/1/2", Static: true},
-			{FID: 30, MAC: macH3, Port: "1/1/3", Static: true},
+			{FID: 20, MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+			{FID: 30, MAC: macH3, Port: "1/1/3", Lifetime: bridge.Static},
 		})
 
 		res := sw.Forward(fixedTime, "1/1/1", frame)
@@ -9038,7 +9065,7 @@ func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.
 
 	dst := netip.MustParseAddr("10.0.20.77")
 	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
-	if err := sw.Learn([]bridge.Seed{{FID: 20, MAC: learnedMAC, Port: "lag1", Static: true}}); err != nil {
+	if err := sw.Learn([]bridge.Seed{{FID: 20, MAC: learnedMAC, Port: "lag1", Lifetime: bridge.Static}}); err != nil {
 		t.Fatalf("Learn: %v", err)
 	}
 

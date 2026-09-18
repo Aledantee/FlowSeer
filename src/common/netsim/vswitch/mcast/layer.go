@@ -44,12 +44,39 @@ type Entry struct {
 	Sources      []SourceEntry
 }
 
+// Origin names who installed a router port record: configuration
+// (Configured) or a learned query (Observed). It is independent of
+// Lifetime: see [Lifetime].
+type Origin string
+
+const (
+	// Configured is the zero value: cfg.RouterPorts installed the record.
+	Configured Origin = ""
+
+	// Observed is a record a learned query installed.
+	Observed Origin = "observed"
+)
+
+// Lifetime names whether a router port record ages out on its own.
+type Lifetime string
+
+const (
+	// Aging is the zero value: [Layer.Age] removes the record once its
+	// Expires has passed.
+	Aging Lifetime = ""
+
+	// Static is a record [Layer.Age] never removes; its Expires is the
+	// zero value.
+	Static Lifetime = "static"
+)
+
 // RouterPort is one static or learned multicast-router port.
-// Static entries have a zero Expires value and are not aged.
+// A Static entry has a zero Expires value and is not aged.
 type RouterPort struct {
-	Port    string
-	Expires time.Time
-	Static  bool
+	Port     string
+	Expires  time.Time
+	Origin   Origin
+	Lifetime Lifetime
 }
 
 type groupKey struct {
@@ -58,8 +85,9 @@ type groupKey struct {
 }
 
 type routerPortState struct {
-	expires time.Time
-	static  bool
+	expires  time.Time
+	origin   Origin
+	lifetime Lifetime
 }
 
 type vlanState struct {
@@ -106,7 +134,7 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 		}
 		for _, name := range vlanCfg.RouterPorts {
 			if logicalPort(ports, name) {
-				state.routers[name] = routerPortState{static: true}
+				state.routers[name] = routerPortState{origin: Configured, lifetime: Static}
 			}
 		}
 		l.byVLAN[vid] = state
@@ -225,7 +253,7 @@ func (l *Layer) Age(now time.Time) {
 			}
 		}
 		for name, router := range state.routers {
-			if !router.static && !router.expires.After(now) {
+			if router.lifetime != Static && !router.expires.After(now) {
 				delete(state.routers, name)
 			}
 		}
@@ -353,7 +381,7 @@ func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
 
 	entries := make([]RouterPort, 0, len(state.routers))
 	for name, router := range state.routers {
-		entries = append(entries, RouterPort{Port: name, Expires: router.expires, Static: router.static})
+		entries = append(entries, RouterPort{Port: name, Expires: router.expires, Origin: router.origin, Lifetime: router.lifetime})
 	}
 	slices.SortFunc(entries, func(a, b RouterPort) int {
 		return strings.Compare(a.Port, b.Port)
@@ -381,6 +409,28 @@ func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) boo
 			}
 		}
 	}
+}
+
+// InstallObserved installs a router port record carrying its own expiry,
+// reported as [Observed] and [Aging]. It does nothing for an unsnooped vid, a
+// non-logical port, or a port a static [Config] entry already claims: a
+// caller reconstructing runtime state after a derive should not be able to
+// override configuration. Unlike [Layer.Learn], the expiry is not computed
+// from the VLAN's RouterPortInterval, so a caller carrying forward a record
+// from another layer can preserve its original deadline.
+func (l *Layer) InstallObserved(vid vlan.ID, portName string, expires time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	state, ok := l.byVLAN[vid]
+	if !ok || !logicalPort(l.ports, portName) {
+		return
+	}
+	if router := state.routers[portName]; router.lifetime == Static {
+		return
+	}
+
+	state.routers[portName] = routerPortState{expires: expires, origin: Observed, lifetime: Aging}
 }
 
 // learnLegacyJoin applies an IGMPv1/v2 or MLDv1 report, which RFC 3810 §8.3.2 maps to
@@ -437,9 +487,9 @@ func logicalPort(ports port.Table, name string) bool {
 }
 
 func learnRouter(now time.Time, portName string, state *vlanState) {
-	if router := state.routers[portName]; router.static {
+	if router := state.routers[portName]; router.lifetime == Static {
 		return
 	}
 
-	state.routers[portName] = routerPortState{expires: now.Add(state.routerPortInterval)}
+	state.routers[portName] = routerPortState{expires: now.Add(state.routerPortInterval), origin: Observed, lifetime: Aging}
 }

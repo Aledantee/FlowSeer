@@ -232,6 +232,14 @@ fields — is the wrong one.
   wall-clock and is not a gate. Why: allocation counts are deterministic and
   machine-independent, while `AGENTS.md` runs the whole suite under `-race`,
   where a nanosecond budget is a flake source.
+- Ruled: `mcast.Layer.InstallObserved` takes `(vid, port, expires)`, dropping
+  the `group` parameter U2's own Change bullet names. Why: U2's Tests line
+  describes only a router-port install ("produces a router port reporting
+  Observed, Aging with the expiry it was given"), `RouterPort` carries no
+  group field, and nothing in R4 or U5's restoreMulticastState rewrite reads
+  a group for the router-port case the method exists to fix. Cost if wrong:
+  U5, the only caller, gains one more parameter when it wires the method in;
+  no wire shape or accepted record depends on the signature.
 
 ## Requirements
 

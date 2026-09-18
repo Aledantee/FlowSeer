@@ -42,15 +42,18 @@ const (
 	NeighborFailed NeighborState = "failed"
 )
 
-// neighborOrigin distinguishes a statically configured binding from one learned by observation.
-// [Layer.Observe] reads it to refuse ever overwriting a configured binding, which is what keeps
-// config.go's claim that "a static binding never ages out" true; a lookup otherwise answers the
-// same for either origin.
+// neighborOrigin distinguishes a statically configured binding from one learned by observation,
+// in the same Configured/Observed vocabulary [bridge.Origin] and [mcast.Origin] use for their own
+// retained records. [Layer.Observe] reads it to refuse ever overwriting a configured binding,
+// which is what keeps config.go's claim that "a static binding never ages out" true; a lookup
+// otherwise answers the same for either origin. It is surfaced on [neighborSnapshot]'s trace fact
+// but not on any exported type: a neighbor entry's lifetime is already the state machine's five
+// states, not a second boolean, so there is no [Lifetime] type here to pair it with.
 type neighborOrigin string
 
 const (
-	originConfigured neighborOrigin = "configured"
-	originObserved   neighborOrigin = "observed"
+	configured neighborOrigin = "configured"
+	observed   neighborOrigin = "observed"
 )
 
 // heldEntry is one frame queued on an Incomplete neighbor entry: everything Route or Originate
@@ -153,11 +156,13 @@ func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []held
 }
 
 // neighborLookup is the outcome [vrfState.resolveNeighbor] found for one address: a resolved
-// MAC ready to forward on, or the state that explains why not.
+// MAC ready to forward on, or the state that explains why not. origin is the zero value when no
+// entry exists to have one.
 type neighborLookup struct {
-	mac   netaddr.MAC
-	state NeighborState
-	ok    bool
+	mac    netaddr.MAC
+	state  NeighborState
+	origin neighborOrigin
+	ok     bool
 }
 
 // resolveNeighbor looks up key in the VRF's neighbor table and applies the commit-gated
@@ -175,28 +180,28 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, commit bool,
 		}
 		entry = &neighborEntry{
 			state:  NeighborIncomplete,
-			origin: originObserved,
+			origin: observed,
 			expiry: now.Add(vs.policy.ResolutionTimeout),
 		}
 		var evicted []heldEntry
 		entry.queue, evicted = appendHeld(entry.queue, held(), vs.policy.HoldDepth)
 		entry.evicted = append(entry.evicted, evicted...)
 		vs.neighbors[key] = entry
-		return neighborLookup{state: NeighborIncomplete}
+		return neighborLookup{state: NeighborIncomplete, origin: entry.origin}
 	}
 
 	switch entry.state {
 	case NeighborReachable, NeighborStale:
-		return neighborLookup{state: entry.state, mac: entry.mac, ok: true}
+		return neighborLookup{state: entry.state, mac: entry.mac, origin: entry.origin, ok: true}
 	case NeighborFailed:
-		return neighborLookup{state: NeighborFailed}
+		return neighborLookup{state: NeighborFailed, origin: entry.origin}
 	case NeighborIncomplete:
 		if commit {
 			var evicted []heldEntry
 			entry.queue, evicted = appendHeld(entry.queue, held(), vs.policy.HoldDepth)
 			entry.evicted = append(entry.evicted, evicted...)
 		}
-		return neighborLookup{state: NeighborIncomplete}
+		return neighborLookup{state: NeighborIncomplete, origin: entry.origin}
 	default:
 		// A stored zero [NeighborState] is unreachable through any exported path today, but a
 		// stored entry's zero value is legal Go, and [NeighborUnobserved] is meaningful only as
@@ -223,7 +228,7 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 	}
 	vs := l.vrfs[vrfName]
 	entry, ok := vs.neighbors[neighborKey{iface: adv.Interface, addr: adv.Addr}]
-	if !ok || entry.origin == originConfigured {
+	if !ok || entry.origin == configured {
 		return
 	}
 
