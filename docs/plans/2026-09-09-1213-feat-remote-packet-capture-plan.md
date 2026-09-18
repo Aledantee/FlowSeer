@@ -10,6 +10,15 @@ execution: mixed
 
 # Remote Packet Capture - Plan
 
+> U3 was re-planned on 2026-09-18 once U1 and U2 had landed and the device
+> access agent existed. The tree had moved: central is now a running control
+> plane (`src/services/device`), not the README this plan assumed, and the
+> agent gave a module no capture-shaped way to be reached. U3 is now four
+> phases — U3a shared transport, U3b command channel and central leg, U3c edge
+> wiring, U3d lab validation — with two Decisions added above and the
+> store-on-edge decision reversed. U3d waits for the closed lab; the rest is
+> landable now.
+
 ## Goal
 
 An operator names a capture against an enrolled edge, and the packets come back:
@@ -23,11 +32,16 @@ operator-originated command, because a capture nobody can start is not a feature
 
 ## Decisions
 
-- Split the schema across `flowseer/net/capture/v1` (ref-free values) and
-  `flowseer/api/capture/v1` (the CaptureSession entity and its services). Why:
-  the network model structure record draws the Primitive/Entity line at identity,
-  and capture has messages on both sides of it. Recorded in
-  [the remote packet capture direction](../architecture/2026-09-09-remote-packet-capture-direction.md).
+- Split the schema on the Primitive/Entity line: `flowseer/net/capture/v1`
+  holds the ref-free values, `flowseer/model/capture/v1` holds the
+  CaptureSession entity family and the chunk frames, `flowseer/api/capture/v1`
+  holds the operator `CaptureService`, and `flowseer/edge/capture/v1` holds the
+  edge-called `CaptureEdgeService`. Why: the network model structure record
+  draws the line at identity, and capture has messages on both sides of it.
+  Recorded in
+  [the remote packet capture direction](../architecture/2026-09-09-remote-packet-capture-direction.md),
+  whose 2026-09-17 amendment moved the entity to `model/capture` and the edge
+  service to `edge/capture` after U1 landed.
 - Support local-interface capture and a decapsulating receiver for ERSPAN I/II/III,
   GRE, VXLAN and TZSP; do not configure mirror sessions on devices. Why: ERSPAN
   has no standard (`draft-foschiano-erspan-03` is expired and Informational) and
@@ -52,11 +66,37 @@ operator-originated command, because a capture nobody can start is not a feature
   not `net/packet/v1`. Why: that shape compiles to a linear cBPF program without a
   general expression compiler, and `net/packet/v1`'s deliberate refusal to define
   a universal matcher stands.
-- Store the first cut's artifact on the edge. Why: `src/services/` holds only a
-  README, so there is nothing central to store into. The device service record
-  does decide how central persists what it owns, and none of those decisions
-  covers a multi-megabyte artifact; the artifact descriptor in the schema is
-  complete enough for central to serve it later without a schema change.
+- An operator-originated capture command reaches the edge over a capture-owned
+  stream, not the device dispatch stream. `CaptureEdgeService` in
+  `flowseer/edge/capture/v1` gains an edge-called `SubscribeCaptureAssignments`
+  server-stream beside its `UploadCapture` stream; the edge subscribes for
+  assignments on the same service it uploads to. Why: the device dispatch
+  envelope in `flowseer/edge/dispatch/v1` is device-lane-scoped — every message
+  names a `device_id` and its arms are lane operations — while a capture is
+  edge-scoped, so folding capture into that oneof would bend a contract the
+  dispatch README states is device-scoped; a capture-owned stream keeps each
+  envelope true to its subject and reuses the "edge calls central, central
+  streams back" shape the dispatch `Subscribe` already uses. Resolves the
+  parent's first open question, and is recorded as a direction record in U3b.
+- The subscribe-loop transport is shared, not duplicated. The reconnect,
+  backoff, `Contact` counters, and pre-attempt resync now in
+  `src/edge/agent/internal/dispatch` become a reusable component both the
+  dispatch loop and the capture-assignment loop run on. Why: that loop is
+  generic transport with no device knowledge, and a second hand-written copy
+  for capture is a second reconnect-and-observability story to keep correct.
+- Central stores the artifact and serves it back; the edge does not keep it.
+  The device service grows a capture leg that serves the operator
+  `CaptureService`, originates an assignment when a session is created,
+  receives `UploadCapture`, enforces the re-assertion rule, and stores the
+  pcapng for `TailCaptureSession` and `DownloadCaptureSession`. Why: the
+  capture direction left central-side storage open only because `src/services/`
+  was a README when this plan was written; the device service is now a running
+  control plane, and storing centrally is what `api/capture/v1`'s tail and
+  download RPCs were shaped for. This reverses the earlier "store the first
+  cut's artifact on the edge" decision and is recorded as an amendment to
+  [the remote packet capture direction](../architecture/2026-09-09-remote-packet-capture-direction.md)
+  in U3b, which that record already anticipated ("Whoever writes that store
+  reconciles it against the device service record").
 
 ## Requirements
 
@@ -98,14 +138,15 @@ operator-originated command, because a capture nobody can start is not a feature
 
 - Configuring SPAN, RSPAN, or ERSPAN sessions on a managed device. No standard
   model exists to configure them through; this is per-vendor capability work.
-- Central-side storage, indexing, retention enforcement, and live fan-out to an
-  operator client. `src/services/` holds only a README, and the persistence
-  decisions the device service record does carry are about inventory rows and
-  credentials rather than artifacts.
+- Central-side indexing, search, and live fan-out of a tail to more than one
+  consumer. Central storing one session's artifact and serving one tail and one
+  download is in scope (U3b); building a query surface over many sessions is not.
 - Packet dissection, protocol decoding, or analysis of captured traffic. The
   artifact is handed to a tool that already does this well.
-- The edge agent host itself: its enrollment, supervision tree, telemetry, and
-  command channel land in the parallel host work this plan depends on.
+- The edge agent host's own enrollment, supervision tree, and telemetry, which
+  landed in the device access agent (`src/edge/agent`) this plan builds on. The
+  command channel this plan does define, because the agent turned out to give a
+  module no capture-shaped way to be reached (U3b).
 - Wireless capture (802.11 monitor mode, radiotap) and any link type other than
   Ethernet and Linux SLL2.
 - Mirrored traffic delivered over anything but IP. Huawei's Layer 3 remote
@@ -133,14 +174,54 @@ Change: `src/modules/capture/` captures on a local interface, compiles a
 accounts for every drop, and renders pcapng.
 Landed: 2026-09-09, `a116ad70..f49f944e`.
 
-### U3. Edge host wiring and lab validation
+### U3a. Shared subscribe-loop transport
 
-Files: `docs/plans/2026-09-09-1213-feat-remote-packet-capture-phase3-plan.md`
+Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3a-plan.md`
 After: U2
-Change: the edge host assembles the capture module as a `service.Module`, runs a
-session end to end against the lab switches, and streams chunks under the
-re-assertion rule.
+Change: the reconnect, backoff, `Contact` counters, and pre-attempt resync move
+out of `src/edge/agent/internal/dispatch` into a reusable, message-generic
+subscribe loop; the dispatch loop runs on it with its behavior and its metric
+names unchanged.
 Landed:
+
+### U3b. Capture command channel and central capture leg
+
+Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3b-plan.md`
+After: U3a
+Change: `CaptureEdgeService` gains `SubscribeCaptureAssignments`; the device
+service serves the operator `CaptureService`, originates an assignment when a
+session is created, receives `UploadCapture` under the re-assertion rule, stores
+the pcapng, and serves `TailCaptureSession` and `DownloadCaptureSession`; the
+capture direction record is amended to store centrally and the network model
+structure record's `edge/capture` line names both streams.
+Landed:
+
+### U3c. Edge capture wiring
+
+Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3c-plan.md`
+After: U3b
+Change: the agent host assembles `src/modules/capture` as a `service.Module`,
+runs the capture-assignment loop on the U3a transport, drives a session from a
+received assignment, uploads chunks on `UploadCapture` with periodic
+re-assertion, and proves the round trip against a live device-service central in
+the host end-to-end test.
+Landed:
+
+### U3d. Lab validation
+
+Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3d-plan.md`
+After: U3c
+Change: an ICX7150 local SPAN into the edge's capture interface and a MikroTik
+TZSP stream to the edge's receiver each produce an artifact `capinfos` reads,
+recording what a shipping mirroring ASIC exercises that the containerised
+senders cannot.
+Landed:
+
+Waves: U3a | U3b | U3c | U3d
+
+U3d cannot run while the lab is closed (2026-09-10,
+[the runbook](../runbooks/lab-icx7150-first-write.md)); it is planned so the
+evidence it owes is named, and it waits for the lab rather than for code.
 
 ## Verification
 
