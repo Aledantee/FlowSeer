@@ -15,6 +15,14 @@ var updateConformance = flag.Bool("update-conformance", false, "rewrite CONFORMA
 
 // gnmiCorpus is the library's quirk catalog: device and server quirks
 // recorded with provenance and covered by cited tests.
+//
+// Two kinds of row live here and are held to different bars. A quirk
+// row states how the library behaves against a device that does
+// something awkward, and any device exhibiting it closes the row. A
+// `gn-t4-*` row instead asserts what a named device family does, so
+// only that family's hardware closes it — which is why an observation
+// on one vendor can close the first kind and leave the second
+// pending.
 var gnmiCorpus = []conformance.Row{
 	{
 		ID: "gn-proto-only-encoding", Clause: "gNMI spec §2.2.3",

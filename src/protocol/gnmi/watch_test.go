@@ -397,8 +397,8 @@ func TestWatchDecodesEmptyLeafListIntoRow(t *testing.T) {
 			continue
 		}
 		// An empty leaf-list must render as [] and decode to an empty
-		// slice. Rendering it as null instead fails the row decode
-		// outright, which is how a dropped leaf-list looked before.
+		// slice; rendering it as null instead fails the row decode
+		// outright.
 		if got := ev.Row.Aggregation.State.Member; len(got) != 0 {
 			t.Fatalf("Member = %+v, want empty", got)
 		}

@@ -5,6 +5,7 @@ date: 2026-08-20
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: partially-implemented
+review: accept after fixes
 compound: docs/solutions/conventions/same-typed-metadata-maps-can-carry-different-vocabularies.md
 execution: code
 ---
@@ -507,14 +508,14 @@ Merge gate remains the repo standard: build + vet + lint + `go test -race ./...`
 - New library `doc.go` files state the public contract (lifecycle, concurrency safety, error codes); no README drift introduced.
 - Dead-end and experimental code from abandoned approaches removed from the diff; `generated/` contains only generator output.
 
-### DoD status (2026-08-20)
+### DoD status (2026-08-20, clause list superseded where the passes below say so)
 
-Every clause above is **met except the lab-hardware leg of AE1–AE4
-and the R14 verdict**, which are hardware-gated and cannot run in the
-implementation environment (no IOS-XE / ICX / Aruba CX device is
-reachable or recorded in the repo; only the SNMP tier's MikroTik
-targets exist, and their community string cannot authenticate
-NETCONF/RESTCONF/gNMI). Confirmed met without hardware:
+Every clause above is **met except AE3 and the R14 verdict**. AE1, AE2
+and AE4 were hardware-gated when this section was written and have
+since been proven on real devices: RESTCONF on 2026-08-21 and NETCONF
+on 2026-09-18, both recorded below. AE3 and R14 need an Aruba CX
+device serving gNMI, which the lab does not have. Confirmed met
+without hardware at the time of writing:
 
 - All ten units' code complete and committed in dependency order;
   U10's t4 suites and the R8 revision-drift runtime are implemented
@@ -574,9 +575,9 @@ host-meta discovery → basic auth over TLS → GET → RFC 7951 decode):
 Corpus rows `rc-t4-identity`, `rc-t4-reversible-edit`,
 `rc-t4-depth-fields`, and `rc-depth-fields-unverified` are flipped to
 **covered** with the observed detail and real-device provenance;
-CONFORMANCE.md goldens regenerated. NETCONF (`nc-t4-*`) and gNMI
-(`gn-t4-*`, `gn-aruba-set-capability`) lab legs remain hardware-gated
-per the DoD status above.
+CONFORMANCE.md goldens regenerated. The gNMI legs (`gn-t4-*`,
+`gn-aruba-set-capability`) remain open; the NETCONF legs closed on
+2026-09-18, recorded in the section below.
 
 ---
 

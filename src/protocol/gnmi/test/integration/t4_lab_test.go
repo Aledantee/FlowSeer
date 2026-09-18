@@ -175,6 +175,7 @@ func TestT4ArubaSetCapability(t *testing.T) {
 // keeps flowing.
 //
 // Covers conformance matrix row: gn-t4-stream
+// Covers conformance matrix row: gn-leaf-list-typed-value
 func TestT4SubscribeStream(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {

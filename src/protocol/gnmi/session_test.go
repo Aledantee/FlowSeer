@@ -480,6 +480,9 @@ func TestPathValueRejectsTwoPayloads(t *testing.T) {
 	if err == nil {
 		t.Fatal("Set accepted a PathValue carrying both Value and Values")
 	}
+	if code, ok := errs.CodeOf(err); !ok || code != gnmi.ErrCodeEncoding {
+		t.Errorf("error code = %v, want %v", code, gnmi.ErrCodeEncoding)
+	}
 }
 
 // Covers conformance matrix row: gn-leaf-list-typed-value
