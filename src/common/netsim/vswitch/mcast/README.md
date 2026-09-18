@@ -152,10 +152,14 @@ the returned router ports, and how a pending query surfaces as an issue.
 
 ## State retention
 
+Multicast snooping runtime state is snoop-driven and preserved across derivation
+whenever both switches have multicast snooping enabled. `vswitch.Derive` retains
+the layer across derivation with per-entry filtering (`Retain`), pruning entries
+whose VLAN, port, or spanning-tree forwarding state was lost, and replaying the
+surviving records via `InstallObserved` and group learning to keep expiries
+intact. Derivation reports `Retention().Mcast` as kept with per-entry drops rather
+than an all-or-nothing rebuild.
+
 `RetentionKey(cfg Config, ports port.Table) string` encodes every normalized
 input the multicast snooping runtime state depends on: its own configuration as
-`Diff` sees it and port states for configured router ports. When both switches
-have multicast snooping enabled, `vswitch.Derive` retains the layer across
-derivation by calling `InstallObserved` with each prior observed router port's
-expiry, keeping group memberships and active router ports while dropping
-router ports whose ports were removed.
+`Diff` sees it and port states for configured router ports.
