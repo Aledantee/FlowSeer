@@ -260,3 +260,16 @@ edge moved with it. The import-order line in Consequences reads
 `{model/capture, model/edge} ← edge/capture` now. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
+
+### 2026-09-18 — central artifact persistence and bounded retention
+
+"Central-side storage and fan-out are not decided here" above describes
+storing the artifact on the edge. That decision is reversed: the device service
+persists session records in JetStream KeyValue storage (bucket `captures` in the
+`CENTRAL` account) and writes the multi-megabyte pcapng artifacts to disk under
+`<StateDir>/captures/<session_id>.pcapng`. Disk storage avoids the 1MB JetStream
+message size limit and fsync overhead for large packet streams while letting
+`DownloadCaptureSession` stream chunks directly from disk. Bounded retention is
+enforced by a periodic sweeper that unlinks `<StateDir>/captures/<session_id>.pcapng`
+once `expires_at` has passed, purging the payload while retaining the session
+record and its counters in JetStream KeyValue for audit.

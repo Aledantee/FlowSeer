@@ -1,8 +1,8 @@
 edition = "2024";
 
-// The service an edge calls to upload a running capture's packets.
-// Authorized as the edge named in the stream's most recent assertion;
-// central never calls it.
+// The service an edge calls to receive capture assignments and upload a
+// running capture's packets. Authorized as the edge named in the stream's
+// assertion; central never calls it.
 package flowseer.edge.capture.v1;
 
 import "flowseer/model/capture/v1/capture_chunk.proto";
@@ -11,11 +11,31 @@ import "flowseer/model/edge/v1/assertion.proto";
 import option "buf/validate/validate.proto";
 
 service CaptureEdgeService {
+  // Streams owed capture assignments to the calling edge: starts for pending
+  // sessions, and stops for canceled sessions.
+  rpc SubscribeCaptureAssignments(SubscribeCaptureAssignmentsRequest) returns (stream SubscribeCaptureAssignmentsResponse);
+
   // Uploads a capture session's packets as the edge produces them. The
   // stream opens with a SignedEdgeAssertion and carries a fresh one before
   // the assertion window lapses; every other message on the stream carries
   // a chunk.
   rpc UploadCapture(stream UploadCaptureRequest) returns (UploadCaptureResponse);
+}
+
+// Empty: the calling edge is the one the assertion names.
+message SubscribeCaptureAssignmentsRequest {}
+
+// One assignment instruction for a capture session.
+message SubscribeCaptureAssignmentsResponse {
+  // Exactly one assignment instruction.
+  oneof assignment {
+    option (buf.validate.oneof).required = true;
+
+    // Start a capture session with the given configuration.
+    flowseer.model.capture.v1.CaptureSessionConfig start = 1;
+    // Stop an active capture session.
+    flowseer.model.capture.v1.CaptureSessionGlobalRef stop = 2;
+  }
 }
 
 // One message on the upload stream: a chunk of packets, or a fresh

@@ -182,7 +182,7 @@ Change: the reconnect, backoff, `Contact` counters, and pre-attempt resync move
 out of `src/edge/agent/internal/dispatch` into a reusable, message-generic
 subscribe loop; the dispatch loop runs on it with its behavior and its metric
 names unchanged.
-Landed: `e69252b3..2619f79a`
+Landed: `6cd0a483..85758b1f`
 
 ### U3b. Capture command channel and central capture leg
 

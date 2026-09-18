@@ -1,8 +1,8 @@
-# Capture upload
+# Capture assignments and upload
 
 `flowseer.edge.capture.v1` holds `CaptureEdgeService`, which an edge calls to
-upload packet chunks. The CaptureSession entity and the chunk frames the
-stream carries live in
+receive capture assignments and upload packet chunks. The CaptureSession
+entity, its configuration, and the chunk frames the streams carry live in
 [`model/capture/v1`](../../../model/capture/v1/README.md), which this
 package imports and returns as `CaptureSessionGlobalRef` from the closed
 stream; the edge's own identity rides on
@@ -24,6 +24,17 @@ Deliberately absent:
   [`api/capture/v1`](../../../api/capture/v1/README.md); an operator calls
   it and an edge never does.
 
+## Assignments stream
+
+`SubscribeCaptureAssignments` delivers owed assignments to the connected edge,
+authenticated by its opening assertion. Central delivers only assignments for
+sessions scoped to that edge (`ref.edge.edge.id == edgeID`). Assignments carry
+either `start` with `CaptureSessionConfig` (for sessions in
+`CAPTURE_LIFECYCLE_PENDING` before upload begins) or `stop` with
+`CaptureSessionGlobalRef` (when an operator requests cancellation of an active
+session). Once the edge begins uploading packet chunks for a session, central
+marks the session `RUNNING` and withdraws the start assignment.
+
 ## Re-assertion on the upload stream
 
 [The edge assertion contract](../../../model/edge/v1/README.md#the-assertion-header)
@@ -38,14 +49,12 @@ window. The server verifies each one exactly as it verifies the opening
 one, nonce replay check included, and closes the stream if the interval
 passes without one arriving.
 
-## Open question: reaching the edge
+## Reaching the edge
 
-How an operator-originated capture command reaches the edge that must run
-it is not decided by this schema. The edge calls central; central never
-calls the edge. `EdgeService` in
-[`edge/attach/v1`](../../attach/v1/README.md) is what an edge calls to get
-and keep its standing, and none of its RPCs carries a command channel.
-`CaptureService.CreateCaptureSession` records the operator's intent as a
-`CaptureSessionConfig` on an edge, but nothing here specifies how that
-intent reaches the edge that must act on it. A reader of this schema alone
-should not conclude the command path is settled; it isn't.
+An operator-originated capture command reaches the edge via
+`SubscribeCaptureAssignments`. The edge calls central and holds the
+server-streaming RPC open. Central originates a `start` assignment carrying
+`CaptureSessionConfig` for every pending session configured for that edge, and
+re-originates it until the edge connects `UploadCapture` and delivers the first
+packet chunk. An operator cancellation similarly originates a `stop` assignment
+carrying `CaptureSessionGlobalRef`.

@@ -2,9 +2,9 @@
 //
 // Source: flowseer/edge/capture/v1/capture_edge_service.proto
 
-// The service an edge calls to upload a running capture's packets.
-// Authorized as the edge named in the stream's most recent assertion;
-// central never calls it.
+// The service an edge calls to receive capture assignments and upload a
+// running capture's packets. Authorized as the edge named in the stream's
+// assertion; central never calls it.
 package capturev1connect
 
 import (
@@ -36,6 +36,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure is the fully-qualified name of the
+	// CaptureEdgeService's SubscribeCaptureAssignments RPC.
+	CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure = "/flowseer.edge.capture.v1.CaptureEdgeService/SubscribeCaptureAssignments"
 	// CaptureEdgeServiceUploadCaptureProcedure is the fully-qualified name of the CaptureEdgeService's
 	// UploadCapture RPC.
 	CaptureEdgeServiceUploadCaptureProcedure = "/flowseer.edge.capture.v1.CaptureEdgeService/UploadCapture"
@@ -43,6 +46,9 @@ const (
 
 // CaptureEdgeServiceClient is a client for the flowseer.edge.capture.v1.CaptureEdgeService service.
 type CaptureEdgeServiceClient interface {
+	// Streams owed capture assignments to the calling edge: starts for pending
+	// sessions, and stops for canceled sessions.
+	SubscribeCaptureAssignments(context.Context, *connect.Request[v1.SubscribeCaptureAssignmentsRequest]) (*connect.ServerStreamForClient[v1.SubscribeCaptureAssignmentsResponse], error)
 	// Uploads a capture session's packets as the edge produces them. The
 	// stream opens with a SignedEdgeAssertion and carries a fresh one before
 	// the assertion window lapses; every other message on the stream carries
@@ -62,6 +68,12 @@ func NewCaptureEdgeServiceClient(httpClient connect.HTTPClient, baseURL string, 
 	baseURL = strings.TrimRight(baseURL, "/")
 	captureEdgeServiceMethods := v1.File_flowseer_edge_capture_v1_capture_edge_service_proto.Services().ByName("CaptureEdgeService").Methods()
 	return &captureEdgeServiceClient{
+		subscribeCaptureAssignments: connect.NewClient[v1.SubscribeCaptureAssignmentsRequest, v1.SubscribeCaptureAssignmentsResponse](
+			httpClient,
+			baseURL+CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
+			connect.WithSchema(captureEdgeServiceMethods.ByName("SubscribeCaptureAssignments")),
+			connect.WithClientOptions(opts...),
+		),
 		uploadCapture: connect.NewClient[v1.UploadCaptureRequest, v1.UploadCaptureResponse](
 			httpClient,
 			baseURL+CaptureEdgeServiceUploadCaptureProcedure,
@@ -73,7 +85,14 @@ func NewCaptureEdgeServiceClient(httpClient connect.HTTPClient, baseURL string, 
 
 // captureEdgeServiceClient implements CaptureEdgeServiceClient.
 type captureEdgeServiceClient struct {
-	uploadCapture *connect.Client[v1.UploadCaptureRequest, v1.UploadCaptureResponse]
+	subscribeCaptureAssignments *connect.Client[v1.SubscribeCaptureAssignmentsRequest, v1.SubscribeCaptureAssignmentsResponse]
+	uploadCapture               *connect.Client[v1.UploadCaptureRequest, v1.UploadCaptureResponse]
+}
+
+// SubscribeCaptureAssignments calls
+// flowseer.edge.capture.v1.CaptureEdgeService.SubscribeCaptureAssignments.
+func (c *captureEdgeServiceClient) SubscribeCaptureAssignments(ctx context.Context, req *connect.Request[v1.SubscribeCaptureAssignmentsRequest]) (*connect.ServerStreamForClient[v1.SubscribeCaptureAssignmentsResponse], error) {
+	return c.subscribeCaptureAssignments.CallServerStream(ctx, req)
 }
 
 // UploadCapture calls flowseer.edge.capture.v1.CaptureEdgeService.UploadCapture.
@@ -84,6 +103,9 @@ func (c *captureEdgeServiceClient) UploadCapture(ctx context.Context) *connect.C
 // CaptureEdgeServiceHandler is an implementation of the flowseer.edge.capture.v1.CaptureEdgeService
 // service.
 type CaptureEdgeServiceHandler interface {
+	// Streams owed capture assignments to the calling edge: starts for pending
+	// sessions, and stops for canceled sessions.
+	SubscribeCaptureAssignments(context.Context, *connect.Request[v1.SubscribeCaptureAssignmentsRequest], *connect.ServerStream[v1.SubscribeCaptureAssignmentsResponse]) error
 	// Uploads a capture session's packets as the edge produces them. The
 	// stream opens with a SignedEdgeAssertion and carries a fresh one before
 	// the assertion window lapses; every other message on the stream carries
@@ -98,6 +120,12 @@ type CaptureEdgeServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewCaptureEdgeServiceHandler(svc CaptureEdgeServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	captureEdgeServiceMethods := v1.File_flowseer_edge_capture_v1_capture_edge_service_proto.Services().ByName("CaptureEdgeService").Methods()
+	captureEdgeServiceSubscribeCaptureAssignmentsHandler := connect.NewServerStreamHandler(
+		CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
+		svc.SubscribeCaptureAssignments,
+		connect.WithSchema(captureEdgeServiceMethods.ByName("SubscribeCaptureAssignments")),
+		connect.WithHandlerOptions(opts...),
+	)
 	captureEdgeServiceUploadCaptureHandler := connect.NewClientStreamHandler(
 		CaptureEdgeServiceUploadCaptureProcedure,
 		svc.UploadCapture,
@@ -106,6 +134,8 @@ func NewCaptureEdgeServiceHandler(svc CaptureEdgeServiceHandler, opts ...connect
 	)
 	return "/flowseer.edge.capture.v1.CaptureEdgeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure:
+			captureEdgeServiceSubscribeCaptureAssignmentsHandler.ServeHTTP(w, r)
 		case CaptureEdgeServiceUploadCaptureProcedure:
 			captureEdgeServiceUploadCaptureHandler.ServeHTTP(w, r)
 		default:
@@ -116,6 +146,10 @@ func NewCaptureEdgeServiceHandler(svc CaptureEdgeServiceHandler, opts ...connect
 
 // UnimplementedCaptureEdgeServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedCaptureEdgeServiceHandler struct{}
+
+func (UnimplementedCaptureEdgeServiceHandler) SubscribeCaptureAssignments(context.Context, *connect.Request[v1.SubscribeCaptureAssignmentsRequest], *connect.ServerStream[v1.SubscribeCaptureAssignmentsResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.edge.capture.v1.CaptureEdgeService.SubscribeCaptureAssignments is not implemented"))
+}
 
 func (UnimplementedCaptureEdgeServiceHandler) UploadCapture(context.Context, *connect.ClientStream[v1.UploadCaptureRequest]) (*connect.Response[v1.UploadCaptureResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.edge.capture.v1.CaptureEdgeService.UploadCapture is not implemented"))
