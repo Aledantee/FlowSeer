@@ -24,8 +24,9 @@ import (
 // still admits. Reseeded dynamic entries count as learned and are bounded by the new
 // configuration's MaxEntries, evicting from the oldest. Static entries and construction
 // trust come only from target.
-// A derived standalone switch keeps spanning tree roles and eligible multicast
-// memberships and learned router ports when their layer configuration is unchanged.
+// A derived standalone switch keeps spanning tree roles when their layer
+// configuration is unchanged, and keeps eligible multicast memberships and
+// learned router ports whenever multicast snooping remains enabled.
 // It keeps LAG runtime state only while every member's administrative and operational
 // state also matches the target.
 // It returns an error if the target specification fails validation.
@@ -161,18 +162,14 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// unknown, so the issues New computed from an empty report set are stale.
 	next.recomputeProtocolLinkIssues()
 
-	// Mcast retention
-	var curMcastKey, nextMcastKey string
-	if cur != nil && cur.mcast != nil && cur.cfg.Mcast != nil {
-		curMcastKey = mcast.RetentionKey(*cur.cfg.Mcast, cur.ports)
-	}
-	if next.cfg.Mcast != nil {
-		nextMcastKey = mcast.RetentionKey(*next.cfg.Mcast, next.ports)
-	}
-	if curMcastKey == nextMcastKey {
-		next.retention.Mcast = LayerRetention{Kept: true}
+	// Mcast retention: multicast snooping is snoop-driven and unconditionally
+	// replays retained dynamic state into the new switch, filtered per-entry
+	// by port forwarding and VLAN membership. It reports kept when both switches
+	// have multicast enabled.
+	if (cur != nil && cur.mcast != nil) != (next.mcast != nil) {
+		next.retention.Mcast = LayerRetention{Kept: false, Difference: "config"}
 	} else {
-		next.retention.Mcast = LayerRetention{Kept: false, Difference: diffDependency(curMcastKey, nextMcastKey)}
+		next.retention.Mcast = LayerRetention{Kept: true}
 	}
 	if cur != nil && cur.mcast != nil && next.mcast != nil {
 		retained := cur.mcast.Clone()
@@ -211,7 +208,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	} else {
 		next.retention.Routing = LayerRetention{Kept: false, Difference: diffDependency(curRoutingKey, nextRoutingKey)}
 		if cur != nil && cur.routing != nil {
-			eff := cur.routing.FailHeld()
+			eff := cur.routing.Clone().FailHeld()
 			next.applyRoutingEffects(time.Time{}, eff)
 		}
 	}

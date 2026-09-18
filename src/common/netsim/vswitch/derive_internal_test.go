@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -560,36 +561,35 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				},
 			},
 		}
-		cur, err := New(base)
-		if err != nil {
-			t.Fatalf("New: %v", err)
+		fixedTime := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		group1 := netip.MustParseAddr("239.1.1.1")
+		group2 := netip.MustParseAddr("239.1.1.2")
+
+		plantMcastState := func() *Switch {
+			sw, err := New(base)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			sw.mcast.Learn(fixedTime, vid10, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{
+				Type:  igmp.ReportV2,
+				Group: group1,
+			})
+			sw.mcast.Learn(fixedTime, vid10, "1/1/2", netip.MustParseAddr("10.0.0.2"), igmp.Message{
+				Type:  igmp.ReportV2,
+				Group: group2,
+			})
+			if groups := sw.mcast.Groups(vid10); len(groups) != 2 {
+				t.Fatalf("planted groups count = %d, want 2", len(groups))
+			}
+			return sw
 		}
 
-		mutations := []struct {
-			name      string
-			mutate    func(*Config)
-			wantMatch string
+		cur := plantMcastState()
+
+		retainMutations := []struct {
+			name   string
+			mutate func(*Config)
 		}{
-			{
-				name: "port admin status",
-				mutate: func(c *Config) {
-					b := port.NewBuilder()
-					b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-					b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Down})
-					c.Ports, _ = b.Build()
-				},
-				wantMatch: "port-state",
-			},
-			{
-				name: "port oper status",
-				mutate: func(c *Config) {
-					b := port.NewBuilder()
-					b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-					b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down})
-					c.Ports, _ = b.Build()
-				},
-				wantMatch: "port-state",
-			},
 			{
 				name: "membership interval",
 				mutate: func(c *Config) {
@@ -597,7 +597,6 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 					v.MembershipInterval = 60 * time.Second
 					c.Mcast.VLANs[10] = v
 				},
-				wantMatch: "config",
 			},
 			{
 				name: "router port interval",
@@ -606,7 +605,6 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 					v.RouterPortInterval = 60 * time.Second
 					c.Mcast.VLANs[10] = v
 				},
-				wantMatch: "config",
 			},
 			{
 				name: "router ports",
@@ -615,11 +613,10 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 					v.RouterPorts = []string{"1/1/1", "1/1/2"}
 					c.Mcast.VLANs[10] = v
 				},
-				wantMatch: "port-state",
 			},
 		}
 
-		for _, m := range mutations {
+		for _, m := range retainMutations {
 			t.Run(m.name, func(t *testing.T) {
 				tgt := base.Clone()
 				m.mutate(&tgt)
@@ -628,11 +625,18 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 					t.Fatalf("Derive: %v", err)
 				}
 				ret := derived.Retention().Mcast
-				if ret.Kept {
-					t.Errorf("Mcast retained under mutation %q, want rebuilt", m.name)
+				if !ret.Kept {
+					t.Errorf("Mcast rebuilt under %q, want retained: %+v", m.name, ret)
 				}
-				if !strings.Contains(ret.Difference, m.wantMatch) {
-					t.Errorf("Mcast difference %q does not mention %q", ret.Difference, m.wantMatch)
+				groups := derived.mcast.Groups(vid10)
+				if len(groups) != 2 {
+					t.Fatalf("groups count = %d, want 2 retained", len(groups))
+				}
+				if groups[0].Group != group1 || groups[0].Port != "1/1/1" {
+					t.Errorf("group[0] = %+v, want %v on 1/1/1", groups[0], group1)
+				}
+				if groups[1].Group != group2 || groups[1].Port != "1/1/2" {
+					t.Errorf("group[1] = %+v, want %v on 1/1/2", groups[1], group2)
 				}
 			})
 		}
@@ -648,6 +652,85 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			}
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast rebuilt under unrelated edit, want retained: %+v", derived.Retention().Mcast)
+			}
+			if groups := derived.mcast.Groups(vid10); len(groups) != 2 {
+				t.Errorf("groups count = %d, want 2", len(groups))
+			}
+		})
+
+		t.Run("port admin status drops entry per-entry", func(t *testing.T) {
+			tgt := base.Clone()
+			b := port.NewBuilder()
+			b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Down})
+			b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+			tgt.Ports, _ = b.Build()
+
+			derived, err := Derive(cur, ConstructionSpec{Config: tgt})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+			if !derived.Retention().Mcast.Kept {
+				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
+			}
+			groups := derived.mcast.Groups(vid10)
+			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
+				t.Errorf("groups after port 1/1/1 down = %+v, want only group2 on 1/1/2", groups)
+			}
+		})
+
+		t.Run("port oper status drops entry per-entry", func(t *testing.T) {
+			tgt := base.Clone()
+			b := port.NewBuilder()
+			b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down})
+			b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+			tgt.Ports, _ = b.Build()
+
+			derived, err := Derive(cur, ConstructionSpec{Config: tgt})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+			if !derived.Retention().Mcast.Kept {
+				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
+			}
+			groups := derived.mcast.Groups(vid10)
+			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
+				t.Errorf("groups after port 1/1/1 oper down = %+v, want only group2 on 1/1/2", groups)
+			}
+		})
+
+		t.Run("vlan removed from mcast drops group memberships", func(t *testing.T) {
+			tgt := base.Clone()
+			delete(tgt.Mcast.VLANs, vid10)
+
+			derived, err := Derive(cur, ConstructionSpec{Config: tgt})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+			if !derived.Retention().Mcast.Kept {
+				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
+			}
+			if groups := derived.mcast.Groups(vid10); len(groups) != 0 {
+				t.Errorf("groups after vlan removed = %+v, want none", groups)
+			}
+		})
+
+		t.Run("disabling mcast reports rebuilt", func(t *testing.T) {
+			tgt := base.Clone()
+			tgt.Mcast = nil
+
+			derived, err := Derive(cur, ConstructionSpec{Config: tgt})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+			ret := derived.Retention().Mcast
+			if ret.Kept {
+				t.Errorf("Mcast retention = %+v, want Kept: false", ret)
+			}
+			if ret.Difference != "config" {
+				t.Errorf("Mcast difference = %q, want %q", ret.Difference, "config")
+			}
+			if derived.mcast != nil {
+				t.Errorf("derived.mcast = %v, want nil", derived.mcast)
 			}
 		})
 	})
@@ -689,10 +772,6 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 					},
 				},
 			},
-		}
-		cur, err := New(base)
-		if err != nil {
-			t.Fatalf("New: %v", err)
 		}
 
 		mutations := []struct {
@@ -751,8 +830,32 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			},
 		}
 
+		fixedTime := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		dst := netip.MustParseAddr("10.0.10.50")
+		learnedMAC := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
+
+		plantRoutingState := func() *Switch {
+			sw, err := New(base)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			sw.routing.Originate(fixedTime, routing.DefaultVRF, dst, 17, []byte("held-data"), true)
+			sw.routing.Observe(fixedTime, routing.Advertisement{
+				Interface: "eth1",
+				Addr:      dst,
+				MAC:       learnedMAC,
+				HasMAC:    true,
+				Solicited: true,
+			})
+			if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
+				t.Fatalf("planted routing neighbor mismatch: %+v", n)
+			}
+			return sw
+		}
+
 		for _, m := range mutations {
 			t.Run(m.name, func(t *testing.T) {
+				cur := plantRoutingState()
 				tgt := base.Clone()
 				m.mutate(&tgt)
 				derived, err := Derive(cur, ConstructionSpec{Config: tgt})
@@ -766,10 +869,22 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				if !strings.Contains(ret.Difference, m.wantMatch) {
 					t.Errorf("Routing difference %q does not mention %q", ret.Difference, m.wantMatch)
 				}
+				// Assert dynamic state is dropped on rebuild
+				if n := derived.routing.Neighbors(); len(n) != 0 {
+					t.Errorf("rebuilt routing layer has %d neighbors, want 0", len(n))
+				}
+				// Assert held frame is reported failed, not silently lost
+				failures := derived.DrainNeighborFailures()
+				if len(failures) != 1 {
+					t.Errorf("neighbor failures = %d, want 1", len(failures))
+				} else if failures[0].Reason != routing.ReasonNeighborMiss {
+					t.Errorf("failure reason = %v, want %v", failures[0].Reason, routing.ReasonNeighborMiss)
+				}
 			})
 		}
 
 		t.Run("unrelated edit retains Routing", func(t *testing.T) {
+			cur := plantRoutingState()
 			tgt := base.Clone()
 			tgt.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1_000},
@@ -780,6 +895,19 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			}
 			if !derived.Retention().Routing.Kept {
 				t.Errorf("Routing rebuilt under unrelated edit, want retained: %+v", derived.Retention().Routing)
+			}
+			// Assert dynamic state is kept on retain path
+			n := derived.routing.Neighbors()
+			if len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
+				t.Fatalf("unexpected retained neighbors: %+v", n)
+			}
+			// Following Wake releases held frame
+			derived.Wake(fixedTime.Add(time.Second))
+			if emissions := derived.Drain(); len(emissions) != 1 {
+				t.Errorf("emissions = %d, want 1 released held frame", len(emissions))
+			}
+			if failures := derived.DrainNeighborFailures(); len(failures) != 0 {
+				t.Errorf("neighbor failures = %d, want 0", len(failures))
 			}
 		})
 	})
@@ -983,4 +1111,209 @@ func TestDeriveSwitchIdempotenceAndFiftyRandomConstructions(t *testing.T) {
 			t.Errorf("iteration %d config diff against first non-empty: %+v", i, diff)
 		}
 	}
+}
+
+func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	vid10 := vlan.ID(10)
+	base := Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+		MAC: netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"eth1": {
+							Port:     "1/1/1",
+							MAC:      netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")},
+						},
+					},
+					NeighborPolicy: routing.NeighborPolicy{
+						ResolutionTimeout: 3 * time.Second,
+						HoldDepth:         3,
+					},
+				},
+			},
+		},
+	}
+	cur, err := New(base)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	fixedTime := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	dstA := netip.MustParseAddr("10.0.10.50")
+	macA := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
+	cur.routing.Originate(fixedTime, routing.DefaultVRF, dstA, 17, []byte("packet-a"), true)
+	cur.routing.Observe(fixedTime, routing.Advertisement{
+		Interface: "eth1",
+		Addr:      dstA,
+		MAC:       macA,
+		HasMAC:    true,
+		Solicited: true,
+	})
+
+	dstB := netip.MustParseAddr("10.0.10.60")
+	cur.routing.Originate(fixedTime, routing.DefaultVRF, dstB, 17, []byte("packet-b"), true)
+
+	beforeNeighbors := cur.routing.Neighbors()
+	if len(beforeNeighbors) != 2 {
+		t.Fatalf("expected 2 neighbors on cur before derive, got %d", len(beforeNeighbors))
+	}
+	if beforeNeighbors[0].HoldDepth != 1 || beforeNeighbors[1].HoldDepth != 1 {
+		t.Fatalf("expected both neighbors to have HoldDepth 1 before derive: %+v", beforeNeighbors)
+	}
+
+	changedSpec := base.Clone()
+	vrf := changedSpec.Routing.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	changedSpec.Routing.VRFs[routing.DefaultVRF] = vrf
+
+	derived, err := Derive(cur, ConstructionSpec{Config: changedSpec})
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	if derived.Retention().Routing.Kept {
+		t.Errorf("Routing retention = %+v, want Kept: false", derived.Retention().Routing)
+	}
+
+	afterNeighbors := cur.routing.Neighbors()
+	if !reflect.DeepEqual(beforeNeighbors, afterNeighbors) {
+		t.Fatalf("Derive mutated source switch neighbor states:\nbefore: %+v\nafter:  %+v", beforeNeighbors, afterNeighbors)
+	}
+	if len(cur.neighborFailures) != 0 {
+		t.Errorf("cur.neighborFailures count = %d, want 0", len(cur.neighborFailures))
+	}
+}
+
+func TestDeriveRoutingHeldFrameR7(t *testing.T) {
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	vid10 := vlan.ID(10)
+	base := Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+		MAC: netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"eth1": {
+							Port:     "1/1/1",
+							MAC:      netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")},
+						},
+					},
+					NeighborPolicy: routing.NeighborPolicy{
+						ResolutionTimeout: 3 * time.Second,
+						HoldDepth:         3,
+					},
+				},
+			},
+		},
+	}
+
+	fixedTime := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	plantState := func() *Switch {
+		sw, err := New(base)
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		dst := netip.MustParseAddr("10.0.10.50")
+		learnedMAC := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
+		sw.routing.Originate(fixedTime, routing.DefaultVRF, dst, 17, []byte("held-data"), true)
+		sw.routing.Observe(fixedTime, routing.Advertisement{
+			Interface: "eth1",
+			Addr:      dst,
+			MAC:       learnedMAC,
+			HasMAC:    true,
+			Solicited: true,
+		})
+		if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
+			t.Fatalf("planted routing neighbor mismatch: %+v", n)
+		}
+		return sw
+	}
+
+	t.Run("unrelated VLAN edit keeps Reachable neighbor and held frame released by Wake", func(t *testing.T) {
+		cur := plantState()
+		tgt := base.Clone()
+		tgt.Bridge.VLAN.Table[20] = "vlan20"
+
+		derived, err := Derive(cur, ConstructionSpec{Config: tgt})
+		if err != nil {
+			t.Fatalf("Derive: %v", err)
+		}
+		if !derived.Retention().Routing.Kept {
+			t.Errorf("Routing retention = %+v, want Kept: true", derived.Retention().Routing)
+		}
+
+		neighbors := derived.routing.Neighbors()
+		if len(neighbors) != 1 || neighbors[0].State != routing.NeighborReachable || neighbors[0].HoldDepth != 1 {
+			t.Fatalf("unexpected derived neighbors: %+v", neighbors)
+		}
+
+		derived.Wake(fixedTime.Add(time.Second))
+		if emissions := derived.Drain(); len(emissions) != 1 {
+			t.Errorf("emissions = %d, want 1 released held frame", len(emissions))
+		}
+		if failures := derived.DrainNeighborFailures(); len(failures) != 0 {
+			t.Errorf("neighbor failures = %d, want 0", len(failures))
+		}
+	})
+
+	t.Run("changing ResolutionTimeout rebuilds and held frame is reported failed", func(t *testing.T) {
+		cur := plantState()
+		tgt := base.Clone()
+		vrf := tgt.Routing.VRFs[routing.DefaultVRF]
+		vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+		tgt.Routing.VRFs[routing.DefaultVRF] = vrf
+
+		derived, err := Derive(cur, ConstructionSpec{Config: tgt})
+		if err != nil {
+			t.Fatalf("Derive: %v", err)
+		}
+		if derived.Retention().Routing.Kept {
+			t.Errorf("Routing retention = %+v, want Kept: false", derived.Retention().Routing)
+		}
+
+		if neighbors := derived.routing.Neighbors(); len(neighbors) != 0 {
+			t.Errorf("expected 0 neighbors after rebuild, got %+v", neighbors)
+		}
+
+		failures := derived.DrainNeighborFailures()
+		if len(failures) != 1 {
+			t.Fatalf("neighbor failures count = %d, want 1", len(failures))
+		}
+		if failures[0].Reason != routing.ReasonNeighborMiss {
+			t.Errorf("neighbor failure reason = %v, want %v", failures[0].Reason, routing.ReasonNeighborMiss)
+		}
+	})
 }
