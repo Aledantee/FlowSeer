@@ -205,7 +205,7 @@ runs the capture-assignment loop on the U3a transport, drives a session from a
 received assignment, uploads chunks on `UploadCapture` with periodic
 re-assertion, and proves the round trip against a live device-service central in
 the host end-to-end test.
-Landed:
+Landed: 2026-09-18, `4fdd8897..7144a6a6`.
 
 ### U3d. Lab validation
 

@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 ---
 
 # Remote Packet Capture Phase 3c, Edge Capture Wiring - Plan
+
+> Implemented. 3 units, 2026-09-18. Commit range 4fdd8897..7144a6a6.
 
 ## Goal
 
