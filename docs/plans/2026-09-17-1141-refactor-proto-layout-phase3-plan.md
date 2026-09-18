@@ -12,7 +12,7 @@ amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 
 # Protobuf Tree Phase 3 - The Process-Private Roots and the Final README Pass - Plan
 
-> Implemented. 4 units, 2026-09-18T09:47:46+02:00 to 2026-09-18T10:20:32+02:00.
+> Implemented. 4 units, 2026-09-18T07:47Z to 2026-09-18T08:20Z.
 
 ## Goal
 
@@ -409,18 +409,18 @@ grep -rn 'does not bind' docs/architecture/                          # only the 
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path, and `--full` is green
+- [x] The verifier is green for every changed path, and `--full` is green
       once at the end of the phase.
-- [ ] `ls spec/proto/flowseer` prints the nine roots and `README.md`, and
+- [x] `ls spec/proto/flowseer` prints the nine roots and `README.md`, and
       `ls spec/proto/flowseer/store` prints `README.md agent device`.
-- [ ] `TestProtoReadmeCoverage` and `TestProtoReadmeImports` pass, and the
+- [x] `TestProtoReadmeCoverage` and `TestProtoReadmeImports` pass, and the
       five READMEs U1 and U2 touch describe the finished tree.
-- [ ] The structure record's tree matches `ls`, every row of its import
+- [x] The structure record's tree matches `ls`, every row of its import
       graph is within `importOrder`, and it marks nothing as pending.
-- [ ] The residue grep prints only the lines Verification names.
-- [ ] No architecture record says the edge assertion leaves the RPC method
+- [x] The residue grep prints only the lines Verification names.
+- [x] No architecture record says the edge assertion leaves the RPC method
       or the request body unbound.
-- [ ] This plan's `status` is `implemented` with an outcome note under its
+- [x] This plan's `status` is `implemented` with an outcome note under its
       title, the parent's `U3. Landed:` line carries the commit range, and
       no plan label appears in code, comments, or commit messages.
 

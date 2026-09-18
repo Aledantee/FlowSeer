@@ -11,7 +11,7 @@ amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 
 # Protobuf Tree by Kind of Contract - Plan
 
-> Implemented. 3 units, 2026-09-17T17:21Z to 2026-09-18T10:20:47+02:00.
+> Implemented. 3 phases, 16 units, 2026-09-17T17:21Z to 2026-09-18T08:20Z.
 
 ## Goal
 
@@ -237,17 +237,17 @@ and do not change.
 
 ## Definition of done
 
-- [ ] Each phase plan reads `implemented` and its `Landed:` line above
+- [x] Each phase plan reads `implemented` and its `Landed:` line above
       carries the commit range.
-- [ ] Verifier green with `--full` after each phase.
-- [ ] Every directory under `spec/proto/flowseer/` has a README in the shape
+- [x] Verifier green with `--full` after each phase.
+- [x] Every directory under `spec/proto/flowseer/` has a README in the shape
       the Decisions fix, and the two gates pass.
-- [ ] The network model structure record's tree matches `ls`, and every
+- [x] The network model structure record's tree matches `ls`, and every
       row of its import graph is within `importOrder`.
-- [ ] `docs/conventions/protobuf.md`, the two `docs/solutions/` entries
+- [x] `docs/conventions/protobuf.md`, the two `docs/solutions/` entries
       whose `module:` names a moved package, the runbook, the lab
       `deploy/` files, and the `.repro` fixtures point at the new paths.
-- [ ] This plan's `status` is `implemented` with an outcome note under the
+- [x] This plan's `status` is `implemented` with an outcome note under the
       title, and no plan label appears in code or commit messages.
 
 ## Open questions
