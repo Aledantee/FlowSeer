@@ -191,7 +191,12 @@ Mirror copies have journeys of their own. `Journey.Origin` records how the
 copy entered the simulation: `Origin.Kind` is `OriginMirror`, `Origin.Mirror`
 names the mirror configuration that made the copy, and `Origin.Of` identifies
 the original frame's journey. The copy's injection origin is the switch and
-mirror output port, followed by its own crossings, delivery, or drop.
+mirror output port, followed by its own crossings, delivery, or drop. A
+reflector-originated copy also carries `OriginMirror` with `Origin.Of` for
+provenance but an empty `Origin.Mirror`: it is a first-class datagram, so —
+unlike a SPAN copy, which the non-empty `Origin.Mirror` marks as already
+policed and non-recursive — it is policed at ingress and may itself be
+mirrored.
 
 An ingress policer rejection happens before the forwarding pipeline and remains an
 `EntryDrop`. Its `Result` records a traffic-layer drop step with a typed

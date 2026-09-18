@@ -445,10 +445,12 @@ func (f *Fabric) Step() (Entry, bool) {
 	for _, p := range inPorts {
 		f.countIngress(arr.Device, p, inOctets, inClass)
 	}
-	// A mirror journey has already passed the original ingress policy, so a
-	// downstream switch must not charge the copy's bytes again.
+	// A SPAN mirror copy carries a non-empty Origin.Mirror and has already
+	// passed the original ingress policy, so a downstream switch must not charge
+	// its bytes again. A reflection carries OriginMirror for provenance but no
+	// mirror name; it is a first-class datagram the policer must still see.
 	frameWireOctets := wireOctets(arr.Frame)
-	if journey.Origin.Kind != OriginMirror && !sw.Police(arr.At, arr.Port, frameWireOctets) {
+	if journey.Origin.Mirror == "" && !sw.Police(arr.At, arr.Port, frameWireOctets) {
 		for _, p := range inPorts {
 			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
 		}
@@ -545,9 +547,10 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 
 	copies := sw.Copies()
-	if journey.Origin.Kind == OriginMirror {
+	if journey.Origin.Mirror != "" {
 		// Draining and discarding downstream copies makes mirror provenance a
-		// single generation instead of a recursively mirrored frame.
+		// single generation instead of a recursively mirrored frame. Only a SPAN
+		// copy (a named mirror) is suppressed; a reflection may still be mirrored.
 		copies = nil
 	}
 	for _, copy := range copies {
@@ -1616,7 +1619,7 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 			Code:    IssueActionsDropped,
 			Status:  analysis.Exhausted,
 			Scope:   analysis.WholeScope(),
-			Message: fmt.Sprintf("%d timed %s did not fire before budget exhaustion", droppedActions, noun),
+			Message: fmt.Sprintf("%d timed %s did not fire before the run stopped", droppedActions, noun),
 		})
 	}
 	if f.err != nil {

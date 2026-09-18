@@ -663,8 +663,8 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 	for _, iss := range res.Issues {
 		if iss.Code == IssueActionsDropped {
 			found = true
-			if !strings.Contains(iss.Message, "2 timed actions did not fire before budget exhaustion") {
-				t.Errorf("issue message = %q, want naming 2 timed actions did not fire before budget exhaustion", iss.Message)
+			if !strings.Contains(iss.Message, "2 timed actions did not fire before the run stopped") {
+				t.Errorf("issue message = %q, want naming 2 timed actions did not fire before the run stopped", iss.Message)
 			}
 		}
 	}
