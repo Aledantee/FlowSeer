@@ -713,6 +713,24 @@ candidate configuration. Each virtual switch is derived with `vswitch.Derive`,
 retaining capability layers whose inputs have not changed. `Fabric.Retention()`
 reports the retention outcome for every switch on the fabric.
 
+## Representative scale and fork cost
+
+Package `internal/netsimtest` defines `RepresentativeFabric()`, a representative
+simulation topology envelope of eight nodes of thirty-two physical ports,
+sixteen trunked VLANs, one two-member LAG per node, rapid spanning tree, one VRF
+per node with sixty-four routes and sixty-four neighbors, sixty-four hosts,
+primed with two thousand and forty-eight learned forwarding entries and four
+thousand and ninety-six queued arrivals.
+
+`Fabric.Fork` duplicates this topology with zero shared mutable state. Allocation
+overhead at this scale is bounded by a measured allocation constant (16,794
+allocations, measured 2026-09-18). Scaling the queued arrival depth four-fold
+scales allocations proportionally within a bounded multiple.
+
+Runtime is benchmarked (`BenchmarkFork`, `BenchmarkForkAndStep100`) and reported
+rather than gated, because the simulation test suite runs under `-race` where
+memory sanitizer overhead varies across execution environments.
+
 ## Concurrency contract
 
 A `Fabric` is not safe for concurrent use. Simulators mutate internal clock

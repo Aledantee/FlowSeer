@@ -4,7 +4,10 @@ Package `netsimtest` provides the versioned conformance test corpus and executio
 helpers for verifying network simulation contracts.
 
 The package is internal to `src/common/netsim`. It is test support owned by the
-simulation library, not a public service, wire schema, benchmark, or UI.
+simulation library, not a public service, wire schema, benchmark, or UI. The
+representative scale fixture (`RepresentativeFabric`) is a shared topology
+envelope; scale measurement and allocation gating live in `fabric`, preserving
+this boundary.
 
 ## Admitted cases
 
