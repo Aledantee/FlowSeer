@@ -1934,6 +1934,89 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 	}
 }
 
+func TestSwitchTreeRoles(t *testing.T) {
+	t.Parallel()
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	// 1. Switch without STP returns nil.
+	swNoSTP := mustSwitch(t, vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+	})
+	if got := swNoSTP.TreeRoles(); got != nil {
+		t.Fatalf("swNoSTP.TreeRoles() = %v, want nil", got)
+	}
+
+	// 2. Switch with plain RSTP returns VLAN 1.
+	swRSTP := mustSwitch(t, vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	})
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	swRSTP.Start(now)
+	swRSTP.Drain()
+
+	treeRolesRSTP := swRSTP.TreeRoles()
+	if treeRolesRSTP == nil {
+		t.Fatalf("swRSTP.TreeRoles() = nil, want map with VLAN 1")
+	}
+	if _, ok := treeRolesRSTP[1]; !ok {
+		t.Fatalf("swRSTP.TreeRoles() missing VLAN 1: %+v", treeRolesRSTP)
+	}
+	if info, ok := treeRolesRSTP[1]["1/1/1"]; !ok || info.Role != stp.RoleDesignated {
+		t.Errorf("swRSTP.TreeRoles()[1][\"1/1/1\"] = %+v, want designated role", info)
+	}
+
+	// 3. Switch with MST returns configured instance VLANs.
+	swMST := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "VLAN10", 20: "VLAN20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {Tagged: []vlan.ID{10, 20}},
+					"1/1/2": {Tagged: []vlan.ID{10, 20}},
+				},
+			},
+		},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+			MST: &stp.MST{
+				Name: "region-1",
+				Instances: map[stp.MSTID]stp.Instance{
+					1: {VLANs: []vlan.ID{10}},
+					2: {VLANs: []vlan.ID{20}},
+				},
+			},
+		},
+	})
+	swMST.Start(now)
+	swMST.Drain()
+	treeRolesMST := swMST.TreeRoles()
+	if treeRolesMST == nil {
+		t.Fatalf("swMST.TreeRoles() = nil, want per-VLAN roles")
+	}
+	for _, vid := range []vlan.ID{10, 20} {
+		if _, ok := treeRolesMST[vid]; !ok {
+			t.Errorf("swMST.TreeRoles() missing VID %d: %+v", vid, treeRolesMST)
+		}
+	}
+}
+
 func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).

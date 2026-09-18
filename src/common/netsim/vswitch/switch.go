@@ -3242,6 +3242,67 @@ func (s *Switch) Roles() map[string]stp.PortInfo {
 	return roles
 }
 
+// TreeRoles returns the runtime spanning tree status for each configured port
+// across each configured VLAN, or nil if the spanning tree layer is absent.
+func (s *Switch) TreeRoles() map[vlan.ID]map[string]stp.PortInfo {
+	if s.stp == nil || s.cfg.STP == nil {
+		return nil
+	}
+	vids := s.configuredVLANs()
+	if len(vids) == 0 {
+		return nil
+	}
+	roles := make(map[vlan.ID]map[string]stp.PortInfo, len(vids))
+	for _, vid := range vids {
+		portRoles := make(map[string]stp.PortInfo, len(s.cfg.STP.Ports))
+		for name := range s.cfg.STP.Ports {
+			portRoles[name] = s.stp.VLANPortInfo(vid, name)
+		}
+		roles[vid] = portRoles
+	}
+
+	return roles
+}
+
+func (s *Switch) configuredVLANs() []vlan.ID {
+	seen := make(map[vlan.ID]struct{})
+	if s.cfg.Bridge != nil && s.cfg.Bridge.VLAN != nil {
+		for vid := range s.cfg.Bridge.VLAN.Table {
+			seen[vid] = struct{}{}
+		}
+	}
+	if s.cfg.STP != nil {
+		if s.cfg.STP.PVST != nil {
+			for vid := range s.cfg.STP.PVST.Trees {
+				seen[vid] = struct{}{}
+			}
+			seen[1] = struct{}{}
+		}
+		if s.cfg.STP.MST != nil {
+			for _, inst := range s.cfg.STP.MST.Instances {
+				for _, vid := range inst.VLANs {
+					seen[vid] = struct{}{}
+				}
+			}
+		}
+	}
+	if s.cfg.Mcast != nil {
+		for vid := range s.cfg.Mcast.VLANs {
+			seen[vid] = struct{}{}
+		}
+	}
+	if len(seen) == 0 && s.cfg.STP != nil {
+		seen[1] = struct{}{}
+	}
+	vids := make([]vlan.ID, 0, len(seen))
+	for vid := range seen {
+		vids = append(vids, vid)
+	}
+	slices.Sort(vids)
+
+	return vids
+}
+
 // Root returns the elected root bridge identifier, the path cost to reach it,
 // and the interface name of the root port, or zero values if the spanning tree
 // layer is absent.

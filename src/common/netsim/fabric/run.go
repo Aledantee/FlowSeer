@@ -49,6 +49,7 @@ type Device struct {
 	Power       vswitch.PowerResult
 	Counters    map[string]Counters
 	Roles       map[string]stp.PortInfo
+	TreeRoles   map[vlan.ID]map[string]stp.PortInfo
 	// RelayCounters is what the relay's learning table counted, beside the
 	// per-port Counters.
 	RelayCounters bridge.Counters
@@ -1295,6 +1296,7 @@ func (f *Fabric) Snapshot() Snapshot {
 			Power:         sw.Power(),
 			Counters:      f.snapshotCounters(name),
 			Roles:         sw.Roles(),
+			TreeRoles:     sw.TreeRoles(),
 			RelayCounters: sw.RelayCounters(),
 			Neighbors:     sw.Neighbors(),
 		}
