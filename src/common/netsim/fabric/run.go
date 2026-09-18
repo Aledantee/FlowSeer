@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"bytes"
 	"maps"
 	"math"
 	"math/bits"
@@ -257,7 +258,11 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	seq := f.nextSeq
 	f.nextSeq++
 
-	journey := &Journey{FrameID: fid, Injection: inj}
+	journey := &Journey{
+		FrameID:   fid,
+		Origin:    JourneyOrigin{Kind: OriginInjection},
+		Injection: inj,
+	}
 	f.journeys[fid] = journey
 	f.record(journey, Entry{
 		At:     inj.At,
@@ -441,7 +446,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	// A mirror journey has already passed the original ingress policy, so a
 	// downstream switch must not charge the copy's bytes again.
 	frameWireOctets := wireOctets(arr.Frame)
-	if journey.Mirror == "" && !sw.Police(arr.At, arr.Port, frameWireOctets) {
+	if journey.Origin.Kind != OriginMirror && !sw.Police(arr.At, arr.Port, frameWireOctets) {
 		for _, p := range inPorts {
 			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
 		}
@@ -538,7 +543,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 
 	copies := sw.Copies()
-	if journey.Mirror != "" {
+	if journey.Origin.Kind == OriginMirror {
 		// Draining and discarding downstream copies makes mirror provenance a
 		// single generation instead of a recursively mirrored frame.
 		copies = nil
@@ -554,9 +559,12 @@ func (f *Fabric) Step() (Entry, bool) {
 			Frame:  cloneFrame(copy.Frame),
 		}
 		copyJourney := &Journey{
-			FrameID:   fid,
-			Mirror:    copy.Mirror,
-			Parent:    arr.FrameID,
+			FrameID: fid,
+			Origin: JourneyOrigin{
+				Kind:   OriginMirror,
+				Of:     arr.FrameID,
+				Mirror: copy.Mirror,
+			},
 			Injection: inj,
 		}
 		f.journeys[fid] = copyJourney
@@ -735,7 +743,7 @@ func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflecto
 	}
 	copyJourney := &Journey{
 		FrameID:   fid,
-		Parent:    parent.FrameID,
+		Origin:    JourneyOrigin{Kind: OriginInjection},
 		Injection: inj,
 	}
 	f.journeys[fid] = copyJourney
@@ -1151,9 +1159,19 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 	seq := f.nextSeq
 	f.nextSeq++
 
+	origin := JourneyOrigin{Kind: OriginInjection}
+	if !em.Protocol {
+		holdingFID := f.findAndPopHeld(device, em.Frame)
+		origin = JourneyOrigin{
+			Kind: OriginRelease,
+			Of:   holdingFID,
+		}
+	}
+
 	journey := &Journey{
 		FrameID:   fid,
 		Protocol:  em.Protocol,
+		Origin:    origin,
 		Injection: inj,
 	}
 	f.journeys[fid] = journey
@@ -1169,6 +1187,41 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 	// untagged access port or a routed port carries no tag to derive from, so deriving would
 	// queue at 0 a frame the live path queues at the priority it arrived with.
 	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, em.PCP, "")
+}
+
+func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {
+	released := make(map[FrameID]bool)
+	for _, j := range f.journeys {
+		if j.Origin.Kind == OriginRelease && j.Origin.Of != 0 {
+			released[j.Origin.Of] = true
+		}
+	}
+
+	var candidateIDs []FrameID
+	for fid, j := range f.journeys {
+		if released[fid] {
+			continue
+		}
+		if isJourneyHeld(j) {
+			if len(j.Entries) > 0 && j.Entries[len(j.Entries)-1].Device == device {
+				candidateIDs = append(candidateIDs, fid)
+			}
+		}
+	}
+	slices.Sort(candidateIDs)
+
+	for _, fid := range candidateIDs {
+		j := f.journeys[fid]
+		if bytes.Equal(j.Injection.Frame.Payload, frame.Payload) {
+			return fid
+		}
+	}
+
+	if len(candidateIDs) > 0 {
+		return candidateIDs[0]
+	}
+
+	return 0
 }
 
 // recordNeighborFailure turns one [vswitch.NeighborDrop] reported for a held
@@ -1200,7 +1253,10 @@ func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop vswitc
 	f.nextFrameID++
 
 	step := drop.Step
-	journey := &Journey{FrameID: fid}
+	journey := &Journey{
+		FrameID: fid,
+		Origin:  JourneyOrigin{Kind: OriginInjection},
+	}
 	f.journeys[fid] = journey
 	f.record(journey, Entry{
 		At:     now,

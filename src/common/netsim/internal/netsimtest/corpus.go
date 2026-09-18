@@ -999,7 +999,7 @@ func assertDeterministicJourney(t testing.TB, caseID string, first, second *fabr
 		return
 	}
 	if first.FrameID != second.FrameID || first.Protocol != second.Protocol ||
-		first.Mirror != second.Mirror || first.Parent != second.Parent {
+		first.Origin != second.Origin || first.State != second.State {
 		t.Errorf("case %s non-deterministic journey identity across runs", caseID)
 	}
 	if !reflect.DeepEqual(first.Deliveries, second.Deliveries) {

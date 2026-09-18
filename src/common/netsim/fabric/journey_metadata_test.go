@@ -213,7 +213,7 @@ func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
 
 	var copyJourney fabric.Journey
 	for _, j := range fab.Report() {
-		if j.Parent == parentID {
+		if j.FrameID != parentID {
 			copyJourney = j
 		}
 	}

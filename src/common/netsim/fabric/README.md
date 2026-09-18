@@ -187,10 +187,11 @@ Each entry names the endpoint it happened at in `Device` and `Port`; a host's
 entry rests on. An injection carries its origin's cable, and a host's arrival
 and decision carry the cable the frame came over.
 
-Mirror copies have journeys of their own. `Journey.Mirror` names the mirror
-configuration that made the copy, and `Journey.Parent` identifies the original
-frame's journey. The copy's injection origin is the switch and mirror output
-port, followed by its own crossings, delivery, or drop.
+Mirror copies have journeys of their own. `Journey.Origin` records how the
+copy entered the simulation: `Origin.Kind` is `OriginMirror`, `Origin.Mirror`
+names the mirror configuration that made the copy, and `Origin.Of` identifies
+the original frame's journey. The copy's injection origin is the switch and
+mirror output port, followed by its own crossings, delivery, or drop.
 
 An ingress policer rejection happens before the forwarding pipeline and remains an
 `EntryDrop`. Its `Result` records a traffic-layer drop step with a typed
@@ -435,8 +436,8 @@ reflector cannot tell whether the frame qualifies.
 A frame taken for reflection is never a `Delivery`: a reflector is not a
 host, and `Journey.Deliveries` never holds it. Instead the fabric originates
 one fresh copy per other attachment of the query's address family, skipping
-the attachment the query itself arrived on, each its own journey with the
-arriving frame as `Parent`. The copy rebuilds the accepted datagram end to
+the attachment the query itself arrived on, each its own journey. The copy
+rebuilds the accepted datagram end to
 end — a new UDP source port of 5353, a new IP source address from the
 target attachment, and a recomputed IPv4 checksum — rather than patching
 bytes in place, because changing the source address invalidates the

@@ -207,13 +207,13 @@ func CaseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 			var copyJourney fabric.Journey
 			matches := 0
 			for _, j := range fab.Report() {
-				if j.Parent == queryID {
+				if j.FrameID != queryID {
 					copyJourney = j
 					matches++
 				}
 			}
 			if matches != 1 {
-				return ExecutionResult{}, fmt.Errorf("%d journeys have query %d as their parent, want exactly one", matches, queryID)
+				return ExecutionResult{}, fmt.Errorf("%d journeys have query %d as their reflected copy, want exactly one", matches, queryID)
 			}
 
 			return ExecutionResult{

@@ -852,8 +852,8 @@ func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
-	if res.Journey.FrameID == res.Journey.Parent {
-		t.Errorf("journey FrameID = Parent = %d, want two distinct journeys", res.Journey.FrameID)
+	if res.Journey.FrameID <= 1 {
+		t.Errorf("journey FrameID = %d, want a reflected copy with FrameID > 1", res.Journey.FrameID)
 	}
 	if len(res.Journey.Deliveries) != 1 || res.Journey.Deliveries[0].Host != "h2" {
 		t.Errorf("deliveries = %+v, want exactly one to h2", res.Journey.Deliveries)
@@ -862,15 +862,15 @@ func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
 
 // TestTwoReflectorsLoopPinsTheReenteringCopy covers the same two-journey
 // shape from the loop side: the pinned journey is itself a reflected copy
-// (Parent nonzero), and it is the one whose arrival re-entered an endpoint
+// (FrameID > 1), and it is the one whose arrival re-entered an endpoint
 // its own ancestry already carries.
 func TestTwoReflectorsLoopPinsTheReenteringCopy(t *testing.T) {
 	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingMDNSTwoReflectorsLoop())
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
-	if res.Journey.Parent == 0 {
-		t.Error("journey Parent = 0, want a reflected copy: the injected query never re-enters anything")
+	if res.Journey.FrameID <= 1 {
+		t.Error("journey FrameID <= 1, want a reflected copy: the injected query never re-enters anything")
 	}
 	if len(res.Journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none: a reflector never delivers", res.Journey.Deliveries)

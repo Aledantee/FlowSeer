@@ -231,7 +231,7 @@ func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
 
 	var copyJourney *fabric.Journey
 	for _, journey := range fab.Report() {
-		if journey.Mirror == "m1" {
+		if journey.Origin.Mirror == "m1" {
 			journey := journey
 			copyJourney = &journey
 		}
@@ -239,8 +239,8 @@ func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
 	if copyJourney == nil {
 		t.Fatal("Report() has no m1 copy journey")
 	}
-	if copyJourney.Parent != originalID {
-		t.Errorf("copy Parent = %d, want %d", copyJourney.Parent, originalID)
+	if copyJourney.Origin.Of != originalID {
+		t.Errorf("copy Parent = %d, want %d", copyJourney.Origin.Of, originalID)
 	}
 	if copyJourney.Injection.Origin != (fabric.Endpoint{Node: "sw1", Port: "1/1/4"}) {
 		t.Errorf("copy origin = %+v, want sw1:1/1/4", copyJourney.Injection.Origin)
@@ -319,7 +319,7 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 
 	var trunkCopy, hostCopy *fabric.Journey
 	for _, journey := range fab.Report() {
-		if journey.Mirror != "m2" {
+		if journey.Origin.Mirror != "m2" {
 			continue
 		}
 		journey := journey
@@ -367,7 +367,7 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 	}
 	fab.Run(100)
 	for _, journey := range fab.Report()[before:] {
-		if journey.Mirror == "m2" {
+		if journey.Origin.Mirror == "m2" {
 			t.Errorf("reserved destination produced mirror journey %+v", journey)
 		}
 	}
@@ -457,7 +457,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 			var tracedMember string
 			var copyJourney *fabric.Journey
 			for _, journey := range fab.Report() {
-				if journey.Parent == frameID && journey.Mirror == "span" {
+				if journey.Origin.Of == frameID && journey.Origin.Mirror == "span" {
 					journey := journey
 					copyJourney = &journey
 				}
@@ -790,10 +790,10 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 
 	var upstream *fabric.Journey
 	for _, journey := range fab.Report() {
-		if journey.Mirror == "downstream" {
+		if journey.Origin.Mirror == "downstream" {
 			t.Errorf("downstream switch created another mirror journey: %+v", journey)
 		}
-		if journey.Mirror == "upstream" {
+		if journey.Origin.Mirror == "upstream" {
 			journey := journey
 			upstream = &journey
 		}

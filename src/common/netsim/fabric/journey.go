@@ -5,6 +5,7 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -94,6 +95,107 @@ type Entry struct {
 	Reason        trace.Reason
 }
 
+// JourneyState identifies the terminal or pending outcome of a frame's traversal across the network fabric.
+type JourneyState string
+
+const (
+	// JourneyPending indicates the frame has work remaining queued, in an egress buffer, or held for neighbor resolution.
+	JourneyPending JourneyState = "Pending"
+
+	// JourneyDelivered indicates at least one host or reflector accepted the frame.
+	JourneyDelivered JourneyState = "Delivered"
+
+	// JourneyRejected indicates an arrived frame was refused by destination host or reflector policy.
+	JourneyRejected JourneyState = "Rejected"
+
+	// JourneyDropped indicates the frame was discarded by a switch forwarding engine, cable loss fault, or down interface.
+	JourneyDropped JourneyState = "Dropped"
+
+	// JourneyLooped indicates the frame re-entered a device port its traversal history already visited.
+	JourneyLooped JourneyState = "Looped"
+
+	// JourneyTruncated indicates the frame's wire payload was truncated upon capture prior to injection.
+	JourneyTruncated JourneyState = "Truncated"
+
+	// JourneyUnresolved indicates the frame reached an unknown link state or undecodable header at host or reflector.
+	JourneyUnresolved JourneyState = "Unresolved"
+
+	// JourneyReleased indicates a frame held in a neighbor hold queue was released after address resolution.
+	JourneyReleased JourneyState = "Released"
+)
+
+// JourneyOriginKind identifies how a frame journey entered the simulation.
+type JourneyOriginKind string
+
+const (
+	// OriginInjection indicates a frame introduced directly by a caller or switch protocol emission.
+	OriginInjection JourneyOriginKind = "Injection"
+
+	// OriginMirror indicates a frame produced as a port mirror copy of another frame.
+	OriginMirror JourneyOriginKind = "Mirror"
+
+	// OriginRelease indicates a frame released from a neighbor hold queue after address resolution.
+	OriginRelease JourneyOriginKind = "Release"
+)
+
+// JourneyOrigin records how a journey began and its relationship to ancestor frames.
+type JourneyOrigin struct {
+	Kind   JourneyOriginKind
+	Of     FrameID
+	Mirror string
+}
+
+// Validate verifies that Of and Mirror fields are consistent with Kind.
+func (o JourneyOrigin) Validate() error {
+	switch o.Kind {
+	case OriginInjection:
+		if o.Of != 0 {
+			return errs.New().Attr("kind", o.Kind).Attr("of", o.Of).Msg("injection origin must not specify parent frame ID")
+		}
+		if o.Mirror != "" {
+			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("injection origin must not specify mirror name")
+		}
+	case OriginMirror:
+		if o.Of == 0 {
+			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify parent frame ID")
+		}
+		if o.Mirror == "" {
+			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify mirror name")
+		}
+	case OriginRelease:
+		if o.Of == 0 {
+			return errs.New().Attr("kind", o.Kind).Msg("release origin must specify holding frame ID")
+		}
+		if o.Mirror != "" {
+			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("release origin must not specify mirror name")
+		}
+	default:
+		return errs.New().Attr("kind", o.Kind).Msg("unknown journey origin kind")
+	}
+
+	return nil
+}
+
+const (
+	// IssueTruncatedRecord indicates an injected frame was truncated during capture.
+	IssueTruncatedRecord analysis.IssueCode = "truncated-record"
+
+	// ReasonTruncatedRecord indicates an injected frame was truncated during capture.
+	ReasonTruncatedRecord trace.Reason = "truncated-record"
+)
+
+// journeyStatePrecedence declares the evaluation order for journey states, highest first.
+var journeyStatePrecedence = []JourneyState{
+	JourneyPending,
+	JourneyUnresolved,
+	JourneyLooped,
+	JourneyTruncated,
+	JourneyReleased,
+	JourneyDelivered,
+	JourneyRejected,
+	JourneyDropped,
+}
+
 // Journey records the complete traversal history and deliveries of an injected frame across the fabric.
 // Deliveries holds only frames a host accepted.
 //
@@ -107,12 +209,12 @@ type Entry struct {
 type Journey struct {
 	FrameID    FrameID
 	Protocol   bool
-	Mirror     string
-	Parent     FrameID
+	Origin     JourneyOrigin
 	Injection  Injection
 	Entries    []Entry
 	Deliveries []Delivery
 	Metadata   analysis.Metadata
+	State      JourneyState
 }
 
 // Report returns independent copies of all recorded journeys sorted in ascending order of frame ID.
@@ -120,15 +222,114 @@ func (f *Fabric) Report() []Journey {
 	if len(f.journeys) == 0 {
 		return nil
 	}
+
+	pendingFrames := make(map[FrameID]bool)
+	for _, arr := range f.queue {
+		if arr.Kind == ArrivalFrame {
+			pendingFrames[arr.FrameID] = true
+		}
+	}
+	for _, q := range f.egress {
+		for pcp := 0; pcp < 8; pcp++ {
+			for _, item := range q.pending[pcp] {
+				pendingFrames[item.fid] = true
+			}
+		}
+	}
+
+	releasedFrames := make(map[FrameID]bool)
+	for _, j := range f.journeys {
+		if j.Origin.Kind == OriginRelease && j.Origin.Of != 0 {
+			releasedFrames[j.Origin.Of] = true
+		}
+	}
+
+	for fid, j := range f.journeys {
+		if isJourneyHeld(j) && !releasedFrames[fid] {
+			pendingFrames[fid] = true
+		}
+	}
+
 	out := make([]Journey, 0, len(f.journeys))
 	for _, j := range f.journeys {
-		out = append(out, j.clone())
+		cp := j.clone()
+		cp.State = assignJourneyState(&cp, pendingFrames[j.FrameID], releasedFrames[j.FrameID])
+		out = append(out, cp)
 	}
 	slices.SortFunc(out, func(a, b Journey) int {
 		return cmp.Compare(a.FrameID, b.FrameID)
 	})
 
 	return out
+}
+
+func assignJourneyState(j *Journey, pending, released bool) JourneyState {
+	for _, state := range journeyStatePrecedence {
+		switch state {
+		case JourneyPending:
+			if pending {
+				return JourneyPending
+			}
+		case JourneyUnresolved:
+			if hasEntryKind(j, EntryUnresolved) {
+				return JourneyUnresolved
+			}
+		case JourneyLooped:
+			if hasEntryKind(j, EntryLoop) {
+				return JourneyLooped
+			}
+		case JourneyTruncated:
+			if isJourneyTruncated(j) {
+				return JourneyTruncated
+			}
+		case JourneyReleased:
+			if released {
+				return JourneyReleased
+			}
+		case JourneyDelivered:
+			if len(j.Deliveries) > 0 || hasEntryKind(j, EntryDelivery) || hasEntryKind(j, EntryReflection) {
+				return JourneyDelivered
+			}
+		case JourneyRejected:
+			if hasEntryKind(j, EntryRejection) {
+				return JourneyRejected
+			}
+		case JourneyDropped:
+			if hasEntryKind(j, EntryDrop) || hasEntryKind(j, EntryLoss) {
+				return JourneyDropped
+			}
+		}
+	}
+
+	return JourneyPending
+}
+
+func hasEntryKind(j *Journey, kind EntryKind) bool {
+	return slices.ContainsFunc(j.Entries, func(e Entry) bool {
+		return e.Kind == kind
+	})
+}
+
+func isJourneyHeld(j *Journey) bool {
+	if len(j.Entries) == 0 {
+		return false
+	}
+	last := j.Entries[len(j.Entries)-1]
+	return last.Result != nil && last.Result.Outcome == trace.Held
+}
+
+func isJourneyTruncated(j *Journey) bool {
+	if j.State == JourneyTruncated {
+		return true
+	}
+	if slices.ContainsFunc(j.Metadata.Issues(), func(iss analysis.Issue) bool {
+		return iss.Code == IssueTruncatedRecord
+	}) {
+		return true
+	}
+	return slices.ContainsFunc(j.Entries, func(e Entry) bool {
+		return e.Reason == ReasonTruncatedRecord
+	})
 }
 
 func (j Journey) clone() Journey {

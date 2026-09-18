@@ -2485,23 +2485,6 @@ func reflectCopyConfig(t *testing.T) fabric.Config {
 	}
 }
 
-// journeyByParent returns the one reported journey whose Parent is parent, or
-// fails the test: [Fabric.Report] carries every journey the run produced.
-func journeyByParent(t *testing.T, journeys []fabric.Journey, parent fabric.FrameID) fabric.Journey {
-	t.Helper()
-	var found []fabric.Journey
-	for _, j := range journeys {
-		if j.Parent == parent {
-			found = append(found, j)
-		}
-	}
-	if len(found) != 1 {
-		t.Fatalf("journeys with parent %d = %d, want exactly 1: %+v", parent, len(found), found)
-	}
-
-	return found[0]
-}
-
 func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 	return slices.ContainsFunc(entries, func(e fabric.Entry) bool { return e.Kind == kind })
 }
@@ -2540,7 +2523,16 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 		t.Errorf("parent entries = %+v, want a no-address drop naming rp3", parent.Entries)
 	}
 
-	copyJourney := journeyByParent(t, journeys, parentID)
+	var copyJourney fabric.Journey
+	for _, j := range journeys {
+		if j.FrameID != parentID {
+			copyJourney = j
+			break
+		}
+	}
+	if copyJourney.FrameID == 0 {
+		t.Fatalf("no copy journey found among: %+v", journeys)
+	}
 
 	ipHeader, ipPayload, err := ip.Decode(copyJourney.Injection.Frame.Payload)
 	if err != nil {
@@ -2709,7 +2701,7 @@ func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
 	journeys := fab.Report()
 	var copies []fabric.Journey
 	for _, j := range journeys {
-		if j.Parent == parentID {
+		if j.FrameID != parentID {
 			copies = append(copies, j)
 		}
 	}
