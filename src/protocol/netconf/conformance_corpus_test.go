@@ -75,7 +75,7 @@ var netconfCorpus = []conformance.Row{
 			"a read-back diff of the whole native subtree proves running unchanged. This device advertises " +
 			"writable-running and no candidate datastore, so the edit targets running directly and the proof is the " +
 			"read-back diff rather than a candidate discard",
-		Adversarial: "username privilege 99 against the uint8 0..15 range; device answers application invalid-value",
+		Adversarial: "username privilege 99 against the uint8 0..15 range; the edit fails and the library reports its RPC error code",
 		Unit:        "netconf/lab", Status: conformance.Covered,
 	},
 	{

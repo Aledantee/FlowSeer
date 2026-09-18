@@ -122,9 +122,10 @@ func TestT4IdentityRead(t *testing.T) {
 	}
 }
 
-// TestT4InvalidEditRollback stages an invalid change to the candidate
-// datastore, expects the device's rejection, and proves by read-back
-// diff that running is unchanged.
+// TestT4InvalidEditRollback applies an invalid change to the datastore
+// the session's capabilities select — running, on a device that
+// advertises writable-running and no candidate — expects the device's
+// rejection, and proves by read-back diff that it is unchanged.
 //
 // Covers the invalid-edit rollback proof. Covers conformance matrix row: nc-t4-invalid-rollback
 func TestT4InvalidEditRollback(t *testing.T) {

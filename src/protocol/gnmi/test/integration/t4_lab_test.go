@@ -192,17 +192,30 @@ func TestT4SubscribeStream(t *testing.T) {
 			}
 			defer func() { _ = stream.Close() }()
 
-			sawSync, updates := false, 0
+			// Counting updates only proves the stream did not error.
+			// A payload is asserted as well, since a decoder that
+			// dropped every value would still deliver updates.
+			sawSync, updates, withPayload, leafLists := false, 0, 0, 0
 			for ev := range stream.Iter() {
 				if ev.Sync {
 					sawSync = true
 					continue
 				}
-				if sawSync {
-					updates += len(ev.Updates)
-					if updates > 0 {
-						break
+				if !sawSync {
+					continue
+				}
+				updates += len(ev.Updates)
+				for _, u := range ev.Updates {
+					switch {
+					case u.Values != nil:
+						leafLists++
+						withPayload++
+					case len(u.JSON) > 0 || u.Value != nil:
+						withPayload++
 					}
+				}
+				if withPayload > 0 {
+					break
 				}
 			}
 			if !sawSync {
@@ -211,7 +224,11 @@ func TestT4SubscribeStream(t *testing.T) {
 			if updates == 0 {
 				t.Errorf("no updates after sync_response (stream err: %v)", stream.Err())
 			}
-			t.Logf("observed sync=%v with %d updates after sync", sawSync, updates)
+			if updates > 0 && withPayload == 0 {
+				t.Errorf("%d update(s) after sync and none carried a payload (stream err: %v)", updates, stream.Err())
+			}
+			t.Logf("observed sync=%v with %d update(s), %d carrying a payload, %d a leaf-list",
+				sawSync, updates, withPayload, leafLists)
 		})
 	}
 }

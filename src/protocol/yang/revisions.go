@@ -70,15 +70,12 @@ func isRevisionDate(rev string) bool {
 // may implement a subset, and it may serve modules the bindings do not
 // cover.
 //
-// The split exists because the two transports report different things
-// for the same module. A NETCONF hello carries RFC 7950 revision dates
-// throughout, so every comparison is like-for-like. gNMI Capabilities
-// reports an OpenConfig module's openconfig-version semantic version
-// instead, and a semver never equals the vendored date, so folding
-// those into the drift list would report every OpenConfig module as
-// drifting on every device and leave the real drift invisible among
-// them. Callers that want the incomparable modules to be loud can say
-// so; what they must not do is read them as drift.
+// A NETCONF hello carries RFC 7950 revision dates, while gNMI
+// Capabilities reports an OpenConfig module's openconfig-version
+// semantic version, which never equals a vendored date. Callers may
+// treat the incomparable pairs however they like, but must not read
+// them as drift; see
+// docs/solutions/conventions/same-typed-metadata-maps-can-carry-different-vocabularies.md.
 func DiffRevisions(vendored, advertised map[string]string) (drift, incomparable []RevisionDrift) {
 	for module, vendoredRev := range vendored {
 		advertisedRev, ok := advertised[module]

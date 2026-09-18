@@ -26,15 +26,17 @@ var gnmiCorpus = []conformance.Row{
 	{
 		ID: "gn-leaf-list-typed-value", Clause: "gNMI spec §2.2.3 (leaflist_val)",
 		Provenance: "Arista vEOS-lab 4.33.1.1F serves /interfaces/interface/ethernet/state/supported-speeds as a leaf-list",
-		Behavior: "a leaflist_val update decodes into the update's Values in wire order, an empty leaf-list included; " +
-			"the scalar Value stays nil. Before this row the decoder rejected the variant outright, which failed " +
-			"the whole subscription rather than the one leaf",
+		Behavior: "a leaflist_val update decodes into the update's Values in wire order, an empty leaf-list included, " +
+			"and the scalar Value stays nil; the row codec renders those values as the JSON array a LeafList field " +
+			"expects, and a leaf-list written through PathValue.Values encodes back to leaflist_val",
 		Adversarial: "supported-speeds carrying two enum elements, and an empty ScalarArray",
 		Unit:        "gnmi/session", Status: conformance.Covered,
 	},
 	{
 		ID: "gn-banner-newline-normalization", Clause: "gNMI spec §3.4 (Set/Get round-trip)",
-		Provenance:  "Arista vEOS-lab 4.33.1.1F, lab device 2026-09-18",
+		Provenance: "Arista vEOS-lab 4.33.1.1F, lab device 2026-09-18. This row states how a Set/Get round-trip " +
+			"is compared on any device, so the Arista observation closes it; the gn-t4-* rows stay pending " +
+			"because they assert what a specific vendor family does, which this run cannot settle",
 		Behavior:    "a device may normalize a written leaf rather than store it verbatim; EOS appends a trailing newline to /system/config/login-banner, so a Set/Get round-trip compares modulo that normalization instead of by exact equality",
 		Adversarial: "login-banner set to \"flowseer-t4\" and read back as \"flowseer-t4\\n\"",
 		Unit:        "gnmi/lab", Status: conformance.Covered,

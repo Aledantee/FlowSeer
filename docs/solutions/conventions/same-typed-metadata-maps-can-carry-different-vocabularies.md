@@ -91,8 +91,8 @@ drift = append(drift, entry)
 Callers then decide what each set means. Over NETCONF every revision is a
 date, so an incomparable pair is a malformed advertisement and the lab suite
 fails on it; over gNMI it is the expected OpenConfig case and is logged
-(`src/protocol/netconf/test/integration/t4_lab_test.go:257`,
-`src/protocol/gnmi/test/integration/t4_lab_test.go:235`).
+(`src/protocol/netconf/test/integration/t4_lab_test.go:266`,
+`src/protocol/gnmi/test/integration/t4_lab_test.go:243`).
 
 When a diff reports a difference for most of its entries, suspect the
 comparison before believing the report. Check one entry by hand against both

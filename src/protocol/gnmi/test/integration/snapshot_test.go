@@ -37,12 +37,18 @@ func snapshotRestore(ctx context.Context, s snapshotReader, path yang.Path) (gnm
 	if original == nil {
 		return gnmi.SetRequest{}, fmt.Errorf("original path missing from nonempty response")
 	}
-	if (original.JSON == nil) == (original.Value == nil) {
-		return gnmi.SetRequest{}, fmt.Errorf("original value must have exactly one payload")
+	payloads := 0
+	for _, carried := range []bool{original.JSON != nil, original.Value != nil, original.Values != nil} {
+		if carried {
+			payloads++
+		}
+	}
+	if payloads != 1 {
+		return gnmi.SetRequest{}, fmt.Errorf("original value must have exactly one payload, got %d", payloads)
 	}
 
 	return gnmi.SetRequest{Updates: []gnmi.PathValue{{
-		Path: path, JSON: original.JSON, Value: original.Value,
+		Path: path, JSON: original.JSON, Value: original.Value, Values: original.Values,
 	}}}, nil
 }
 

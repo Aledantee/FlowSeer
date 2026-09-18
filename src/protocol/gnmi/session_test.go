@@ -29,6 +29,7 @@ type fakeServer struct {
 	get       func(context.Context, *gpb.GetRequest) (*gpb.GetResponse, error)
 	setResp   *gpb.SetResponse
 	setErr    error
+	setReq    *gpb.SetRequest // captured by Set for assertions
 	subscribe func(gpb.GNMI_SubscribeServer) error
 }
 
@@ -47,7 +48,8 @@ func (f *fakeServer) Get(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResp
 	return f.getResp, nil
 }
 
-func (f *fakeServer) Set(context.Context, *gpb.SetRequest) (*gpb.SetResponse, error) {
+func (f *fakeServer) Set(_ context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
+	f.setReq = req
 	return f.setResp, f.setErr
 }
 
@@ -432,5 +434,50 @@ func TestEmptyLeafListDecodesToEmptySlice(t *testing.T) {
 	}
 	if got := updates[0].Values; got == nil || len(got) != 0 {
 		t.Errorf("Values = %+v, want an empty non-nil slice", got)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestLeafListRoundTripsThroughSet(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		setResp:   &gpb.SetResponse{},
+	}
+	s := dialFake(t, f)
+
+	err := s.Set(context.Background(), gnmi.SetRequest{Updates: []gnmi.PathValue{{
+		Path: ifacePath(),
+		Values: []yang.Value{
+			{Type: yang.Type{Kind: yang.TypeString}, String: "SPEED_10GB"},
+			{Type: yang.Type{Kind: yang.TypeString}, String: "SPEED_25GB"},
+		},
+	}}})
+	if err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if f.setReq == nil || len(f.setReq.Update) != 1 {
+		t.Fatalf("SetRequest = %+v, want one update", f.setReq)
+	}
+	arr := f.setReq.Update[0].GetVal().GetLeaflistVal()
+	if arr == nil {
+		t.Fatalf("update carries %T, want a leaflist_val", f.setReq.Update[0].GetVal().GetValue())
+	}
+	if len(arr.Element) != 2 ||
+		arr.Element[0].GetStringVal() != "SPEED_10GB" ||
+		arr.Element[1].GetStringVal() != "SPEED_25GB" {
+		t.Errorf("elements = %+v, want the two values in wire order", arr.Element)
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestPathValueRejectsTwoPayloads(t *testing.T) {
+	f := &fakeServer{encodings: []gpb.Encoding{gpb.Encoding_PROTO}, setResp: &gpb.SetResponse{}}
+	s := dialFake(t, f)
+	v := yang.Value{Type: yang.Type{Kind: yang.TypeString}, String: "x"}
+	err := s.Set(context.Background(), gnmi.SetRequest{Updates: []gnmi.PathValue{{
+		Path: ifacePath(), Value: &v, Values: []yang.Value{v},
+	}}})
+	if err == nil {
+		t.Fatal("Set accepted a PathValue carrying both Value and Values")
 	}
 }
