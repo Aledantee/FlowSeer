@@ -246,7 +246,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Errorf("fid1 = %d, want 1", fid1)
 	}
 
-	steps := fab.Run(10)
+	steps := fab.Run(10).Steps
 	if steps != 2 {
 		t.Fatalf("steps = %d, want 2", steps)
 	}
@@ -335,7 +335,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Fatalf("Inject reverse: %v", err)
 	}
 
-	stepsRev := fab.Run(10)
+	stepsRev := fab.Run(10).Steps
 	if stepsRev != 2 {
 		t.Fatalf("stepsRev = %d, want 2", stepsRev)
 	}
@@ -378,7 +378,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(1)
+	steps := fab.Run(1).Steps
 	if steps != 1 {
 		t.Fatalf("steps = %d, want 1", steps)
 	}
@@ -408,7 +408,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 		t.Errorf("sw2 FDB entries = %+v, want empty", sw2Entries)
 	}
 
-	steps = fab.Run(1)
+	steps = fab.Run(1).Steps
 	if steps != 1 {
 		t.Fatalf("second Run(1) steps = %d, want 1", steps)
 	}
@@ -688,7 +688,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(50)
+	steps := fab.Run(50).Steps
 	if steps != 50 {
 		t.Errorf("steps = %d, want 50", steps)
 	}
@@ -962,9 +962,12 @@ func TestRunZeroSteps(t *testing.T) {
 		t.Fatalf("queue before Run(0) = %d, want 1", len(snapBefore.Queue))
 	}
 
-	n := fab.Run(0)
-	if n != 0 {
-		t.Errorf("Run(0) returned %d, want 0", n)
+	res := fab.Run(0)
+	if res.Steps != 0 {
+		t.Errorf("Run(0) returned %d steps, want 0", res.Steps)
+	}
+	if res.Stop != fabric.StopNotRun {
+		t.Errorf("Run(0) stop = %v, want StopNotRun", res.Stop)
 	}
 
 	snapAfter := fab.Snapshot()
@@ -1303,7 +1306,7 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 		}
 	}
 
-	steps := fab.Run(10)
+	steps := fab.Run(10).Steps
 	if steps == 0 {
 		t.Fatal("expected Run to take steps")
 	}
@@ -2622,7 +2625,7 @@ func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
 	}
 
 	const budget = 40
-	steps := fab.Run(budget)
+	steps := fab.Run(budget).Steps
 	if steps != budget {
 		t.Fatalf("Run(%d) = %d, want the full budget: the loop should not drain the queue", budget, steps)
 	}

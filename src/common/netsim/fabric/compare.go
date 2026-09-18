@@ -41,8 +41,8 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) (Comparison, error)
 		}
 	}
 
-	stepsA := a.Run(budget)
-	stepsB := b.Run(budget)
+	stepsA := a.Run(budget).Steps
+	stepsB := b.Run(budget).Steps
 
 	repA := a.Report()
 	repB := b.Report()

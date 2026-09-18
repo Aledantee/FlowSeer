@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"bytes"
+	"fmt"
 	"maps"
 	"math"
 	"math/bits"
@@ -15,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -1299,25 +1301,228 @@ func (f *Fabric) removeWake(device string) {
 	})
 }
 
-// Run repeatedly invokes [Fabric.Step] until the arrival queue is empty or n steps have executed,
-// returning the number of steps taken. A non-positive budget executes zero steps.
-//
-// A count below n means the queue drained or a scheduling fault halted the run.
-// Check [Fabric.Err] after Run to tell a fault from an exhausted queue; the
-// count alone does not.
-func (f *Fabric) Run(n int) int {
-	if n <= 0 {
-		return 0
+// Run repeatedly invokes [Fabric.Step] until the arrival queue is empty, budget steps have executed,
+// or a scheduling fault or convergence condition halts simulation.
+// A non-positive budget executes zero steps and returns [StopNotRun].
+func (f *Fabric) Run(budget int) RunResult {
+	return f.run(budget, 0)
+}
+
+func (f *Fabric) run(budget int, window int) RunResult {
+	f.initRunState()
+
+	if budget <= 0 {
+		return f.buildRunResult(StopNotRun, 0, nil, nil, budget)
 	}
 
-	for count := 0; count < n; count++ {
-		_, ok := f.Step()
+	if f.err != nil {
+		return f.buildRunResult(StopFault, 0, nil, nil, budget)
+	}
+
+	var (
+		fingerprints            []string
+		cycle                   []string
+		stop                    StopReason
+		steps                   int
+		lastFingerprint         = f.Fingerprint()
+		wakeArrivalsSinceChange int
+	)
+
+	for steps < budget {
+		if f.err != nil {
+			stop = StopFault
+			break
+		}
+		if len(f.queue) == 0 {
+			stop = StopQueueDrained
+			break
+		}
+
+		entry, ok := f.Step()
 		if !ok {
-			return count
+			if f.err != nil {
+				stop = StopFault
+			} else {
+				stop = StopQueueDrained
+			}
+			break
+		}
+		steps++
+
+		fp := f.Fingerprint()
+		fingerprints = append(fingerprints, fp)
+
+		if fp != lastFingerprint {
+			lastFingerprint = fp
+			wakeArrivalsSinceChange = 0
+		}
+		if entry.Kind == EntryWake {
+			wakeArrivalsSinceChange++
+		}
+
+		if window >= 2 && len(fingerprints) >= 2*2 {
+			if foundCycle, ok := detectCycle(fingerprints, window); ok {
+				stop = StopOscillating
+				cycle = foundCycle
+				break
+			}
+		}
+
+		if window > 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
+			stop = StopConverged
+			break
+		}
+
+		if f.err != nil {
+			stop = StopFault
+			break
 		}
 	}
 
-	return n
+	if stop == "" {
+		stop = StopBudget
+	}
+
+	return f.buildRunResult(stop, steps, fingerprints, cycle, budget)
+}
+
+func detectCycle(fps []string, window int) ([]string, bool) {
+	n := len(fps)
+	maxPeriod := window
+	for p := 2; p <= maxPeriod && 2*p <= n; p++ {
+		match := true
+		for i := 0; i < p; i++ {
+			if fps[n-2*p+i] != fps[n-p+i] {
+				match = false
+				break
+			}
+		}
+		if match {
+			allSame := true
+			first := fps[n-p]
+			for i := 1; i < p; i++ {
+				if fps[n-p+i] != first {
+					allSame = false
+					break
+				}
+			}
+			if !allSame {
+				cycle := make([]string, p)
+				copy(cycle, fps[n-p:n])
+				return cycle, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func (f *Fabric) queueHoldsOnlyWakes() bool {
+	if len(f.queue) == 0 {
+		return false
+	}
+	for _, arr := range f.queue {
+		if arr.Kind != ArrivalWake {
+			return false
+		}
+	}
+	for _, q := range f.egress {
+		if q != nil && q.pendingCount() > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (f *Fabric) hasPendingJourneys() bool {
+	for _, j := range f.Report() {
+		if j.State == JourneyPending {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *Fabric) pendingWork() PendingWork {
+	var arrivals, wakes, egress, journeys int
+	for _, arr := range f.queue {
+		switch arr.Kind {
+		case ArrivalFrame:
+			arrivals++
+		case ArrivalWake:
+			wakes++
+		}
+	}
+	for _, q := range f.egress {
+		if q != nil {
+			egress += q.pendingCount()
+		}
+	}
+	for _, j := range f.Report() {
+		if j.State == JourneyPending {
+			journeys++
+		}
+	}
+	return PendingWork{
+		Arrivals: arrivals,
+		Wakes:    wakes,
+		Egress:   egress,
+		Journeys: journeys,
+	}
+}
+
+func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle []string, budget int) RunResult {
+	rep := f.Report()
+	var issues []analysis.Issue
+	for _, j := range rep {
+		issues = append(issues, j.Metadata.Issues()...)
+	}
+	var uniqueIssues []analysis.Issue
+	for _, iss := range issues {
+		if !slices.ContainsFunc(uniqueIssues, func(kept analysis.Issue) bool { return sameIssue(kept, iss) }) {
+			uniqueIssues = append(uniqueIssues, iss)
+		}
+	}
+
+	if stop == StopBudget {
+		uniqueIssues = append(uniqueIssues, analysis.Issue{
+			Code:    IssueBudgetExhausted,
+			Status:  analysis.Exhausted,
+			Scope:   analysis.WholeScope(),
+			Message: fmt.Sprintf("step budget %d exhausted", budget),
+		})
+	}
+	if f.err != nil {
+		uniqueIssues = append(uniqueIssues, analysis.Issue{
+			Code:    IssueSchedulingFault,
+			Status:  analysis.Unsupported,
+			Scope:   analysis.WholeScope(),
+			Message: f.err.Error(),
+		})
+	}
+	if stop == StopOscillating {
+		uniqueIssues = append(uniqueIssues, analysis.Issue{
+			Code:    IssueOscillating,
+			Status:  analysis.Unstable,
+			Scope:   analysis.WholeScope(),
+			Message: "fingerprint sequence oscillating in periodic cycle",
+		})
+	}
+
+	status := analysis.Summarize(uniqueIssues)
+	canonicalIssues := analysis.CanonicalIssues(uniqueIssues)
+
+	return RunResult{
+		Stop:         stop,
+		Steps:        steps,
+		Clock:        f.clock,
+		Pending:      f.pendingWork(),
+		Status:       status,
+		Issues:       canonicalIssues,
+		Err:          f.err,
+		Replay:       ReplaySpec{Contract: ReplayContract, Spec: f.Spec()},
+		Fingerprints: fingerprints,
+		Cycle:        cycle,
+	}
 }
 
 // Snapshot captures the current simulation clock, queued arrivals and egress frames, link states, switch subsystem

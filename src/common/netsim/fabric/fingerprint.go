@@ -32,6 +32,12 @@ func escapeFingerprint(s string) string {
 }
 
 // Fingerprint returns a canonical string over the protocol-relevant state of
+// the fabric snapshot.
+func (f *Fabric) Fingerprint() string {
+	return f.Snapshot().Fingerprint()
+}
+
+// Fingerprint returns a canonical string over the protocol-relevant state of
 // the snapshot, deliberately excluding timers, arrival queues, and counters
 // so periodic protocol wakes do not prevent convergence detection.
 func (s Snapshot) Fingerprint() string {

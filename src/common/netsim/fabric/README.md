@@ -141,8 +141,8 @@ func main() {
 		panic(err)
 	}
 
-	steps := fab.Run(10)
-	fmt.Printf("Completed in %d steps\n", steps)
+	res := fab.Run(10)
+	fmt.Printf("Completed in %d steps\n", res.Steps)
 }
 ```
 
@@ -533,8 +533,11 @@ that was held. A release usually happens during the `Forward` that observes
 the advertisement resolving the neighbor, not during a wake-up; `Switch.Wake`
 settles a resolution timeout and reports a frame the hold queue pushed out. Periodic
 hellos ensure the queue never drains; callers supply a step budget to
-`Run(n)` and evaluate topology convergence by checking whether consecutive
-snapshots report identical roles and forwarding states across all ports.
+`Run(budget)` which returns a `RunResult` containing the stop reason, steps
+taken, pending work, status, issues, and fingerprints. In scenarios configured
+with an observation window, `RunScenario` detects convergence automatically when
+the canonical fingerprint remains unchanged across consecutive wakes,
+returning `StopConverged`.
 
 ## Link operational state rule
 

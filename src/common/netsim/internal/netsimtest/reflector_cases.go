@@ -344,7 +344,7 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 			}); err != nil {
 				return ExecutionResult{}, err
 			}
-			steps := fab.Run(reflectorLoopBudget)
+			steps := fab.Run(reflectorLoopBudget).Steps
 			if steps != reflectorLoopBudget || len(fab.Snapshot().Queue) == 0 {
 				return ExecutionResult{}, fmt.Errorf(
 					"fabric.Run(%d) = %d steps with %d arrivals queued, want the budget exhausted with work still queued",

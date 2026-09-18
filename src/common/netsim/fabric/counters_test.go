@@ -37,7 +37,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(10)
+	steps := fab.Run(10).Steps
 	if steps != 2 {
 		t.Fatalf("steps = %d, want 2", steps)
 	}
@@ -232,7 +232,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps1 := fab.Run(5)
+	steps1 := fab.Run(5).Steps
 	if steps1 != 5 {
 		t.Fatalf("steps1 = %d, want 5", steps1)
 	}
@@ -246,7 +246,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		t.Fatal("expected non-zero traffic on uplinks after first run")
 	}
 
-	steps2 := fab.Run(5)
+	steps2 := fab.Run(5).Steps
 	if steps2 != 5 {
 		t.Fatalf("steps2 = %d, want 5", steps2)
 	}

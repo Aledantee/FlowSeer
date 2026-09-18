@@ -287,7 +287,7 @@ func assignJourneyState(j *Journey, pending, released bool) JourneyState {
 				return JourneyReleased
 			}
 		case JourneyDelivered:
-			if len(j.Deliveries) > 0 || hasEntryKind(j, EntryDelivery) || hasEntryKind(j, EntryReflection) {
+			if len(j.Deliveries) > 0 || hasEntryKind(j, EntryDelivery) || hasEntryKind(j, EntryReflection) || isJourneyConsumed(j) {
 				return JourneyDelivered
 			}
 		case JourneyRejected:
@@ -302,6 +302,14 @@ func assignJourneyState(j *Journey, pending, released bool) JourneyState {
 	}
 
 	return JourneyPending
+}
+
+func isJourneyConsumed(j *Journey) bool {
+	if len(j.Entries) == 0 {
+		return false
+	}
+	last := j.Entries[len(j.Entries)-1]
+	return last.Kind == EntryHop && last.Result != nil && last.Result.Outcome == trace.Consumed
 }
 
 func hasEntryKind(j *Journey, kind EntryKind) bool {
