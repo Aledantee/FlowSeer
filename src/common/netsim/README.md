@@ -28,6 +28,10 @@ goroutines or wall-clock dependencies.
 A run is a function of the configuration, the frame, and the time the caller
 passes; nothing here reads a clock.
 
+Simulation workflows can be driven step-by-step, executed through declared
+scenarios via `fabric.Fabric.RunScenario(scenario)`, and reproduced
+deterministically from recorded specifications via `fabric.Replay(replaySpec)`.
+
 ## Conformance corpus
 
 `internal/netsimtest` holds a versioned corpus of executable conformance

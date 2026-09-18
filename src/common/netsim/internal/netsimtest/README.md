@@ -172,8 +172,18 @@ established across the library:
   `fabric.udp_ports` fact are pinned, since re-entry does not stop the frame
   from being decided, disproving the false answer that re-entry detection
   keyed on the injected query's own frame would catch this.
+- `planning/scenario-replays-link-flap`: A declared scenario cuts a trunk link at
+  `t0+1s` and injects a frame at `t0+2s` between two switches. Replaying the
+  resulting execution specification reproduces the identical steps, fingerprints,
+  and dropped outcome, disproving the false answer that a caller must
+  hand-sequence Inject and Run calls with no value that reproduces the sequence.
+- `troubleshooting/periodic-protocol-hides-exhaustion`: A spanning tree fabric runs
+  with a step budget insufficient to reach convergence. The run halts with
+  `StopBudget` and records `IssueBudgetExhausted` with `Exhausted` status,
+  disproving the false answer that returning the budget count and a nil error
+  reads like a completed analysis.
 
-The fourteen `fabric`-based cases execute a [fabric.Fabric] and populate
+The sixteen `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey], seven of them alongside
 [ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is

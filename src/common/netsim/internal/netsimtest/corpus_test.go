@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 31 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 31", len(allCases))
+	if len(allCases) != 33 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 33", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -595,6 +595,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"planning/mstp-vlan-instances-diverge-vlan20-crosses-l1",
 		"planning/port-vlan-change",
 		"planning/pvst-per-vlan-root",
+		"planning/scenario-replays-link-flap",
 	}
 	planningCases := r.ByUseCase(netsimtest.UseCasePlanning)
 	if len(planningCases) != len(wantPlanning) {
@@ -638,6 +639,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"troubleshooting/mdns-reflected-across-vlans",
 		"troubleshooting/mdns-two-reflectors-loop",
 		"troubleshooting/neighbor-resolution-pending",
+		"troubleshooting/periodic-protocol-hides-exhaustion",
 		"troubleshooting/recursive-route-not-installed",
 		"troubleshooting/ssm-rejects-unjoined-source",
 		"troubleshooting/stale-root-ages-out",

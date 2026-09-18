@@ -710,6 +710,72 @@ The package declares reasons for link failures and frame discards:
 | `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
 | `reflector-no-address` | Target attachment names no address of the accepted datagram's family |
 
+## Run lifecycle and scenarios
+
+A simulation run is driven by `Run(budget)` or `RunScenario(scenario)` under an
+explicit step limit, halting with a typed `RunResult`. The run halts with one
+of six stop reasons:
+
+- `StopQueueDrained`: Every scheduled arrival and held frame has been processed,
+  leaving no pending work in queues or buffers.
+- `StopConverged`: State fingerprints were stable across the sliding evaluation
+  window, queues hold only periodic protocol wakes (such as spanning tree hellos),
+  and no journey is still in flight.
+- `StopOscillating`: State fingerprints repeat in a periodic cycle of period 2
+  to window, with the cycle sequence recorded in `RunResult.Cycle`.
+- `StopBudget`: The step budget was reached before convergence or queue drainage,
+  raising an `IssueBudgetExhausted` issue at `analysis.Exhausted` status.
+- `StopFault`: A scheduling invariant was breached, halting execution with an
+  `analysis.Unsupported` issue.
+- `StopNotRun`: A non-positive budget was provided; zero steps were executed.
+
+### Scenarios and replay
+
+`Scenario` bundles initial topology configuration with timed, sequenced
+actions: frame injections (`ActionInject`), link faults (`ActionFault`),
+protocol migration checks (`ActionMcheck`), and recorded frames (`ActionRecord`):
+
+```go
+sc := fabric.Scenario{
+	Name:   "trunk-flap-and-inject",
+	Budget: 50,
+	Window: 3,
+	Spec:   spec,
+	Actions: []fabric.Action{
+		{
+			At:   t0.Add(time.Second),
+			Kind: fabric.ActionFault,
+			Fault: &fabric.FaultAction{
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+				Fault: fabric.Fault{Kind: fabric.FaultCut},
+			},
+		},
+		{
+			At:   t0.Add(2 * time.Second),
+			Kind: fabric.ActionInject,
+			Inject: &fabric.Injection{
+				Origin: fabric.Endpoint{Node: "h1"},
+				Frame: ethernet.Frame{
+					Dst:       macH2,
+					Src:       macH1,
+					EtherType: ethernet.EtherTypeIPv4,
+					Payload:   []byte("test"),
+				},
+			},
+		},
+	},
+}
+
+res, err := fab.RunScenario(sc)
+if err != nil {
+	log.Fatal(err)
+}
+
+// Replay reproduces the identical simulation from res.Replay.
+replayRes, err := fabric.Replay(res.Replay)
+```
+
 ## Derivation and state retention
 
 `Fabric.Derive(candidate)` derives the simulation fabric against an updated
