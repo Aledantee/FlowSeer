@@ -308,6 +308,43 @@ them.
   `Unknown` port still consulted it and still carries that port's issue,
   because the flood could have reached one more host had the port resolved.
 
+### Scenarios, run completion, and convergence
+
+A fabric run ends for one of six typed stop reasons: `StopNotRun`,
+`StopQueueDrained`, `StopBudget`, `StopConverged`, `StopOscillating`, or
+`StopFault`. The stop reason is an execution outcome, distinct from the
+`analysis.Status` the run result carries: a run can stop at `StopConverged` while
+its status is `Incomplete` because an unobserved adjacency was consulted, or
+stop at `StopBudget` while its status is `Unsupported` because of an engine
+fault. The two axes never substitute for each other.
+
+Every recorded journey receives exactly one result state. `JourneyPending` is the
+sole nonterminal state, assigned when work on the frame remains queued, in an
+egress buffer, or held awaiting neighbor resolution at the run boundary. All other
+states are terminal: `JourneyDelivered`, `JourneyRejected`, `JourneyDropped`,
+`JourneyLooped`, `JourneyTruncated`, `JourneyUnresolved`, and `JourneyReleased`.
+Host rejection is separated from delivery at this layer: a physical arrival that
+the destination host refuses (due to MAC mismatch, VLAN filter, or IP rejection)
+is terminal `JourneyRejected` and is excluded from deliveries.
+
+A journey's origin is a typed relation rather than an overloaded parent pointer.
+Its kind records how the frame entered the simulation: a caller's direct
+injection (`OriginInjection`), a mirror copy produced by port mirroring
+(`OriginMirror`), or a frame released from a neighbor hold queue
+(`OriginRelease`). For mirror copies and releases, the origin links back to the
+holding or source frame ID without adding forward-pointing pointers that could
+drift out of agreement.
+
+Convergence and oscillation are evaluated on a canonical state fingerprint of
+protocol-relevant snapshot state across consecutive periodic wake arrivals. The
+fingerprint explicitly excludes the clock, the arrival queue, and counters.
+Without that exclusion, periodic protocol events (such as spanning tree BPDUs)
+would advance the clock and refresh counters on every step, making a settled
+fabric look perpetually changing or disguising budget exhaustion as normal
+progress. A scenario declares its observation window and positive step budget as
+an in-memory Go value; it carries no file persistence, no packet-capture parser,
+and no pseudo-random seed.
+
 ### LAG bucket selection and multicast query observation
 
 - **LAG buckets are runtime state, not a stateless hash.** A `BalanceSLB` or
@@ -763,10 +800,8 @@ The following areas remain outside the foundation established here:
   or incomplete neighbor entry never moves through `Delay` or `Probe` toward
   a fresh answer; the `Reachable` cache is trusted until it ages out or a
   received advertisement changes it.
-- **Scenario overlays and search**: high-level scenario injection DSLs, packet
-  generation search spaces, and multi-journey exploration budgets.
-- **Convergence guarantees**: automated loop detection and settling criteria
-  across active fabric runs.
+- **Packet-generation search spaces**: automated input generation and
+  multi-journey exploration budgets for reachability search.
 - **The runtime cable fault lives in `fabric.Config`**: `SetFault` writes
   `Config.Cables[idx].Fault` in place, which is exactly why a fork cannot
   share `cfg` and must deep-copy it instead of treating it as construction
