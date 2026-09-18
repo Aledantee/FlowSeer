@@ -30,6 +30,9 @@ const (
 	// EdgeBucket is the key-value bucket the device service's edge records
 	// live in, one key per edge.
 	EdgeBucket = "edges"
+	// CapturesBucket is the key-value bucket the device service's capture
+	// session records live in, one key per session.
+	CapturesBucket = "captures"
 	// HubDomain is the hub's JetStream domain. An edge's leaf runs its own
 	// domain; a leaf without one silently extends the hub's.
 	HubDomain = "hub"
