@@ -237,8 +237,10 @@ func hasUnexportedField(t reflect.Type) bool {
 // set unexported fields one by one, so rebuilding only the exported ones would silently
 // zero the rest: port.Table would come back empty, and the diff under test would then
 // report removals unrelated to whichever leaf was perturbed, passing every leaf
-// vacuously. The walk never descends into an unexported field, so no leaf path crosses
-// the backing storage such a whole copy shares with the seed.
+// vacuously. After the whole copy, each exported reference field is re-copied for its
+// own storage: the walk does descend into exported fields, so an exported pointer,
+// slice, or map left aliased to the seed would be mutated through when a leaf beneath
+// it is perturbed. Unexported fields keep the whole-copy value.
 func deepCopyValue(v reflect.Value) reflect.Value {
 	t := v.Type()
 	if atomicLeafTypes[t] {
@@ -257,6 +259,11 @@ func deepCopyValue(v reflect.Value) reflect.Value {
 		cp := reflect.New(t).Elem()
 		if hasUnexportedField(t) {
 			cp.Set(v)
+			for i := 0; i < t.NumField(); i++ {
+				if t.Field(i).IsExported() {
+					cp.Field(i).Set(deepCopyValue(v.Field(i)))
+				}
+			}
 			return cp
 		}
 		for i := 0; i < t.NumField(); i++ {

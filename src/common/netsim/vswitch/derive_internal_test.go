@@ -1201,7 +1201,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 	}
 }
 
-func TestDeriveRoutingHeldFrameR7(t *testing.T) {
+func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
