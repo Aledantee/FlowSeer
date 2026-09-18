@@ -220,10 +220,25 @@ func clonePath(path []step, next step) []step {
 	return cp
 }
 
+// hasUnexportedField reports whether t declares any field reflection cannot set
+// individually, forcing deepCopyValue to copy the struct whole.
+func hasUnexportedField(t reflect.Type) bool {
+	for i := 0; i < t.NumField(); i++ {
+		if !t.Field(i).IsExported() {
+			return true
+		}
+	}
+	return false
+}
+
 // deepCopyValue returns an independent copy of v: pointers, maps, and slices get fresh
-// backing storage (recursively), atomic leaf types and every basic kind copy by value,
-// and unexported struct fields are left at their zero value, since a Config type in this
-// tree exports every field a caller can set.
+// backing storage (recursively), and atomic leaf types and every basic kind copy by
+// value. A struct with any unexported field copies whole in one Set: reflection cannot
+// set unexported fields one by one, so rebuilding only the exported ones would silently
+// zero the rest: port.Table would come back empty, and the diff under test would then
+// report removals unrelated to whichever leaf was perturbed, passing every leaf
+// vacuously. The walk never descends into an unexported field, so no leaf path crosses
+// the backing storage such a whole copy shares with the seed.
 func deepCopyValue(v reflect.Value) reflect.Value {
 	t := v.Type()
 	if atomicLeafTypes[t] {
@@ -240,10 +255,11 @@ func deepCopyValue(v reflect.Value) reflect.Value {
 		return cp
 	case reflect.Struct:
 		cp := reflect.New(t).Elem()
+		if hasUnexportedField(t) {
+			cp.Set(v)
+			return cp
+		}
 		for i := 0; i < t.NumField(); i++ {
-			if !t.Field(i).IsExported() {
-				continue
-			}
 			cp.Field(i).Set(deepCopyValue(v.Field(i)))
 		}
 		return cp

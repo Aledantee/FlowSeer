@@ -60,7 +60,15 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 			},
 		},
 		LAG: &lag.Config{
-			LAGs: map[string]lag.LAG{"lag1": {Mode: lag.BalanceSLB, Members: map[string]lag.Member{"1/1/1": {Priority: 1}}}},
+			LAGs: map[string]lag.LAG{"lag1": {
+				Mode: lag.BalanceSLB,
+				// Non-zero LACP and member keys: perturbing a zero Key yields exactly
+				// the value Normalize derives from the port table, so both sides
+				// would normalize to the same key and the leaf would read as
+				// unchanged.
+				LACP:    lag.LACPConfig{Key: 7},
+				Members: map[string]lag.Member{"1/1/1": {Priority: 1, Key: 7}},
+			}},
 		},
 		STP: &stp.Config{
 			Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x09},
