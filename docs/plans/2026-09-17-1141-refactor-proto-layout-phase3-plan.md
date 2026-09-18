@@ -5,6 +5,7 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 compound: docs/solutions/architecture-patterns/a-package-rename-breaks-names-you-persisted-not-records-you-encoded.md
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
@@ -14,6 +15,11 @@ amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 # Protobuf Tree Phase 3 - The Process-Private Roots and the Final README Pass - Plan
 
 > Implemented. 4 units, 2026-09-18T07:47Z to 2026-09-18T08:20Z.
+>
+> Reviewed once over the finished tree. No blocker. Five prose defects fixed,
+> among them an amendment that said a pre-rename bus store's queued records no
+> longer resolve, which would have told an operator to discard a store that
+> reads back fine.
 
 ## Goal
 

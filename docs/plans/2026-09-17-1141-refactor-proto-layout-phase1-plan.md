@@ -5,6 +5,7 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 compound: docs/solutions/conventions/a-refusal-test-needs-an-input-only-the-refusal-rejects.md
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
@@ -14,6 +15,11 @@ amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 # Protobuf Tree Phase 1 - The Model Root, the Record, and the Gates - Plan
 
 > Implemented. 6 units, 2026-09-17T17:21Z to 2026-09-17T19:20Z.
+>
+> Reviewed in two passes. The first found two blockers: no test failed when
+> the sink rule was deleted, and nothing governed what the process-local bus
+> root imports. Both were fixed and pinned by tests that fail against the
+> defect; the second pass found no blocker.
 
 ## Goal
 
