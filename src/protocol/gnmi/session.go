@@ -245,6 +245,13 @@ type Update struct {
 	JSON []byte
 	// Value carries scalar TypedValues (PROTO encoding).
 	Value *yang.Value
+	// Values carries a leaf-list's elements in wire order (PROTO
+	// encoding). It is non-nil exactly when the update held a
+	// leaflist_val, empty slice included, and Value is then nil.
+	// Leaf-list multiplicity stops here rather than widening
+	// [yang.Value], which the NETCONF and RESTCONF codecs share and
+	// which express repetition structurally instead.
+	Values []yang.Value
 }
 
 // Get issues one Get for the given paths and flattens the reply's
@@ -393,6 +400,17 @@ func decodeUpdate(prefix yang.Path, u *gpb.Update, ts time.Time) (Update, error)
 		out.JSON = v.JsonIetfVal
 	case *gpb.TypedValue_JsonVal:
 		out.JSON = v.JsonVal
+	case *gpb.TypedValue_LeaflistVal:
+		elems := v.LeaflistVal.GetElement()
+		vals := make([]yang.Value, 0, len(elems))
+		for i, el := range elems {
+			val, err := fromTypedValue(el)
+			if err != nil {
+				return Update{}, errs.Wrapf(err, "update %s element %d", full, i)
+			}
+			vals = append(vals, val)
+		}
+		out.Values = vals
 	case nil:
 		return out, nil
 	default:

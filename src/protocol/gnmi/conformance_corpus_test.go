@@ -24,6 +24,22 @@ var gnmiCorpus = []conformance.Row{
 		Unit:        "gnmi/session", Status: conformance.Covered,
 	},
 	{
+		ID: "gn-leaf-list-typed-value", Clause: "gNMI spec §2.2.3 (leaflist_val)",
+		Provenance: "Arista vEOS-lab 4.33.1.1F serves /interfaces/interface/ethernet/state/supported-speeds as a leaf-list",
+		Behavior: "a leaflist_val update decodes into the update's Values in wire order, an empty leaf-list included; " +
+			"the scalar Value stays nil. Before this row the decoder rejected the variant outright, which failed " +
+			"the whole subscription rather than the one leaf",
+		Adversarial: "supported-speeds carrying two enum elements, and an empty ScalarArray",
+		Unit:        "gnmi/session", Status: conformance.Covered,
+	},
+	{
+		ID: "gn-banner-newline-normalization", Clause: "gNMI spec §3.4 (Set/Get round-trip)",
+		Provenance:  "Arista vEOS-lab 4.33.1.1F, lab device 2026-09-18",
+		Behavior:    "a device may normalize a written leaf rather than store it verbatim; EOS appends a trailing newline to /system/config/login-banner, so a Set/Get round-trip compares modulo that normalization instead of by exact equality",
+		Adversarial: "login-banner set to \"flowseer-t4\" and read back as \"flowseer-t4\\n\"",
+		Unit:        "gnmi/lab", Status: conformance.Covered,
+	},
+	{
 		ID: "gn-per-path-set-error", Clause: "gNMI spec §3.4.2",
 		Provenance:  "deprecated UpdateResult.Message is the only per-path failure channel several implementations use",
 		Behavior:    "a Set response carrying a per-path error surfaces which path failed as an attribute",

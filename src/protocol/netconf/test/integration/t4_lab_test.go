@@ -254,9 +254,15 @@ func TestT4RevisionDrift(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
 			s := dialT4(t, target)
-			drift := yang.DiffRevisions(vendored, s.ModuleRevisions())
+			drift, incomparable := yang.DiffRevisions(vendored, s.ModuleRevisions())
 			for _, d := range drift {
 				t.Logf("revision drift: %s vendored %s, device %s", d.Module, d.Vendored, d.Advertised)
+			}
+			// A NETCONF hello carries revision dates throughout, so
+			// anything incomparable here is a malformed advertisement
+			// rather than the gNMI semver case.
+			for _, d := range incomparable {
+				t.Errorf("incomparable revision from a NETCONF hello: %s vendored %s, device %s", d.Module, d.Vendored, d.Advertised)
 			}
 			t.Logf("%d module(s) drifted (warn-and-proceed)", len(drift))
 		})

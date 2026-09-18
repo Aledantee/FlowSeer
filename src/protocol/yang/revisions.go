@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"slices"
 	"strings"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -51,19 +52,48 @@ func ParseLockfileRevisions(data []byte, vendor string) (map[string]string, erro
 	return out, nil
 }
 
+// isRevisionDate reports whether a revision is an RFC 7950 revision
+// date (§7.1.9's YYYY-MM-DD). Anything else is treated as a different
+// vocabulary, in practice an OpenConfig semantic version.
+func isRevisionDate(rev string) bool {
+	if len(rev) != len("2006-01-02") {
+		return false
+	}
+	_, err := time.Parse(time.DateOnly, rev)
+	return err == nil
+}
+
 // DiffRevisions compares vendored revisions against a session's
-// advertised ones and returns the drifting modules, sorted. Modules
-// absent on either side are not drift: a device may implement a
-// subset, and it may serve modules the bindings do not cover.
-func DiffRevisions(vendored, advertised map[string]string) []RevisionDrift {
-	var out []RevisionDrift
+// advertised ones. It returns the drifting modules and, separately,
+// those whose two sides use different revision vocabularies, both
+// sorted. Modules absent on either side appear in neither: a device
+// may implement a subset, and it may serve modules the bindings do not
+// cover.
+//
+// The split exists because the two transports report different things
+// for the same module. A NETCONF hello carries RFC 7950 revision dates
+// throughout, so every comparison is like-for-like. gNMI Capabilities
+// reports an OpenConfig module's openconfig-version semantic version
+// instead, and a semver never equals the vendored date, so folding
+// those into the drift list would report every OpenConfig module as
+// drifting on every device and leave the real drift invisible among
+// them. Callers that want the incomparable modules to be loud can say
+// so; what they must not do is read them as drift.
+func DiffRevisions(vendored, advertised map[string]string) (drift, incomparable []RevisionDrift) {
 	for module, vendoredRev := range vendored {
 		advertisedRev, ok := advertised[module]
 		if !ok || advertisedRev == "" || advertisedRev == vendoredRev {
 			continue
 		}
-		out = append(out, RevisionDrift{Module: module, Vendored: vendoredRev, Advertised: advertisedRev})
+		entry := RevisionDrift{Module: module, Vendored: vendoredRev, Advertised: advertisedRev}
+		if isRevisionDate(vendoredRev) != isRevisionDate(advertisedRev) {
+			incomparable = append(incomparable, entry)
+			continue
+		}
+		drift = append(drift, entry)
 	}
-	slices.SortFunc(out, func(a, b RevisionDrift) int { return strings.Compare(a.Module, b.Module) })
-	return out
+	byModule := func(a, b RevisionDrift) int { return strings.Compare(a.Module, b.Module) }
+	slices.SortFunc(drift, byModule)
+	slices.SortFunc(incomparable, byModule)
+	return drift, incomparable
 }
