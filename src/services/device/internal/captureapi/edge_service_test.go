@@ -905,3 +905,97 @@ func TestUploadCapture_AbandonedStreamLeavesNoPartialArtifact(t *testing.T) {
 		t.Fatalf("expected the abandoned session to be FAILED, got: %v", got)
 	}
 }
+
+// An operator can cancel between the assignment and the first chunk. Central
+// only learns the edge started from that chunk, so the stop it owes has to
+// survive the cancellation arriving first.
+func TestUploadCapture_CancellationBeforeTheFirstChunkStillOwesAStop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	sessID := "0192e6a0-0000-7000-8000-00000000001d"
+	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	// The operator cancels while the session is still PENDING; the edge is
+	// already capturing and has not reported yet.
+	if _, err := h.store.MutateSession(ctx, sessID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
+		rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
+		return nil
+	}); err != nil {
+		t.Fatalf("cancel session: %v", err)
+	}
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{
+		EdgeID:         func(context.Context) (string, error) { return testEdge1ID, nil },
+		ResendInterval: 10 * time.Minute,
+	})
+	client := newUploadServer(t, edgeSvc)
+
+	upload := client.UploadCapture(ctx)
+	if err := upload.Send(captureedgev1.UploadCaptureRequest_builder{
+		Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+	}.Build()); err != nil {
+		t.Fatalf("send opening assertion: %v", err)
+	}
+	if err := upload.Send(captureedgev1.UploadCaptureRequest_builder{
+		Chunk: modelcapturev1.CapturePacketChunk_builder{
+			Session:       cfg.GetRef(),
+			FirstSequence: proto.Uint64(1),
+			Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte("packet 1"))},
+		}.Build(),
+	}.Build()); err != nil {
+		t.Fatalf("send chunk: %v", err)
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		rec, _, err := h.store.GetSession(ctx, sessID)
+		if err != nil {
+			t.Fatalf("get session: %v", err)
+		}
+		if rec.GetState().HasStartedAt() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	rec, _, err := h.store.GetSession(ctx, sessID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if !rec.GetState().HasStartedAt() {
+		t.Fatal("the first chunk did not record that the edge had started, so no stop will ever be owed")
+	}
+	if got := rec.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
+		t.Fatalf("expected the cancellation to stand, got: %v", got)
+	}
+
+	// The assignment stream now owes the stop the operator asked for.
+	path, handler := capturev1connect.NewCaptureEdgeServiceHandler(edgeSvc)
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	assignClient := capturev1connect.NewCaptureEdgeServiceClient(srv.Client(), srv.URL)
+
+	stream, err := assignClient.SubscribeCaptureAssignments(ctx, connect.NewRequest(&captureedgev1.SubscribeCaptureAssignmentsRequest{}))
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	defer func() { _ = stream.Close() }()
+
+	if !stream.Receive() {
+		t.Fatalf("expected a stop assignment, stream closed: %v", stream.Err())
+	}
+	if got := stream.Msg().GetStop().GetCaptureSession().GetId(); got != sessID {
+		t.Fatalf("expected a stop for %s, got: %+v", sessID, stream.Msg())
+	}
+
+	cancel()
+	_, _ = upload.CloseAndReceive()
+}

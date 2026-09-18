@@ -58,6 +58,7 @@ type Store struct {
 
 	mu      sync.Mutex
 	writers map[string]*activeWriter
+	deleted map[string]struct{}
 }
 
 // NewStore initializes a Store over the captures JetStream bucket and
@@ -71,6 +72,7 @@ func NewStore(kv jetstream.KeyValue, capturesDir string) (*Store, error) {
 		capturesDir: capturesDir,
 		clock:       time.Now,
 		writers:     make(map[string]*activeWriter),
+		deleted:     make(map[string]struct{}),
 	}, nil
 }
 
@@ -114,6 +116,10 @@ func (s *Store) CreateSession(ctx context.Context, config *modelcapturev1.Captur
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeDecode).Attr("session", sessionID).Msg("encode capture session record")
 	}
+
+	s.mu.Lock()
+	delete(s.deleted, sessionID)
+	s.mu.Unlock()
 
 	if _, err := s.kv.Create(ctx, sessionID, data); err != nil {
 		if errors.Is(err, jetstream.ErrKeyExists) {
@@ -215,6 +221,11 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 		_ = w.file.Close()
 		delete(s.writers, sessionID)
 	}
+	// An upload stream in flight does not know its session was deleted, and
+	// its next chunk would open the path again. The file it wrote would then
+	// have no record, and the sweep walks records, so its payload could never
+	// expire. The tombstone is what refuses that chunk.
+	s.deleted[sessionID] = struct{}{}
 	rmErr := os.Remove(path)
 	s.mu.Unlock()
 
@@ -266,6 +277,10 @@ func (s *Store) AppendPackets(_ context.Context, sessionID string, linkType netc
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if _, gone := s.deleted[sessionID]; gone {
+		return errs.New().Code(ErrCodeNotFound).Attr("session", sessionID).Msg("capture session was deleted")
+	}
+
 	w, ok := s.writers[sessionID]
 	if !ok {
 		path, err := s.artifactPath(sessionID)
@@ -309,11 +324,19 @@ func (s *Store) AppendPackets(_ context.Context, sessionID string, linkType netc
 // and packet total, and returns the constructed CaptureArtifact.
 func (s *Store) FinalizeArtifact(_ context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, counters *netcapturev1.CaptureCounters, expiresAt time.Time) (*modelcapturev1.CaptureArtifact, error) {
 	s.mu.Lock()
+	_, gone := s.deleted[sessionID]
 	w, ok := s.writers[sessionID]
 	if ok {
 		delete(s.writers, sessionID)
 	}
 	s.mu.Unlock()
+
+	if gone {
+		if ok {
+			_ = w.file.Close()
+		}
+		return nil, errs.New().Code(ErrCodeNotFound).Attr("session", sessionID).Msg("capture session was deleted")
+	}
 
 	path, err := s.artifactPath(sessionID)
 	if err != nil {

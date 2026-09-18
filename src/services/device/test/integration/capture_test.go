@@ -224,7 +224,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 
 		attached := false
 		for tailStream.Receive() {
-			if msg := tailStream.Msg(); msg.GetAttached() {
+			if msg := tailStream.Msg(); msg.WhichBody() == operatorcapturev1.TailCaptureSessionResponse_Attached_case {
 				attached = true
 				close(tailAttached)
 				continue
@@ -460,7 +460,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatalf("expected artifact file to be unlinked, got err: %v", err)
 	}
 
-	// Download should now return CodeNotFound ("artifact payload has expired or been deleted")
+	// The payload is gone, so the download is CodeNotFound rather than the
+	// FailedPrecondition an unfinished capture answers with.
 	expiredDownloadStream, err := c.captures().DownloadCaptureSession(ctx, downloadReq)
 	if err != nil {
 		t.Fatalf("download invocation after sweep: %v", err)

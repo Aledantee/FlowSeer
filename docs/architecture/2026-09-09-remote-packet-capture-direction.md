@@ -128,9 +128,9 @@ every packet's metadata invisible to the platform that is storing and indexing
 it, which defeats the point of having a schema.
 
 pcapng stays where it earns its keep: as a rendering. Central writes it for the
-stored artifact, from the records the edge uploads (see the amendment below,
-which moved that write from the edge), a client writes it to hand to Wireshark,
-and both are pure functions of the records. Link types come from the pcap LINKTYPE registry as
+stored artifact, from the records the edge uploads — the amendment below moved
+that write from the edge — a client writes it to hand to Wireshark, and both
+are pure functions of the records. Link types come from the pcap LINKTYPE registry as
 pass-through values (`LINKTYPE_ETHERNET` is 1, `LINKTYPE_LINUX_SLL2` is 276), and
 the registry's real zero, `LINKTYPE_NULL`, is kept, so presence rather than zero
 means "not reported" — the same treatment `IpProtocol` already gets.

@@ -15,13 +15,20 @@ import (
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 const (
 	// failStreamTimeout bounds the record write that closes out a broken
 	// upload stream, which runs on a context detached from the dead request.
 	failStreamTimeout = 10 * time.Second
+
+	// msgUnauthenticated is the whole of what a caller learns from a refused
+	// assertion. Which of the verifier's eleven checks refused it is central's
+	// business, and this route answers a caller that has not authenticated.
+	msgUnauthenticated = "the call is not authorized as an enrolled edge"
 
 	defaultAssertionWindow = 60 * time.Second
 	defaultResendInterval  = 5 * time.Second
@@ -334,9 +341,9 @@ func (s *EdgeService) UploadCapture(
 	// The stream must open with a SignedEdgeAssertion.
 	if !stream.Receive() {
 		if err := stream.Err(); err != nil {
-			return nil, connect.NewError(connect.CodeUnauthenticated, err)
+			return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
 		}
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("upload stream closed without opening assertion"))
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
 	}
 
 	firstMsg := stream.Msg()
@@ -347,7 +354,7 @@ func (s *EdgeService) UploadCapture(
 
 	firstAssertion, err := s.verifier.VerifySigned(ctx, firstSigned, procedure, nil)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
 	}
 
 	callingEdgeID := firstAssertion.GetEdge().GetEdge().GetId()
@@ -372,6 +379,7 @@ func (s *EdgeService) UploadCapture(
 	// this handler's to release, because nothing else knows the stream is over.
 	finalized := false
 	claimed := false
+	droppedReported := false
 	defer func() {
 		if !claimed {
 			return
@@ -395,7 +403,7 @@ func (s *EdgeService) UploadCapture(
 			assertion, err := s.verifier.VerifySigned(ctx, signed, procedure, nil)
 			if err != nil {
 				s.failStream(ctx, sessionID, "mid-stream assertion did not verify")
-				return nil, connect.NewError(connect.CodeUnauthenticated, err)
+				return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
 			}
 			if assertion.GetEdge().GetEdge().GetId() != callingEdgeID {
 				s.failStream(ctx, sessionID, "assertion edge changed mid-stream")
@@ -416,6 +424,12 @@ func (s *EdgeService) UploadCapture(
 		chunkEdgeID := chunk.GetSession().GetEdge().GetEdge().GetId()
 		if chunkEdgeID != callingEdgeID {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("chunk session edge does not match authenticated edge"))
+		}
+
+		if sessionStarted && chunk.GetSession().GetCaptureSession().GetId() != sessionID {
+			// One stream carries one session: its packets go into one pcapng,
+			// and only the first chunk's ref was resolved against a record.
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("chunk names a different capture session than the stream opened with"))
 		}
 
 		if !sessionStarted {
@@ -460,12 +474,21 @@ func (s *EdgeService) UploadCapture(
 				snapLen = 65535
 			}
 
-			if rec.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
+			// started_at records that an edge has begun capturing, which is
+			// what the owed stop turns on. It has to be written on the first
+			// chunk whatever the lifecycle says, not only on the transition
+			// out of PENDING: an operator who cancels between the assignment
+			// and the first chunk would otherwise leave central unable to
+			// tell an edge that never started from one that had not reported
+			// yet, and the cancellation would never be delivered.
+			if !rec.GetState().HasStartedAt() {
 				_, err = s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
-					if r.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
-						r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
+					if !r.GetState().HasStartedAt() {
 						r.GetState().SetStartedAt(timestamppb.New(s.clock()))
 						r.GetState().SetLinkType(linkType)
+					}
+					if r.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
+						r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
 					}
 					return nil
 				})
@@ -483,11 +506,14 @@ func (s *EdgeService) UploadCapture(
 			}
 		}
 
-		if dropped := s.broadcaster.Broadcast(sessionID, chunk); dropped > 0 {
+		if dropped := s.broadcaster.Broadcast(sessionID, chunk); dropped > 0 && !droppedReported {
+			// Once per stream: a tail that stalls for a whole capture drops
+			// on every chunk, and one line per chunk would bury the rest.
+			droppedReported = true
 			s.log.WarnContext(ctx, "live capture tail fell behind and lost a chunk",
-				slog.String("capture_session_id", sessionID),
-				slog.Uint64("capture_chunk_first_sequence", chunk.GetFirstSequence()),
-				slog.Int("capture_tail_subscribers_dropped", dropped))
+				slog.String("flowseer.capture.session.id", sessionID),
+				slog.Uint64("flowseer.capture.chunk.first_sequence", chunk.GetFirstSequence()),
+				slog.Int("flowseer.capture.tail.dropped_subscribers", dropped))
 		}
 
 		if chunk.GetFinal() {
@@ -535,7 +561,7 @@ func (s *EdgeService) UploadCapture(
 
 	if err := stream.Err(); err != nil {
 		s.failStream(ctx, sessionID, "upload stream failed")
-		return nil, connect.NewError(connect.CodeUnknown, err)
+		return nil, connecterr.WrapAs(connect.CodeUnknown, "the upload stream did not complete", err)
 	}
 
 	s.failStream(ctx, sessionID, "upload stream ended before its final chunk")
@@ -559,7 +585,8 @@ func (s *EdgeService) deadlineExtender(ctx context.Context) func() {
 		}
 		if err := set(time.Now().Add(s.assertionWindow)); err != nil {
 			unsupported = true
-			s.log.WarnContext(ctx, "capture upload stream could not take a read deadline", slog.Any("error", err))
+			s.log.WarnContext(ctx, "capture upload stream could not take a read deadline",
+				slog.String("error.type", telemetry.ErrorType(err)))
 		}
 	}
 }
@@ -593,7 +620,9 @@ func (s *EdgeService) failStream(ctx context.Context, sessionID, reason string) 
 		return nil
 	}); err != nil {
 		s.log.ErrorContext(ctx, "capture session could not be marked failed",
-			slog.String("capture_session_id", sessionID), slog.String("reason", reason), slog.Any("error", err))
+			slog.String("flowseer.capture.session.id", sessionID),
+			slog.String("flowseer.capture.stop.reason", reason),
+			slog.String("error.type", telemetry.ErrorType(err)))
 		return
 	}
 
@@ -601,7 +630,8 @@ func (s *EdgeService) failStream(ctx context.Context, sessionID, reason string) 
 		return
 	}
 	s.log.WarnContext(ctx, "capture session failed",
-		slog.String("capture_session_id", sessionID), slog.String("reason", reason))
+		slog.String("flowseer.capture.session.id", sessionID),
+		slog.String("flowseer.capture.stop.reason", reason))
 	// The tails watching this session end with it; only the final-chunk path
 	// closes them otherwise, and this stream will not reach it.
 	s.broadcaster.CloseSession(sessionID)

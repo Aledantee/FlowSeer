@@ -120,8 +120,9 @@ message TailCaptureSessionResponse {
     // Sent once, before any chunk, when the tail is attached and no packet
     // the session uploads from here on can be missed. Without it a caller
     // cannot tell an idle capture from one whose packets it arrived too late
-    // to see. Always true.
-    bool attached = 1;
+    // to see. Must be true: the arm's presence is the signal, and a false
+    // here would read as a chunk to anyone who checks the value.
+    bool attached = 1 [(buf.validate.field).bool.const = true];
     // The next chunk of packets.
     flowseer.model.capture.v1.CapturePacketChunk chunk = 2;
   }

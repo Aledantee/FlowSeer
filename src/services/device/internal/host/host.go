@@ -61,6 +61,13 @@ const (
 	// whole to hash it, so the bound is what stops an unauthenticated caller
 	// making central buffer as much as it likes.
 	maxEdgeBody = 1 << 20
+
+	// maxCaptureChunk bounds one message on the capture upload stream. The
+	// middleware's body limit cannot apply to a stream, and this stands in
+	// its place; it is the worst case CapturePacketChunk documents, 256
+	// packets of 65535 octets, with room for the envelope. A smaller bound
+	// would refuse a conforming edge in the middle of a capture.
+	maxCaptureChunk = 17 << 20
 )
 
 // Run assembles the device service and runs it until ctx ends or the runtime
@@ -510,12 +517,13 @@ func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, er
 				removed, err := resources.captures.SweepExpired(ctx)
 				if err != nil {
 					service.Logger(ctx).ErrorContext(ctx, "capture sweeper could not purge every expired artifact",
-						slog.Int("capture_artifacts_purged", removed), slog.Any("error", err))
+						slog.Int("flowseer.capture.artifacts.purged", removed),
+						slog.String("error.type", telemetry.ErrorType(err)))
 					continue
 				}
 				if removed > 0 {
 					service.Logger(ctx).InfoContext(ctx, "capture sweeper purged expired artifacts",
-						slog.Int("capture_artifacts_purged", removed))
+						slog.Int("flowseer.capture.artifacts.purged", removed))
 				}
 			}
 		}

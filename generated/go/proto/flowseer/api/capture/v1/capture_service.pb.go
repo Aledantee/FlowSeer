@@ -1133,7 +1133,8 @@ type TailCaptureSessionResponse_builder struct {
 	// Sent once, before any chunk, when the tail is attached and no packet
 	// the session uploads from here on can be missed. Without it a caller
 	// cannot tell an idle capture from one whose packets it arrived too late
-	// to see. Always true.
+	// to see. Must be true: the arm's presence is the signal, and a false
+	// here would read as a chunk to anyone who checks the value.
 	Attached *bool
 	// The next chunk of packets.
 	Chunk *v11.CapturePacketChunk
@@ -1171,7 +1172,8 @@ type tailCaptureSessionResponse_Attached struct {
 	// Sent once, before any chunk, when the tail is attached and no packet
 	// the session uploads from here on can be missed. Without it a caller
 	// cannot tell an idle capture from one whose packets it arrived too late
-	// to see. Always true.
+	// to see. Must be true: the arm's presence is the signal, and a false
+	// here would read as a chunk to anyone who checks the value.
 	Attached bool `protobuf:"varint,1,opt,name=attached,oneof"`
 }
 
@@ -1361,9 +1363,9 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x1e\n" +
 	"\x1cDeleteCaptureSessionResponse\"q\n" +
 	"\x19TailCaptureSessionRequest\x12T\n" +
-	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x90\x01\n" +
-	"\x1aTailCaptureSessionResponse\x12\x1c\n" +
-	"\battached\x18\x01 \x01(\bH\x00R\battached\x12E\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x99\x01\n" +
+	"\x1aTailCaptureSessionResponse\x12%\n" +
+	"\battached\x18\x01 \x01(\bB\a\xbaH\x04j\x02\b\x01H\x00R\battached\x12E\n" +
 	"\x05chunk\x18\x02 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkH\x00R\x05chunkB\r\n" +
 	"\x04body\x12\x05\xbaH\x02\b\x01\"u\n" +
 	"\x1dDownloadCaptureSessionRequest\x12T\n" +

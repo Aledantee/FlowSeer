@@ -157,11 +157,12 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, interceptors, recoverPanic)
 	mux.Handle(capturePath, captureHandler)
 
-	// Every message on the upload stream is bounded the way the assertion
-	// middleware bounds a unary edge body. The middleware cannot do it here:
-	// it reads the body whole to hash it, and an upload stream has no whole.
+	// Every message on the upload stream is bounded, in place of the body
+	// limit the assertion middleware applies to a unary edge call. The
+	// middleware cannot do it here: it reads the body whole to hash it, and
+	// an upload stream has no whole.
 	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(
-		captureEdgeService, interceptors, recoverPanic, connect.WithReadMaxBytes(maxEdgeBody),
+		captureEdgeService, interceptors, recoverPanic, connect.WithReadMaxBytes(maxCaptureChunk),
 	)
 	mux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
 	// UploadCapture carries its assertions as messages rather than headers,

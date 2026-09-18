@@ -693,10 +693,13 @@ func TestArtifactPathsRefuseANonUUIDSession(t *testing.T) {
 	if err := s.DeleteSession(ctx, escape); err == nil {
 		t.Error("DeleteSession accepted a session id that is not a uuid")
 	}
-	if err := s.ReadArtifact(ctx, escape, func(_ *modelcapturev1.CaptureArtifactChunk) error {
+	// ReadArtifact would answer "not found" for an escaping path too, so the
+	// code is what discriminates: only the uuid check produces ErrCodeBadSession.
+	err := s.ReadArtifact(ctx, escape, func(_ *modelcapturev1.CaptureArtifactChunk) error {
 		return nil
-	}); err == nil {
-		t.Error("ReadArtifact accepted a session id that is not a uuid")
+	})
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeBadSession {
+		t.Errorf("ReadArtifact got %v, want ErrCodeBadSession", err)
 	}
 	if err := s.AppendPackets(ctx, escape, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("x"))}); err == nil {
@@ -732,5 +735,46 @@ func TestReadArtifactEmitsAFinalChunkForAnEmptyArtifact(t *testing.T) {
 	}
 	if !chunks[0].GetFinal() || len(chunks[0].GetData()) != 0 {
 		t.Fatalf("got chunk %+v, want one empty final chunk", chunks[0])
+	}
+}
+
+// A stream that is still uploading when its session is deleted would recreate
+// the artifact file on its next chunk. That file would have no record, and the
+// sweep walks records, so its payload could never expire.
+func TestAppendPacketsRefusesADeletedSession(t *testing.T) {
+	s, dir := newTestStoreDir(t)
+	ctx := context.Background()
+
+	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
+	if err := s.AppendPackets(ctx, testSessionID, linkType, 128,
+		[]*netcapturev1.PacketRecord{newPacket([]byte("first"))}); err != nil {
+		t.Fatalf("AppendPackets: %v", err)
+	}
+
+	if err := s.DeleteSession(ctx, testSessionID); err != nil {
+		t.Fatalf("DeleteSession: %v", err)
+	}
+
+	err := s.AppendPackets(ctx, testSessionID, linkType, 128,
+		[]*netcapturev1.PacketRecord{newPacket([]byte("after the delete"))})
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeNotFound {
+		t.Fatalf("AppendPackets after delete got %v, want ErrCodeNotFound", err)
+	}
+
+	counters := netcapturev1.CaptureCounters_builder{Received: proto.Uint64(1), Accepted: proto.Uint64(1)}.Build()
+	_, err = s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeNotFound {
+		t.Fatalf("FinalizeArtifact after delete got %v, want ErrCodeNotFound", err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read captures dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("a deleted session left %d file(s) behind that no sweep can reach", len(entries))
 	}
 }

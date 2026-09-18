@@ -58,8 +58,9 @@ func (v validatingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 // entirely and work from the edge identity the assertion middleware
 // established. OpenDeviceSubmission reads device_id, binding_id and sequence
 // and resolves each against the registry and the lane record. UploadCapture
-// reads the session ref off every chunk and resolves it against the session
-// record and the edge its own in-stream assertion names. TailCaptureSession
+// resolves its first chunk's session ref against the session record and the
+// edge its own in-stream assertion names, and holds every later chunk to that
+// same session and edge. TailCaptureSession
 // and DownloadCaptureSession read a session id and resolve it against the
 // record before it reaches a store or a path. A field nobody reads is a field
 // no constraint on it could protect.

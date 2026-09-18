@@ -11,8 +11,11 @@
 //
 // CapturePacketChunk is bounded by construction, not by a CEL sum over a
 // repeated field: PacketRecord.data caps each packet at 65535 octets and
-// this file caps the packet count at 4096, so the chunk's worst case is
-// their product.
+// this file caps the packet count at 256, so the chunk's worst case is their
+// product, a little under 16 MiB. That product is the number that matters,
+// because a chunk is one message on a stream and a receiver bounds what it
+// will read before it decodes: a cap loose enough to allow a chunk no
+// receiver accepts is a cap that refuses a conforming edge mid-capture.
 
 package capturev1
 
@@ -361,7 +364,7 @@ const file_flowseer_model_capture_v1_capture_chunk_proto_rawDesc = "" +
 	"\x12CapturePacketChunk\x12T\n" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\x12-\n" +
 	"\x0efirst_sequence\x18\x02 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\rfirstSequence\x12J\n" +
-	"\apackets\x18\x03 \x03(\v2%.flowseer.net.capture.v1.PacketRecordB\t\xbaH\x06\x92\x01\x03\x10\x80 R\apackets\x12D\n" +
+	"\apackets\x18\x03 \x03(\v2%.flowseer.net.capture.v1.PacketRecordB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\apackets\x12D\n" +
 	"\bcounters\x18\x04 \x01(\v2(.flowseer.net.capture.v1.CaptureCountersR\bcounters\x12\x14\n" +
 	"\x05final\x18\x05 \x01(\bR\x05final\"n\n" +
 	"\x14CaptureArtifactChunk\x12\x1e\n" +
