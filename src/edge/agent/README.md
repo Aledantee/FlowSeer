@@ -19,6 +19,7 @@ orderings between them.
 | `internal/dispatch` | What the stream loop needs to carry dispatches — the opener, the event names, the dropped-message attributes — and the routing of each dispatch to its lane call |
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
+| `internal/capture` | The capture assignment stream loop, active session registry, engine runner, and chunk upload client |
 
 ## Which devices this edge serves
 
@@ -168,3 +169,27 @@ refuses sends no later report until that one lands; other devices carry on.
 Without the hold an `Onboarded` — which is not phase-ordered, and which clears
 central's per-dispatch confirmations when it arrives — can overtake the
 reports it precedes and re-open operations they had settled.
+
+## Remote packet capture
+
+Alongside the lane, `host.Run` assembles the `"capture"` module unconditionally
+into the supervision tree. It subscribes to `SubscribeCaptureAssignments` using
+the shared reconnecting `subscribeloop` transport and demultiplexes incoming
+assignments into active sessions managed by an in-memory registry.
+
+When a `Start` assignment arrives, the handler launches a runner goroutine that
+opens `UploadCapture`, delivers the initial `SignedEdgeAssertion`, executes
+`capture.Engine`, and uploads batches of packet records as `CapturePacketChunk`
+messages. To keep the stream active and satisfy central's assertion deadline,
+the runner transmits periodic mid-stream re-assertions every 30 seconds.
+
+When a `Stop` assignment arrives, the handler cancels the running engine and
+flushes any buffered packets with `final: true`, completing the upload cleanly.
+If a capture interface remains idle and no packets arrive before the inactivity
+timeout, the runner cancels the engine and closes the upload stream without
+a final chunk — ensuring central's stream reader marks the session as failed
+rather than falsely recording a completed capture.
+
+Stream contact metrics are exported under `flowseer.edge.capture.connections`,
+`.failures`, and `.messages`. In accordance with privacy rules, packet payload
+bytes are never emitted into log records or span attributes.

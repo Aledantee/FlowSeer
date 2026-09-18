@@ -1,9 +1,11 @@
 package host
 
 import (
+	"context"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/modules/capture"
 )
 
 // Endpoint is where one device answers: its address and, when they are not
@@ -36,6 +38,11 @@ type SNMPFactoryFor = lanehost.SNMPFactoryFor
 // for.
 type ShellFactoryFor = lanehost.ShellFactoryFor
 
+// CaptureSourceOpener builds or opens a packet capture source for cfg.
+// The boolean return indicates whether the source reports interface drops.
+// Nil in [Options] means the production source via [capture.New].
+type CaptureSourceOpener func(ctx context.Context, cfg capture.Config) (capture.Source, bool, error)
+
 // Options are what a caller assembling this agent in its own process can
 // substitute. The zero value is the packaged deployment: real dialers and the
 // wall clock.
@@ -45,6 +52,9 @@ type Options struct {
 	// they may and may not stand in for.
 	OpenSNMP  SNMPFactoryFor
 	OpenShell ShellFactoryFor
+	// OpenCaptureSource replaces the packet source factory used for capture
+	// sessions. Nil means [capture.New].
+	OpenCaptureSource CaptureSourceOpener
 	// Clock is what the lane reads the time from: every audit record's
 	// timestamp, the operation-duration measurement, the moment a mutation
 	// was submitted, and the recovery runner's own waiting. Nil means

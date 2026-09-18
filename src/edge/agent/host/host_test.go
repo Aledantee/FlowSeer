@@ -20,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
+	"go.aledante.io/FlowSeer/src/modules/capture"
 )
 
 const testEdgeID = "0192e6a0-0000-7000-8000-0000000000ed"
@@ -216,5 +217,27 @@ func TestTheAttachmentPinsWhatTheEnrollmentReturned(t *testing.T) {
 	central.mu.Unlock()
 	if attached {
 		t.Error("AttachBus was called; the empty anchor set should have been refused before it")
+	}
+}
+
+// TestTheAgentsCaptureSeamCanBeFilledFromOutside verifies that the packet capture
+// source substitution seam can be populated from outside the application.
+func TestTheAgentsCaptureSeamCanBeFilledFromOutside(t *testing.T) {
+	t.Parallel()
+
+	var called bool
+	opts := host.Options{
+		OpenCaptureSource: func(_ context.Context, _ capture.Config) (capture.Source, bool, error) {
+			called = true
+			return nil, false, nil
+		},
+	}
+	if opts.OpenCaptureSource == nil {
+		t.Fatal("OpenCaptureSource substitution was dropped on the way into Options")
+	}
+
+	_, _, _ = opts.OpenCaptureSource(context.Background(), capture.Config{})
+	if !called {
+		t.Fatal("OpenCaptureSource was not callable")
 	}
 }
