@@ -54,6 +54,24 @@ type Events struct {
 	MessageCountKey    string
 }
 
+// validate refuses a naming the loop cannot log under, with withResync saying
+// whether the resync event can fire at all.
+//
+// An empty name is not rejected anywhere downstream: it reaches a collector as
+// a record with no event name, or a number under a key no query can name, and
+// the caller learns of it from a dashboard that stayed empty rather than from
+// a failure. Refused here instead, where the caller is still starting up.
+func (e Events) validate(withResync bool) error {
+	unnamed := e.Connected == "" || e.Disconnected == "" || e.Dropped == "" ||
+		e.ConnectionCountKey == "" || e.MessageCountKey == "" ||
+		(withResync && e.ResyncFailed == "")
+	if unnamed {
+		return errs.New().Code(ErrCodeRun).
+			Msg("the subscribe loop needs a name for every event it logs and a key for each of its two counts")
+	}
+	return nil
+}
+
 // Contact is what a watcher outside the loop can see of it.
 //
 // A reconnecting client is a mechanism that acts when nothing is happening,
@@ -146,6 +164,9 @@ type Config[T any] struct {
 func Run[T any](ctx context.Context, cfg Config[T], contact *Contact) error {
 	if cfg.Open == nil || cfg.Handler == nil {
 		return errs.New().Code(ErrCodeRun).Msg("the subscribe loop needs an opener and a handler")
+	}
+	if err := cfg.Events.validate(cfg.Resync != nil); err != nil {
+		return err
 	}
 	minBackoff, maxBackoff := cfg.MinBackoff, cfg.MaxBackoff
 	if minBackoff <= 0 {

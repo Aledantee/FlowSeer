@@ -274,16 +274,9 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 					Resync:     onboarder.Sync,
 					MinBackoff: backoffFloor,
 					MaxBackoff: backoffCeiling,
-					Events: subscribeloop.Events{
-						Connected:          "flowseer.edge.dispatch.connected",
-						Disconnected:       "flowseer.edge.dispatch.disconnected",
-						Dropped:            "flowseer.edge.dispatch.dropped",
-						ResyncFailed:       "flowseer.edge.devices.listing_failed",
-						ConnectionCountKey: "flowseer.edge.dispatch.connections",
-						MessageCountKey:    "flowseer.edge.dispatch.messages",
-					},
-					LogAttrs: dispatch.LogAttrs,
-					Logger:   log,
+					Events:     dispatch.Events,
+					LogAttrs:   dispatch.LogAttrs,
+					Logger:     log,
 				}, contact)
 			})
 	}}, nil

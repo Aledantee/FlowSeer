@@ -12,6 +12,7 @@ import (
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 )
 
 // centralStream serves Subscribe: it sends what a test queued, then ends the
@@ -84,6 +85,28 @@ func TestOpenUsesAnEmptySubscribeRequest(t *testing.T) {
 	}
 	if got := stream.Msg().GetDeviceId(); got != "dev-1" {
 		t.Errorf("Msg().GetDeviceId() = %q, want %q", got, "dev-1")
+	}
+}
+
+// TestEventsCarriesTheNamesTheDispatchLoopIsKnownBy pins the six strings an
+// operator's dashboards and alerts are written against. The loop itself logs
+// whatever Events holds, which subscribeloop's own tests prove; nothing else
+// reads these values, so without this test they live in no assertion and a
+// typo in one of them reaches a dashboard as silence rather than as a failure.
+//
+// The resync failure is deliberately outside the dispatch namespace: what the
+// resync re-lists is the edge's devices.
+func TestEventsCarriesTheNamesTheDispatchLoopIsKnownBy(t *testing.T) {
+	want := subscribeloop.Events{
+		Connected:          "flowseer.edge.dispatch.connected",
+		Disconnected:       "flowseer.edge.dispatch.disconnected",
+		Dropped:            "flowseer.edge.dispatch.dropped",
+		ResyncFailed:       "flowseer.edge.devices.listing_failed",
+		ConnectionCountKey: "flowseer.edge.dispatch.connections",
+		MessageCountKey:    "flowseer.edge.dispatch.messages",
+	}
+	if got := dispatch.Events; got != want {
+		t.Errorf("Events = %+v, want %+v", got, want)
 	}
 }
 

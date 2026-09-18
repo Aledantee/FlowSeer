@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 )
 
@@ -155,14 +156,37 @@ func (h *recordingHandler) find(event string) (map[string]any, bool) {
 	return nil, false
 }
 
-// runFor drives the loop until it has made n attempts, then stops it.
-func runFor(t *testing.T, cfg subscribeloop.Config[fakeMsg], contact *subscribeloop.Contact, attempts int) {
+// testEvents is the naming a test uses when naming is not what it is about.
+// Run refuses a Config that names nothing, so every case needs one.
+var testEvents = subscribeloop.Events{
+	Connected:          "test.connected",
+	Disconnected:       "test.disconnected",
+	Dropped:            "test.dropped",
+	ResyncFailed:       "test.resync_failed",
+	ConnectionCountKey: "test.connections",
+	MessageCountKey:    "test.messages",
+}
+
+// runFor drives the loop until it has made n attempts, then stops it. It
+// returns the backoff the loop asked to wait for before each of those
+// attempts, which is the only place that sequence is observable.
+func runFor(t *testing.T, cfg subscribeloop.Config[fakeMsg], contact *subscribeloop.Contact, attempts int) []time.Duration {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var waited atomic.Int64
-	cfg.Wait = func(ctx context.Context, _ time.Duration) bool {
+	if cfg.Events == (subscribeloop.Events{}) {
+		cfg.Events = testEvents
+	}
+	var (
+		mu       sync.Mutex
+		backoffs []time.Duration
+		waited   atomic.Int64
+	)
+	cfg.Wait = func(ctx context.Context, d time.Duration) bool {
+		mu.Lock()
+		backoffs = append(backoffs, d)
+		mu.Unlock()
 		if waited.Add(1) >= int64(attempts) {
 			return false
 		}
@@ -178,6 +202,10 @@ func runFor(t *testing.T, cfg subscribeloop.Config[fakeMsg], contact *subscribel
 	case <-time.After(20 * time.Second):
 		t.Fatal("the loop never stopped")
 	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	return slices.Clone(backoffs)
 }
 
 // TestAClientThatNeverConnectsIsVisibleAsANumber is the failure a
@@ -218,14 +246,46 @@ func TestTheStreamIsReopenedAfterItEnds(t *testing.T) {
 		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
 	}, contact, 2)
 
-	if central.openCount() < 2 {
-		t.Errorf("the stream was opened %d times, want at least 2", central.openCount())
+	if got := central.openCount(); got != 2 {
+		t.Errorf("the stream was opened %d times, want 2", got)
 	}
-	if got := contact.Connections(); got < 2 {
-		t.Errorf("Connections() = %d, want at least 2", got)
+	if got := contact.Connections(); got != 2 {
+		t.Errorf("Connections() = %d, want 2", got)
 	}
-	if devices := handler.devices(); len(devices) < 2 || devices[0] != "m-1" || devices[1] != "m-2" {
+	if devices := handler.devices(); !slices.Equal(devices, []string{"m-1", "m-2"}) {
 		t.Errorf("handled %v, want m-1 then m-2 across the reconnect", devices)
+	}
+	if got := contact.Messages(); got != 2 {
+		t.Errorf("Messages() = %d, want 2: both messages arrived", got)
+	}
+}
+
+// TestAStreamThatBreaksBeforeDeliveringAnythingIsNotContact holds the
+// condition that separates a served stream from a refused one. Connections is
+// meant to prove the peer answered, so a stream that ended in an error with
+// nothing on it must leave the number alone — only the failure count moves.
+//
+// The opener cannot be the one to prove this. When opening fails the loop
+// returns before it reaches the count at all, so the assertion passes whether
+// or not the condition is there; it takes a stream that opened and then broke
+// for the condition to be the only thing holding the number down.
+func TestAStreamThatBreaksBeforeDeliveringAnythingIsNotContact(t *testing.T) {
+	central := &fakeCentral{endErrs: []error{errors.New("stream broke")}}
+	contact := &subscribeloop.Contact{}
+
+	runFor(t, subscribeloop.Config[fakeMsg]{
+		Open: central.open, Handler: &handlerFake{},
+		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
+	}, contact, 1)
+
+	if got := central.openCount(); got != 1 {
+		t.Fatalf("the stream was opened %d times, want 1", got)
+	}
+	if got := contact.Connections(); got != 0 {
+		t.Errorf("Connections() = %d, want 0: a stream that broke with nothing on it is not contact", got)
+	}
+	if got := contact.Failures(); got != 1 {
+		t.Errorf("Failures() = %d, want 1", got)
 	}
 }
 
@@ -246,6 +306,11 @@ func TestAHandlerErrorDoesNotDropTheStream(t *testing.T) {
 	if got := len(handler.devices()); got != 3 {
 		t.Errorf("handled %d messages, want all 3: one failure must not end the stream", got)
 	}
+	// One stream, so one connection however many messages crossed it: the
+	// count is of contact with the peer, not of what the peer said.
+	if got := contact.Connections(); got != 1 {
+		t.Errorf("Connections() = %d, want 1: three messages arrived on one stream", got)
+	}
 }
 
 // TestAPeerThatServesAndClosesLooksHealthyExceptForMessages is the case
@@ -265,8 +330,8 @@ func TestAPeerThatServesAndClosesLooksHealthyExceptForMessages(t *testing.T) {
 		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
 	}, contact, 3)
 
-	if got := contact.Connections(); got < 3 {
-		t.Errorf("Connections() = %d, want at least 3: the peer served every stream", got)
+	if got := contact.Connections(); got != 3 {
+		t.Errorf("Connections() = %d, want 3: the peer served every stream", got)
 	}
 	if got := contact.Failures(); got != 0 {
 		t.Errorf("Failures() = %d, want 0: nothing failed", got)
@@ -334,11 +399,53 @@ func TestAFailedResyncStillOpensTheStream(t *testing.T) {
 	}
 }
 
-// TestEventNamesAndCountsComeFromConfig is Requirement 2 in its generic
-// form: the loop logs the caller's event names, not names of its own, and
-// the two counts it computes itself land under the caller's attribute keys.
-// It also proves LogAttrs reaches the dropped event, which is the one place
-// a per-message attribute is added.
+// TestTheBackoffClimbsUntilAMessageArrives pins the rule that decides how
+// hard a peer that is not serving gets retried. It doubles from the floor and
+// holds at the ceiling, and only a delivered message puts it back at the
+// floor — a successful open does not, because a peer that accepts a stream
+// and immediately closes it opens successfully every time, and resetting on
+// that would retry it as fast as the machine allows.
+func TestTheBackoffClimbsUntilAMessageArrives(t *testing.T) {
+	// Four streams served empty, then one that delivers, then one more empty.
+	central := &fakeCentral{batches: [][]*fakeMsg{nil, nil, nil, nil, {msg("m-1")}, nil}}
+	contact := &subscribeloop.Contact{}
+
+	backoffs := runFor(t, subscribeloop.Config[fakeMsg]{
+		Open: central.open, Handler: &handlerFake{},
+		MinBackoff: time.Millisecond, MaxBackoff: 4 * time.Millisecond,
+	}, contact, 6)
+
+	ms := time.Millisecond
+	// The fifth wait is the assertion: the attempt before it delivered, so
+	// the backoff earned by the four empty ones is dropped. The third and
+	// fourth are the ceiling holding.
+	want := []time.Duration{1 * ms, 2 * ms, 4 * ms, 4 * ms, 1 * ms, 2 * ms}
+	if !slices.Equal(backoffs, want) {
+		t.Errorf("backoffs = %v, want %v", backoffs, want)
+	}
+}
+
+// TestAnUnnamedLoopIsRefused. A Config that names no events logs records with
+// an empty event name and numbers under an empty key, which nothing
+// downstream rejects and no query finds: the caller would learn of it from a
+// dashboard that stayed empty. Refused at the start instead.
+func TestAnUnnamedLoopIsRefused(t *testing.T) {
+	err := subscribeloop.Run(t.Context(), subscribeloop.Config[fakeMsg]{
+		Open:    (&fakeCentral{}).open,
+		Handler: &handlerFake{},
+	}, &subscribeloop.Contact{})
+	if err == nil {
+		t.Fatal("Run() = nil, want a refusal for a Config that names no events")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != subscribeloop.ErrCodeRun {
+		t.Errorf("error code = %q ok=%v, want %q", code, ok, subscribeloop.ErrCodeRun)
+	}
+}
+
+// TestEventNamesAndCountsComeFromConfig: the loop logs the caller's event
+// names, not names of its own, and the two counts it computes itself land
+// under the caller's attribute keys. It also proves LogAttrs reaches the
+// dropped event, which is the one place a per-message attribute is added.
 func TestEventNamesAndCountsComeFromConfig(t *testing.T) {
 	streamErr := errors.New("stream broke")
 	central := &fakeCentral{
