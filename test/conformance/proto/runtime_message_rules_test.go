@@ -7,13 +7,13 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 )
 
-func TestServiceMessageValidation(t *testing.T) {
-	valid := func() servicev1.Message_builder {
-		return servicev1.Message_builder{
-			Kind:          servicev1.MessageKind_MESSAGE_KIND_COMMAND.Enum(),
+func TestRuntimeMessageValidation(t *testing.T) {
+	valid := func() runtimev1.Message_builder {
+		return runtimev1.Message_builder{
+			Kind:          runtimev1.MessageKind_MESSAGE_KIND_COMMAND.Enum(),
 			MessageId:     proto.String("aa36b80e-88b5-4e2b-9ff6-6412d106cf80"),
 			CorrelationId: proto.String("5a9434af-d74f-4183-ba88-30fda520d2ee"),
 			CausationId:   proto.String("3c9c2efd-44d6-4496-aefd-e2b7c17cd8e5"),
@@ -35,7 +35,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "optional flow and trace identifiers may be absent",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.CorrelationId = nil
 				message.CausationId = nil
@@ -47,7 +47,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "an empty encoded protobuf payload is valid",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.Payload = []byte{}
 				return message.Build()
@@ -56,7 +56,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a missing message id is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.MessageId = nil
 				return message.Build()
@@ -64,7 +64,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a missing target path is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.TargetPath = nil
 				return message.Build()
@@ -72,7 +72,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a missing source path is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.SourcePath = nil
 				return message.Build()
@@ -80,7 +80,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a missing payload type is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.TypeName = nil
 				return message.Build()
@@ -88,7 +88,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "missing payload bytes are rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.Payload = nil
 				return message.Build()
@@ -96,15 +96,15 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "an unknown envelope kind is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
-				message.Kind = servicev1.MessageKind(99).Enum()
+				message.Kind = runtimev1.MessageKind(99).Enum()
 				return message.Build()
 			}(),
 		},
 		{
 			name: "a malformed message id is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.MessageId = proto.String("not-a-uuid")
 				return message.Build()
@@ -112,7 +112,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a malformed correlation id is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.CorrelationId = proto.String("not-a-uuid")
 				return message.Build()
@@ -120,7 +120,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a malformed causation id is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.CausationId = proto.String("not-a-uuid")
 				return message.Build()
@@ -128,7 +128,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a malformed source path is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.SourcePath = proto.String("edge/BadModule")
 				return message.Build()
@@ -136,7 +136,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a malformed target path is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.TargetPath = proto.String("edge//uplink")
 				return message.Build()
@@ -144,7 +144,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a malformed payload type name is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.TypeName = proto.String("Timestamp")
 				return message.Build()
@@ -152,7 +152,7 @@ func TestServiceMessageValidation(t *testing.T) {
 		},
 		{
 			name: "a malformed traceparent is rejected",
-			message: func() *servicev1.Message {
+			message: func() *runtimev1.Message {
 				message := valid()
 				message.Traceparent = proto.String("4bf92f3577b34da6a3ce929d0e0e4736")
 				return message.Build()
@@ -163,8 +163,8 @@ func TestServiceMessageValidation(t *testing.T) {
 	runValidationCases(t, cases)
 }
 
-func TestServiceMessageWireContract(t *testing.T) {
-	descriptor := (&servicev1.Message{}).ProtoReflect().Descriptor()
+func TestRuntimeMessageWireContract(t *testing.T) {
+	descriptor := (&runtimev1.Message{}).ProtoReflect().Descriptor()
 	fields := map[string]protoreflect.FieldNumber{
 		"kind":           1,
 		"message_id":     2,
@@ -178,7 +178,7 @@ func TestServiceMessageWireContract(t *testing.T) {
 		"tracestate":     10,
 	}
 
-	if got, want := descriptor.FullName(), protoreflect.FullName("flowseer.service.v1.Message"); got != want {
+	if got, want := descriptor.FullName(), protoreflect.FullName("flowseer.runtime.v1.Message"); got != want {
 		t.Errorf("message full name = %q, want %q", got, want)
 	}
 	for name, want := range fields {
@@ -192,7 +192,7 @@ func TestServiceMessageWireContract(t *testing.T) {
 		}
 	}
 
-	enum := servicev1.MessageKind_MESSAGE_KIND_UNSPECIFIED.Descriptor()
+	enum := runtimev1.MessageKind_MESSAGE_KIND_UNSPECIFIED.Descriptor()
 	values := map[string]protoreflect.EnumNumber{
 		"MESSAGE_KIND_UNSPECIFIED": 0,
 		"MESSAGE_KIND_COMMAND":     1,

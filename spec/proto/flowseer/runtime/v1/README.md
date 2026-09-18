@@ -1,6 +1,6 @@
 # Service messages
 
-The `flowseer.service.v1` package owns the record stored in every durable
+The `flowseer.runtime.v1` package owns the record stored in every durable
 service mailbox. A command, an event delivery, and a reply use the same
 `Message` envelope, so crash recovery does not depend on an in-memory request
 or a Go type name.

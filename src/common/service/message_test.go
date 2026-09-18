@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -32,8 +32,8 @@ func TestAtomicPublishValidatesEveryRecordBeforeStaging(t *testing.T) {
 	resources, closeBus := startMessageTestBus(ctx, t)
 	defer closeBus()
 	runtime := newMessageRuntime(resources, nil, nil, telemetry{})
-	makeEnvelope := func(id, target string, payload []byte) *servicev1.Message {
-		return servicev1.Message_builder{
+	makeEnvelope := func(id, target string, payload []byte) *runtimev1.Message {
+		return runtimev1.Message_builder{
 			Kind:          MessageKindEvent.Enum(),
 			MessageId:     proto.String(id),
 			CorrelationId: proto.String(id),
@@ -44,7 +44,7 @@ func TestAtomicPublishValidatesEveryRecordBeforeStaging(t *testing.T) {
 			PublishedAt:   timestamppb.Now(),
 		}.Build()
 	}
-	err := runtime.publishAtomic(ctx, []*servicev1.Message{
+	err := runtime.publishAtomic(ctx, []*runtimev1.Message{
 		makeEnvelope("3eb8263d-f907-4637-802b-597c86974949", "edge/first", []byte{}),
 		makeEnvelope("3eb8263d-f907-4637-802b-597c86974949", "edge/second", make([]byte, int(resources.connection.MaxPayload()))),
 	})
@@ -64,21 +64,21 @@ func TestValidateSubscriptionsBuildsExplicitResolverAndRoutes(t *testing.T) {
 	setup := testSetup()
 	cfg := Config{Identity: testIdentity(), Modules: []Module{
 		{Name: "commands", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{
-			Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Empty"}, Retries: 2,
+			Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Empty"}, Retries: 2,
 		}}}},
-		{Name: "events_a", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &durationpb.Duration{}}}}},
-		{Name: "events_b", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &durationpb.Duration{}}}}},
-		{Name: "replies", Leaf: &Leaf{Setup: setup, DeliveryConcurrency: 4, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_REPLY, Message: &emptypb.Empty{}}}}},
+		{Name: "events_a", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &durationpb.Duration{}}}}},
+		{Name: "events_b", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &durationpb.Duration{}}}}},
+		{Name: "replies", Leaf: &Leaf{Setup: setup, DeliveryConcurrency: 4, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_REPLY, Message: &emptypb.Empty{}}}}},
 	}}
 
 	declaration, err := validateDeclaration(cfg)
 	if err != nil {
 		t.Fatalf("validateDeclaration() error: %v", err)
 	}
-	if ok := declaration.registry.target("edge/commands", servicev1.MessageKind_MESSAGE_KIND_COMMAND, "google.protobuf.Empty"); !ok {
+	if ok := declaration.registry.target("edge/commands", runtimev1.MessageKind_MESSAGE_KIND_COMMAND, "google.protobuf.Empty"); !ok {
 		t.Error("command target is not registered")
 	}
-	if ok := declaration.registry.target("edge/replies", servicev1.MessageKind_MESSAGE_KIND_REPLY, "google.protobuf.Empty"); !ok {
+	if ok := declaration.registry.target("edge/replies", runtimev1.MessageKind_MESSAGE_KIND_REPLY, "google.protobuf.Empty"); !ok {
 		t.Error("reply target is not registered")
 	}
 	if got, ok := declaration.registry.eventSubscribers("google.protobuf.Duration"); !ok || !equalStrings(got, []string{"edge/events_a", "edge/events_b"}) {
@@ -113,18 +113,18 @@ func TestValidateSubscriptionsRejectsInvalidDeclarations(t *testing.T) {
 		leaf Leaf
 	}{
 		{name: "unspecified kind", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Message: &emptypb.Empty{}}}}},
-		{name: "nil prototype", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND}}}},
-		{name: "typed nil prototype", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: nilEmpty}}}},
-		{name: "invalid alias", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"bad-name"}}}}},
-		{name: "canonical alias", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"google.protobuf.Empty"}}}}},
-		{name: "duplicate alias", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Empty", "legacy.Empty"}}}}},
-		{name: "retry below bound", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Retries: -1}}}},
-		{name: "retry above bound", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Retries: maxSubscriptionRetries + 1}}}},
+		{name: "nil prototype", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND}}}},
+		{name: "typed nil prototype", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: nilEmpty}}}},
+		{name: "invalid alias", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"bad-name"}}}}},
+		{name: "canonical alias", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"google.protobuf.Empty"}}}}},
+		{name: "duplicate alias", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Empty", "legacy.Empty"}}}}},
+		{name: "retry below bound", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Retries: -1}}}},
+		{name: "retry above bound", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}, Retries: maxSubscriptionRetries + 1}}}},
 		{name: "concurrency below bound", leaf: Leaf{Setup: setup, DeliveryConcurrency: -1}},
 		{name: "concurrency above bound", leaf: Leaf{Setup: setup, DeliveryConcurrency: maxDeliveryConcurrency + 1}},
 		{name: "duplicate subscription", leaf: Leaf{Setup: setup, Subscriptions: []Subscription{
-			{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}},
-			{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}},
+			{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}},
+			{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}},
 		}}},
 	}
 
@@ -154,14 +154,14 @@ func TestValidateSubscriptionsDefaultsDeliveryConcurrencyToOne(t *testing.T) {
 func TestValidateSubscriptionsAllowsSameAddressedTypeAtDistinctTargets(t *testing.T) {
 	setup := testSetup()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
-		{Name: "one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}}}},
-		{Name: "two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}}}},
+		{Name: "one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}}}},
+		{Name: "two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}}}}},
 	}})
 	if err != nil {
 		t.Fatalf("validateDeclaration() error: %v", err)
 	}
 	for _, path := range []string{"edge/one", "edge/two"} {
-		if !declaration.registry.target(path, servicev1.MessageKind_MESSAGE_KIND_COMMAND, "google.protobuf.Empty") {
+		if !declaration.registry.target(path, runtimev1.MessageKind_MESSAGE_KIND_COMMAND, "google.protobuf.Empty") {
 			t.Errorf("command target %q is not registered", path)
 		}
 	}
@@ -176,8 +176,8 @@ func TestValidateSubscriptionsRejectsAliasConflicts(t *testing.T) {
 		{
 			name: "alias maps to different canonical types",
 			mods: []Module{
-				{Name: "one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Message"}}}}},
-				{Name: "two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &durationpb.Duration{}, Aliases: []protoreflect.FullName{"legacy.Message"}}}}},
+				{Name: "one", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}, Aliases: []protoreflect.FullName{"legacy.Message"}}}}},
+				{Name: "two", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &durationpb.Duration{}, Aliases: []protoreflect.FullName{"legacy.Message"}}}}},
 			},
 		},
 	}
@@ -199,9 +199,9 @@ func TestAdmissionRevisionMatrixAndImmutability(t *testing.T) {
 	setup := testSetup()
 	declaration, err := validateDeclaration(Config{Identity: testIdentity(), Modules: []Module{
 		{Name: "target", Leaf: &Leaf{Setup: setup, Subscriptions: []Subscription{
-			{Kind: servicev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}},
-			{Kind: servicev1.MessageKind_MESSAGE_KIND_REPLY, Message: &durationpb.Duration{}},
-			{Kind: servicev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}},
+			{Kind: runtimev1.MessageKind_MESSAGE_KIND_COMMAND, Message: &emptypb.Empty{}},
+			{Kind: runtimev1.MessageKind_MESSAGE_KIND_REPLY, Message: &durationpb.Duration{}},
+			{Kind: runtimev1.MessageKind_MESSAGE_KIND_EVENT, Message: &emptypb.Empty{}},
 		}}},
 	}})
 	if err != nil {
@@ -241,8 +241,8 @@ func TestAdmissionRevisionRejectsUnregisteredEvent(t *testing.T) {
 
 func assertAdmission(t *testing.T, revision *admissionRevision, want bool) {
 	t.Helper()
-	commandErr := revision.admitTarget("edge/target", servicev1.MessageKind_MESSAGE_KIND_COMMAND, "google.protobuf.Empty")
-	replyErr := revision.admitTarget("edge/target", servicev1.MessageKind_MESSAGE_KIND_REPLY, "google.protobuf.Duration")
+	commandErr := revision.admitTarget("edge/target", runtimev1.MessageKind_MESSAGE_KIND_COMMAND, "google.protobuf.Empty")
+	replyErr := revision.admitTarget("edge/target", runtimev1.MessageKind_MESSAGE_KIND_REPLY, "google.protobuf.Duration")
 	events, eventErr := revision.admitEvent("google.protobuf.Empty")
 	commandOK := commandErr == nil
 	replyOK := replyErr == nil

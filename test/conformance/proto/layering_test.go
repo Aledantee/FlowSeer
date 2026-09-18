@@ -128,12 +128,12 @@ var orderedRoots = []string{
 }
 
 // unorderedRoots are the trees deliberately outside the import order, relative
-// to spec/proto. flowseer/service is the process-local bus contract rather than
+// to spec/proto. flowseer/runtime is the process-local bus contract rather than
 // a boundary between packages, so "which packages may it import" has no answer
 // to put in importOrder; what keeps it out of everyone's way instead is that it
 // imports nothing FlowSeer-owned, which
 // TestUnorderedRootsImportNothingFlowSeerOwned holds it to.
-var unorderedRoots = []string{"flowseer/service"}
+var unorderedRoots = []string{"flowseer/runtime"}
 
 func TestImportOrder(t *testing.T) {
 	files := orderedProtoFiles(t)
@@ -234,7 +234,7 @@ func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
 
 // TestUnorderedRootsImportNothingFlowSeerOwned holds the roots importOrder does
 // not govern. Nothing in the table constrains what such a root imports, so
-// without this a schema under flowseer/service could reach a Connect service
+// without this a schema under flowseer/runtime could reach a Connect service
 // package or another process's private store with every other gate green.
 func TestUnorderedRootsImportNothingFlowSeerOwned(t *testing.T) {
 	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
@@ -245,15 +245,15 @@ func TestUnorderedRootsImportNothingFlowSeerOwned(t *testing.T) {
 	}
 
 	synthetic := []protoFile{{
-		rel: "flowseer/service/v1/x.proto",
+		rel: "flowseer/runtime/v1/x.proto",
 		imports: []string{
 			"google/protobuf/timestamp.proto",
-			"flowseer/service/v1/message.proto",
+			"flowseer/runtime/v1/message.proto",
 			"flowseer/model/edge/v1/edge.proto",
 		},
 	}}
 	got := crossPackageImports(synthetic)
-	want := []string{"flowseer/service/v1/x.proto imports flowseer/model/edge/v1/edge.proto"}
+	want := []string{"flowseer/runtime/v1/x.proto imports flowseer/model/edge/v1/edge.proto"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -309,7 +309,7 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "access values import inventory", importer: "model/access", imported: "model/inventory", want: true},
 		{name: "access values import the operator api", importer: "model/access", imported: "api/device"},
 		{name: "operator api imports access values", importer: "api/device", imported: "model/access", want: true},
-		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
+		{name: "operator api imports the bus contract", importer: "api/device", imported: "runtime"},
 		{name: "leaf boundary imports inventory", importer: "model/policy", imported: "model/inventory"},
 		{name: "execution envelope imports access values", importer: "edge/dispatch", imported: "model/access", want: true},
 		{name: "execution envelope imports errs", importer: "edge/dispatch", imported: "errs", want: true},

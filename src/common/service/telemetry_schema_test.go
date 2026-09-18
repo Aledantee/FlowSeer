@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 )
 
 func TestServiceTelemetryScopesUseCurrentSemanticConvention(t *testing.T) {
@@ -253,7 +253,7 @@ func TestMessageTelemetrySchema(t *testing.T) {
 	if err := runtime.capabilityWithTelemetry("edge/publisher", view).Command(context.Background(), "edge/worker", &emptypb.Empty{}); err == nil {
 		t.Fatal("Command() unexpectedly succeeded for an inactive target")
 	}
-	envelope := servicev1.Message_builder{
+	envelope := runtimev1.Message_builder{
 		Kind:       MessageKindCommand.Enum(),
 		TargetPath: proto.String("edge/worker"),
 		TypeName:   proto.String("google.protobuf.Empty"),

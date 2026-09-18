@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 )
 
 var updateMessageV1 = flag.Bool("update-message-v1", false, "rewrite testdata/message_v1.bin after an intentional persistence migration")
@@ -42,14 +42,14 @@ func TestMessageV1Compatibility(t *testing.T) {
 		t.Fatal("v1 message fixture changed; persisted field or enum numbers require an explicit migration")
 	}
 
-	message := &servicev1.Message{}
+	message := &runtimev1.Message{}
 	if err := proto.Unmarshal(data, message); err != nil {
 		t.Fatalf("decoding v1 message fixture: %v", err)
 	}
 	if err := protovalidate.Validate(message); err != nil {
 		t.Fatalf("validating v1 message fixture: %v", err)
 	}
-	if got, want := message.ProtoReflect().Descriptor().FullName(), protoreflect.FullName("flowseer.service.v1.Message"); got != want {
+	if got, want := message.ProtoReflect().Descriptor().FullName(), protoreflect.FullName("flowseer.runtime.v1.Message"); got != want {
 		t.Fatalf("message full name = %q, want %q", got, want)
 	}
 	if got, want := message.GetTraceparent(), "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"; got != want {
@@ -82,7 +82,7 @@ func TestMessageV1Compatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encoding v1 message fixture: %v", err)
 	}
-	decoded := &servicev1.Message{}
+	decoded := &runtimev1.Message{}
 	if err := proto.Unmarshal(roundTrip, decoded); err != nil {
 		t.Fatalf("decoding round-tripped v1 message: %v", err)
 	}
@@ -113,8 +113,8 @@ func messageV1Fixture(t *testing.T) []byte {
 		t.Fatalf("encoding fixture payload: %v", err)
 	}
 
-	message := servicev1.Message_builder{
-		Kind:          servicev1.MessageKind_MESSAGE_KIND_REPLY.Enum(),
+	message := runtimev1.Message_builder{
+		Kind:          runtimev1.MessageKind_MESSAGE_KIND_REPLY.Enum(),
 		MessageId:     proto.String("aa36b80e-88b5-4e2b-9ff6-6412d106cf80"),
 		CorrelationId: proto.String("5a9434af-d74f-4183-ba88-30fda520d2ee"),
 		CausationId:   proto.String("3c9c2efd-44d6-4496-aefd-e2b7c17cd8e5"),

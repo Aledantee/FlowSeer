@@ -24,7 +24,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -156,7 +156,7 @@ func (b *MessageBus) Publish(ctx context.Context, payload proto.Message) (err er
 	if err != nil {
 		return publicationError(MessageKindEvent, fullName, "generate message identifier").Cause(err).Msg("publish event")
 	}
-	envelopes := make([]*servicev1.Message, len(targets))
+	envelopes := make([]*runtimev1.Message, len(targets))
 	for i, target := range targets {
 		envelopes[i] = b.envelope(ctx, MessageKindEvent, logicalID, target, fullName, payloadBytes)
 	}
@@ -179,7 +179,7 @@ func (b *MessageBus) Reply(ctx context.Context, payload proto.Message) error {
 	return b.publishAddressed(ctx, MessageKindReply, delivery.sourcePath, payload)
 }
 
-func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.MessageKind, target string, payload proto.Message) (err error) {
+func (b *MessageBus) publishAddressed(ctx context.Context, kind runtimev1.MessageKind, target string, payload proto.Message) (err error) {
 	if err = b.available(ctx); err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func (b *MessageBus) publishAddressed(ctx context.Context, kind servicev1.Messag
 
 // startPublicationTrace starts a producer span. Events link to the current span
 // so fan-out does not make each delivery a child of the publisher operation.
-func (b *MessageBus) startPublicationTrace(ctx context.Context, kind servicev1.MessageKind) (context.Context, trace.Span) {
+func (b *MessageBus) startPublicationTrace(ctx context.Context, kind runtimev1.MessageKind) (context.Context, trace.Span) {
 	if !b.telemetry.policy.traces {
 		ctx = contextWithoutRecordingSpan(ctx)
 		return ctx, trace.SpanFromContext(ctx)
@@ -269,18 +269,18 @@ func marshalPayload(payload proto.Message) (protoreflect.FullName, []byte, error
 	}
 	fullName := payload.ProtoReflect().Descriptor().FullName()
 	if !fullName.IsValid() || len(fullName) > maxMessageNameLength {
-		return "", nil, publicationError(servicev1.MessageKind_MESSAGE_KIND_UNSPECIFIED, fullName, "protobuf full name is invalid").Msg("publish message")
+		return "", nil, publicationError(runtimev1.MessageKind_MESSAGE_KIND_UNSPECIFIED, fullName, "protobuf full name is invalid").Msg("publish message")
 	}
 	data, err := (proto.MarshalOptions{Deterministic: true}).Marshal(payload)
 	if err != nil {
-		return "", nil, publicationError(servicev1.MessageKind_MESSAGE_KIND_UNSPECIFIED, fullName, "marshal protobuf payload").Cause(err).Msg("publish message")
+		return "", nil, publicationError(runtimev1.MessageKind_MESSAGE_KIND_UNSPECIFIED, fullName, "marshal protobuf payload").Cause(err).Msg("publish message")
 	}
 	return fullName, data, nil
 }
 
 // envelope carries correlation, causation, and trace context from a delivery
 // into one persisted outbound message.
-func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, id, target string, fullName protoreflect.FullName, payload []byte) *servicev1.Message {
+func (b *MessageBus) envelope(ctx context.Context, kind runtimev1.MessageKind, id, target string, fullName protoreflect.FullName, payload []byte) *runtimev1.Message {
 	correlation := id
 	causation := ""
 	if delivery, ok := deliveryFromContext(ctx); ok {
@@ -295,7 +295,7 @@ func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, i
 		propagator = propagation.TraceContext{}
 	}
 	propagator.Inject(ctx, carrier)
-	message := &servicev1.Message{}
+	message := &runtimev1.Message{}
 	message.SetKind(kind)
 	message.SetMessageId(id)
 	message.SetCorrelationId(correlation)
@@ -316,7 +316,7 @@ func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, i
 	return message
 }
 
-func (r *messageRuntime) publishOne(ctx context.Context, envelope *servicev1.Message) error {
+func (r *messageRuntime) publishOne(ctx context.Context, envelope *runtimev1.Message) error {
 	if err := validateOutboundEnvelope(envelope); err != nil {
 		return err
 	}
@@ -356,7 +356,7 @@ type atomicPubAck struct {
 // publishAtomic serializes event batches and commits their final record by
 // request so the broker exposes one durable snapshot. A duplicate commit
 // acknowledgement confirms that an earlier request already committed it.
-func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*servicev1.Message) error {
+func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*runtimev1.Message) error {
 	select {
 	case r.atomicPermit <- struct{}{}:
 		defer func() { <-r.atomicPermit }()
@@ -430,7 +430,7 @@ func (r *messageRuntime) publishAtomic(ctx context.Context, envelopes []*service
 	return nil
 }
 
-func validateOutboundEnvelope(message *servicev1.Message) error {
+func validateOutboundEnvelope(message *runtimev1.Message) error {
 	if err := validatePersistedEnvelope(message); err != nil {
 		return publicationError(message.GetKind(), protoreflect.FullName(message.GetTypeName()), err.Error()).Msg("publish message")
 	}
@@ -443,7 +443,7 @@ func validateOutboundEnvelope(message *servicev1.Message) error {
 	return nil
 }
 
-func mailboxSubject(path string, kind servicev1.MessageKind, fullName string) (string, error) {
+func mailboxSubject(path string, kind runtimev1.MessageKind, fullName string) (string, error) {
 	kindToken := messageKindToken(kind)
 	if kindToken == "unknown" || path == "" || fullName == "" {
 		return "", errs.New().Code(errCodePublication).Msg("message subject identity is invalid")
@@ -451,7 +451,7 @@ func mailboxSubject(path string, kind servicev1.MessageKind, fullName string) (s
 	return strings.Join([]string{mailboxSubjectRoot, "v1", encodeSubjectToken(path), kindToken, encodeSubjectToken(fullName)}, "."), nil
 }
 
-func messageKindToken(kind servicev1.MessageKind) string {
+func messageKindToken(kind runtimev1.MessageKind) string {
 	switch kind {
 	case MessageKindCommand:
 		return "command"
@@ -488,7 +488,7 @@ func deterministicUUID(parts ...string) string {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", sum[0:4], sum[4:6], sum[6:8], sum[8:10], sum[10:16])
 }
 
-func publicationError(kind servicev1.MessageKind, fullName protoreflect.FullName, detail string) errs.Builder {
+func publicationError(kind runtimev1.MessageKind, fullName protoreflect.FullName, detail string) errs.Builder {
 	return errs.New().Code(errCodePublication).Attr("message_kind", messageKindToken(kind)).Attr("message_type", string(fullName)).Attr("validation_detail", detail)
 }
 
@@ -560,11 +560,11 @@ func deliveryFromContext(ctx context.Context) (deliveryContext, bool) {
 // independent of the generated schema package.
 const (
 	// MessageKindCommand addresses one statically declared target module.
-	MessageKindCommand = servicev1.MessageKind_MESSAGE_KIND_COMMAND
+	MessageKindCommand = runtimev1.MessageKind_MESSAGE_KIND_COMMAND
 	// MessageKindEvent addresses every enabled subscriber at publication time.
-	MessageKindEvent = servicev1.MessageKind_MESSAGE_KIND_EVENT
+	MessageKindEvent = runtimev1.MessageKind_MESSAGE_KIND_EVENT
 	// MessageKindReply addresses the source of the message being handled.
-	MessageKindReply = servicev1.MessageKind_MESSAGE_KIND_REPLY
+	MessageKindReply = runtimev1.MessageKind_MESSAGE_KIND_REPLY
 )
 
 // Subscription declares one static protobuf handler and its durable delivery
@@ -572,7 +572,7 @@ const (
 // Callers must not mutate a Subscription or its aliases while Run is active.
 type Subscription struct {
 	// Kind selects command, event, or reply routing.
-	Kind servicev1.MessageKind
+	Kind runtimev1.MessageKind
 	// Message is a non-nil prototype whose full name is the canonical persisted type.
 	Message proto.Message
 	// Aliases are prior persisted full names decoded as the canonical Message type.
@@ -597,7 +597,7 @@ type HandlerFunc func(ctx context.Context, message proto.Message) error
 // read-only after setup; Handle may run concurrently when the leaf allows it.
 type Handler struct {
 	// Kind must match the static subscription kind.
-	Kind servicev1.MessageKind
+	Kind runtimev1.MessageKind
 	// Message must name the static subscription's canonical protobuf type.
 	Message proto.Message
 	// Handle processes a decoded message.
@@ -605,7 +605,7 @@ type Handler struct {
 }
 
 type plannedSubscription struct {
-	kind      servicev1.MessageKind
+	kind      runtimev1.MessageKind
 	fullName  protoreflect.FullName
 	aliases   []protoreflect.FullName
 	retries   int
@@ -614,7 +614,7 @@ type plannedSubscription struct {
 }
 
 type messageKey struct {
-	kind     servicev1.MessageKind
+	kind     runtimev1.MessageKind
 	fullName protoreflect.FullName
 }
 
@@ -675,9 +675,9 @@ func (b *staticRegistryBuilder) addSubscriptions(path string, subscriptions []Su
 			return nil, err
 		}
 		switch item.kind {
-		case servicev1.MessageKind_MESSAGE_KIND_EVENT:
+		case runtimev1.MessageKind_MESSAGE_KIND_EVENT:
 			b.events[item.fullName] = append(b.events[item.fullName], path)
-		case servicev1.MessageKind_MESSAGE_KIND_COMMAND, servicev1.MessageKind_MESSAGE_KIND_REPLY:
+		case runtimev1.MessageKind_MESSAGE_KIND_COMMAND, runtimev1.MessageKind_MESSAGE_KIND_REPLY:
 			b.targets[targetKey{path: path, messageKey: key}] = struct{}{}
 		}
 		planned = append(planned, item)
@@ -694,7 +694,7 @@ func (b *staticRegistryBuilder) build() *staticRegistry {
 	}
 }
 
-func (r *staticRegistry) target(path string, kind servicev1.MessageKind, fullName protoreflect.FullName) bool {
+func (r *staticRegistry) target(path string, kind runtimev1.MessageKind, fullName protoreflect.FullName) bool {
 	_, ok := r.targets[targetKey{path: path, messageKey: messageKey{kind: kind, fullName: fullName}}]
 	return ok
 }
@@ -706,9 +706,9 @@ func (r *staticRegistry) eventSubscribers(fullName protoreflect.FullName) ([]str
 
 func validateSubscription(path string, subscription Subscription) (plannedSubscription, error) {
 	switch subscription.Kind {
-	case servicev1.MessageKind_MESSAGE_KIND_COMMAND,
-		servicev1.MessageKind_MESSAGE_KIND_EVENT,
-		servicev1.MessageKind_MESSAGE_KIND_REPLY:
+	case runtimev1.MessageKind_MESSAGE_KIND_COMMAND,
+		runtimev1.MessageKind_MESSAGE_KIND_EVENT,
+		runtimev1.MessageKind_MESSAGE_KIND_REPLY:
 	default:
 		return plannedSubscription{}, subscriptionError(path, "subscription kind is unsupported").
 			Attr("message_kind", subscription.Kind.String()).
@@ -872,7 +872,7 @@ func sameMessageDescriptor(left, right protoreflect.MessageDescriptor) bool {
 	return proto.Equal(protodesc.ToDescriptorProto(left), protodesc.ToDescriptorProto(right))
 }
 
-func handlerMismatch(path, detail string, kind servicev1.MessageKind, fullName protoreflect.FullName) error {
+func handlerMismatch(path, detail string, kind runtimev1.MessageKind, fullName protoreflect.FullName) error {
 	return errs.New().
 		Code(errCodeHandlerMismatch).
 		Attr("module_path", path).
@@ -967,7 +967,7 @@ func (r *admissionRevision) withModuleSnapshot(modules []plannedModule) *admissi
 	return &admissionRevision{number: r.number + 1, phase: admissionActive, registry: r.registry, states: states}
 }
 
-func (r *admissionRevision) admitTarget(path string, kind servicev1.MessageKind, fullName protoreflect.FullName) error {
+func (r *admissionRevision) admitTarget(path string, kind runtimev1.MessageKind, fullName protoreflect.FullName) error {
 	ok := r.registry.target(path, kind, fullName)
 	if !ok {
 		return messageTypeError(path, fullName, "message type is not registered for the addressed target").
@@ -988,7 +988,7 @@ func (r *admissionRevision) admitTarget(path string, kind servicev1.MessageKind,
 
 func (r *admissionRevision) admitEvent(fullName protoreflect.FullName) ([]string, error) {
 	if r.phase != admissionActive {
-		return nil, admissionError("", servicev1.MessageKind_MESSAGE_KIND_EVENT, fullName, r.phase.String(), "").
+		return nil, admissionError("", runtimev1.MessageKind_MESSAGE_KIND_EVENT, fullName, r.phase.String(), "").
 			Msg("service is not accepting new events")
 	}
 	paths, registered := r.registry.eventSubscribers(fullName)
@@ -1008,7 +1008,7 @@ func (r *admissionRevision) admitEvent(fullName protoreflect.FullName) ([]string
 
 func admissionError(
 	path string,
-	kind servicev1.MessageKind,
+	kind runtimev1.MessageKind,
 	fullName protoreflect.FullName,
 	phase string,
 	state string,

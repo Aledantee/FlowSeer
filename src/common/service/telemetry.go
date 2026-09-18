@@ -12,7 +12,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -311,7 +311,7 @@ const (
 	messageRejected     messageAction = "rejected"
 )
 
-func (v telemetryView) recordMessage(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, action messageAction) {
+func (v telemetryView) recordMessage(ctx context.Context, modulePath, typeName string, kind runtimev1.MessageKind, action messageAction) {
 	if v.policy.metrics {
 		attrs := []attribute.KeyValue{
 			attribute.String(modulePathKey, modulePath),
@@ -329,9 +329,9 @@ func (v telemetryView) recordMessage(ctx context.Context, modulePath, typeName s
 	)
 }
 
-func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeName string, kind servicev1.MessageKind, settlement *servicev1.Settlement) {
+func (v telemetryView) recordDisposition(ctx context.Context, modulePath, typeName string, kind runtimev1.MessageKind, settlement *runtimev1.Settlement) {
 	action := messageAcknowledged
-	if settlement.GetState() == servicev1.SettlementState_SETTLEMENT_STATE_DISCARD {
+	if settlement.GetState() == runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD {
 		action = messageDiscarded
 	}
 	v.recordMessage(ctx, modulePath, typeName, kind, action)

@@ -2,12 +2,12 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/service/v1/bus.proto
+// source: flowseer/runtime/v1/bus.proto
 
 // Durable control records for a service-local bus. These messages are private
 // runtime storage contracts rather than public API request or response types.
 
-package servicev1
+package runtimev1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -72,11 +72,11 @@ func (x ReconciliationPhase) String() string {
 }
 
 func (ReconciliationPhase) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_service_v1_bus_proto_enumTypes[0].Descriptor()
+	return file_flowseer_runtime_v1_bus_proto_enumTypes[0].Descriptor()
 }
 
 func (ReconciliationPhase) Type() protoreflect.EnumType {
-	return &file_flowseer_service_v1_bus_proto_enumTypes[0]
+	return &file_flowseer_runtime_v1_bus_proto_enumTypes[0]
 }
 
 func (x ReconciliationPhase) Number() protoreflect.EnumNumber {
@@ -124,11 +124,11 @@ func (x SettlementState) String() string {
 }
 
 func (SettlementState) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_service_v1_bus_proto_enumTypes[1].Descriptor()
+	return file_flowseer_runtime_v1_bus_proto_enumTypes[1].Descriptor()
 }
 
 func (SettlementState) Type() protoreflect.EnumType {
-	return &file_flowseer_service_v1_bus_proto_enumTypes[1]
+	return &file_flowseer_runtime_v1_bus_proto_enumTypes[1]
 }
 
 func (x SettlementState) Number() protoreflect.EnumNumber {
@@ -138,7 +138,7 @@ func (x SettlementState) Number() protoreflect.EnumNumber {
 // One statically declared subscription in a runtime manifest.
 type SubscriptionContract struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Kind        MessageKind            `protobuf:"varint,1,opt,name=kind,enum=flowseer.service.v1.MessageKind"`
+	xxx_hidden_Kind        MessageKind            `protobuf:"varint,1,opt,name=kind,enum=flowseer.runtime.v1.MessageKind"`
 	xxx_hidden_TypeName    *string                `protobuf:"bytes,2,opt,name=type_name,json=typeName"`
 	xxx_hidden_Aliases     []string               `protobuf:"bytes,3,rep,name=aliases"`
 	xxx_hidden_Retries     uint32                 `protobuf:"varint,4,opt,name=retries"`
@@ -150,7 +150,7 @@ type SubscriptionContract struct {
 
 func (x *SubscriptionContract) Reset() {
 	*x = SubscriptionContract{}
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[0]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -162,7 +162,7 @@ func (x *SubscriptionContract) String() string {
 func (*SubscriptionContract) ProtoMessage() {}
 
 func (x *SubscriptionContract) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[0]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -311,7 +311,7 @@ type ModuleContract struct {
 
 func (x *ModuleContract) Reset() {
 	*x = ModuleContract{}
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[1]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +323,7 @@ func (x *ModuleContract) String() string {
 func (*ModuleContract) ProtoMessage() {}
 
 func (x *ModuleContract) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[1]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -518,7 +518,7 @@ type RuntimeManifest struct {
 
 func (x *RuntimeManifest) Reset() {
 	*x = RuntimeManifest{}
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[2]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +530,7 @@ func (x *RuntimeManifest) String() string {
 func (*RuntimeManifest) ProtoMessage() {}
 
 func (x *RuntimeManifest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[2]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1032,7 +1032,7 @@ type ReconciliationRecord struct {
 	xxx_hidden_Previous        *RuntimeManifest       `protobuf:"bytes,1,opt,name=previous"`
 	xxx_hidden_Desired         *RuntimeManifest       `protobuf:"bytes,2,opt,name=desired"`
 	xxx_hidden_DesiredChecksum []byte                 `protobuf:"bytes,3,opt,name=desired_checksum,json=desiredChecksum"`
-	xxx_hidden_Phase           ReconciliationPhase    `protobuf:"varint,4,opt,name=phase,enum=flowseer.service.v1.ReconciliationPhase"`
+	xxx_hidden_Phase           ReconciliationPhase    `protobuf:"varint,4,opt,name=phase,enum=flowseer.runtime.v1.ReconciliationPhase"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -1041,7 +1041,7 @@ type ReconciliationRecord struct {
 
 func (x *ReconciliationRecord) Reset() {
 	*x = ReconciliationRecord{}
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[3]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1053,7 +1053,7 @@ func (x *ReconciliationRecord) String() string {
 func (*ReconciliationRecord) ProtoMessage() {}
 
 func (x *ReconciliationRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[3]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1207,7 @@ type StoreProvenance struct {
 
 func (x *StoreProvenance) Reset() {
 	*x = StoreProvenance{}
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[4]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1219,7 +1219,7 @@ func (x *StoreProvenance) String() string {
 func (*StoreProvenance) ProtoMessage() {}
 
 func (x *StoreProvenance) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[4]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1412,7 +1412,7 @@ type Settlement struct {
 	xxx_hidden_MessageId     *string                `protobuf:"bytes,2,opt,name=message_id,json=messageId"`
 	xxx_hidden_RetryCount    uint32                 `protobuf:"varint,3,opt,name=retry_count,json=retryCount"`
 	xxx_hidden_DispositionId *string                `protobuf:"bytes,4,opt,name=disposition_id,json=dispositionId"`
-	xxx_hidden_State         SettlementState        `protobuf:"varint,5,opt,name=state,enum=flowseer.service.v1.SettlementState"`
+	xxx_hidden_State         SettlementState        `protobuf:"varint,5,opt,name=state,enum=flowseer.runtime.v1.SettlementState"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -1421,7 +1421,7 @@ type Settlement struct {
 
 func (x *Settlement) Reset() {
 	*x = Settlement{}
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[5]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1433,7 +1433,7 @@ func (x *Settlement) String() string {
 func (*Settlement) ProtoMessage() {}
 
 func (x *Settlement) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_bus_proto_msgTypes[5]
+	mi := &file_flowseer_runtime_v1_bus_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1618,13 +1618,13 @@ func (b0 Settlement_builder) Build() *Settlement {
 	return m0
 }
 
-var File_flowseer_service_v1_bus_proto protoreflect.FileDescriptor
+var File_flowseer_runtime_v1_bus_proto protoreflect.FileDescriptor
 
-const file_flowseer_service_v1_bus_proto_rawDesc = "" +
+const file_flowseer_runtime_v1_bus_proto_rawDesc = "" +
 	"\n" +
-	"\x1dflowseer/service/v1/bus.proto\x12\x13flowseer.service.v1\x1a!flowseer/service/v1/message.proto\"\xc0\x02\n" +
+	"\x1dflowseer/runtime/v1/bus.proto\x12\x13flowseer.runtime.v1\x1a!flowseer/runtime/v1/message.proto\"\xc0\x02\n" +
 	"\x14SubscriptionContract\x12C\n" +
-	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.service.v1.MessageKindB\r\xbaH\n" +
+	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.runtime.v1.MessageKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12]\n" +
 	"\ttype_name\x18\x02 \x01(\tB@\xbaH=\xc8\x01\x01r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\btypeName\x12a\n" +
 	"\aaliases\x18\x03 \x03(\tBG\xbaHD\x92\x01A\x10\x80\x02\x18\x01\":r8\x18\x80\x0223^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$R\aaliases\x12!\n" +
@@ -1634,7 +1634,7 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\n" +
 	"path_token\x18\x02 \x01(\tB\x1d\xbaH\x1a\xc8\x01\x01r\x15\x18\xd4\x022\x10^[A-Za-z0-9_-]+$R\tpathToken\x12<\n" +
 	"\fdurable_name\x18\x03 \x01(\tB\x19\xbaH\x16\xc8\x01\x01r\x11\x18@2\r^[a-z0-9_-]+$R\vdurableName\x12O\n" +
-	"\rsubscriptions\x18\x04 \x03(\v2).flowseer.service.v1.SubscriptionContractR\rsubscriptions\x12?\n" +
+	"\rsubscriptions\x18\x04 \x03(\v2).flowseer.runtime.v1.SubscriptionContractR\rsubscriptions\x12?\n" +
 	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\x9a\b\n" +
 	"\x0fRuntimeManifest\x12:\n" +
 	"\x11service_namespace\x18\x01 \x01(\tB\r\xbaH\n" +
@@ -1648,7 +1648,7 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\x0fsubject_version\x18\x06 \x01(\rB\n" +
 	"\xbaH\a\xc8\x01\x01*\x02(\x01R\x0esubjectVersion\x12R\n" +
 	"\fnats_version\x18\a \x01(\tB/\xbaH,\xc8\x01\x01r'\x18@2#^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+].+)?$R\vnatsVersion\x12G\n" +
-	"\amodules\x18\b \x03(\v2#.flowseer.service.v1.ModuleContractB\b\xbaH\x05\x92\x01\x02\b\x01R\amodules\x12x\n" +
+	"\amodules\x18\b \x03(\v2#.flowseer.runtime.v1.ModuleContractB\b\xbaH\x05\x92\x01\x02\b\x01R\amodules\x12x\n" +
 	"\fmodule_paths\x18\t \x03(\tBU\xbaHR\x92\x01O\b\x01\x18\x01\"IrG\x18\xff\x012B^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?:/[a-z][a-z0-9]*(?:_[a-z0-9]+)*)*$R\vmodulePaths\x12-\n" +
 	"\x0emailbox_stream\x18\n" +
 	" \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\rmailboxStream\x12/\n" +
@@ -1664,11 +1664,11 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\x18duplicate_window_seconds\x18\x10 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\x16duplicateWindowSeconds\"\xa6\x02\n" +
 	"\x14ReconciliationRecord\x12@\n" +
-	"\bprevious\x18\x01 \x01(\v2$.flowseer.service.v1.RuntimeManifestR\bprevious\x12F\n" +
-	"\adesired\x18\x02 \x01(\v2$.flowseer.service.v1.RuntimeManifestB\x06\xbaH\x03\xc8\x01\x01R\adesired\x125\n" +
+	"\bprevious\x18\x01 \x01(\v2$.flowseer.runtime.v1.RuntimeManifestR\bprevious\x12F\n" +
+	"\adesired\x18\x02 \x01(\v2$.flowseer.runtime.v1.RuntimeManifestB\x06\xbaH\x03\xc8\x01\x01R\adesired\x125\n" +
 	"\x10desired_checksum\x18\x03 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h R\x0fdesiredChecksum\x12M\n" +
-	"\x05phase\x18\x04 \x01(\x0e2(.flowseer.service.v1.ReconciliationPhaseB\r\xbaH\n" +
+	"\x05phase\x18\x04 \x01(\x0e2(.flowseer.runtime.v1.ReconciliationPhaseB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05phase\"\xb2\x02\n" +
 	"\x0fStoreProvenance\x121\n" +
 	"\x0eformat_version\x18\x01 \x01(\rB\n" +
@@ -1688,7 +1688,7 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\vretry_count\x18\x03 \x01(\rR\n" +
 	"retryCount\x122\n" +
 	"\x0edisposition_id\x18\x04 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\rdispositionId\x12I\n" +
-	"\x05state\x18\x05 \x01(\x0e2$.flowseer.service.v1.SettlementStateB\r\xbaH\n" +
+	"\x05state\x18\x05 \x01(\x0e2$.flowseer.runtime.v1.SettlementStateB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05state*\xf9\x01\n" +
 	"\x13ReconciliationPhase\x12$\n" +
 	" RECONCILIATION_PHASE_UNSPECIFIED\x10\x00\x12!\n" +
@@ -1702,29 +1702,29 @@ const file_flowseer_service_v1_bus_proto_rawDesc = "" +
 	"\x16SETTLEMENT_STATE_RETRY\x10\x01\x12 \n" +
 	"\x1cSETTLEMENT_STATE_ACKNOWLEDGE\x10\x02\x12\x1c\n" +
 	"\x18SETTLEMENT_STATE_DISCARD\x10\x03B\xdb\x01\n" +
-	"\x17com.flowseer.service.v1B\bBusProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1;servicev1\xa2\x02\x03FSX\xaa\x02\x13Flowseer.Service.V1\xca\x02\x13Flowseer\\Service\\V1\xe2\x02\x1fFlowseer\\Service\\V1\\GPBMetadata\xea\x02\x15Flowseer::Service::V1b\beditionsp\xe9\a"
+	"\x17com.flowseer.runtime.v1B\bBusProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1;runtimev1\xa2\x02\x03FRX\xaa\x02\x13Flowseer.Runtime.V1\xca\x02\x13Flowseer\\Runtime\\V1\xe2\x02\x1fFlowseer\\Runtime\\V1\\GPBMetadata\xea\x02\x15Flowseer::Runtime::V1b\beditionsp\xe9\a"
 
-var file_flowseer_service_v1_bus_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_flowseer_service_v1_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_flowseer_service_v1_bus_proto_goTypes = []any{
-	(ReconciliationPhase)(0),     // 0: flowseer.service.v1.ReconciliationPhase
-	(SettlementState)(0),         // 1: flowseer.service.v1.SettlementState
-	(*SubscriptionContract)(nil), // 2: flowseer.service.v1.SubscriptionContract
-	(*ModuleContract)(nil),       // 3: flowseer.service.v1.ModuleContract
-	(*RuntimeManifest)(nil),      // 4: flowseer.service.v1.RuntimeManifest
-	(*ReconciliationRecord)(nil), // 5: flowseer.service.v1.ReconciliationRecord
-	(*StoreProvenance)(nil),      // 6: flowseer.service.v1.StoreProvenance
-	(*Settlement)(nil),           // 7: flowseer.service.v1.Settlement
-	(MessageKind)(0),             // 8: flowseer.service.v1.MessageKind
+var file_flowseer_runtime_v1_bus_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_flowseer_runtime_v1_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_flowseer_runtime_v1_bus_proto_goTypes = []any{
+	(ReconciliationPhase)(0),     // 0: flowseer.runtime.v1.ReconciliationPhase
+	(SettlementState)(0),         // 1: flowseer.runtime.v1.SettlementState
+	(*SubscriptionContract)(nil), // 2: flowseer.runtime.v1.SubscriptionContract
+	(*ModuleContract)(nil),       // 3: flowseer.runtime.v1.ModuleContract
+	(*RuntimeManifest)(nil),      // 4: flowseer.runtime.v1.RuntimeManifest
+	(*ReconciliationRecord)(nil), // 5: flowseer.runtime.v1.ReconciliationRecord
+	(*StoreProvenance)(nil),      // 6: flowseer.runtime.v1.StoreProvenance
+	(*Settlement)(nil),           // 7: flowseer.runtime.v1.Settlement
+	(MessageKind)(0),             // 8: flowseer.runtime.v1.MessageKind
 }
-var file_flowseer_service_v1_bus_proto_depIdxs = []int32{
-	8, // 0: flowseer.service.v1.SubscriptionContract.kind:type_name -> flowseer.service.v1.MessageKind
-	2, // 1: flowseer.service.v1.ModuleContract.subscriptions:type_name -> flowseer.service.v1.SubscriptionContract
-	3, // 2: flowseer.service.v1.RuntimeManifest.modules:type_name -> flowseer.service.v1.ModuleContract
-	4, // 3: flowseer.service.v1.ReconciliationRecord.previous:type_name -> flowseer.service.v1.RuntimeManifest
-	4, // 4: flowseer.service.v1.ReconciliationRecord.desired:type_name -> flowseer.service.v1.RuntimeManifest
-	0, // 5: flowseer.service.v1.ReconciliationRecord.phase:type_name -> flowseer.service.v1.ReconciliationPhase
-	1, // 6: flowseer.service.v1.Settlement.state:type_name -> flowseer.service.v1.SettlementState
+var file_flowseer_runtime_v1_bus_proto_depIdxs = []int32{
+	8, // 0: flowseer.runtime.v1.SubscriptionContract.kind:type_name -> flowseer.runtime.v1.MessageKind
+	2, // 1: flowseer.runtime.v1.ModuleContract.subscriptions:type_name -> flowseer.runtime.v1.SubscriptionContract
+	3, // 2: flowseer.runtime.v1.RuntimeManifest.modules:type_name -> flowseer.runtime.v1.ModuleContract
+	4, // 3: flowseer.runtime.v1.ReconciliationRecord.previous:type_name -> flowseer.runtime.v1.RuntimeManifest
+	4, // 4: flowseer.runtime.v1.ReconciliationRecord.desired:type_name -> flowseer.runtime.v1.RuntimeManifest
+	0, // 5: flowseer.runtime.v1.ReconciliationRecord.phase:type_name -> flowseer.runtime.v1.ReconciliationPhase
+	1, // 6: flowseer.runtime.v1.Settlement.state:type_name -> flowseer.runtime.v1.SettlementState
 	7, // [7:7] is the sub-list for method output_type
 	7, // [7:7] is the sub-list for method input_type
 	7, // [7:7] is the sub-list for extension type_name
@@ -1732,28 +1732,28 @@ var file_flowseer_service_v1_bus_proto_depIdxs = []int32{
 	0, // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_service_v1_bus_proto_init() }
-func file_flowseer_service_v1_bus_proto_init() {
-	if File_flowseer_service_v1_bus_proto != nil {
+func init() { file_flowseer_runtime_v1_bus_proto_init() }
+func file_flowseer_runtime_v1_bus_proto_init() {
+	if File_flowseer_runtime_v1_bus_proto != nil {
 		return
 	}
-	file_flowseer_service_v1_message_proto_init()
+	file_flowseer_runtime_v1_message_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_service_v1_bus_proto_rawDesc), len(file_flowseer_service_v1_bus_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_runtime_v1_bus_proto_rawDesc), len(file_flowseer_runtime_v1_bus_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_service_v1_bus_proto_goTypes,
-		DependencyIndexes: file_flowseer_service_v1_bus_proto_depIdxs,
-		EnumInfos:         file_flowseer_service_v1_bus_proto_enumTypes,
-		MessageInfos:      file_flowseer_service_v1_bus_proto_msgTypes,
+		GoTypes:           file_flowseer_runtime_v1_bus_proto_goTypes,
+		DependencyIndexes: file_flowseer_runtime_v1_bus_proto_depIdxs,
+		EnumInfos:         file_flowseer_runtime_v1_bus_proto_enumTypes,
+		MessageInfos:      file_flowseer_runtime_v1_bus_proto_msgTypes,
 	}.Build()
-	File_flowseer_service_v1_bus_proto = out.File
-	file_flowseer_service_v1_bus_proto_goTypes = nil
-	file_flowseer_service_v1_bus_proto_depIdxs = nil
+	File_flowseer_runtime_v1_bus_proto = out.File
+	file_flowseer_runtime_v1_bus_proto_goTypes = nil
+	file_flowseer_runtime_v1_bus_proto_depIdxs = nil
 }

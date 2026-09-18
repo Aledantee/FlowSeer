@@ -2,13 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/service/v1/message.proto
+// source: flowseer/runtime/v1/message.proto
 
 // The durable envelope used by the service-local bus. Its package name,
 // message name, field numbers, and enum numbers are persisted identities;
 // changing any of them requires a queued-data migration.
 
-package servicev1
+package runtimev1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -66,11 +66,11 @@ func (x MessageKind) String() string {
 }
 
 func (MessageKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_service_v1_message_proto_enumTypes[0].Descriptor()
+	return file_flowseer_runtime_v1_message_proto_enumTypes[0].Descriptor()
 }
 
 func (MessageKind) Type() protoreflect.EnumType {
-	return &file_flowseer_service_v1_message_proto_enumTypes[0]
+	return &file_flowseer_runtime_v1_message_proto_enumTypes[0]
 }
 
 func (x MessageKind) Number() protoreflect.EnumNumber {
@@ -82,7 +82,7 @@ func (x MessageKind) Number() protoreflect.EnumNumber {
 // envelope data without making queued records unreadable by older binaries.
 type Message struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Kind          MessageKind            `protobuf:"varint,1,opt,name=kind,enum=flowseer.service.v1.MessageKind"`
+	xxx_hidden_Kind          MessageKind            `protobuf:"varint,1,opt,name=kind,enum=flowseer.runtime.v1.MessageKind"`
 	xxx_hidden_MessageId     *string                `protobuf:"bytes,2,opt,name=message_id,json=messageId"`
 	xxx_hidden_CorrelationId *string                `protobuf:"bytes,3,opt,name=correlation_id,json=correlationId"`
 	xxx_hidden_CausationId   *string                `protobuf:"bytes,4,opt,name=causation_id,json=causationId"`
@@ -101,7 +101,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_flowseer_service_v1_message_proto_msgTypes[0]
+	mi := &file_flowseer_runtime_v1_message_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -113,7 +113,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_service_v1_message_proto_msgTypes[0]
+	mi := &file_flowseer_runtime_v1_message_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -500,13 +500,13 @@ func (b0 Message_builder) Build() *Message {
 	return m0
 }
 
-var File_flowseer_service_v1_message_proto protoreflect.FileDescriptor
+var File_flowseer_runtime_v1_message_proto protoreflect.FileDescriptor
 
-const file_flowseer_service_v1_message_proto_rawDesc = "" +
+const file_flowseer_runtime_v1_message_proto_rawDesc = "" +
 	"\n" +
-	"!flowseer/service/v1/message.proto\x12\x13flowseer.service.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\x06\n" +
+	"!flowseer/runtime/v1/message.proto\x12\x13flowseer.runtime.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\x06\n" +
 	"\aMessage\x12C\n" +
-	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.service.v1.MessageKindB\r\xbaH\n" +
+	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.runtime.v1.MessageKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12*\n" +
 	"\n" +
 	"message_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tmessageId\x12/\n" +
@@ -529,18 +529,18 @@ const file_flowseer_service_v1_message_proto_rawDesc = "" +
 	"\x14MESSAGE_KIND_COMMAND\x10\x01\x12\x16\n" +
 	"\x12MESSAGE_KIND_EVENT\x10\x02\x12\x16\n" +
 	"\x12MESSAGE_KIND_REPLY\x10\x03B\xdf\x01\n" +
-	"\x17com.flowseer.service.v1B\fMessageProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1;servicev1\xa2\x02\x03FSX\xaa\x02\x13Flowseer.Service.V1\xca\x02\x13Flowseer\\Service\\V1\xe2\x02\x1fFlowseer\\Service\\V1\\GPBMetadata\xea\x02\x15Flowseer::Service::V1b\beditionsp\xe9\a"
+	"\x17com.flowseer.runtime.v1B\fMessageProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1;runtimev1\xa2\x02\x03FRX\xaa\x02\x13Flowseer.Runtime.V1\xca\x02\x13Flowseer\\Runtime\\V1\xe2\x02\x1fFlowseer\\Runtime\\V1\\GPBMetadata\xea\x02\x15Flowseer::Runtime::V1b\beditionsp\xe9\a"
 
-var file_flowseer_service_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_service_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_flowseer_service_v1_message_proto_goTypes = []any{
-	(MessageKind)(0),              // 0: flowseer.service.v1.MessageKind
-	(*Message)(nil),               // 1: flowseer.service.v1.Message
+var file_flowseer_runtime_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_runtime_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_flowseer_runtime_v1_message_proto_goTypes = []any{
+	(MessageKind)(0),              // 0: flowseer.runtime.v1.MessageKind
+	(*Message)(nil),               // 1: flowseer.runtime.v1.Message
 	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
-var file_flowseer_service_v1_message_proto_depIdxs = []int32{
-	0, // 0: flowseer.service.v1.Message.kind:type_name -> flowseer.service.v1.MessageKind
-	2, // 1: flowseer.service.v1.Message.published_at:type_name -> google.protobuf.Timestamp
+var file_flowseer_runtime_v1_message_proto_depIdxs = []int32{
+	0, // 0: flowseer.runtime.v1.Message.kind:type_name -> flowseer.runtime.v1.MessageKind
+	2, // 1: flowseer.runtime.v1.Message.published_at:type_name -> google.protobuf.Timestamp
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -548,27 +548,27 @@ var file_flowseer_service_v1_message_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_service_v1_message_proto_init() }
-func file_flowseer_service_v1_message_proto_init() {
-	if File_flowseer_service_v1_message_proto != nil {
+func init() { file_flowseer_runtime_v1_message_proto_init() }
+func file_flowseer_runtime_v1_message_proto_init() {
+	if File_flowseer_runtime_v1_message_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_service_v1_message_proto_rawDesc), len(file_flowseer_service_v1_message_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_runtime_v1_message_proto_rawDesc), len(file_flowseer_runtime_v1_message_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_service_v1_message_proto_goTypes,
-		DependencyIndexes: file_flowseer_service_v1_message_proto_depIdxs,
-		EnumInfos:         file_flowseer_service_v1_message_proto_enumTypes,
-		MessageInfos:      file_flowseer_service_v1_message_proto_msgTypes,
+		GoTypes:           file_flowseer_runtime_v1_message_proto_goTypes,
+		DependencyIndexes: file_flowseer_runtime_v1_message_proto_depIdxs,
+		EnumInfos:         file_flowseer_runtime_v1_message_proto_enumTypes,
+		MessageInfos:      file_flowseer_runtime_v1_message_proto_msgTypes,
 	}.Build()
-	File_flowseer_service_v1_message_proto = out.File
-	file_flowseer_service_v1_message_proto_goTypes = nil
-	file_flowseer_service_v1_message_proto_depIdxs = nil
+	File_flowseer_runtime_v1_message_proto = out.File
+	file_flowseer_runtime_v1_message_proto_goTypes = nil
+	file_flowseer_runtime_v1_message_proto_depIdxs = nil
 }

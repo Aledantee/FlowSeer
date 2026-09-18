@@ -19,7 +19,7 @@ spec/proto/flowseer/
   edge/          Connect services between central and an enrolled edge, in either direction
   integration/   Reserved for the integration fabric contract; holds only a README
   store/         Private records one process writes or reads at start
-  service/       Process-local bus contracts and durable mailboxes (pending rename to runtime/)
+  runtime/       Process-local bus contracts and durable mailboxes
 ```
 
 ## Import order between roots
@@ -33,7 +33,7 @@ that import `model/`, `errs/`, and `net/` as needed; `edge/audit` also imports
 another when its own contract carries that other's record. A package that
 declares a Connect service is a sink and is imported by nothing. `store/`
 records embed models and primitives but are imported by no other package.
-`service/` sits outside the import order as a process-local runtime contract.
+`runtime/` sits outside the import order as a process-local runtime contract.
 
 The authoritative import order and layering constraints are documented in the
 [network model structure record](../../../docs/architecture/2026-08-20-network-model-structure-direction.md)

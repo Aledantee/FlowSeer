@@ -4,13 +4,16 @@ type: refactor
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Protobuf Tree Phase 3 - The Process-Private Roots and the Final README Pass - Plan
+
+> Partially implemented: U1, U2, U3 landed; U4 pending. 3 units,
+> 2026-09-18T09:47:46+02:00 to 2026-09-18T10:13:46+02:00.
 
 ## Goal
 

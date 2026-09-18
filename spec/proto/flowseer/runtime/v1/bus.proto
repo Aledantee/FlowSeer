@@ -2,9 +2,9 @@ edition = "2024";
 
 // Durable control records for a service-local bus. These messages are private
 // runtime storage contracts rather than public API request or response types.
-package flowseer.service.v1;
+package flowseer.runtime.v1;
 
-import "flowseer/service/v1/message.proto";
+import "flowseer/runtime/v1/message.proto";
 import option "buf/validate/validate.proto";
 
 // One statically declared subscription in a runtime manifest.

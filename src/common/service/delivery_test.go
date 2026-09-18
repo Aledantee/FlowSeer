@@ -26,7 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
+	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -98,7 +98,7 @@ func TestMessageBusPersistsCommandAndAtomicEventSnapshot(t *testing.T) {
 	if got := info.State.Msgs; got != 3 {
 		t.Fatalf("mailbox messages = %d, want 3", got)
 	}
-	seen := make(map[string]servicev1.MessageKind)
+	seen := make(map[string]runtimev1.MessageKind)
 	for sequence := uint64(1); sequence <= info.State.LastSeq; sequence++ {
 		raw, err := resources.mailbox.GetMsg(ctx, sequence)
 		if errors.Is(err, jetstream.ErrMsgNotFound) {
@@ -107,7 +107,7 @@ func TestMessageBusPersistsCommandAndAtomicEventSnapshot(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		envelope := &servicev1.Message{}
+		envelope := &runtimev1.Message{}
 		if err := proto.Unmarshal(raw.Data, envelope); err != nil {
 			t.Fatal(err)
 		}
@@ -643,7 +643,7 @@ func TestDeliveryDiscardsMalformedRecordWithoutHandler(t *testing.T) {
 }
 
 func TestDeliveryDecodesPersistedAliasesForEveryMessageKind(t *testing.T) {
-	kinds := []servicev1.MessageKind{MessageKindCommand, MessageKindEvent, MessageKindReply}
+	kinds := []runtimev1.MessageKind{MessageKindCommand, MessageKindEvent, MessageKindReply}
 	ids := []string{
 		"b80f5119-d54b-48e7-83ea-fc349d90dc24",
 		"21822291-3057-458b-89e2-a8cab468e450",
@@ -661,7 +661,7 @@ func TestDeliveryDecodesPersistedAliasesForEveryMessageKind(t *testing.T) {
 			}
 			resources, closeBus := startMessageTestBus(ctx, t)
 			defer closeBus()
-			envelope := servicev1.Message_builder{
+			envelope := runtimev1.Message_builder{
 				Kind:          kind.Enum(),
 				MessageId:     proto.String(ids[i]),
 				CorrelationId: proto.String(ids[i]),
@@ -765,7 +765,7 @@ func TestDeliveryRetriesPanickingHandlerToDeclaredLimit(t *testing.T) {
 }
 
 func TestInvalidTraceContextDoesNotMakePersistedMessageMalformed(t *testing.T) {
-	message := &servicev1.Message{}
+	message := &runtimev1.Message{}
 	message.SetKind(MessageKindCommand)
 	message.SetMessageId("123e4567-e89b-12d3-a456-426614174000")
 	message.SetCorrelationId("123e4567-e89b-12d3-a456-426614174000")
@@ -788,7 +788,7 @@ func TestInvalidTraceContextDoesNotMakePersistedMessageMalformed(t *testing.T) {
 // schema says the field must be present, and the runtime check is what
 // makes that true for what is already in the mailbox.
 func TestPersistedMessageWithoutPublishTimeIsMalformed(t *testing.T) {
-	message := &servicev1.Message{}
+	message := &runtimev1.Message{}
 	message.SetKind(MessageKindCommand)
 	message.SetMessageId("123e4567-e89b-12d3-a456-426614174000")
 	message.SetSourcePath("edge/source")
@@ -801,9 +801,9 @@ func TestPersistedMessageWithoutPublishTimeIsMalformed(t *testing.T) {
 }
 
 func TestDeliveryResumesTerminalSettlementWithoutCallingHandler(t *testing.T) {
-	for _, state := range []servicev1.SettlementState{
-		servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE,
-		servicev1.SettlementState_SETTLEMENT_STATE_DISCARD,
+	for _, state := range []runtimev1.SettlementState{
+		runtimev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE,
+		runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD,
 	} {
 		t.Run(state.String(), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -895,7 +895,7 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := &servicev1.Message{}
+	command := &runtimev1.Message{}
 	if err := proto.Unmarshal(commandRaw.Data, command); err != nil {
 		t.Fatal(err)
 	}
@@ -911,13 +911,13 @@ func TestReplyPreservesCorrelationAndTargetsRequestSource(t *testing.T) {
 		}}})
 	}()
 	replySubject, _ := mailboxSubject("edge/requester", MessageKindReply, "google.protobuf.Empty")
-	var reply *servicev1.Message
+	var reply *runtimev1.Message
 	eventually(ctx, t, func() bool {
 		raw, err := resources.mailbox.GetLastMsgForSubject(ctx, replySubject)
 		if err != nil {
 			return false
 		}
-		reply = &servicev1.Message{}
+		reply = &runtimev1.Message{}
 		return proto.Unmarshal(raw.Data, reply) == nil
 	})
 	if reply.GetTargetPath() != "edge/requester" || reply.GetCorrelationId() != command.GetCorrelationId() || reply.GetCausationId() != command.GetMessageId() {
@@ -1002,7 +1002,7 @@ func TestTraceContextLinksPublicationToDelivery(t *testing.T) {
 }
 
 func TestTraceContextRelayAcrossDisabledModule(t *testing.T) {
-	for _, kind := range []servicev1.MessageKind{MessageKindCommand, MessageKindReply, MessageKindEvent} {
+	for _, kind := range []runtimev1.MessageKind{MessageKindCommand, MessageKindReply, MessageKindEvent} {
 		t.Run(messageKindToken(kind), func(t *testing.T) {
 			recorder := tracetest.NewSpanRecorder()
 			provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
@@ -1092,8 +1092,8 @@ func TestTraceDisabledRelayPreservesUnsampledContextAndIgnoresInvalidCarrier(t *
 	})
 	carrier := caseInsensitiveHeaderCarrier(nats.Header{})
 	propagation.TraceContext{}.Inject(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), carrier)
-	for _, kind := range []servicev1.MessageKind{MessageKindCommand, MessageKindReply, MessageKindEvent} {
-		envelope := &servicev1.Message{}
+	for _, kind := range []runtimev1.MessageKind{MessageKindCommand, MessageKindReply, MessageKindEvent} {
+		envelope := &runtimev1.Message{}
 		envelope.SetKind(kind)
 		envelope.SetTraceparent(carrier.Get("traceparent"))
 		envelope.SetTracestate(carrier.Get("tracestate"))
@@ -1115,7 +1115,7 @@ func TestTraceDisabledRelayPreservesUnsampledContextAndIgnoresInvalidCarrier(t *
 	}
 
 	attemptCtx, attempt := observability.tracer.Start(context.Background(), "attempt")
-	invalid := &servicev1.Message{}
+	invalid := &runtimev1.Message{}
 	invalid.SetTraceparent("not-a-traceparent")
 	extracted, span := runtime.deliveryTrace(attemptCtx, invalid, 1, disabled)
 	defer attempt.End()
@@ -1140,8 +1140,8 @@ func TestMessageTelemetryOmitsPrivateDispositionAndErrorData(t *testing.T) {
 	view := observability.view(resolvedTelemetryPolicy{logs: true, metrics: true, traces: true})
 	ctx, span := view.tracer.Start(context.Background(), "delivery")
 	privateDispositionID := "private-disposition-2d739e61"
-	settlement := servicev1.Settlement_builder{
-		State:         servicev1.SettlementState_SETTLEMENT_STATE_DISCARD.Enum(),
+	settlement := runtimev1.Settlement_builder{
+		State:         runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD.Enum(),
 		DispositionId: proto.String(privateDispositionID),
 		RetryCount:    proto.Uint32(2),
 	}.Build()
@@ -1180,11 +1180,11 @@ func TestMessageDispositionLogLevelsSeparateSuccessFromDiscard(t *testing.T) {
 		t.Fatalf("newTelemetry() error: %v", err)
 	}
 	view := observability.view(resolvedTelemetryPolicy{logs: true})
-	for _, state := range []servicev1.SettlementState{
-		servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE,
-		servicev1.SettlementState_SETTLEMENT_STATE_DISCARD,
+	for _, state := range []runtimev1.SettlementState{
+		runtimev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE,
+		runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD,
 	} {
-		view.recordDisposition(context.Background(), "edge/worker", "google.protobuf.Empty", MessageKindCommand, servicev1.Settlement_builder{
+		view.recordDisposition(context.Background(), "edge/worker", "google.protobuf.Empty", MessageKindCommand, runtimev1.Settlement_builder{
 			State: state.Enum(),
 		}.Build())
 	}
