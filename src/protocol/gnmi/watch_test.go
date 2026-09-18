@@ -7,6 +7,7 @@ import (
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 
+	ocif "go.aledante.io/FlowSeer/generated/go/yang/cisco-iosxe/openconfiginterfaces"
 	"go.aledante.io/FlowSeer/src/protocol/gnmi"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 	fixturemain "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture/fixturemain"
@@ -309,4 +310,99 @@ func TestWatcherStopsQuietSubscription(t *testing.T) {
 			}
 		})
 	}
+}
+
+// leafListUpdate builds one leaflist_val update under /interfaces/interface.
+func leafListUpdate(name string, leaf []string, segs ...string) *gpb.Update {
+	elems := []*gpb.PathElem{
+		{Name: "interfaces"},
+		{Name: "interface", Key: map[string]string{"name": name}},
+	}
+	for _, s := range segs {
+		elems = append(elems, &gpb.PathElem{Name: s})
+	}
+	arr := &gpb.ScalarArray{}
+	for _, v := range leaf {
+		arr.Element = append(arr.Element, &gpb.TypedValue{Value: &gpb.TypedValue_StringVal{StringVal: v}})
+	}
+	return &gpb.Update{
+		Path: &gpb.Path{Elem: elems},
+		Val:  &gpb.TypedValue{Value: &gpb.TypedValue_LeaflistVal{LeaflistVal: arr}},
+	}
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestWatchDecodesLeafListIntoRow(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		subscribe: func(srv gpb.GNMI_SubscribeServer) error {
+			if _, err := srv.Recv(); err != nil {
+				return err
+			}
+			_ = srv.Send(notif(leafListUpdate("Port-channel1", []string{"GigabitEthernet1", "GigabitEthernet2"}, "aggregation", "state", "member")))
+			_ = srv.Send(syncResp())
+			<-srv.Context().Done()
+			return nil
+		},
+	}
+	s := dialFake(t, f)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	w, err := gnmi.Watch(ctx, s, ocif.Interfaces_InterfaceDescriptor(), gnmi.WatchOptions{})
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	defer func() { _ = w.Close() }()
+
+	for ev := range w.Iter() {
+		if ev.Kind != yang.Added {
+			continue
+		}
+		got := ev.Row.Aggregation.State.Member
+		if len(got) != 2 || got[0] != "GigabitEthernet1" || got[1] != "GigabitEthernet2" {
+			t.Fatalf("Member = %+v, want the two leaf-list elements in wire order", got)
+		}
+		return
+	}
+	t.Fatalf("watcher produced no Added row: %v", w.Err())
+}
+
+// Covers conformance matrix row: gn-leaf-list-typed-value
+func TestWatchDecodesEmptyLeafListIntoRow(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_PROTO},
+		subscribe: func(srv gpb.GNMI_SubscribeServer) error {
+			if _, err := srv.Recv(); err != nil {
+				return err
+			}
+			_ = srv.Send(notif(leafListUpdate("Port-channel1", nil, "aggregation", "state", "member")))
+			_ = srv.Send(syncResp())
+			<-srv.Context().Done()
+			return nil
+		},
+	}
+	s := dialFake(t, f)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	w, err := gnmi.Watch(ctx, s, ocif.Interfaces_InterfaceDescriptor(), gnmi.WatchOptions{})
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	defer func() { _ = w.Close() }()
+
+	for ev := range w.Iter() {
+		if ev.Kind != yang.Added {
+			continue
+		}
+		// An empty leaf-list must render as [] and decode to an empty
+		// slice; rendering it as null instead fails the row decode
+		// outright.
+		if got := ev.Row.Aggregation.State.Member; len(got) != 0 {
+			t.Fatalf("Member = %+v, want empty", got)
+		}
+		return
+	}
+	t.Fatalf("watcher produced no Added row: %v", w.Err())
 }

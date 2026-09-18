@@ -251,6 +251,23 @@ func updateJSONValue(u Update) (any, error) {
 			return nil, errs.From(err).Code(ErrCodeEncoding).Msg("rendered value is invalid JSON")
 		}
 		return v, nil
+	case u.Values != nil:
+		// A leaf-list renders as a JSON array, which is what the
+		// struct codec expects for a LeafList field; an empty
+		// leaf-list renders as [] rather than null.
+		vals := make([]any, 0, len(u.Values))
+		for i, elem := range u.Values {
+			raw, err := elem.MarshalJSON7951()
+			if err != nil {
+				return nil, errs.From(err).Code(ErrCodeEncoding).Msgf("leaf-list element %d does not render as JSON", i)
+			}
+			var v any
+			if err := json.Unmarshal(raw, &v); err != nil {
+				return nil, errs.From(err).Code(ErrCodeEncoding).Msgf("rendered leaf-list element %d is invalid JSON", i)
+			}
+			vals = append(vals, v)
+		}
+		return vals, nil
 	default:
 		return nil, nil
 	}

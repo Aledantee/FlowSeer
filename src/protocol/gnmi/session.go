@@ -50,8 +50,10 @@ type Capabilities struct {
 	Version string
 }
 
-// Model identifies one supported YANG model; Version feeds the
-// revision-drift detection against the vendored module revisions.
+// Model identifies one supported YANG model. Version is what the peer
+// advertises, which for an OpenConfig model is its openconfig-version
+// semantic version rather than an RFC 7950 revision date, so it is not
+// comparable with a vendored revision by equality.
 // Values may be read concurrently while unmodified.
 type Model struct {
 	Name         string
@@ -59,9 +61,11 @@ type Model struct {
 	Version      string
 }
 
-// ModelRevisions maps model names to advertised versions — the
-// advertised side of the revision-drift check; compare against
-// yang.ParseLockfileRevisions with yang.DiffRevisions.
+// ModelRevisions maps model names to the versions the peer advertises
+// — the advertised side of the revision-drift check; compare against
+// yang.ParseLockfileRevisions with yang.DiffRevisions, which separates
+// the OpenConfig semantic versions here from the revision dates the
+// lockfile holds instead of reporting them all as drift.
 func (c Capabilities) ModelRevisions() map[string]string {
 	out := make(map[string]string, len(c.Models))
 	for _, m := range c.Models {
@@ -245,6 +249,13 @@ type Update struct {
 	JSON []byte
 	// Value carries scalar TypedValues (PROTO encoding).
 	Value *yang.Value
+	// Values carries a leaf-list's elements in wire order (PROTO
+	// encoding). It is non-nil exactly when the update held a
+	// leaflist_val, empty slice included, and Value is then nil.
+	// Leaf-list multiplicity stops here rather than widening
+	// [yang.Value], which the NETCONF and RESTCONF codecs share and
+	// which express repetition structurally instead.
+	Values []yang.Value
 }
 
 // Get issues one Get for the given paths and flattens the reply's
@@ -297,6 +308,11 @@ type PathValue struct {
 	Path  yang.Path
 	JSON  []byte
 	Value *yang.Value
+	// Values writes a leaf-list, in wire order. It mirrors
+	// [Update.Values] so a value read from a device round-trips back
+	// to it; a non-nil empty slice writes an empty leaf-list. At most
+	// one of JSON, Value, and Values carries the payload.
+	Values []yang.Value
 }
 
 // Set issues one Set transaction. A rejection surfaces as
@@ -367,9 +383,16 @@ func (s *Session) setError(ctx context.Context, err error, resp *gpb.SetResponse
 // proto renders one PathValue as a gNMI Update.
 func (pv PathValue) proto() (*gpb.Update, error) {
 	u := &gpb.Update{Path: ToProtoPath(pv.Path)}
+	set := 0
+	for _, carried := range []bool{pv.JSON != nil, pv.Value != nil, pv.Values != nil} {
+		if carried {
+			set++
+		}
+	}
+	if set > 1 {
+		return nil, errs.New().Code(ErrCodeEncoding).Msgf("path %s carries more than one payload", pv.Path)
+	}
 	switch {
-	case pv.JSON != nil && pv.Value != nil:
-		return nil, errs.New().Code(ErrCodeEncoding).Msgf("path %s carries both JSON and a typed value", pv.Path)
 	case pv.JSON != nil:
 		u.Val = &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: pv.JSON}}
 	case pv.Value != nil:
@@ -378,6 +401,16 @@ func (pv PathValue) proto() (*gpb.Update, error) {
 			return nil, err
 		}
 		u.Val = tv
+	case pv.Values != nil:
+		arr := &gpb.ScalarArray{Element: make([]*gpb.TypedValue, 0, len(pv.Values))}
+		for i, elem := range pv.Values {
+			tv, err := toTypedValue(elem)
+			if err != nil {
+				return nil, errs.From(err).Code(ErrCodeEncoding).Msgf("leaf-list element %d of %s", i, pv.Path)
+			}
+			arr.Element = append(arr.Element, tv)
+		}
+		u.Val = &gpb.TypedValue{Value: &gpb.TypedValue_LeaflistVal{LeaflistVal: arr}}
 	default:
 		return nil, errs.New().Code(ErrCodeEncoding).Msgf("path %s carries no value", pv.Path)
 	}
@@ -393,6 +426,17 @@ func decodeUpdate(prefix yang.Path, u *gpb.Update, ts time.Time) (Update, error)
 		out.JSON = v.JsonIetfVal
 	case *gpb.TypedValue_JsonVal:
 		out.JSON = v.JsonVal
+	case *gpb.TypedValue_LeaflistVal:
+		elems := v.LeaflistVal.GetElement()
+		vals := make([]yang.Value, 0, len(elems))
+		for i, el := range elems {
+			val, err := fromTypedValue(el)
+			if err != nil {
+				return Update{}, errs.Wrapf(err, "update %s element %d", full, i)
+			}
+			vals = append(vals, val)
+		}
+		out.Values = vals
 	case nil:
 		return out, nil
 	default:

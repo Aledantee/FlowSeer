@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -86,6 +87,7 @@ func TestT4CapabilitiesAndIdentity(t *testing.T) {
 // the test because the device may still carry the test banner.
 //
 // Covers conformance matrix row: gn-t4-set-verdict
+// Covers conformance matrix row: gn-banner-newline-normalization
 func TestT4ArubaSetCapability(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -119,15 +121,48 @@ func TestT4ArubaSetCapability(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read back: %v", err)
 			}
+			// Some devices normalize a banner by appending a trailing
+			// newline (EOS does; see conformance row
+			// gn-banner-newline-normalization), so a single trailing
+			// newline is the value round-tripping rather than a
+			// different value coming back.
+			const want = "flowseer-t4"
+			matches := func(got string) bool {
+				return got == want || got == want+"\n"
+			}
 			verified := false
 			for _, u := range updates {
-				if u.Path.String() == banner.String() && (string(u.JSON) == `"flowseer-t4"` ||
-					u.Value != nil && u.Value.Type.Kind == yang.TypeString && u.Value.String == "flowseer-t4") {
+				if u.Path.String() != banner.String() {
+					continue
+				}
+				switch {
+				case u.Value != nil && u.Value.Type.Kind == yang.TypeString && matches(u.Value.String):
 					verified = true
+					if u.Value.String != want {
+						t.Logf("device normalized the banner: set %q, read back %q", want, u.Value.String)
+					}
+				case len(u.JSON) > 0:
+					var got string
+					if err := json.Unmarshal(u.JSON, &got); err == nil && matches(got) {
+						verified = true
+						if got != want {
+							t.Logf("device normalized the banner: set %q, read back %q", want, got)
+						}
+					}
 				}
 			}
 			if !verified {
-				t.Errorf("Set reported success but read-back does not show the change: %+v", updates)
+				for _, u := range updates {
+					switch {
+					case u.Value != nil:
+						t.Logf("read-back %s: kind %v, value %q", u.Path, u.Value.Type.Kind, u.Value.String)
+					case u.JSON != nil:
+						t.Logf("read-back %s: JSON %q", u.Path, u.JSON)
+					default:
+						t.Logf("read-back %s: no payload", u.Path)
+					}
+				}
+				t.Errorf("Set reported success but read-back does not show the change")
 			} else {
 				t.Log("gNMI Set round-trips on this device")
 			}
@@ -140,6 +175,7 @@ func TestT4ArubaSetCapability(t *testing.T) {
 // keeps flowing.
 //
 // Covers conformance matrix row: gn-t4-stream
+// Covers conformance matrix row: gn-leaf-list-typed-value
 func TestT4SubscribeStream(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
@@ -157,26 +193,53 @@ func TestT4SubscribeStream(t *testing.T) {
 			}
 			defer func() { _ = stream.Close() }()
 
-			sawSync, updates := false, 0
+			// Counting updates only proves the stream did not error.
+			// The leaf-list count is the assertion that matters: a
+			// decoder that drops leaflist_val still delivers every
+			// scalar update, so breaking at the first payload would
+			// pass against exactly the defect this guards.
+			// The whole pre-sync snapshot is drained, because that is
+			// where a device sends its leaf-list leaves.
+			sawSync, postSync, withPayload, leafLists := false, 0, 0, 0
 			for ev := range stream.Iter() {
 				if ev.Sync {
 					sawSync = true
 					continue
 				}
 				if sawSync {
-					updates += len(ev.Updates)
-					if updates > 0 {
-						break
+					postSync += len(ev.Updates)
+				}
+				for _, u := range ev.Updates {
+					switch {
+					case u.Values != nil:
+						leafLists++
+						withPayload++
+					case len(u.JSON) > 0 || u.Value != nil:
+						withPayload++
 					}
+				}
+				if sawSync && postSync > 0 {
+					break
 				}
 			}
 			if !sawSync {
 				t.Errorf("no sync_response observed (stream err: %v)", stream.Err())
 			}
-			if updates == 0 {
+			if postSync == 0 {
 				t.Errorf("no updates after sync_response (stream err: %v)", stream.Err())
 			}
-			t.Logf("observed sync=%v with %d updates after sync", sawSync, updates)
+			if withPayload == 0 {
+				t.Errorf("no update carried a payload (stream err: %v)", stream.Err())
+			}
+			// An /interfaces subtree on the lab's gNMI targets serves at
+			// least one leaf-list leaf (Arista: ethernet/state/supported-speeds).
+			// A target where that stops being true wants this assertion
+			// revisited, not deleted.
+			if leafLists == 0 {
+				t.Errorf("no leaf-list update decoded; a dropped leaflist_val would look exactly like this (stream err: %v)", stream.Err())
+			}
+			t.Logf("observed sync=%v, %d update(s) after sync, %d carrying a payload, %d a leaf-list",
+				sawSync, postSync, withPayload, leafLists)
 		})
 	}
 }
@@ -197,11 +260,17 @@ func TestT4RevisionDrift(t *testing.T) {
 	for _, target := range t4Targets {
 		t.Run(target.Addr, func(t *testing.T) {
 			s := dialT4(t, target)
-			drift := yang.DiffRevisions(vendored, s.Capabilities().ModelRevisions())
+			drift, incomparable := yang.DiffRevisions(vendored, s.Capabilities().ModelRevisions())
 			for _, d := range drift {
 				t.Logf("revision drift: %s vendored %s, device %s", d.Module, d.Vendored, d.Advertised)
 			}
-			t.Logf("%d model(s) drifted (warn-and-proceed)", len(drift))
+			// OpenConfig models report their openconfig-version semver
+			// over gNMI while the lockfile holds revision dates, so
+			// these are unknown rather than drifted.
+			for _, d := range incomparable {
+				t.Logf("revision incomparable: %s vendored %s, device reports %s", d.Module, d.Vendored, d.Advertised)
+			}
+			t.Logf("%d model(s) drifted, %d incomparable (warn-and-proceed)", len(drift), len(incomparable))
 		})
 	}
 }

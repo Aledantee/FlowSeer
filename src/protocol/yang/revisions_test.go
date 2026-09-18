@@ -29,7 +29,10 @@ func TestParseLockfileRevisionsAndDiff(t *testing.T) {
 		"ietf-interfaces":     "2014-05-08", // matches
 		"Cisco-IOS-XE-bgp":    "2024-07-01", // not vendored: not drift
 	}
-	drift := yang.DiffRevisions(vendored, advertised)
+	drift, incomparable := yang.DiffRevisions(vendored, advertised)
+	if len(incomparable) != 0 {
+		t.Errorf("incomparable = %+v, want none: every revision here is a date", incomparable)
+	}
 	if len(drift) != 1 {
 		t.Fatalf("drift = %+v, want exactly the native module", drift)
 	}
@@ -41,5 +44,33 @@ func TestParseLockfileRevisionsAndDiff(t *testing.T) {
 func TestParseLockfileRevisionsUnknownVendor(t *testing.T) {
 	if _, err := yang.ParseLockfileRevisions([]byte(lockfileFixture), "nokia-sros"); err == nil {
 		t.Fatal("unknown vendor parsed without error")
+	}
+}
+
+// TestDiffRevisionsSeparatesIncomparableVocabularies pins the gNMI
+// case: OpenConfig modules carry both an RFC 7950 revision date and an
+// openconfig-version semantic version, and gNMI Capabilities reports
+// the latter. Comparing a semver against a vendored date is not
+// evidence of drift, so it must not be reported as drift.
+func TestDiffRevisionsSeparatesIncomparableVocabularies(t *testing.T) {
+	vendored := map[string]string{
+		"openconfig-bgp":      "2023-12-28",
+		"openconfig-aaa":      "2022-07-29",
+		"Cisco-IOS-XE-native": "2023-11-01",
+	}
+	advertised := map[string]string{
+		"openconfig-bgp":      "9.8.0",      // semver against a date: incomparable
+		"openconfig-aaa":      "2022-07-29", // same date: neither drift nor incomparable
+		"Cisco-IOS-XE-native": "2020-07-02", // date against a date: real drift
+	}
+	drift, incomparable := yang.DiffRevisions(vendored, advertised)
+	if len(drift) != 1 || drift[0].Module != "Cisco-IOS-XE-native" {
+		t.Errorf("drift = %+v, want only the native module", drift)
+	}
+	if len(incomparable) != 1 || incomparable[0].Module != "openconfig-bgp" {
+		t.Errorf("incomparable = %+v, want only openconfig-bgp", incomparable)
+	}
+	if len(incomparable) == 1 && incomparable[0].Advertised != "9.8.0" {
+		t.Errorf("incomparable[0] = %+v, want the advertised semver preserved", incomparable[0])
 	}
 }

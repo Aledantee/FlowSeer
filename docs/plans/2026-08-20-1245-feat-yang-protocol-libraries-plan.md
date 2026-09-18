@@ -5,26 +5,34 @@ date: 2026-08-20
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: partially-implemented
+review: accept after fixes
+compound: docs/solutions/conventions/same-typed-metadata-maps-can-carry-different-vocabularies.md
 execution: code
 ---
 
 # YANG Protocol Libraries - Plan
 
-> Code complete; live validation is no longer obtainable. The libraries below
+> Code complete; two of three families are now validated. The libraries below
 > landed and later moved from `src/common/{yang,netconf,restconf,gnmi}` to the
-> corresponding `src/protocol/` packages. What stays open is R12 and R14 — write
-> validation per family on lab hardware, which KD8 and KD9 make a v1 acceptance
-> criterion rather than a nicety. The lab is closed as of 2026-09-10 (see
-> [the runbook](../runbooks/lab-icx7150-first-write.md)), so those rows cannot be
-> filled by anyone working from this tree, and this plan stays
-> `partially-implemented` for a reason that will not resolve on its own.
+> corresponding `src/protocol/` packages. RESTCONF closed on 2026-08-21 against
+> a Ruckus ICX7150, and NETCONF on 2026-09-18 against a Cisco CSR1000v running
+> IOS-XE 17.3.2 after the lab gained virtual nodes; both passes are recorded
+> below. The earlier reading that live validation could never be obtained (the
+> lab closure of 2026-09-10, see
+> [the runbook](../runbooks/lab-icx7150-first-write.md)) held only until the
+> lab was rebuilt.
 >
-> This is a decision to record, not an omission to carry: v1 as scoped here
-> cannot close without devices. Whoever picks it up chooses between acquiring
-> hardware for the three families, or amending KD8 and KD9 to accept
-> containers and fixtures and saying plainly what that costs — the write path,
-> including transaction error and rollback behavior, would then ship unproven
-> against any real device.
+> What stays open is the gNMI leg, and it is a scope question rather than a
+> missing device. KD2 names Aruba CX, and no Aruba device serves gNMI: the
+> 10.07 switch simulator has no `gnmi` command and neither 830 nor 9339
+> listens on it. All four gNMI legs do pass against an Arista vEOS-lab 4.33
+> node, which is a real vendor NOS but not a family KD2 names, so the
+> `gn-t4-*` rows stay `pending`. Closing them means amending KD2 and KD9 to
+> say which devices count as validation — a product call, not an
+> implementation one. The IOS-XE candidate/commit path is also unproven:
+> enabling `netconf-yang feature candidate-datastore` on 17.3.2 kills the
+> server's `<hello>`, and the lab's Junos node is where that path would be
+> proven instead.
 
 ## Goal Capsule
 
@@ -167,6 +175,8 @@ flowchart TB
 - KTD7. **Drift-check redesigned for scale: a lockfile of per-module content hashes.** mibgen's `-check` regenerates everything into a tmpdir and byte-diffs; at 1,071 modules that is too slow for a routine gate. `yanggen` records a lockfile mapping each module to (closure hash, revision) plus one generator version for the run. The closure hash covers the module's source and every module in its dependency closure, where the graph includes import edges and reverse augment/deviation edges (a module that augments A changes A's output without appearing in A's imports) — KTD3's topo-sort already builds this graph. `-check` compares the generator version first (mismatch flags all modules for full regeneration), then re-hashes closures and byte-diff-confirms only flagged modules. Full regeneration remains available. The same recorded revisions feed R8's runtime capability-mismatch detection. Cites R8, R9.
 - KTD8. **Per-library plain options structs for auth and TLS, not functional options.** Follows `docs/code-style.md` (functional options are the snmp-scale exception). Each library defines its credential surface: NETCONF (SSH password/key), RESTCONF (basic auth, TLS config), gNMI (mTLS, token metadata). Insecure/skip-verify TLS for lab devices is an explicit named opt-in, never a default. Cites R1, R2, R3.
 - KTD9. **RESTCONF writes capture the ETag before editing and send If-Match where the server supports it; every write is verified by read-back diff.** Missing ETag support degrades to unconditional write plus read-back. Conflict responses surface as a typed retryable errs code. Cites R2, R12.
+- KTD11. **Leaf-list multiplicity lives on the gNMI `Update`, not in `yang.Value`.** Ruled 2026-09-18, after an Arista vEOS subscription died on a `leaflist_val` the decoder had no case for. `Update` gains `Values []yang.Value`, non-nil exactly when the wire carried a leaf-list; `yang.Value` stays a scalar. Why: `yang.Value` is shared with the NETCONF and RESTCONF codecs, which already express repetition structurally — repeated XML elements and JSON arrays — so widening it would push a gNMI wire-shape problem into two codecs that do not have it. Cost if wrong: the `Values` field and its decode case, plus any caller reading leaf-lists; the alternative reaches into all three codecs, so reversing later is more work than choosing it now was. Cites R3.
+- KTD12. **Revision drift compares like vocabularies only.** Ruled 2026-09-18. `DiffRevisions` returns drift and incomparable pairs separately: a NETCONF hello carries RFC 7950 revision dates, while gNMI Capabilities reports an OpenConfig module's `openconfig-version` semver, and a semver never equals a vendored date. Folding the two together reported every OpenConfig model as drifting on every device and buried the real drift. Cost if wrong: a two-value signature with three callers. The fuller fix — recording `openconfig-version` in the lockfile so semver compares against semver — needs a yanggen change and a lockfile regeneration, and is not done here. Cites R8.
 - KTD10. **v1 integration testing is two tiers: t1 containerized reference servers and t4 opt-in live lab devices.** t1: netopeer2/sysrepo container for NETCONF and RESTCONF-over-IETF-models smoke; a gNMI reference target for Subscribe/Get. t4: env-var-gated live devices, mirroring `SNMP_T4_TARGETS` (unset = skip 0, malformed = fail 1). t2 (containerlab NOS) and t3 (replay captures) are deferred follow-ups. Build-tag-per-tier, tests dial only through public constructors. Cites R12, R13.
 
 ### High-Level Technical Design
@@ -498,14 +508,14 @@ Merge gate remains the repo standard: build + vet + lint + `go test -race ./...`
 - New library `doc.go` files state the public contract (lifecycle, concurrency safety, error codes); no README drift introduced.
 - Dead-end and experimental code from abandoned approaches removed from the diff; `generated/` contains only generator output.
 
-### DoD status (2026-08-20)
+### DoD status (2026-08-20, clause list superseded where the passes below say so)
 
-Every clause above is **met except the lab-hardware leg of AE1–AE4
-and the R14 verdict**, which are hardware-gated and cannot run in the
-implementation environment (no IOS-XE / ICX / Aruba CX device is
-reachable or recorded in the repo; only the SNMP tier's MikroTik
-targets exist, and their community string cannot authenticate
-NETCONF/RESTCONF/gNMI). Confirmed met without hardware:
+Every clause above is **met except AE3 and the R14 verdict**. AE1, AE2
+and AE4 were hardware-gated when this section was written and have
+since been proven on real devices: RESTCONF on 2026-08-21 and NETCONF
+on 2026-09-18, both recorded below. AE3 and R14 need an Aruba CX
+device serving gNMI, which the lab does not have. Confirmed met
+without hardware at the time of writing:
 
 - All ten units' code complete and committed in dependency order;
   U10's t4 suites and the R8 revision-drift runtime are implemented
@@ -519,16 +529,15 @@ NETCONF/RESTCONF/gNMI). Confirmed met without hardware:
 - t1 container tier green against real netopeer2, clixon, and the
   FlowSeer gNMI reference target.
 
-**Remaining, blocked on lab access (KD9):** the lab-outcome corpus
-rows are deliberately `pending` (`nc-t4-*`, `rc-t4-*`, `gn-t4-*`,
-`rc-depth-fields-unverified`, `gn-aruba-set-capability`), so the
-build-tagged completeness gates stay red by design until a lab pass
-runs. To close: supply targets via `YANG_NETCONF_T4_TARGETS` /
-`YANG_RESTCONF_T4_TARGETS` / `YANG_GNMI_T4_TARGETS`, run
-`go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/test/integration/`,
-then flip those rows to `covered` with the observed detail (or record
-the R14 Aruba conversion here) and regenerate the CONFORMANCE.md
-goldens.
+**Remaining, blocked on lab access (KD9):** only the gNMI rows
+(`gn-t4-*`, `gn-aruba-set-capability`) are still `pending`, so the
+gNMI completeness gate stays red by design. RESTCONF closed on
+2026-08-21 and NETCONF on 2026-09-18; both sections below record what
+the devices gave. To close the rest: supply targets via
+`YANG_GNMI_T4_TARGETS`, run
+`go test -tags yang_integration_t4 ./src/protocol/gnmi/test/integration/`,
+then flip those rows to `covered` with the observed detail, or record
+the R14 Aruba conversion here.
 
 ### RESTCONF lab pass (2026-08-21) — AE1 + R12 + depth/fields verified on real ICX
 
@@ -566,9 +575,53 @@ host-meta discovery → basic auth over TLS → GET → RFC 7951 decode):
 Corpus rows `rc-t4-identity`, `rc-t4-reversible-edit`,
 `rc-t4-depth-fields`, and `rc-depth-fields-unverified` are flipped to
 **covered** with the observed detail and real-device provenance;
-CONFORMANCE.md goldens regenerated. NETCONF (`nc-t4-*`) and gNMI
-(`gn-t4-*`, `gn-aruba-set-capability`) lab legs remain hardware-gated
-per the DoD status above.
+CONFORMANCE.md goldens regenerated. The gNMI legs (`gn-t4-*`,
+`gn-aruba-set-capability`) remain open; the NETCONF legs closed on
+2026-09-18, recorded in the section below.
+
+---
+
+### NETCONF lab pass (2026-09-18) — all six `nc-t4-*` rows on real IOS-XE
+
+A Cisco CSR1000v running **IOS-XE 17.3.2** joined the lab at
+172.16.0.42 with `netconf-yang` already enabled. All six NETCONF t4
+legs run green against it through the public library, and the
+`netconf_conformance_complete` gate is green for the first time (12
+covered, 0 pending).
+
+- **AE1 (identity, IOS-XE leg):** all four fields decode typed —
+  hostname `LABRT42`, version `17.3`, serial `9SWNSMT6GZ1`, model
+  `CSR1000V`. No surface gap, unlike the FastIron leg.
+- **AE2 (rejected edit):** a username with privilege 99 against the
+  uint8 0..15 range is refused with `application invalid-value`, which
+  the library surfaces as its RPC error code, and a read-back diff of
+  the native subtree proves running unchanged.
+- **R12 (reversible edit):** a username created and then deleted with
+  `nc:operation=delete`, each half proven by read-back.
+- **Walker / Watcher:** five interfaces decode; bringing
+  GigabitEthernet3 out of shutdown once inside a three-minute window
+  emits exactly one `Modified` for that row.
+- **R8 (revision drift):** 493 device modules compared against the
+  committed lockfile. Drift is the rule rather than the exception —
+  the device serves `Cisco-IOS-XE-native` 2020-07-02 against the
+  vendored 26.11 tree's 2026-02-01, and the widest gap is
+  `CISCO-RF-MIB` at vendored 2023-07-13 against device 2005-09-01.
+  Identity and interface reads survive that gap intact.
+
+**Two device facts worth keeping.** First, this build advertises
+`writable-running` and **no** `candidate` capability, so the edits
+above target running directly and the rollback proof is the read-back
+diff, not a candidate discard — R1's capability-driven datastore
+choice is what makes the suite work unmodified. Second, enabling
+`netconf-yang feature candidate-datastore` to exercise the candidate
+path left the server accepting SSH on 830 while never sending a
+`<hello>`, through a sixty-second wait and with every
+`yang-management` process reporting Running; removing the feature
+restored the hello immediately. The candidate/commit and
+confirmed-commit paths therefore stay unproven on hardware. The lab's
+Junos 24.4R1 node at 172.16.0.43 does advertise `candidate:1.0`,
+`confirmed-commit:1.0` and `validate:1.0`, and is the obvious place to
+prove them — at the cost of a family KD2 does not name.
 
 ---
 
@@ -632,15 +685,14 @@ surfaces: `netconf.Session.ModuleRevisions`,
 `gnmi.Capabilities.ModelRevisions`, `yang.ParseLockfileRevisions` /
 `yang.DiffRevisions`).
 
-**Blocked:** executing these suites needs reachable lab devices for
-the three families (KD9). The corpus rows for the lab outcomes
-(`nc-t4-*`, `rc-t4-*`, `gn-t4-*`, `rc-depth-fields-unverified`,
-`gn-aruba-set-capability`) are deliberately `pending`, so the
-build-tagged completeness gates fail until the lab pass flips them —
-by design, that is the remaining Definition-of-Done gap. Once
-credentials/addresses are provided via the env contract, run:
+**Blocked, as of this section's date:** executing these suites needed
+reachable lab devices for the three families (KD9), and none were.
 
-	go test -tags yang_integration_t4 ./src/common/{netconf,restconf,gnmi}/test/integration/
+Superseded by the RESTCONF pass of 2026-08-21 and the NETCONF pass of
+2026-09-18, both recorded above: `rc-t4-*`, `rc-depth-fields-unverified`
+and `nc-t4-*` are `covered` and their completeness gates are green.
+Only `gn-t4-*` and `gn-aruba-set-capability` remain `pending`, for the
+scope reason the DoD status gives rather than for want of a device.
+The libraries have since moved to `src/protocol/`, so the command is:
 
-then flip the rows (Covered, with the observed adversarial detail) or
-record the R14 conversion here.
+	go test -tags yang_integration_t4 ./src/protocol/{netconf,restconf,gnmi}/test/integration/
