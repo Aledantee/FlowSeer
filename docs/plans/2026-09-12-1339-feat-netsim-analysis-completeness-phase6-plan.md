@@ -272,7 +272,9 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architect
 
 Files: `src/common/netsim/fabric/fingerprint.go`,
 `src/common/netsim/fabric/fingerprint_test.go`,
-`src/common/netsim/fabric/run.go`
+`src/common/netsim/fabric/run.go`,
+`src/common/netsim/vswitch/switch.go`,
+`src/common/netsim/vswitch/switch_test.go`
 After: none
 Change: `func (s Snapshot) Fingerprint() string` returns a canonical string over
 the protocol-relevant state of a snapshot.
@@ -287,7 +289,13 @@ fabric that is visibly reconverging — and the corpus already runs two such
 fabrics (`planning/mstp-vlan-instances-diverge`, `planning/pvst-per-vlan-root`).
 `Device` therefore gains `TreeRoles map[vlan.ID]map[string]stp.PortInfo`,
 filled from `stp.Layer.VLANPortInfo` (`layer.go:776`) for each VLAN the switch
-configures, and the fingerprint reads that rather than `Roles`.
+configures, and the fingerprint reads that rather than `Roles`. The per-VLAN
+information reaches the fabric through a new `Switch` accessor that mirrors
+`Roles()` (`src/common/netsim/vswitch/switch.go:3233`, CIST-only via
+`stp.Layer.PortInfo`): a method returning `map[vlan.ID]map[string]stp.PortInfo`
+over the configured VLANs from `stp.Layer.VLANPortInfo`, so the snapshot reaches
+per-VLAN roles the same way it reaches CIST roles. Its test lives in
+`switch_test.go` beside `Roles`'s.
 
 The fingerprint includes, per device in name order: port operational states,
 per-VLAN tree port information, forwarding database entries, multicast groups,
