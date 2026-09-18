@@ -458,7 +458,10 @@ spec/          # protobuf, MIB, and YANG sources of truth
   more than one source, and a cancelled context supplies it as readily as
   the fix. When the test depends on the system being in a state, assert the
   state before the outcome. Three tests in one plan read as proof and
-  asserted nothing, each found only by reverting the fix.
+  asserted nothing, each found only by reverting the fix; a second plan
+  produced five more, none of them a negative-only assertion, so the check
+  is the reversal itself: a new test is evidence once its failure against
+  the defect has been quoted.
 - A self-authored fake peer produces only the sequence the client was coded
   to expect. Seed it with leftover state ahead of the call under test: a
   banner, a retained buffer, an out-of-order message.

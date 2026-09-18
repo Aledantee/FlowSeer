@@ -57,7 +57,9 @@ the semantic-convention version `docs/conventions/observability.md` names),
 so the reviewer checks rather than recalls. Ask for findings that affect
 correctness, the stated requirements, or a repository rule, ordered by
 severity, each with path and line, the failure scenario, and the smallest safe
-fix. When the plan's `status` is still `planned` because work is mid-flight,
+fix, or, when the fix rests on a claim about the code the reviewer did not
+open, a direction and the claim left unchecked. When the plan's `status`
+is still `planned` because work is mid-flight,
 say so in the brief.
 
 One reviewer covers about 1,500 changed lines or one subsystem, its docs
@@ -107,7 +109,13 @@ code does, then compare: a comment stating intent primes a reader to see that
 intent in code doing the opposite. Ask:
 
 - Does every behavior change have a test that would fail without it, and
-  would that test still fail if the check moved to the wrong place?
+  would that test still fail if the check moved to the wrong place? The
+  commit bodies in scope carry a mutation and a quoted `--- FAIL` line per
+  new test (`implement`, step 2.3). For a new test without one, run the
+  mutation: copy the source file first (`cp <path> "$TMPDIR/<name>.orig"`),
+  mutate it in place, run the focused test, quote the result, and restore
+  from the copy, never with `git checkout` or `git restore`. A test that
+  passes against the defect is a correctness finding.
 - Does any comment narrate process, cite history, or carry a plan label?
 - For each line the verifier printed under `Test changes to account for:`
   (a deleted or skipped test, a removed test function, a rewritten
@@ -158,10 +166,18 @@ Four findings need more than a re-read:
   suite can fail on) instead of reviewing the next rewrite. Step 6 says
   whose job it is to notice this across rounds.
 
+The smallest fix is verified like the finding when it rests on a claim
+about the code ("nothing else produces this", "no caller does that", "this
+path is unreachable"): open the code the claim is about. A fix that could
+not be verified is reported as a direction, not a patch, and says which
+claim is unchecked; a verified finding otherwise lends its authority to a
+remedy the coordinator applies first and checks second.
+
 ## 5. Report
 
 Verdict first (accept, accept after fixes, rework), then findings, most severe
-first: title, `path:line`, what goes wrong and when, the smallest fix. Then the
+first: title, `path:line`, what goes wrong and when, and the smallest fix or
+the direction with its unchecked claim (step 4). Then the
 residual testing gap. In Orca, append the verdict to the worktree comment,
 keeping what `implement` wrote:
 
@@ -189,28 +205,52 @@ work records nothing, for the reason above. The Orca comment is written as
 well; a verdict that lives only in the conversation cannot be read by a
 later session.
 
-Report only. When the user asks to apply the fixes, make them, run the
-verifier on the changed paths, report what changed, and set the verdict to
-`review: accept after fixes`.
+The review itself changes nothing. End the report by asking the user what
+happens next (`AGENTS.md`, Agent behavior), with the options the verdict
+leaves:
+
+| Verdict | Options, recommended first |
+| --- | --- |
+| accept | run `compound` now; stop here |
+| accept after fixes or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
+| accept after fixes or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
+| rework too large to fix in place | take what the review established to `plan`; stop |
+
+On "apply the fixes", make them, run the verifier on the changed paths,
+report what changed, and set the verdict to `review: accept after fixes`.
+A subject review reads its rows by findings, with sound with fixes and
+unsound in place of the branch verdicts, and offers the fixes or `plan`,
+never `compound` or `close`. A sound subject with nothing to fix ends
+without a question.
 
 ## 6. Fix and re-review, when asked
 
-When the user asks to fix the findings and review again until the work is
-clean, the coordinating session runs the rounds; no skill runs them on its
+When the user chooses to fix the findings and review again until the work
+is clean, the coordinating session runs the rounds; no skill runs them on its
 own, and `implement` covers a plan's units, not a review's findings. One
 round is:
 
 1. Dispatch the fixes as `delegate` describes, one worker per file group,
    each briefed with its findings' `path:line`, failure scenario, and
-   smallest fix. The coordinating session does not make the fixes itself.
+   smallest fix, and with the class step 4 named: the mechanism behind
+   the finding, and the instruction to find and fix every other site that
+   engages it and report the sites it cleared. The coordinating session
+   does not make the fixes itself.
 2. Merge each worker's branch, then run the verifier once on the union of
    the changed paths, before anything is reviewed again.
 3. Repeat steps 3 and 4 of this skill over the branch diff, briefing the reviewer with
    the previous round's findings and the paths that changed, so it judges
-   each fix against its finding instead of rediscovering it.
+   each fix against its finding instead of rediscovering it. When the
+   previous round's remedy was an executable property (step 4), that
+   artifact is the brief's primary subject, with three questions: is its
+   enumeration complete against the source it claims to read, does each
+   case fail for the rule it names, and is each exemption an argument no
+   input can violate? A wrong invariant is worse than none, because the
+   next reader trusts it and stops looking.
 
 The loop stops at a round with no correctness findings; what remains is
-listed in the final report and the verdict is `accept after fixes`. The
+listed in the final report, the verdict is `accept after fixes`, and the
+report ends with the `accept` row's question. The
 coordinator holds the rounds' history, so it is the one that sees a round
 find a defect in the previous round's fix for the same mechanism; then
 step 4's rule applies before the next round, and after three rounds on the

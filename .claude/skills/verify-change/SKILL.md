@@ -6,22 +6,15 @@ argument-hint: "[--full | --base REF | -- paths]"
 
 # Verify FlowSeer Change
 
-Run the verifier from the worktree root. It selects checks from the changed
-paths and, within a Go module, vets, race-tests, and lints only the packages
-that can observe the change: those holding a changed file and every package
-that imports one of them. The whole module still compiles. Those packages
-are also vetted once per build tag their files carry, so a tagged
-integration or bench test that stopped compiling fails the gate; and a
-nested module that replaces the root module (`src/protocol/*/bench`,
-`src/edge/netpen`) is built and vetted after a root change, its race tests
-left to `--full`.
+## Run it
+
+Run the verifier from the worktree root, with the Bash sandbox disabled: the
+Go gates bind loopback listeners and the telemetry tier starts Docker, and
+the sandbox denies both.
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh
 ```
-
-Run it with the Bash sandbox disabled: the Go gates bind loopback listeners
-and the telemetry tier starts Docker, and the sandbox denies both.
 
 | Scope | Command |
 | --- | --- |
@@ -29,94 +22,112 @@ and the telemetry tier starts Docker, and the sandbox denies both.
 | named paths only, ignoring other worktree changes | `verify-change.sh -- <paths>` |
 | all Go modules, protobuf sources, and Claude configuration | `verify-change.sh --full` |
 
-Finish a cross-module or schema change with `--full`; a targeted run is
-enough for documentation, hook, or single-module work. Pass explicit paths
-when the worktree contains changes outside the current task.
+- Run it on the final tree, after the last edit. An earlier run is evidence
+  about a tree that no longer exists, and `close` compares the receipt's
+  `verified_at` with the last commit.
+- Finish a cross-module or schema change with `--full`. A targeted run is
+  enough for documentation, hook, or single-module work.
+- Pass explicit paths when the worktree holds changes outside the task. A
+  directory expands to the files it holds, so `-- src/edge/agent` and the
+  files under it select the same gates.
+- In the background, make the script the last command of its invocation: a
+  trailing `tail` or `echo` reports its own exit code as the gate's.
+- Send output you may need to a file under `$TMPDIR` and grep it
+  afterwards. A pipe through a filter drops lines before you know what the
+  run contained, and a log written into the worktree as `.md`, `.json`, or
+  `.yaml` is a new file of a verified type, which the marker hook records
+  like any other edit.
 
-The gate is this closed list, and a coordinator restating it from memory
-is how lint went missing once: format, build, vet, race test, and lint on
-every package that can observe the change, plus `src/common/errs` and
-`test/conformance/proto` on every targeted run of the root module, because
-their tests hold repository-wide invariants (error-code uniqueness, schema
-layering) that no changed package's own tests can see. It runs on the final
-tree, after the last edit; a run before it is evidence about a tree that no
-longer exists, and `close` compares the receipt's `verified_at` with the
-last commit.
+## Read the verdict
 
-The last line is the verdict: `FlowSeer verification passed.` or
-`FlowSeer verification FAILED (exit N) in gate: <command>`. A failure
-outside any gate (a bad argument, a missing formatter, no gate selected)
-prints `FlowSeer verification FAILED (exit N).` with no gate name, and the
-reason is the line above it. Quote the last line rather than summarize it.
-When the script runs in the background, it is the last command of its
-invocation: a trailing `tail` or `echo` reports its own exit code as the
-gate's, and a session has announced a green verifier that way over a log
-holding two `FAIL` lines. Any output you may need later goes to a file and
-is grepped afterwards, never piped through a filter, since the filter is
-applied before you know what the run contained.
+The last line is the verdict. Quote it; do not summarize it.
 
-A directory is expanded to the files it holds, so `-- src/edge/agent` and the
-files under it select the same gates. A path list that selects no gate at all
-— a typo, a deleted file on its own, a file of a type nothing checks — exits
-non-zero saying so rather than reporting a pass, because a run that checked
-nothing and a run that checked everything and found it clean must not print
-the same line. The same rule covers every path to "passed": a cached test
-answer, a wrapper's exit code, a step that had nothing to check. Whatever
-produces a pass without a gate having run is the bug.
+| Last line | Meaning |
+| --- | --- |
+| `FlowSeer verification passed.` | every selected gate ran and passed |
+| `FlowSeer verification FAILED (exit N) in gate: <command>` | that gate failed |
+| `FlowSeer verification FAILED (exit N).` | no gate ran: a bad argument, a missing tool, or a path list that selects no gate; the reason is the line above |
 
-`--full` bounds `go test -p` to half the CPUs: a module-wide race run at
-one package binary per CPU times out packages that start listeners or walk
-a corpus, and they pass alone. A timeout under the wide run is still not a
-finding until it reproduces package-alone, and an isolated pass does not
-clear the change either. Attribution is one step: the same failure on a
-detached checkout of the base with the change absent. `go list -deps` on
-the failing package says where to look first, but it answers a
-compile-time question only; a change reaches a test without appearing in
-its imports through a shared port, a testdata directory, or an environment
-variable.
+A pass always means a gate ran. A path list that selects nothing (a typo, a
+deleted file on its own, a file type nothing checks) exits non-zero, because
+a run that checked nothing and a run that found everything clean must not
+print the same line. The same holds for a cached test answer, a wrapper's
+exit code, and a step with nothing to check: whatever produces a pass
+without a gate having run is a bug in the verifier, and is reported as one.
 
-`buf breaking` compares only the changed `.proto` files main already
-holds, and prints that it skipped when every changed schema file is new on
-the branch: `--path` naming a file absent from the baseline targets nothing,
-which buf reports as a failure carrying no signal about the change. The
-whole-module form under `--full` still covers a deletion.
+Fix a failed gate, or report the exact blocked command and its reason. A
+non-race test does not stand in for a failed race test, and lint is never
+skipped.
 
-Full runs and telemetry-sensitive paths (service Go sources, its Collector
-integration sources and fixture, the wrapper, root `go.mod` or `go.sum`) run
-the Docker-backed OpenTelemetry tier through
-`tools/test/service-otel-integration.sh`. An unavailable daemon is a failed
-gate. `--print-selection -- <paths>` reports whether that tier would run
-without running any gate.
+## What the gate covers
 
-Every command-line tool the selected gates invoke is checked before the
-first gate runs, and a missing one stops the run with the whole list and
-no gate name: `required tools are not on PATH: gofumpt goimports`. That is
-a setup failure, not a finding. Go tools are looked up in
-`$(go env GOPATH)/bin` whether or not the session's PATH carries it. The
-Docker daemon the telemetry tier needs is not a PATH tool and stays a
-failed gate when unavailable. Do not replace a failed race
-test with a non-race test or skip lint; fix the failure or report the exact
-blocked command and reason.
+The gate is this closed list; read it here rather than restating it from
+memory. Format, build, vet, race test, and lint run on every package that
+can observe the change: those holding a changed file and every package
+importing one. The whole module still compiles. In addition:
 
-The lint gate is exclusive machine-wide: `golangci-lint` takes one file
-lock per machine, and the gate passes `--allow-serial-runners` so a run
-waits for a concurrent instance instead of dying. A `golangci-lint` run by
-hand alongside a verification, without that flag, fails with
-`parallel golangci-lint is running`; that is contention, not a finding,
-and the hand run is repeated once the verifier has finished.
+- `src/common/errs` and `test/conformance/proto` run on every targeted run
+  of the root module. They hold repository-wide invariants (error-code
+  uniqueness, schema layering) that no changed package's tests can see.
+- Packages are vetted once per build tag their files carry, so a tagged
+  integration or bench test that stopped compiling fails the gate.
+- A nested module that replaces the root module (`src/protocol/*/bench`,
+  `src/edge/netpen`) is built and vetted after a root change; its race
+  tests run under `--full`.
+- `buf breaking` compares only the changed `.proto` files `main` already
+  holds, and prints that it skipped when every changed schema file is new
+  on the branch: `--path` naming a file the baseline lacks targets nothing,
+  which buf reports as a failure that says nothing about the change. The
+  whole-module form under `--full` still covers a deletion.
+- Full runs and telemetry-sensitive paths (service Go sources, its Collector
+  integration sources and fixture, the wrapper, root `go.mod` or `go.sum`)
+  run the Docker-backed OpenTelemetry tier through
+  `tools/test/service-otel-integration.sh`. An unavailable daemon is a
+  failed gate. `--print-selection -- <paths>` reports whether that tier
+  would run, without running any gate.
 
-A successful run records its scope in the worktree's git metadata and
-clears the dirty-marker lines it verified; `close` reads that receipt. A
-targeted run clears only the paths it named, and the
-`<Bash mutation; verify with --full>` line clears only under `--full`, so
-a passing run prints the lines that remain under
-`Unverified edits remain after this run:`, and the receipt records
-`full=false`. A `--full` run removes the marker outright, so a marker
-found beside a `full=true` receipt was written after the run by a Bash
-command the edit hook could not attribute to a path. Send a run's log to a
-`.log` file, not to `.md`, `.json`, or `.yaml`: the hook marks a redirect
-into those, so a `--full` run logged to `verify.md` re-creates the line it
-just cleared.
+## Failures that are not findings
+
+- Every command-line tool the selected gates invoke is
+  checked before the first gate, and a missing one stops the run with the
+  whole list and no gate name: `required tools are not on PATH: gofumpt
+  goimports`. Go tools are looked up in `$(go env GOPATH)/bin` whether or
+  not the session's PATH carries it. This is setup, not a finding. The
+  Docker daemon is not a PATH tool and stays a failed gate when unavailable.
+- `golangci-lint` takes one file lock per machine. The
+  gate passes `--allow-serial-runners` and waits for a concurrent instance;
+  a hand run beside it, without that flag, fails with
+  `parallel golangci-lint is running`. Repeat the hand run once the
+  verifier has finished.
+- `--full` bounds `go test -p` to half the
+  CPUs, because packages that start listeners or walk a corpus time out
+  under one test binary per CPU and pass alone. A timeout is a finding only
+  once it reproduces with the package run alone, and a pass alone does not
+  clear the change either. Attribute it in one step: the same failure on a
+  detached checkout of the base, with the change absent. `go list -deps` on
+  the failing package says where to look first, but it answers a
+  compile-time question only: a change also reaches a test through a
+  shared port, a `testdata/` directory, or an environment variable.
+
+## Receipt and dirty marker
+
+The marker hook records every edit by path: an editor edit from the tool
+call, a Bash write from the tree, by comparing the content hashes of the
+dirty paths (`tools/hooks/tree-state.sh`) with the listing stored after the
+previous Bash call. A command's text decides nothing. A passing run records
+its scope in the worktree's git metadata, clears the marker lines it
+verified, and rewrites that listing; `close` reads the receipt.
+
+- A targeted run clears only the paths it named and records `full=false`.
+  It prints the lines that remain under
+  `Unverified edits remain after this run:`.
+- A Bash change under `generated/`, or to a `go.mod`, `go.sum`, or
+  `buf.lock`, also writes the `<Bash mutation; verify with --full>` line,
+  because a generator and the module graph reach packages no path names.
+  That line clears only under `--full`; the path beside it says what
+  caused it.
+- A `--full` run removes the marker outright, so a marker found beside a
+  `full=true` receipt names paths edited after the run.
 
 ## Plan status ledger
 

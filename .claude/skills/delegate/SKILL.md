@@ -29,20 +29,25 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 | Adversarial read of a plan | `critique` | the pool's CLI |
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
 
-Resolve a role to a lane in this order: drop models whose pool
-`host.local.yaml` shows `signed_in` false or null, or over 85% on any
-window; drop `zen` unless every fitting prepaid pool is hot; drop models
-the role `exclude`s; for `review-unit`, drop the executor's vendor; then take
-the model whose pool has the most headroom, and within ten points the one
-with the lower registry price. A signed-in pool that reports no window
-(`windows: null`) counts as full headroom, so it is taken before a Claude
-window with a number on it. Assignment is per lane, not per wave: a pool
-that already holds a running lane in this wave drops to the back until that
-lane settles, so a six-unit `execute` wave with four pools signed in runs on
-four pools, not six times on Sonnet or six times on Gemini. Four pools are
-prepaid (`claude`, `codex`, `google`, `go`); an unspent window is waste.
-`zen` is per-token, and a wave that reaches it says so. The report names
-every fitting pool the wave left idle and why.
+Resolve a role to a lane in this order, once per lane:
+
+1. Drop models whose pool `host.local.yaml` shows `signed_in` false or
+   null, or over 85% on any window.
+2. Drop `zen` unless every fitting prepaid pool is hot. `zen` is per-token;
+   a wave that reaches it says so.
+3. Drop models the role `exclude`s. For `review-unit`, also drop the
+   executor's vendor.
+4. Move a pool that already holds a running lane of this wave to the back
+   until that lane settles.
+5. Take the model whose pool has the most headroom, and within ten points
+   the one with the lower registry price. A signed-in pool that reports no
+   window (`windows: null`) counts as full headroom, so it is taken before
+   a Claude window with a number on it.
+
+Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
+runs on four pools, not six times on one model. The four prepaid pools
+(`claude`, `codex`, `google`, `go`) are paid for whether used or not, so
+the report names every fitting pool the wave left idle and why.
 
 Pinning by pool: `claude` and `codex` take `--model` and `--effort`;
 `google` takes `--model gemini-3.8-flash-<effort>` on the `agy` launch;
@@ -170,7 +175,9 @@ goes. Never remove a child with a dirty tree; say what is there.
 
 A delegate has none of this conversation. The brief states, in order:
 
-1. The goal in one sentence and the definition of done.
+1. The goal in one sentence and the definition of done. A requirement
+   carried from the plan is quoted, and the brief says it is not the
+   worker's to restate, narrow, or move to another fixture.
 2. The files or diff to work from, as repository-relative paths; a reviewer
    gets the path of a diff file in the scratchpad directory.
 3. The conventions that apply, as paths, and the matched `docs/solutions/`
@@ -186,9 +193,15 @@ A delegate has none of this conversation. The brief states, in order:
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files, no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-   `generated/`, or `buf.lock`, no plan labels in code.
+   `generated/`, or `buf.lock`, no plan labels in code. Work is set aside
+   with a temporary commit or a copy under `$TMPDIR`, never `git stash`:
+   the stash stack is shared by every worktree and concurrent session, and
+   a worker's checkout does not inherit the session note that says so.
 7. For a worker on any runtime: do not ask questions, and when something
-   blocks, state the blocker and stop. A worker that waits on the
+   blocks, state the blocker and stop. A requirement the worker believes
+   the code cannot satisfy is a blocker, even when a nearby weaker one is
+   within reach: a rewritten requirement passes the verifier and reads as
+   success from here. A worker that waits on the
    coordinator looks, from here, exactly like one that is working. Editing
    subagents stay out of its checkout: a worker that spawns the Agent tool
    without worktree isolation gets its subagents' files in its own tree

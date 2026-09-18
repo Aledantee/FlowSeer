@@ -25,7 +25,8 @@ accepted record, say so first and make amending the record a unit of the
 plan, so code and record change together.
 
 Ask only questions whose answer changes the design, at most three, in one
-message with a recommended answer each. When the user cannot answer, take the
+call of the question tool (`AGENTS.md`, Agent behavior) with a recommended
+answer each. When the user cannot answer, take the
 recommendation, mark the decision "unconfirmed", and repeat it under Open
 questions. Every decision carries its reason.
 
@@ -36,7 +37,9 @@ parent on `main` shows this phase's own `Landed:` still empty. A worktree
 forked before the previous phase merged fails the first test, and a
 re-plan from it re-derives that phase as new units; a phase already
 landed on `main` fails the second, and a re-plan from it lands the phase
-twice. Either way, stop and say which, rather than plan.
+twice. Either way, do not plan: say which test failed and ask the user
+whether to re-fork from a tree that holds the previous phase (recommended)
+or stop here.
 
 ### Promote a decision to a direction record
 
@@ -172,32 +175,51 @@ Rules:
 
 ## 4. Review the plan
 
-Read the plan as the implementer: can each unit start without a question? Fix
-the plan where not. Then read each unit's Tests line against the risks the
-plan itself names for that unit, in its Decisions, Open questions, and
-Change: a risk the plan calls unverifiable, or one a symmetric test cannot
-see, gets a test that pins it, a fixture with known bytes, or a sentence in
-the unit saying that nothing in it covers that risk. A round trip passes
-whatever octet an encoder chooses, so a Tests line asking for one where the
-plan calls the wire layout unverifiable prescribes the one test that cannot
-catch the risk it names. Where a unit supplies a value to an existing matching
-primitive (a prompt regex, a header parser, a routing predicate), trace that
-primitive's matching rule (anchor scope, tie-break) against the value and
-against every sibling it must not also match; the value's apparent intent is
-not what the primitive sees. For more than three units or a schema change,
-dispatch one `independent-reviewer` as `delegate` describes, with the plan
-path and the question "what would block or mislead an implementer, and what
-does the plan contradict in `docs/architecture/` or the conventions?". Apply
-the findings that hold.
+Three reads, in this order; fix the plan after each.
+
+1. As the implementer: can each unit start without a question?
+2. Each unit's Tests line against the risks the plan itself names for that
+   unit, in its Decisions, Open questions, and Change. A risk the plan
+   calls unverifiable, or one a symmetric test cannot see, gets a test
+   that pins it, a fixture with known bytes, or a sentence in the unit
+   saying that nothing in it covers that risk. A round trip passes
+   whatever octet an encoder chooses, so where the plan calls the wire
+   layout unverifiable, a round-trip test is the one test that cannot
+   catch the risk.
+3. Each value a unit supplies to an existing matching primitive (a prompt
+   regex, a header parser, a routing predicate): trace the primitive's
+   matching rule (anchor scope, tie-break) against the value and against
+   every sibling it must not also match. The primitive sees the value, not
+   its intent.
+
+For more than three units or a schema change, then dispatch one
+`independent-reviewer` as `delegate` describes, with the plan path and the
+question "what would block or mislead an implementer, and what does the
+plan contradict in `docs/architecture/` or the conventions?". Apply the
+findings that hold.
 
 ## 5. Hand off
 
 Run the verifier on the plan and any direction record it added. In Orca, set
 the worktree comment to the plan path and its readiness. Report the path, the
 readiness, any proposed direction record awaiting acceptance, the open
-questions, the waves, and the decision you are least sure of. Do not start
-implementing unless asked, and say that a plan of more than one wave is
-implemented in a fresh session from the plan file: this session's context
-holds the research and the rejected alternatives, and after a compaction
-the summary of that is what the implementer would work from. A
-correction to this procedure is logged as `compound`, Observe describes.
+questions, the waves, and the decision you are least sure of.
+
+End by asking the user what happens next (`AGENTS.md`, Agent behavior),
+with the options that fit:
+
+- A plan of one wave: implement it now in this session (recommended when
+  no question is open); revise the plan; stop here.
+- A plan of more than one wave: stop here and implement from the plan file
+  in a fresh session (recommended); implement now anyway; revise the plan.
+  This session's context holds the research and the rejected alternatives,
+  and after a compaction the summary of that is what the implementer would
+  work from.
+- `artifact_readiness: needs-decisions`: ask the unresolved design
+  questions instead; the plan is not offered for implementation until
+  they are answered. Open questions alone do not block the offer: name
+  them in the option's reason, since `implement` rules on them or asks.
+- A proposed direction record: accept it, amend it, or leave it proposed.
+
+Implement only on that answer. A correction to this procedure is logged as
+`compound`, Observe describes.

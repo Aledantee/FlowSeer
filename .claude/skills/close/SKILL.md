@@ -1,15 +1,15 @@
 ---
 name: close
-description: Land finished FlowSeer work by merging main into the current worktree's branch, verifying the result there, and leaving main one fast-forward away, with the worktree and its Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Refuses when any of the three has not left its checkpoint or the review verdict is not accept; removes merged child worktrees but never its own worktree or the Orca session.
+description: Land finished FlowSeer work by merging main into the current worktree's branch, verifying the result there, and leaving main one fast-forward away, with the worktree and its Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Does not merge while any of the three has not left its checkpoint or the review verdict is not accept, and offers to run the missing one; removes merged child worktrees but never its own worktree or the Orca session.
 argument-hint: "[plan path]"
 ---
 
 # Close finished FlowSeer work
 
 A merge into main lands for every other worktree, so this skill checks the
-evidence the other skills left before it merges, and stops with the missing
-step named when it is not there. It does not run `implement`, `review`, or
-`compound` itself. It never removes its own worktree: `orca worktree rm` kills
+evidence the other skills left before it merges. When a checkpoint is
+missing it asks whether to run that skill now, and merges only once the
+checkpoint is on disk. It never removes its own worktree: `orca worktree rm` kills
 the terminal that issues it and discards the terminal history, so a person
 runs it after reading the report. Child worktrees the task created are
 different: step 2 removes the merged ones, as `delegate` describes.
@@ -31,7 +31,10 @@ the plan under `docs/plans/` that records this work, found among the files
 say a typo fix or a `superseded_by` field, is not this work's plan; say so
 and treat the work as planless. When the changed set holds a phase plan
 and the parent its `parent:` field names, the phase plan is this work's
-plan; the parent is reported, not gated on.
+plan; the parent is reported, not gated on. A branch that implemented
+several plans, as a `drive` of a parent's phases leaves it, is gated on
+every one of them: each plan's three fields are read, and one missing
+field pauses the merge.
 
 `implement`, `review`, and `compound` each leave their outcome on disk: as
 the `status`, `review`, and `compound` fields of the plan's frontmatter when
@@ -70,33 +73,58 @@ where a later session or a re-run of this skill cannot read it.
 A failed signal whose remedy is another skill's work (a plan not
 implemented, a `partially implemented:` entry, a ledger unit that is not
 `passed` even when the plan says `implemented`, no review verdict, no
-compound outcome) stops the skill here: report which one, the ledger
-against the plan's `status` when they disagree, and name the skill to run
-next. An absent ledger is not a signal; planless work has none. Do not
-merge a partial implementation because the landed units pass.
+compound outcome) pauses the merge. Say which signal failed, and the ledger
+against the plan's `status` when they disagree, then ask the user, as
+`AGENTS.md`, Agent behavior, describes, whether to run the missing skill
+now:
 
-A failed signal with a mechanical remedy is not a stop: name the remedy,
-ask the user whether to apply it, and re-read the signal after doing so. A
-receipt older than the last commit wants a verifier run. The dirty marker
-names its own remedy, read together with the receipt's `full=` line. A
-receipt with `full=false` clears only the paths it named: paths in the
-marker want a targeted run naming them, the `<Bash mutation; verify with
---full>` line wants `--full`, and a marker carrying that receipt's mtime
-was rewritten by the run with the lines it could not clear, listed in its
-output under `Unverified edits remain after this run:`. A `--full` run
-removes the marker outright, so a marker beside a `full=true` receipt was
-written after the run by a Bash command the edit hook could not attribute
-(a redirect into a `.md`, `.json`, or `.yaml` file, a `sed -i`); when
-`git status --porcelain` is empty and no commit followed the receipt, that
-command changed nothing the run did not cover, and the remedy is to delete
-the marker rather than re-run `--full`, which the same redirect would
-mark again.
-Planless work done in the main conversation, or by `steer`, leaves no
-`implemented:` line; when `main..HEAD` is non-empty and the receipt signal
-holds, that is a mechanical remedy too: ask the user whether the work is
-complete, and on yes write the line to the checkpoints file, and in Orca to
-the card, before merging. Batch every remedy from steps 1 and 2 into one
-question.
+| Missing | Options, recommended first |
+| --- | --- |
+| implementation, or a unit `pending` or `in_progress` | run `implement` on the remaining units; stop |
+| a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
+| review verdict | run `review` on the branch now; stop |
+| review verdict is `rework` | fix the findings and review again (`review`, step 6); stop |
+| compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
+
+On yes, the skill runs in a session of its own, never in this one: this
+session's context stays on the merge, and a review is independent only
+when its reader did not watch the work being closed. Dispatch one worker as
+`delegate` describes for editing work (a Herdr worker, else an Orca child
+worktree, else a `general-purpose` subagent with `isolation: worktree`),
+role `execute` for `implement` and `compound`, `review-seam` for `review`.
+The brief names the skill to run, this branch as the scope, the plan path
+or the request in a few words, and asks for the checkpoint:
+
+- With a plan, the worker commits the plan's `status`, `review`, or
+  `compound` field on its branch, and the merge of that branch brings the
+  checkpoint here.
+- Without a plan, the checkpoints file lives in the worker's own git
+  directory, so the worker reports the line (`review: accept`) and this
+  session writes it with
+  `.claude/skills/verify-change/scripts/ledger.py checkpoint <key> "<value>"`
+  after checking the worker's tree as `delegate` describes.
+- A question the skill would put to the user comes back as the worker's
+  blocker, and this session asks it.
+
+Merge the worker's branch, remove the child, and start this step again
+from the top: the checkpoint on disk gates the merge, not the answer, and
+the merged commit makes the receipt stale, which the table below remedies.
+Several missing signals are asked in one question and worked one worker
+after another, in order: `implement`, `review`, `compound`. An absent ledger is
+not a signal; planless work has none. A partial implementation is never
+merged because its landed units pass.
+
+A failed signal with a mechanical remedy is not a stop. Name the remedy,
+batch every remedy from steps 1 and 2 into one question to the user, apply
+what they approve, and re-read the signal afterwards.
+
+| Failed signal | Remedy |
+| --- | --- |
+| receipt older than the last commit | a verifier run |
+| marker names paths, receipt `full=false` | a targeted run naming those paths; a marker carrying the receipt's mtime holds the lines that run could not clear, listed in its output under `Unverified edits remain after this run:` |
+| marker holds `<Bash mutation; verify with --full>`, receipt `full=false` | a `--full` run |
+| marker beside a `full=true` receipt | a targeted run naming the marker's paths: they were edited after the full run |
+| no `implemented:` line for planless work done in the main conversation or by `steer`, `main..HEAD` non-empty, receipt signal holds | ask whether the work is complete; on yes, write the line to the checkpoints file, and in Orca to the card, before merging |
 
 ## 2. Check both trees
 
@@ -110,9 +138,9 @@ git log --oneline HEAD..main    # commits the branch has not seen
 
 Uncommitted changes that belong to the task are committed first, with the
 plan's outcome in the same commit. For uncommitted changes that do not
-belong to the task, say what they are and propose the remedy: commit them
-under their own message when they are finished work, or leave them and
-stop when another session is mid-edit. Ask before either.
+belong to the task, say what they are and ask the user which remedy
+applies: commit them under their own message when they are finished work,
+or leave them and stop when another session is mid-edit.
 
 The primary checkout must have `main` checked out, which its git directory
 says without a command against it:
@@ -213,8 +241,8 @@ this skill reads the card's entries.
 ## 5. Report
 
 Outcome first: `main` fast-forwarded to `<sha>`, or `<sha>` verified on top
-of `main` and one command away from it, or stopped at the named signal with
-the skill to run next. Then the commits landed, the commands run with their
+of `main` and one command away from it, or paused at the named signal with
+step 1's question about it. Then the commits landed, the commands run with their
 results, whether the verifier ran on the merged tree, and the commands left
 for the user in the order to run them: the fast-forward, the ledger and
 checkpoints removal, any child worktree removal the harness refused, and

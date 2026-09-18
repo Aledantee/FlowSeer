@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-16
+last_updated: 2026-09-18
 ---
 
 # Agent steering
@@ -100,8 +100,9 @@ delegation does not transfer responsibility for the final result.
 
 ## Project skills
 
-FlowSeer ships six workflow skills under `.claude/skills/`: `plan`,
-`implement`, `review`, `compound`, `close`, and `steer`, next to the
+FlowSeer ships eight workflow skills under `.claude/skills/`: `next`,
+`plan`, `implement`, `review`, `compound`, `close`, `drive`, and `steer`,
+next to the
 `verify-change` gate and the `delegate` routing skill that the others load
 before dispatching an agent. The decisions below were taken against published
 measurements, the research listed at the end of this document, and this
@@ -127,9 +128,14 @@ receipt, with the commit range standing in for the plan. Every checkpoint
 is on disk because an answer given in the conversation is unreadable to
 a later session or a re-run, so `close` stops on a verdict it cannot read
 from a file rather than asking for one.
-A missing checkpoint stops the merge and names the skill to run next;
-`close` does not run that skill itself, for the same reason `implement`
-does not trigger a review. The skill leaves the worktree ready for
+A missing checkpoint pauses the merge, and `close` asks whether to run
+the missing skill now; on yes it dispatches the skill to a worker in a
+child worktree, or to a subagent with worktree isolation where no runtime
+is reachable, merges that branch, and re-reads the checkpoint from disk.
+The gate is still the file and not the answer, the closing session's
+context stays on the merge, and the review is read by a session that did
+not watch the work. The skill
+leaves the worktree ready for
 `orca worktree rm` and stops there: that command kills the terminal that
 issues it and discards the workspace's terminal history, so it stays a
 person's action taken after reading the report. Child worktrees a session
@@ -171,10 +177,11 @@ always-on index did. The planning skill this repository used before was
 skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
-After the 2026-09-15 pass the workflow skills sit between 125 and 215
-lines, `implement` the longest because its Finish step now names the
+After the 2026-09-18 pass the workflow skills sit between 130 and 260
+lines, `review` and `implement` the longest because each ends with the
+option table its outcomes leave and `implement`'s Finish step names the
 scripts that read deviations and test changes off the tree, and `delegate`
-at about 240: its runtime lanes and quota rules are each
+at about 245: its runtime lanes and quota rules are each
 conditional on the host rather than on the task, and a coordinator that
 loads the skill needs all of them in the same turn; the Orca procedures
 moved to `references/orca.md` on 2026-09-10.
@@ -193,7 +200,8 @@ Skip ceremony when the work is small. Anthropic's best-practices guide says
 to plan when the approach is uncertain or the change spans files and to skip
 it when the diff fits in a sentence; a step that runs itself after every
 other step produces artifacts nobody asked for. `plan` opens with a skip
-rule, `implement` does not trigger a review, and `compound` opens with a
+rule, `implement` offers a review and runs none on its own, and
+`compound` opens with a
 gate that refuses one-off or derivable lessons, so that `docs/solutions/`
 stays a set of lessons rather than a log of every session.
 
@@ -243,7 +251,7 @@ whose `tail` replaced the script's exit code. Each was fixed in the script
 rather than in prose, since a rule that was read and broken wants
 enforcement: a directory expands to its files, a no-gate run exits non-zero
 before touching the receipt, the corpus tier carries `-count=1`,
-`buf breaking` targets only files master holds, and the last line of every
+`buf breaking` targets only files `main` holds, and the last line of every
 run names the verdict. A sixth entry, on 2026-09-11, had a `--full` run
 block forever on a Docker daemon that had stopped answering, and the
 verdict line, once the probe was killed by hand, did not say which gate
@@ -263,7 +271,18 @@ decide whether the tree verifies and a late tool failure reads as a gate
 result; and a passing run prints the dirty-marker lines it could not
 clear, because a targeted run rewrites the marker in the same second as
 the receipt and a silent survivor reads as an artifact, so `close` takes
-the marker's content as its remedy.
+the marker's content as its remedy. The marker hook itself was the last
+of these. It guessed from a Bash command's text whether the command wrote
+a file, and measured against one session's commands the pattern missed a
+Python rewrite of two documents and any `cp` or `tee`, while it flagged
+`git log | grep patch` and a redirect to a scratch `.json`; each false
+flag asked for a module-wide race run. The hook now reads what changed off
+the tree, by content hash of the dirty paths against the listing stored
+after the previous Bash call, and marks those paths like editor edits;
+only a change under `generated/` or to the module graph keeps the
+`--full` line. It needs no snapshot before the command, which two
+parallel Bash calls would have raced on, and the verifier rewrites the
+listing after a pass so verified content is not marked again.
 
 Watch a test fail against the defect. One plan produced three tests that
 read as proof and asserted nothing, each found only by reverting the fix;
@@ -274,7 +293,35 @@ them at the test step, with the undo as a file copy after a reversal's
 `git checkout` took an unfinished unit with it. The rules stay prose
 because a reversal is a judgment about which line carries the property;
 what can be enforced, the fixture validity of wire messages, names
-`protovalidate.Validate` instead.
+`protovalidate.Validate` instead. The rule was then cited in every brief of
+a second plan and broken five more times, and three new
+codec packages landed seven tests that passed against a broken decoder,
+since "changes behavior" exempted new code. A conformance gate for
+negative-only assertions was considered and not built: none of the five
+instances had that shape (a fixture missing the capability, an assertion
+behind an admin-down port, a helper returning one value for two states),
+and only a reversal found any of them. So the reversal became an artifact
+instead of an instruction: `implement` writes a mutation and the quoted
+`--- FAIL` line per new test into the unit's commit body, the one place a
+later review session can read, and the coordinator or `review` runs the
+mutation itself for any new test whose commit lacks one. A quoted failure
+can be checked by the next reader; "I watched it fail" cannot.
+
+Hand the class across the seam, and judge the remedy. Four observations
+had one shape: a rule held inside one step and
+was lost at the handoff to the next. `review` named a finding's class in
+step 4 and briefed the fix with the instance; it verified a finding and
+passed its proposed fix through unchecked; it asked for an executable
+property and then reviewed the code rather than the property, which
+omitted ten of nineteen rules. `delegate`'s stop rule did not read as
+applying to a requirement that was only unachievable, so a worker
+weakened it and reported success. Each fix puts the rule at the handoff:
+the fix brief carries the mechanism, a fix resting on a claim about the
+code is verified or reported as a direction, the next round's primary
+subject is the new invariant, and a brief quotes plan requirements as not
+the worker's to restate. A ruling in `implement` is provisional until its
+unit lands, for the same reason: comments written from a falsified ruling
+cited it as though it were the source.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -533,6 +580,75 @@ The integration branch is `main`. The skills named `master` until
 2026-09-15, so `--base master` and `master..HEAD` failed in this
 repository, and sessions passed explicit paths instead.
 
+End a report with a question, not with an offer. A scan of 2,390 session
+transcripts for this repository found 89 turns where a report ended on an
+open statement and the user typed the obvious next step by hand: 43 times
+"merge" or "commit and merge" after "the verifier passed, nothing is
+committed", 13 times "ok" after "confirm and I'll write the plan", and
+about 28 times "go" or "continue" after "say the word". Another 46
+questions were asked in prose and answered with a number or a word. The
+question tool was already in use where a skill named it and absent where
+the skill said "the user asks for `review`". So the rule sits once in
+`AGENTS.md`, and each skill's last step names the options its outcome
+leaves, the recommended one first: `plan` offers implementation or a
+fresh session, `implement` offers `review`, `review` offers `compound` or
+the fix loop by verdict, `compound` offers `close`, and `close` offers to
+run a missing checkpoint's skill. Nothing runs on its own: a step that
+runs itself after every other step produces work nobody asked for, and
+the five cases in the scan where the user redirected instead of accepting
+are the reason each question keeps a "stop here" option. A delegated
+worker never asks, because a worker waiting on an answer looks like one
+that is working.
+
+Pick the next work from files, and finish before starting. `next` exists
+because the question "what now" was being answered from a session's memory
+of plans it had read, across 75 plan files in two unit formats. The tools
+that answer it well agree on the shape: Task Master's `next` and Beads'
+`bd ready` compute the set whose dependencies are met from a store, never
+from the model's recall, and rank inside it; both ship the listing as a
+command because a model re-reading every file is slow and drifts. So
+`plan-queue.py` reads frontmatter, a parent's `After:` and `Landed:`
+lines, the ledger, and the unmerged branches that touch a plan, and the
+skill reads its output. Work in progress outranks ready work, the Kanban
+rule of limiting what is open; a plan another branch already changes is
+flagged, since a phase was once implemented twice from two worktrees. The
+prior art has no answer for "nothing is planned": none of the surveyed
+tools compares plans with stated goals, and that comparison is where an
+agent invents a roadmap. `GOALS.md` is the guard: one line per decided
+goal with its record, no status, and `next` proposes a gap only for a
+goal that file states.
+
+Drive a plan through its stages in fresh sessions, from files. `drive`
+takes one plan through `plan` when it needs re-planning, `implement`,
+`review` with its fix loop, and `compound`, each stage a worker session,
+and takes a parent through its phases the same way. It is the loop GSD's
+`auto` and the Ralph pattern run, with their two properties kept: a fresh
+context per step, and progress read from files at the start of every
+round. It adds no progress file of its own, because the plans' `status`,
+`review`, and `compound` fields, the parent's `Landed:` lines, and the
+branches already say where a drive stands, and a second record would
+disagree with them. A decision that is the user's parks that plan in its
+Open questions and lets independent phases continue, so one question does
+not idle three pools; the questions are asked together when the drive
+stops. It stops before `close`: what reaches `main` stays a person's
+answer.
+
+Write hot-path text as procedure, and keep the story here. A pass over
+the skills and agent definitions against Anthropic's skill, subagent, and
+memory guidance and the Claude 5 prompting guides found no emphasis
+markers, no over-verification scaffolding, and descriptions inside the
+length limit. What it changed was shape: a rule buried in the middle of a
+paragraph became a numbered step or a table row, an output contract
+stated at the top and the bottom of an agent definition became one
+section at the end, and an incident became its one-clause reason. Two
+incidents left `verify-change` that way: the gate list is closed because
+a coordinator restating it from memory once left lint out, and the
+script is the last command of a background invocation because a session
+announced a green verifier over a log holding two `FAIL` lines, the
+trailing `tail` having supplied the exit code. Dates stay out of skills
+and agent definitions except in format examples; this document keeps
+them, since they say when a decision's evidence was last checked.
+
 Report outcome first. Each skill's report step leads with the verdict or
 result and keeps the rest to a short ordered list, which is what readers of
 agent output ask for and what the `i-have-adhd` skill codifies.
@@ -778,6 +894,21 @@ Sources checked on 2026-09-15 for the `plan` and `implement` pass:
 - [superpowers, subagent-driven-development](https://github.com/obra/superpowers/blob/main/skills/subagent-driven-development/SKILL.md):
   rulings logged as what, why, and cost if wrong; a five-round fix cap
   with escalation.
+
+Sources checked on 2026-09-18 for the wording pass:
+
+- [Anthropic, "Prompting best practices"](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices):
+  say what to do rather than what not to do, give the reason so the rule
+  generalizes, and replace "CRITICAL: you MUST" with plain wording, which
+  recent models over-trigger on.
+- [Anthropic, "How Claude remembers your project"](https://code.claude.com/docs/en/memory):
+  under 200 lines per instruction file; emphasis on many lines leaves none
+  standing out.
+- [Revisiting the Reliability of Language Models in Instruction-Following](https://arxiv.org/abs/2512.14754):
+  compliance falls as concurrent instructions rise, negative instructions
+  fare worse in multi-instruction prompts, and earlier positions do better.
+  The same check could not confirm the 30 to 50% figure this document
+  takes from "The Instruction Gap"; treat that number as unverified.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only

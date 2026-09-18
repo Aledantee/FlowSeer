@@ -56,9 +56,9 @@ Benchmarks run on different harnesses are not compared in the registry;
 
 The public numbers do not say how a model does on this Go tree with race
 tests and the verifier. `references/calibration.md` describes the fixed
-task, the acceptance tests, and the lanes. Before running, state the lanes,
-the expected spend per lane from the registry prices, and wait for
-approval; a prepaid pool still consumes its window. Then, per lane:
+task, the acceptance tests, and the lanes. Before running, state the lanes
+and the expected spend per lane from the registry prices, and ask the user
+which lanes to run; a prepaid pool still consumes its window. Then, per lane:
 
 ```bash
 .claude/skills/tune/scripts/bench.sh --lane <name> --cli <claude|codex|agy|opencode> \
@@ -75,7 +75,8 @@ leaves a role's fit set only on a calibration result, never on a benchmark.
 
 Update the registry: `as_of`, changed fields, fit sets. Keep the opencode
 agent block in `~/.config/opencode/opencode.json` in step with
-`opencode_agents`. A change to a role's fit set is proposed in the report,
-not applied silently, so a person sees which default moved and why. Report
-the commands run, each changed field with its evidence, and anything a
-source refused to answer.
+`opencode_agents`. A change to a role's fit set is never applied silently:
+report the commands run, each changed field with its evidence, and
+anything a source refused to answer, then ask the user (`AGENTS.md`, Agent
+behavior) per proposed fit-set change whether to apply it, so a person
+sees which default moved and why.

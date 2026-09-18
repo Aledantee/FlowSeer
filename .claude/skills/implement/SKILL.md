@@ -16,8 +16,9 @@ argument-hint: "[plan path]"
 
 Read the plan's Goal, Decisions, and Units; the rest when a unit cites it.
 A plan whose `artifact_readiness` is `needs-decisions`, or whose Units name
-other plan files, is not executable: stop and name `plan` as the next
-skill. Check the plan's `status` and the current tree: a plan may be
+other plan files, is not executable: say why and ask the user whether to
+run `plan` to settle it (recommended) or stop here. Check the plan's
+`status` and the current tree: a plan may be
 partly landed, and the tree wins over the plan about what exists. Record
 such a mismatch in the plan's Open questions before touching code.
 
@@ -76,11 +77,12 @@ For each unit:
 1. Re-read the unit, set it `in_progress` in the ledger with
    `ledger.py set <unit> in_progress`, then inspect the current source and
    tests for its files.
-2. Make the smallest change that satisfies it, through the editor tools:
-   a Bash command that writes a source file or runs a generator (`sed -i`,
-   a heredoc, `gofumpt -w`, `buf generate`, `go mod tidy`) marks the tree
+2. Make the smallest change that satisfies it, through the editor tools,
+   which run the format and schema hooks a Bash write skips. A Bash
+   command that changes `generated/`, a `go.mod` or `go.sum`, or
+   `buf.lock` (`buf generate`, `go mod tidy`) marks the tree
    `<Bash mutation; verify with --full>` and turns Finish into a full
-   module race run. Search for an existing helper first; no abstraction
+   module race run; any other Bash write is marked by path. Search for an existing helper first; no abstraction
    with a single caller. Before calling a third-party API the tree does
    not already use, check its signature: `go doc` for Go, Context7
    (`mcp__context7__query-docs` or the `ctx7` CLI) for the rest. Where
@@ -90,28 +92,32 @@ For each unit:
    specification by the next session.
 3. Write or extend the tests the unit names, under the Testing rules of
    `docs/code-style.md`. When the unit changes behavior, write the failing
-   test first and watch it fail. A test for a concurrency, ordering, or
-   security property counts as evidence only once it has been watched
-   failing against the defect: revert the fix or feed a wrong
+   test first and watch it fail. Every new test is watched failing
+   against the defect before it counts: revert the fix or feed a wrong
    implementation, and undo from a copy taken first
    (`cp <path> "$TMPDIR/<name>.orig"`), never with `git checkout` or
    `git restore`, which on an unfinished unit discard everything since the
-   last commit. Say per test whether it is evidence for this change or a
-   guard for later code. A unit without a test needs a stated reason in
-   the plan.
+   last commit. A new package has no prior behavior to revert, so its
+   mutation is the guard the test pins, removed. The unit's commit body
+   carries one line per new test, the mutation and the quoted `--- FAIL`
+   line it produced, because `review` runs in a later session and reads
+   the commits, not this conversation. A unit without a test needs a
+   stated reason in the plan.
 4. Update the package README, convention doc, solution citations, and any
    test or benchmark name the unit made false, in the same unit.
-5. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`). A test
-   run whose output may carry diagnostics goes to a file, grepped after
-   (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),
-   never through a filter that drops what it does not match. A unit that
-   adds or removes a name in a repository-wide namespace (an error code, a
-   telemetry scope, an event or metric name, a bus subject, a bucket)
-   greps the tree for that name, since no per-package gate sees two
-   owners. Commit the unit, then run the verifier for the unit's paths,
-   sandbox disabled, in the background while you read on, as the last
-   command of its invocation (a trailing `echo` or `tail` reports its own
-   exit code as the gate's):
+5. Check, commit, verify, in that order:
+   - Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`).
+     Output that may carry diagnostics goes to a file and is grepped after
+     (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),
+     never through a filter that drops what it does not match.
+   - When the unit adds or removes a name in a repository-wide namespace
+     (an error code, a telemetry scope, an event or metric name, a bus
+     subject, a bucket), grep the tree for that name: no per-package gate
+     sees two owners.
+   - Commit the unit.
+   - Run the verifier for the unit's paths, sandbox disabled, in the
+     background while you read on, as the last command of its invocation
+     (a trailing `echo` or `tail` reports its own exit code as the gate's):
 
    ```bash
    .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
@@ -128,8 +134,8 @@ For each unit:
    one line. In Orca, set the worktree comment to the unit that landed.
 
 A unit still red after three verifier rounds is `blocked` in the ledger
-(`ledger.py set U1 blocked --note "<reason>"`), and the work goes back to
-`plan`: a fourth
+(`ledger.py set U1 blocked --note "<reason>"`), and the Finish question
+offers taking it back to `plan`: a fourth
 patch on the same failure optimizes the test that is visible, not the
 requirement behind it, and the plan is where the requirement lives.
 
@@ -140,12 +146,21 @@ code, comments, or commit messages.
 
 A unit that needs a decision the plan does not make gets one of two
 treatments. When the answer changes other units, the wire, or an accepted
-record, ask the user and wait. Otherwise rule and continue: append to the
+record, ask the user (`AGENTS.md`, Agent behavior) with the options you
+see and your recommendation, and wait. Otherwise rule and continue: append to the
 plan's Decisions, at the moment of the call, one line of the form
 `Ruled: <what>. Why: <reason>. Cost if wrong: <what a reversal touches>.`
 Open questions holds only what is still open; a decision filed there
 after the fact reads as unresolved to the reviewer and as settled to the
 next implementer. Rulings are the first item of the Finish report.
+
+A ruling is provisional until its unit lands. Evidence that contradicts
+one (a test that passes when the ruling says it cannot, an experiment
+whose result the ruling does not predict) stops the unit: revise the
+`Ruled:` line and everything written from it, comments and test docs
+included, before the next edit. Comments are written from the source, not
+from the ruling; a false ruling left standing gets cited as though it were
+the code.
 
 Delegate a bounded read-only question as `delegate` describes when it would
 cost more than a few file reads.
@@ -229,5 +244,12 @@ the ones the report names with the reason they stayed.
 
 Report, outcome first: rulings, units done with the waves they ran in,
 commands run with results, the deviation and test-change lists with their
-reasons, residual risk. Do not run a review; the user asks for `review`. A
-correction to this procedure is logged as `compound`, Observe describes.
+reasons, residual risk.
+
+End by asking the user what happens next (`AGENTS.md`, Agent behavior):
+run `review` on the branch now (recommended when every unit landed);
+continue with the remaining units, naming them; take a `blocked` unit back
+to `plan` (recommended over any further patch, which the three-round cap
+forbids); stop here.
+Review runs only on that answer, never on its own. A correction to this
+procedure is logged as `compound`, Observe describes.

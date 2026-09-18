@@ -95,14 +95,20 @@ Add a row to `docs/solutions/README.md` whose "Read when" sentence matches
 `applies_when`; extend the row when you extended `applies_when`. Set
 `last_verified` to today on any solution whose citations you re-checked.
 
-Propose a new `CONCEPTS.md` term to the user before adding it. Do not edit
-`AGENTS.md` or another policy surface from this skill; say where the rule
-belongs and let the user decide.
+Ask the user before adding a new `CONCEPTS.md` term, with the term and its
+one-line definition as the option to accept. This skill never edits
+`AGENTS.md` or another policy surface: say where the rule belongs and ask
+whether to log it as an observation for `steer`.
 
 ### 5. Verify
 
 Run the verifier on the changed files and report the path and the one
 sentence a reader should remember.
+
+When the work's `implement` and `review` checkpoints are in place, end by
+asking the user (`AGENTS.md`, Agent behavior) whether to run `close` now
+or stop here. The same question ends a run the gate stopped with
+`compound: no lesson` or `compound: observation logged`.
 
 ## Refresh
 

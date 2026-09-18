@@ -33,8 +33,10 @@ For each entry, open the named file at the named step and decide one of:
 Read the entry's whole body before deciding; the title compresses away the
 failure. Two entries naming the same step are worked as one. "task context"
 and "already fixed" are rejections: delete the entry in step 6 with the
-reason in the report. "needs the user" stays in the queue with one question
-appended to it.
+reason in the report. "needs the user" is asked at once (`AGENTS.md`, Agent
+behavior), with the design options the entry leaves open and a
+recommendation; the answer moves the entry to "holds". Only an entry the
+user declines to decide stays in the queue, with the question appended.
 
 ## 3. Choose the surface
 
@@ -121,5 +123,11 @@ reason stale.
 
 Report, outcome first: entries applied, rejected with the reason, left for
 the user with the question, staged for guardrail review with the diff path;
-then the audit findings and the commands run with their results. A
+then the audit findings and the commands run with their results.
+
+End by asking the user (`AGENTS.md`, Agent behavior) whether to commit
+the applied edits now or leave them uncommitted. A staged policy-surface
+diff is never part of that question or that commit: it stays in the tree
+for the guardrail review, named in the report, and an answer given here
+does not stand in for that review. A
 correction to this procedure is logged as `compound`, Observe describes.

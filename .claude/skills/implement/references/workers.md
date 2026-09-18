@@ -14,7 +14,10 @@ a fresh context per unit keeps the coordinator's own context to the
 ledger; a plain plan runs a wave of one here.
 
 The brief carries the plan path, the unit's text, the conventions for its
-files, the focused test command, and the ledger notes of landed units.
+files, the focused test command, and the ledger notes of landed units. It
+asks for the per-test mutation lines step 2.3 of the skill puts in the
+commit body; when a worker's commit lacks one for a new test, run that
+mutation here before the merge, since no lane re-prompts a settled worker.
 Workers do not run the verifier. Two units in one wave never share a
 file, by the plan's own rule; when a wave's units would, the plan's
 `After` lines are wrong and get fixed before dispatch.

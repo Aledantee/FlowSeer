@@ -763,6 +763,18 @@ if [[ -s $marker ]]; then
     rm -f "$marker"
   fi
 fi
+# The marker hook marks a dirty path whose content it has not seen. Every
+# dirty path is by now verified or named in the marker, so the listing it
+# compares against is rewritten here, or the next Bash call would mark the
+# content this run just passed.
+if [[ -x $root/tools/hooks/tree-state.sh ]]; then
+  tree_state=$(mktemp "$git_dir/flowseer-tree-state.XXXXXX")
+  if "$root/tools/hooks/tree-state.sh" "$root" >"$tree_state"; then
+    mv "$tree_state" "$git_dir/flowseer-tree-state"
+  else
+    rm -f "$tree_state"
+  fi
+fi
 {
   printf 'verified_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'base=%s\n' "$base"
