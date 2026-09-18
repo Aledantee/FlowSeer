@@ -117,7 +117,7 @@ var importOrder = map[string][]string{
 	// model/edge's EdgeProvisioning, which this package names by path rather
 	// than by type, so the dependency an entry here would suggest does not
 	// exist.
-	"store/edge": nil,
+	"store/agent": nil,
 }
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.

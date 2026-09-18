@@ -26,7 +26,7 @@ import (
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
-	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 )
 
 // interfaceNamePattern is the character class every interface name in this

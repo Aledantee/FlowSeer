@@ -15,7 +15,7 @@ import (
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	storeedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
+	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	agenthost "go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
@@ -66,10 +66,10 @@ func startAgent(t *testing.T, dir string, provisioning *edgev1.EdgeProvisioning,
 	shipped.SetCentralUrl(centralURL)
 	provisioningPath := writePrototext(t, filepath.Join(dir, "provisioning.textproto"), shipped)
 
-	cfg := storeedgev1.AgentConfig_builder{
+	cfg := agentv1.AgentConfig_builder{
 		StateDir:         proto.String(stateDir),
 		ProvisioningPath: proto.String(provisioningPath),
-		LogLevel:         storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_DEBUG.Enum(),
+		LogLevel:         agentv1.AgentLogLevel_AGENT_LOG_LEVEL_DEBUG.Enum(),
 	}.Build()
 	configPath := writePrototext(t, filepath.Join(dir, "agent.textproto"), cfg)
 

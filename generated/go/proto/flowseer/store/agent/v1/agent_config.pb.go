@@ -2,13 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/store/edge/v1/agent_config.proto
+// source: flowseer/store/agent/v1/agent_config.proto
 
 // The device access agent's own deployment configuration, read from an
 // operator-written prototext file at start. Storage, not a boundary, and not
 // an entity: no triad, no ref pair.
 
-package edgev1
+package agentv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -76,11 +76,11 @@ func (x AgentLogLevel) String() string {
 }
 
 func (AgentLogLevel) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_store_edge_v1_agent_config_proto_enumTypes[0].Descriptor()
+	return file_flowseer_store_agent_v1_agent_config_proto_enumTypes[0].Descriptor()
 }
 
 func (AgentLogLevel) Type() protoreflect.EnumType {
-	return &file_flowseer_store_edge_v1_agent_config_proto_enumTypes[0]
+	return &file_flowseer_store_agent_v1_agent_config_proto_enumTypes[0]
 }
 
 func (x AgentLogLevel) Number() protoreflect.EnumNumber {
@@ -117,7 +117,7 @@ type AgentConfig struct {
 	xxx_hidden_ProvisioningPath *string                `protobuf:"bytes,2,opt,name=provisioning_path,json=provisioningPath"`
 	xxx_hidden_Intervals        *AgentIntervals        `protobuf:"bytes,3,opt,name=intervals"`
 	xxx_hidden_Buffer           *AgentBuffer           `protobuf:"bytes,4,opt,name=buffer"`
-	xxx_hidden_LogLevel         AgentLogLevel          `protobuf:"varint,5,opt,name=log_level,json=logLevel,enum=flowseer.store.edge.v1.AgentLogLevel"`
+	xxx_hidden_LogLevel         AgentLogLevel          `protobuf:"varint,5,opt,name=log_level,json=logLevel,enum=flowseer.store.agent.v1.AgentLogLevel"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -126,7 +126,7 @@ type AgentConfig struct {
 
 func (x *AgentConfig) Reset() {
 	*x = AgentConfig{}
-	mi := &file_flowseer_store_edge_v1_agent_config_proto_msgTypes[0]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -138,7 +138,7 @@ func (x *AgentConfig) String() string {
 func (*AgentConfig) ProtoMessage() {}
 
 func (x *AgentConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_edge_v1_agent_config_proto_msgTypes[0]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -339,7 +339,7 @@ type AgentIntervals struct {
 
 func (x *AgentIntervals) Reset() {
 	*x = AgentIntervals{}
-	mi := &file_flowseer_store_edge_v1_agent_config_proto_msgTypes[1]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -351,7 +351,7 @@ func (x *AgentIntervals) String() string {
 func (*AgentIntervals) ProtoMessage() {}
 
 func (x *AgentIntervals) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_edge_v1_agent_config_proto_msgTypes[1]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +474,7 @@ type AgentBuffer struct {
 
 func (x *AgentBuffer) Reset() {
 	*x = AgentBuffer{}
-	mi := &file_flowseer_store_edge_v1_agent_config_proto_msgTypes[2]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -486,7 +486,7 @@ func (x *AgentBuffer) String() string {
 func (*AgentBuffer) ProtoMessage() {}
 
 func (x *AgentBuffer) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_store_edge_v1_agent_config_proto_msgTypes[2]
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,18 +566,18 @@ func (b0 AgentBuffer_builder) Build() *AgentBuffer {
 	return m0
 }
 
-var File_flowseer_store_edge_v1_agent_config_proto protoreflect.FileDescriptor
+var File_flowseer_store_agent_v1_agent_config_proto protoreflect.FileDescriptor
 
-const file_flowseer_store_edge_v1_agent_config_proto_rawDesc = "" +
+const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/store/edge/v1/agent_config.proto\x12\x16flowseer.store.edge.v1\x1a\x1egoogle/protobuf/duration.proto\"\xbe\x02\n" +
+	"*flowseer/store/agent/v1/agent_config.proto\x12\x17flowseer.store.agent.v1\x1a\x1egoogle/protobuf/duration.proto\"\xc1\x02\n" +
 	"\vAgentConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x12:\n" +
 	"\x11provisioning_path\x18\x02 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80 R\x10provisioningPath\x12D\n" +
-	"\tintervals\x18\x03 \x01(\v2&.flowseer.store.edge.v1.AgentIntervalsR\tintervals\x12;\n" +
-	"\x06buffer\x18\x04 \x01(\v2#.flowseer.store.edge.v1.AgentBufferR\x06buffer\x12B\n" +
-	"\tlog_level\x18\x05 \x01(\x0e2%.flowseer.store.edge.v1.AgentLogLevelR\blogLevel\"\xef\x03\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80 R\x10provisioningPath\x12E\n" +
+	"\tintervals\x18\x03 \x01(\v2'.flowseer.store.agent.v1.AgentIntervalsR\tintervals\x12<\n" +
+	"\x06buffer\x18\x04 \x01(\v2$.flowseer.store.agent.v1.AgentBufferR\x06buffer\x12C\n" +
+	"\tlog_level\x18\x05 \x01(\x0e2&.flowseer.store.agent.v1.AgentLogLevelR\blogLevel\"\xef\x03\n" +
 	"\x0eAgentIntervals\x12C\n" +
 	"\theartbeat\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\theartbeat\x12W\n" +
@@ -595,26 +595,26 @@ const file_flowseer_store_edge_v1_agent_config_proto_rawDesc = "" +
 	"\x15AGENT_LOG_LEVEL_DEBUG\x10\x01\x12\x18\n" +
 	"\x14AGENT_LOG_LEVEL_INFO\x10\x02\x12\x18\n" +
 	"\x14AGENT_LOG_LEVEL_WARN\x10\x03\x12\x19\n" +
-	"\x15AGENT_LOG_LEVEL_ERROR\x10\x04B\xf3\x01\n" +
-	"\x1acom.flowseer.store.edge.v1B\x10AgentConfigProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1;edgev1\xa2\x02\x03FSE\xaa\x02\x16Flowseer.Store.Edge.V1\xca\x02\x16Flowseer\\Store\\Edge\\V1\xe2\x02\"Flowseer\\Store\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Store::Edge::V1b\beditionsp\xe9\a"
+	"\x15AGENT_LOG_LEVEL_ERROR\x10\x04B\xfa\x01\n" +
+	"\x1bcom.flowseer.store.agent.v1B\x10AgentConfigProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1;agentv1\xa2\x02\x03FSA\xaa\x02\x17Flowseer.Store.Agent.V1\xca\x02\x17Flowseer\\Store\\Agent\\V1\xe2\x02#Flowseer\\Store\\Agent\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Store::Agent::V1b\beditionsp\xe9\a"
 
-var file_flowseer_store_edge_v1_agent_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_store_edge_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_flowseer_store_edge_v1_agent_config_proto_goTypes = []any{
-	(AgentLogLevel)(0),          // 0: flowseer.store.edge.v1.AgentLogLevel
-	(*AgentConfig)(nil),         // 1: flowseer.store.edge.v1.AgentConfig
-	(*AgentIntervals)(nil),      // 2: flowseer.store.edge.v1.AgentIntervals
-	(*AgentBuffer)(nil),         // 3: flowseer.store.edge.v1.AgentBuffer
+var file_flowseer_store_agent_v1_agent_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_store_agent_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_flowseer_store_agent_v1_agent_config_proto_goTypes = []any{
+	(AgentLogLevel)(0),          // 0: flowseer.store.agent.v1.AgentLogLevel
+	(*AgentConfig)(nil),         // 1: flowseer.store.agent.v1.AgentConfig
+	(*AgentIntervals)(nil),      // 2: flowseer.store.agent.v1.AgentIntervals
+	(*AgentBuffer)(nil),         // 3: flowseer.store.agent.v1.AgentBuffer
 	(*durationpb.Duration)(nil), // 4: google.protobuf.Duration
 }
-var file_flowseer_store_edge_v1_agent_config_proto_depIdxs = []int32{
-	2, // 0: flowseer.store.edge.v1.AgentConfig.intervals:type_name -> flowseer.store.edge.v1.AgentIntervals
-	3, // 1: flowseer.store.edge.v1.AgentConfig.buffer:type_name -> flowseer.store.edge.v1.AgentBuffer
-	0, // 2: flowseer.store.edge.v1.AgentConfig.log_level:type_name -> flowseer.store.edge.v1.AgentLogLevel
-	4, // 3: flowseer.store.edge.v1.AgentIntervals.heartbeat:type_name -> google.protobuf.Duration
-	4, // 4: flowseer.store.edge.v1.AgentIntervals.dispatch_backoff_min:type_name -> google.protobuf.Duration
-	4, // 5: flowseer.store.edge.v1.AgentIntervals.dispatch_backoff_max:type_name -> google.protobuf.Duration
-	4, // 6: flowseer.store.edge.v1.AgentBuffer.max_age:type_name -> google.protobuf.Duration
+var file_flowseer_store_agent_v1_agent_config_proto_depIdxs = []int32{
+	2, // 0: flowseer.store.agent.v1.AgentConfig.intervals:type_name -> flowseer.store.agent.v1.AgentIntervals
+	3, // 1: flowseer.store.agent.v1.AgentConfig.buffer:type_name -> flowseer.store.agent.v1.AgentBuffer
+	0, // 2: flowseer.store.agent.v1.AgentConfig.log_level:type_name -> flowseer.store.agent.v1.AgentLogLevel
+	4, // 3: flowseer.store.agent.v1.AgentIntervals.heartbeat:type_name -> google.protobuf.Duration
+	4, // 4: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_min:type_name -> google.protobuf.Duration
+	4, // 5: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_max:type_name -> google.protobuf.Duration
+	4, // 6: flowseer.store.agent.v1.AgentBuffer.max_age:type_name -> google.protobuf.Duration
 	7, // [7:7] is the sub-list for method output_type
 	7, // [7:7] is the sub-list for method input_type
 	7, // [7:7] is the sub-list for extension type_name
@@ -622,27 +622,27 @@ var file_flowseer_store_edge_v1_agent_config_proto_depIdxs = []int32{
 	0, // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_store_edge_v1_agent_config_proto_init() }
-func file_flowseer_store_edge_v1_agent_config_proto_init() {
-	if File_flowseer_store_edge_v1_agent_config_proto != nil {
+func init() { file_flowseer_store_agent_v1_agent_config_proto_init() }
+func file_flowseer_store_agent_v1_agent_config_proto_init() {
+	if File_flowseer_store_agent_v1_agent_config_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_edge_v1_agent_config_proto_rawDesc), len(file_flowseer_store_edge_v1_agent_config_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_agent_v1_agent_config_proto_rawDesc), len(file_flowseer_store_agent_v1_agent_config_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_store_edge_v1_agent_config_proto_goTypes,
-		DependencyIndexes: file_flowseer_store_edge_v1_agent_config_proto_depIdxs,
-		EnumInfos:         file_flowseer_store_edge_v1_agent_config_proto_enumTypes,
-		MessageInfos:      file_flowseer_store_edge_v1_agent_config_proto_msgTypes,
+		GoTypes:           file_flowseer_store_agent_v1_agent_config_proto_goTypes,
+		DependencyIndexes: file_flowseer_store_agent_v1_agent_config_proto_depIdxs,
+		EnumInfos:         file_flowseer_store_agent_v1_agent_config_proto_enumTypes,
+		MessageInfos:      file_flowseer_store_agent_v1_agent_config_proto_msgTypes,
 	}.Build()
-	File_flowseer_store_edge_v1_agent_config_proto = out.File
-	file_flowseer_store_edge_v1_agent_config_proto_goTypes = nil
-	file_flowseer_store_edge_v1_agent_config_proto_depIdxs = nil
+	File_flowseer_store_agent_v1_agent_config_proto = out.File
+	file_flowseer_store_agent_v1_agent_config_proto_goTypes = nil
+	file_flowseer_store_agent_v1_agent_config_proto_depIdxs = nil
 }

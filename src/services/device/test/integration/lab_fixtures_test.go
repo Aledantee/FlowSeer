@@ -10,8 +10,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
-	storeedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 )
 
 // labFixture is one of the files a lab run is assembled from.
@@ -40,7 +40,7 @@ func TestTheLabFixturesParse(t *testing.T) {
 	for name, msg := range map[string]proto.Message{
 		"central.textproto":      &storev1.DeviceServiceConfig{},
 		"registry.textproto":     &storev1.DeviceRegistry{},
-		"agent.textproto":        &storeedgev1.AgentConfig{},
+		"agent.textproto":        &agentv1.AgentConfig{},
 		"provisioning.textproto": &edgev1.EdgeProvisioning{},
 	} {
 		if err := prototext.Unmarshal(labFixture(t, name), msg); err != nil {

@@ -1,6 +1,6 @@
 # Agent storage
 
-The `flowseer.store.edge.v1` package holds the device access agent's own
+The `flowseer.store.agent.v1` package holds the device access agent's own
 deployment configuration: one operator-written prototext file the agent reads
 at start. Nothing outside the agent reads it. It lives under `spec/proto`
 because every message FlowSeer parses needs a schema someone can read in five

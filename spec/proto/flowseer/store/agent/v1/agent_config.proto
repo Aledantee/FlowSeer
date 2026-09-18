@@ -3,7 +3,7 @@ edition = "2024";
 // The device access agent's own deployment configuration, read from an
 // operator-written prototext file at start. Storage, not a boundary, and not
 // an entity: no triad, no ref pair.
-package flowseer.store.edge.v1;
+package flowseer.store.agent.v1;
 
 import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";

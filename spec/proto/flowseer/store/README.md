@@ -25,5 +25,5 @@ imported by nothing FlowSeer-owned.
 
 ## Packages
 
+- `agent/v1/`: Device access agent deployment configuration.
 - `device/v1/`: Device service lane outbox records, registry prototext, and deployment configuration.
-- `edge/v1/`: Device access agent deployment configuration.
