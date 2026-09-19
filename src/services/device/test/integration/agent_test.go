@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	agenthost "go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
@@ -49,13 +51,34 @@ func (c *testClock) Now() time.Time {
 	return c.now
 }
 
+// agentOptions carries optional seams when assembling a test agent.
+type agentOptions struct {
+	device                   *fakeDevice
+	clock                    *testClock
+	openCaptureSource        agenthost.CaptureSourceOpener
+	logger                   *slog.Logger
+	captureInactivityTimeout time.Duration
+}
+
 // startAgent writes the agent's two files and runs it against device.
 //
 // The provisioning is central's own CreateEdge answer with its central_url
 // replaced by the address this fixture actually bound, since the deployment
 // under test is not the one that message was written for.
 func startAgent(t *testing.T, dir string, provisioning *edgev1.EdgeProvisioning, centralURL string, device *fakeDevice, clock *testClock) *agent {
+	return startAgentWithOptions(t, dir, provisioning, centralURL, agentOptions{
+		device: device,
+		clock:  clock,
+	})
+}
+
+// startAgentWithOptions runs the agent with custom options such as OpenCaptureSource or Logger.
+func startAgentWithOptions(t *testing.T, dir string, provisioning *edgev1.EdgeProvisioning, centralURL string, opts agentOptions) *agent {
 	t.Helper()
+
+	if opts.device == nil {
+		opts.device = newFakeDevice("as found")
+	}
 
 	stateDir := filepath.Join(dir, "agent-state")
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
@@ -78,20 +101,29 @@ func startAgent(t *testing.T, dir string, provisioning *edgev1.EdgeProvisioning,
 		t.Fatalf("agent LoadConfig: %v", err)
 	}
 
-	a := &agent{t: t, dir: dir, device: device, clock: clock, stopped: make(chan error, 1)}
+	a := &agent{t: t, dir: dir, device: opts.device, clock: opts.clock, stopped: make(chan error, 1)}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.stop = cancel
-	go func() {
+
+	var clockFn func() time.Time
+	if opts.clock != nil {
+		clockFn = opts.clock.Now
+	}
+
+	spawn.Go(ctx, "agent-runner", func() {
 		a.stopped <- agenthost.Run(ctx, loaded, "e2e", agenthost.Options{
 			OpenSNMP: func(endpoint agenthost.Endpoint) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
-				return device.snmpFactory(renderEndpoint(endpoint))
+				return opts.device.snmpFactory(renderEndpoint(endpoint))
 			},
 			OpenShell: func(endpoint agenthost.Endpoint) func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
-				return device.shellFactory(renderEndpoint(endpoint))
+				return opts.device.shellFactory(renderEndpoint(endpoint))
 			},
-			Clock: clock.Now,
+			OpenCaptureSource:        opts.openCaptureSource,
+			Logger:                   opts.logger,
+			CaptureInactivityTimeout: opts.captureInactivityTimeout,
+			Clock:                    clockFn,
 		})
-	}()
+	})
 	t.Cleanup(a.shutdown)
 	return a
 }

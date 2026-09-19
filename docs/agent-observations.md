@@ -101,3 +101,21 @@ the 7 tests was run on its own with `-run` to get 6/7 and 5/7. The step
 was followed as written first and then replaced by hand.
 Suggested change: grade with one `go test -race -count=3 -run
 '^<name>$'` per acceptance test, and record partial credit from those.
+
+## 2026-09-18 delegate: worker settlement signals failed across three execution lanes
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Herdr worker", "Reading a worker's report", and `scripts/herdr-worker.sh`.
+What happened: during delegated work across multiple lanes, three distinct
+failures appeared in how worker completion was signalled, all caught only by
+inspecting the child worktree rather than trusting the report:
+- A `claude` worker on `claude-sonnet-5` ended its turn while its own
+  background verifier was still running, leaving units unverified and plan
+  fields unset. The model registry had independently removed that model from
+  the `execute` role for "deadlock on source error".
+- An `agy` worker's settle signal (`herdr-worker.sh wait`) returned `done`
+  repeatedly while the agent was mid-turn, several times per multi-unit stage.
+- An `opencode` worker on the `go` pool ran ~36 minutes and then entered a
+  silent retry loop on "5 hour usage limit reached", while
+  `delegate/scripts/pool-usage.sh` reported that pool at 16%—the script
+  reads a local database that holds only this machine's sessions, so spend
+  elsewhere is invisible. Two `esc` rounds did not interrupt it; a third did.
+Suggested change: none recorded; steer decides the remedy.

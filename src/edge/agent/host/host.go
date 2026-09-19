@@ -12,16 +12,21 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
+	agentcapture "go.aledante.io/FlowSeer/src/edge/agent/internal/capture"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
 
@@ -98,7 +103,10 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	if cfg == nil {
 		return errs.New().Code(ErrCodeStart).Msg("the agent was given no configuration")
 	}
-	base := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel()}))
+	base := opts.Logger
+	if base == nil {
+		base = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel()}))
+	}
 
 	store, err := identity.NewStore(cfg.StateDir())
 	if err != nil {
@@ -119,6 +127,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	edgeClient := attachv1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
 	dispatchClient := dispatchv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
 	auditClient := auditv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
+	captureClient := capturev1connect.NewCaptureEdgeServiceClient(signed, cfg.CentralURL())
 
 	bufferBytes, bufferAge := cfg.Buffer()
 	attachment, err := busattach.Attach(ctx, edgeClient, busattach.Config{
@@ -144,10 +153,13 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		audit:    auditClient,
 	}
 
-	// One module: the lane and the three loops that drive it share its
-	// lifetime, and a restart that rebuilt the lane without them — or them
-	// without it — would leave a dispatch loop submitting into a lane nobody
-	// drains.
+	captureAssembly := &captureAssembly{
+		cfg:           cfg,
+		opts:          opts,
+		signer:        signer,
+		captureClient: captureClient,
+	}
+
 	return service.Run(ctx, service.Config{
 		Identity: service.Identity{Name: serviceName, Namespace: serviceNamespace, Version: version},
 		Logger:   base,
@@ -172,7 +184,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 			Insecure:    &loopbackIsInsecure,
 			Headers:     map[string]string{},
 		},
-		Modules: []service.Module{{Name: "lane", Leaf: &service.Leaf{Setup: assembly.setup}}},
+		Modules: modules(assembly, captureAssembly),
 	})
 }
 
@@ -240,7 +252,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 	}
 
 	backoffFloor, backoffCeiling := a.cfg.DispatchBackoff()
-	contact := &dispatch.Contact{}
+	contact := &subscribeloop.Contact{}
 	if err := registerContactInstruments(ctx, contact, queue); err != nil {
 		return service.Attempt{}, err
 	}
@@ -266,12 +278,14 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 				})
 			},
 			func(ctx context.Context) error {
-				return dispatch.Run(ctx, dispatch.Config{
-					Client:     a.dispatch,
+				return subscribeloop.Run(ctx, subscribeloop.Config[dispatchv1.SubscribeResponse]{
+					Open:       dispatch.Open(a.dispatch),
 					Handler:    demux,
 					Resync:     onboarder.Sync,
 					MinBackoff: backoffFloor,
 					MaxBackoff: backoffCeiling,
+					Events:     dispatch.Events,
+					LogAttrs:   dispatch.LogAttrs,
 					Logger:     log,
 				}, contact)
 			})
@@ -289,7 +303,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 // at zero connections and climbing failures, which emits one record per
 // attempt and no total, or a first stream still open, which emits nothing at
 // all. These are the totals that tell those apart.
-func registerContactInstruments(ctx context.Context, contact *dispatch.Contact, queue *report.Queue) error {
+func registerContactInstruments(ctx context.Context, contact *subscribeloop.Contact, queue *report.Queue) error {
 	meter := service.Meter(ctx)
 	observe := func(name, unit, description string, read func() int64) error {
 		_, err := meter.Int64ObservableCounter(name,
@@ -399,4 +413,86 @@ func runAll(ctx context.Context, loops ...func(context.Context) error) error {
 		}
 	}
 	return firstErr
+}
+
+// captureAssembly holds what the capture module draws from: the things read or
+// established once, before the runtime started.
+type captureAssembly struct {
+	cfg           *Config
+	opts          Options
+	signer        *identity.Signer
+	captureClient capturev1connect.CaptureEdgeServiceClient
+}
+
+// setup builds one attempt for the remote packet capture module: initializes the
+// capture assignment handler, registers observable contact counters, and starts
+// the subscribe loop in its attempt runner.
+func (ca *captureAssembly) setup(ctx context.Context) (service.Attempt, error) {
+	log := service.Logger(ctx)
+
+	handler, err := agentcapture.NewHandler(agentcapture.HandlerConfig{
+		Client: ca.captureClient,
+		SignAssertion: func(_ context.Context) (*edgev1.SignedEdgeAssertion, error) {
+			return ca.signer.SignedAssertion(capturev1connect.CaptureEdgeServiceUploadCaptureProcedure, nil)
+		},
+		OpenCaptureSource: ca.opts.OpenCaptureSource,
+		InactivityTimeout: ca.opts.CaptureInactivityTimeout,
+		Logger:            log,
+	})
+	if err != nil {
+		return service.Attempt{}, err
+	}
+
+	contact := &subscribeloop.Contact{}
+	if err := registerCaptureContactInstruments(ctx, contact); err != nil {
+		return service.Attempt{}, err
+	}
+
+	backoffFloor, backoffCeiling := ca.cfg.DispatchBackoff()
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		defer func() { _ = handler.Close() }()
+		return subscribeloop.Run(ctx, subscribeloop.Config[captureedgev1.SubscribeCaptureAssignmentsResponse]{
+			Open:       agentcapture.Open(ca.captureClient),
+			Handler:    handler,
+			MinBackoff: backoffFloor,
+			MaxBackoff: backoffCeiling,
+			Events:     agentcapture.Events,
+			LogAttrs:   agentcapture.LogAttrs,
+			Logger:     log,
+		}, contact)
+	}}, nil
+}
+
+func registerCaptureContactInstruments(ctx context.Context, contact *subscribeloop.Contact) error {
+	return registerCaptureInstruments(service.Meter(ctx), contact)
+}
+
+func registerCaptureInstruments(meter metric.Meter, contact *subscribeloop.Contact) error {
+	observe := func(name, unit, description string, read func() int64) error {
+		_, err := meter.Int64ObservableCounter(name,
+			metric.WithUnit(unit),
+			metric.WithDescription(description),
+			metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+				o.Observe(read())
+				return nil
+			}))
+		return err
+	}
+
+	return errors.Join(
+		observe("flowseer.edge.capture.connections", "{stream}",
+			"capture assignment streams central has served this agent", contact.Connections),
+		observe("flowseer.edge.capture.failures", "{attempt}",
+			"capture assignment stream attempts that failed, opening or mid-stream", contact.Failures),
+		observe("flowseer.edge.capture.messages", "{message}",
+			"capture assignments received on the stream", contact.Messages),
+	)
+}
+
+func modules(a *assembly, ca *captureAssembly) []service.Module {
+	return []service.Module{
+		{Name: "lane", Leaf: &service.Leaf{Setup: a.setup}},
+		{Name: "capture", Leaf: &service.Leaf{Setup: ca.setup}},
+	}
 }

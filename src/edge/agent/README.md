@@ -1,13 +1,14 @@
 # Device access agent
 
-The agent that runs where the devices are. It enrolls with central once,
-holds central's dispatch stream open, drives the local-network access lane
-from what arrives on it, and reports back what happened.
+The agent that runs where the devices are. It enrolls with central once, holds
+central's dispatch and capture-assignment streams open, drives the
+local-network access lane and packet captures from what arrives on them, and
+reports back what happened.
 
-Assembled from `src/modules/localnet/access` (the lane) and
-`src/modules/edgebus` (the leaf node and the loopback OTLP receiver). It owns
-no device logic of its own: what it adds is identity, transport, and the
-orderings between them.
+Assembled from `src/modules/localnet/access` (the lane), `src/modules/edgebus`
+(the leaf node and the loopback OTLP receiver), and `src/modules/capture` (the
+capture engine). It owns no device logic of its own: what it adds is identity,
+transport, and the orderings between them.
 
 ## What it is made of
 
@@ -15,9 +16,11 @@ orderings between them.
 | --- | --- |
 | `internal/identity` | The Ed25519 key pair central registered, the enrollment answer, and the assertion signer every call except `Enroll` carries |
 | `internal/busattach` | `AttachBus`, the embedded leaf node, and the loopback receiver the agent's own telemetry goes to |
-| `internal/dispatch` | The `Subscribe` loop with backoff, and the routing of each dispatch to its lane call |
+| `internal/subscribeloop` | The reconnecting stream loop with backoff and its `Contact` counters, generic over the streamed message type |
+| `internal/dispatch` | What the stream loop needs to carry dispatches — the opener, the event names, the dropped-message attributes — and the routing of each dispatch to its lane call |
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
+| `internal/capture` | The capture assignment stream loop, active session registry, engine runner, and chunk upload client |
 
 ## Which devices this edge serves
 
@@ -118,9 +121,9 @@ A dispatch stream and a heartbeat, and both are mechanisms that act when
 nothing is happening — which is the shape that hides a total failure as
 silence.
 
-`dispatch.Contact` counts streams central served, failures, and messages, so a
-client dead since its first attempt is a number rather than a quiet fleet. All
-three are exported as counters —
+`subscribeloop.Contact` counts streams central served, failures, and messages,
+so a client dead since its first attempt is a number rather than a quiet fleet.
+All three are exported as counters —
 `flowseer.edge.dispatch.connections`, `.failures` and `.messages` — because
 the state that matters here is what no single event carries: the loop emits a
 record when it connects and when it drops, and nothing at all while a first
@@ -167,3 +170,29 @@ refuses sends no later report until that one lands; other devices carry on.
 Without the hold an `Onboarded` — which is not phase-ordered, and which clears
 central's per-dispatch confirmations when it arrives — can overtake the
 reports it precedes and re-open operations they had settled.
+
+## Remote packet capture
+
+Alongside the lane, `host.Run` assembles the `"capture"` module unconditionally
+into the supervision tree. It subscribes to `SubscribeCaptureAssignments` using
+the shared reconnecting `subscribeloop` transport and demultiplexes incoming
+assignments into active sessions managed by an in-memory registry.
+
+When a `Start` assignment arrives, the handler launches a runner goroutine that
+opens `UploadCapture`, delivers the initial `SignedEdgeAssertion`, executes
+`capture.Engine`, and uploads batches of packet records as `CapturePacketChunk`
+messages. To keep the stream active and satisfy central's assertion deadline,
+the runner transmits periodic mid-stream re-assertions every 30 seconds.
+
+When a `Stop` assignment arrives, the handler cancels the running engine and
+flushes any buffered packets with `final: true`, which is how the upload ends
+cleanly. A final chunk is the only thing that tells central a capture
+finished, so a capture that did not finish must not send one: if the interface
+stays idle past the inactivity timeout, or the engine's source fails, the
+runner closes the upload stream with no final chunk and central records the
+session failed rather than complete.
+
+Stream contact metrics are exported under `flowseer.edge.capture.connections`,
+`.failures`, and `.messages`. No packet payload byte is ever written to a log
+record: what the runner logs about a chunk is its first sequence, its packet
+count, and whether it is final.

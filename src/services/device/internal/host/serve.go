@@ -12,14 +12,17 @@ import (
 
 	connect "connectrpc.com/connect"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
@@ -44,12 +47,21 @@ func panicRecovery() connect.HandlerOption {
 //
 // Which side a service sits on is decided by who calls it. An edge signs every
 // call with the key central registered at enrollment, so EdgeService,
-// DispatchService and AuditService are verified before Connect decodes
-// anything. An operator holds no edge key, so EdgeAdminService and
-// DeviceService cannot be behind that check — putting them there would refuse
-// every operator. Neither carries an authorization check of its own today;
-// OpenFGA is out of this plan's scope, and the deployment that runs this puts
-// the operator surface behind its own boundary until it lands.
+// DispatchService, AuditService and CaptureEdgeService are verified before
+// Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
+// DeviceService and CaptureService cannot be behind that check — putting them
+// there would refuse every operator. None carries an authorization check of
+// its own today; OpenFGA is out of this plan's scope, and the deployment that
+// runs this puts the operator surface behind its own boundary until it lands.
+// CaptureService is the one that makes that boundary matter most: behind it is
+// other people's traffic, not only an inventory.
+//
+// Two edge procedures are mounted in front of the middleware, each for the
+// same reason and each paying for it explicitly. Enroll happens before central
+// holds a key to verify with. UploadCapture holds a stream open for the length
+// of a capture, which no body-hashing middleware can read, so it authenticates
+// from the stream's own assertions instead. Both are bounded where the
+// middleware's limit would have been.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
 	recoverPanic := panicRecovery()
 	interceptors := connect.WithInterceptors(
@@ -101,6 +113,22 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		resources.hub.Tenant(),
 	)
 
+	captureEdgeService := captureapi.NewEdgeService(
+		resources.captures,
+		verifier,
+		resources.broadcaster,
+		captureapi.EdgeServiceConfig{
+			Logger: log,
+		},
+	)
+	captureOperatorService := captureapi.NewOperatorService(
+		resources.captures,
+		resources.broadcaster,
+		captureapi.OperatorServiceConfig{
+			NotifyChange: captureEdgeService.NotifyStoreChange,
+		},
+	)
+
 	mux := http.NewServeMux()
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
@@ -125,6 +153,28 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 
 	devicePath, deviceHandler := devicev1connect.NewDeviceServiceHandler(deviceService, interceptors, recoverPanic)
 	mux.Handle(devicePath, deviceHandler)
+
+	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, interceptors, recoverPanic)
+	mux.Handle(capturePath, captureHandler)
+
+	// Every message on the upload stream is bounded, in place of the body
+	// limit the assertion middleware applies to a unary edge call. The
+	// middleware cannot do it here: it reads the body whole to hash it, and
+	// an upload stream has no whole.
+	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(
+		captureEdgeService, interceptors, recoverPanic, connect.WithReadMaxBytes(maxCaptureChunk),
+	)
+	mux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
+	// UploadCapture carries its assertions as messages rather than headers,
+	// so it is served in front of the middleware and authenticates itself
+	// from the stream's first message. That leaves it the second procedure an
+	// unauthenticated caller can reach, and the read bound above is what that
+	// costs. The handler also needs the read deadline that enforces its
+	// assertion window, which only this layer can hand it.
+	mux.Handle(
+		captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure,
+		captureapi.WithUploadReadDeadline(captureEdgeHandler),
+	)
 
 	return mux, nil
 }

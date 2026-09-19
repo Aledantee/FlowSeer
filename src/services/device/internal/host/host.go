@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/centralaudit"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
@@ -59,12 +61,19 @@ const (
 	// whole to hash it, so the bound is what stops an unauthenticated caller
 	// making central buffer as much as it likes.
 	maxEdgeBody = 1 << 20
+
+	// maxCaptureChunk bounds one message on the capture upload stream. The
+	// middleware's body limit cannot apply to a stream, and this stands in
+	// its place; it is the worst case CapturePacketChunk documents, 256
+	// packets of 65535 octets, with room for the envelope. A smaller bound
+	// would refuse a conforming edge in the middle of a capture.
+	maxCaptureChunk = 17 << 20
 )
 
 // Run assembles the device service and runs it until ctx ends or the runtime
 // stops it.
 //
-// The five modules are declared in dependency order and supervised
+// The six modules are declared in dependency order and supervised
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
@@ -119,6 +128,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 			{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
 			{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
 			{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
+			{Name: "capture_sweeper", Leaf: &service.Leaf{Setup: h.setupCaptureSweeper}},
 		},
 	})
 }
@@ -271,12 +281,25 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		Logger:        log,
 	})
 
+	capturesBucket, err := hub.JetStream().KeyValue(ctx, edgebus.CapturesBucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the captures bucket")
+	}
+	capturesDir := filepath.Join(h.cfg.StateDir(), "captures")
+	captureStore, err := captureapi.NewStore(capturesBucket, capturesDir)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("initialize the capture store")
+	}
+	broadcaster := captureapi.NewBroadcaster()
+
 	return &busResources{
-		hub:      hub,
-		lanes:    lanes,
-		journal:  lane,
-		edges:    edgestore.New(edges),
-		dispatch: dispatch,
+		hub:         hub,
+		lanes:       lanes,
+		journal:     lane,
+		edges:       edgestore.New(edges),
+		dispatch:    dispatch,
+		captures:    captureStore,
+		broadcaster: broadcaster,
 	}, nil
 }
 
@@ -358,8 +381,8 @@ func (h *assembly) setupDrift(ctx context.Context) (service.Attempt, error) {
 	return service.Attempt{Runner: poller.Run}, nil
 }
 
-// setupConnect serves the four edge-facing services and the two an operator
-// calls.
+// setupConnect serves the edge-facing services and the operator-facing ones;
+// [assembly.mux] says which is which and why.
 func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 	resources, err := h.hub.await(ctx)
 	if err != nil {
@@ -467,4 +490,42 @@ func serveConnect(ctx context.Context, server *http.Server, bound string, serve 
 		<-errCh
 		return nil
 	}
+}
+
+const defaultCaptureSweepInterval = time.Minute
+
+// setupCaptureSweeper periodically sweeps expired pcapng artifacts past their
+// retention deadline while preserving session metadata.
+func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, error) {
+	resources, err := h.hub.await(ctx)
+	if err != nil {
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		ticker := time.NewTicker(defaultCaptureSweepInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-ticker.C:
+				// A sweep that removed some artifacts and failed on others
+				// reports both: purging expired payload is an obligation, so
+				// the count is not the whole answer.
+				removed, err := resources.captures.SweepExpired(ctx)
+				if err != nil {
+					service.Logger(ctx).ErrorContext(ctx, "capture sweeper could not purge every expired artifact",
+						slog.Int("flowseer.capture.artifacts.purged", removed),
+						slog.String("error.type", telemetry.ErrorType(err)))
+					continue
+				}
+				if removed > 0 {
+					service.Logger(ctx).InfoContext(ctx, "capture sweeper purged expired artifacts",
+						slog.Int("flowseer.capture.artifacts.purged", removed))
+				}
+			}
+		}
+	}}, nil
 }

@@ -176,6 +176,11 @@ message CaptureArtifact {
   flowseer.net.capture.v1.LinkType link_type = 4 [(buf.validate.field).required = true];
   // When the stored pcapng file is no longer retained. Must be present.
   google.protobuf.Timestamp expires_at = 5 [(buf.validate.field).required = true];
+  // When retention deleted the stored pcapng file. Unset means the file is
+  // still on disk. The descriptor outlives the bytes it describes: an audit
+  // asks what was captured and how large it was long after the capture
+  // itself has been purged.
+  google.protobuf.Timestamp purged_at = 6;
 }
 
 // The intended definition of one capture session: what was asked for.

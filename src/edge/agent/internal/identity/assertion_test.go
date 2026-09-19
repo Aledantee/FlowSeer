@@ -135,3 +135,22 @@ func TestTheBodyDigestIsOfTheBytesOnTheWire(t *testing.T) {
 		t.Error("the assertion outlives the 60 seconds its schema allows")
 	}
 }
+
+func TestSigner_SignedAssertion(t *testing.T) {
+	key := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
+	signer := identity.NewSigner(key, vectorEnrollment(), func() time.Time {
+		return time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	})
+	identity.SetNonceForTest(signer, make([]byte, 16))
+
+	signed, err := signer.SignedAssertion(vectorProcedure, nil)
+	if err != nil {
+		t.Fatalf("SignedAssertion() error: %v", err)
+	}
+	if len(signed.GetPayload()) == 0 {
+		t.Fatal("empty payload in signed assertion")
+	}
+	if !ed25519.Verify(key.Public().(ed25519.PublicKey), signed.GetPayload(), signed.GetSignature()) {
+		t.Fatal("signature does not verify with public key")
+	}
+}

@@ -90,18 +90,12 @@ func (s *Signer) AdoptServerTime(ctx context.Context, serverTime time.Time) {
 		slog.Int64("flowseer.edge.clock_adjustment_ms", adjustment.Milliseconds()))
 }
 
-// Header returns the Authorization value for one call: the procedure as
-// Connect names it ("/flowseer.edge.attach.v1.EdgeService/Heartbeat") and the
-// exact request body bytes that will go on the wire.
-//
-// The body must be the uncompressed bytes central will hash, which for a
-// server-stream open is the one Connect-enveloped request message. Central
-// refuses a compressed request before verifying, so the bytes signed here are
-// the bytes read there.
-func (s *Signer) Header(procedure string, body []byte) (string, error) {
+// SignedAssertion returns a fresh SignedEdgeAssertion message authorizing
+// procedure and body.
+func (s *Signer) SignedAssertion(procedure string, body []byte) (*edgev1.SignedEdgeAssertion, error) {
 	nonce, err := s.newNonce()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	issued := s.now().Add(time.Duration(s.offset.Load())).UTC()
@@ -120,12 +114,28 @@ func (s *Signer) Header(procedure string, body []byte) (string, error) {
 	// against and both sides serialize independently.
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
 	if err != nil {
-		return "", errs.From(err).Code(ErrCodeState).Msg("serialize the edge assertion")
+		return nil, errs.From(err).Code(ErrCodeState).Msg("serialize the edge assertion")
 	}
 
 	signed := &edgev1.SignedEdgeAssertion{}
 	signed.SetPayload(payload)
 	signed.SetSignature(ed25519.Sign(s.key, payload))
+	return signed, nil
+}
+
+// Header returns the Authorization value for one call: the procedure as
+// Connect names it ("/flowseer.edge.attach.v1.EdgeService/Heartbeat") and the
+// exact request body bytes that will go on the wire.
+//
+// The body must be the uncompressed bytes central will hash, which for a
+// server-stream open is the one Connect-enveloped request message. Central
+// refuses a compressed request before verifying, so the bytes signed here are
+// the bytes read there.
+func (s *Signer) Header(procedure string, body []byte) (string, error) {
+	signed, err := s.SignedAssertion(procedure, body)
+	if err != nil {
+		return "", err
+	}
 
 	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
 	if err != nil {

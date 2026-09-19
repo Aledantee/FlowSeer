@@ -125,9 +125,10 @@ central detecting itself.
 ## Deployment
 
 **The operator surface has no authorization check, and the blast radius is
-the whole deployment.** `DeviceService` and `EdgeAdminService` are served in
-front of the edge-assertion middleware, because an operator holds no edge key
-and that check would refuse every call. Nothing has replaced it.
+the whole deployment.** `DeviceService`, `EdgeAdminService` and
+`CaptureService` are served in front of the edge-assertion middleware, because
+an operator holds no edge key and that check would refuse every call. Nothing
+has replaced it.
 
 What a caller that reaches the API port can do is not three RPC effects. It
 can take over any edge and read out every device credential that edge is
@@ -145,9 +146,18 @@ every device the registry binds to it. The edge-assertion middleware does not
 help against this, because the key it checks is the one the attacker just
 registered.
 
+`CaptureService` adds a second kind of reach to that list. A caller on the
+port can start a promiscuous capture on any edge, tail the packets live, and
+download the stored pcapng — other people's traffic, which the capture
+direction record treats as the most restricted data this system holds. Nothing
+scopes a session to the operator who created it: `authorization.operator` is a
+string the caller writes about itself.
+
 The request body limit is also narrower than it looks: it wraps only the
-middleware-mounted paths, so `DeviceService` and `EdgeAdminService` accept an
-unbounded body from the same unauthenticated caller.
+middleware-mounted paths, so `DeviceService`, `EdgeAdminService` and
+`CaptureService` accept an unbounded body from the same unauthenticated
+caller. `CaptureEdgeService.UploadCapture` is mounted in front of the
+middleware too, and carries its own per-message bound instead.
 
 This gap is accepted for now rather than overlooked. Authorization for the
 operator and admin surfaces is a named follow-up (OpenFGA), and until it
@@ -162,11 +172,19 @@ is the most privileged action here, and after an incident there is no way to
 answer who minted which key for which edge. The audit stream is
 device-scoped by design and is not that trail.
 
-The edge-facing services — `EdgeService`, `DispatchService`, `AuditService` —
-are verified: every call carries a fresh assertion signed by the key central
-registered at enrollment, checked against the request body and the invoked
-procedure before Connect decodes anything. `Enroll` is the exception and
-carries its own proof, because it happens before central holds a key.
+The edge-facing services — `EdgeService`, `DispatchService`, `AuditService`,
+`CaptureEdgeService` — are verified: every call carries a fresh assertion
+signed by the key central registered at enrollment, checked against the request
+body and the invoked procedure before Connect decodes anything.
+
+Two procedures are exceptions. `Enroll` carries its own proof, because it
+happens before central holds a key. `UploadCapture` carries its assertions as
+messages on the stream rather than as a header: there is no whole body to hash
+on a stream an edge holds open for the length of a capture, so its opening
+assertion is checked from the stream's first message and a fresh one has to
+arrive inside every 60-second window, with a read deadline closing the stream
+when none does. Both are bounded explicitly in place of the middleware's
+limit.
 
 The service reads one prototext `DeviceServiceConfig`
 ([schema](../../../spec/proto/flowseer/store/device/v1/README.md)) and takes
@@ -175,11 +193,50 @@ printing the digest an edge pins. That digest is what every edge is
 provisioned with, so the pair is persisted: a service that generated a fresh
 key each start would refuse every edge in the field.
 
-Five modules run under the service runtime — the bus hub, the telemetry
-forwarder, the journal's read sweeper, the Connect listener, and the drift
-poll — supervised `RestForOne` with the hub first. That is not a default: the
-four modules after it hold resources the hub owns, so a hub that is rebuilt
+Six modules run under the service runtime — the bus hub, the telemetry
+forwarder, the journal's read sweeper, the Connect listener, the drift
+poll, and the capture artifact sweeper — supervised `RestForOne` with the hub first. That is not a default: the
+five modules after it hold resources the hub owns, so a hub that is rebuilt
 must take them with it.
+
+## Remote packet capture
+
+Central coordinates bounded packet captures run by edges. An operator requests
+a capture session via `CaptureService` (`CreateCaptureSession`), bounding it by
+packet count, byte count, or duration. The session record is persisted in
+JetStream KV (`captures` bucket) in the `PENDING` lifecycle.
+
+What central owes an edge is derived from open session records:
+`CaptureEdgeService.SubscribeCaptureAssignments` derives owed assignments for
+the calling edge (start for `PENDING` sessions, stop for cancellations).
+
+Packets stream back over `CaptureEdgeService.UploadCapture`, which authenticates
+via in-stream `SignedEdgeAssertion`s rather than HTTP header assertions, and
+whose stream is closed by a read deadline when one window passes without a
+fresh assertion — an edge that simply goes quiet is the case a check on arrival
+would never see. Every chunk's `session.edge` must name the calling edge. On
+the first chunk upload, central transitions the session to `RUNNING`,
+withdrawing the start assignment. Uploaded packets are appended into a retained
+pcapng file on central at `<StateDir>/captures/<session_id>.pcapng` and
+broadcast in memory to active `TailCaptureSession` subscribers. A tail slower
+than the upload loses chunks rather than stalling it, and central logs when it
+does.
+
+When the edge marks upload complete (`final: true`), central finalizes the
+pcapng artifact, syncs it, writes the SHA-256 digest, byte size, and packet
+count to the session state, and sets the retention expiration. From then on the
+session is closed to further uploads: a second stream naming it is refused, so
+the stored bytes and the digest describing them cannot diverge. Operators
+download stored pcapng files in chunks up to 1MiB via
+`DownloadCaptureSession`, which answers from the session record rather than the
+file — a capture still running is `FailedPrecondition`, one whose payload is
+gone is `NotFound`.
+
+A background sweeper module (`capture_sweeper`) unlinks pcapng payload files
+past their `expires_at` and stamps `purged_at` on the artifact descriptor,
+leaving the session record and its counters. That is the capture direction
+record's retention rule, which departs from retire-is-not-purge deliberately:
+the record is what an audit needs, the payload is what an audit is about.
 
 ## Layout
 
@@ -194,6 +251,7 @@ must take them with it.
 | `internal/dispatchapi` | `DispatchService`: the outbox relay and the report handler |
 | `internal/auditapi` | `AuditService`: the edge's audit deliveries onto the stream |
 | `internal/deviceapi` | `DeviceService`: the operator's calls |
+| `internal/captureapi` | `CaptureService`, `CaptureEdgeService`, pcapng artifact store, and live tail broadcaster |
 | `internal/centralaudit` | the audit records central writes on its own behalf |
 | `internal/drift` | the poll that compares a managed interface against its expectation |
 | `internal/connecterr` | the errs-to-Connect mapping every handler answers through |

@@ -53,11 +53,17 @@ func (v validatingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 // protovalidate on its open message.
 //
 // What each does instead is check the fields it uses against something
-// authoritative: Subscribe ignores its request entirely and works from the
-// edge identity the assertion middleware established, and OpenDeviceSubmission
-// reads device_id, binding_id and sequence and resolves each against the
-// registry and the lane record. A field nobody reads is a field no constraint
-// on it could protect.
+// authoritative, which is the property to hold when a streaming handler joins
+// this list. Subscribe and SubscribeCaptureAssignments ignore their requests
+// entirely and work from the edge identity the assertion middleware
+// established. OpenDeviceSubmission reads device_id, binding_id and sequence
+// and resolves each against the registry and the lane record. UploadCapture
+// resolves its first chunk's session ref against the session record and the
+// edge its own in-stream assertion names, and holds every later chunk to that
+// same session and edge. TailCaptureSession
+// and DownloadCaptureSession read a session id and resolve it against the
+// record before it reaches a store or a path. A field nobody reads is a field
+// no constraint on it could protect.
 //
 // So this is a choice rather than a limitation — an interceptor can wrap
 // StreamingHandlerConn.Receive and validate the message as it is read — and

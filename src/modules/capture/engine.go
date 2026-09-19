@@ -23,10 +23,12 @@ const (
 	// within it, and the payload does not.
 	defaultSnapLength = 128
 
-	// batchMaxRecords bounds a Batch well under CapturePacketChunk's
-	// 4096-item cap, so a host wrapping one into that message never has to
-	// split it.
-	batchMaxRecords = 512
+	// batchMaxRecords is CapturePacketChunk's own packets cap, so a host
+	// wrapping one Batch into that message never has to split it and never
+	// builds one a receiver would refuse. The two numbers only stay equal if
+	// something compares them, which this package's tests do by validating
+	// the message a full batch produces.
+	batchMaxRecords = 256
 
 	// batchFlushInterval bounds how long a record can sit in a
 	// not-yet-full batch before it is sent anyway, and is also the cadence
@@ -102,6 +104,28 @@ func New(cfg Config) (*Engine, error) {
 	}
 
 	return newEngine(src, cfg.Budget, reportsInterfaceDrops), nil
+}
+
+// NewWithSource builds an Engine around an already-open source, for a caller
+// that opens its own.
+//
+// It is not New with the socket step swapped out: New's work before the
+// socket — validating the budget, rejecting a snap length over 65535, and
+// compiling cfg.Filter into the cBPF program it attaches — has nowhere to
+// happen here, because the engine has no userspace filter stage and this
+// source is already open. A caller that reaches for this constructor owns
+// both: the session's filter is its to apply when it opens the source, and a
+// budget bounding nothing gives an engine that never stops on its own.
+//
+// reportsInterfaceDrops distinguishes a local-interface source, whose Stats
+// reports a real kernel drop count, from a mirror receiver, whose Stats
+// always returns zero for droppedByInterface because no such counter exists
+// at that layer: per capture_counters.proto, an absent counter means the
+// stage does not report one, so a mirror-sourced run never sets
+// dropped_by_interface rather than reporting a misleading zero. A source that
+// counts nothing passes false for the same reason.
+func NewWithSource(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
+	return newEngine(src, budget, reportsInterfaceDrops)
 }
 
 // newEngine builds an Engine around an already-open source, so a test
@@ -351,9 +375,14 @@ runLoop:
 	}
 
 	pollStats()
-	flush(true)
+	// Final only for a run that reached a stopping condition of its own. A
+	// run that failed has no final batch: its consumer sees the pump close
+	// with an error instead. Marking the trailing batch Final here either
+	// way would tell an uploader that a capture the source killed off is one
+	// that finished, and central reads a final chunk as exactly that.
+	flush(runErr == nil)
 
-	// flush(true) is the last send this run will ever make, so a drop it
+	// That flush is the last send this run will ever make, so a drop it
 	// causes has no later chunk to be reported on. The stream's own
 	// self-consistency is unavoidably short by that amount — a property of
 	// any "report on the next chunk" protocol's final message, not a bug

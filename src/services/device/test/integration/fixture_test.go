@@ -17,8 +17,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
@@ -384,6 +386,14 @@ func (c *central) admin() edgev1connect.EdgeAdminServiceClient {
 
 func (c *central) devices() devicev1connect.DeviceServiceClient {
 	return devicev1connect.NewDeviceServiceClient(c.client, c.baseURL())
+}
+
+func (c *central) captures() capturev1connect.CaptureServiceClient {
+	return capturev1connect.NewCaptureServiceClient(c.client, c.baseURL())
+}
+
+func (c *central) edgeCaptures() captureedgev1connect.CaptureEdgeServiceClient {
+	return captureedgev1connect.NewCaptureEdgeServiceClient(c.client, c.baseURL())
 }
 
 func deviceRef() *inventoryv1.DeviceGlobalRef {

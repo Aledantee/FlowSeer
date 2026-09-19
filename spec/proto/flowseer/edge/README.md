@@ -29,5 +29,5 @@ consumer to another.
 
 - `attach/v1/`: `EdgeService`, what an edge calls to enroll, stay attached, list its devices, and acquire credentials.
 - `audit/v1/`: `AuditService`, delivering the durable `DeviceOperationEvent` audit record.
-- `capture/v1/`: Edge-facing `CaptureEdgeService` to upload a running capture session's packets.
+- `capture/v1/`: Edge-facing `CaptureEdgeService`, carrying the capture assignments central owes an edge and the packets that edge uploads back.
 - `dispatch/v1/`: `DispatchService`, the execution envelope central and the edge hosting a device's lane exchange.

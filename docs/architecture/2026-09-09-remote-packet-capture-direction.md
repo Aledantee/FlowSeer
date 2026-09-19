@@ -127,9 +127,10 @@ navigation, and it acknowledges no live transport requirement
 every packet's metadata invisible to the platform that is storing and indexing
 it, which defeats the point of having a schema.
 
-pcapng stays where it earns its keep: as a rendering. The edge writes it for the
-stored artifact, a client writes it to hand to Wireshark, and both are pure
-functions of the records. Link types come from the pcap LINKTYPE registry as
+pcapng stays where it earns its keep: as a rendering. Central writes it for the
+stored artifact, from the records the edge uploads — the amendment below moved
+that write from the edge — a client writes it to hand to Wireshark, and both
+are pure functions of the records. Link types come from the pcap LINKTYPE registry as
 pass-through values (`LINKTYPE_ETHERNET` is 1, `LINKTYPE_LINUX_SLL2` is 276), and
 the registry's real zero, `LINKTYPE_NULL`, is kept, so presence rather than zero
 means "not reported" — the same treatment `IpProtocol` already gets.
@@ -260,3 +261,41 @@ edge moved with it. The import-order line in Consequences reads
 `{model/capture, model/edge} ← edge/capture` now. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
+
+### 2026-09-18 — central artifact persistence and fan-out
+
+"Central-side storage and fan-out are not decided here" above describes storing
+the artifact on the edge, and asks whoever writes the central store to
+reconcile it against [the device service
+record](2026-08-20-device-service-and-inventory-direction.md). That decision is
+reversed, and this is that reconciliation.
+
+Session records go where that record puts central's own state: a JetStream
+KeyValue bucket, `captures` in the `CENTRAL` account, under the service's
+declared fsync policy, and a lifecycle transition is a compare-and-set against
+the revision it read. The pcapng artifact does not. It is the one thing central
+holds that a KeyValue bucket is wrong for — tens of megabytes bounded by the
+session budget, against a 1 MB value limit and an fsync per write — so it is a
+file at `<StateDir>/captures/<session_id>.pcapng`, written as the chunks arrive
+and read back in slices for `DownloadCaptureSession`. The consequence of
+splitting them is that the two can disagree after a crash, so the digest is
+published only over bytes already synced to disk, and the file is never
+truncated by a later stream: an artifact on disk belongs to the capture whose
+digest describes it.
+
+Retention is the rule this record already states under "Every capture is
+bounded and authorized": expiry deletes the artifact bytes, and the session
+record and its counters survive. A periodic sweeper applies it, unlinking the
+file once `expires_at` has passed and stamping `CaptureArtifact.purged_at` so
+an operator reading the session can tell a capture that was purged from one
+that is still being written. A sweep that cannot unlink a file says so rather
+than reporting a count, because purging the payload is an obligation and not a
+best effort.
+
+Fan-out is decided here too, narrowly: `TailCaptureSession` reads from an
+in-memory broadcast attached to the upload stream in the same process. A tail
+is an observation of a capture in flight, so it is not worth a durable stream
+or a second write to disk; the price is that a tail slower than the upload
+loses chunks rather than stalling it, and that a tail sees nothing across a
+restart or a second central replica. Both are acceptable while the artifact on
+disk is the record of what was captured.

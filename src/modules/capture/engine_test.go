@@ -3,12 +3,17 @@ package capture
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/pcapng"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
@@ -117,9 +122,10 @@ func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 // discard, and the drop is attributable — the sequence gap the consumer
 // sees matches what the run's final counters report.
 //
-// batchMaxRecords (512) and pumpBuffer (8) together mean feeding more than
-// 8*512 frames, with nothing draining the pump meanwhile, forces evictions
-// deterministically without depending on flushTicker's wall-clock cadence.
+// batchMaxRecords and pumpBuffer (8) together mean feeding more than
+// 8*batchMaxRecords frames, with nothing draining the pump meanwhile, forces
+// evictions deterministically without depending on flushTicker's wall-clock
+// cadence.
 func TestEngine_AttributableLoss(t *testing.T) {
 	const totalFrames = batchMaxRecords * 10
 	src := newFakeSource(totalFrames + 1)
@@ -507,5 +513,103 @@ func TestApplyDropAccounting_TrimsFIFOToPumpCapacity(t *testing.T) {
 	applyDropAccounting(&fifo, &pending, true, 1, 999)
 	if pending != 13 {
 		t.Errorf("pending drops = %d, want 13 (the oldest batch still actually buffered, not an already-delivered one)", pending)
+	}
+}
+
+// TestNewWithSource proves NewWithSource constructs a functional Engine around
+// a custom Source without requiring OS raw socket permissions.
+func TestNewWithSource(t *testing.T) {
+	src := newFakeSource(1)
+	src.frames <- testFrame(0xaa)
+
+	e := NewWithSource(src, testBudget(1), true)
+	if e == nil {
+		t.Fatal("NewWithSource returned nil")
+	}
+
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	batches := drainAll(p)
+	if len(batches) != 1 {
+		t.Fatalf("delivered %d batches, want 1", len(batches))
+	}
+	if len(batches[0].Records) != 1 {
+		t.Fatalf("batch has %d records, want 1", len(batches[0].Records))
+	}
+}
+
+// TestEngine_FailedRunDeliversNoFinalBatch proves a run the source killed
+// off leaves Final unset on every batch it delivered. A host uploading these
+// batches turns Final into "the capture finished"; a receiver reads a final
+// chunk as a completed session and derives a stop reason from the budget, so
+// marking the trailing batch of a failed run Final would record a capture
+// that died on its first packet as one that completed its hundred.
+func TestEngine_FailedRunDeliversNoFinalBatch(t *testing.T) {
+	src := newFakeSource(4)
+	src.frames <- testFrame(0xaa)
+	src.frames <- rawsocket.Frame{Err: errors.New("recvfrom: network is down")}
+
+	e := newEngine(src, testBudget(100), true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	<-src.closed
+
+	batches := drainAll(p)
+	for i, b := range batches {
+		if b.Final {
+			t.Errorf("batch %d of a failed run is marked Final", i)
+		}
+	}
+	if p.Err() == nil {
+		t.Error("p.Err() = nil, want the pump to carry the source's terminal error")
+	}
+
+	var records int
+	for _, b := range batches {
+		records += len(b.Records)
+	}
+	if records != 1 {
+		t.Errorf("delivered %d records, want the 1 accepted before the source failed", records)
+	}
+}
+
+// TestBatchCapFitsTheChunkSchema holds batchMaxRecords to the cap
+// CapturePacketChunk declares, by building the message a host builds from one
+// full batch and validating it. The engine's batch size exists so that host
+// never has to split, which only holds while the two numbers agree; the
+// engine cannot read the constraint, so this is where they are compared.
+func TestBatchCapFitsTheChunkSchema(t *testing.T) {
+	packets := make([]*capturev1.PacketRecord, batchMaxRecords)
+	for i := range packets {
+		rec := &capturev1.PacketRecord{}
+		rec.SetSequence(uint64(i))
+		rec.SetCapturedAt(timestamppb.New(time.Unix(0, 0)))
+		rec.SetOriginalLength(64)
+		rec.SetData([]byte{0x01})
+		packets[i] = rec
+	}
+
+	chunk := modelcapturev1.CapturePacketChunk_builder{
+		Session: modelcapturev1.CaptureSessionGlobalRef_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{
+					Id: proto.String("0192e6a0-0000-7000-8000-000000000002"),
+				}.Build(),
+			}.Build(),
+			CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{
+				Id: proto.String("0192e6a0-0000-7000-8000-000000000001"),
+			}.Build(),
+		}.Build(),
+		FirstSequence: proto.Uint64(0),
+		Packets:       packets,
+	}.Build()
+
+	if err := protovalidate.Validate(chunk); err != nil {
+		t.Fatalf("a full batch does not fit CapturePacketChunk: %v", err)
 	}
 }

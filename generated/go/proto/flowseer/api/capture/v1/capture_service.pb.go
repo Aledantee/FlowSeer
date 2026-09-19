@@ -1006,10 +1006,10 @@ func (b0 TailCaptureSessionRequest_builder) Build() *TailCaptureSessionRequest {
 }
 
 type TailCaptureSessionResponse struct {
-	state            protoimpl.MessageState  `protogen:"opaque.v1"`
-	xxx_hidden_Chunk *v11.CapturePacketChunk `protobuf:"bytes,1,opt,name=chunk"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state           protoimpl.MessageState            `protogen:"opaque.v1"`
+	xxx_hidden_Body isTailCaptureSessionResponse_Body `protobuf_oneof:"body"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *TailCaptureSessionResponse) Reset() {
@@ -1037,42 +1037,154 @@ func (x *TailCaptureSessionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+func (x *TailCaptureSessionResponse) GetAttached() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Attached); ok {
+			return x.Attached
+		}
+	}
+	return false
+}
+
 func (x *TailCaptureSessionResponse) GetChunk() *v11.CapturePacketChunk {
 	if x != nil {
-		return x.xxx_hidden_Chunk
+		if x, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Chunk); ok {
+			return x.Chunk
+		}
 	}
 	return nil
 }
 
+func (x *TailCaptureSessionResponse) SetAttached(v bool) {
+	x.xxx_hidden_Body = &tailCaptureSessionResponse_Attached{v}
+}
+
 func (x *TailCaptureSessionResponse) SetChunk(v *v11.CapturePacketChunk) {
-	x.xxx_hidden_Chunk = v
+	if v == nil {
+		x.xxx_hidden_Body = nil
+		return
+	}
+	x.xxx_hidden_Body = &tailCaptureSessionResponse_Chunk{v}
+}
+
+func (x *TailCaptureSessionResponse) HasBody() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Body != nil
+}
+
+func (x *TailCaptureSessionResponse) HasAttached() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Attached)
+	return ok
 }
 
 func (x *TailCaptureSessionResponse) HasChunk() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Chunk != nil
+	_, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Chunk)
+	return ok
+}
+
+func (x *TailCaptureSessionResponse) ClearBody() {
+	x.xxx_hidden_Body = nil
+}
+
+func (x *TailCaptureSessionResponse) ClearAttached() {
+	if _, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Attached); ok {
+		x.xxx_hidden_Body = nil
+	}
 }
 
 func (x *TailCaptureSessionResponse) ClearChunk() {
-	x.xxx_hidden_Chunk = nil
+	if _, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Chunk); ok {
+		x.xxx_hidden_Body = nil
+	}
+}
+
+const TailCaptureSessionResponse_Body_not_set_case case_TailCaptureSessionResponse_Body = 0
+const TailCaptureSessionResponse_Attached_case case_TailCaptureSessionResponse_Body = 1
+const TailCaptureSessionResponse_Chunk_case case_TailCaptureSessionResponse_Body = 2
+
+func (x *TailCaptureSessionResponse) WhichBody() case_TailCaptureSessionResponse_Body {
+	if x == nil {
+		return TailCaptureSessionResponse_Body_not_set_case
+	}
+	switch x.xxx_hidden_Body.(type) {
+	case *tailCaptureSessionResponse_Attached:
+		return TailCaptureSessionResponse_Attached_case
+	case *tailCaptureSessionResponse_Chunk:
+		return TailCaptureSessionResponse_Chunk_case
+	default:
+		return TailCaptureSessionResponse_Body_not_set_case
+	}
 }
 
 type TailCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The next chunk of packets. Must be present.
+	// Exactly one of: the tail is live, or the next chunk of packets.
+
+	// Fields of oneof xxx_hidden_Body:
+	// Sent once, before any chunk, when the tail is attached and no packet
+	// the session uploads from here on can be missed. Without it a caller
+	// cannot tell an idle capture from one whose packets it arrived too late
+	// to see. Must be true: the arm's presence is the signal, and a false
+	// here would read as a chunk to anyone who checks the value.
+	Attached *bool
+	// The next chunk of packets.
 	Chunk *v11.CapturePacketChunk
+	// -- end of xxx_hidden_Body
 }
 
 func (b0 TailCaptureSessionResponse_builder) Build() *TailCaptureSessionResponse {
 	m0 := &TailCaptureSessionResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_Chunk = b.Chunk
+	if b.Attached != nil {
+		x.xxx_hidden_Body = &tailCaptureSessionResponse_Attached{*b.Attached}
+	}
+	if b.Chunk != nil {
+		x.xxx_hidden_Body = &tailCaptureSessionResponse_Chunk{b.Chunk}
+	}
 	return m0
 }
+
+type case_TailCaptureSessionResponse_Body protoreflect.FieldNumber
+
+func (x case_TailCaptureSessionResponse_Body) String() string {
+	md := file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isTailCaptureSessionResponse_Body interface {
+	isTailCaptureSessionResponse_Body()
+}
+
+type tailCaptureSessionResponse_Attached struct {
+	// Sent once, before any chunk, when the tail is attached and no packet
+	// the session uploads from here on can be missed. Without it a caller
+	// cannot tell an idle capture from one whose packets it arrived too late
+	// to see. Must be true: the arm's presence is the signal, and a false
+	// here would read as a chunk to anyone who checks the value.
+	Attached bool `protobuf:"varint,1,opt,name=attached,oneof"`
+}
+
+type tailCaptureSessionResponse_Chunk struct {
+	// The next chunk of packets.
+	Chunk *v11.CapturePacketChunk `protobuf:"bytes,2,opt,name=chunk,oneof"`
+}
+
+func (*tailCaptureSessionResponse_Attached) isTailCaptureSessionResponse_Body() {}
+
+func (*tailCaptureSessionResponse_Chunk) isTailCaptureSessionResponse_Body() {}
 
 type DownloadCaptureSessionRequest struct {
 	state              protoimpl.MessageState       `protogen:"opaque.v1"`
@@ -1251,9 +1363,11 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x1e\n" +
 	"\x1cDeleteCaptureSessionResponse\"q\n" +
 	"\x19TailCaptureSessionRequest\x12T\n" +
-	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"i\n" +
-	"\x1aTailCaptureSessionResponse\x12K\n" +
-	"\x05chunk\x18\x01 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk\"u\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x99\x01\n" +
+	"\x1aTailCaptureSessionResponse\x12%\n" +
+	"\battached\x18\x01 \x01(\bB\a\xbaH\x04j\x02\b\x01H\x00R\battached\x12E\n" +
+	"\x05chunk\x18\x02 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkH\x00R\x05chunkB\r\n" +
+	"\x04body\x12\x05\xbaH\x02\b\x01\"u\n" +
 	"\x1dDownloadCaptureSessionRequest\x12T\n" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"o\n" +
 	"\x1eDownloadCaptureSessionResponse\x12M\n" +
@@ -1336,6 +1450,10 @@ func init() { file_flowseer_api_capture_v1_capture_service_proto_init() }
 func file_flowseer_api_capture_v1_capture_service_proto_init() {
 	if File_flowseer_api_capture_v1_capture_service_proto != nil {
 		return
+	}
+	file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11].OneofWrappers = []any{
+		(*tailCaptureSessionResponse_Attached)(nil),
+		(*tailCaptureSessionResponse_Chunk)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

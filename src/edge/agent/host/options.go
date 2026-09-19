@@ -1,9 +1,12 @@
 package host
 
 import (
+	"context"
+	"log/slog"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
+	"go.aledante.io/FlowSeer/src/modules/capture"
 )
 
 // Endpoint is where one device answers: its address and, when they are not
@@ -36,6 +39,21 @@ type SNMPFactoryFor = lanehost.SNMPFactoryFor
 // for.
 type ShellFactoryFor = lanehost.ShellFactoryFor
 
+// CaptureSourceOpener opens the packet source one capture session reads from.
+// The boolean return says whether that source's Stats reports a real kernel
+// drop count; a source that counts nothing answers false, so the session
+// reports no drop counter rather than a zero it cannot stand behind.
+//
+// What it stands in for is the whole of [capture.New], not its socket step.
+// New validates the budget, refuses a snap length over 65535, and compiles
+// cfg.Filter into the cBPF program it attaches to the socket it opens; an
+// opener reaches the engine through [capture.NewWithSource], which does none
+// of that and has no userspace filter stage to do it in. So an opener owns
+// cfg.Filter: a session's filter is applied where the source is opened or it
+// is not applied at all, and a capture wider than the operator authorized is
+// what that costs.
+type CaptureSourceOpener func(ctx context.Context, cfg capture.Config) (capture.Source, bool, error)
+
 // Options are what a caller assembling this agent in its own process can
 // substitute. The zero value is the packaged deployment: real dialers and the
 // wall clock.
@@ -45,6 +63,17 @@ type Options struct {
 	// they may and may not stand in for.
 	OpenSNMP  SNMPFactoryFor
 	OpenShell ShellFactoryFor
+	// OpenCaptureSource replaces how a capture session's packet source is
+	// opened. Nil is the packaged deployment: [capture.New], with its
+	// validation and its compiled filter. A non-nil opener takes both on
+	// itself, for every session this agent runs; see [CaptureSourceOpener].
+	OpenCaptureSource CaptureSourceOpener
+	// Logger overrides the base logger the agent logs to. Nil means stderr with
+	// [Config.LogLevel].
+	Logger *slog.Logger
+	// CaptureInactivityTimeout overrides the idle duration before an in-flight
+	// capture session aborts. Zero uses the default (60 seconds).
+	CaptureInactivityTimeout time.Duration
 	// Clock is what the lane reads the time from: every audit record's
 	// timestamp, the operation-duration measurement, the moment a mutation
 	// was submitted, and the recovery runner's own waiting. Nil means

@@ -7,8 +7,11 @@ edition = "2024";
 //
 // CapturePacketChunk is bounded by construction, not by a CEL sum over a
 // repeated field: PacketRecord.data caps each packet at 65535 octets and
-// this file caps the packet count at 4096, so the chunk's worst case is
-// their product.
+// this file caps the packet count at 256, so the chunk's worst case is their
+// product, a little under 16 MiB. That product is the number that matters,
+// because a chunk is one message on a stream and a receiver bounds what it
+// will read before it decodes: a cap loose enough to allow a chunk no
+// receiver accepts is a cap that refuses a conforming edge mid-capture.
 package flowseer.model.capture.v1;
 
 import "flowseer/model/capture/v1/capture_session.proto";
@@ -24,7 +27,7 @@ message CapturePacketChunk {
   uint64 first_sequence = 2 [(buf.validate.field).required = true];
   // The packets carried in this chunk, in sequence order starting at
   // first_sequence.
-  repeated flowseer.net.capture.v1.PacketRecord packets = 3 [(buf.validate.field).repeated = {max_items: 4096}];
+  repeated flowseer.net.capture.v1.PacketRecord packets = 3 [(buf.validate.field).repeated = {max_items: 256}];
   // Pipeline counters as of this chunk. Unset means none observed yet.
   flowseer.net.capture.v1.CaptureCounters counters = 4;
   // Whether this is the last chunk of the stream. Unset means more chunks

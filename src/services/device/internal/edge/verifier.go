@@ -112,6 +112,19 @@ func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []
 	if err := proto.Unmarshal(wire, signed); err != nil {
 		return nil, errs.From(err).Code(ErrCodeBadHeader).Msg("unmarshal signed assertion")
 	}
+	return v.VerifySigned(ctx, signed, procedure, body)
+}
+
+// VerifySigned checks a SignedEdgeAssertion against the invoked procedure's
+// full Connect method name and the bytes the assertion commits to, which for a
+// unary call are the uncompressed HTTP request body.
+//
+// A nil body means the assertion commits to no payload: its body hash is taken
+// over the empty string, and what remains binding is the edge, the procedure,
+// the audience, the clock window, and the nonce. That is the shape a streaming
+// call needs, where there is no whole body to hash and no single request to
+// bind to; the caller re-asserts inside its window instead of per request.
+func (v *Verifier) VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAssertion, procedure string, body []byte) (*edgev1.EdgeAssertion, error) {
 	if err := protovalidate.Validate(signed); err != nil {
 		return nil, errs.From(err).Code(ErrCodeBadHeader).Msg("validate signed assertion envelope")
 	}
