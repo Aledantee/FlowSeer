@@ -75,6 +75,33 @@ func TestComparisonCorpusInvariants(t *testing.T) {
 				if resShuffled.Expected != resCur.Expected {
 					t.Errorf("trial %d expected = %q, want %q", trial, resShuffled.Expected, resCur.Expected)
 				}
+
+				// Cross-coverage: candidate-first execution under randomized shuffling.
+				resCandShuffled, err := tc.Execute(true, rng)
+				if err != nil {
+					t.Fatalf("trial %d candidate-first execution failed: %v", trial, err)
+				}
+				if resCandShuffled.Disposition != tc.ExpectedDisposition {
+					t.Errorf("trial %d candidate-first disposition = %v, want %v", trial, resCandShuffled.Disposition, tc.ExpectedDisposition)
+				}
+				if resCandShuffled.Observable != tc.ExpectedObservable {
+					t.Errorf("trial %d candidate-first observable = %q, want %q", trial, resCandShuffled.Observable, tc.ExpectedObservable)
+				}
+				if tc.ExpectedDisposition == analysis.Different {
+					if resCandShuffled.Current != resCur.Expected {
+						t.Errorf("trial %d candidate-first Current = %q, want %q", trial, resCandShuffled.Current, resCur.Expected)
+					}
+					if resCandShuffled.Expected != resCur.Current {
+						t.Errorf("trial %d candidate-first Expected = %q, want %q", trial, resCandShuffled.Expected, resCur.Current)
+					}
+				} else {
+					if resCandShuffled.Current != resCur.Current {
+						t.Errorf("trial %d candidate-first current = %q, want %q", trial, resCandShuffled.Current, resCur.Current)
+					}
+					if resCandShuffled.Expected != resCur.Expected {
+						t.Errorf("trial %d candidate-first expected = %q, want %q", trial, resCandShuffled.Expected, resCur.Expected)
+					}
+				}
 			}
 		})
 	}

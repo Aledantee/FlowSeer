@@ -32,13 +32,12 @@ func (d Difference) String() string {
 
 // Comparison holds the forwarding results from evaluating the same frame arrival
 // on two switches, and reports the derived comparison disposition and the first
-// differing behavioral observable. Same is true when observable forwarding behaviors match.
+// differing behavioral observable.
 type Comparison struct {
 	Current     ForwardResult
 	Expected    ForwardResult
 	Disposition analysis.Disposition
 	Difference  Difference
-	Same        bool
 }
 
 // CompareResults compares two [ForwardResult] values directly and reports their exact
@@ -47,10 +46,10 @@ func CompareResults(cur, exp ForwardResult) Comparison {
 	diff, hasDiff := diffForwardResult(cur, exp)
 	var disp analysis.Disposition
 	switch {
-	case hasDiff:
-		disp = analysis.Different
 	case cur.Metadata.Status() != analysis.Complete || exp.Metadata.Status() != analysis.Complete:
 		disp = analysis.Inconclusive
+	case hasDiff:
+		disp = analysis.Different
 	default:
 		disp = analysis.Equivalent
 	}
@@ -60,7 +59,6 @@ func CompareResults(cur, exp ForwardResult) Comparison {
 		Expected:    exp,
 		Disposition: disp,
 		Difference:  diff,
-		Same:        !hasDiff,
 	}
 }
 
@@ -99,6 +97,9 @@ func diffForwardResult(cur, exp ForwardResult) (Difference, bool) {
 		}, true
 	}
 
+	// The bridge guarantees at most one Egress entry per logical port (unicast resolves to
+	// at most one destination port, and flooding/replication deduplicates candidate ports
+	// via a seen set), so keying by eg.Port preserves all egress records without collapse.
 	curByPort := make(map[string]bridge.Egress, len(cur.Egress))
 	for _, eg := range cur.Egress {
 		curByPort[eg.Port] = eg

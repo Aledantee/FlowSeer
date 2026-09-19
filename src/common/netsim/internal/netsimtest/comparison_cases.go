@@ -327,10 +327,30 @@ func ComparisonCorpus() []ComparisonCase {
 		rng *rand.Rand,
 	) (*fabric.Fabric, *fabric.Fabric, error) {
 		makeFab := func(mutateCables func([]fabric.Cable) []fabric.Cable) (*fabric.Fabric, error) {
-			tbl, err := buildPortTable([]port.Port{
+			baseCables := []fabric.Cable{
+				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
+				{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+			}
+			if mutateCables != nil {
+				baseCables = mutateCables(baseCables)
+			}
+
+			portList := []port.Port{
 				{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 				{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
-			}, rng)
+			}
+			for _, c := range baseCables {
+				if c.Fault.Kind == fabric.FaultCut {
+					for pi := range portList {
+						if (c.A.Node == "sw1" && c.A.Port == portList[pi].Name) ||
+							(c.B.Node == "sw1" && c.B.Port == portList[pi].Name) {
+							portList[pi].OperStatus = port.Down
+						}
+					}
+				}
+			}
+
+			tbl, err := buildPortTable(portList, rng)
 			if err != nil {
 				return nil, err
 			}
@@ -355,15 +375,6 @@ func ComparisonCorpus() []ComparisonCase {
 			hosts := map[string]fabric.Host{
 				"h1": {Address: mac1, Ethernet: gigabit},
 				"h2": {Address: mac2, Ethernet: gigabit},
-			}
-
-			baseCables := []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-				{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-			}
-
-			if mutateCables != nil {
-				baseCables = mutateCables(baseCables)
 			}
 
 			cables := shuffleSlice(rng, baseCables)

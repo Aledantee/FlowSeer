@@ -98,7 +98,7 @@ func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC
 	return cfg, macH1, macH2
 }
 
-func TestCompareEqualFabricsReturnsSameTrue(t *testing.T) {
+func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
@@ -129,8 +129,8 @@ func TestCompareEqualFabricsReturnsSameTrue(t *testing.T) {
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
-	if !cmp.Same {
-		t.Errorf("Compare returned Same: false for equal fabrics, want true")
+	if cmp.Disposition != analysis.Equivalent {
+		t.Errorf("Compare returned disposition: %v, want Equivalent", cmp.Disposition)
 	}
 	if cmp.Steps[0] != 2 || cmp.Steps[1] != 2 {
 		t.Errorf("Steps = %v, want [2, 2]", cmp.Steps)
@@ -173,9 +173,6 @@ func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 	if comparison.Err != nil {
 		t.Fatalf("Compare: %v", comparison.Err)
 	}
-	if comparison.Same {
-		t.Error("Compare returned Same for a mirror-copy delivery difference")
-	}
 	if comparison.Disposition != analysis.Different {
 		t.Errorf("Disposition = %v, want %v", comparison.Disposition, analysis.Different)
 	}
@@ -206,6 +203,18 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 			expCfg.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
 		}
 	}
+	for _, swName := range []string{"sw1", "sw2"} {
+		swCfg := expCfg.Switches[swName]
+		b := port.NewBuilder()
+		for _, p := range swCfg.Ports.Ports() {
+			if p.Name == "1/1/24" {
+				p.OperStatus = port.Down
+			}
+			b.Add(p)
+		}
+		swCfg.Ports, _ = b.Build()
+		expCfg.Switches[swName] = swCfg
+	}
 
 	curFab, err := fabric.New(statedPhysical(curCfg))
 	if err != nil {
@@ -234,8 +243,8 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
-	if cmp.Same {
-		t.Errorf("Compare returned Same: true, want false")
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Compare disposition: %v, want Different", cmp.Disposition)
 	}
 
 	if len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
@@ -976,9 +985,6 @@ func TestCompareDetectsPathDifference(t *testing.T) {
 	if cmp.Difference.Observable != "path" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "path")
 	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
-	}
 }
 
 func TestCompareDetectsTimingDifference(t *testing.T) {
@@ -1022,9 +1028,6 @@ func TestCompareDetectsTimingDifference(t *testing.T) {
 	if cmp.Difference.Observable != "timing" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "timing")
 	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
-	}
 }
 
 func TestCompareDetectsDropLocationDifference(t *testing.T) {
@@ -1042,6 +1045,18 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
 			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
 		}
+	}
+	for _, cfg := range []*fabric.Config{&cfgA, &cfgB} {
+		swCfg := cfg.Switches["sw1"]
+		b := port.NewBuilder()
+		for _, p := range swCfg.Ports.Ports() {
+			if p.Name == "1/1/2" || p.Name == "1/1/4" {
+				p.OperStatus = port.Down
+			}
+			b.Add(p)
+		}
+		swCfg.Ports, _ = b.Build()
+		cfg.Switches["sw1"] = swCfg
 	}
 
 	targetMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
@@ -1091,9 +1106,6 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 	if cmp.Difference.Current != "sw1/1/1/2" || cmp.Difference.Expected != "sw1/1/1/4" {
 		t.Errorf("Difference current/expected = %q/%q, want sw1/1/1/2/sw1/1/1/4", cmp.Difference.Current, cmp.Difference.Expected)
 	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
-	}
 }
 
 func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
@@ -1106,6 +1118,17 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
 		}
 	}
+	sw2Ports := cfgB.Switches["sw2"].Ports.Ports()
+	b := port.NewBuilder()
+	for _, p := range sw2Ports {
+		if p.Name == "1/1/1" {
+			p.OperStatus = port.Down
+		}
+		b.Add(p)
+	}
+	sw2Cfg := cfgB.Switches["sw2"]
+	sw2Cfg.Ports, _ = b.Build()
+	cfgB.Switches["sw2"] = sw2Cfg
 
 	fabA, err := fabric.New(statedPhysical(cfgA))
 	if err != nil {
@@ -1138,9 +1161,6 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 	}
 	if cmp.Difference.Observable != "journey terminal" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "journey terminal")
-	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
 	}
 }
 
@@ -1194,9 +1214,6 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 	if cmp.Difference.Observable != "final state" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "final state")
 	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
-	}
 }
 
 func TestCompareDetectsStatusDifference(t *testing.T) {
@@ -1239,14 +1256,11 @@ func TestCompareDetectsStatusDifference(t *testing.T) {
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
-	if cmp.Disposition != analysis.Different {
-		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	if cmp.Disposition != analysis.Inconclusive {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Inconclusive)
 	}
 	if cmp.Difference.Observable != "status" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "status")
-	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
 	}
 }
 
@@ -1294,14 +1308,11 @@ func TestCompareDetectsIssuesDifference(t *testing.T) {
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
-	if cmp.Disposition != analysis.Different {
-		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	if cmp.Disposition != analysis.Inconclusive {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Inconclusive)
 	}
 	if cmp.Difference.Observable != "issues" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "issues")
-	}
-	if cmp.Same {
-		t.Error("Same = true, want false")
 	}
 }
 
@@ -1444,9 +1455,6 @@ func TestCompareActivePeriodicProtocolRepeatability(t *testing.T) {
 	if cmp1.Disposition != cmp2.Disposition {
 		t.Errorf("Disposition mismatch: %v vs %v", cmp1.Disposition, cmp2.Disposition)
 	}
-	if cmp1.Same != cmp2.Same {
-		t.Errorf("Same mismatch: %v vs %v", cmp1.Same, cmp2.Same)
-	}
 	if cmp1.Steps != cmp2.Steps {
 		t.Errorf("Steps mismatch: %v vs %v", cmp1.Steps, cmp2.Steps)
 	}
@@ -1558,9 +1566,6 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
-	if !cmp.Same {
-		t.Errorf("Compare returned Same=false for identical scenario: %v", cmp.Difference)
-	}
 	if cmp.Disposition != analysis.Equivalent {
 		t.Errorf("Disposition = %v, want Equivalent", cmp.Disposition)
 	}
@@ -1606,9 +1611,6 @@ func TestCompareEquivalentComplete(t *testing.T) {
 	if cmp.Disposition != analysis.Equivalent {
 		t.Errorf("Disposition = %v, want Equivalent", cmp.Disposition)
 	}
-	if !cmp.Same {
-		t.Error("Same = false, want true")
-	}
 	if cmp.Difference != (fabric.Difference{}) {
 		t.Errorf("Difference = %v, want empty", cmp.Difference)
 	}
@@ -1647,9 +1649,6 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	}
 	if cmp.Disposition != analysis.Inconclusive {
 		t.Errorf("Disposition = %v, want Inconclusive", cmp.Disposition)
-	}
-	if !cmp.Same {
-		t.Errorf("Same = false, want true for matching incomplete runs: diff=%v", cmp.Difference)
 	}
 	if cmp.Difference != (fabric.Difference{}) {
 		t.Errorf("Difference = %v, want empty", cmp.Difference)
@@ -1691,7 +1690,6 @@ func TestCompareResultImmutability(t *testing.T) {
 	expCount := len(cmp.Expected)
 	steps := cmp.Steps
 	disposition := cmp.Disposition
-	same := cmp.Same
 
 	// Step fabA and fabB further.
 	fabA.Run(5)
@@ -1706,7 +1704,317 @@ func TestCompareResultImmutability(t *testing.T) {
 	if cmp.Disposition != disposition {
 		t.Errorf("Comparison disposition changed: got %v, want %v", cmp.Disposition, disposition)
 	}
-	if cmp.Same != same {
-		t.Errorf("Comparison Same changed: got %v, want %v", cmp.Same, same)
+}
+
+func TestCompareAsymmetricCompletionInconclusive(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	// Pre-inject background frames into fabB only so its queue has pending work requiring more steps.
+	for i := 0; i < 5; i++ {
+		_, err = fabB.Inject(fabric.Injection{
+			At:     now,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH1,
+				Src:       macH2,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("background"),
+			},
+		})
+		if err != nil {
+			t.Fatalf("Inject background: %v", err)
+		}
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     now,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("scenario frame"),
+			},
+		},
+	}
+
+	// Budget of 2 steps: fabA completes (StopQueueDrained, Complete)
+	// fabB stops at budget (StopBudget, Exhausted) with identical scenario journey.
+	cmp := fabric.Compare(fabA, fabB, scenario, 2)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Inconclusive {
+		t.Fatalf("Disposition = %v, want Inconclusive (Difference = %v)", cmp.Disposition, cmp.Difference)
+	}
+}
+
+func TestComparePacketOriginImmutability(t *testing.T) {
+	cfgA, _, _ := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	origPayload := []byte("original packet payload")
+	pkt := &fabric.Packet{
+		To:       netip.MustParseAddr("10.0.10.2"),
+		Protocol: 17,
+		Payload:  append([]byte(nil), origPayload...),
+	}
+	scenario := []fabric.Injection{
+		{
+			At:     now,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Packet: pkt,
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	// Mutate caller's packet pointer and payload
+	pkt.Protocol = 6
+	pkt.Payload[0] = 'X'
+
+	for idx, replay := range cmp.Replay {
+		replayPkt := replay.Scenario.Actions[0].Inject.Packet
+		if replayPkt.Protocol != 17 {
+			t.Errorf("Replay[%d] Packet.Protocol was mutated: got %d, want 17", idx, replayPkt.Protocol)
+		}
+		if string(replayPkt.Payload) != string(origPayload) {
+			t.Errorf("Replay[%d] Packet.Payload was mutated: got %q, want %q", idx, replayPkt.Payload, origPayload)
+		}
+	}
+}
+
+func TestCompareNonEmptyQueueExcludesPreScenarioDescendants(t *testing.T) {
+	trafficCfg := &traffic.Config{
+		Mirrors: []traffic.Mirror{{
+			Name:           "span",
+			SelectSrcPorts: []string{"1/1/1"},
+			OutputPort:     "1/1/4",
+		}},
+	}
+	fabA, macs := newTrafficTopology(t, trafficCfg)
+	fabB, _ := newTrafficTopology(t, trafficCfg)
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+
+	// Inject a pre-scenario frame into fabA only, scheduled at now.
+	// It sits in the arrival queue of fabA.
+	_, err := fabA.Inject(fabric.Injection{
+		At:     now,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst:       macs["h2"],
+			Src:       macs["h1"],
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("pre-scenario"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject pre-scenario: %v", err)
+	}
+
+	// Scenario frame injected on h3 at now.Add(time.Second)
+	scenario := []fabric.Injection{
+		{
+			At:     now.Add(time.Second),
+			Origin: fabric.Endpoint{Node: "h3"},
+			Frame: ethernet.Frame{
+				Dst:       macs["h4"],
+				Src:       macs["h3"],
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("scenario frame"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if len(cmp.Current) != 1 {
+		t.Errorf("Current journeys = %d, want 1 (pre-scenario descendants must be excluded)", len(cmp.Current))
+	}
+	if len(cmp.Expected) != 1 {
+		t.Errorf("Expected journeys = %d, want 1", len(cmp.Expected))
+	}
+}
+
+func TestCompareMultiDeviceDivergenceDeterminism(t *testing.T) {
+	cfgA, macH1, _ := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	specA := constructionSpec(statedPhysical(cfgA))
+	specB := constructionSpec(statedPhysical(cfgB))
+
+	// In specB, both sw1 and sw2 differ from specA by having an extra static seed.
+	sw1B := specB.Switches["sw1"]
+	sw1B.Seeds = []bridge.Seed{{
+		MAC:      netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77},
+		FID:      10,
+		Port:     "1/1/1",
+		Lifetime: bridge.Static,
+	}}
+	specB.Switches["sw1"] = sw1B
+
+	sw2B := specB.Switches["sw2"]
+	sw2B.Seeds = []bridge.Seed{{
+		MAC:      netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88},
+		FID:      10,
+		Port:     "1/1/1",
+		Lifetime: bridge.Static,
+	}}
+	specB.Switches["sw2"] = sw2B
+
+	fabA, err := fabric.NewWithSpec(specA)
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.NewWithSpec(specB)
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH1,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	// Because both sw1 and sw2 differ in FDB entries, sorted order must deterministically report sw1 first.
+	// Without sorting, Go map iteration order flakes between sw1 and sw2 across runs.
+	observed := make(map[string]bool)
+	for i := 0; i < 50; i++ {
+		cmp := fabric.Compare(fabA, fabB, scenario, 10)
+		if cmp.Err != nil {
+			t.Fatalf("Compare: %v", cmp.Err)
+		}
+		if cmp.Disposition != analysis.Different {
+			t.Fatalf("Disposition = %v, want Different", cmp.Disposition)
+		}
+		firstDev := strings.Split(cmp.Difference.Current, ":")[0]
+		observed[firstDev] = true
+		if firstDev != "sw1" {
+			t.Fatalf("run %d reported first differing device %q, want stable sorted \"sw1\"", i, firstDev)
+		}
+	}
+}
+
+func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	// Cut cable to h2 in cfgB so frame drops instead of delivering.
+	for i := range cfgB.Cables {
+		if cfgB.Cables[i].A.Node == "h2" || cfgB.Cables[i].B.Node == "h2" {
+			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+		}
+	}
+	sw2Ports := cfgB.Switches["sw2"].Ports.Ports()
+	b := port.NewBuilder()
+	for _, p := range sw2Ports {
+		if p.Name == "1/1/1" {
+			p.OperStatus = port.Down
+		}
+		b.Add(p)
+	}
+	sw2Cfg := cfgB.Switches["sw2"]
+	sw2Cfg.Ports, _ = b.Build()
+	cfgB.Switches["sw2"] = sw2Cfg
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test replay"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Fatalf("Disposition = %v, want Different", cmp.Disposition)
+	}
+
+	resA, err := fabric.Replay(cmp.Replay[0])
+	if err != nil {
+		t.Fatalf("Replay current: %v", err)
+	}
+	resB, err := fabric.Replay(cmp.Replay[1])
+	if err != nil {
+		t.Fatalf("Replay candidate: %v", err)
+	}
+
+	if resA.Status != analysis.Complete {
+		t.Errorf("Replay current Status = %v, want Complete", resA.Status)
+	}
+	if resB.Status != analysis.Complete {
+		t.Errorf("Replay candidate Status = %v, want Complete", resB.Status)
+	}
+
+	repFabA, err := fabric.NewWithSpec(cmp.Replay[0].Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec current: %v", err)
+	}
+	if _, err := repFabA.RunScenario(cmp.Replay[0].Scenario); err != nil {
+		t.Fatalf("RunScenario current: %v", err)
+	}
+	jA := repFabA.Report()
+	if len(jA) != 1 || jA[0].State != fabric.JourneyDelivered {
+		t.Errorf("Replayed current journeys = %v, want 1 delivered journey", jA)
+	}
+
+	repFabB, err := fabric.NewWithSpec(cmp.Replay[1].Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec candidate: %v", err)
+	}
+	if _, err := repFabB.RunScenario(cmp.Replay[1].Scenario); err != nil {
+		t.Fatalf("RunScenario candidate: %v", err)
+	}
+	jB := repFabB.Report()
+	if len(jB) != 1 || jB[0].State != fabric.JourneyDropped {
+		t.Errorf("Replayed candidate journeys = %v, want 1 dropped journey", jB)
 	}
 }

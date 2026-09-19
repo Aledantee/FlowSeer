@@ -33,12 +33,12 @@ func TestCompareAgreesOverConsecutiveCallsOnUnresolvedDestination(t *testing.T) 
 	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
 
 	first := vswitch.Compare(a, b, fixedTime, "1/1/1", frame)
-	if !first.Same || first.Disposition != analysis.Inconclusive {
+	if first.Disposition != analysis.Inconclusive {
 		t.Fatalf("first compare: current = %+v, expected = %+v, want inconclusive", first.Current.Result, first.Expected.Result)
 	}
 
 	second := vswitch.Compare(a, b, fixedTime, "1/1/1", frame)
-	if !second.Same || second.Disposition != analysis.Inconclusive {
+	if second.Disposition != analysis.Inconclusive {
 		t.Fatalf("second compare: current = %+v, expected = %+v, want inconclusive", second.Current.Result, second.Expected.Result)
 	}
 	if second.Current.Outcome != first.Current.Outcome || second.Current.Reason != first.Current.Reason {
@@ -103,9 +103,6 @@ func TestCompareDetectsDestinationMACRewriteDifference(t *testing.T) {
 	if cmp.Difference.Observable != "frame.dst" {
 		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "frame.dst")
 	}
-	if cmp.Same {
-		t.Errorf("Same = true, want false")
-	}
 }
 
 func TestCompareDetectsLAGMemberDifference(t *testing.T) {
@@ -150,9 +147,6 @@ func TestCompareDetectsLAGMemberDifference(t *testing.T) {
 	}
 	if cmp.Difference.Observable != "lag.member" {
 		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "lag.member")
-	}
-	if cmp.Same {
-		t.Errorf("Same = true, want false")
 	}
 }
 
@@ -210,9 +204,6 @@ func TestCompareDetectsMissingMirrorCopy(t *testing.T) {
 	if cmp.Difference.Observable != "mirror" {
 		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "mirror")
 	}
-	if cmp.Same {
-		t.Errorf("Same = true, want false")
-	}
 }
 
 func TestCompareDetectsPCPDifference(t *testing.T) {
@@ -235,9 +226,6 @@ func TestCompareDetectsPCPDifference(t *testing.T) {
 	}
 	if cmp.Difference.Observable != "pcp" {
 		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "pcp")
-	}
-	if cmp.Same {
-		t.Errorf("Same = true, want false")
 	}
 }
 
@@ -290,9 +278,6 @@ func TestCompareDetectsOutcomeDifference(t *testing.T) {
 	if cmp.Difference.Observable != "outcome" {
 		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "outcome")
 	}
-	if cmp.Same {
-		t.Errorf("Same = true, want false")
-	}
 }
 
 func TestCompareNoOpTraceDifferenceEquivalent(t *testing.T) {
@@ -340,9 +325,6 @@ func TestCompareNoOpTraceDifferenceEquivalent(t *testing.T) {
 	if cmp.Difference.Observable != "" {
 		t.Errorf("Difference.Observable = %q, want empty", cmp.Difference.Observable)
 	}
-	if !cmp.Same {
-		t.Errorf("Same = false, want true")
-	}
 }
 
 func TestCompareIncompleteResultInconclusive(t *testing.T) {
@@ -380,8 +362,5 @@ func TestCompareIncompleteResultInconclusive(t *testing.T) {
 	cmp := vswitch.Compare(swA, swB, fixedTime, "1/1/1", frame)
 	if cmp.Disposition != analysis.Inconclusive {
 		t.Fatalf("Disposition = %v, want %v", cmp.Disposition, analysis.Inconclusive)
-	}
-	if !cmp.Same {
-		t.Errorf("Same = false, want true (observables match)")
 	}
 }

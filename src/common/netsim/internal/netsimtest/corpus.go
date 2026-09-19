@@ -340,9 +340,10 @@ type ForwardExpectation struct {
 
 // ComparisonExpectation identifies both forwarding axes and the comparison disposition.
 type ComparisonExpectation struct {
-	Current  ForwardExpectation
-	Expected ForwardExpectation
-	Same     bool
+	Current     ForwardExpectation
+	Expected    ForwardExpectation
+	Disposition analysis.Disposition
+	Same        bool
 }
 
 func newFactExpectations(facts []trace.Fact) []FactExpectation {
@@ -904,8 +905,16 @@ func assertOptionalComparisonExpectation(t testing.TB, caseID string, actual *vs
 		}
 		return
 	}
-	if actual.Same != expected.Same {
-		t.Errorf("case %s comparison disposition = %t, want %t", caseID, actual.Same, expected.Same)
+	expectedDisp := expected.Disposition
+	if expectedDisp == "" {
+		if expected.Same {
+			expectedDisp = analysis.Equivalent
+		} else {
+			expectedDisp = analysis.Different
+		}
+	}
+	if actual.Disposition != expectedDisp {
+		t.Errorf("case %s comparison disposition = %v, want %v", caseID, actual.Disposition, expectedDisp)
 	}
 	assertForwardExpectation(t, caseID, "comparison current", actual.Current, expected.Current)
 	assertForwardExpectation(t, caseID, "comparison expected", actual.Expected, expected.Expected)
@@ -1084,8 +1093,8 @@ func assertDeterministicComparison(t testing.TB, caseID string, first, second *v
 		}
 		return
 	}
-	if first.Same != second.Same {
-		t.Errorf("case %s non-deterministic comparison disposition across runs: %t vs %t", caseID, first.Same, second.Same)
+	if first.Disposition != second.Disposition {
+		t.Errorf("case %s non-deterministic comparison disposition across runs: %v vs %v", caseID, first.Disposition, second.Disposition)
 	}
 	assertDeterministicForwardResult(t, caseID, "comparison current", &first.Current, &second.Current)
 	assertDeterministicForwardResult(t, caseID, "comparison expected", &first.Expected, &second.Expected)

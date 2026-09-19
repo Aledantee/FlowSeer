@@ -987,8 +987,8 @@ func TestCompareObservesVlanDifference(t *testing.T) {
 	}
 
 	cmp := vswitch.Compare(cur, exp, fixedTime, "1/1/1", f)
-	if cmp.Same {
-		t.Errorf("got Same: true, want false")
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("got Disposition: %v, want %v", cmp.Disposition, analysis.Different)
 	}
 
 	curPorts := make([]string, len(cmp.Current.Egress))
@@ -1175,9 +1175,9 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 
 func TestCompareSameOverFrameTable(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
-		Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
-		Add(port.Port{Name: "1/1/3", Kind: port.Physical}))
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	pvid10 := vlan.ID(10)
 	cfg := vswitch.Config{
@@ -1276,8 +1276,8 @@ func TestCompareSameOverFrameTable(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cmp := vswitch.Compare(swA, swB, fixedTime, tc.ingress, tc.frame)
-			if !cmp.Same {
-				t.Errorf("got Same: false, want true for %s", tc.name)
+			if cmp.Disposition != analysis.Equivalent {
+				t.Errorf("got Disposition: %v, want %v for %s", cmp.Disposition, analysis.Equivalent, tc.name)
 			}
 		})
 	}

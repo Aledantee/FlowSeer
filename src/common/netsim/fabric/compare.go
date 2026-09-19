@@ -33,15 +33,13 @@ func (d Difference) String() string {
 }
 
 // Comparison reports the simulation outcomes of running a common scenario on two fabrics.
-// Same is true when observable behaviors match.
 type Comparison struct {
 	Current     []Journey
 	Expected    []Journey
 	Disposition analysis.Disposition
 	Difference  Difference
-	Replay      ReplaySpec
+	Replay      [2]ReplaySpec
 	Steps       [2]int
-	Same        bool
 	Err         error
 }
 
@@ -56,7 +54,8 @@ type Comparison struct {
 // work, and Issues, then the final Snapshot behavioral state. Diagnostic metadata,
 // evidence, semantic trace text, and raw convergence diagnostics never cause a Different.
 // On Different, Difference names the first differing observable with both sides' values
-// and Replay carries an immutable replay specification for the scenario.
+// and Replay carries immutable replay specifications for both fabrics ([0] for current,
+// [1] for candidate) to reproduce the divergence.
 func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 	forkA := a.Fork()
 	forkB := b.Fork()
@@ -65,6 +64,7 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 	for i, inj := range scenario {
 		cp := inj
 		cp.Frame = cloneFrame(inj.Frame)
+		cp.Packet = clonePacket(inj.Packet)
 		replayActions[i] = Action{
 			At:     inj.At,
 			Index:  i,
@@ -72,17 +72,25 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 			Inject: &cp,
 		}
 	}
-	replaySpec := ReplaySpec{
+	replaySpecA := ReplaySpec{
 		Contract: ReplayContract,
 		Spec:     a.Spec(),
 		Scenario: Scenario{
+			Name:    "compare-scenario",
 			Actions: replayActions,
 			Budget:  budget,
 		},
 	}
-
-	startFIDA := forkA.nextFrameID
-	startFIDB := forkB.nextFrameID
+	replaySpecB := ReplaySpec{
+		Contract: ReplayContract,
+		Spec:     b.Spec(),
+		Scenario: Scenario{
+			Name:    "compare-scenario",
+			Actions: replayActions,
+			Budget:  budget,
+		},
+	}
+	replaySpecs := [2]ReplaySpec{replaySpecA, replaySpecB}
 
 	injFIDsA := make([]FrameID, len(scenario))
 	injFIDsB := make([]FrameID, len(scenario))
@@ -91,7 +99,7 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 		if errA != nil {
 			return Comparison{
 				Disposition: analysis.Inconclusive,
-				Replay:      replaySpec,
+				Replay:      replaySpecs,
 				Err:         errA,
 			}
 		}
@@ -99,7 +107,7 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 		if errB != nil {
 			return Comparison{
 				Disposition: analysis.Inconclusive,
-				Replay:      replaySpec,
+				Replay:      replaySpecs,
 				Err:         errB,
 			}
 		}
@@ -113,18 +121,8 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 	allJourneysA := forkA.Report()
 	allJourneysB := forkB.Report()
 
-	var scenarioJourneysA []Journey
-	for _, j := range allJourneysA {
-		if j.FrameID >= startFIDA {
-			scenarioJourneysA = append(scenarioJourneysA, j)
-		}
-	}
-	var scenarioJourneysB []Journey
-	for _, j := range allJourneysB {
-		if j.FrameID >= startFIDB {
-			scenarioJourneysB = append(scenarioJourneysB, j)
-		}
-	}
+	scenarioJourneysA := collectScenarioJourneys(allJourneysA, injFIDsA)
+	scenarioJourneysB := collectScenarioJourneys(allJourneysB, injFIDsB)
 
 	diff, hasDiff := diffFabricRuns(
 		scenario,
@@ -136,14 +134,10 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 
 	var disp analysis.Disposition
 	switch {
-	case hasDiff:
-		disp = analysis.Different
 	case runResA.Status != analysis.Complete || runResB.Status != analysis.Complete:
 		disp = analysis.Inconclusive
-	case runResA.Stop == StopBudget && (runResA.Pending.Arrivals > 0 || runResA.Pending.Egress > 0 || runResA.Pending.Wakes > 0):
-		disp = analysis.Inconclusive
-	case runResB.Stop == StopBudget && (runResB.Pending.Arrivals > 0 || runResB.Pending.Egress > 0 || runResB.Pending.Wakes > 0):
-		disp = analysis.Inconclusive
+	case hasDiff:
+		disp = analysis.Different
 	default:
 		disp = analysis.Equivalent
 	}
@@ -153,10 +147,38 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 		Expected:    scenarioJourneysB,
 		Disposition: disp,
 		Difference:  diff,
-		Replay:      replaySpec,
+		Replay:      replaySpecs,
 		Steps:       [2]int{runResA.Steps, runResB.Steps},
-		Same:        !hasDiff,
 	}
+}
+
+func collectScenarioJourneys(allJourneys []Journey, roots []FrameID) []Journey {
+	descendants := make(map[FrameID]bool, len(roots))
+	for _, root := range roots {
+		descendants[root] = true
+	}
+
+	changed := true
+	for changed {
+		changed = false
+		for i := range allJourneys {
+			j := &allJourneys[i]
+			if (j.Origin.Kind == OriginMirror || j.Origin.Kind == OriginRelease) && descendants[j.Origin.Of] {
+				if !descendants[j.FrameID] {
+					descendants[j.FrameID] = true
+					changed = true
+				}
+			}
+		}
+	}
+
+	var result []Journey
+	for i := range allJourneys {
+		if descendants[allJourneys[i].FrameID] {
+			result = append(result, allJourneys[i])
+		}
+	}
+	return result
 }
 
 func diffFabricRuns(
@@ -547,8 +569,20 @@ func diffHopResult(rA, rB vswitch.ForwardResult) (Difference, bool) {
 	return Difference{}, false
 }
 
+func clonePacket(p *Packet) *Packet {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	if p.Payload != nil {
+		cp.Payload = slices.Clone(p.Payload)
+	}
+	return &cp
+}
+
 func diffSnapshot(snapA, snapB Snapshot) (Difference, bool) {
-	for name, devA := range snapA.Devices {
+	for _, name := range slices.Sorted(maps.Keys(snapA.Devices)) {
+		devA := snapA.Devices[name]
 		devB, ok := snapB.Devices[name]
 		if !ok {
 			return Difference{
@@ -586,7 +620,7 @@ func diffSnapshot(snapA, snapB Snapshot) (Difference, bool) {
 			}, true
 		}
 	}
-	for name := range snapB.Devices {
+	for _, name := range slices.Sorted(maps.Keys(snapB.Devices)) {
 		if _, ok := snapA.Devices[name]; !ok {
 			return Difference{
 				Observable: "final state",
