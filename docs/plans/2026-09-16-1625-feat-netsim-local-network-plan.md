@@ -220,7 +220,7 @@ against a tree and a record that are both about to move, and against gates that
 do not exist yet to tell it what it owes. Nothing enforces this mechanically:
 `check-plan-status.py` resolves only unit-level prerequisites within one parent,
 so the next session checks this line itself before starting U4.
-Landed: `a109146a..971bcd04`
+Landed: `a02d911e..08db1549`
 
 Waves: U1 U2 | U3 | U4 (U3 and U4 are ordered by their shared corpus files)
 
