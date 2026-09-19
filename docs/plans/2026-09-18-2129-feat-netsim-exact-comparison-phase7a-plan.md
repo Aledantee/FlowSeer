@@ -250,3 +250,13 @@ difference must not change.
   of them. This plan returns the first in a declared order, because that is what
   a counterexample needs and what phase 7b will minimize; a full diff is a
   diagnostic convenience 7b can add if a caller needs it.
+- Ruled in review (narrows parent R33 for protocol journeys): protocol journeys
+  emitted during the run are not compared per journey. A protocol emission
+  carries no provenance link to whether the scenario or a pre-scenario timer
+  produced it, so it cannot be attributed to the scenario window across two
+  independently aged fabrics — provenance selection excludes it and a run-window
+  filter would re-admit pre-scenario emissions. Protocol divergence is caught by
+  the final-state comparison (spanning-tree roles, neighbors, forwarding
+  database). Transient protocol path or timing differences that converge to the
+  same final state are out of 7a scope; a scenario-window protocol comparison
+  with robust cross-fork pairing is deferred to phase 7b.

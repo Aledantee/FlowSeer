@@ -814,7 +814,9 @@ The comparison evaluates three dispositions:
 - `analysis.Different`: The simulation results diverged at an observable behavior.
   `Comparison.Difference` names the first differing observable and the observed
   values on both sides (`Difference.Current` and `Difference.Expected`), and
-  `Comparison.Replay` carries an immutable replay spec for the scenario.
+  `Comparison.Replay` is a `[2]ReplaySpec` carrying an immutable replay
+  specification for each side: `[0]` reconstructs the current fabric, `[1]` the
+  candidate, so a `Different` reproduces both sides of the divergence.
 - `analysis.Inconclusive`: Observable behaviors matched but one or both runs
   did not complete (such as step budget exhaustion before pending arrivals or
   egress queues drained, or an underlying component reporting incomplete readiness).

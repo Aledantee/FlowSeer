@@ -44,8 +44,8 @@ Comparison returns an exact `analysis.Disposition`:
 - `analysis.Different`: Divergence detected at a behavioral observable; the result
   names the first differing observable (`Difference.Observable`) and the values
   observed on each side (`Difference.Current` and `Difference.Expected`). On fabric
-  comparisons, `Comparison.Replay` provides an immutable replay specification for
-  the scenario.
+  comparisons, `Comparison.Replay` is a `[2]ReplaySpec` providing an immutable
+  replay specification for each side (`[0]` current, `[1]` candidate).
 - `analysis.Inconclusive`: Behavioral observables matched on evaluated elements, but
   the comparison could not complete (such as step budget exhaustion leaving pending
   frames in transit, or incomplete operational knowledge).

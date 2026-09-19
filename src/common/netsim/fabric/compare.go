@@ -207,20 +207,12 @@ func diffFabricRuns(
 		}
 	}
 
-	protoA := collectProtocolJourneys(journeysA)
-	protoB := collectProtocolJourneys(journeysB)
-	if len(protoA) != len(protoB) {
-		return Difference{
-			Observable: "multiplicity",
-			Current:    strconv.Itoa(len(protoA)),
-			Expected:   strconv.Itoa(len(protoB)),
-		}, true
-	}
-	for k := 0; k < len(protoA); k++ {
-		if diff, hasDiff := diffJourney(protoA[k], protoB[k]); hasDiff {
-			return diff, true
-		}
-	}
+	// Protocol journeys emitted during the run are not compared per journey. A
+	// protocol emission carries no provenance link to whether the scenario or a
+	// pre-scenario timer produced it, so it cannot be attributed to the scenario
+	// window across two independently aged fabrics. Protocol divergence surfaces
+	// instead in the final-state comparison below, which reads each device's
+	// spanning-tree roles, neighbors, and forwarding database.
 
 	if runResA.Stop != runResB.Stop {
 		return Difference{
@@ -308,15 +300,6 @@ func collectInjectionJourneys(journeys []Journey, root FrameID) []Journey {
 	return result
 }
 
-func collectProtocolJourneys(journeys []Journey) []Journey {
-	var out []Journey
-	for _, j := range journeys {
-		if j.Protocol {
-			out = append(out, j)
-		}
-	}
-	return out
-}
 
 func diffJourney(jA, jB Journey) (Difference, bool) {
 	if jA.State != jB.State {
