@@ -24,6 +24,7 @@ goroutines or wall-clock dependencies.
 | `vswitch/loopprotect` | netsim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos       |
 | `fabric`           | Switched topology, timed cables, stepped execution, journeys |
+| `search`           | Bounded differential search, counterexample minimization, trace alignment |
 
 A run is a function of the configuration, the frame, and the time the caller
 passes; nothing here reads a clock.
@@ -62,6 +63,22 @@ Comparison guarantees three fundamental properties:
    same disposition and identical named difference observable.
 3. **Determinism under randomized insertion**: Comparison outcomes are invariant
    under arbitrary map and slice insertion order of ports, links, and hosts.
+
+## Bounded differential search and counterexamples
+
+`search.Search` explores finite candidate domains (`L2TrafficDomain`,
+`TimedFaultDomain`) across two topologies under declared resource limits
+(`search.Limits`):
+
+- **Domain enumeration**: Iterates candidate traffic and timed cable faults in
+  a deterministic total order independent of map iteration.
+- **Counterexample minimization**: `search.Minimize` prunes irrelevant injections
+  and faults in fixed order, halting at `Minimal` when no further elements can be
+  removed without altering the observable divergence.
+- **Trace alignment**: `search.Align` locates the first differing hop entry
+  between paired journeys.
+- **Resource bounds and remainder**: Bounded exploration respects `MaxCandidates`
+  and `MaxDifferences`, naming unvisited candidates in `Result.Remainder`.
 
 ## Conformance corpus
 

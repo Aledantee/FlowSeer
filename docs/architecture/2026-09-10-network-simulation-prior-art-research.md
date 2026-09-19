@@ -74,6 +74,15 @@ translation is unsupported
 parses vendor configs and runs on a JVM, which the shadow record already
 weighed.
 
+FlowSeer's bounded differential search package (`src/common/netsim/search`)
+adopts Batfish's `differentialReachability` question for change validation,
+evaluating whether prospective changes introduce behavioral divergence. Unlike
+Batfish, FlowSeer applies exact IEEE 802.1Q bridging, FDB learning, and STP
+filtering directly to Layer-2 networks, exploring finite traffic and fault
+domains (`L2TrafficDomain`, `TimedFaultDomain`) with deterministic counterexample
+reduction (`search.Minimize`) and trace alignment (`search.Align`). Routed
+Layer-3 domain reachability (`L3Domain`) is deferred to a subsequent increment.
+
 ### Header Space Analysis and Forward Networks
 
 Forward Networks describes "a mathematically accurate model of every device,
@@ -201,9 +210,10 @@ All three confirm the rules; none is a library FlowSeer could import.
 5. **Preloadable forwarding table.** INET's (VLAN, MAC, port) preload is
    the plan's seeds and the expected state's inheritance rule.
 6. **Differential shape from Batfish.** A comparison carries the current
-   and the expected trace side by side and a `Same` verdict; a later
-   exhaustive differential enumerates ingress port, VID, and destination
-   class, which is finite for a customer bridge.
+   and the expected trace side by side and a `Same` verdict. Bounded
+   differential search (`src/common/netsim/search`) enumerates finite L2
+   traffic domains and timed faults, pairing divergence detection with
+   deterministic counterexample minimization and causal trace alignment.
 7. **One `c-vlan` component now, components and FIDs later.** The 802.1Q
    YANG hierarchy is the shape a provider bridge or a multi-domain device
    grows into.
