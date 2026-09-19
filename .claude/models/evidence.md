@@ -167,3 +167,40 @@ model, and one of them is the basis of a fit-set removal.
 - Every synthetic model answers on opencode's default agent with the model in the request: all five ids in 8-19 s this morning, Kimi K3 7/7 on 2026-09-09 (no profile the registry named then existed in `opencode.json`), and gpt-oss-120b in 7 s again this afternoon. The failures all came through a custom agent profile: gpt-oss-120b returned nothing twice, and GLM-5.3-Flash reasoned to 32,000 tokens without a tool call. A profile that only pins a model carries no `prompt`, so the model gets tools and none of the instructions that make the default agent act — 2026-09-19.
 - The profiles were never needed. `opencode` and `opencode run` both take `-m, --model provider/model` on the launch line; `orca-worker.sh` had refused `--model` for opencode on the belief that "the agent fixes the model". It now launches `opencode --model <pool_id>` on the default agent, the registry carries no `agent` fields, and `~/.config/opencode/opencode.json` is back to a bare `$schema`. The seven zen-pinned profiles that went with it named ids the zen pool no longer lists — `opencode --help`, `opencode run --help` 1.18.31 — 2026-09-19.
 - Whether the 32,000-token ceiling is also the profile's doing is being measured: the same brief on GLM-5.3-Flash with no profile is in flight, beside default-agent lanes for Kimi K3, DeepSeek V4.1 Flash and gpt-oss-120b — 2026-09-19.
+
+## Calibration 2026-09-19 — `Merge` task on the default agent, base `bd9e0862`
+
+Graded with each of the seven hidden acceptance tests run on its own under
+`-count=3`, **without `-race`**: this host has no C compiler (`cc`, `gcc`,
+`clang` all absent) and `go test -race` refuses to start without cgo. The
+`synctest` bubbles still fail on a leaked or deadlocked goroutine, so a
+pass here covers ordering, completion, stop and cancel propagation, and
+goroutine hygiene, and does not cover data races. A `race: false` field on
+each `local` result says so. Installing gcc is what a race-checked
+re-grade needs; the worktrees stay until then.
+
+- gpt-oss-120b — 6/7 in 282 s, $0.004 reported, `finish: stop`. Wrote a 99-line `merge.go` and a 175-line `merge_test.go`; its own tests pass. Fails `TestMergeAcceptContextCancelPropagates` only. Same model, same brief, returned nothing through a named agent profile twice this afternoon — 2026-09-19.
+- `bench.sh`'s `tool_calls` counts the parts of the final assistant message only, so a lane whose last turn is a text summary reports `tool_calls: 0` after having called tools for minutes; the worktree diff is the record of what a lane did, and that field only distinguishes "never acted" from "acted" when the turn ended `finish: length` — 2026-09-19.
+- GLM-5.3-Flash, default agent, no profile — `finish: length` at exactly 32,000 output tokens, no tool call, no file, 775 s, $0.017. Third run at the same wall: through a profile (469 s), through the profile with `provider.synthetic.models.<id>.limit.output: 65536` set (423 s), and now on the default agent. The profile is therefore not what caps GLM; opencode is, and this model reasons past 32,000 on this brief on any agent. The gpt-oss-120b contrast stands: it went from nothing through a profile to 6/7 without one — 2026-09-19.
+- Nemotron 3 Super's lane record is void for a harness reason of my own making: bash reads a script incrementally, and `bench.sh` was patched on disk while the pre-patch process was inside its 3,600 s `curl`. When the curl gave up the old process resumed at a byte offset in the new file, wrote "opencode serve never accepted a session" to its `.err`, produced no JSON, and exited 2. The model had worked the whole hour (its two files are staged in the worktree) and the reply never arrived before the ceiling. Never edit `bench.sh` while a lane is running it; the worktree diff is what remains — 2026-09-19.
+- Nemotron 3 Super — 1/7 after the full 3,600 s the harness allows, cut off mid-turn (default agent through a profile, since it started before the profiles went; profiles did not stop it acting, it wrote and rewrote both files for the hour). Its `merge.go` had shrunk from 83 lines to 61 by the end; the package compiles and passes `TestMergeAcceptZeroSourcesCompletes` only. Cost is unrecorded, see the lane-record note above — 2026-09-19.
+- Kimi K3 and DeepSeek V4.1 Flash, default agent — both killed by the OS at 17-18 messages in, with both files on disk, when the host ran low on memory during a concurrent grade of Nemotron's own 328-line test file. Mid-turn state, so both are void and re-run. Lanes and grades do not overlap from here on — 2026-09-19.
+- Kimi K3, default agent on Synthetic — 6/7 in 460 s, $0.026 reported, `finish: stop`. Wrote an 86-line `merge.go` and a 250-line `merge_test.go`; compiles, its own tests pass. Fails `TestMergeAcceptSourceErrorPropagates` only, the same source-error deadlock Sonnet 5 failed on 2026-09-09 and 2026-09-18. Its 7/7 on 2026-09-09 was the Go pool at the vendor's 1M context under `-race` in 1,235 s; the two runs differ in pool, context, race detector and base, so this is a second sample and not a regression claim — 2026-09-19.
+- Claude Code's background-task monitor killed three lanes and a grade for "running low on memory" while `free` reported over 30 GB available; each kill coincided with Go build activity (a grade; DeepSeek V4.1 Flash running `go run mvdan.cc/gofumpt` inside its lane), which fills the page cache, and `free` showed under 1 GB free with 40 GB in cache at the time. The monitor appears to read free rather than available memory. Long opencode lanes therefore run detached from the harness (`setsid nohup`, a done-marker file, polled), under `systemd-run --user --scope -p MemoryMax=16G` where a user manager exists and with `GOFLAGS=-timeout=120s` so a candidate's own deadlocking test cannot run away — 2026-09-20.
+- DeepSeek V4.1 Flash, default agent on Synthetic — 7/7 in 332 s, $0.002 reported, `finish: stop`, on the third attempt (the first two were killed by the shared-database bug and by the harness's memory monitor, not by the model). Wrote a 122-line `merge.go` and a 268-line `merge_test.go`; compiles, its own tests pass — 2026-09-20.
+
+Scoreboard for the `Merge` task on base `bd9e0862`, default agent, graded
+without `-race`, one run each unless noted:
+
+| Model | Pass | Wall | Cost |
+| --- | --- | --- | --- |
+| deepseek-v4.1-flash | 7/7 | 332 s | $0.002 |
+| kimi-k3 | 6/7 (7/7 on 2026-09-09 with `-race`, Go pool, 1M context) | 460 s | $0.026 |
+| gpt-oss-120b | 6/7 | 282 s | $0.004 |
+| nemotron-3-super | 1/7, cut off at the 3,600 s ceiling | 3,600 s | unrecorded |
+| glm-5.3-flash | void ×3, opencode's 32,000-token ceiling | 423–775 s | $0.017–0.019 |
+
+No fit set moved on these. Two changes are worth asking for: `deepseek-v4.1-flash`
+into `execute` on the only 7/7 of the day at a hundredth of Kimi's cost, and
+`kimi-k3`'s place there reconsidered once a race-checked run exists. The five
+bench worktrees under `~/Projects/worktrees/FlowSeer/` stay for that re-grade.
