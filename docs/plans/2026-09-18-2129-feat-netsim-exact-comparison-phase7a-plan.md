@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/comparing-two-forked-executions-attributes-observables-by-provenance.md
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
