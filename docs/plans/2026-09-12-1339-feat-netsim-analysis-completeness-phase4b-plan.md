@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: no lesson
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -30,6 +31,16 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 > the current tree, each pinned by a regression test that fails under a
 > mutation of the fixed line, with no new defect introduced; the verdict
 > above records that `accept after fixes`.
+
+> Compound: no lesson. The rework's reusable lessons are already captured
+> under sibling solutions — the codec decode/encode accept-set gap on a
+> queue-and-re-encode path in
+> [`docs/solutions/architecture-patterns/a-decoder-wider-than-its-encoder-loses-whatever-you-queue.md`](../solutions/architecture-patterns/a-decoder-wider-than-its-encoder-loses-whatever-you-queue.md)
+> (from the amending phase 4c), and the stranded resolution timer in
+> [`docs/solutions/conventions/a-convergence-fingerprint-lies-when-it-omits-a-resolution-axis-or-keeps-a-timer.md`](../solutions/conventions/a-convergence-fingerprint-lies-when-it-omits-a-resolution-axis-or-keeps-a-timer.md)
+> (from phase 6). The remaining findings — sorting map iteration before
+> emitting ordered effects, and the codec field placement — are
+> standard-practice bugs whose fix lives in the commits and local comments.
 
 ## Goal
 
