@@ -6,7 +6,7 @@ and operational status taxonomies, and generic traffic counters.
 
 ## Boundaries
 
-Imports: net/addr, net/ip, net/phy, net/switching
+Imports: net/addr, net/filter, net/ip, net/phy, net/switching
 
 Imported by: model/access
 

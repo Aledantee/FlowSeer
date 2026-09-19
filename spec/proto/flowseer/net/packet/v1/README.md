@@ -9,7 +9,7 @@ package aware of their policy or service semantics.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: net/capture, net/switching
+Imported by: net/capture, net/filter, net/switching
 
 Deliberately absent:
 

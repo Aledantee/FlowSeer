@@ -3,6 +3,7 @@ edition = "2024";
 package flowseer.net.interface.v1;
 
 import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/filter/v1/filter.proto";
 import "flowseer/net/interface/v1/admin_status.proto";
 import "flowseer/net/interface/v1/interface_counters.proto";
 import "flowseer/net/interface/v1/lag_interface.proto";
@@ -86,4 +87,7 @@ message Interface {
   // absence means it is not routed or the source reported no IP
   // information.
   flowseer.net.ip.v1.IpFacet ip = 20;
+  // Filter attributes of the interface. Presence binds packet filtering
+  // rule sets to the interface in ingress or egress directions.
+  flowseer.net.filter.v1.FilterFacet filter = 21;
 }

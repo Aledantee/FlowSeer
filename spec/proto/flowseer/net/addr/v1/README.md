@@ -8,7 +8,7 @@ facets, configuration, state, or events.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: edge/attach, model/inventory, net/capture, net/interface, net/ip, net/protocol/lacp, net/protocol/lldp, net/protocol/stp, net/switching, store/device
+Imported by: edge/attach, model/inventory, net/capture, net/filter, net/interface, net/ip, net/protocol/lacp, net/protocol/lldp, net/protocol/stp, net/switching, store/device
 
 Deliberately absent:
 

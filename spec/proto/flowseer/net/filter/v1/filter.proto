@@ -1,0 +1,73 @@
+edition = "2024";
+
+package flowseer.net.filter.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/packet/v1/icmp.proto";
+import "flowseer/net/packet/v1/ip_protocol.proto";
+import "flowseer/net/packet/v1/tcp_flags.proto";
+import "flowseer/net/packet/v1/transport_port.proto";
+import option "buf/validate/validate.proto";
+
+// Action applied to a packet matching a filter rule or set default.
+enum FilterAction {
+  FILTER_ACTION_UNSPECIFIED = 0;
+  FILTER_ACTION_ACCEPT = 1;
+  FILTER_ACTION_DROP = 2;
+  FILTER_ACTION_REJECT = 3;
+}
+
+// Direction of packet flow evaluated by an interface filter binding.
+enum FilterDirection {
+  FILTER_DIRECTION_UNSPECIFIED = 0;
+  FILTER_DIRECTION_IN = 1;
+  FILTER_DIRECTION_OUT = 2;
+}
+
+// Filter configuration bound to an interface.
+message FilterFacet {
+  // Name of the rule set applied to traffic entering the interface.
+  string in_set = 1;
+  // Name of the rule set applied to traffic leaving the interface.
+  string out_set = 2;
+}
+
+// Packet criteria for a filter rule. Omitted or empty fields match any packet.
+message FilterMatch {
+  // The IP payload protocol.
+  flowseer.net.packet.v1.IpProtocol protocol = 1;
+  // Source IP prefixes. If non-empty, packet source must match at least one prefix.
+  repeated flowseer.net.addr.v1.IpPrefix src_prefixes = 2;
+  // Destination IP prefixes. If non-empty, packet destination must match at least one prefix.
+  repeated flowseer.net.addr.v1.IpPrefix dst_prefixes = 3;
+  // Transport-layer source port matchers.
+  repeated flowseer.net.packet.v1.TransportPortMatch src_ports = 4;
+  // Transport-layer destination port matchers.
+  repeated flowseer.net.packet.v1.TransportPortMatch dst_ports = 5;
+  // ICMP type and optional code constraint.
+  flowseer.net.packet.v1.IcmpMatch icmp = 6;
+  // TCP control flag predicate.
+  flowseer.net.packet.v1.TcpFlagsMatch tcp_flags = 7;
+}
+
+// A single rule matching packet criteria and dictating an action.
+message FilterRule {
+  // Identifier for this rule within the rule set.
+  string name = 1;
+  // Criteria evaluated against packet headers.
+  FilterMatch match = 2;
+  // Verdict applied when match criteria are satisfied.
+  FilterAction action = 3;
+}
+
+// An ordered sequence of rules with a fallback default action.
+message FilterRuleSet {
+  // Unique name of this rule set on the device.
+  string name = 1 [(buf.validate.field).string.min_len = 1];
+  // When true, enables stateful return traffic matching.
+  bool stateful = 2;
+  // Default action applied when no rule matches.
+  FilterAction default = 3;
+  // Rules evaluated in order; the first matching rule decides the action.
+  repeated FilterRule rules = 4;
+}

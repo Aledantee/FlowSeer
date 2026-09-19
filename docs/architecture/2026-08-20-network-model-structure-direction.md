@@ -101,8 +101,9 @@ is wider where a package may still grow into a permitted import:
 ```
 net/addr ← {net/switching, net/ip, net/protocol/*}
 net/packet ← net/switching
+{net/addr, net/packet} ← net/filter
 {net/addr, net/packet, net/switching} ← net/capture
-{net/addr, net/phy, net/switching, net/ip} ← net/interface
+{net/addr, net/phy, net/switching, net/ip, net/filter} ← net/interface
 model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
 model/policy ← {edge/attach, model/access, model/inventory, store/device}
 model/credential ← edge/attach

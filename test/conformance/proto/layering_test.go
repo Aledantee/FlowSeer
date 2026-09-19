@@ -28,10 +28,11 @@ var importOrder = map[string][]string{
 	"net/phy":    nil,
 
 	"net/switching": {"net/addr", "net/packet"},
+	"net/filter":    {"net/addr", "net/packet"},
 	"net/ip":        {"net/addr"},
 	"net/capture":   {"net/addr", "net/packet", "net/switching"},
 
-	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip"},
+	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/filter"},
 
 	// A protocol may import any layer below it, and never another protocol.
 	"net/protocol/lldp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
