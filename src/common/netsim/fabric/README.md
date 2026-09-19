@@ -795,6 +795,16 @@ injection scenario over an explicit step budget:
 
 ```go
 cmp := fabric.Compare(currentFab, candidateFab, scenario, 100)
+switch cmp.Disposition {
+case analysis.Equivalent:
+	// Both topologies deliver or drop scenario frames identically.
+case analysis.Different:
+	// Mismatch on the first differing behavioral observable.
+	fmt.Printf("Observable %s diverged: current=%s expected=%s\n",
+		cmp.Difference.Observable, cmp.Difference.Current, cmp.Difference.Expected)
+case analysis.Inconclusive:
+	// Budget exhausted before queues drained or incomplete topology knowledge.
+}
 ```
 
 The comparison evaluates three dispositions:

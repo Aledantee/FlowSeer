@@ -32,6 +32,37 @@ Simulation workflows can be driven step-by-step, executed through declared
 scenarios via `fabric.Fabric.RunScenario(scenario)`, and reproduced
 deterministically from recorded specifications via `fabric.Replay(replaySpec)`.
 
+## Exact comparison and dispositions
+
+`vswitch.Compare` and `fabric.Compare` evaluate behavioral equivalence between
+two switches or two topologies against identical frame arrivals or injection
+scenarios without consuming either input.
+
+Comparison returns an exact `analysis.Disposition`:
+
+- `analysis.Equivalent`: Observable behavior matches across all evaluated elements.
+- `analysis.Different`: Divergence detected at a behavioral observable; the result
+  names the first differing observable (`Difference.Observable`) and the values
+  observed on each side (`Difference.Current` and `Difference.Expected`). On fabric
+  comparisons, `Comparison.Replay` provides an immutable replay specification for
+  the scenario.
+- `analysis.Inconclusive`: Behavioral observables matched on evaluated elements, but
+  the comparison could not complete (such as step budget exhaustion leaving pending
+  frames in transit, or incomplete operational knowledge).
+
+### Comparison invariants
+
+Comparison guarantees three fundamental properties:
+
+1. **Non-consuming execution**: Neither input switch nor fabric is mutated.
+   `vswitch.Compare` evaluates forwarding via `Switch.Peek` without learning or
+   forwarding table mutation; `fabric.Compare` forks both topologies internally
+   (`Fabric.Fork`) with isolated clocks and event queues.
+2. **Order independence**: Current-first and candidate-first evaluation produce the
+   same disposition and identical named difference observable.
+3. **Determinism under randomized insertion**: Comparison outcomes are invariant
+   under arbitrary map and slice insertion order of ports, links, and hosts.
+
 ## Conformance corpus
 
 `internal/netsimtest` holds a versioned corpus of executable conformance

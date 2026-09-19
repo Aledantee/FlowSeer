@@ -591,6 +591,59 @@ resolved speed changed clears its carried duplex and speed and raises
 `IssueProtocolLinkUnknown` until a subsequent `LinkChange` confirms the new
 negotiation.
 
+## Current-against-candidate comparison
+
+`[vswitch.Compare]` compares the forwarding behavior of evaluating the same
+frame arrival across two switch states without mutating either switch:
+
+```go
+cmp := vswitch.Compare(curSwitch, candSwitch, now, "1/1/1", frame)
+switch cmp.Disposition {
+case analysis.Equivalent:
+	// Both switches forward or drop identically.
+case analysis.Different:
+	// Mismatch on the first differing behavioral observable.
+	fmt.Printf("Observable %s diverged: current=%s expected=%s\n",
+		cmp.Difference.Observable, cmp.Difference.Current, cmp.Difference.Expected)
+case analysis.Inconclusive:
+	// Evaluation could not reach a definitive comparison.
+}
+```
+
+The comparison evaluates three dispositions:
+
+- `analysis.Equivalent`: Forwarding outcome, discard reason, classified FID, rewritten
+  frame fields, egress ports, selected LAG members, egress PCP, and mirror copies match.
+- `analysis.Different`: Divergence detected at a behavioral observable.
+  `Comparison.Difference` names the first differing observable and the observed
+  values on each side (`Difference.Current` and `Difference.Expected`).
+- `analysis.Inconclusive`: Behavioral observables matched on evaluated elements, but
+  one or both results did not complete (such as an unresolved transceiver, unknown
+  port operational status, or incomplete model readiness).
+
+### Behavioral versus diagnostic split
+
+Comparison walks the complete normalized `ForwardResult`:
+
+1. **Outcome**: Typed forwarding decision (`Forwarded`, `Dropped`, `Consumed`).
+2. **Reason**: Specific discard or forwarding reason (`ReasonNoEgress`, `ReasonPortDown`, etc.).
+3. **FID**: Classified Filtering Database identifier.
+4. **Egress ports**: Set of transmitted egress ports and per-port drops.
+5. **Rewritten frame fields**: Destination MAC, source MAC, EtherType, VLAN tags, and payload.
+6. **LAG member**: Selected physical link aggregation member port.
+7. **Egress PCP**: Output Priority Code Point.
+8. **Mirror copies**: Mirrored frames emitted to monitor ports.
+
+Semantic traces (`Steps`), rule IDs, evidence references, and trust metadata are
+diagnostic: differences in trace steps or diagnostic text alone never produce
+`Different`.
+
+### Non-consuming guarantee
+
+`vswitch.Compare` evaluates both switches using `[Switch.Peek]`, which executes
+forwarding without learning source MACs into the filtering database, advancing
+aging timers, or mutating internal tables.
+
 ## Concurrency contract
 
 A `vswitch.Switch` holds the forwarding database and is not safe for
