@@ -37,10 +37,18 @@ acceptance tests over the total.
 One worktree per lane, branched from the same commit:
 
 ```bash
-git worktree add -b bench-<lane> /Users/aledante/Projects/worktrees/FlowSeer/bench-<lane> HEAD
+git worktree add -b bench-<lane> ~/Projects/worktrees/FlowSeer/bench-<lane> <base>
 ```
 
-`bench.sh` writes `wall_s` and the CLI's reported usage. Where the CLI
+Lanes on the `opencode` CLI each get their own SQLite database: `bench.sh`
+sets `OPENCODE_DB` per lane, because instances sharing the default one
+corrupt each other's sessions when lanes overlap.
+
+`bench.sh` writes `wall_s` and the CLI's reported usage. On `opencode` it
+also writes `finish` and `tool_calls`: a lane that ends `finish: length`
+with `tool_calls: 0` never touched the repository, which is a 0 and not a
+harness failure, and it spends an ordinary-looking number of tokens doing
+it. Where the CLI
 reports no dollar figure, estimate from the registry price:
 `input * price[0] + output * price[1]` per million, with cache reads at a
 tenth of the input price. Report cost per lane as that estimate and mark it

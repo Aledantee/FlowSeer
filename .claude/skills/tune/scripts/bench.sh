@@ -46,16 +46,29 @@ case "$cli" in
       --print-timeout 60m >"$raw" 2>"$raw.err" </dev/null ;;
   opencode)
     # `opencode run` never returns headless (1.18.30); the server API does.
+    #
+    # One database per lane. Every `opencode serve` writes the same SQLite
+    # file under ~/.local/share/opencode, and lanes running at once corrupt
+    # each other through it: on 2026-09-19 one server never bound its port and
+    # another died 202 s in on "Failed to execute statement". OPENCODE_DB
+    # moves only the database; credentials still come from auth.json.
+    export OPENCODE_DB="$raw.db"
     port=$((20000 + RANDOM % 20000))
     opencode serve --port "$port" >"$raw.serve" 2>&1 &
     spid=$!
-    for _ in $(seq 1 30); do
-      curl -sf -X POST "http://127.0.0.1:$port/session" -H 'content-type: application/json' -d '{}' \
+    for _ in $(seq 1 60); do
+      curl -sf --max-time 5 -X POST "http://127.0.0.1:$port/session" -H 'content-type: application/json' -d '{}' \
         -o "$raw.session" && break
       sleep 1
     done
-    sid=$(python3 -c "import json; print(json.load(open('$raw.session'))['id'])")
-    python3 - "$prompt" "$agent" "$model" >"$raw.body" <<'EOF'
+    sid=$(python3 -c "import json; print(json.load(open('$raw.session'))['id'])" 2>/dev/null)
+    if [[ -z $sid ]]; then
+      # A lane that never started must not report like a lane that ran and did
+      # nothing: both leave an empty $raw, so say so here instead.
+      echo "opencode serve never accepted a session on port $port" >"$raw.err"
+      rc=1
+    else
+      python3 - "$prompt" "$agent" "$model" >"$raw.body" <<'EOF'
 import json, sys
 prompt, agent, model = sys.argv[1:]
 provider, _, mid = model.partition("/")
@@ -64,19 +77,22 @@ if agent:
     body["agent"] = agent
 print(json.dumps(body))
 EOF
-    curl -sS --max-time 3600 -X POST "http://127.0.0.1:$port/session/$sid/message" \
-      -H 'content-type: application/json' --data-binary @"$raw.body" >"$raw" 2>"$raw.err"
+      curl -sS --max-time 3600 -X POST "http://127.0.0.1:$port/session/$sid/message" \
+        -H 'content-type: application/json' --data-binary @"$raw.body" >"$raw" 2>"$raw.err"
+      rc=$?
+    fi
     kill "$spid" 2>/dev/null ;;
   *) echo "unknown cli $cli" >&2; exit 2 ;;
 esac
-code=$?
+# The opencode branch ends in `kill`, whose status says nothing about the run.
+code=${rc-$?}
 end=$(date +%s)
 
 python3 - "$cli" "$raw" "$lane" "$model" "$effort" "$((end - start))" "$code" "$out" <<'EOF'
 import json, sys
 cli, raw, lane, model, effort, wall, code, out = sys.argv[1:]
 usage = {"input": 0, "output": 0, "cache_read": 0, "reasoning": 0}
-cost = None
+cost = error = finish = tools = None
 text = open(raw, errors="replace").read()
 
 def add(k, v):
@@ -110,6 +126,18 @@ elif cli == "agy":
     except json.JSONDecodeError:
         pass
 elif cli == "opencode":
+    try:
+        d = json.loads(text)
+    except json.JSONDecodeError:
+        d = {}
+    if isinstance(d, dict) and "name" in d and "info" not in d:
+        # The server answered with an error object instead of a message.
+        error = "%s: %s" % (d["name"], (d.get("data") or {}).get("message", ""))
+    info = d.get("info") if isinstance(d, dict) else None
+    if isinstance(info, dict):
+        finish = info.get("finish")
+        parts = d.get("parts") or []
+        tools = sum(1 for p in parts if p.get("type") == "tool")
     for line in text.splitlines():
         try:
             e = json.loads(line)
@@ -123,8 +151,14 @@ elif cli == "opencode":
         if isinstance(c, (int, float)):
             cost = (cost or 0) + c
 
-json.dump({"lane": lane, "cli": cli, "model": model, "effort": effort or None,
-           "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost},
-          open(out, "w"), indent=1)
+result = {"lane": lane, "cli": cli, "model": model, "effort": effort or None,
+          "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost}
+if finish is not None:
+    result["finish"] = finish
+if tools is not None:
+    result["tool_calls"] = tools
+if error is not None:
+    result["error"] = error
+json.dump(result, open(out, "w"), indent=1)
 print(open(out).read())
 EOF

@@ -53,14 +53,15 @@ the report names every fitting pool the wave left idle and why.
 
 Pinning by pool: `claude` and `codex` take `--model` and `--effort`;
 `google` takes `--model gemini-3.8-flash-<effort>` on the `agy` launch;
-`synthetic` and `zen` take the opencode agent named in the registry's
-`opencode_agents`, whose model is fixed in `~/.config/opencode/opencode.json`
-to the model's `pool_id`.
+`synthetic` and `zen` take `--model <pool_id>` on the `opencode` launch,
+on the default agent. No agent profile is involved: a profile that pins a
+model carries no system prompt, and models on one either reason without
+calling a tool or answer nothing.
 A model whose `effort` list lacks the role's level gets the highest level it
 lists: `execute` routes at `xhigh`, and `gemini-3.8-flash-xhigh` is not a
 model id, so that lane launches as `gemini-3.8-flash-high`.
 `scripts/orca-worker.sh` puts each of these on the worker's launch line from
-`--cli`, `--model`, `--effort`, and `--agent`; the Agent tool takes `model`.
+`--cli`, `--model`, and `--effort`; the Agent tool takes `model`.
 Name the model on every worker; never `inherit` or unset, and never the
 coordinating session's own model. One model per task from start to finish.
 At most three workers run at once; start the next wave after the first
@@ -150,7 +151,7 @@ differs.
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --brief <file>
-$s start --lane <slug> --cli opencode --agent <opencode agent> --brief <file>
+$s start --lane <slug> --cli opencode --model <pool_id> --brief <file>
 $s wait <slug>            # blocks; prints idle, exited, or timeout, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s status                 # one line per live lane

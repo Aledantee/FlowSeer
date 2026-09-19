@@ -4,7 +4,7 @@
 # the settled-state wait.
 #
 # orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --brief FILE [--base REF]
-# orca-worker.sh start --lane SLUG --cli opencode --agent NAME --brief FILE [--base REF]
+# orca-worker.sh start --lane SLUG --cli opencode --model provider/model --brief FILE [--base REF]
 # orca-worker.sh wait   SLUG [--timeout MS]      # prints idle|exited|timeout, then the screen
 # orca-worker.sh read   SLUG [--lines N]
 # orca-worker.sh keys   SLUG TEXT                # raw text into the terminal, no Enter
@@ -55,7 +55,11 @@ case "$cmd" in
     case "$cli" in
       claude|codex) [[ -n $model ]] || die "--model is required for $cli"; [[ -z $agent ]] || die "--agent does not apply to $cli" ;;
       agy) [[ -n $model ]] || die "--model is required for agy"; [[ -z $effort ]] || die "--effort does not apply to agy: it is part of the model id"; [[ -z $agent ]] || die "--agent does not apply to agy" ;;
-      opencode) [[ -n $agent ]] || die "--agent is required for opencode: the agent fixes the model"; [[ -z $model$effort ]] || die "--model and --effort do not apply to opencode" ;;
+      # The default agent only. A custom agent profile that pins a model
+      # carries no system prompt, and models on it reason without ever
+      # calling a tool or answer nothing at all (2026-09-19); the same models
+      # answer in seconds on the default agent with the model on the launch line.
+      opencode) [[ -n $model ]] || die "--model is required for opencode, as provider/model"; [[ -z $agent$effort ]] || die "--agent and --effort do not apply to opencode: it runs the default agent" ;;
       *) die "unknown cli $cli" ;;
     esac
     orca status --json 2>/dev/null | json 'd["result"]["runtime"]["reachable"]' | grep -q True \
@@ -84,7 +88,7 @@ case "$cmd" in
       claude) line="claude --model $model --dangerously-skip-permissions${effort:+ --effort $effort}" ;;
       codex)  line="codex -a never --sandbox danger-full-access -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
       agy)    line="agy --model $model --dangerously-skip-permissions" ;;
-      opencode) line="opencode --agent $agent" ;;
+      opencode) line="opencode --model $model" ;;
     esac
     # A Claude worker started under this session's child-session variables
     # runs with transcript saving off.

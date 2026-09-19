@@ -438,7 +438,7 @@ ok "worktree guard denies primary-checkout writes, allows commits and worktree e
 
 no_buf=$fixture/no-buf
 mkdir -p "$no_buf"
-for command_name in bash cat jq git dirname basename grep awk sort sed rg; do
+for command_name in bash cat jq git dirname basename grep awk sort sed; do
   ln -s "$(command -v "$command_name")" "$no_buf/$command_name"
 done
 proto_output=$(PATH="$no_buf" "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input")

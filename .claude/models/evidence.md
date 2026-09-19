@@ -71,3 +71,99 @@ One `opencode serve` (1.18.30) in an empty directory, one session per `synthetic
 - hf:zai-org/GLM-4.7-Flash — no reply within 240 s, no error — 2026-09-19.
 - Synthetic quota — `GET https://api.synthetic.new/v2/quotas` is documented to return `subscription.{limit, requests, renewsAt}` and not to count against the limit — https://dev.synthetic.new/docs/synthetic/quotas — 2026-09-19.
 - Synthetic quota, live reply — also returns `rollingFiveHourLimit.{remaining, max, limited, nextTickAt, tickPercent}` and `weeklyTokenLimit.{percentRemaining, maxCredits, remainingCredits, nextRegenAt}`, which the docs page does not list. After the ten probes above `subscription.requests` was still 0 of 2500 while `rollingFiveHourLimit.remaining` read 2495.78 of 2500 and weekly credits $119.86 of $120.00, so `pool-usage.sh` meters the latter two. The fractional remainder means requests are weighted; the weights and the tick interval are not measured — 2026-09-19.
+
+## Catalogue pull 2026-09-19 19:50Z
+
+models.dev `api.json` and OpenRouter `/api/v1/models`, read through
+`tune/scripts/catalogue.py`. Anthropic, OpenAI and Google list prices are
+unchanged since 2026-09-09; so are GLM-5.3, Kimi K3, Qwen3.8 Max, Qwen3.8
+Flash, DeepSeek V4 Pro and Grok 4.6.
+
+- models.dev carries a `synthetic` provider whose ten rows are exactly the ten `hf:` ids opencode lists, at the prices and contexts Synthetic serves rather than the upstream vendor's. Those rows are what opencode's own cost line matches: GPT-OSS-120B billed $0.0015 on ~15K tokens in the 2026-09-19 smoke test, which is Synthetic's 0.1/M and not NVIDIA's or OpenAI's free hosting. The registry takes price and context for every `pool: synthetic` model from that row — models.dev `api.json`, provider `synthetic` — 2026-09-19.
+- Synthetic truncates context: Kimi K3 524,288 against the vendor's 1,048,576, GLM-5.3-Flash and DeepSeek V4.1 Flash 524,288 against 1,000,000, GLM-4.7-Flash 196,608 against 200,000 — same source — 2026-09-19.
+- GLM-5.3-Flash — Z.ai list is 0.15/0.50 per million; the registry's 0.07/0.25 was the launch promotion, which ended at 24:00 on 2026-09-09 (UTC+8) — models.dev `zai` row and https://www.mindstudio.ai/blog/glm-5-3-flash-pricing-api — 2026-09-19.
+- GLM-5.3-FlashX — 0.37/1.25 per million, 1M context, on Z.ai's API since 2026-09-18. Not a new model: GLM-5.3-Flash's weights (320B total, 18B active) on a faster serving stack at up to 200 output tokens/s, published with no evaluation of its own. Synthetic does not serve it — https://www.orcarouter.ai/blog/glm-5-3-flashx-release and https://apimaster.ai/blog/glm-5-3-flashx-api — 2026-09-19.
+- DeepSeek V4.1 Flash — shipped 2026-09-10 as `deepseek-flash`; DeepSeek routes `deepseek-v4-pro` traffic to it from 04:00 UTC on 2026-09-14, so the V4 Pro id no longer names the weights the registry's 87.9 was measured on — https://www.mindstudio.ai/blog/deepseek-v4-1-flash-benchmarks — 2026-09-19.
+- DeepSeek V4 Flash — DeepSeek's own row is now 0.15/0.60 per million at 1M context, not the 0.14/0.28 recorded on 2026-09-09; 0.14/0.28 survives as NVIDIA's hosted copy (`nvidia` provider, `deepseek-ai/deepseek-v4-flash`) — models.dev `api.json` — 2026-09-19.
+- Vendor and broker still disagree by more than 20% on three models, and the registry keeps the vendor's: GPT-5.6 Sol 4/20 against OpenRouter 2/10, GLM-5.3 1.4/4.4 against 0.91/2.86, Kimi K3 3/15 against 1.70/8.50 — both feeds — 2026-09-19.
+- On OpenRouter in the last 60 days and not in the registry, none with a pool this host can reach: `z-ai/glm-5.3-flashx` (added), `openai/gpt-6-astra-pro` (still no vendor row, still out), `qwen/qwen3.8-max-0902`, `deepseek/deepseek-v4-flash-vision-exp`, `qwen/qwen3.8-27b`, `google/gemini-3.7-flash`, `qwen/qwen3.8-2.4t-a95b`, `deepseek/deepseek-v4-pro-0813`, `nvidia/nemotron-3.5-lightning`, `deepseek/deepseek-v4-flash-0731`, `qwen/qwen3.7-flash` — 2026-09-19.
+
+### Benchmarks for the three models Synthetic answers for
+
+None of these fills the registry's `terminal_bench` column, which holds
+Terminal-Bench 2.1 only, and none is a calibration result, so none of them
+enters a fit set on these numbers.
+
+- DeepSeek V4.1 Flash — Terminal-Bench 2.1 90.6 and Terminal-Bench 3.0 30, DeepSeek's own runs on the Minimal mode of the DeepSeek Harness at 1M context, a different harness from the 88.2/88.3/86.6 figures already in the registry; DeepSWE v1.1 74.2, not SWE-bench Verified — https://www.mindstudio.ai/blog/deepseek-v4-1-flash-benchmarks and https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash — 2026-09-19.
+- Nemotron 3 Super 120B A12B — SWE-bench Verified 60.5 on OpenHands, Terminal-Bench Core 2.0 31.0 on Harbor, NVIDIA's own runs. Terminal-Bench Core 2.0 is not Terminal-Bench 2.1 — https://research.nvidia.com/labs/nemotron/files/NVIDIA-Nemotron-3-Super-Technical-Report.pdf and https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b/benchmarks — 2026-09-19.
+- GPT-OSS-120B — around 62 on SWE-bench Verified in public reports, harness unnamed; OpenAI's model card gives Codeforces, SWE-bench and tau-bench without a Terminal-Bench figure. Its 131,072-token context on Synthetic is the smallest in the registry — https://arxiv.org/pdf/2508.10925 and https://artificialanalysis.ai/models/gpt-oss-120b — 2026-09-19.
+- No refusal report found for any of the three; all are open-weight releases served without a vendor safety gateway, so `refusal_cyber: low` stands on the same reasoning as the other open-weight rows and not on a measurement — 2026-09-19.
+
+## Host discovery 2026-09-19 19:49Z
+
+- CLIs: claude 2.1.278, codex 0.153.4, agy 1.2.7, opencode 1.18.31. Orca reachable, `--model` pinnable for claude, codex and cursor — `discover-host.sh` — 2026-09-19.
+- `google` is signed out: `agy -p /quota` prints an OAuth URL and exits with "authentication failed or timed out", and `agy models` answers "Please sign in to view available models". Until someone completes that login, Gemini 3.8 Flash is unreachable, and it is the only model in the `lookup` and `critique` fit sets besides one Claude and one Synthetic model — 2026-09-19.
+- `pool-usage.sh` reports `claude: signed_in: false` while the `claude` CLI is signed in on this host. The row comes from `orca account list --json`, where `claude.accounts` is empty and `rateLimits.claude` is null, because Orca has no Claude account registered. The `codex` row escapes the same fate only through its `systemDefault.hasAuth` fallback; there is no equivalent for claude, although `~/.claude/.credentials.json` exists and `~/.claude.json` shows an active Max 20x account. `delegate` drops every model whose pool row reads `signed_in: false`, so this reading takes all four Claude models out of every fit set while the coordinating session is itself running on that pool — 2026-09-19.
+
+## opencode agent block 2026-09-19
+
+- `~/.config/opencode/opencode.json` defines nine agents, every one named after a model id: `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`, `gpt-6-astra`, `gpt-5.6-sol`, `gemini-3.8-flash` (all pinned to `opencode/…`, the zen pool) and `kimi-k3`, `glm-5.3-flash` (pinned to `synthetic/…`). There is no `~/.config/opencode/agent/` directory, so that file is the whole set — 2026-09-19.
+- None of the five agent names in the registry's `opencode_agents` (`research`, `execute-open`, `execute-sensitive`, `critique`, `overflow-frontier`) exists in that file, and neither does any of the ten per-model `agent:` names the registry carries (`execute-glmflash`, `execute-open`, `execute-flash`, `execute-nemotron`, `execute-gptoss`, `execute-kimicode`, `execute-qwen`, `execute-glm47`, `execute-glm52`, `execute-minimax`). `orca-worker.sh` passes `--agent` through to `opencode --agent` unchanged, so a synthetic or zen lane dispatched on today's registry launches an agent opencode does not have. The claim in 0d774ceb that the ten ids were "wired in ~/.config/opencode/opencode.json" does not hold — 2026-09-19.
+- The registry also carries two incompatible pinning schemes at once: a per-model `agent:` field, which lets `delegate` choose the model and then name its agent, and the role-to-agent `opencode_agents` map, which fixes one model per role and is what `delegate`'s SKILL.md describes. Only one can decide a lane — 2026-09-19.
+- The zen pool serves eight ids, all small or free: `big-pickle`, `jev-1.13-free`, `ling-3.0-flash-fin-free`, `mimo-v2.5-free`, `muse-spark-1.2-contributor-free`, `muse-spark-1.3-contributor-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`. The seven zen-pinned agents in opencode.json point at Claude, GPT and Gemini ids the pool no longer carries, so they are dead as well. The registry has no zen model rows, and `overflow: overflow-frontier` names a frontier overflow lane the pool cannot serve — `opencode models` 1.18.31 — 2026-09-19.
+
+## opencode agent dispatch, probed 2026-09-19 20:00-20:40Z
+
+The agent block was reconciled this run: `~/.config/opencode/opencode.json`
+gained one agent per new synthetic model, named after the model id like the
+nine already there, and the registry's `agent:` fields now name those instead
+of the invented `execute-*` set. The probes below are the first time any agent
+in that file has been exercised; the fit sets its descriptions claim were
+never evidence that dispatch works.
+
+Probe: one `opencode serve` per model in a fresh directory, a fresh session per
+request, a hard `--max-time` on every call, one prompt — read `probe.txt` with
+the file tool and reply with its text, which only a tool call can produce.
+
+- `glm-5.3-flash` — pass through the default agent in 8 s and through the named agent in 6 s, so a named agent is not itself the problem — 2026-09-19.
+- `nemotron-3-super` — pass through its named agent in 11 s — 2026-09-19.
+- `deepseek-v4.1-flash` — pass through its named agent in 37 s — 2026-09-19.
+- `gpt-oss-120b` — no reply through its named agent in 90 s and again in 180 s, with an assistant message recorded at zero input, zero output and zero cost in `~/.local/share/opencode/opencode.db`; the same model and prompt through the default agent passed in 7 s. Something about the agent definition (it differs from opencode's default `build` agent only by `mode: "all"` and a description) leaves this model producing nothing. `delegate` pins the synthetic pool by agent name and has no other path, so the model is unreachable for delegation and the registry gives it `pool: null` — 2026-09-19.
+- Weekly Synthetic credit read $119.86 after the morning's ten probes and $114.01 before the afternoon's calibration lanes, a $5.85 drop the hung probes do not account for: opencode recorded zero tokens and zero cost for all of them. Synthetic counts usage from every host on the key, so the difference is not attributable from this machine, and no cause is claimed — 2026-09-19.
+
+## Calibration attempt 2026-09-19 — blocked on the toolchain
+
+Four lanes were started on base `bd9e0862` (`d4421211^`, so they measure
+implementation): `glm-5.3-flash`, `kimi-k3`, `deepseek-v4.1-flash` and
+`nemotron-3-super`, each through `bench.sh --cli opencode` with the model's
+own agent. `gpt-oss-120b` was left out; it returns nothing through a named
+agent.
+
+- No Go toolchain exists on this host: `go` is absent from PATH, from `/usr/local/go`, from every version manager directory, and there is no `~/go` or `~/.cache/go-build`. `go.mod` requires 1.27. Grading a lane means running the seven hidden acceptance tests under `-race`, so **no lane can be graded here**, and a fit set cannot move: `tune` admits a model to a role on a calibration result and on nothing else. The same gap fails the repository Stop hook, whose conformance gates shell out to `go` — 2026-09-19.
+- `bench.sh` reports success for a lane that never ran. The `kimik3` lane's `opencode serve` never bound its port (`curl: (7) Failed to connect`, empty serve log, most likely because four servers were started at once), the session was never created, and the script still wrote a result file with `"exit": 0`, `wall_s: 31` and zero usage. Nothing in that JSON distinguishes a model that did nothing from a lane that never started; only the empty `.raw` and the `.stdout` traceback do. `code=$?` there captures the `case` block, not the curl — 2026-09-19.
+- Four `opencode serve` instances at once corrupt each other's work. They share one SQLite database at `~/.local/share/opencode/opencode.db`, and running the four lanes in parallel produced exactly the failures that implies: the `kimik3` server never bound its port and its lane never started, and the `dsv41flash` lane died 202 s in with `{"name":"UnknownError"}` to the client and `level=ERROR message=process error="Failed to execute statement"` in `~/.local/share/opencode/log/opencode.log`. Every single-server probe this session succeeded, five for five. Calibration lanes on the opencode CLI must run one at a time; `calibration.md` says one worktree per lane and does not say that — 2026-09-19.
+- DeepSeek V4.1 Flash had written a 105-line `merge.go` with a full contract doc comment when the database error killed its lane, and no `merge_test.go`, which the brief requires. The lane is void, not a result — 2026-09-19.
+
+## Fixes researched and applied 2026-09-19
+
+- `OPENCODE_DB` moves opencode's SQLite database and nothing else: `OPENCODE_DB=/tmp/oc-lane1.db opencode db path` prints that path, and `opencode auth list` under the same variable still reads `~/.local/share/opencode/auth.json` and still shows Synthetic signed in. `XDG_DATA_HOME` also moves the database but takes `auth.json` with it, and `OPENCODE_DATA` does nothing. `bench.sh` now exports `OPENCODE_DB="$raw.db"` per lane. This addresses the shared-database failure that voided two lanes; four servers at once has not been re-tested since — 2026-09-19.
+- `bench.sh` now reports what a lane actually did. Replaying this run's raw output through the patched parser turns the three misleading result files into: `glm53flash` `finish: length` with `tool_calls: 0`; `dsv41flash` `error: UnknownError: Unexpected server error`; `kimik3` an `.err` naming the server that never accepted a session, with a non-zero exit instead of 0. `finish` and `tool_calls` matter because a model that reasons to its output cap and never calls a tool spends a normal-looking number of tokens — 2026-09-19.
+- `pool-usage.sh` now falls back to the `claude` CLI's own OAuth token (`~/.claude/.credentials.json`, `claudeAiOauth`, valid when either `expiresAt` or `refreshTokenExpiresAt` is in the future) when Orca has no registered Claude account, the way `codex` has always fallen back to `systemDefault.hasAuth`. The row reads `signed_in: true` with `windows: null` and a note saying Orca has no account for it, so `delegate` treats it as signed in with unknown headroom rather than dropping every Claude model — 2026-09-19.
+- `gpt-oss-120b` through its named agent is still unexplained. The agent is registered (`opencode agent list` shows `gpt-oss-120b (all)`), and the same `mode: all`, no-`prompt` shape works for `glm-5.3-flash`, `nemotron-3-super` and `deepseek-v4.1-flash`, so the shape alone is not the cause; the model is the smallest of the five. The untried discriminating test is a second agent for the same model with `mode: primary` and an explicit `prompt`, probed the same way. It was not run: a probe needs its own `opencode serve`, and a calibration lane was in flight on the shared database — 2026-09-19.
+
+## opencode caps output at 32,000 tokens, 2026-09-19
+
+Both GLM lanes that "failed" this way were cut off by the harness, not by the
+model, and one of them is the basis of a fit-set removal.
+
+- The `glm53flash` lane ended `finish: length` at exactly 32,000 output tokens with 138,725 characters of reasoning and no tool call. The reasoning is coherent throughout and ends mid-token while writing an acceptance test, having just worked out that the merged order assertion has to be per-source subsequence order plus total counts rather than global positions. It is a model working the problem, not looping — 2026-09-19.
+- The cap is opencode's, established by elimination rather than by reading its code. Synthetic itself does not cap at 32,000: the same model called directly at `POST api.synthetic.new/v1/chat/completions` with `max_tokens: 60000` returned 33,100 completion tokens and `finish_reason: stop`. opencode's own catalogue does not cap it either: `GET /config/providers` on a running server reports `limit.output` 65,536 for `hf:zai-org/GLM-5.3-Flash`. Yet the turn through opencode stopped at exactly 32,000. So opencode sends a smaller ceiling than the limit it publishes. The binary carries `var M7=32000`, but the neighbouring `maxOutputTokens:32000` entries belong to an Anthropic table (`claude-opus-4-1`) and the unknown-model fallback there is 4096, so that constant is a candidate and not a proven mechanism — measured 2026-09-19.
+- This voids the 2026-09-09 GLM-5.3 `execute` result as well: "32K reasoning tokens then `finish: length` with no tool call" is the same signature at the same cap. GLM-5.3 left the `execute` fit set on that lane, so the removal rests on a harness artifact and the question is unmeasured rather than settled. Kimi K3's 7/7 is unaffected — it finished inside the cap — but any ranking of a reasoning-heavy model against a terse one on these lanes is biased by it until the cap is raised — 2026-09-19.
+- The message POST body cannot raise it: the server's OpenAPI at `/doc` gives `UserMessage` only `agent`, `format`, `id`, `model`, `role`, `sessionID`, `summary`, `system` and `tools`, with no token field. The remaining lever is per-model config: `ProviderConfig.models.<id>.limit` takes `{context, output}`, so `~/.config/opencode/opencode.json` can override what opencode holds for a model. That override is set for GLM-5.3-Flash and is being tested by re-running its lane — 2026-09-19.
+- A short prompt does not test the cap. "Print the integers from 1 to 9000" answers in 179 tokens with `finish: stop` through opencode's agent, though the same prompt on the raw API produced 33,100: the agent's system prompt talks the model out of it. Only a real brief reproduces the ceiling — 2026-09-19.
+
+## The agent profiles were the regression, 2026-09-19
+
+- Every synthetic model answers on opencode's default agent with the model in the request: all five ids in 8-19 s this morning, Kimi K3 7/7 on 2026-09-09 (no profile the registry named then existed in `opencode.json`), and gpt-oss-120b in 7 s again this afternoon. The failures all came through a custom agent profile: gpt-oss-120b returned nothing twice, and GLM-5.3-Flash reasoned to 32,000 tokens without a tool call. A profile that only pins a model carries no `prompt`, so the model gets tools and none of the instructions that make the default agent act — 2026-09-19.
+- The profiles were never needed. `opencode` and `opencode run` both take `-m, --model provider/model` on the launch line; `orca-worker.sh` had refused `--model` for opencode on the belief that "the agent fixes the model". It now launches `opencode --model <pool_id>` on the default agent, the registry carries no `agent` fields, and `~/.config/opencode/opencode.json` is back to a bare `$schema`. The seven zen-pinned profiles that went with it named ids the zen pool no longer lists — `opencode --help`, `opencode run --help` 1.18.31 — 2026-09-19.
+- Whether the 32,000-token ceiling is also the profile's doing is being measured: the same brief on GLM-5.3-Flash with no profile is in flight, beside default-agent lanes for Kimi K3, DeepSeek V4.1 Flash and gpt-oss-120b — 2026-09-19.
