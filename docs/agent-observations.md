@@ -119,3 +119,29 @@ inspecting the child worktree rather than trusting the report:
   reads a local database that holds only this machine's sessions, so spend
   elsewhere is invisible. Two `esc` rounds did not interrupt it; a third did.
 Suggested change: none recorded; steer decides the remedy.
+
+## 2026-09-19 hooks: repository hooks do not fire for opencode/Orca workers
+Skill or agent: `tools/hooks/` (registered in `.claude/settings.json`
+`PostToolUse`/`Stop`), and `.claude/skills/delegate/SKILL.md` worker lanes.
+What happened: an `opencode` worker (DeepSeek V4.1 Flash on the synthetic
+pool, launched through `delegate/scripts/orca-worker.sh`) committed on its
+branch without any of the registered repository hooks running, because those
+hooks belong to the Claude Code runtime and the worker's Orca/opencode
+environment does not load them. Consequences the coordinator caught only by
+running the verifier by hand after merging:
+- the auto-format PostToolUse hook (gofumpt/goimports, `buf format`) did not
+  run, so formatting violations reached the commit — twice this session
+  (implement stage: `filter_cases.go`, `netmodel_test.go`; a `revive`
+  initialism the same worker-class left);
+- the generated-artifact and triad/ref guards did not run at commit time;
+- the Stop-hook conformance gates and the plan-status Finish bookkeeping
+  (plan `status`, parent `Landed:`) did not run, so the coordinator set them.
+The delegate skill already documents that agy/opencode workers load no hooks,
+so this is expected, not a malfunction — but the workflow relies on the
+coordinator's post-merge verifier to stand in for every hook, and nothing
+states that contract in one place or formats a worker's diff before the
+coordinator reads it.
+Suggested change: none recorded; steer decides the remedy (candidates: a
+coordinator step that runs gofumpt/goimports/`buf format` on a worker's diff
+before the verifier; or a note in delegate that the post-merge verifier is
+the only gate a hookless worker gets).
