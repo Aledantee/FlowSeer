@@ -5,7 +5,7 @@ date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -18,6 +18,18 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 > direction record, and the corpus case all landed. The plan's `CurrentResult`
 > for the corpus case described a drop the tree stopped giving once the seam
 > landed; Decisions carries the ruling that replaced it.
+
+> Reviewed rework (`61b3e43a`): four blocking findings — a Neighbor
+> Solicitation binding its Target to the solicitor's MAC, a cloned switch
+> whose neighbor timer nothing could clear, a `Wake` releasing in map order,
+> and an NDP option parser reading neither the option type nor its length.
+> All four were fixed in place across the routing, ARP/NDP codec, netsim, and
+> direction-record commits that followed (`e102561a`, `e173ad12`, `8640f595`,
+> `dedf3d98`), but the re-review verdict was never recorded, so the field sat
+> at `rework`. A re-review on 2026-09-19 confirmed each finding resolved in
+> the current tree, each pinned by a regression test that fails under a
+> mutation of the fixed line, with no new defect introduced; the verdict
+> above records that `accept after fixes`.
 
 ## Goal
 
