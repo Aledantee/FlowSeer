@@ -1462,3 +1462,69 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 		t.Errorf("capabilities = %v, want to contain port.LayerFilter", res.Report.Capabilities)
 	}
 }
+
+func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	setName := "icmp-set"
+	ruleName := "icmp-echo"
+	protoICMP := packetv1.IpProtocol_IP_PROTOCOL_ICMP
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+
+	rule := filterv1.FilterRule_builder{
+		Name:   &ruleName,
+		Action: &acceptAction,
+		Match: filterv1.FilterMatch_builder{
+			Protocol: &protoICMP,
+			Icmp: packetv1.IcmpMatch_builder{
+				V4: packetv1.Icmpv4Match_builder{
+					Types: []uint32{8, 0},
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	set := filterv1.FilterRuleSet_builder{
+		Name:    &setName,
+		Default: &acceptAction,
+		Rules:   []*filterv1.FilterRule{rule},
+	}.Build()
+
+	if err := protovalidate.Validate(set); err != nil {
+		t.Fatalf("filter set validation failed: %v", err)
+	}
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, []*filterv1.FilterRuleSet{set}, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	if res.Readiness() == analysis.Complete {
+		t.Errorf("readiness = %v, want degraded after narrowing an ICMP list", res.Readiness())
+	}
+
+	found := false
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueSkippedUnsupportedFacet {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("issues = %+v, want issue %s for the narrowed ICMP match", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet)
+	}
+}

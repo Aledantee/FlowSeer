@@ -26,6 +26,12 @@ enum FilterDirection {
 
 // Filter configuration bound to an interface.
 message FilterFacet {
+  option (buf.validate.message).cel = {
+    id: "filter_facet.non_empty"
+    message: "a filter facet must bind an ingress or egress rule set"
+    expression: "this.in_set != \"\" || this.out_set != \"\""
+  };
+
   // Name of the rule set applied to traffic entering the interface.
   string in_set = 1;
   // Name of the rule set applied to traffic leaving the interface.
@@ -56,18 +62,35 @@ message FilterRule {
   string name = 1;
   // Criteria evaluated against packet headers.
   FilterMatch match = 2;
-  // Verdict applied when match criteria are satisfied.
-  FilterAction action = 3;
+  // Verdict applied when match criteria are satisfied. Must be present; the
+  // unspecified value is rejected rather than read as Drop.
+  FilterAction action = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
 }
 
 // An ordered sequence of rules with a fallback default action.
 message FilterRuleSet {
-  // Unique name of this rule set on the device.
-  string name = 1 [(buf.validate.field).string.min_len = 1];
+  // Unique name of this rule set on the device. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
   // When true, enables stateful return traffic matching.
   bool stateful = 2;
-  // Default action applied when no rule matches.
-  FilterAction default = 3;
+  // Default action applied when no rule matches. Must be present; the
+  // unspecified value is rejected rather than read as Drop.
+  FilterAction default = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
   // Rules evaluated in order; the first matching rule decides the action.
   repeated FilterRule rules = 4;
 }

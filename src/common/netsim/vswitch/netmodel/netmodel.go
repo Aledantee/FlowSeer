@@ -1954,6 +1954,9 @@ func Load(
 					}
 					if icmp := m.GetIcmp(); icmp != nil {
 						if v4 := icmp.GetV4(); v4 != nil {
+							if len(v4.GetTypes()) > 1 || len(v4.GetCodes()) > 1 {
+								addSkippedAt(rootScope, "", "filter_icmp_match", "ICMPv4 lists carry more than one type or code; only the first entry of each is translated", analysis.Incomplete, IssueSkippedUnsupportedFacet)
+							}
 							if len(v4.GetTypes()) > 0 || len(v4.GetCodes()) > 0 {
 								im := &filter.ICMPMatch{}
 								if len(v4.GetTypes()) > 0 {
@@ -1966,6 +1969,9 @@ func Load(
 								r.Match.ICMP = im
 							}
 						} else if v6 := icmp.GetV6(); v6 != nil {
+							if len(v6.GetTypes()) > 1 || len(v6.GetCodes()) > 1 {
+								addSkippedAt(rootScope, "", "filter_icmp_match", "ICMPv6 lists carry more than one type or code; only the first entry of each is translated", analysis.Incomplete, IssueSkippedUnsupportedFacet)
+							}
 							if len(v6.GetTypes()) > 0 || len(v6.GetCodes()) > 0 {
 								im := &filter.ICMPMatch{}
 								if len(v6.GetTypes()) > 0 {
