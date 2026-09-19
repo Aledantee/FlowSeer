@@ -713,7 +713,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-18-2129-feat-netsim-exact-comparison-phase7a-plan.md`
 - **After:** U6
-- **Landed:**
+- **Landed:** `eb9f4ffa..128bf59e`
 - **Change:** Replace shallow switch and fabric equality with field-level
   comparison over every behavioral observable, returning `Equivalent`,
   `Different`, or `Inconclusive`; `fabric.Compare` forks its inputs internally so
