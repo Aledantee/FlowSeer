@@ -5,7 +5,7 @@ date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 compound: docs/solutions/architecture-patterns/one-slot-two-roles-is-a-defect-class-not-a-defect.md
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
@@ -19,7 +19,9 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 > Reviewed rework. The findings were too large to fix in place and were
 > carried to phase 3f
 > ([`docs/plans/2026-09-12-1339-fix-netsim-analysis-completeness-phase3f-plan.md`](2026-09-12-1339-fix-netsim-analysis-completeness-phase3f-plan.md)),
-> which closed `accept after fixes`. This phase is complete through that one.
+> which closed `accept after fixes`. This phase is complete through that one,
+> and its verdict above records that final disposition rather than the interim
+> `rework`.
 
 > Re-planned on 2026-09-16 against the tree phase 3d left (`ca47a59d`). The
 > Decisions below keep the 2026-09-14 wire and behavior rulings, whose
