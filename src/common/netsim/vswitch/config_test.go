@@ -5,9 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -274,5 +276,107 @@ func TestNewRejectsSubInterfaceParentPortAsSpanningTreePort(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot be configured as a spanning tree port") {
 		t.Errorf("New() error = %q, want the spanning tree ban's message", err)
+	}
+}
+
+func TestValidateRefusesFilterWithoutRouting(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		Filter: &filter.Config{
+			Sets: map[string]filter.RuleSet{
+				"s1": {Default: filter.Accept},
+			},
+		},
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want error for filter without routing")
+	}
+	attrs := errs.Attributes(err)
+	if attrs["field"] != "filter" {
+		t.Errorf("field attribute = %v, want filter", attrs["field"])
+	}
+}
+
+func TestValidateRefusesFilterBindingToUnknownInterface(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"1/1/1": {Port: "1/1/1", Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}},
+					},
+				},
+			},
+		},
+		Filter: &filter.Config{
+			Sets: map[string]filter.RuleSet{
+				"s1": {Default: filter.Accept},
+			},
+			Bindings: []filter.Binding{
+				{Interface: "unknown-iface", Direction: filter.In, Set: "s1"},
+			},
+		},
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want error for filter binding to unknown interface")
+	}
+	attrs := errs.Attributes(err)
+	if attrs["field"] != "filter.bindings.unknown-iface.in" {
+		t.Errorf("field attribute = %v, want filter.bindings.unknown-iface.in", attrs["field"])
+	}
+}
+
+func TestDiffReportsFilterCapabilityChange(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfgA := vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"1/1/1": {Port: "1/1/1", Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}},
+					},
+				},
+			},
+		},
+	}
+	cfgB := cfgA.Clone()
+	cfgB.Filter = &filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"s1": {Default: filter.Accept},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "1/1/1", Direction: filter.In, Set: "s1"},
+		},
+	}
+
+	changes := vswitch.Diff(cfgA, cfgB)
+	found := false
+	for _, ch := range changes {
+		if ch.Layer == port.LayerFilter && ch.Subject.Kind == "capability" && ch.Subject.Key == "filter" {
+			found = true
+			if ch.From != nil {
+				t.Errorf("From = %v, want nil", ch.From)
+			}
+			if ch.To == nil {
+				t.Errorf("To = nil, want LayerFact")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("Diff did not report filter capability addition; got %v", changes)
 	}
 }

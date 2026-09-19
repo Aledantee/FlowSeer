@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
@@ -25,7 +26,8 @@ import (
 // optional physical layer attributes, optional bridge relay and VLAN configuration,
 // optional link aggregation configuration, optional spanning tree configuration,
 // optional netsim loop-protection configuration, optional multicast snooping,
-// optional layer 3 routing configuration, and optional traffic configuration.
+// optional layer 3 routing configuration, optional packet filter configuration,
+// and optional traffic configuration.
 // MAC is the device's base hardware address.
 //
 // Config is safe for concurrent read access.
@@ -40,6 +42,7 @@ type Config struct {
 	Mcast       *mcast.Config
 	Routing     *routing.Config
 	Traffic     *traffic.Config
+	Filter      *filter.Config
 }
 
 // Canonical returns a deterministic encoding of the configuration semantics used
@@ -87,6 +90,9 @@ func (c Config) Capabilities() []port.Layer {
 	}
 	if c.Traffic != nil {
 		caps = append(caps, port.LayerTraffic)
+	}
+	if c.Filter != nil {
+		caps = append(caps, port.LayerFilter)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
@@ -365,6 +371,29 @@ func (c Config) Validate() error {
 			}
 		}
 	}
+	if c.Filter != nil {
+		if c.Routing == nil {
+			return errs.New().Attr("field", "filter").Msg("filter requires routing configuration")
+		}
+		if err := c.Filter.Validate(); err != nil {
+			return err
+		}
+		routedIfaces := make(map[string]struct{})
+		for _, vrf := range c.Routing.VRFs {
+			for name := range vrf.Interfaces {
+				routedIfaces[name] = struct{}{}
+			}
+		}
+		for _, b := range c.Filter.Bindings {
+			if _, ok := routedIfaces[b.Interface]; !ok {
+				return errs.New().
+					Attr("field", fmt.Sprintf("filter.bindings.%s.%s", b.Interface, b.Direction)).
+					Attr("interface", b.Interface).
+					Attr("direction", string(b.Direction)).
+					Msgf("filter binding interface %q is not a routing interface", b.Interface)
+			}
+		}
+	}
 
 	return nil
 }
@@ -538,6 +567,10 @@ func (c Config) Normalize() Config {
 		t := norm.Traffic.Normalize()
 		norm.Traffic = &t
 	}
+	if norm.Filter != nil {
+		f := norm.Filter.Normalize()
+		norm.Filter = &f
+	}
 
 	return norm
 }
@@ -579,6 +612,10 @@ func (c Config) Clone() Config {
 	if c.Traffic != nil {
 		trafficCfg := c.Traffic.Clone()
 		cp.Traffic = &trafficCfg
+	}
+	if c.Filter != nil {
+		f := c.Filter.Clone()
+		cp.Filter = &f
 	}
 
 	return cp

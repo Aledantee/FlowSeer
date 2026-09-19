@@ -53,6 +53,7 @@ var switchFieldClasses = map[string]forkClass{
 	"lag":                      classDeepCopied,
 	"mcast":                    classDeepCopied,
 	"routing":                  classDeepCopied,
+	"filter":                   classImmutableShared,
 	"traffic":                  classImmutableShared,
 	"buckets":                  classDeepCopied,
 	"copies":                   classDeepCopied,

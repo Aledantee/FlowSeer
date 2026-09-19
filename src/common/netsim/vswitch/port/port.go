@@ -48,6 +48,9 @@ const (
 
 	// LayerTraffic identifies mirroring, policing, and egress queue configuration.
 	LayerTraffic trace.Layer = "traffic"
+
+	// LayerFilter identifies the packet filter capability.
+	LayerFilter trace.Layer = "filter"
 )
 
 const (

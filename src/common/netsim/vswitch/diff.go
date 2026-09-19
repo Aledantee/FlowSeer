@@ -6,6 +6,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
@@ -142,6 +143,17 @@ func Diff(a, b Config) []trace.Change {
 			bTraffic = *b.Traffic
 		}
 		changes = append(changes, traffic.Diff(aTraffic, bTraffic)...)
+	}
+
+	if a.Filter != nil || b.Filter != nil {
+		var aFilter, bFilter filter.Config
+		if a.Filter != nil {
+			aFilter = *a.Filter
+		}
+		if b.Filter != nil {
+			bFilter = *b.Filter
+		}
+		changes = append(changes, filter.Diff(aFilter, bFilter)...)
 	}
 
 	return changes

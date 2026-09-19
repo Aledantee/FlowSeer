@@ -23,6 +23,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
@@ -217,6 +218,7 @@ type Switch struct {
 	lag            *lag.Layer
 	mcast          *mcast.Layer
 	routing        *routing.Layer
+	filter         *filter.Layer
 	traffic        *traffic.Config
 	buckets        map[string]*traffic.Bucket
 	copies         []traffic.Copy
@@ -400,6 +402,13 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 			return nil, err
 		}
 		sw.routing = rt
+	}
+	if norm.Filter != nil {
+		flt, err := filter.New(*norm.Filter, norm.Ports, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		sw.filter = flt
 	}
 	if norm.Traffic != nil {
 		sw.traffic = norm.Traffic
@@ -1255,9 +1264,29 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					return s.finishForward(now, ingress, f, res, mutate)
 				}
 
+				var ingressFilterRes filter.Result
+				if s.filter != nil {
+					ingressFilterRes = s.filter.EvaluateIngress(ifaceName, f)
+					if ingressFilterRes.Decision == filter.DecisionDrop || ingressFilterRes.Decision == filter.DecisionReject {
+						res := bridge.Result{
+							Trace: trace.Trace{
+								Outcome: trace.Dropped,
+								Reason:  ingressFilterRes.Reason,
+								Steps:   ingressFilterRes.Steps,
+							},
+							Ingress: resolved.Name,
+							FID:     0,
+						}
+						s.forwardingDependencies(ingress).consult(&res)
+						res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
+						res.ConsultScopes(ingressFilterRes.ConsultedScopes()...)
+						return s.finishForward(now, ingress, f, res, mutate)
+					}
+				}
+
 				pcp, dei := f.Priority()
 				routeRes := s.routing.Route(now, ifaceName, f, mutate)
-				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, routeRes, mutate)
+				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes, mutate)
 				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
 				return s.finishForward(now, ingress, f, res, mutate)
@@ -1299,8 +1328,27 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					if controlCandidate {
 						in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 					}
+					var ingressFilterRes filter.Result
+					if s.filter != nil {
+						ingressFilterRes = s.filter.EvaluateIngress(iface, f)
+						if ingressFilterRes.Decision == filter.DecisionDrop || ingressFilterRes.Decision == filter.DecisionReject {
+							res := bridge.Result{
+								Trace: trace.Trace{
+									Outcome: trace.Dropped,
+									Reason:  ingressFilterRes.Reason,
+									Steps:   append(slices.Clone(in.Steps), ingressFilterRes.Steps...),
+								},
+								Ingress: in.Port,
+								FID:     in.FID,
+							}
+							res.Consult(in.ConsultedPorts()...)
+							res.ConsultScopes(in.ConsultedScopes()...)
+							res.ConsultScopes(ingressFilterRes.ConsultedScopes()...)
+							return s.finishForward(now, ingress, f, res, mutate)
+						}
+					}
 					routeRes := s.routing.Route(now, iface, f, mutate)
-					res := s.assembleRouteResult(now, in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes, mutate)
+					res := s.assembleRouteResult(now, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes, mutate)
 					res.Consult(in.ConsultedPorts()...)
 					res.ConsultScopes(in.ConsultedScopes()...)
 					return s.finishForward(now, ingress, f, res, mutate)
@@ -1880,10 +1928,15 @@ func (s *Switch) assembleRouteResult(
 	ingressPCP vlan.PCP,
 	ingressDEI bool,
 	ingressSteps []trace.Step,
+	ingressIface string,
+	ingressFilterRes filter.Result,
 	routeRes routing.Result,
 	mutate bool,
 ) bridge.Result {
 	routeScopes := routeRes.ConsultedScopes()
+	if len(ingressFilterRes.ConsultedScopes()) > 0 {
+		routeScopes = append(routeScopes, ingressFilterRes.ConsultedScopes()...)
+	}
 	if routeRes.Reason != "" {
 		outcome := trace.Dropped
 		switch routeRes.Reason {
@@ -1897,8 +1950,11 @@ func (s *Switch) assembleRouteResult(
 				s.recordNeighborUnresolved(routeRes.Interface, addr)
 			}
 		}
-		steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps))
+		steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps))
 		steps = append(steps, ingressSteps...)
+		if ingressFilterRes.Decision == filter.DecisionAccept {
+			steps = append(steps, ingressFilterRes.Steps...)
+		}
 		steps = append(steps, routeRes.Steps...)
 
 		res := bridge.Result{
@@ -1921,10 +1977,71 @@ func (s *Switch) assembleRouteResult(
 	// Route names only an interface of its own table, so the lookup cannot miss.
 	egressIface, _ := s.routing.Interface(routeRes.Interface)
 
+	if ingressFilterRes.Decision == filter.DecisionDeferred && s.filter != nil {
+		resolved := s.filter.ResolveDeferred(ingressFilterRes, routeRes.Interface)
+		routeScopes = append(routeScopes, resolved.ConsultedScopes()...)
+		if resolved.Decision != filter.DecisionAccept {
+			steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps)+len(resolved.Steps))
+			steps = append(steps, ingressSteps...)
+			steps = append(steps, routeRes.Steps...)
+			steps = append(steps, resolved.Steps...)
+			res := bridge.Result{
+				Trace: trace.Trace{
+					Outcome: trace.Dropped,
+					Reason:  resolved.Reason,
+					Steps:   steps,
+				},
+				Ingress: ingressPort,
+				FID:     ingressFID,
+			}
+			if routeRes.Interface != "" {
+				s.routingForwardingDependencies(routeRes.Interface).consult(&res)
+			}
+			res.ConsultScopes(routeScopes...)
+			return res
+		}
+		ingressFilterRes = resolved
+	}
+
+	var egressFilterRes filter.Result
+	if s.filter != nil {
+		egressFilterRes = s.filter.EvaluateEgress(routeRes.Interface, ingressIface, routeRes.Frame)
+		routeScopes = append(routeScopes, egressFilterRes.ConsultedScopes()...)
+		if egressFilterRes.Decision != filter.DecisionAccept {
+			steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps)+len(egressFilterRes.Steps))
+			steps = append(steps, ingressSteps...)
+			if ingressFilterRes.Decision == filter.DecisionAccept {
+				steps = append(steps, ingressFilterRes.Steps...)
+			}
+			steps = append(steps, routeRes.Steps...)
+			steps = append(steps, egressFilterRes.Steps...)
+			res := bridge.Result{
+				Trace: trace.Trace{
+					Outcome: trace.Dropped,
+					Reason:  egressFilterRes.Reason,
+					Steps:   steps,
+				},
+				Ingress: ingressPort,
+				FID:     ingressFID,
+			}
+			if routeRes.Interface != "" {
+				s.routingForwardingDependencies(routeRes.Interface).consult(&res)
+			}
+			res.ConsultScopes(routeScopes...)
+			return res
+		}
+	}
+
 	if egressIface.VLAN != 0 && egressIface.Port == "" {
-		stepsSoFar := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps))
+		stepsSoFar := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps)+len(egressFilterRes.Steps))
 		stepsSoFar = append(stepsSoFar, ingressSteps...)
+		if ingressFilterRes.Decision == filter.DecisionAccept {
+			stepsSoFar = append(stepsSoFar, ingressFilterRes.Steps...)
+		}
 		stepsSoFar = append(stepsSoFar, routeRes.Steps...)
+		if egressFilterRes.Decision == filter.DecisionAccept {
+			stepsSoFar = append(stepsSoFar, egressFilterRes.Steps...)
+		}
 
 		bridgeIn := bridge.Ingress{
 			Port:   "",
@@ -1942,9 +2059,15 @@ func (s *Switch) assembleRouteResult(
 		return res
 	}
 
-	steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps)+1)
+	steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps)+len(egressFilterRes.Steps)+1)
 	steps = append(steps, ingressSteps...)
+	if ingressFilterRes.Decision == filter.DecisionAccept {
+		steps = append(steps, ingressFilterRes.Steps...)
+	}
 	steps = append(steps, routeRes.Steps...)
+	if egressFilterRes.Decision == filter.DecisionAccept {
+		steps = append(steps, egressFilterRes.Steps...)
+	}
 
 	// A sub-interface's egress carries the outer tag its parent port classifies on; a plain
 	// routed port (VLAN zero) leaves untagged. Applied before the transmit and LAG checks
