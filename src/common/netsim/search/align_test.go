@@ -30,7 +30,7 @@ func TestAlignEquivalentReturnsFalse(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(cur, curTwin, scenario, 10)
+	cmp := fabric.Compare(cur, curTwin, Candidate{Scenario: scenario}.ToScenario(10), 10)
 	if cmp.Disposition != analysis.Equivalent {
 		t.Fatalf("cmp.Disposition = %v, want Equivalent", cmp.Disposition)
 	}
@@ -64,7 +64,7 @@ func TestAlignNamesFirstDifferingTraceEntry(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(cur, cand, scenario, 10)
+	cmp := fabric.Compare(cur, cand, Candidate{Scenario: scenario}.ToScenario(10), 10)
 	if cmp.Disposition != analysis.Different {
 		t.Fatalf("cmp.Disposition = %v, want Different", cmp.Disposition)
 	}

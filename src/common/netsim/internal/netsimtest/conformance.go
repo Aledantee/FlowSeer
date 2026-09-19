@@ -175,13 +175,11 @@ func PermuteOrder[T any](items []T, seed int64) []T {
 		return slices.Clone(items)
 	}
 	out := slices.Clone(items)
-	n := int64(len(out))
 	s := seed
 	for i := len(out) - 1; i > 0; i-- {
 		s = (s*1103515245 + 12345) & 0x7fffffff
 		j := s % int64(i+1)
 		out[i], out[j] = out[j], out[i]
 	}
-	_ = n
 	return out
 }

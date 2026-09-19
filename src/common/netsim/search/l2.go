@@ -239,11 +239,15 @@ func deduplicateAndSortShapes(in []FrameShape) []FrameShape {
 	seen := make(map[key]bool, len(in))
 	var out []FrameShape
 	for _, s := range in {
-		k := key{etype: s.EtherType, payload: string(s.Payload)}
+		etype := s.EtherType
+		if etype == 0 {
+			etype = ethernet.EtherTypeIPv4
+		}
+		k := key{etype: etype, payload: string(s.Payload)}
 		if !seen[k] {
 			seen[k] = true
 			out = append(out, FrameShape{
-				EtherType: s.EtherType,
+				EtherType: etype,
 				Payload:   slices.Clone(s.Payload),
 			})
 		}

@@ -195,13 +195,13 @@ func TestConformanceExactBehavioralComparison(t *testing.T) {
 	}
 
 	// Current-first comparison
-	cmpCurFirst := fabric.Compare(cur, cand, scenario, 10)
+	cmpCurFirst := fabric.Compare(cur, cand, scenarioFromInjections(scenario), 10)
 	if cmpCurFirst.Disposition != analysis.Different {
 		t.Fatalf("cur-first comparison = %v, want Different", cmpCurFirst.Disposition)
 	}
 
 	// Candidate-first comparison
-	cmpCandFirst := fabric.Compare(cand, cur, scenario, 10)
+	cmpCandFirst := fabric.Compare(cand, cur, scenarioFromInjections(scenario), 10)
 	if cmpCandFirst.Disposition != analysis.Different {
 		t.Fatalf("cand-first comparison = %v, want Different", cmpCandFirst.Disposition)
 	}
@@ -238,12 +238,12 @@ func TestConformanceDiagnosticTraceEquality(t *testing.T) {
 		},
 	}
 
-	cmpAB := fabric.Compare(cur, cand, scenario, 10)
+	cmpAB := fabric.Compare(cur, cand, scenarioFromInjections(scenario), 10)
 	if cmpAB.Disposition != analysis.Equivalent {
 		t.Errorf("cur vs cand disposition = %v, want Equivalent", cmpAB.Disposition)
 	}
 
-	cmpBA := fabric.Compare(cand, cur, scenario, 10)
+	cmpBA := fabric.Compare(cand, cur, scenarioFromInjections(scenario), 10)
 	if cmpBA.Disposition != analysis.Equivalent {
 		t.Errorf("cand vs cur disposition = %v, want Equivalent", cmpBA.Disposition)
 	}

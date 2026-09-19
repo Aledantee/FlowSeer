@@ -13,6 +13,8 @@ type Coverage struct {
 }
 
 // Complete reports whether every candidate in the domain was evaluated.
+// Complete requires a non-empty domain (Total > 0) and Tested == Total;
+// an empty domain is not complete even though Ratio returns 1.0.
 func (c Coverage) Complete() bool {
 	return c.Total > 0 && c.Tested == c.Total
 }

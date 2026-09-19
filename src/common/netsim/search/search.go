@@ -32,18 +32,8 @@ func Search(current, candidate *fabric.Fabric, dom Domain, lim Limits) Result {
 
 		res.Coverage.Tested++
 
-		cur := current
-		candFab := candidate
-		if len(cand.Faults) > 0 {
-			cur = current.Fork()
-			candFab = candidate.Fork()
-			for _, f := range cand.Faults {
-				_ = cur.SetFault(f.A, f.B, f.Fault)
-				_ = candFab.SetFault(f.A, f.B, f.Fault)
-			}
-		}
-
-		cmp := fabric.Compare(cur, candFab, cand.Scenario, lim.Budget)
+		sc := cand.ToScenario(lim.Budget)
+		cmp := fabric.Compare(current, candidate, sc, lim.Budget)
 		switch cmp.Disposition {
 		case analysis.Different:
 			res.TotalDifferences++

@@ -79,6 +79,50 @@ func (c Candidate) Clone() Candidate {
 	return cp
 }
 
+// ToScenario converts candidate injections and timed faults into a scheduled fabric.Scenario.
+func (c Candidate) ToScenario(budget int) fabric.Scenario {
+	actions := make([]fabric.Action, 0, len(c.Scenario)+len(c.Faults))
+	for i := range c.Scenario {
+		inj := c.Scenario[i]
+		cp := inj
+		if inj.Frame.Tags != nil {
+			cp.Frame.Tags = slices.Clone(inj.Frame.Tags)
+		}
+		if inj.Frame.Payload != nil {
+			cp.Frame.Payload = slices.Clone(inj.Frame.Payload)
+		}
+		if inj.Packet != nil {
+			pktCp := *inj.Packet
+			if inj.Packet.Payload != nil {
+				pktCp.Payload = slices.Clone(inj.Packet.Payload)
+			}
+			cp.Packet = &pktCp
+		}
+		actions = append(actions, fabric.Action{
+			At:     inj.At,
+			Kind:   fabric.ActionInject,
+			Inject: &cp,
+		})
+	}
+	for i := range c.Faults {
+		f := c.Faults[i]
+		actions = append(actions, fabric.Action{
+			At:   f.At,
+			Kind: fabric.ActionFault,
+			Fault: &fabric.FaultAction{
+				A:     f.A,
+				B:     f.B,
+				Fault: f.Fault.Clone(),
+			},
+		})
+	}
+	return fabric.Scenario{
+		Name:    "search-candidate",
+		Actions: actions,
+		Budget:  budget,
+	}
+}
+
 // Limits bounds the execution and retained difference collection of a differential search.
 type Limits struct {
 	// MaxCandidates limits the number of domain candidates evaluated. If 0 or negative,

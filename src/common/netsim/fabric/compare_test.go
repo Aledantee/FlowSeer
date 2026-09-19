@@ -20,6 +20,22 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
+func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
+	actions := make([]fabric.Action, len(injs))
+	for i := range injs {
+		inj := injs[i]
+		actions[i] = fabric.Action{
+			At:     inj.At,
+			Kind:   fabric.ActionInject,
+			Inject: &inj,
+		}
+	}
+	return fabric.Scenario{
+		Name:    "test-scenario",
+		Actions: actions,
+	}
+}
+
 func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
 
@@ -125,7 +141,7 @@ func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -169,7 +185,7 @@ func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 		Frame:  ethernet.Frame{Src: macs["h1"], Dst: macs["h2"], Payload: make([]byte, 46)},
 	}}
 
-	comparison := fabric.Compare(current, expected, scenario, 100)
+	comparison := fabric.Compare(current, expected, scenarioFromInjections(scenario), 100)
 	if comparison.Err != nil {
 		t.Fatalf("Compare: %v", comparison.Err)
 	}
@@ -239,7 +255,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(curFab, expFab, scenario, 10)
+	cmp := fabric.Compare(curFab, expFab, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -975,7 +991,7 @@ func TestCompareDetectsPathDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1018,7 +1034,7 @@ func TestCompareDetectsTimingDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1093,7 +1109,7 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1152,7 +1168,7 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1204,7 +1220,7 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1252,7 +1268,7 @@ func TestCompareDetectsStatusDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1304,7 +1320,7 @@ func TestCompareDetectsIssuesDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1350,7 +1366,7 @@ func TestCompareNonConsuming(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1449,8 +1465,8 @@ func TestCompareActivePeriodicProtocolRepeatability(t *testing.T) {
 		},
 	}
 
-	cmp1 := fabric.Compare(fabA, fabB, scenario, 10)
-	cmp2 := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp1 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp2 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 
 	if cmp1.Disposition != cmp2.Disposition {
 		t.Errorf("Disposition mismatch: %v vs %v", cmp1.Disposition, cmp2.Disposition)
@@ -1562,7 +1578,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1604,7 +1620,7 @@ func TestCompareEquivalentComplete(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1643,7 +1659,7 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	}
 
 	// Budget of 1 step is exhausted before frame arrives at h2.
-	cmp := fabric.Compare(fabA, fabB, scenario, 1)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 1)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1681,7 +1697,7 @@ func TestCompareResultImmutability(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1752,7 +1768,7 @@ func TestCompareAsymmetricCompletionInconclusive(t *testing.T) {
 
 	// Budget of 2 steps: fabA completes (StopQueueDrained, Complete)
 	// fabB stops at budget (StopBudget, Exhausted) with identical scenario journey.
-	cmp := fabric.Compare(fabA, fabB, scenario, 2)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 2)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1788,7 +1804,7 @@ func TestComparePacketOriginImmutability(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	// Mutate caller's packet pointer and payload
 	pkt.Protocol = 6
 	pkt.Payload[0] = 'X'
@@ -1847,7 +1863,7 @@ func TestCompareNonEmptyQueueExcludesPreScenarioDescendants(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1911,7 +1927,7 @@ func TestCompareMultiDeviceDivergenceDeterminism(t *testing.T) {
 	// Without sorting, Go map iteration order flakes between sw1 and sw2 across runs.
 	observed := make(map[string]bool)
 	for i := 0; i < 50; i++ {
-		cmp := fabric.Compare(fabA, fabB, scenario, 10)
+		cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 		if cmp.Err != nil {
 			t.Fatalf("Compare: %v", cmp.Err)
 		}
@@ -1970,7 +1986,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}

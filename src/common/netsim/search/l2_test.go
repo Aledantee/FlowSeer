@@ -210,3 +210,33 @@ func TestL2TrafficDomainEarlyStop(t *testing.T) {
 		t.Fatalf("yielded %d items, want %d", count, stopAfter)
 	}
 }
+
+func TestL2TrafficDomainEtherTypeZeroCollapsesWithIPv4(t *testing.T) {
+	t.Parallel()
+
+	cfg := L2TrafficDomainConfig{
+		Sources:      []fabric.Endpoint{{Node: "h1"}},
+		Destinations: []netaddr.MAC{{0x02, 0, 0, 0, 0, 1}},
+		VLANs:        []vlan.ID{10},
+		Shapes: []FrameShape{
+			{EtherType: 0, Payload: []byte("payload")},
+			{EtherType: ethernet.EtherTypeIPv4, Payload: []byte("payload")},
+		},
+	}
+	dom := NewL2TrafficDomain(cfg)
+	if dom.Size() != 1 {
+		t.Fatalf("dom.Size() = %d, want 1", dom.Size())
+	}
+
+	var candidates []Candidate
+	dom.Enumerate(func(c Candidate) bool {
+		candidates = append(candidates, c)
+		return true
+	})
+	if len(candidates) != 1 {
+		t.Fatalf("len(candidates) = %d, want 1", len(candidates))
+	}
+	if candidates[0].Scenario[0].Frame.EtherType != ethernet.EtherTypeIPv4 {
+		t.Errorf("EtherType = 0x%04x, want 0x%04x", candidates[0].Scenario[0].Frame.EtherType, ethernet.EtherTypeIPv4)
+	}
+}

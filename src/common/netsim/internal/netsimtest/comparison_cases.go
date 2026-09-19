@@ -314,12 +314,20 @@ func ComparisonCorpus() []ComparisonCase {
 	// Fabric helpers
 	// -------------------------------------------------------------------------
 	gigabit := gigabitAuto()
-	fabScenario := []fabric.Injection{
-		{
-			At:     now,
-			Origin: fabric.Endpoint{Node: "h1"},
-			Frame:  testFrame,
+	fabScenario := fabric.Scenario{
+		Name: "comparison-scenario",
+		Actions: []fabric.Action{
+			{
+				At:   now,
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					At:     now,
+					Origin: fabric.Endpoint{Node: "h1"},
+					Frame:  testFrame,
+				},
+			},
 		},
+		Budget: 50,
 	}
 
 	buildFabricPair := func(

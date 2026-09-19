@@ -257,12 +257,12 @@ func TestSearchFabricsUnchangedAfterSearch(t *testing.T) {
 		},
 	}
 
-	cmpCur := fabric.Compare(cur, curTwin, scenario, 10)
+	cmpCur := fabric.Compare(cur, curTwin, Candidate{Scenario: scenario}.ToScenario(10), 10)
 	if cmpCur.Disposition != analysis.Equivalent {
 		t.Errorf("cur diverged from curTwin after Search: %v (%v)", cmpCur.Disposition, cmpCur.Difference)
 	}
 
-	cmpCand := fabric.Compare(cand, candTwin, scenario, 10)
+	cmpCand := fabric.Compare(cand, candTwin, Candidate{Scenario: scenario}.ToScenario(10), 10)
 	if cmpCand.Disposition != analysis.Equivalent {
 		t.Errorf("cand diverged from candTwin after Search: %v (%v)", cmpCand.Disposition, cmpCand.Difference)
 	}
@@ -284,5 +284,107 @@ func TestSearchEmptyDomain(t *testing.T) {
 	}
 	if len(res.Differences) != 0 {
 		t.Errorf("len(res.Differences) = %d, want 0", len(res.Differences))
+	}
+}
+
+func TestTimedFaultDomainBehavioralTime(t *testing.T) {
+	t.Parallel()
+
+	cur, cand, _, _, h1MAC, h2MAC := makeTestFabrics(t)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t1 := t0
+	t2 := t0.Add(50 * time.Millisecond)
+
+	traffic := []fabric.Injection{
+		{
+			At:     t0.Add(10 * time.Millisecond),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       h2MAC,
+				Src:       h1MAC,
+				Tags:      []vlan.Tag{{VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("timed-test"),
+			},
+		},
+	}
+
+	dom := NewTimedFaultDomain(TimedFaultDomainConfig{
+		Faults: []FaultSpec{
+			{
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				Fault: fabric.Fault{Kind: fabric.FaultCut},
+			},
+		},
+		Times:       []time.Time{t1, t2},
+		BaseTraffic: traffic,
+	})
+
+	res := Search(cur, cand, dom, Limits{Budget: 20})
+
+	if res.Coverage.Tested != 2 {
+		t.Fatalf("res.Coverage.Tested = %d, want 2", res.Coverage.Tested)
+	}
+	if res.EquivalentCount != 1 {
+		t.Errorf("res.EquivalentCount = %d, want 1 (T1 fault before traffic causes identical drop on both)", res.EquivalentCount)
+	}
+	if res.TotalDifferences != 1 {
+		t.Fatalf("res.TotalDifferences = %d, want 1 (T2 fault after traffic exposes VLAN divergence)", res.TotalDifferences)
+	}
+	if len(res.Differences) != 1 {
+		t.Fatalf("len(res.Differences) = %d, want 1", len(res.Differences))
+	}
+	diffCand := res.Differences[0]
+	if len(diffCand.Candidate.Faults) != 1 || !diffCand.Candidate.Faults[0].At.Equal(t2) {
+		t.Errorf("divergence candidate fault at = %v, want %v", diffCand.Candidate.Faults, t2)
+	}
+}
+
+func TestTimedFaultDomainUncabledPairInconclusive(t *testing.T) {
+	t.Parallel()
+
+	cur, _, curTwin, _, h1MAC, h2MAC := makeTestFabrics(t)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	traffic := []fabric.Injection{
+		{
+			At:     t0.Add(10 * time.Millisecond),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       h2MAC,
+				Src:       h1MAC,
+				Tags:      []vlan.Tag{{VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("uncabled-test"),
+			},
+		},
+	}
+
+	dom := NewTimedFaultDomain(TimedFaultDomainConfig{
+		Faults: []FaultSpec{
+			{
+				A:     fabric.Endpoint{Node: "sw1", Port: "9/9/9"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "9/9/9"},
+				Fault: fabric.Fault{Kind: fabric.FaultCut},
+			},
+		},
+		Times:       []time.Time{t0},
+		BaseTraffic: traffic,
+	})
+
+	res := Search(cur, curTwin, dom, Limits{Budget: 20})
+
+	if res.Coverage.Tested != 1 {
+		t.Fatalf("res.Coverage.Tested = %d, want 1", res.Coverage.Tested)
+	}
+	if res.InconclusiveCount != 1 {
+		t.Errorf("res.InconclusiveCount = %d, want 1", res.InconclusiveCount)
+	}
+	if res.EquivalentCount != 0 {
+		t.Errorf("res.EquivalentCount = %d, want 0", res.EquivalentCount)
+	}
+	if res.TotalDifferences != 0 {
+		t.Errorf("res.TotalDifferences = %d, want 0", res.TotalDifferences)
 	}
 }

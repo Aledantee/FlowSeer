@@ -43,11 +43,12 @@ type Comparison struct {
 	Err         error
 }
 
-// Compare forks both fabrics internally, applies the scenario injections to the forks,
-// runs each fork up to the step budget, and compares their behavioral observables.
+// Compare forks both fabrics internally, applies the scenario's scheduled actions
+// (injections and faults) to the forks, runs each fork up to the step budget,
+// and compares their behavioral observables.
 // The caller's fabrics a and b are never stepped, injected, or learned into.
 // New scenario journeys pair by injection ordinal across the two forks; pre-scenario
-// journeys are excluded from comparison.
+// journeys are excluded from comparison. Faults are scheduled topology events, not journeys.
 // Comparison walks, per paired journey, State, Origin, ordered Entries (path hops,
 // cable crossings, deliveries, and drops with reason and location), Deliveries,
 // Protocol, and carried frame content, then the run's Stop reason, Status, Pending
@@ -56,67 +57,63 @@ type Comparison struct {
 // On Different, Difference names the first differing observable with both sides' values
 // and Replay carries immutable replay specifications for both fabrics ([0] for current,
 // [1] for candidate) to reproduce the divergence.
-func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
+func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 	forkA := a.Fork()
 	forkB := b.Fork()
 
-	replayActions := make([]Action, len(scenario))
-	for i, inj := range scenario {
-		cp := inj
-		cp.Frame = cloneFrame(inj.Frame)
-		cp.Packet = clonePacket(inj.Packet)
-		replayActions[i] = Action{
-			At:     inj.At,
-			Index:  i,
-			Kind:   ActionInject,
-			Inject: &cp,
-		}
+	normSc := cloneScenarioForReplay(scenario)
+	if normSc.Name == "" {
+		normSc.Name = "compare-scenario"
 	}
+	if budget > 0 {
+		normSc.Budget = budget
+	}
+
+	norm, err := normSc.Normalize()
 	replaySpecA := ReplaySpec{
 		Contract: ReplayContract,
 		Spec:     a.Spec(),
-		Scenario: Scenario{
-			Name:    "compare-scenario",
-			Actions: replayActions,
-			Budget:  budget,
-		},
+		Scenario: normSc.Clone(),
 	}
 	replaySpecB := ReplaySpec{
 		Contract: ReplayContract,
 		Spec:     b.Spec(),
-		Scenario: Scenario{
-			Name:    "compare-scenario",
-			Actions: replayActions,
-			Budget:  budget,
-		},
+		Scenario: normSc.Clone(),
 	}
+	replaySpecA.Scenario.Spec = ConstructionSpec{}
+	replaySpecB.Scenario.Spec = ConstructionSpec{}
 	replaySpecs := [2]ReplaySpec{replaySpecA, replaySpecB}
-
-	injFIDsA := make([]FrameID, len(scenario))
-	injFIDsB := make([]FrameID, len(scenario))
-	for i, inj := range scenario {
-		fidA, errA := forkA.Inject(inj)
-		if errA != nil {
-			return Comparison{
-				Disposition: analysis.Inconclusive,
-				Replay:      replaySpecs,
-				Err:         errA,
-			}
+	if err != nil {
+		return Comparison{
+			Disposition: analysis.Inconclusive,
+			Replay:      replaySpecs,
+			Err:         err,
 		}
-		fidB, errB := forkB.Inject(inj)
-		if errB != nil {
-			return Comparison{
-				Disposition: analysis.Inconclusive,
-				Replay:      replaySpecs,
-				Err:         errB,
-			}
-		}
-		injFIDsA[i] = fidA
-		injFIDsB[i] = fidB
 	}
 
-	runResA := forkA.Run(budget)
-	runResB := forkB.Run(budget)
+	replaySpecA.Scenario = norm.Clone()
+	replaySpecB.Scenario = norm.Clone()
+	replaySpecA.Scenario.Spec = ConstructionSpec{}
+	replaySpecB.Scenario.Spec = ConstructionSpec{}
+	replaySpecs = [2]ReplaySpec{replaySpecA, replaySpecB}
+
+	runResA, injFIDsA, errA := runScenarioFork(forkA, norm.Budget, norm.Window, norm.Actions)
+	if errA != nil {
+		return Comparison{
+			Disposition: analysis.Inconclusive,
+			Replay:      replaySpecs,
+			Err:         errA,
+		}
+	}
+
+	runResB, injFIDsB, errB := runScenarioFork(forkB, norm.Budget, norm.Window, norm.Actions)
+	if errB != nil {
+		return Comparison{
+			Disposition: analysis.Inconclusive,
+			Replay:      replaySpecs,
+			Err:         errB,
+		}
+	}
 
 	allJourneysA := forkA.Report()
 	allJourneysB := forkB.Report()
@@ -125,7 +122,6 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 	scenarioJourneysB := collectScenarioJourneys(allJourneysB, injFIDsB)
 
 	diff, hasDiff := diffFabricRuns(
-		scenario,
 		injFIDsA, injFIDsB,
 		scenarioJourneysA, scenarioJourneysB,
 		runResA, runResB,
@@ -150,6 +146,122 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 		Replay:      replaySpecs,
 		Steps:       [2]int{runResA.Steps, runResB.Steps},
 	}
+}
+
+func cloneScenarioForReplay(s Scenario) Scenario {
+	cp := s.Clone()
+	cp.Actions = make([]Action, len(s.Actions))
+	for i, a := range s.Actions {
+		aCp := a.Clone()
+		if a.Inject != nil {
+			injCp := *a.Inject
+			injCp.Frame = cloneFrame(a.Inject.Frame)
+			injCp.Packet = clonePacket(a.Inject.Packet)
+			aCp.Inject = &injCp
+		}
+		cp.Actions[i] = aCp
+	}
+	return cp
+}
+
+func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunResult, []FrameID, error) {
+	f.initRunState()
+
+	if budget <= 0 {
+		return f.buildRunResult(StopNotRun, 0, nil, nil, budget, len(actions)), nil, nil
+	}
+
+	if f.err != nil {
+		return f.buildRunResult(StopFault, 0, nil, nil, budget, len(actions)), nil, nil
+	}
+
+	var (
+		fingerprints            []string
+		cycle                   []string
+		stop                    StopReason
+		steps                   int
+		lastFingerprint         = f.Fingerprint()
+		wakeArrivalsSinceChange int
+		pendingActions          = actions
+		injectFIDs              []FrameID
+	)
+
+	for steps < budget {
+		if f.err != nil {
+			stop = StopFault
+			break
+		}
+
+		if len(pendingActions) > 0 {
+			if len(f.queue) == 0 || !pendingActions[0].At.After(f.queue[0].At) {
+				act := pendingActions[0]
+				pendingActions = pendingActions[1:]
+				if act.Kind == ActionInject {
+					fid, err := f.Inject(*act.Inject)
+					if err != nil {
+						return RunResult{}, nil, err
+					}
+					injectFIDs = append(injectFIDs, fid)
+				} else {
+					if err := f.applyAction(act); err != nil {
+						return RunResult{}, nil, err
+					}
+				}
+				continue
+			}
+		}
+
+		if len(f.queue) == 0 {
+			stop = StopQueueDrained
+			break
+		}
+
+		entry, ok := f.Step()
+		if !ok {
+			if f.err != nil {
+				stop = StopFault
+			} else {
+				stop = StopQueueDrained
+			}
+			break
+		}
+		steps++
+
+		fp := f.Fingerprint()
+		fingerprints = append(fingerprints, fp)
+
+		if fp != lastFingerprint {
+			lastFingerprint = fp
+			wakeArrivalsSinceChange = 0
+		}
+		if entry.Kind == EntryWake {
+			wakeArrivalsSinceChange++
+		}
+
+		if window >= 2 && len(fingerprints) >= 2*2 {
+			if foundCycle, ok := detectCycle(fingerprints, window); ok {
+				stop = StopOscillating
+				cycle = foundCycle
+				break
+			}
+		}
+
+		if window > 0 && len(pendingActions) == 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
+			stop = StopConverged
+			break
+		}
+
+		if f.err != nil {
+			stop = StopFault
+			break
+		}
+	}
+
+	if stop == "" {
+		stop = StopBudget
+	}
+
+	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, len(pendingActions)), injectFIDs, nil
 }
 
 func collectScenarioJourneys(allJourneys []Journey, roots []FrameID) []Journey {
@@ -182,13 +294,19 @@ func collectScenarioJourneys(allJourneys []Journey, roots []FrameID) []Journey {
 }
 
 func diffFabricRuns(
-	scenario []Injection,
 	injFIDsA, injFIDsB []FrameID,
 	journeysA, journeysB []Journey,
 	runResA, runResB RunResult,
 	snapA, snapB Snapshot,
 ) (Difference, bool) {
-	for i := 0; i < len(scenario); i++ {
+	if len(injFIDsA) != len(injFIDsB) {
+		return Difference{
+			Observable: "multiplicity",
+			Current:    strconv.Itoa(len(injFIDsA)),
+			Expected:   strconv.Itoa(len(injFIDsB)),
+		}, true
+	}
+	for i := 0; i < len(injFIDsA); i++ {
 		groupA := collectInjectionJourneys(journeysA, injFIDsA[i])
 		groupB := collectInjectionJourneys(journeysB, injFIDsB[i])
 

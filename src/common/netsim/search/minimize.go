@@ -1,6 +1,9 @@
 package search
 
 import (
+	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
@@ -50,69 +53,91 @@ func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget
 	reduced := cand.Clone()
 	trials := 0
 
-	// 1. Reduce injections in scenario in fixed index order
-	idx := 0
-	for idx < len(reduced.Scenario) {
-		if len(reduced.Scenario) <= 1 && len(reduced.Faults) == 0 {
-			idx++
-			continue
+	for {
+		changed := false
+
+		// 1. Reduce injections in scenario in fixed index order
+		idx := 0
+		for idx < len(reduced.Scenario) {
+			if len(reduced.Scenario) <= 1 && len(reduced.Faults) == 0 {
+				idx++
+				continue
+			}
+
+			if trials >= maxTrials {
+				reduced.Tuple = computeCandidateTuple(reduced)
+				return reduced, LimitReached
+			}
+
+			trial := copyCandidateWithoutScenarioIndex(reduced, idx)
+			trials++
+
+			cmp := runCompare(current, candidate, trial, budget)
+			if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
+				reduced = trial
+				changed = true
+			} else {
+				idx++
+			}
 		}
 
-		if trials >= maxTrials {
-			return reduced, LimitReached
+		// 2. Reduce faults in fixed index order
+		fIdx := 0
+		for fIdx < len(reduced.Faults) {
+			if len(reduced.Scenario) == 0 && len(reduced.Faults) <= 1 {
+				fIdx++
+				continue
+			}
+
+			if trials >= maxTrials {
+				reduced.Tuple = computeCandidateTuple(reduced)
+				return reduced, LimitReached
+			}
+
+			trial := copyCandidateWithoutFaultIndex(reduced, fIdx)
+			trials++
+
+			cmp := runCompare(current, candidate, trial, budget)
+			if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
+				reduced = trial
+				changed = true
+			} else {
+				fIdx++
+			}
 		}
 
-		trial := copyCandidateWithoutScenarioIndex(reduced, idx)
-		trials++
-
-		cmp := runCompare(current, candidate, trial, budget)
-		if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
-			reduced = trial
-		} else {
-			idx++
+		if !changed {
+			break
 		}
 	}
 
-	// 2. Reduce faults in fixed index order
-	fIdx := 0
-	for fIdx < len(reduced.Faults) {
-		if len(reduced.Scenario) == 0 && len(reduced.Faults) <= 1 {
-			fIdx++
-			continue
-		}
-
-		if trials >= maxTrials {
-			return reduced, LimitReached
-		}
-
-		trial := copyCandidateWithoutFaultIndex(reduced, fIdx)
-		trials++
-
-		cmp := runCompare(current, candidate, trial, budget)
-		if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
-			reduced = trial
-		} else {
-			fIdx++
-		}
-	}
-
-	updateReducedTuple(&reduced)
-
+	reduced.Tuple = computeCandidateTuple(reduced)
 	return reduced, Minimal
 }
 
-func updateReducedTuple(c *Candidate) {
-	if len(c.Scenario) == 1 && len(c.Faults) == 0 {
-		inj := c.Scenario[0]
+func computeCandidateTuple(c Candidate) Tuple {
+	parts := make([]string, 0, len(c.Scenario)+len(c.Faults))
+	for _, inj := range c.Scenario {
 		var vid vlan.ID
 		if len(inj.Frame.Tags) > 0 {
 			vid = inj.Frame.Tags[0].VID
 		}
-		c.Tuple = formatL2Tuple(inj.Origin, inj.Frame.Dst, vid, inj.Frame.EtherType, inj.Frame.Payload)
-	} else if len(c.Faults) == 1 && len(c.Scenario) == 0 {
-		f := c.Faults[0]
-		c.Tuple = formatFaultTuple(FaultSpec{A: f.A, B: f.B, Fault: f.Fault}, f.At)
+		etype := inj.Frame.EtherType
+		if etype == 0 {
+			etype = ethernet.EtherTypeIPv4
+		}
+		parts = append(parts, string(formatL2Tuple(inj.Origin, inj.Frame.Dst, vid, etype, inj.Frame.Payload)))
 	}
+	for _, f := range c.Faults {
+		parts = append(parts, string(formatFaultTuple(FaultSpec{A: f.A, B: f.B, Fault: f.Fault}, f.At)))
+	}
+	if len(parts) == 0 {
+		return Tuple("")
+	}
+	if len(parts) == 1 {
+		return Tuple(parts[0])
+	}
+	return Tuple(strings.Join(parts, "; "))
 }
 
 func copyCandidateWithoutScenarioIndex(c Candidate, removeIdx int) Candidate {
@@ -128,15 +153,5 @@ func copyCandidateWithoutFaultIndex(c Candidate, removeIdx int) Candidate {
 }
 
 func runCompare(current, candidate *fabric.Fabric, cand Candidate, budget int) fabric.Comparison {
-	cur := current
-	candFab := candidate
-	if len(cand.Faults) > 0 {
-		cur = current.Fork()
-		candFab = candidate.Fork()
-		for _, f := range cand.Faults {
-			_ = cur.SetFault(f.A, f.B, f.Fault)
-			_ = candFab.SetFault(f.A, f.B, f.Fault)
-		}
-	}
-	return fabric.Compare(cur, candFab, cand.Scenario, budget)
+	return fabric.Compare(current, candidate, cand.ToScenario(budget), budget)
 }
