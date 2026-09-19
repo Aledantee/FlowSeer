@@ -788,6 +788,60 @@ candidate configuration. Each virtual switch is derived with `vswitch.Derive`,
 retaining capability layers whose inputs have not changed. `Fabric.Retention()`
 reports the retention outcome for every switch on the fabric.
 
+## Current-against-candidate comparison
+
+`[fabric.Compare]` compares the observable behavior of two fabrics against an
+injection scenario over an explicit step budget:
+
+```go
+cmp := fabric.Compare(currentFab, candidateFab, scenario, 100)
+```
+
+The comparison evaluates three dispositions:
+
+- `analysis.Equivalent`: Observable behavior matches across all scenario journeys,
+  run-level status and issues, and final behavioral snapshots.
+- `analysis.Different`: The simulation results diverged at an observable behavior.
+  `Comparison.Difference` names the first differing observable and the observed
+  values on both sides (`Difference.Current` and `Difference.Expected`), and
+  `Comparison.Replay` carries an immutable replay spec for the scenario.
+- `analysis.Inconclusive`: Observable behaviors matched but one or both runs
+  did not complete (such as step budget exhaustion before pending arrivals or
+  egress queues drained, or an underlying component reporting incomplete readiness).
+
+### Behavioral versus diagnostic split
+
+Comparison walks paired journeys, run-level execution outcomes, and post-run
+behavioral snapshots:
+
+- **Path**: Crossing endpoints, link speeds, cable media, and delivery destination hosts.
+- **Timing**: Event timestamps (`At`), propagation latency, serialization delay,
+  and queue wait durations.
+- **Multiplicity**: Number of primary journeys, mirror copies, and delivery records.
+- **Drop reason and location**: Discard reasons and drop endpoints.
+- **Journey rewrite**: Priority Code Point (PCP) alterations and forwarded frame rewrites.
+- **Journey terminal**: Acceptance state (`Delivered`, `Dropped`, `Rejected`, `Looped`),
+  delivery destination host, and delivered frame contents.
+- **Status and issues**: Run-level stop reasons (`Stop`), completion statuses (`Status`),
+  pending work queues (`Pending`), and canonical analysis issues (`Issues`).
+- **Final state**: Post-run forwarding databases (`FDB`), port operational states,
+  neighbor resolution tables, and link states.
+
+Semantic trace annotations, step evidence references, and human diagnostic messages
+are diagnostic: differences in diagnostics alone never yield `Different`.
+
+### Internal fork lifecycle
+
+`Compare` executes internally on `[Fabric.Fork]` copies of both fabrics. Neither
+`a` nor `b` is stepped, injected into, or mutated; both fabrics remain available
+for continued simulation or subsequent comparisons.
+
+The lifted precondition allows comparing fabrics mid-run. Scenario journeys pair
+by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`); pre-scenario journeys
+already present on either input are excluded from `Comparison.Current` and
+`Comparison.Expected` so background or pre-run traffic cannot pollute the
+scenario comparison.
+
 ## Representative scale and fork cost
 
 Package `internal/netsimtest` defines `RepresentativeFabric()`, a representative

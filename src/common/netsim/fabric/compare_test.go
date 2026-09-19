@@ -10,11 +10,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
@@ -123,9 +125,9 @@ func TestCompareEqualFabricsReturnsSameTrue(t *testing.T) {
 		},
 	}
 
-	cmp, err := fabric.Compare(fabA, fabB, scenario, 10)
-	if err != nil {
-		t.Fatalf("Compare: %v", err)
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
 	}
 	if !cmp.Same {
 		t.Errorf("Compare returned Same: false for equal fabrics, want true")
@@ -167,12 +169,18 @@ func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 		Frame:  ethernet.Frame{Src: macs["h1"], Dst: macs["h2"], Payload: make([]byte, 46)},
 	}}
 
-	comparison, err := fabric.Compare(current, expected, scenario, 100)
-	if err != nil {
-		t.Fatalf("Compare: %v", err)
+	comparison := fabric.Compare(current, expected, scenario, 100)
+	if comparison.Err != nil {
+		t.Fatalf("Compare: %v", comparison.Err)
 	}
 	if comparison.Same {
 		t.Error("Compare returned Same for a mirror-copy delivery difference")
+	}
+	if comparison.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", comparison.Disposition, analysis.Different)
+	}
+	if comparison.Difference.Observable != "multiplicity" {
+		t.Errorf("Difference.Observable = %q, want %q", comparison.Difference.Observable, "multiplicity")
 	}
 	if len(comparison.Current) != 1 || len(comparison.Expected) != 2 {
 		t.Errorf("journey counts = %d/%d, want 1/2", len(comparison.Current), len(comparison.Expected))
@@ -222,9 +230,9 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		},
 	}
 
-	cmp, err := fabric.Compare(curFab, expFab, scenario, 10)
-	if err != nil {
-		t.Fatalf("Compare: %v", err)
+	cmp := fabric.Compare(curFab, expFab, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
 	}
 	if cmp.Same {
 		t.Errorf("Compare returned Same: true, want false")
@@ -927,4 +935,778 @@ func changedFieldFacts(t *testing.T, field string, a, b fabric.Config) (trace.Fa
 	t.Fatalf("missing %s change", field)
 
 	return nil, nil
+}
+
+func TestCompareDetectsPathDifference(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	// Change cable medium between sw1 and sw2 in cfgB.
+	cfgB.Cables[1].Medium = fabric.SinglemodeFiber
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "path" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "path")
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareDetectsTimingDifference(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	delayA := 1 * time.Microsecond
+	delayB := 5 * time.Microsecond
+	cfgA.Cables[1].Delay = &delayA
+	cfgB.Cables[1].Delay = &delayB
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "timing" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "timing")
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareDetectsDropLocationDifference(t *testing.T) {
+	base, macs := newTrafficTopology(t, nil)
+	cfgA := base.Config()
+	cfgB := base.Config()
+
+	// In both configs: cut cable to h4 (on 1/1/2) and cable to h3 (on 1/1/4).
+	for i := range cfgA.Cables {
+		if cfgA.Cables[i].A.Port == "1/1/2" || cfgA.Cables[i].B.Port == "1/1/2" {
+			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+		}
+		if cfgA.Cables[i].A.Port == "1/1/4" || cfgA.Cables[i].B.Port == "1/1/4" {
+			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+		}
+	}
+
+	targetMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
+
+	specA := constructionSpec(statedPhysical(cfgA))
+	sw1A := specA.Switches["sw1"]
+	sw1A.Seeds = []bridge.Seed{{MAC: targetMAC, FID: 10, Port: "1/1/2", Lifetime: bridge.Static}}
+	specA.Switches["sw1"] = sw1A
+
+	specB := constructionSpec(statedPhysical(cfgB))
+	sw1B := specB.Switches["sw1"]
+	sw1B.Seeds = []bridge.Seed{{MAC: targetMAC, FID: 10, Port: "1/1/4", Lifetime: bridge.Static}}
+	specB.Switches["sw1"] = sw1B
+
+	fabA, err := fabric.NewWithSpec(specA)
+	if err != nil {
+		t.Fatalf("NewWithSpec fabA: %v", err)
+	}
+	fabB, err := fabric.NewWithSpec(specB)
+	if err != nil {
+		t.Fatalf("NewWithSpec fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       targetMAC,
+				Src:       macs["h1"],
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "drop location" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "drop location")
+	}
+	if cmp.Difference.Current != "sw1/1/1/2" || cmp.Difference.Expected != "sw1/1/1/4" {
+		t.Errorf("Difference current/expected = %q/%q, want sw1/1/1/2/sw1/1/1/4", cmp.Difference.Current, cmp.Difference.Expected)
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	// Cut cable to h2 in cfgB so frame drops instead of delivering.
+	for i := range cfgB.Cables {
+		if cfgB.Cables[i].A.Node == "h2" || cfgB.Cables[i].B.Node == "h2" {
+			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+		}
+	}
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "journey terminal" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "journey terminal")
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareDetectsFinalStateDifference(t *testing.T) {
+	cfgA, macH1, _ := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	specA := constructionSpec(statedPhysical(cfgA))
+	specB := constructionSpec(statedPhysical(cfgB))
+
+	// In cfgB, sw2 has an extra static seed.
+	sw2B := specB.Switches["sw2"]
+	sw2B.Seeds = []bridge.Seed{{
+		MAC:      netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88},
+		FID:      10,
+		Port:     "1/1/1",
+		Lifetime: bridge.Static,
+	}}
+	specB.Switches["sw2"] = sw2B
+
+	fabA, err := fabric.NewWithSpec(specA)
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.NewWithSpec(specB)
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	// Scenario frame stays between h1 and sw1.
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH1,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "final state" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "final state")
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareDetectsStatusDifference(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	specA := constructionSpec(statedPhysical(cfgA))
+	specB := constructionSpec(statedPhysical(cfgB))
+
+	// sw1 in specB carries an issue with status Incomplete on 1/1/1.
+	sw1B := specB.Switches["sw1"]
+	sw1B.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+		{Code: "test.issue", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "1/1/1"), Message: "test issue"},
+	}, analysis.EvidenceCatalog{}, nil)
+	specB.Switches["sw1"] = sw1B
+
+	fabA, err := fabric.NewWithSpec(specA)
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.NewWithSpec(specB)
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "status" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "status")
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareDetectsIssuesDifference(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	specA := constructionSpec(statedPhysical(cfgA))
+	sw1A := specA.Switches["sw1"]
+	sw1A.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+		{Code: "test.issue.a", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "1/1/1"), Message: "issue a"},
+	}, analysis.EvidenceCatalog{}, nil)
+	specA.Switches["sw1"] = sw1A
+
+	specB := constructionSpec(statedPhysical(cfgB))
+	sw1B := specB.Switches["sw1"]
+	sw1B.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+		{Code: "test.issue.b", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "1/1/1"), Message: "issue b"},
+	}, analysis.EvidenceCatalog{}, nil)
+	specB.Switches["sw1"] = sw1B
+
+	fabA, err := fabric.NewWithSpec(specA)
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.NewWithSpec(specB)
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
+	}
+	if cmp.Difference.Observable != "issues" {
+		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "issues")
+	}
+	if cmp.Same {
+		t.Error("Same = true, want false")
+	}
+}
+
+func TestCompareNonConsuming(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+	twinA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New twinA: %v", err)
+	}
+
+	snapABefore := fabA.Snapshot()
+	snapBBefore := fabB.Snapshot()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	scenario := []fabric.Injection{
+		{
+			At:     now,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+
+	// 1. Both inputs unchanged after Compare.
+	snapAAfter := fabA.Snapshot()
+	snapBAfter := fabB.Snapshot()
+	if snapAAfter.Clock != snapABefore.Clock {
+		t.Errorf("fabA clock changed: before=%v, after=%v", snapABefore.Clock, snapAAfter.Clock)
+	}
+	if snapBAfter.Clock != snapBBefore.Clock {
+		t.Errorf("fabB clock changed: before=%v, after=%v", snapBBefore.Clock, snapBAfter.Clock)
+	}
+	if len(fabA.Report()) != 0 || len(fabB.Report()) != 0 {
+		t.Errorf("fabA or fabB has recorded journeys: len(fabA)=%d, len(fabB)=%d", len(fabA.Report()), len(fabB.Report()))
+	}
+
+	// 2. Re-run of fabA matches a never-compared twin.
+	_, err = fabA.Inject(scenario[0])
+	if err != nil {
+		t.Fatalf("Inject fabA: %v", err)
+	}
+	resA := fabA.Run(10)
+
+	_, err = twinA.Inject(scenario[0])
+	if err != nil {
+		t.Fatalf("Inject twinA: %v", err)
+	}
+	resTwin := twinA.Run(10)
+
+	if resA.Steps != resTwin.Steps {
+		t.Errorf("Steps mismatch: fabA=%d, twinA=%d", resA.Steps, resTwin.Steps)
+	}
+	if len(fabA.Report()) != len(twinA.Report()) {
+		t.Errorf("Report length mismatch: fabA=%d, twinA=%d", len(fabA.Report()), len(twinA.Report()))
+	}
+}
+
+func TestCompareActivePeriodicProtocolRepeatability(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	cfgA.Start = t0
+	cfgB.Start = t0
+
+	// Configure STP on both switches.
+	sw1STP := &stp.Config{
+		Priority: 4096,
+		Address:  netaddr.MAC{0, 0, 0, 0, 1, 1},
+		Ports: map[string]stp.Port{
+			"1/1/1":  {},
+			"1/1/24": {},
+		},
+	}
+	sw2STP := &stp.Config{
+		Priority: 8192,
+		Address:  netaddr.MAC{0, 0, 0, 0, 1, 2},
+		Ports: map[string]stp.Port{
+			"1/1/1":  {},
+			"1/1/24": {},
+		},
+	}
+	s1A := cfgA.Switches["sw1"]
+	s1A.STP = sw1STP
+	cfgA.Switches["sw1"] = s1A
+	s2A := cfgA.Switches["sw2"]
+	s2A.STP = sw2STP
+	cfgA.Switches["sw2"] = s2A
+
+	s1B := cfgB.Switches["sw1"]
+	s1B.STP = sw1STP
+	cfgB.Switches["sw1"] = s1B
+	s2B := cfgB.Switches["sw2"]
+	s2B.STP = sw2STP
+	cfgB.Switches["sw2"] = s2B
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp1 := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp2 := fabric.Compare(fabA, fabB, scenario, 10)
+
+	if cmp1.Disposition != cmp2.Disposition {
+		t.Errorf("Disposition mismatch: %v vs %v", cmp1.Disposition, cmp2.Disposition)
+	}
+	if cmp1.Same != cmp2.Same {
+		t.Errorf("Same mismatch: %v vs %v", cmp1.Same, cmp2.Same)
+	}
+	if cmp1.Steps != cmp2.Steps {
+		t.Errorf("Steps mismatch: %v vs %v", cmp1.Steps, cmp2.Steps)
+	}
+	if cmp1.Difference != cmp2.Difference {
+		t.Errorf("Difference mismatch: %v vs %v", cmp1.Difference, cmp2.Difference)
+	}
+}
+
+func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	// Inject 2 pre-scenario frames into fabA so both hosts are learned.
+	_, err = fabA.Inject(fabric.Injection{
+		At:     now,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst:       macH2,
+			Src:       macH1,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("pre-run A 1"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject fabA: %v", err)
+	}
+	_, err = fabA.Inject(fabric.Injection{
+		At:     now.Add(time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h2"},
+		Frame: ethernet.Frame{
+			Dst:       macH1,
+			Src:       macH2,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("pre-run A 2"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject fabA: %v", err)
+	}
+	fabA.Run(10)
+
+	// Inject 3 pre-scenario frames into fabB in a different order/timing.
+	_, err = fabB.Inject(fabric.Injection{
+		At:     now,
+		Origin: fabric.Endpoint{Node: "h2"},
+		Frame: ethernet.Frame{
+			Dst:       macH1,
+			Src:       macH2,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("pre-run B 1"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject fabB 1: %v", err)
+	}
+	_, err = fabB.Inject(fabric.Injection{
+		At:     now.Add(2 * time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst:       macH2,
+			Src:       macH1,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("pre-run B 2"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject fabB 2: %v", err)
+	}
+	_, err = fabB.Inject(fabric.Injection{
+		At:     now.Add(4 * time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst:       macH2,
+			Src:       macH1,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("pre-run B 3"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject fabB 3: %v", err)
+	}
+	fabB.Run(10)
+
+	// Now run Compare with a fresh scenario.
+	scenario := []fabric.Injection{
+		{
+			At:     now.Add(time.Second),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("scenario frame"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if !cmp.Same {
+		t.Errorf("Compare returned Same=false for identical scenario: %v", cmp.Difference)
+	}
+	if cmp.Disposition != analysis.Equivalent {
+		t.Errorf("Disposition = %v, want Equivalent", cmp.Disposition)
+	}
+	// Verify pre-scenario journeys are excluded!
+	if len(cmp.Current) != 1 {
+		t.Errorf("Current journeys = %d, want 1 (pre-scenario journeys must be excluded)", len(cmp.Current))
+	}
+	if len(cmp.Expected) != 1 {
+		t.Errorf("Expected journeys = %d, want 1 (pre-scenario journeys must be excluded)", len(cmp.Expected))
+	}
+}
+
+func TestCompareEquivalentComplete(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Equivalent {
+		t.Errorf("Disposition = %v, want Equivalent", cmp.Disposition)
+	}
+	if !cmp.Same {
+		t.Error("Same = false, want true")
+	}
+	if cmp.Difference != (fabric.Difference{}) {
+		t.Errorf("Difference = %v, want empty", cmp.Difference)
+	}
+}
+
+func TestCompareInconclusiveIncomplete(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	// Budget of 1 step is exhausted before frame arrives at h2.
+	cmp := fabric.Compare(fabA, fabB, scenario, 1)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+	if cmp.Disposition != analysis.Inconclusive {
+		t.Errorf("Disposition = %v, want Inconclusive", cmp.Disposition)
+	}
+	if !cmp.Same {
+		t.Errorf("Same = false, want true for matching incomplete runs: diff=%v", cmp.Difference)
+	}
+	if cmp.Difference != (fabric.Difference{}) {
+		t.Errorf("Difference = %v, want empty", cmp.Difference)
+	}
+}
+
+func TestCompareResultImmutability(t *testing.T) {
+	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+	cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+	fabA, err := fabric.New(statedPhysical(cfgA))
+	if err != nil {
+		t.Fatalf("New fabA: %v", err)
+	}
+	fabB, err := fabric.New(statedPhysical(cfgB))
+	if err != nil {
+		t.Fatalf("New fabB: %v", err)
+	}
+
+	scenario := []fabric.Injection{
+		{
+			At:     time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:       macH2,
+				Src:       macH1,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("test"),
+			},
+		},
+	}
+
+	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	if cmp.Err != nil {
+		t.Fatalf("Compare: %v", cmp.Err)
+	}
+
+	curCount := len(cmp.Current)
+	expCount := len(cmp.Expected)
+	steps := cmp.Steps
+	disposition := cmp.Disposition
+	same := cmp.Same
+
+	// Step fabA and fabB further.
+	fabA.Run(5)
+	fabB.Run(5)
+
+	if len(cmp.Current) != curCount || len(cmp.Expected) != expCount {
+		t.Error("Comparison journeys count changed after external stepping")
+	}
+	if cmp.Steps != steps {
+		t.Errorf("Comparison steps changed: got %v, want %v", cmp.Steps, steps)
+	}
+	if cmp.Disposition != disposition {
+		t.Errorf("Comparison disposition changed: got %v, want %v", cmp.Disposition, disposition)
+	}
+	if cmp.Same != same {
+		t.Errorf("Comparison Same changed: got %v, want %v", cmp.Same, same)
+	}
 }
