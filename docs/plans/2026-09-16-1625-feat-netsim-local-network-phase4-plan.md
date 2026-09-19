@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/a-stateless-reverse-match-must-skip-a-rule-its-dropped-field-qualifies.md
 execution: mixed
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
