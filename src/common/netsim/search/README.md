@@ -78,8 +78,10 @@ func runDifferentialSearch(current, candidate *fabric.Fabric) {
 		minimalCandidate, status := search.Minimize(current, candidate, diff.Candidate, limits.Budget)
 		fmt.Printf("Minimization status: %s (injections: %d)\n", status, len(minimalCandidate.Scenario))
 
-		// Compare reduced candidate and locate first divergent causal trace hop
-		cmp := fabric.Compare(current, candidate, minimalCandidate.Scenario, limits.Budget)
+		// Compare reduced candidate and locate first divergent causal trace hop.
+		// ToScenario builds the timed scenario (injections plus faults at their
+		// declared times) that fabric.Compare runs on internal forks.
+		cmp := fabric.Compare(current, candidate, minimalCandidate.ToScenario(limits.Budget), limits.Budget)
 		if hopIdx, ok := search.Align(cmp); ok {
 			fmt.Printf("First diverging trace entry index: %d\n", hopIdx)
 		}

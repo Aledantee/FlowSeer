@@ -5,7 +5,7 @@ date: 2026-09-19
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -277,3 +277,11 @@ search coverage accounting must be stable.
 - Whether minimization should also reduce the observation window and budget, not
   only scenario elements. This phase reduces scenario elements only; a smaller
   window that still diverges is a diagnostic refinement a later increment can add.
+- Follow-up from review: `fabric.Compare`'s `runScenarioFork` (added so faults
+  fire at their declared time) is a near-verbatim copy of `run.go`'s
+  `runWithActions`, differing only by collecting the injection frame ids for
+  ordinal pairing. The two are faithful today, but a future edit to one silently
+  diverges the comparison path from `RunScenario`. Fold the two together — have
+  `runWithActions` optionally return the inject frame ids (or take a per-inject
+  callback) so `Compare` reuses it — as its own reviewed change, not squeezed
+  into this phase's fix loop.
