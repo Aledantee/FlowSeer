@@ -4,7 +4,7 @@ Package `netmodel` translates device model records into executable virtual switc
 construction specifications with explicit trust and readiness metadata.
 
 The package accepts structured interface, VLAN, forwarding database, spanning tree,
-LACP, and IP configuration inputs. It produces a reproducible [vswitch.ConstructionSpec]
+LACP, IP, and packet filter configuration inputs. It produces a reproducible [vswitch.ConstructionSpec]
 alongside a [Report] and [analysis.Metadata] detailing readiness, assumptions,
 defaults, skipped facets, and data conflicts.
 
@@ -33,6 +33,7 @@ res, err := netmodel.Load(
     lacpPorts,
     addrs,
     neighbors,
+    filterSets,
     nil,
 )
 if err != nil {

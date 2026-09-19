@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	filterv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
@@ -41,6 +42,7 @@ type loadInput struct {
 	lacpPorts       []*lacpv1.PortState
 	addrs           []*ipv1.InterfaceAddress
 	neighbors       []*ipv1.NeighborEntry
+	filterSets      []*filterv1.FilterRuleSet
 	want            []port.Layer
 }
 
@@ -60,6 +62,7 @@ func (in loadInput) load(t *testing.T, src netmodel.SourceContext) netmodel.Resu
 		in.lacpPorts,
 		in.addrs,
 		in.neighbors,
+		in.filterSets,
 		in.want,
 	)
 	if err != nil {

@@ -84,7 +84,7 @@ func TestLoad_CompleteModel(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, ifaces, vlans, fdb, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, ifaces, vlans, fdb, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load complete model failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2, p3}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2, p3}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load partial model failed: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestLoad_PartialModel_SkipsAndDefaults(t *testing.T) {
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
 	// Explicitly request only relay layer, skipping switchport/vlan facets
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
+	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestLoad_ConflictingRows(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, []*stpv1.PortState{ps1, ps2}, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, []*stpv1.PortState{ps1, ps2}, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load with conflicting rows failed: %v", err)
 	}
@@ -353,14 +353,14 @@ func TestLoad_ErrorVersusResultSeparation(t *testing.T) {
 	src := netmodel.SourceContext{DeviceID: "sw1"}
 
 	// 1. Empty interface list is an impossible construction error
-	if _, err := netmodel.Load(now, src, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := netmodel.Load(now, src, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
 		t.Errorf("Load(empty ifaces) succeeded, want error")
 	}
 
 	// 2. Duplicate interface name is an impossible construction error
 	p1 := makeTestInterface("1/1/1", true)
 	p1Dup := makeTestInterface("1/1/1", true)
-	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p1Dup}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p1Dup}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
 		t.Errorf("Load(duplicate port name) succeeded, want error")
 	}
 
@@ -372,7 +372,7 @@ func TestLoad_ErrorVersusResultSeparation(t *testing.T) {
 			LagParent: &parentBogus,
 		}.Build(),
 	}.Build()
-	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{pLagMember}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
+	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{pLagMember}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
 		t.Errorf("Load(invalid LAG parent) succeeded, want error")
 	}
 }
@@ -388,12 +388,12 @@ func TestLoad_CopyIsolationAndDeterministicOrdering(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res1, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res1, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	res2, err := netmodel.Load(now, src, []*interfacev1.Interface{p2, p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res2, err := netmodel.Load(now, src, []*interfacev1.Interface{p2, p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load shuffled failed: %v", err)
 	}
@@ -424,7 +424,7 @@ func TestLoad_SpecConfigNormalizedDirectly(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -507,17 +507,17 @@ func TestLoad_ShuffledFdbRowsYieldEqualSpec(t *testing.T) {
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
 	// Shuffled orders of valid static FDB entries
-	res1, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb1, fdb2, fdb3}, nil, nil, nil, nil, nil, nil, nil, nil)
+	res1, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb1, fdb2, fdb3}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load order 1 failed: %v", err)
 	}
 
-	res2, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb3, fdb2, fdb1}, nil, nil, nil, nil, nil, nil, nil, nil)
+	res2, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb3, fdb2, fdb1}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load order 2 failed: %v", err)
 	}
 
-	res3, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb2, fdb1, fdb3}, nil, nil, nil, nil, nil, nil, nil, nil)
+	res3, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, []*switchingv1.FdbEntry{fdb2, fdb1, fdb3}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load order 3 failed: %v", err)
 	}
@@ -602,7 +602,7 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2, p3, p4, p5}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2, p3, p4, p5}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	filterv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
@@ -21,11 +22,13 @@ import (
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -68,6 +71,8 @@ const (
 	IssueUnsupportedEncapsulation       analysis.IssueCode = "netmodel.routing.unsupported_encapsulation"
 	IssueMissingIPFacet                 analysis.IssueCode = "netmodel.routing.missing_ip_facet"
 	IssueMissingNeighborMAC             analysis.IssueCode = "netmodel.routing.missing_neighbor_mac"
+	IssueUnboundFilterInterface         analysis.IssueCode = "netmodel.filter.unbound_interface"
+	IssueMissingFilterSet               analysis.IssueCode = "netmodel.filter.missing_set"
 	IssueInvalidMAC                     analysis.IssueCode = "netmodel.address.invalid_mac"
 	IssueInvalidIPAddress               analysis.IssueCode = "netmodel.routing.invalid_ip_address"
 	IssueInvalidNeighborAddress         analysis.IssueCode = "netmodel.routing.invalid_neighbor_address"
@@ -183,6 +188,7 @@ func Load(
 	lacpPorts []*lacpv1.PortState,
 	addrs []*ipv1.InterfaceAddress,
 	neighbors []*ipv1.NeighborEntry,
+	filterSets []*filterv1.FilterRuleSet,
 	want []port.Layer,
 ) (Result, error) {
 	if len(ifaces) == 0 {
@@ -377,7 +383,7 @@ func Load(
 		for _, layer := range want {
 			switch layer {
 			case port.LayerRelay, port.LayerVlan, port.LayerEthernet, port.LayerPoe,
-				port.LayerLag, port.LayerStp, port.LayerRouting:
+				port.LayerLag, port.LayerStp, port.LayerRouting, port.LayerFilter:
 			default:
 				addSkipped(
 					"",
@@ -560,9 +566,13 @@ func Load(
 		hasLag             bool
 		hasIPFacet         bool
 		hasRoutedIface     bool
+		hasFilterFacet     bool
 	)
 
 	for _, iface := range ifaces {
+		if iface.GetFilter() != nil {
+			hasFilterFacet = true
+		}
 		if iface.GetIp() != nil {
 			hasIPFacet = true
 			// A routed interface needs a relay that can leave it out, which
@@ -634,6 +644,13 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerVlan)
 			report.CapabilitySources[port.LayerVlan] = "implied:routing"
 		}
+		if hasFilterFacet {
+			report.Capabilities = append(report.Capabilities, port.LayerFilter)
+			report.CapabilitySources[port.LayerFilter] = "inferred:filter"
+		} else if len(filterSets) > 0 {
+			report.Capabilities = append(report.Capabilities, port.LayerFilter)
+			report.CapabilitySources[port.LayerFilter] = "inferred:filter_rule_set"
+		}
 	} else {
 		report.Capabilities = make([]port.Layer, len(want))
 		copy(report.Capabilities, want)
@@ -652,7 +669,13 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerLag)
 			report.CapabilitySources[port.LayerLag] = "present:lag"
 		}
-		if slices.Contains(want, port.LayerRouting) && hasRoutedIface {
+		if slices.Contains(want, port.LayerFilter) && hasIPFacet {
+			if !slices.Contains(report.Capabilities, port.LayerRouting) {
+				report.Capabilities = append(report.Capabilities, port.LayerRouting)
+				report.CapabilitySources[port.LayerRouting] = "implied:filter"
+			}
+		}
+		if (slices.Contains(want, port.LayerRouting) || slices.Contains(report.Capabilities, port.LayerRouting)) && hasRoutedIface {
 			if !slices.Contains(report.Capabilities, port.LayerVlan) {
 				report.Capabilities = append(report.Capabilities, port.LayerVlan)
 				report.CapabilitySources[port.LayerVlan] = "implied:routing"
@@ -758,6 +781,21 @@ func Load(
 				scope = routing.NeighborLookupScope(src.DeviceID, routing.DefaultVRF, n.GetInterfaceName(), ip)
 			}
 			addSkippedAt(scope, n.GetInterfaceName(), "ip_neighbor", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+		}
+	}
+
+	if !isWanted(port.LayerFilter) {
+		for _, iface := range ifaces {
+			if iface.GetFilter() != nil {
+				scope := routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
+				addSkippedAt(scope, iface.GetName(), "filter", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+			}
+		}
+		for _, set := range filterSets {
+			if set == nil {
+				continue
+			}
+			addSkippedAt(rootScope, "", "filter_rule_set", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
 
@@ -1866,6 +1904,156 @@ func Load(
 		}
 	}
 
+	if isWanted(port.LayerFilter) {
+		setByName := make(map[string]filter.RuleSet, len(filterSets))
+		for _, set := range filterSets {
+			if set == nil {
+				continue
+			}
+			name := set.GetName()
+			if name == "" {
+				continue
+			}
+			ruleSet := filter.RuleSet{
+				Stateful: set.GetStateful(),
+				Default:  translateAction(set.GetDefault()),
+				Rules:    make([]filter.Rule, 0, len(set.GetRules())),
+			}
+			for _, rule := range set.GetRules() {
+				if rule == nil {
+					continue
+				}
+				r := filter.Rule{
+					Name:   rule.GetName(),
+					Action: translateAction(rule.GetAction()),
+				}
+				if m := rule.GetMatch(); m != nil {
+					if m.HasProtocol() {
+						protoNum := uint8(m.GetProtocol())
+						r.Match.Protocol = &protoNum
+					}
+					for _, p := range m.GetSrcPrefixes() {
+						if prefix, ok := parseIpPrefix(p); ok {
+							r.Match.Src = append(r.Match.Src, prefix)
+						}
+					}
+					for _, p := range m.GetDstPrefixes() {
+						if prefix, ok := parseIpPrefix(p); ok {
+							r.Match.Dst = append(r.Match.Dst, prefix)
+						}
+					}
+					for _, portMatch := range m.GetSrcPorts() {
+						if pr, ok := parsePortMatch(portMatch); ok {
+							r.Match.SrcPorts = append(r.Match.SrcPorts, pr)
+						}
+					}
+					for _, portMatch := range m.GetDstPorts() {
+						if pr, ok := parsePortMatch(portMatch); ok {
+							r.Match.DstPorts = append(r.Match.DstPorts, pr)
+						}
+					}
+					if icmp := m.GetIcmp(); icmp != nil {
+						if v4 := icmp.GetV4(); v4 != nil {
+							if len(v4.GetTypes()) > 0 || len(v4.GetCodes()) > 0 {
+								im := &filter.ICMPMatch{}
+								if len(v4.GetTypes()) > 0 {
+									im.Type = uint8(v4.GetTypes()[0])
+								}
+								if len(v4.GetCodes()) > 0 {
+									c := uint8(v4.GetCodes()[0])
+									im.Code = &c
+								}
+								r.Match.ICMP = im
+							}
+						} else if v6 := icmp.GetV6(); v6 != nil {
+							if len(v6.GetTypes()) > 0 || len(v6.GetCodes()) > 0 {
+								im := &filter.ICMPMatch{}
+								if len(v6.GetTypes()) > 0 {
+									im.Type = uint8(v6.GetTypes()[0])
+								}
+								if len(v6.GetCodes()) > 0 {
+									c := uint8(v6.GetCodes()[0])
+									im.Code = &c
+								}
+								r.Match.ICMP = im
+							}
+						}
+					}
+					if tf := m.GetTcpFlags(); tf != nil {
+						if len(tf.GetRequiredSet()) > 0 || len(tf.GetRequiredClear()) > 0 {
+							var mask, value tcp.Flags
+							for _, f := range tf.GetRequiredSet() {
+								mask |= tcp.Flags(f)
+								value |= tcp.Flags(f)
+							}
+							for _, f := range tf.GetRequiredClear() {
+								mask |= tcp.Flags(f)
+							}
+							r.Match.TCPFlags = &filter.FlagMatch{Mask: mask, Value: value}
+						}
+					}
+				}
+				ruleSet.Rules = append(ruleSet.Rules, r)
+			}
+			setByName[name] = ruleSet
+		}
+
+		var bindings []filter.Binding
+		for _, iface := range ifaces {
+			facet := iface.GetFilter()
+			if facet == nil {
+				continue
+			}
+			inSet := facet.GetInSet()
+			outSet := facet.GetOutSet()
+			if inSet == "" && outSet == "" {
+				continue
+			}
+
+			scope := routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
+			hasIP := iface.GetIp() != nil
+			if !hasIP {
+				addSkippedAt(scope, iface.GetName(), "filter", "interface carries no ip facet", analysis.Incomplete, IssueUnboundFilterInterface)
+			}
+
+			if inSet != "" {
+				if _, ok := setByName[inSet]; !ok {
+					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q is missing", inSet), analysis.Incomplete, IssueMissingFilterSet)
+				} else if hasIP {
+					bindings = append(bindings, filter.Binding{
+						Interface: iface.GetName(),
+						Direction: filter.In,
+						Set:       inSet,
+					})
+				}
+			}
+
+			if outSet != "" {
+				if _, ok := setByName[outSet]; !ok {
+					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q is missing", outSet), analysis.Incomplete, IssueMissingFilterSet)
+				} else if hasIP {
+					bindings = append(bindings, filter.Binding{
+						Interface: iface.GetName(),
+						Direction: filter.Out,
+						Set:       outSet,
+					})
+				}
+			}
+		}
+
+		if cfg.Routing != nil && (len(setByName) > 0 || len(bindings) > 0) {
+			cfg.Filter = &filter.Config{
+				Sets:     setByName,
+				Bindings: bindings,
+			}
+		} else {
+			report.Capabilities = slices.DeleteFunc(report.Capabilities, func(l port.Layer) bool {
+				return l == port.LayerFilter
+			})
+			delete(report.CapabilitySources, port.LayerFilter)
+		}
+	}
+
 	normCfg := cfg.Normalize()
 	if err := normCfg.Validate(); err != nil {
 		return Result{}, errs.Wrap(err, "validate switch configuration")
@@ -2164,4 +2352,74 @@ func parsePrefix(p *addrv1.IpPrefix, address netip.Addr) (int, bool) {
 		return int(v6.GetLength()), true
 	}
 	return 0, false
+}
+
+func translateAction(a filterv1.FilterAction) filter.Action {
+	switch a {
+	case filterv1.FilterAction_FILTER_ACTION_ACCEPT:
+		return filter.Accept
+	case filterv1.FilterAction_FILTER_ACTION_DROP:
+		return filter.Drop
+	case filterv1.FilterAction_FILTER_ACTION_REJECT:
+		return filter.Reject
+	default:
+		return filter.Drop
+	}
+}
+
+func parseIpPrefix(p *addrv1.IpPrefix) (netip.Prefix, bool) {
+	if p == nil {
+		return netip.Prefix{}, false
+	}
+	if v4 := p.GetV4(); v4 != nil {
+		addr := v4.GetAddress()
+		if addr == nil || len(addr.GetOctets()) != 4 || v4.GetLength() > 32 {
+			return netip.Prefix{}, false
+		}
+		ip := netip.AddrFrom4([4]byte(addr.GetOctets()))
+		prefix := netip.PrefixFrom(ip, int(v4.GetLength()))
+		if prefix != prefix.Masked() {
+			return netip.Prefix{}, false
+		}
+		return prefix, true
+	}
+	if v6 := p.GetV6(); v6 != nil {
+		addr := v6.GetAddress()
+		if addr == nil || len(addr.GetOctets()) != 16 || v6.GetLength() > 128 {
+			return netip.Prefix{}, false
+		}
+		ip := netip.AddrFrom16([16]byte(addr.GetOctets()))
+		prefix := netip.PrefixFrom(ip, int(v6.GetLength()))
+		if prefix != prefix.Masked() {
+			return netip.Prefix{}, false
+		}
+		return prefix, true
+	}
+	return netip.Prefix{}, false
+}
+
+func parsePortMatch(m *packetv1.TransportPortMatch) (filter.PortRange, bool) {
+	if m == nil {
+		return filter.PortRange{}, false
+	}
+	if r := m.GetRange(); r != nil {
+		if r.GetStart() > 65535 || r.GetEnd() > 65535 || r.GetStart() > r.GetEnd() {
+			return filter.PortRange{}, false
+		}
+		return filter.PortRange{
+			Start: uint16(r.GetStart()),
+			End:   uint16(r.GetEnd()),
+		}, true
+	}
+	if m.HasExact() {
+		exact := m.GetExact()
+		if exact > 65535 {
+			return filter.PortRange{}, false
+		}
+		return filter.PortRange{
+			Start: uint16(exact),
+			End:   uint16(exact),
+		}, true
+	}
+	return filter.PortRange{}, false
 }

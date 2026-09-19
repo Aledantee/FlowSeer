@@ -193,7 +193,7 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestLoad_VlanInterfaceDefaultMAC(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, nil, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -496,7 +496,7 @@ func TestLoad_RoutedPortSwitchportSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -583,7 +583,7 @@ func TestLoad_AddressWithoutIPFacetSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -659,7 +659,7 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -889,7 +889,7 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 
 	want := []port.Layer{port.LayerRelay}
 	validateFixtures(t, ifaces, nil, addrs, neighbors)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, want)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, want)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -992,7 +992,7 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -1810,7 +1810,7 @@ func TestLoad_DuplicateSubInterfaceNameRefused(t *testing.T) {
 
 	_, err := netmodel.Load(
 		trustTestTime, netmodel.SourceContext{DeviceID: "sw1"},
-		ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	if err == nil {
 		t.Fatal("Load succeeded, want an error for the duplicate interface name eth1.10")
@@ -2132,7 +2132,7 @@ func TestLoad_DuplicateVLANInterfaceClaimSkipped(t *testing.T) {
 
 	loaded, err := netmodel.Load(
 		trustTestTime, netmodel.SourceContext{DeviceID: "sw1"},
-		ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("Load failed: %v, want a recorded conflict rather than an error", err)
