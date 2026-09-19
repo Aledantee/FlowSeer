@@ -10,7 +10,7 @@ relying on repository-state claims.
 | [Network domain atlas](network-domain-atlas/INDEX.md) | Vendor and standards evidence, entity coverage, package gaps, and questions to settle before extending the network model. | Supporting research; it does not choose schema shapes or package boundaries. |
 | [Logging, metrics, and tracing](2026-09-04-observability-signal-conventions.md) | Evidence behind signal selection, semantic conventions, privacy, and cardinality decisions. | Supporting research; [`docs/conventions/observability.md`](../conventions/observability.md) owns repository policy. |
 | [Device inventory research corpus](device-inventory/README.md) | Live lab captures and vendor integration-target dossiers: credential types, config models, telemetry modes, and discovery signals FlowSeer's device layer needs before writing a protocol adapter. | Supporting research; no schema, Go type, or service contract changes on its own. |
-| [Herdr as the worker runtime](herdr-trial-2026-09-10.md) | What went wrong in the Orca-dispatched sessions of 2026-09-05 to 2026-09-10, and a four-lane trial of Herdr 0.9.0 against those failures. | Supporting research; the `delegate` skill owns the dispatch procedure. |
+| [Herdr as the worker runtime](herdr-trial-2026-09-10.md) | What went wrong in the Orca-dispatched sessions of 2026-09-05 to 2026-09-10, and a four-lane trial of Herdr 0.9.0 against those failures. | Historical: Herdr was removed on 2026-09-19 and Orca is the only worker runtime. The failure list still explains the shape of `delegate/scripts/orca-worker.sh`. |
 
 Add a row here when adding a top-level research document or corpus. Link to an
 existing accepted record when the research has already produced a decision, so

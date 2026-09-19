@@ -1,6 +1,6 @@
 ---
 name: delegate
-description: Choose where a FlowSeer skill sends delegated work (Explore, a project subagent, a Herdr worker on any installed agent CLI, or an Orca worker) on whichever model tier fits, and what the brief must contain. Load before dispatching any agent from plan, implement, review, compound, or steer.
+description: Choose where a FlowSeer skill sends delegated work (Explore, a project subagent, or an Orca worker on any installed agent CLI) on whichever model tier fits, and what the brief must contain. Load before dispatching any agent from plan, implement, review, compound, or steer.
 user-invocable: false
 ---
 
@@ -22,7 +22,7 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 | --- | --- | --- |
 | Lookup with no judgment: which files reference a symbol, which fixtures exist, where a string appears | `lookup` | `Explore` subagent, or the pool's CLI |
 | Bounded question that needs conventions read and evidence weighed | `research` | `repo-researcher` subagent, or the pool's CLI |
-| Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Herdr worker when a server runs, else Orca worker, else a `general-purpose` subagent with `isolation: worktree` |
+| Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else a `general-purpose` subagent with `isolation: worktree` |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
 | Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent |
 | Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent; never on a `sensitive` unit |
@@ -59,7 +59,7 @@ to the model's `pool_id`.
 A model whose `effort` list lacks the role's level gets the highest level it
 lists: `execute` routes at `xhigh`, and `gemini-3.8-flash-xhigh` is not a
 model id, so that lane launches as `gemini-3.8-flash-high`.
-The Herdr wrapper puts each of these on the worker's launch line from
+`scripts/orca-worker.sh` puts each of these on the worker's launch line from
 `--cli`, `--model`, `--effort`, and `--agent`; the Agent tool takes `model`.
 Name the model on every worker; never `inherit` or unset, and never the
 coordinating session's own model. One model per task from start to finish.
@@ -78,10 +78,10 @@ The file records the agent CLIs present (`claude`, `codex`, `agy`,
 `opencode`), whether Orca is reachable, each pool's sign-in state and
 rate-limit windows (through `scripts/pool-usage.sh`), and the opencode
 model ids split by pool. Run it unsandboxed: `orca` uses a local socket,
-`agy` reads the keyring, and `opencode` writes a log file. Then `herdr agent list
->/dev/null && echo herdr up`, also unsandboxed: success means the Herdr
-lane is open. Native subagents always run on Claude; a Herdr worker runs
-on any installed agent whose pool is signed in.
+`agy` reads the keyring, and `opencode` writes a log file. `orca: reachable:
+true` in that file means the worker lane is open. Native subagents always
+run on Claude; an Orca worker runs on any installed agent whose pool is
+signed in.
 
 ## Dispatch by quota
 
@@ -132,46 +132,41 @@ says whether it did.
 - When no fitting pool is usable, do not dispatch: work sequentially or wait
   for the earliest `resetsAt`, and tell the user which window is exhausted.
 
-## Herdr, Orca, or native
+## Orca or native
 
 Read-only delegates (`lookup`, `research`, `review-*`, `judge`) stay
-native subagents on every host. Editing work goes to a Herdr worker when a
-server runs, to an Orca worker when only Orca is reachable, and to a
-`general-purpose` subagent with `isolation: worktree` otherwise. Both
-runtimes use a local socket the Bash sandbox blocks, so every `herdr` and
-`orca` command runs with the sandbox disabled; a sandboxed call reports the
-runtime as not running.
+native subagents on every host. Editing work goes to an Orca worker when
+`orca status --json` reports `runtime.reachable: true`, and to a
+`general-purpose` subagent with `isolation: worktree` otherwise. Orca uses
+a local socket the Bash sandbox blocks, so every `orca` command runs with
+the sandbox disabled; a sandboxed call reports the runtime as not running.
 
-### Herdr worker
+### Orca worker
 
-`scripts/herdr-worker.sh` is the whole procedure; `references/herdr.md`
-says what it works around and what to do when a step fails.
+`scripts/orca-worker.sh` is the whole procedure; `references/orca.md` says
+what it works around, what to do when a step fails, and how a full handoff
+differs.
 
 ```bash
-s=.claude/skills/delegate/scripts/herdr-worker.sh
+s=.claude/skills/delegate/scripts/orca-worker.sh
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --brief <file>
 $s start --lane <slug> --cli opencode --agent <opencode agent> --brief <file>
-$s wait <slug>            # blocks; prints done, idle, blocked, or timeout; the dialog follows blocked
-$s read <slug>            # the worker's report, from its pane
-$s status                 # one line per live worker
-$s stop <slug>            # after the merge: ends the agent, removes workspace and checkout
+$s wait <slug>            # blocks; prints idle, exited, or timeout, then the screen
+$s read <slug>            # the worker's report, from its screen
+$s status                 # one line per live lane
+$s stop <slug>            # after the merge: closes the terminal, removes checkout and branch
 ```
 
-`start` exits 0 only when the worker exists on branch `<slug>`, branched
-from this worktree's `HEAD`, and has the brief; a failure removes what it
-created and says why. `wait` returns once with the agent's own settled
-state. `done` and `idle` both mean the turn ended: check the tree, then
-read the report. `blocked` means a dialog is on screen: read it, answer it
-with `$s keys <slug> <key>` when the brief anticipated it, otherwise
-report it. Then merge the branch here, run the verifier on the changed
-paths, `$s stop <slug>`, `git branch -d <slug>`.
-
-### Orca worker and full handoff
-
-Orca is the fallback `execute` lane when no Herdr server runs, and the
-lane for a full handoff either way; `references/orca.md` has both
-procedures. Available when `ORCA_TERMINAL_HANDLE` is set and `orca status
---json` reports `runtime.reachable: true`.
+`start` exits 0 only when the worker exists in a child worktree branched
+from this worktree's branch and has the brief on its screen; a failure
+removes what it created and says why. Its JSON line names the branch,
+which Orca prefixes with the git user. `wait` prints `idle` when the turn
+ended: check the tree, then read the report. A permission dialog also
+reads as idle, which is why the screen follows: answer a dialog the brief
+anticipated with `$s keys <slug> <text>`, otherwise report it. Then merge
+the branch here, run the verifier on the changed paths, and `$s stop
+<slug>`. `stop` refuses a lane that is mid-turn, dirty, or not merged
+here, because removing the worktree deletes its branch.
 
 ### Reading a worker's report
 
@@ -225,9 +220,10 @@ A delegate has none of this conversation. The brief states, in order:
    subagents stay out of its checkout: a worker that spawns the Agent tool
    without worktree isolation gets its subagents' files in its own tree
    and reads them as a duplicate dispatch. Read-only subagents are fine.
-8. For an Orca worker only, the paragraph in `references/orca-sandbox.md`
-   on reaching Orca from inside the worker's sandbox, verbatim. A Herdr
-   worker reports in its pane and needs nothing of the kind.
+8. For a worker started through `orca orchestration` only, the paragraph
+   in `references/orca-sandbox.md` on reaching Orca from inside the
+   worker's sandbox, verbatim. A worker started by `orca-worker.sh` reports
+   on its screen and needs nothing of the kind.
 
 A claim about the codebase in a brief (an import direction, a call's
 behavior, a field's existence) is marked verified with `path:line`, or

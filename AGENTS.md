@@ -57,8 +57,8 @@ no remote. The Claude worktree hook defaults to the sibling
 - Keep small sequential work in the main conversation. Delegate through the
   `delegate` skill, which names the worker and model for each kind of work:
   `repo-researcher` for a bounded read-only question, `independent-reviewer`
-  for a fresh pass over changed files, and a Herdr or Orca worker for
-  editing work when one of those runtimes is reachable.
+  for a fresh pass over changed files, and an Orca worker for editing work
+  when Orca is reachable.
 - At a decision that is the user's (which workflow step runs next, which
   remedy to apply, a design choice the task does not settle), ask through
   the runtime's question tool (`AskUserQuestion` in Claude Code): one

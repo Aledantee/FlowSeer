@@ -1,12 +1,13 @@
 # Orca workers and the Bash sandbox
 
-Load this when writing the brief for an Orca worker, when an Orca worker
-finished without sending `worker_done`, or when setting up a machine so
-workers can reach Orca sandboxed.
+Load this when writing the brief for a worker started through `orca
+orchestration`, when such a worker finished without sending `worker_done`,
+or when setting up a machine so workers can reach Orca sandboxed. A worker
+started by `scripts/orca-worker.sh` never calls `orca` and needs none of it.
 
 ## The brief paragraph
 
-Copy this into every Orca worker's brief verbatim:
+Copy this into every orchestration worker's brief verbatim:
 
 > Every `orca` command (`orchestration send`, `check`, `ask`,
 > `heartbeat`, `worker_done`) must run through the Bash tool with the

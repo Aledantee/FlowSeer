@@ -387,23 +387,27 @@ exhausted a budget before one of them finished, cured by naming a smaller
 model for them. `delegate` caps concurrent workers at three for the same
 reason.
 
-Send editing workers to a Herdr worker when a Herdr server runs, and to
-Orca when only its runtime is reachable. The asynchronous-agent study
-behind CAID found that isolated workspaces, a central integrator, and
-test-based verification at merge improved paper reproduction by 25.6
-points and library development by 14.7. Both runtimes provide that: a
-child worktree per worker, a named model per launch, and a report the
-coordinator waits on. Herdr took the first place on 2026-09-10 for three
-measured reasons (`docs/research/herdr-trial-2026-09-10.md`): it starts and
-tracks `claude`, `codex`, `agy`, and `opencode` alike, where Orca's
-`worker-start` pins Claude, Codex, and Cursor ids only and a dispatch into
-an `agy` or `opencode` terminal sits unsubmitted; its `wait` returns the
-agent's own settled state once, where Orca's `check --wait` is re-armed by
-every heartbeat; and a worker is a pane and a branch, with no dispatch
-capability token for a context compaction to lose. Read-only delegates
-stay native subagents, which load their definition and nothing else, where
-a runtime worker is a full agent session. Outside both, `delegate` falls
-back to native subagents with worktree isolation. The Orca command surface
+Send editing workers to an Orca worker when Orca's runtime is reachable.
+The asynchronous-agent study behind CAID found that isolated workspaces, a
+central integrator, and test-based verification at merge improved paper
+reproduction by 25.6 points and library development by 14.7. An Orca
+worker provides that: a child worktree per worker, a named model per
+launch, and a report the coordinator waits on. Herdr held this place from
+2026-09-10 to 2026-09-19 for three measured reasons
+(`docs/research/herdr-trial-2026-09-10.md`), all of them about `orca
+orchestration`: `worker-start` pins Claude, Codex, and Cursor ids only and
+a dispatch into an `agy` or `opencode` terminal sat unsubmitted; `check
+--wait` is re-armed by every heartbeat; and a dispatch carries a capability
+token a context compaction can lose. On 2026-09-19 the user chose one
+runtime over two, and `delegate/scripts/orca-worker.sh` meets the same
+three points without orchestration: `orca terminal create --command` takes
+any CLI's launch line with the model on it, the wait is confirmed against
+the worker's screen, and a lane is a terminal and a branch with no token.
+That day's run covered the `opencode` lane only; `references/orca.md`
+says what is still unmeasured. Read-only delegates stay native subagents,
+which load their definition and nothing else, where a runtime worker is a
+full agent session. Without Orca, `delegate` falls back to native subagents
+with worktree isolation. The Orca command surface
 is version-matched and served by the binary (`orca skills get orca-cli`,
 `orca skills get orchestration`), so the skills show the shape of the loop
 and defer to that guide for flags.
