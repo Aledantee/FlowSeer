@@ -300,7 +300,6 @@ func collectInjectionJourneys(journeys []Journey, root FrameID) []Journey {
 	return result
 }
 
-
 func diffJourney(jA, jB Journey) (Difference, bool) {
 	if jA.State != jB.State {
 		return Difference{
