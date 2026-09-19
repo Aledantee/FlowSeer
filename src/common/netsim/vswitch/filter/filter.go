@@ -312,27 +312,31 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 		if ok && egressSet.Stateful {
 			revTuple := tuple.Reverse()
 			for idx, rule := range egressSet.Rules {
-				if tupleMatches(rule.Match, revTuple) && rule.Action == Accept {
-					fwdRuleKey := rule.Name
-					if fwdRuleKey == "" {
-						fwdRuleKey = strconv.Itoa(idx)
-					}
-					fwdDecFact := RuleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
-					stateDecFact := RuleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
-					step := trace.Step{
-						Layer:   LayerName,
-						Op:      trace.OpFilter,
-						RuleID:  RuleState,
-						Subject: trace.Subject{Kind: "interface", Key: ingressIface},
-						Inputs:  []trace.Fact{matchF, fwdDecFact},
-						Outputs: []trace.Fact{stateDecFact},
-					}
-					res.Decision = DecisionAccept
-					res.Action = Accept
-					res.Reason = ""
-					res.Steps = []trace.Step{step}
-					return res
+				if !tupleMatches(rule.Match, revTuple) {
+					continue
 				}
+				if rule.Action != Accept {
+					break
+				}
+				fwdRuleKey := rule.Name
+				if fwdRuleKey == "" {
+					fwdRuleKey = strconv.Itoa(idx)
+				}
+				fwdDecFact := RuleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
+				stateDecFact := RuleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
+				step := trace.Step{
+					Layer:   LayerName,
+					Op:      trace.OpFilter,
+					RuleID:  RuleState,
+					Subject: trace.Subject{Kind: "interface", Key: ingressIface},
+					Inputs:  []trace.Fact{matchF, fwdDecFact},
+					Outputs: []trace.Fact{stateDecFact},
+				}
+				res.Decision = DecisionAccept
+				res.Action = Accept
+				res.Reason = ""
+				res.Steps = []trace.Step{step}
+				return res
 			}
 		}
 	}
@@ -425,27 +429,31 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 			if ok && ingressSet.Stateful {
 				revTuple := tuple.Reverse()
 				for idx, rule := range ingressSet.Rules {
-					if tupleMatches(rule.Match, revTuple) && rule.Action == Accept {
-						fwdRuleKey := rule.Name
-						if fwdRuleKey == "" {
-							fwdRuleKey = strconv.Itoa(idx)
-						}
-						fwdDecFact := RuleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
-						stateDecFact := RuleDecisionFact(setName, "state", Accept, Out, egressIface)
-						step := trace.Step{
-							Layer:   LayerName,
-							Op:      trace.OpFilter,
-							RuleID:  RuleState,
-							Subject: trace.Subject{Kind: "interface", Key: egressIface},
-							Inputs:  []trace.Fact{matchF, fwdDecFact},
-							Outputs: []trace.Fact{stateDecFact},
-						}
-						res.Decision = DecisionAccept
-						res.Action = Accept
-						res.Reason = ""
-						res.Steps = []trace.Step{step}
-						return res
+					if !tupleMatches(rule.Match, revTuple) {
+						continue
 					}
+					if rule.Action != Accept {
+						break
+					}
+					fwdRuleKey := rule.Name
+					if fwdRuleKey == "" {
+						fwdRuleKey = strconv.Itoa(idx)
+					}
+					fwdDecFact := RuleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
+					stateDecFact := RuleDecisionFact(setName, "state", Accept, Out, egressIface)
+					step := trace.Step{
+						Layer:   LayerName,
+						Op:      trace.OpFilter,
+						RuleID:  RuleState,
+						Subject: trace.Subject{Kind: "interface", Key: egressIface},
+						Inputs:  []trace.Fact{matchF, fwdDecFact},
+						Outputs: []trace.Fact{stateDecFact},
+					}
+					res.Decision = DecisionAccept
+					res.Action = Accept
+					res.Reason = ""
+					res.Steps = []trace.Step{step}
+					return res
 				}
 			}
 		}
@@ -664,10 +672,6 @@ func tupleMatches(m Match, tuple Tuple) bool {
 		if !matched {
 			return false
 		}
-	}
-
-	if m.ICMP != nil || m.TCPFlags != nil {
-		return false
 	}
 
 	return true

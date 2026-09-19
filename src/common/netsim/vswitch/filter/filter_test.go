@@ -339,6 +339,185 @@ func TestStatelessSetNeverConsultsCounterpart(t *testing.T) {
 	}
 }
 
+func TestResolveDeferredReverseMatchHonorsFirstMatch(t *testing.T) {
+	protoTCP := uint8(6)
+
+	cfg := filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"lan-in": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules: []filter.Rule{
+					{
+						Name:   "deny-host",
+						Action: filter.Drop,
+						Match: filter.Match{
+							Src: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/32")},
+						},
+					},
+					{
+						Name:   "allow-subnet-https",
+						Action: filter.Accept,
+						Match: filter.Match{
+							Protocol: &protoTCP,
+							Src:      []netip.Prefix{netip.MustParsePrefix("10.0.10.0/24")},
+							DstPorts: []filter.PortRange{{Start: 443, End: 443}},
+						},
+					},
+				},
+			},
+			"srv-in": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules:    []filter.Rule{},
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan10", Direction: filter.In, Set: "lan-in"},
+			{Interface: "vlan20", Direction: filter.In, Set: "srv-in"},
+		},
+	}
+
+	l, err := filter.New(cfg, port.Table{}, "sw1")
+	if err != nil {
+		t.Fatalf("filter.New error = %v", err)
+	}
+
+	clientIP := netip.MustParseAddr("10.0.10.7")
+	serverIP := netip.MustParseAddr("10.0.20.5")
+	replyFrame := makeTCPFrame(t, serverIP, clientIP, 443, 40000, tcp.SYN|tcp.ACK)
+
+	resIngress := l.EvaluateIngress("vlan20", replyFrame)
+	if resIngress.Decision != filter.DecisionDeferred {
+		t.Fatalf("reply ingress decision = %v, want deferred", resIngress.Decision)
+	}
+
+	resResolved := l.ResolveDeferred(resIngress, "vlan10")
+	if resResolved.Decision != filter.DecisionDrop {
+		t.Errorf("resolved decision = %v, want drop (first matching counterpart rule denies)", resResolved.Decision)
+	}
+	if len(resResolved.Steps) != 1 || resResolved.Steps[0].RuleID != filter.RuleDefault {
+		t.Errorf("resolved step = %+v, want a single %v step", resResolved.Steps, filter.RuleDefault)
+	}
+}
+
+func TestEvaluateEgressReverseMatchHonorsFirstMatch(t *testing.T) {
+	protoTCP := uint8(6)
+
+	cfg := filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"out-empty": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules:    []filter.Rule{},
+			},
+			"lan-out": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules: []filter.Rule{
+					{
+						Name:   "deny-host",
+						Action: filter.Drop,
+						Match: filter.Match{
+							Src: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/32")},
+						},
+					},
+					{
+						Name:   "allow-subnet-https",
+						Action: filter.Accept,
+						Match: filter.Match{
+							Protocol: &protoTCP,
+							Src:      []netip.Prefix{netip.MustParsePrefix("10.0.10.0/24")},
+							DstPorts: []filter.PortRange{{Start: 443, End: 443}},
+						},
+					},
+				},
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan20", Direction: filter.Out, Set: "out-empty"},
+			{Interface: "vlan10", Direction: filter.Out, Set: "lan-out"},
+		},
+	}
+
+	l, err := filter.New(cfg, port.Table{}, "sw1")
+	if err != nil {
+		t.Fatalf("filter.New error = %v", err)
+	}
+
+	clientIP := netip.MustParseAddr("10.0.10.7")
+	serverIP := netip.MustParseAddr("10.0.20.5")
+	replyFrame := makeTCPFrame(t, serverIP, clientIP, 443, 40000, tcp.SYN|tcp.ACK)
+
+	res := l.EvaluateEgress("vlan20", "vlan10", replyFrame)
+	if res.Decision != filter.DecisionDrop {
+		t.Errorf("egress decision = %v, want drop (first matching counterpart rule denies)", res.Decision)
+	}
+	if len(res.Steps) != 1 || res.Steps[0].RuleID != filter.RuleDefault {
+		t.Errorf("egress step = %+v, want a single %v step", res.Steps, filter.RuleDefault)
+	}
+}
+
+func TestStatefulReplyMatchesFlagQualifiedForwardRule(t *testing.T) {
+	protoTCP := uint8(6)
+
+	cfg := filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"lan-in": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules: []filter.Rule{
+					{
+						Name:   "allow-https-syn",
+						Action: filter.Accept,
+						Match: filter.Match{
+							Protocol: &protoTCP,
+							DstPorts: []filter.PortRange{{Start: 443, End: 443}},
+							TCPFlags: &filter.FlagMatch{Mask: tcp.SYN, Value: tcp.SYN},
+						},
+					},
+				},
+			},
+			"srv-in": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules:    []filter.Rule{},
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan10", Direction: filter.In, Set: "lan-in"},
+			{Interface: "vlan20", Direction: filter.In, Set: "srv-in"},
+		},
+	}
+
+	l, err := filter.New(cfg, port.Table{}, "sw1")
+	if err != nil {
+		t.Fatalf("filter.New error = %v", err)
+	}
+
+	clientIP := netip.MustParseAddr("10.0.10.7")
+	serverIP := netip.MustParseAddr("10.0.20.5")
+
+	fwdFrame := makeTCPFrame(t, clientIP, serverIP, 40000, 443, tcp.SYN)
+	if resFwd := l.EvaluateIngress("vlan10", fwdFrame); resFwd.Decision != filter.DecisionAccept {
+		t.Fatalf("forward decision = %v, want accept", resFwd.Decision)
+	}
+
+	replyFrame := makeTCPFrame(t, serverIP, clientIP, 443, 40000, tcp.SYN|tcp.ACK)
+	resIngress := l.EvaluateIngress("vlan20", replyFrame)
+	if resIngress.Decision != filter.DecisionDeferred {
+		t.Fatalf("reply ingress decision = %v, want deferred", resIngress.Decision)
+	}
+
+	resResolved := l.ResolveDeferred(resIngress, "vlan10")
+	if resResolved.Decision != filter.DecisionAccept {
+		t.Fatalf("resolved decision = %v, want accept", resResolved.Decision)
+	}
+	if len(resResolved.Steps) != 1 || resResolved.Steps[0].RuleID != filter.RuleState {
+		t.Errorf("resolved step = %+v, want a single %v step", resResolved.Steps, filter.RuleState)
+	}
+}
+
 func TestEmptySetDefaultStep(t *testing.T) {
 	cfg := filter.Config{
 		Sets: map[string]filter.RuleSet{

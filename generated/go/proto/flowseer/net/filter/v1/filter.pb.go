@@ -547,7 +547,8 @@ type FilterRule_builder struct {
 	Name *string
 	// Criteria evaluated against packet headers.
 	Match *FilterMatch
-	// Verdict applied when match criteria are satisfied.
+	// Verdict applied when match criteria are satisfied. Must be present; the
+	// unspecified value is rejected rather than read as Drop.
 	Action *FilterAction
 }
 
@@ -698,11 +699,12 @@ func (x *FilterRuleSet) ClearDefault() {
 type FilterRuleSet_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Unique name of this rule set on the device.
+	// Unique name of this rule set on the device. Must be present.
 	Name *string
 	// When true, enables stateful return traffic matching.
 	Stateful *bool
-	// Default action applied when no rule matches.
+	// Default action applied when no rule matches. Must be present; the
+	// unspecified value is rejected rather than read as Drop.
 	Default *FilterAction
 	// Rules evaluated in order; the first matching rule decides the action.
 	Rules []*FilterRule
@@ -732,10 +734,11 @@ var File_flowseer_net_filter_v1_filter_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_filter_v1_filter_proto_rawDesc = "" +
 	"\n" +
-	"#flowseer/net/filter/v1/filter.proto\x12\x16flowseer.net.filter.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a!flowseer/net/packet/v1/icmp.proto\x1a(flowseer/net/packet/v1/ip_protocol.proto\x1a&flowseer/net/packet/v1/tcp_flags.proto\x1a+flowseer/net/packet/v1/transport_port.proto\"=\n" +
+	"#flowseer/net/filter/v1/filter.proto\x12\x16flowseer.net.filter.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a!flowseer/net/packet/v1/icmp.proto\x1a(flowseer/net/packet/v1/ip_protocol.proto\x1a&flowseer/net/packet/v1/tcp_flags.proto\x1a+flowseer/net/packet/v1/transport_port.proto\"\xbd\x01\n" +
 	"\vFilterFacet\x12\x15\n" +
 	"\x06in_set\x18\x01 \x01(\tR\x05inSet\x12\x17\n" +
-	"\aout_set\x18\x02 \x01(\tR\x06outSet\"\xe0\x03\n" +
+	"\aout_set\x18\x02 \x01(\tR\x06outSet:~\xbaH{\x1ay\n" +
+	"\x16filter_facet.non_empty\x126a filter facet must bind an ingress or egress rule set\x1a'this.in_set != \"\" || this.out_set != \"\"\"\xe0\x03\n" +
 	"\vFilterMatch\x12>\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2\".flowseer.net.packet.v1.IpProtocolR\bprotocol\x12A\n" +
 	"\fsrc_prefixes\x18\x02 \x03(\v2\x1e.flowseer.net.addr.v1.IpPrefixR\vsrcPrefixes\x12A\n" +
@@ -743,16 +746,19 @@ const file_flowseer_net_filter_v1_filter_proto_rawDesc = "" +
 	"\tsrc_ports\x18\x04 \x03(\v2*.flowseer.net.packet.v1.TransportPortMatchR\bsrcPorts\x12G\n" +
 	"\tdst_ports\x18\x05 \x03(\v2*.flowseer.net.packet.v1.TransportPortMatchR\bdstPorts\x125\n" +
 	"\x04icmp\x18\x06 \x01(\v2!.flowseer.net.packet.v1.IcmpMatchR\x04icmp\x12B\n" +
-	"\ttcp_flags\x18\a \x01(\v2%.flowseer.net.packet.v1.TcpFlagsMatchR\btcpFlags\"\x99\x01\n" +
+	"\ttcp_flags\x18\a \x01(\v2%.flowseer.net.packet.v1.TcpFlagsMatchR\btcpFlags\"\xa8\x01\n" +
 	"\n" +
 	"FilterRule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x129\n" +
-	"\x05match\x18\x02 \x01(\v2#.flowseer.net.filter.v1.FilterMatchR\x05match\x12<\n" +
-	"\x06action\x18\x03 \x01(\x0e2$.flowseer.net.filter.v1.FilterActionR\x06action\"\xc2\x01\n" +
-	"\rFilterRuleSet\x12\x1b\n" +
-	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12\x1a\n" +
-	"\bstateful\x18\x02 \x01(\bR\bstateful\x12>\n" +
-	"\adefault\x18\x03 \x01(\x0e2$.flowseer.net.filter.v1.FilterActionR\adefault\x128\n" +
+	"\x05match\x18\x02 \x01(\v2#.flowseer.net.filter.v1.FilterMatchR\x05match\x12K\n" +
+	"\x06action\x18\x03 \x01(\x0e2$.flowseer.net.filter.v1.FilterActionB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06action\"\xd4\x01\n" +
+	"\rFilterRuleSet\x12\x1e\n" +
+	"\x04name\x18\x01 \x01(\tB\n" +
+	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\x04name\x12\x1a\n" +
+	"\bstateful\x18\x02 \x01(\bR\bstateful\x12M\n" +
+	"\adefault\x18\x03 \x01(\x0e2$.flowseer.net.filter.v1.FilterActionB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\adefault\x128\n" +
 	"\x05rules\x18\x04 \x03(\v2\".flowseer.net.filter.v1.FilterRuleR\x05rules*y\n" +
 	"\fFilterAction\x12\x1d\n" +
 	"\x19FILTER_ACTION_UNSPECIFIED\x10\x00\x12\x18\n" +
