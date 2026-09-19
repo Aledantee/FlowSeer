@@ -730,7 +730,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-18-2129-feat-netsim-bounded-search-phase7b-plan.md`
 - **After:** U7a
-- **Landed:**
+- **Landed:** `8773a04c..ca5615ab`
 - **Change:** Add `src/common/netsim/search` with finite L2 and timed-fault
   domains and an L3 interface, deterministic enumeration under a resource
   contract, coverage-and-remainder accounting, deterministic minimization, and
