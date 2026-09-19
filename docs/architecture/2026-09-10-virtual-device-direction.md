@@ -39,6 +39,8 @@ ownership across specialized packages:
   switch construction specifications, loading reports, and readiness metadata.
 - `fabric` composes switches, hosts, and cables into a stepped network simulation
   recording traversal journeys.
+- `search` enumerates finite scenario domains against current-versus-candidate
+  fabrics, minimizes causal counterexamples, and aligns traces.
 - `internal/netsimtest` maintains an admitted, versioned analysis conformance
   corpus.
 
@@ -391,6 +393,47 @@ rather than whole-state fingerprints or shallow boolean equality:
   protocol boundaries. It does not capture per-journey paths, arrival timing, or
   multiplicity. Comparison is an independent field-level walk over all
   behavioral observables.
+
+### Bounded differential search
+
+A caller searches a declared finite domain of candidate scenarios against a
+current-versus-candidate fabric pair to identify behavioral divergence or confirm
+bounded equivalence under a resource contract:
+
+- **Finite domain enumeration.** A search domain implements the `Domain`
+  interface with `Size() int` and an internal iterator `Enumerate(yield func(Candidate) bool)`.
+  Candidates represent test scenarios paired with domain tuple identities.
+  Enumeration follows a total deterministic order independent of map iteration.
+  When a search halts early on its candidate budget, it returns an exact slice of
+  untested tuples alongside tested coverage (`Coverage` and `Remainder`).
+- **Domain scopes.** Two concrete domains exist: `L2TrafficDomain` (cross
+  product of declared source, destination, VLAN, and frame-shape tuples) and
+  `TimedFaultDomain` (declared cable faults at declared times). `L3Domain` is an
+  interface only this phase, deferring routed traffic enumeration to a later
+  increment without altering the search pipeline.
+- **Comparison per candidate.** `search.Search(current, candidate, dom, lim)`
+  evaluates each candidate via `fabric.Compare(current, candidate, cand.Scenario, lim.Budget)`.
+  `fabric.Compare` forks both fabrics internally. Neither the current nor the
+  candidate fabric is stepped or consumed across the search, so callers can reuse
+  mid-run fabrics directly.
+- **Resource contract and asymmetric retention.** Discarded candidates (equivalent
+  or inconclusive) record coverage accounting and a summary count only, without
+  full execution traces. Only retained `Different` candidates (bounded by
+  `lim.MaxDifferences`) preserve their tuple identity, immutable `[2]ReplaySpec`,
+  and first differing `Difference` observable.
+- **Deterministic counterexample minimization.** When a behavioral difference is
+  found, `Minimize` performs deterministic reduction within the domain by
+  removing scenario elements (injections, then faults) in a fixed order. A
+  removal is accepted only if `fabric.Compare` replayed on the reduced candidate
+  still reproduces the exact same `Difference.Observable`. Minimization reports
+  `Minimal` or `LimitReached`.
+- **First-divergence trace alignment.** For a retained comparison, `Align`
+  walks paired journeys in deterministic order and locates the first entry index
+  where causal trace facts diverge. Trace facts remain diagnostic and never
+  alter the behavioral disposition.
+- **Package dependency direction.** The `search` package imports `analysis`,
+  `vswitch`, and `fabric`. None of `analysis`, `vswitch`, or `fabric` imports
+  `search`.
 
 ### LAG bucket selection and multicast query observation
 
@@ -808,6 +851,8 @@ admitted case must define:
   holds `port`, `phy`, `bridge`, `stp`, `netmodel`, and the switch itself;
   `src/common/netsim/fabric` holds switches, hosts, cables, the run,
   journeys, snapshots, comparison, diff, and derivation;
+  `src/common/netsim/search` holds bounded differential search, counterexample
+  minimization, and trace alignment;
   `src/common/netsim/internal/netsimtest` holds the versioned conformance
   corpus. A `service.Module` leaf is written with the first host.
 - The forwarding scope grows by capability: rapid spanning tree with
@@ -876,3 +921,12 @@ Added the [Current-against-candidate comparison](#current-against-candidate-comp
 subsection establishing exact switch and fabric comparison over behavioral
 observables with `Equivalent`, `Different`, and `Inconclusive` dispositions,
 internal forking of inputs, and injection-ordinal journey pairing.
+
+### 2026-09-19 — Bounded differential search
+
+Landed with phase 7b bounded search (`docs/plans/2026-09-18-2129-feat-netsim-bounded-search-phase7b-plan.md`).
+Added the [Bounded differential search](#bounded-differential-search) subsection
+establishing finite domain enumeration with exact coverage and remainder
+accounting, deterministic replay-checked counterexample minimization,
+first-divergence trace alignment, and asymmetric retention under the search
+resource contract.
