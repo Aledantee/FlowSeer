@@ -1462,4 +1462,3 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 		t.Errorf("capabilities = %v, want to contain port.LayerFilter", res.Report.Capabilities)
 	}
 }
-

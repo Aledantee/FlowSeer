@@ -157,7 +157,7 @@ func CaseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 		UseCase: UseCaseTroubleshooting,
 		Question: "When a filter set bound to an ingress interface denies UDP traffic to port 5353, " +
 			"does a unicast mDNS probe drop with a definitive filter-drop reason and complete readiness?",
-		FalseAnswer: "Silently forwarding the probe, dropping it with an uninformative generic reason, or degrading model readiness",
+		FalseAnswer:   "Silently forwarding the probe, dropping it with an uninformative generic reason, or degrading model readiness",
 		CurrentResult: "The frame drops at the filter layer with ReasonFilterDrop and analysis.Complete readiness",
 		ExpectedMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
@@ -298,7 +298,7 @@ func CaseTroubleshootingStatefulReplyAllowed() Case {
 		UseCase: UseCaseTroubleshooting,
 		Question: "When an ingress interface filter set default-drops traffic, does it forward a " +
 			"return packet whose reversed 5-tuple was accepted by a stateful counterpart set?",
-		FalseAnswer: "Dropping the return packet because the local interface set has no matching accept rule, or requiring an explicit return rule",
+		FalseAnswer:   "Dropping the return packet because the local interface set has no matching accept rule, or requiring an explicit return rule",
 		CurrentResult: "The return frame forwards with a filter.state step referencing the counterpart rule",
 		ExpectedMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
@@ -475,7 +475,7 @@ func CasePlanningFilterRuleChange() Case {
 		UseCase: UseCasePlanning,
 		Question: "Does adding a filter rule that drops unicast mDNS alter forwarding behavior " +
 			"from forwarded to dropped and emit a typed filter rule diff change?",
-		FalseAnswer: "Silently ignoring the rule addition, failing to emit typed configuration diff facts, or reporting equivalent forwarding",
+		FalseAnswer:   "Silently ignoring the rule addition, failing to emit typed configuration diff facts, or reporting equivalent forwarding",
 		CurrentResult: "vswitch.Diff produces a typed filter.rule change fact and vswitch.Compare detects forwarding divergence from forwarded to dropped",
 		ExpectedMetadata: &MetadataExpectation{
 			Status: analysis.Complete,

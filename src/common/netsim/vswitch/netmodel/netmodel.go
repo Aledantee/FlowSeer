@@ -1933,12 +1933,12 @@ func Load(
 						r.Match.Protocol = &protoNum
 					}
 					for _, p := range m.GetSrcPrefixes() {
-						if prefix, ok := parseIpPrefix(p); ok {
+						if prefix, ok := parseIPPrefix(p); ok {
 							r.Match.Src = append(r.Match.Src, prefix)
 						}
 					}
 					for _, p := range m.GetDstPrefixes() {
-						if prefix, ok := parseIpPrefix(p); ok {
+						if prefix, ok := parseIPPrefix(p); ok {
 							r.Match.Dst = append(r.Match.Dst, prefix)
 						}
 					}
@@ -2367,7 +2367,7 @@ func translateAction(a filterv1.FilterAction) filter.Action {
 	}
 }
 
-func parseIpPrefix(p *addrv1.IpPrefix) (netip.Prefix, bool) {
+func parseIPPrefix(p *addrv1.IpPrefix) (netip.Prefix, bool) {
 	if p == nil {
 		return netip.Prefix{}, false
 	}
