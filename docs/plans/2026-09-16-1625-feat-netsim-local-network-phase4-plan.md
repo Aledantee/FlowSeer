@@ -4,13 +4,21 @@ type: feat
 date: 2026-09-19
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
 ---
 
 # Local Network Analysis Phase 4 - The Filter Capability and Its Schema - Plan
+
+> Implemented 2026-09-19, all five units (`a109146a..971bcd04`). The `filter`
+> package, the `flowseer.net.filter.v1` schema with the interface `FilterFacet`,
+> the switch wiring, the netmodel translation, and the three corpus cases all
+> landed; the diff-aware verifier is green (build, race tests, buf-generate
+> drift, proto conformance, golangci-lint). U3 was widened mid-implement to
+> name the `net/addr` and `net/packet` READMEs the reverse import-by gate
+> needs.
 
 > Re-planned 2026-09-19 against the tree the earlier phases and the protobuf
 > layout refactor left. The external prerequisite
