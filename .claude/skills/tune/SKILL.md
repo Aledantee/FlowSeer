@@ -26,9 +26,13 @@ never guesses.
 ```
 
 Writes which CLIs exist, which pools are signed in, what Orca can pin with
-`--model`, the `opencode` model ids split by `opencode-go/` (prepaid) and
+`--model`, the `opencode` model ids split by `synthetic/` (prepaid) and
 `opencode/` (per-token), and the Claude rate-limit windows. The file is
 gitignored: it describes this machine. Run this step on every invocation.
+
+opencode's `synthetic/` list is its own catalogue and keeps ids Synthetic
+has stopped serving: on 2026-09-19 four of ten answered 404. Send each new
+id one request before it goes in the registry.
 
 ## 2. Pull live catalogues
 

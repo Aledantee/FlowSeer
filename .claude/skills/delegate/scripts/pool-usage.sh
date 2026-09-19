@@ -5,28 +5,32 @@
 #
 #   claude, codex  orca account list --json      (rateLimits)
 #   google         agy -p /quota                 (answers without a model turn)
-#   go             opencode's local database     (dollars spent against the caps)
+#   synthetic      GET api.synthetic.new/v2/quotas (rolling five-hour request
+#                  limit and weekly credit limit; the call is not counted)
 #
-# Orca also lists `antigravity` and `opencodeGo` with status `unavailable`.
-# That status means Orca cannot read their usage, not that the pools are down,
-# so it is never consulted for them. A source that fails leaves its pool with
-# `windows: null` and an `error`; it does not mark the pool signed out unless
-# the CLI itself says so.
+# Orca also lists `antigravity` with status `unavailable`. That status means
+# Orca cannot read its usage, not that the pool is down, so it is never
+# consulted for it. A source that fails leaves its pool with `windows: null`
+# and an `error`; it does not mark the pool signed out unless the source
+# itself says so.
+#
+# The synthetic key comes from SYNTHETIC_API_KEY, else from the `synthetic`
+# entry opencode keeps in ~/.local/share/opencode/auth.json. It is sent only
+# to api.synthetic.new and never printed.
 #
 # Run unsandboxed: orca uses a local socket, agy the network and the keyring,
-# and opencode writes a log file under ~/.local/share.
+# and the synthetic read needs the network.
 
 set -uo pipefail
 
-registry="$(cd "$(dirname "$0")/../../.." && pwd)/models/registry.yaml"
-
-REGISTRY="$registry" python3 - <<'PY'
+python3 - <<'PY'
 import datetime
 import json
 import os
-import re
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 
 
 def run(cmd, timeout=90):
@@ -104,47 +108,49 @@ def google_pool():
     emit("google", True, "agy", windows or None, resets)
 
 
-def go_caps():
-    caps = {"5h": 12, "week": 30, "month": 60}
+def synthetic_key():
+    key = os.environ.get("SYNTHETIC_API_KEY")
+    if key:
+        return key
     try:
-        text = open(os.environ["REGISTRY"]).read()
-        m = re.search(r"^\s*go:.*caps:\s*\{([^}]*)\}", text, re.M)
-        for k, v in re.findall(r"(\w+):\s*([\d.]+)", m.group(1)):
-            caps[k] = float(v)
-    except (OSError, AttributeError, KeyError):
-        pass
-    return caps
+        auth = json.load(open(os.path.expanduser("~/.local/share/opencode/auth.json")))
+        return auth["synthetic"]["key"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
-def go_pool():
-    if not shutil.which("opencode"):
-        emit("go", False, "opencode-db", error="opencode not installed")
+def synthetic_pool():
+    key = synthetic_key()
+    if not key:
+        emit("synthetic", False, "synthetic-api",
+             error="no key in SYNTHETIC_API_KEY or opencode auth.json")
         return
-    models, err = run(["opencode", "models"])
-    if models is None or "opencode-go/" not in models:
-        emit("go", False, "opencode-db", error=err)
-        return
-    # The pool meters rolling windows in dollars. The database holds only this
-    # machine's sessions, so spend from another host is not counted.
-    spans = {"5h": 5 * 3600, "week": 7 * 86400, "month": 30 * 86400}
-    cols = ", ".join(
-        "sum(case when time_created > (strftime('%%s','now') - %d) * 1000 "
-        "then json_extract(data, '$.cost') else 0 end) as \"%s\"" % (secs, name)
-        for name, secs in spans.items())
-    query = ("select %s from message "
-             "where json_extract(data, '$.providerID') = 'opencode-go'" % cols)
-    out, err = run(["opencode", "db", query, "--format", "json"])
+    req = urllib.request.Request("https://api.synthetic.new/v2/quotas",
+                                 headers={"Authorization": "Bearer " + key})
+    # The documented `subscription.requests` counter stayed at 0 across real
+    # requests (2026-09-19); the two limits below are the ones that move. Both
+    # refill continuously, so there is no reset time to report.
     try:
-        spent = json.loads(out)[0]
-    except (TypeError, ValueError, IndexError):
-        emit("go", True, "opencode-db", error=err or "unreadable database reply")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            quota = json.load(resp)
+        five = quota["rollingFiveHourLimit"]
+        windows = {
+            "5h": round((1 - five["remaining"] / five["max"]) * 100),
+            "week": round(100 - quota["weeklyTokenLimit"]["percentRemaining"]),
+        }
+        if five.get("limited"):
+            windows["5h"] = 100
+    except urllib.error.HTTPError as e:
+        # A rejected key is the API saying the pool is signed out.
+        emit("synthetic", e.code not in (401, 403), "synthetic-api", error="HTTP %d" % e.code)
         return
-    caps = go_caps()
-    windows = {name: round((spent.get(name) or 0) / caps[name] * 100) for name in spans}
-    emit("go", True, "opencode-db", windows)
+    except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError) as e:
+        emit("synthetic", None, "synthetic-api", error=str(e) or "unreadable quota reply")
+        return
+    emit("synthetic", True, "synthetic-api", windows)
 
 
 orca_pools()
 google_pool()
-go_pool()
+synthetic_pool()
 PY

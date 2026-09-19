@@ -32,22 +32,24 @@ fi
 
 echo "pools:"
 # The four prepaid pools, each read from the source that owns its numbers.
-# Orca's `unavailable` rows for antigravity and opencodeGo say only that Orca
-# cannot read them, so they are not used.
+# Orca's `unavailable` row for antigravity says only that Orca cannot read
+# it, so it is not used.
 "$(dirname "$0")/../../delegate/scripts/pool-usage.sh" | sed 's/^/  /'
 
 # opencode: zen is per-token and has no window; list the model ids by pool.
+# The synthetic list is opencode's catalogue, which keeps ids Synthetic has
+# stopped serving; only a request shows whether an id still answers.
 if have opencode; then
   opencode models 2>/dev/null | python3 -c '
 import sys
-go, zen = [], []
+synthetic, zen = [], []
 for line in sys.stdin:
     line = line.strip()
-    if line.startswith("opencode-go/"): go.append(line.split("/", 1)[1])
+    if line.startswith("synthetic/"): synthetic.append(line.split("/", 1)[1])
     elif line.startswith("opencode/"): zen.append(line.split("/", 1)[1])
 print("  zen: {signed_in: %s}" % str(bool(zen)).lower())
 print("opencode_models:")
-print("  go: [%s]" % ", ".join(go))
+print("  synthetic: [%s]" % ", ".join("\"%s\"" % m for m in synthetic))
 print("  zen: [%s]" % ", ".join(zen))
 '
 else

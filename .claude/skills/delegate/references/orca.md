@@ -27,7 +27,7 @@ orca orchestration worker-release --dispatch <dispatch_id> --json
   empty script is reported as a failed setup.
 - `--model` pins Claude, Codex, and Cursor ids only; an `agy` or
   `opencode` lane cannot be dispatched here. Without a Herdr server the
-  `google` and `go` pools have no supervised lane; the wave runs on
+  `google` and `synthetic` pools have no supervised lane; the wave runs on
   `claude` and `codex` and the report says so.
 - A codex worker stops at the hooks-review dialog for `.codex/hooks.json`
   and Orca reports "Agent startup blocked: codex-hooks-review-prompt"; use

@@ -48,13 +48,14 @@ Resolve a role to a lane in this order, once per lane:
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
-(`claude`, `codex`, `google`, `go`) are paid for whether used or not, so
+(`claude`, `codex`, `google`, `synthetic`) are paid for whether used or not, so
 the report names every fitting pool the wave left idle and why.
 
 Pinning by pool: `claude` and `codex` take `--model` and `--effort`;
 `google` takes `--model gemini-3.8-flash-<effort>` on the `agy` launch;
-`go` and `zen` take the opencode agent named in the registry's
-`opencode_agents`, whose model is fixed in `~/.config/opencode/opencode.json`.
+`synthetic` and `zen` take the opencode agent named in the registry's
+`opencode_agents`, whose model is fixed in `~/.config/opencode/opencode.json`
+to the model's `pool_id`.
 A model whose `effort` list lacks the role's level gets the highest level it
 lists: `execute` routes at `xhigh`, and `gemini-3.8-flash-xhigh` is not a
 model id, so that lane launches as `gemini-3.8-flash-high`.
@@ -97,12 +98,12 @@ reset time:
 | --- | --- | --- |
 | `claude`, `codex` | `orca account list --json`, `rateLimits` | `session`, `weekly`, `fableWeekly` |
 | `google` | `agy -p /quota --output-format json`, answered without a model turn | `gemini-5h`, `gemini-weekly`, `3p-5h`, `3p-weekly` |
-| `go` | `opencode db`, the cost of `opencode-go` messages against the registry `caps` | `5h`, `week`, `month` |
+| `synthetic` | `GET https://api.synthetic.new/v2/quotas` with the key opencode holds; the call is not counted | `5h`, `week` |
 
-`orca account list` also carries `antigravity` and `opencodeGo` rows with
-`status: unavailable`. That status says Orca cannot read their usage (no
-Gemini CLI sign-in, no session cookie); it says nothing about the pool.
-Never drop `google` or `go` on it. A pool is out only when its own row from
+`orca account list` also carries an `antigravity` row with
+`status: unavailable`. That status says Orca cannot read its usage (no
+Gemini CLI sign-in); it says nothing about the pool.
+Never drop `google` on it. A pool is out only when its own row from
 `pool-usage.sh` shows `signed_in: false` or a window over the threshold. A
 row with `windows: null` and an `error` means the source failed: say so in
 the report and treat the pool as signed in with unknown headroom.
@@ -118,10 +119,10 @@ says whether it did.
   lane is under 85%. On `google` the `gemini-*` windows meter Gemini models
   and the `3p-*` windows meter Claude and GPT models run through `agy`; only
   the group of the lane's model counts.
-- `go` meters rolling windows in dollars, and its database holds only this
-  machine's sessions, so spend from another host is missing from the
-  number. A lane's estimated spend from the registry price counts against
-  the window before it starts.
+- `synthetic` meters a rolling five-hour request limit and a weekly credit
+  limit, both counted by Synthetic, so usage from another host is in the
+  numbers. Both refill in ticks instead of resetting, so its row carries
+  no `resets`; the tick interval has not been measured.
 - A 429 or a "limit reached" reply marks the pool hot for the rest of the
   wave, whatever the row said.
 - The coordinating session and every native subagent draw on the Claude

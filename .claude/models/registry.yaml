@@ -1,16 +1,17 @@
 # Model registry. Written by the `tune` skill; read by `delegate`.
 # Prices are USD per million tokens (input, output) at the vendor's list rate;
-# a prepaid pool makes them irrelevant below its cap except on `go`, whose
-# window is metered in dollars. `refusal_cyber` is the tune skill's measured
+# a prepaid pool makes them irrelevant below its cap. `pool: null` marks a
+# model no signed-in pool serves: it stays because a plan ledger may name it,
+# and it is in no fit set. `refusal_cyber` is the tune skill's measured
 # or reported likelihood that a safety classifier declines security tooling
 # work. Sources and dates live in `.claude/models/evidence.md`.
-as_of: 2026-09-09  # calibration 2026-09-09: Merge task, see evidence.md; catalogue re-pulled 2026-09-09 14:24Z; Sonnet 5 execute re-calibrated at xhigh 2026-09-18
+as_of: 2026-09-09  # calibration 2026-09-09: Merge task, see evidence.md; catalogue re-pulled 2026-09-09 14:24Z; Sonnet 5 execute re-calibrated at xhigh 2026-09-18; `go` pool removed and `synthetic` added 2026-09-19, prices not re-pulled
 
 pools:
   claude: {cli: claude, pin: orca-model, meter: requests}
   codex: {cli: codex, pin: orca-model, meter: requests}
   google: {cli: agy, pin: launch-flag, meter: requests}
-  go: {cli: opencode, pin: agent-name, meter: dollars, caps: {5h: 12, week: 30, month: 60}}
+  synthetic: {cli: opencode, pin: agent-name, meter: requests}  # rolling five-hour request limit and weekly credit limit, both read from GET api.synthetic.new/v2/quotas
   zen: {cli: opencode, pin: agent-name, meter: per-token, overflow_only: true}
 
 models:
@@ -22,15 +23,15 @@ models:
   gpt-5.6-sol: {pool: codex, vendor: openai, price: [4, 20], context: 1050000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, terminal_bench: null, local: {execute: {pass: 7/7, wall_s: '>6600 (global codex plugin self-review)', cost_usd: null}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 530, cost_usd: 3.5}}}
   gpt-5.6-luna: {pool: codex, vendor: openai, price: [0.2, 1.2], context: 1050000, effort: [low, medium, high], refusal_cyber: low}
   gemini-3.8-flash: {pool: google, vendor: google, price: [0.75, 3.75], context: 1048576, effort: [low, medium, high], refusal_cyber: medium, id_format: "gemini-3.8-flash-<effort>", local: {execute: {pass: 7/7, wall_s: 201, cost_usd: 0.56}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 275, cost_usd: 0.48}}}
-  glm-5.3: {pool: go, vendor: zai, price: [1.4, 4.4], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 88.2, open_weights: true, local: {execute: {pass: 0/7, wall_s: 902, cost_usd: 0.17, note: 32K reasoning then finish=length, no tool call}}}
-  glm-5.3-flash: {pool: go, vendor: zai, price: [0.07, 0.25], context: 1000000, effort: [], refusal_cyber: low, open_weights: true}
-  kimi-k3: {pool: go, vendor: moonshotai, price: [3, 15], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 88.3, open_weights: true, local: {execute: {pass: 7/7, wall_s: 1235, cost_usd: 0.82}}}
-  qwen3.8-max: {pool: go, vendor: alibaba, price: [2, 6], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 86.6, local: {review-unit: {found_known_bug: false, extra_valid: 1, wall_s: 1669, cost_usd: 0.63}}}
-  deepseek-v4-flash: {pool: go, vendor: deepseek, price: [0.14, 0.28], context: 1048576, effort: [], refusal_cyber: low, open_weights: true}
-  deepseek-v4-pro: {pool: go, vendor: deepseek, price: [0.435, 0.87], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 87.9, open_weights: true}  # 0813 checkpoint; no calibration yet, in no fit set
-  qwen3.8-flash: {pool: go, vendor: alibaba, price: [0.15, 0.47], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
-  grok-4.6: {pool: go, vendor: xai, price: [2, 6], context: 500000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
-  minimax-m3: {pool: go, vendor: minimax, price: [0.3, 1.2], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 66.0, vision: true, open_weights: true}
+  glm-5.3: {pool: null, vendor: zai, price: [1.4, 4.4], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 88.2, open_weights: true, local: {execute: {pass: 0/7, wall_s: 902, cost_usd: 0.17, note: 32K reasoning then finish=length, no tool call}}}
+  glm-5.3-flash: {pool: synthetic, pool_id: "synthetic/hf:zai-org/GLM-5.3-Flash", vendor: zai, price: [0.07, 0.25], context: 1000000, effort: [], refusal_cyber: low, open_weights: true}
+  kimi-k3: {pool: synthetic, pool_id: "synthetic/hf:moonshotai/Kimi-K3", vendor: moonshotai, price: [3, 15], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 88.3, open_weights: true, local: {execute: {pass: 7/7, wall_s: 1235, cost_usd: 0.82, note: measured on the go pool 2026-09-09; same weights on synthetic, not re-run there}}}
+  qwen3.8-max: {pool: null, vendor: alibaba, price: [2, 6], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 86.6, local: {review-unit: {found_known_bug: false, extra_valid: 1, wall_s: 1669, cost_usd: 0.63}}}
+  deepseek-v4-flash: {pool: null, vendor: deepseek, price: [0.14, 0.28], context: 1048576, effort: [], refusal_cyber: low, open_weights: true}
+  deepseek-v4-pro: {pool: null, vendor: deepseek, price: [0.435, 0.87], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 87.9, open_weights: true}  # 0813 checkpoint; no calibration yet, in no fit set
+  qwen3.8-flash: {pool: null, vendor: alibaba, price: [0.15, 0.47], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
+  grok-4.6: {pool: null, vendor: xai, price: [2, 6], context: 500000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
+  minimax-m3: {pool: null, vendor: minimax, price: [0.3, 1.2], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 66.0, vision: true, open_weights: true}
 
 # A role names what a piece of delegated work needs. `fit` lists the models
 # that do it, in no order: `delegate` picks by pool headroom. `effort` is the
@@ -41,14 +42,14 @@ models:
 # `claude` lanes until 2026-09-18. Such a result says nothing about the
 # model at the role's level, and every `local` result is one run.
 roles:
-  lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash, deepseek-v4-flash]}
-  research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash, deepseek-v4-flash]}
+  lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
+  research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
   execute: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, kimi-k3]}  # glm-5.3 removed 2026-09-09 (calibration 0/7); claude-sonnet-5 removed 2026-09-18 (6/7, 6/7, 5/7 across default and xhigh, same deadlock)
   execute-sensitive: {effort: high, fit: [gpt-5.6-sol, kimi-k3], exclude: [claude-opus-5, claude-fable-5-1, gpt-6-astra]}
   review-unit: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, claude-opus-5], vendor_differs_from: executor}  # sonnet, qwen3.8-max missed the calibration bug 2026-09-09
   review-seam: {effort: high, fit: [claude-opus-5, gpt-5.6-sol]}
   judge: {effort: max, fit: [claude-fable-5-1, gpt-6-astra], never_sensitive: true}
-  critique: {effort: high, fit: [gemini-3.8-flash, kimi-k3, minimax-m3]}
+  critique: {effort: high, fit: [gemini-3.8-flash, kimi-k3]}  # minimax-m3 left with the go pool 2026-09-19; Synthetic answers 404 for it
 
 # Paths whose units carry the `sensitive` tag: security classifiers on the
 # top tier decline work here, and a decline inside Claude Code is a silent
@@ -59,12 +60,11 @@ sensitive_paths:
   - src/modules/localnet/**
   - src/protocol/snmp/**
 
-# opencode agent name per role on the `go` and `zen` pools.
+# opencode agent name per role on the `synthetic` and `zen` pools. A role
+# whose fit set holds no model from those pools has no agent.
 opencode_agents:
-  lookup: lookup
   research: research
   execute: execute-open
   execute-sensitive: execute-sensitive
-  review-unit: review-unit
   critique: critique
   overflow: overflow-frontier

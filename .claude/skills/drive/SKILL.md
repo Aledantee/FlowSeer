@@ -43,7 +43,7 @@ Before the first dispatch:
 - A line flagged `elsewhere:<branch>` is not driven; name the branch.
 - Load `delegate`, discover the host, and read the quota with its
   `pool-usage.sh`. State all four rows (`claude`, `codex`, `google`,
-  `go`) before the first dispatch; a quota line that names two pools
+  `synthetic`) before the first dispatch; a quota line that names two pools
   routed on two pools. No usable pool means no drive: say which window is
   exhausted and when it resets.
 
@@ -72,7 +72,7 @@ The brief follows `delegate`, and adds three things:
   that file and follows it, which every agent CLI can do, so the stage
   worker's lane comes from `delegate`'s resolution over all four pools
   like any other. "The skill is a Claude Code skill" is not a reason to
-  pick `claude`: that choice leaves `google` and `go` idle and spends the
+  pick `claude`: that choice leaves `google` and `synthetic` idle and spends the
   pool this session and every native subagent already draw on.
 - A decision the skill would put to the user is a blocker to state and
   stop on.

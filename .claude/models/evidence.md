@@ -56,3 +56,18 @@ Limits of this calibration, found 2026-09-18 by reading `bench.sh` and this file
 ## Calibration 2026-09-18 — `Merge` task, Claude Sonnet 5 `execute` at `xhigh`
 
 Base bd9e0862 (`d4421211^`, so the lanes measure implementation), two runs through `bench.sh --cli claude --model claude-sonnet-5 --effort xhigh`, graded with each of the 7 hidden acceptance tests run on its own under `-race -count=3`, because a `synctest` deadlock panic ends the test binary and hides the tests after it. Run 1: 6/7 in 591 s, $1.58 reported (48K thinking tokens). Run 2: 5/7 in 580 s, $1.39 reported (45K thinking tokens). Both fail `TestMergeAcceptSourceErrorPropagates` with "all goroutines in bubble are blocked", the failure the default-effort run had on 2026-09-09; run 2 also fails `TestMergeAcceptContextCancelPropagates`. The verifier was not run on either lane, since neither passed acceptance. `xhigh` doubled wall time and cost against the default-effort run (269 s, $0.69) and did not remove the deadlock. Gemini 3.8 Flash and Kimi K3 were not re-run; their 7/7 results are one sample each on an unrecorded base.
+
+## Synthetic pool smoke test 2026-09-19
+
+One `opencode serve` (1.18.30) in an empty directory, one session per `synthetic/` id from `opencode models`, default agent, one prompt: read `probe.txt` with the file tool and reply with its text. A pass means the reply carried the file's text, which the model could only get through a tool call. Each result is one run; `cost` is what opencode reported at list rates, not what the subscription charged.
+
+- `opencode auth list` shows Synthetic signed in; `opencode models` lists ten `synthetic/hf:` ids — 2026-09-19.
+- hf:moonshotai/Kimi-K3 — pass, 15 s, 16.6K input tokens uncached, cost 0.051 — 2026-09-19.
+- hf:zai-org/GLM-5.3-Flash — pass, 9 s, cost 0.0026 — 2026-09-19.
+- hf:deepseek-ai/DeepSeek-V4.1-Flash — pass, 19 s, cost 0.0008 — 2026-09-19.
+- hf:openai/gpt-oss-120b — pass, 8 s, cost 0.0015 — 2026-09-19.
+- hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 — pass, 8 s, cost 0.0059 — 2026-09-19.
+- hf:MiniMaxAI/MiniMax-M3, hf:moonshotai/Kimi-K2.7-Code, hf:Qwen/Qwen3.6-27B, hf:zai-org/GLM-5.2 — HTTP 404 from Synthetic, "is no longer supported. Try using a different model, like hf:moonshotai/Kimi-K3". opencode's catalogue still lists them, so `opencode models` overstates what the pool serves — 2026-09-19.
+- hf:zai-org/GLM-4.7-Flash — no reply within 240 s, no error — 2026-09-19.
+- Synthetic quota — `GET https://api.synthetic.new/v2/quotas` is documented to return `subscription.{limit, requests, renewsAt}` and not to count against the limit — https://dev.synthetic.new/docs/synthetic/quotas — 2026-09-19.
+- Synthetic quota, live reply — also returns `rollingFiveHourLimit.{remaining, max, limited, nextTickAt, tickPercent}` and `weeklyTokenLimit.{percentRemaining, maxCredits, remainingCredits, nextRegenAt}`, which the docs page does not list. After the ten probes above `subscription.requests` was still 0 of 2500 while `rollingFiveHourLimit.remaining` read 2495.78 of 2500 and weekly credits $119.86 of $120.00, so `pool-usage.sh` meters the latter two. The fractional remainder means requests are weighted; the weights and the tick interval are not measured — 2026-09-19.
