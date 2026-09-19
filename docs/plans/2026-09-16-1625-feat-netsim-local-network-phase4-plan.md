@@ -172,8 +172,10 @@ addition:
   (`net/interface -> net/filter -> net/packet`). The new
   `spec/proto/flowseer/net/filter/v1/README.md` carries the `## Boundaries`
   block the layout gate checks, with `Imports:` listing `net/addr, net/packet`
-  and `Imported by:` listing `net/interface`, and `net/interface`'s README
-  `Imports:` line gains `net/filter`
+  and `Imported by:` listing `net/interface`; `net/interface`'s README
+  `Imports:` line gains `net/filter`, and the `Imported by:` lines of
+  `net/addr/v1` and `net/packet/v1`'s READMEs gain `net/filter` in turn, since
+  the gate checks both the imports and the imported-by direction of every edge
   (`test/conformance/proto/layout_test.go:119-157`, `:241-306`).
 - Two mirrored artifacts carry the new import edge and must move with it. The
   layering gate's hardcoded allowlist gains a row
@@ -289,6 +291,8 @@ Files: `spec/proto/flowseer/net/filter/v1/filter.proto`,
 `spec/proto/flowseer/net/filter/v1/README.md`,
 `spec/proto/flowseer/net/interface/v1/interface.proto`,
 `spec/proto/flowseer/net/interface/v1/README.md`,
+`spec/proto/flowseer/net/addr/v1/README.md`,
+`spec/proto/flowseer/net/packet/v1/README.md`,
 `test/conformance/proto/layering_test.go`,
 `docs/architecture/2026-08-20-network-model-structure-direction.md`, and the
 `generated/` output of `buf generate`.
@@ -296,10 +300,13 @@ After: none
 Change: the `filter` schema package exists with `FilterRuleSet`, `FilterRule`,
 `FilterMatch`, `FilterAction`, `FilterDirection`, and `FilterFacet` reusing the
 `net/packet` atoms and `net/addr.IpPrefix`; `Interface` gains
-`flowseer.net.filter.v1.FilterFacet filter = 21`; both READMEs carry the
-`## Boundaries` block the layout gate checks; `layering_test.go`'s `importOrder`
-allowlist and the record's mirrored import-order table gain the `net/filter`
-rows; `buf lint`, `buf generate`, and the breaking-change gate pass.
+`flowseer.net.filter.v1.FilterFacet filter = 21`; the two new package READMEs
+(`net/filter/v1`, and the field on `net/interface/v1`) carry the `## Boundaries`
+block the layout gate checks, and the `Imported by:` lines of `net/addr/v1` and
+`net/packet/v1`'s READMEs gain `net/filter` because `net/filter` imports them
+(the gate `TestProtoReadmeImports` checks both directions); `layering_test.go`'s
+`importOrder` allowlist and the record's mirrored import-order table gain the
+`net/filter` rows; `buf lint`, `buf generate`, and the breaking-change gate pass.
 Tests: `buf lint`; `test/conformance/proto/layout_test.go` (README coverage and
 imports) and `test/conformance/proto/layering_test.go` (the import-order
 allowlist) both green; protovalidate coverage of the match constraints as the
