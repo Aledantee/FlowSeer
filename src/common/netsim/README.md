@@ -20,6 +20,7 @@ goroutines or wall-clock dependencies.
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging         |
 | `vswitch/mcast`    | Per-port RFC 3376/MLDv2 router state, router ports, and aging |
 | `vswitch/routing`  | Routed interfaces, per-VRF tables, equal-cost selection, recursive next hops |
+| `vswitch/filter`   | Interface-bound access-control rules and stateful reverse matches |
 | `vswitch/stp`      | Rapid Spanning Tree Protocol state machine, BPDUs, and port guards |
 | `vswitch/loopprotect` | netsim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos       |

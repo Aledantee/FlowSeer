@@ -25,6 +25,7 @@ import (
 var diffCoveredPackages = []string{
 	"src/common/netsim/vswitch",
 	"src/common/netsim/vswitch/bridge",
+	"src/common/netsim/vswitch/filter",
 	"src/common/netsim/vswitch/lag",
 	"src/common/netsim/vswitch/loopprotect",
 	"src/common/netsim/vswitch/mcast",

@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 33 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 33", len(allCases))
+	if len(allCases) != 36 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 36", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -589,6 +589,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	wantPlanning := []string{
 		"planning/candidate-fork-diverges",
 		"planning/ecmp-candidates-recorded",
+		"planning/filter-rule-change",
 		"planning/lag-member-fault-keeps-surviving-flows",
 		"planning/mstp-vlan-instances-diverge",
 		"planning/mstp-vlan-instances-diverge-instance-blocks-alternate",
@@ -630,6 +631,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	wantTroubleshooting := []string{
 		"troubleshooting/active-backup-no-failback",
 		"troubleshooting/bpdu-guard-disables-edge",
+		"troubleshooting/filter-drops-mdns-unicast-probe",
 		"troubleshooting/host-rejects-foreign-unicast",
 		"troubleshooting/leave-last-member-query",
 		"troubleshooting/loop-guard-unidirectional-link",
@@ -643,6 +645,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"troubleshooting/recursive-route-not-installed",
 		"troubleshooting/ssm-rejects-unjoined-source",
 		"troubleshooting/stale-root-ages-out",
+		"troubleshooting/stateful-reply-allowed",
 		"troubleshooting/unicast-fdb-forwarding",
 	}
 	troubleshootingCases := r.ByUseCase(netsimtest.UseCaseTroubleshooting)

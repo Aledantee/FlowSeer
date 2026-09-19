@@ -476,7 +476,7 @@ func CaseShadowingPartialUnknownPort() Case {
 				switchingv1.Vlan_builder{Id: &vid10, Name: &vname10}.Build(),
 			}
 
-			loadRes, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+			loadRes, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -2498,5 +2498,6 @@ func DefaultRegistry() *Registry {
 	RegisterScenarioCases(r)
 	RegisterMDNSCases(r)
 	RegisterReflectorCases(r)
+	RegisterFilterCases(r)
 	return r
 }

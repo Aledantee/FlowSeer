@@ -182,6 +182,17 @@ established across the library:
   `StopBudget` and records `IssueBudgetExhausted` with `Exhausted` status,
   disproving the false answer that returning the budget count and a nil error
   reads like a completed analysis.
+- `planning/filter-rule-change`: Adds a filter deny rule to an ingress interface
+  and asserts both forwarding sides, their ordered traces, and the typed diff fact
+  ([filter.RuleSnapshotFact]) without string parsing, with [vswitch.Compare]
+  detecting the forwarding divergence from forwarded to dropped.
+- `troubleshooting/filter-drops-mdns-unicast-probe`: An ingress interface bound to
+  a filter set with a matching drop rule drops a unicast UDP probe with reason
+  `filter-drop` and [analysis.Complete] readiness.
+- `troubleshooting/stateful-reply-allowed`: An ingress interface filter set with
+  a default-drop policy forwards return traffic whose reversed 5-tuple was
+  accepted by a stateful counterpart set, emitting a `filter.state` step referencing
+  the counterpart rule.
 
 The sixteen `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey], seven of them alongside
