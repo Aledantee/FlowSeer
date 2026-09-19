@@ -316,6 +316,9 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 					continue
 				}
 				if rule.Action != Accept {
+					if rule.Match.ICMP != nil || rule.Match.TCPFlags != nil {
+						continue
+					}
 					break
 				}
 				fwdRuleKey := rule.Name
@@ -433,6 +436,9 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 						continue
 					}
 					if rule.Action != Accept {
+						if rule.Match.ICMP != nil || rule.Match.TCPFlags != nil {
+							continue
+						}
 						break
 					}
 					fwdRuleKey := rule.Name

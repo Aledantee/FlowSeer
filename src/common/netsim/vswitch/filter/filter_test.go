@@ -593,3 +593,142 @@ func TestDropIsCompleteDomainOutcome(t *testing.T) {
 		t.Errorf("Status() = %v, want %v", res.Status(), analysis.Complete)
 	}
 }
+
+func TestStatefulReverseMatchRuleEnumeration(t *testing.T) {
+	protoTCP := uint8(6)
+	clientIP := netip.MustParseAddr("10.0.10.7")
+	serverIP := netip.MustParseAddr("10.0.20.5")
+	hostPrefix := netip.MustParsePrefix("10.0.10.7/32")
+	httpsPort := []filter.PortRange{{Start: 443, End: 443}}
+
+	cases := []struct {
+		name         string
+		rules        []filter.Rule
+		wantDecision filter.Decision
+		wantRuleID   trace.RuleID
+	}{
+		{
+			name: "accept-https-admits-reply",
+			rules: []filter.Rule{
+				{
+					Name:   "accept-https",
+					Action: filter.Accept,
+					Match:  filter.Match{Protocol: &protoTCP, DstPorts: httpsPort},
+				},
+			},
+			wantDecision: filter.DecisionAccept,
+			wantRuleID:   filter.RuleState,
+		},
+		{
+			name: "pure-five-tuple-drop-shadows-accept",
+			rules: []filter.Rule{
+				{
+					Name:   "drop-host",
+					Action: filter.Drop,
+					Match:  filter.Match{Protocol: &protoTCP, Src: []netip.Prefix{hostPrefix}},
+				},
+				{
+					Name:   "accept-https",
+					Action: filter.Accept,
+					Match:  filter.Match{Protocol: &protoTCP, DstPorts: httpsPort},
+				},
+			},
+			wantDecision: filter.DecisionDrop,
+			wantRuleID:   filter.RuleDefault,
+		},
+		{
+			name: "flag-qualified-accept-admits-reply",
+			rules: []filter.Rule{
+				{
+					Name:   "accept-https-syn",
+					Action: filter.Accept,
+					Match: filter.Match{
+						Protocol: &protoTCP,
+						DstPorts: httpsPort,
+						TCPFlags: &filter.FlagMatch{Mask: tcp.SYN, Value: tcp.SYN},
+					},
+				},
+			},
+			wantDecision: filter.DecisionAccept,
+			wantRuleID:   filter.RuleState,
+		},
+		{
+			name: "flag-qualified-drop-does-not-shadow-accept",
+			rules: []filter.Rule{
+				{
+					Name:   "drop-https-rst",
+					Action: filter.Drop,
+					Match: filter.Match{
+						Protocol: &protoTCP,
+						DstPorts: httpsPort,
+						TCPFlags: &filter.FlagMatch{Mask: tcp.RST, Value: tcp.RST},
+					},
+				},
+				{
+					Name:   "accept-https",
+					Action: filter.Accept,
+					Match:  filter.Match{Protocol: &protoTCP, DstPorts: httpsPort},
+				},
+			},
+			wantDecision: filter.DecisionAccept,
+			wantRuleID:   filter.RuleState,
+		},
+	}
+
+	replyFrame := makeTCPFrame(t, serverIP, clientIP, 443, 40000, tcp.SYN|tcp.ACK)
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := filter.Config{
+				Sets: map[string]filter.RuleSet{
+					"counterpart": {
+						Stateful: true,
+						Default:  filter.Drop,
+						Rules:    tc.rules,
+					},
+					"reply-in": {
+						Stateful: true,
+						Default:  filter.Drop,
+						Rules:    []filter.Rule{},
+					},
+					"out-empty": {
+						Stateful: true,
+						Default:  filter.Drop,
+						Rules:    []filter.Rule{},
+					},
+				},
+				Bindings: []filter.Binding{
+					{Interface: "vlan10", Direction: filter.In, Set: "counterpart"},
+					{Interface: "vlan10", Direction: filter.Out, Set: "counterpart"},
+					{Interface: "vlan20", Direction: filter.In, Set: "reply-in"},
+					{Interface: "vlan20", Direction: filter.Out, Set: "out-empty"},
+				},
+			}
+
+			l, err := filter.New(cfg, port.Table{}, "sw1")
+			if err != nil {
+				t.Fatalf("filter.New error = %v", err)
+			}
+
+			resIngress := l.EvaluateIngress("vlan20", replyFrame)
+			if resIngress.Decision != filter.DecisionDeferred {
+				t.Fatalf("reply ingress decision = %v, want deferred", resIngress.Decision)
+			}
+			resResolved := l.ResolveDeferred(resIngress, "vlan10")
+			if resResolved.Decision != tc.wantDecision {
+				t.Errorf("ResolveDeferred decision = %v, want %v", resResolved.Decision, tc.wantDecision)
+			}
+			if len(resResolved.Steps) != 1 || resResolved.Steps[0].RuleID != tc.wantRuleID {
+				t.Errorf("ResolveDeferred step = %+v, want a single %v step", resResolved.Steps, tc.wantRuleID)
+			}
+
+			resEgress := l.EvaluateEgress("vlan20", "vlan10", replyFrame)
+			if resEgress.Decision != tc.wantDecision {
+				t.Errorf("EvaluateEgress decision = %v, want %v", resEgress.Decision, tc.wantDecision)
+			}
+			if len(resEgress.Steps) != 1 || resEgress.Steps[0].RuleID != tc.wantRuleID {
+				t.Errorf("EvaluateEgress step = %+v, want a single %v step", resEgress.Steps, tc.wantRuleID)
+			}
+		})
+	}
+}
