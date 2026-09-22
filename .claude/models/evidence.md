@@ -204,3 +204,4 @@ No fit set moved on these. Two changes are worth asking for: `deepseek-v4.1-flas
 into `execute` on the only 7/7 of the day at a hundredth of Kimi's cost, and
 `kimi-k3`'s place there reconsidered once a race-checked run exists. The five
 bench worktrees under `~/Projects/worktrees/FlowSeer/` stay for that re-grade.
+- `execute` fit set — `deepseek-v4.1-flash` added on the person's decision, on its 7/7 of 2026-09-20: one run, default agent, base `bd9e0862`, graded without `-race`. A race-checked run on the kept worktree is the follow-up that either confirms or reverses it — 2026-09-22.

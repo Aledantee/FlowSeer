@@ -5,7 +5,7 @@
 # and it is in no fit set. `refusal_cyber` is the tune skill's measured
 # or reported likelihood that a safety classifier declines security tooling
 # work. Sources and dates live in `.claude/models/evidence.md`.
-as_of: 2026-09-20  # calibrations 2026-09-09 and 2026-09-19/20: Merge task, see evidence.md; Sonnet 5 execute re-calibrated at xhigh 2026-09-18; catalogue re-pulled 2026-09-19 19:50Z, which priced the synthetic pool and took the five ids Synthetic does not answer back off it
+as_of: 2026-09-22  # calibrations 2026-09-09 and 2026-09-19/20: Merge task, see evidence.md; Sonnet 5 execute re-calibrated at xhigh 2026-09-18; catalogue re-pulled 2026-09-19 19:50Z, which priced the synthetic pool and took the five ids Synthetic does not answer back off it
 
 pools:
   claude: {cli: claude, pin: orca-model, meter: requests}
@@ -32,7 +32,7 @@ models:
   # is not the upstream vendor's: Synthetic truncates the context and marks its
   # own rate up. None of these is calibrated on this repository, so none is in
   # a fit set.
-  deepseek-v4.1-flash: {pool: synthetic, pool_id: "synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash", vendor: deepseek, price: [0.6, 1.2], context: 524288, effort: [], refusal_cyber: low, terminal_bench: null, open_weights: true, local: {execute: {base: bd9e0862, pass: 7/7, wall_s: 332, cost_usd: 0.002, race: false, note: "default agent; its own tests pass; graded without -race, this host has no C compiler. In no fit set yet: that change is asked, not applied"}}}  # DeepSeek reports Terminal-Bench 2.1 90.6 on its own harness, not comparable with this column
+  deepseek-v4.1-flash: {pool: synthetic, pool_id: "synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash", vendor: deepseek, price: [0.6, 1.2], context: 524288, effort: [], refusal_cyber: low, terminal_bench: null, open_weights: true, local: {execute: {base: bd9e0862, pass: 7/7, wall_s: 332, cost_usd: 0.002, race: false, note: "default agent; its own tests pass; graded without -race, this host has no C compiler. Entered execute 2026-09-22 on this run"}}}  # DeepSeek reports Terminal-Bench 2.1 90.6 on its own harness, not comparable with this column
   nemotron-3-super: {pool: synthetic, pool_id: "synthetic/hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4", vendor: nvidia, price: [0.3, 1.0], context: 262144, effort: [], refusal_cyber: low, terminal_bench: null, open_weights: true, local: {execute: {base: bd9e0862, pass: 1/7, wall_s: 3600, cost_usd: null, race: false, note: "cut off at the harness's 3,600 s ceiling mid-turn with both files on disk and staged; what existed compiles and passes only TestMergeAcceptZeroSourcesCompletes; cost unrecorded, the lane's record was lost to a bench.sh edit during the run; graded without -race"}}}
   gpt-oss-120b: {pool: synthetic, pool_id: "synthetic/hf:openai/gpt-oss-120b", vendor: openai, price: [0.1, 0.1], context: 131072, effort: [], refusal_cyber: low, open_weights: true, local: {execute: {base: bd9e0862, pass: 6/7, wall_s: 282, cost_usd: 0.004, race: false, note: "default agent; fails TestMergeAcceptContextCancelPropagates; its own tests pass; graded without -race, this host has no C compiler"}}}  # returned nothing through a custom agent profile, which is why profiles are gone; smallest context in the registry
   # Registered on the synthetic pool 2026-09-19 and taken back off it the same
@@ -62,7 +62,7 @@ models:
 roles:
   lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
   research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
-  execute: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, kimi-k3]}  # claude-sonnet-5 removed 2026-09-18 (6/7, 6/7, 5/7 across default and xhigh, same deadlock). glm-5.3 was removed 2026-09-09 on a lane that opencode cut at its 32,000-token output cap: that result is void, and whether glm-5.3 belongs here is unmeasured, not settled
+  execute: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, kimi-k3, deepseek-v4.1-flash]}  # deepseek-v4.1-flash added 2026-09-22 on its 7/7 of 2026-09-20 (one run, no -race, base bd9e0862); claude-sonnet-5 removed 2026-09-18 (6/7, 6/7, 5/7 across default and xhigh, same deadlock). glm-5.3 was removed 2026-09-09 on a lane that opencode cut at its 32,000-token output cap: that result is void, and whether glm-5.3 belongs here is unmeasured, not settled
   execute-sensitive: {effort: high, fit: [gpt-5.6-sol, kimi-k3], exclude: [claude-opus-5, claude-fable-5-1, gpt-6-astra]}
   review-unit: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, claude-opus-5], vendor_differs_from: executor}  # sonnet, qwen3.8-max missed the calibration bug 2026-09-09
   review-seam: {effort: high, fit: [claude-opus-5, gpt-5.6-sol]}
