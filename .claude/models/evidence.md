@@ -205,3 +205,15 @@ into `execute` on the only 7/7 of the day at a hundredth of Kimi's cost, and
 `kimi-k3`'s place there reconsidered once a race-checked run exists. The five
 bench worktrees under `~/Projects/worktrees/FlowSeer/` stay for that re-grade.
 - `execute` fit set — `deepseek-v4.1-flash` added on the person's decision, on its 7/7 of 2026-09-20: one run, default agent, base `bd9e0862`, graded without `-race`. A race-checked run on the kept worktree is the follow-up that either confirms or reverses it — 2026-09-22.
+
+## Race-checked re-grade 2026-09-22
+
+`build-essential` installed (gcc 14.2.0), so the four kept worktrees were
+re-graded with each hidden test alone under `-race -count=3`, 180 s cap,
+sequentially and detached from the harness's memory monitor.
+
+- deepseek-v4.1-flash — 7/7, confirming the 2026-09-20 run; its place in `execute` now rests on a race-checked result — 2026-09-22.
+- kimi-k3 — 6/7, `TestMergeAcceptSourceErrorPropagates` again — 2026-09-22.
+- gpt-oss-120b — 5/7 in truth. No `DATA RACE` report, but `TestMergeAcceptSourceErrorPropagates` failed 1 of 3 counts ("healthy source was not told to stop after a sibling failed") and `TestMergeAcceptContextCancelPropagates` 2 of 3 ("source not stopped after merge context cancel"): stop propagation lands after the test looks. A single-count grade reads 6/7 with a different test missing each time, which is what the 2026-09-20 run showed — 2026-09-22.
+- nemotron-3-super — 1/7, unchanged — 2026-09-22.
+- The two `race: false` results that held (7/7, 6/7) held exactly; the one that moved (gpt-oss) moved because of flakiness the race detector did not cause. `-count=3` per test is what exposed it, and it stays in the grader — 2026-09-22.
