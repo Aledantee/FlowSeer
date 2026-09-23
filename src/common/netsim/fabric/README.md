@@ -251,19 +251,26 @@ journey that names a flow folds into that flow's `FlowStats`:
 - `Delivered` counts accepted deliveries per destination host;
 - `Copies` counts the deliveries of mirror and reflector copies per mirror
   name, or `"reflection"` for a reflector copy, which is never the stream
-  being delivered;
+  being delivered: a copy contributes only this count and its metadata, so its
+  latency and its drops, losses, unresolved, rejection, or held outcome stay
+  out of the stream's counters;
 - `Drops`, `Lost`, `Unresolved`, `Rejected`, and `Held` count what became of a
   frame instead of a delivery, `Held` naming a frame a switch held for
-  neighbor resolution;
+  neighbor resolution; `Drops` counts drop events by reason, so a frame a
+  two-port flood refused twice counts twice;
 - `Latency` summarizes `Delivery.At` minus the injection time over every
-  delivery;
+  non-copy delivery;
 - `Metadata` is the merge of every folded journey's trust metadata, so a flow
   carries the issues its frames depended on.
 
 `RetainJourney` is the zero value and keeps the settled journey in `Report()`.
-`RetainAggregate` frees it, and `Inject` refuses it with a zero flow. A
-protocol journey is never freed. `Fabric.Flows()` returns an independent copy
-of every flow's statistics, keyed by flow.
+`RetainAggregate` frees it, and `Inject` refuses it with a zero flow. A frame
+a switch holds for neighbor resolution settles and folds `Held` at the hold
+but is freed only when the release claims it, so the released frame can name
+the journey it was held from; a held frame resolution abandons is never
+claimed and stays retained. A protocol journey is never freed.
+`Fabric.Flows()` returns an independent copy of every flow's statistics,
+keyed by flow.
 
 ```go
 if _, err := fab.Inject(fabric.Injection{
@@ -277,7 +284,7 @@ if _, err := fab.Inject(fabric.Injection{
 }
 fab.Run(1_000_000)
 stats := fab.Flows()[7]
-fmt.Printf("%d offered, %d delivered to h2, p99 unavailable, min %s\n",
+fmt.Printf("%d offered, %d delivered to h2, min %s\n",
 	stats.Offered, stats.Delivered["h2"], stats.Latency.Min)
 ```
 
@@ -294,8 +301,8 @@ per-frame record rather than at retention.
 Measured on the development host (Apple M4 Pro, 2026-09-23): the aggregate
 benchmark took 295 s, and with `-benchmem` reported 2.5 TB of cumulative
 allocation over 5.0 billion allocations; the hundred-thousand-journey
-benchmark took 39 s. The phase's stated budget is 120 s and 2 GiB, so the
-measured time is over it. The run loop fingerprints the fabric after every
+benchmark took 39 s. The stated budget is 120 s and 2 GiB, so the measured
+time is over it. The run loop fingerprints the fabric after every
 step, and that per-step work, not retention, dominates both figures.
 
 ## Media and reach
