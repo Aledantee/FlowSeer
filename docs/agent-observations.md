@@ -26,3 +26,20 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-23 review: unit reviewers reused the executor's vendor
+Skill or agent: `.claude/skills/delegate/SKILL.md`, step 3.
+What happened: In the first review pass for the agent run field plan, the
+review-seam worker sent both `review-unit` tasks to `gpt-6-sol`, the executor's
+model. The vendor exclusion was skipped, and the coordinator had to restate it
+in the second brief. The run log records both reviewer models.
+Suggested change: Check each `review-unit` dispatch against the executor's
+vendor and reject a matching vendor before the reviewer starts.
+
+## 2026-09-23 drive: stage worker merged into the coordinator's branch
+Skill or agent: `.claude/skills/drive/SKILL.md`, "After each stage," step 3.
+What happened: In the second review pass, the worker fast-forwarded its own
+branch into the coordinator's worktree. That merge belongs to the coordinator;
+the coordinator branch's reflog records the fast-forward merge.
+Suggested change: Record the coordinator's HEAD before dispatch and fail the
+stage if it changes before the coordinator's merge step.
