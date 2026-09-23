@@ -408,62 +408,82 @@ func (e Entry) clone() Entry {
 func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
 	j.Entries = append(j.Entries, e)
 
-	issues := j.Metadata.Issues()
-	assumptions := j.Metadata.Assumptions()
-	catalog := j.Metadata.Evidence()
-	changed := false
-	cite := func(refs []trace.EvidenceRef, source analysis.EvidenceCatalog) {
-		for _, ref := range refs {
-			if evidence, ok := source.Lookup(ref); ok {
-				catalog, _ = catalog.Add(evidence)
-			}
-		}
-	}
-	keepIssue := func(issue analysis.Issue, source analysis.EvidenceCatalog) {
-		if slices.ContainsFunc(issues, func(kept analysis.Issue) bool { return sameIssue(kept, issue) }) {
-			return
-		}
-		issues = append(issues, issue)
-		cite(issue.Evidence, source)
-		changed = true
-	}
-	keepAssumption := func(assumption analysis.Assumption, source analysis.EvidenceCatalog) {
-		if slices.ContainsFunc(assumptions, func(kept analysis.Assumption) bool { return sameAssumption(kept, assumption) }) {
-			return
-		}
-		assumptions = append(assumptions, assumption)
-		cite(assumption.Evidence, source)
-		changed = true
-	}
-
+	merged := j.Metadata
 	if e.Result != nil {
-		for _, issue := range e.Result.Metadata.Issues() {
-			keepIssue(issue, e.Result.Metadata.Evidence())
-		}
-		for _, assumption := range e.Result.Metadata.Assumptions() {
-			keepAssumption(assumption, e.Result.Metadata.Evidence())
-		}
+		merged = mergeMetadata(merged, e.Result.Metadata)
 	}
 	if dependencies := f.dependencies(e); len(dependencies) > 0 {
-		fabric := f.Metadata()
-		for _, issue := range fabric.Issues() {
-			if slices.ContainsFunc(dependencies, issue.Scope.Overlaps) {
-				keepIssue(issue, fabric.Evidence())
-			}
-		}
-		for _, assumption := range fabric.Assumptions() {
-			if slices.ContainsFunc(dependencies, assumption.Scope.Overlaps) {
-				keepAssumption(assumption, fabric.Evidence())
-			}
-		}
+		merged = mergeMetadata(merged, scopedMetadata(f.Metadata(), dependencies))
 	}
-	for _, issue := range raised {
-		keepIssue(issue, f.evidence)
+	if len(raised) > 0 {
+		merged = mergeMetadata(merged, analysis.NewMetadata(analysis.WholeScope(), raised, f.evidence, nil))
+	}
+	j.Metadata = merged
+}
+
+// mergeMetadata folds source's issues and assumptions into base, citing each
+// added item's evidence in base's catalog and dropping one base already holds.
+// It returns base unchanged when nothing was added. It is the merge record
+// applies to one entry and the fold applies to a settled journey.
+func mergeMetadata(base, source analysis.Metadata) analysis.Metadata {
+	issues := base.Issues()
+	assumptions := base.Assumptions()
+	catalog := base.Evidence()
+	changed := false
+
+	for _, issue := range source.Issues() {
+		if slices.ContainsFunc(issues, func(kept analysis.Issue) bool { return sameIssue(kept, issue) }) {
+			continue
+		}
+		issues = append(issues, issue)
+		catalog = citeEvidence(catalog, issue.Evidence, source.Evidence())
+		changed = true
+	}
+	for _, assumption := range source.Assumptions() {
+		if slices.ContainsFunc(assumptions, func(kept analysis.Assumption) bool { return sameAssumption(kept, assumption) }) {
+			continue
+		}
+		assumptions = append(assumptions, assumption)
+		catalog = citeEvidence(catalog, assumption.Evidence, source.Evidence())
+		changed = true
 	}
 
-	if changed {
-		j.Metadata = analysis.NewMetadata(analysis.WholeScope(), issues, catalog, assumptions)
+	if !changed {
+		return base
 	}
+
+	return analysis.NewMetadata(base.Scope(), issues, catalog, assumptions)
+}
+
+// scopedMetadata returns the issues and assumptions of m whose scope overlaps
+// one of scopes, carrying m's evidence catalog, so they can be merged as a unit.
+func scopedMetadata(m analysis.Metadata, scopes []analysis.Scope) analysis.Metadata {
+	var issues []analysis.Issue
+	for _, issue := range m.Issues() {
+		if slices.ContainsFunc(scopes, issue.Scope.Overlaps) {
+			issues = append(issues, issue)
+		}
+	}
+
+	var assumptions []analysis.Assumption
+	for _, assumption := range m.Assumptions() {
+		if slices.ContainsFunc(scopes, assumption.Scope.Overlaps) {
+			assumptions = append(assumptions, assumption)
+		}
+	}
+
+	return analysis.NewMetadata(analysis.WholeScope(), issues, m.Evidence(), assumptions)
+}
+
+// citeEvidence adds to catalog every evidence value source holds for refs.
+func citeEvidence(catalog analysis.EvidenceCatalog, refs []trace.EvidenceRef, source analysis.EvidenceCatalog) analysis.EvidenceCatalog {
+	for _, ref := range refs {
+		if evidence, ok := source.Lookup(ref); ok {
+			catalog, _ = catalog.Add(evidence)
+		}
+	}
+
+	return catalog
 }
 
 // dependencies returns the scopes whose fabric issues could change e: its

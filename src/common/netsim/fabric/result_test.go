@@ -136,6 +136,9 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 	fab.linkTrust = append(fab.linkTrust, linkTrust{
 		issues: []analysis.Issue{unsupportedIssue},
 	})
+	// A direct linkTrust write bypasses SetFault, the one writer whose cache
+	// invalidation a real fabric sees.
+	fab.metadataCache = nil
 
 	res := fab.Run(5)
 	if res.Stop != StopBudget {

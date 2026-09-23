@@ -191,6 +191,12 @@ type Fabric struct {
 	egress         map[Endpoint]*egressQueue
 	counters       map[Endpoint]*Counters
 
+	// metadataCache holds the value [Fabric.Metadata] last built. Its inputs
+	// are fixed after construction except where [Fabric.SetFault] rewrites a
+	// link and its trust, which nils the cache. The value is immutable, so a
+	// fork may share it.
+	metadataCache *analysis.Metadata
+
 	// err is the first scheduling-invariant breach [Fabric.scheduleDequeue]
 	// recorded. It is sticky: once set, [Fabric.Step] refuses to advance and
 	// [Fabric.Err] reports it. A caller must read Err to see a fault, because
@@ -668,6 +674,7 @@ func (f *Fabric) Fork() *Fabric {
 		busyUntil:      busyUntil,
 		egress:         egress,
 		counters:       counters,
+		metadataCache:  f.metadataCache,
 		err:            f.err,
 	}
 }
@@ -853,7 +860,14 @@ func unlinkedEnd(ep Endpoint, uncabled map[Endpoint]Uncabled) LinkEnd {
 // A link's scope key is its cable's [Diff] subject key. Issues cite the evidence
 // references of the cable or Uncabled entry they rest on, resolved in the
 // construction specification's evidence catalog.
+//
+// The result is cached: its inputs are fixed after construction except where
+// [Fabric.SetFault] rewrites a link, and SetFault clears the cache.
 func (f *Fabric) Metadata() analysis.Metadata {
+	if f.metadataCache != nil {
+		return *f.metadataCache
+	}
+
 	var issues []analysis.Issue
 	var assumptions []analysis.Assumption
 	for _, trust := range f.linkTrust {
@@ -890,7 +904,10 @@ func (f *Fabric) Metadata() analysis.Metadata {
 		}
 	}
 
-	return analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, assumptions)
+	md := analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, assumptions)
+	f.metadataCache = &md
+
+	return md
 }
 
 // observedOperStatus reports whether a state says something definite: an unset
@@ -1245,6 +1262,7 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 	// link, so the link is overwritten in place.
 	f.cfg.Cables[idx].Fault = normalized
 	f.links[idx], f.linkTrust[idx] = resolveLink(f.cfg.Cables[idx], f.cfg)
+	f.metadataCache = nil
 	linkA, linkB := f.links[idx].A, f.links[idx].B
 
 	type endInfo struct {
