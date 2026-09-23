@@ -125,6 +125,40 @@ class FieldTest(unittest.TestCase):
                          (run["source"], run["model"], run["role"]))
         self.assertEqual((4, 3), (run["findings"], run["held"]))
 
+    def headless(self, name, prompt, reply_model, reply):
+        write_lines(self.claude / "-w-l1" / f"{name}.jsonl", [
+            {"type": "user", "timestamp": stamp(0), "cwd": "/w/l1", "entrypoint": "sdk-cli",
+             "message": {"role": "user", "content": prompt}},
+            {"type": "assistant", "timestamp": stamp(2), "cwd": "/w/l1", "entrypoint": "sdk-cli",
+             "message": {"id": f"m-{name}", "model": reply_model,
+                         "content": [{"type": "text", "text": reply}],
+                         "usage": {"input_tokens": 10, "output_tokens": 5}}}])
+
+    def test_dated_snapshot_id_maps_to_registry_model(self):
+        self.registry.write_text(self.registry.read_text()
+                                 + "  claude-haiku-4-5: {pool: claude, price: [1, 5]}\n")
+        self.headless("s1", "list the fixtures", "claude-haiku-4-5-20251001", "done")
+        run = self.run_field()["runs"][0]
+        self.assertEqual(("headless", "claude-haiku-4-5"), (run["source"], run["model"]))
+        self.assertIsNotNone(run["cost_usd"])
+
+    def test_rate_limit_reply_is_reported_as_rate_limited(self):
+        self.headless("s1", "list the fixtures", "<synthetic>",
+                      "You've hit your weekly limit · resets 9pm (Europe/Berlin)")
+        self.headless("s2", "list the fixtures", "<synthetic>", "API Error: 500")
+        result = self.run_field()
+        self.assertEqual([], result["runs"])
+        self.assertEqual({"s1": "rate_limited", "s2": "model_missing"},
+                         {item["session"]: item["reason"] for item in result["unmatched"]})
+
+    def test_branch_name_calls_are_counted_not_scored(self):
+        for name, model in (("s1", "claude-sonnet-5"), ("s2", "<synthetic>")):
+            self.headless(name, "Generate a short git branch name that summarizes the task.",
+                          model, "fix-the-thing")
+        result = self.run_field()
+        self.assertEqual([], result["runs"])
+        self.assertEqual([{"reason": "branch_name_calls", "count": 2}], result["unmatched"])
+
     def test_group_marks_three_runs_small_and_five_sufficient(self):
         events = []
         for index in range(3):

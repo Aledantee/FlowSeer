@@ -89,6 +89,10 @@ def registry(paths):
 def model_for(model, agent, models):
     if model in models:
         return model
+    # Claude reports a pinned snapshot as the registry id plus its date.
+    dated = re.fullmatch(r"(.+)-\d{8}", model or "")
+    if dated and dated.group(1) in models:
+        return dated.group(1)
     for name, fields in models.items():
         pattern = fields.get("id_format", "").strip('"')
         if pattern and "<effort>" in pattern and model and re.fullmatch(
@@ -97,6 +101,12 @@ def model_for(model, agent, models):
         if agent and fields.get("agent") == agent:
             return name
     return model or agent
+
+
+LIMIT_REPLY = re.compile(r"hit your [a-z ]*limit")
+# Worktree tooling names a new branch through a headless Claude call with
+# this prompt; the call is naming, not delegated work.
+BRANCH_NAME_PROMPT = "Generate a short git branch name"
 
 
 def claude_directory(cwd):
@@ -135,13 +145,21 @@ def claude_session(path):
     if not dated:
         return None
     messages = {}
-    model = cwd = entrypoint = agent = None
+    model = cwd = entrypoint = agent = prompt = None
     errors = 0
+    limited = False
     for item in dated:
         cwd = cwd or item.get("cwd")
         entrypoint = entrypoint or item.get("entrypoint")
         agent = agent or item.get("agentId")
         message = item.get("message") or {}
+        if prompt is None and claude_open(item):
+            content = message.get("content")
+            prompt = content if isinstance(content, str) else ""
+        # A refused request is answered by the CLI itself with a
+        # "<synthetic>" message instead of a model turn.
+        if item.get("type") == "assistant" and message.get("model") == "<synthetic>":
+            limited = limited or bool(LIMIT_REPLY.search(json.dumps(message.get("content"))))
         if item.get("type") == "assistant" and message.get("model") not in (None, "<synthetic>"):
             model = message["model"]
             usage = message.get("usage") or {}
@@ -164,8 +182,9 @@ def claude_session(path):
             reasoning=(item.get("output_tokens_details") or {}).get("thinking_tokens")))
     return {"id": path.stem, "cwd": cwd, "started": instant(dated[0]["timestamp"]),
             "ended": instant(dated[-1]["timestamp"]),
-            "entrypoint": entrypoint, "agent": agent, "model": model,
-            "active_s": active_time(dated, claude_open), "tokens": usage, "tool_errors": errors}
+            "entrypoint": entrypoint, "agent": agent, "model": model, "prompt": prompt,
+            "limited": limited, "active_s": active_time(dated, claude_open), "tokens": usage,
+            "tool_errors": errors}
 
 
 def codex_open(item):
@@ -258,7 +277,7 @@ def empty_run(source, model, role, cli, outcome=None, verify=None):
             "findings": 0, "held": 0}
 
 
-def apply_sessions(run, sessions, prices):
+def apply_sessions(run, sessions, prices, models):
     if not sessions:
         return
     active_values = [item["active_s"] for item in sessions if item.get("active_s") is not None]
@@ -271,7 +290,8 @@ def apply_sessions(run, sessions, prices):
     else:
         run["tokens"] = None
     if run["cli"] == "claude":
-        run["model"] = next((item["model"] for item in sessions if item.get("model")), run["model"])
+        reported = next((item["model"] for item in sessions if item.get("model")), None)
+        run["model"] = model_for(reported, None, models) if reported else run["model"]
         error_values = [item["tool_errors"] for item in sessions if item.get("tool_errors") is not None]
         run["tool_errors"] = sum(error_values) if error_values else 0
     elif run["cli"] == "opencode":
@@ -374,6 +394,7 @@ def score(args):
              if (session := codex_session(path)) and args.match in (session.get("cwd") or "")]
     opencode = opencode_sessions(args.opencode_db, args.match)
     runs, unmatched, joined = [], [], set()
+    branch_names = 0
     if log.skipped:
         unmatched.append({"reason": "malformed_runlog_lines", "count": log.skipped})
     lane_windows = defaultdict(list)
@@ -424,7 +445,7 @@ def score(args):
         elif not matches:
             unmatched.append({"run": rid, "reason": "transcript_missing"})
         else:
-            apply_sessions(run, matches, prices)
+            apply_sessions(run, matches, prices, models)
         for review in reviews:
             if review.get("agent") == rid:
                 run["findings"] += review.get("findings", 0)
@@ -448,18 +469,24 @@ def score(args):
             role = "coordinator" if source == "coordinator" else "headless"
         else:
             continue
-        if not session.get("model"):
-            unmatched.append({"session": session["id"], "reason": "model_missing"})
+        if source == "headless" and (session.get("prompt") or "").startswith(BRANCH_NAME_PROMPT):
+            branch_names += 1
             continue
-        run = empty_run(source, session.get("model"), role, "claude")
+        if not session.get("model"):
+            reason = "rate_limited" if session.get("limited") else "model_missing"
+            unmatched.append({"session": session["id"], "reason": reason})
+            continue
+        run = empty_run(source, model_for(session["model"], None, models), role, "claude")
         run["session"] = session["id"]
-        apply_sessions(run, [session], prices)
+        apply_sessions(run, [session], prices, models)
         if source == "native":
             for review in reviews:
                 if review.get("agent") == session.get("agent"):
                     run["findings"] += review.get("findings", 0)
                     run["held"] += review.get("held", 0)
         runs.append(run)
+    if branch_names:
+        unmatched.append({"reason": "branch_name_calls", "count": branch_names})
     return {"as_of": now.date().isoformat(), "since": since.date().isoformat(),
             "runs": runs, "groups": groups_for(runs), "unmatched": unmatched}
 
