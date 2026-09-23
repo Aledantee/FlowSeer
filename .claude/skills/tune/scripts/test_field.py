@@ -400,6 +400,39 @@ class FieldTest(unittest.TestCase):
         reasons = [u["reason"] for u in report["unmatched"] if u.get("reason") == "transcript_ambiguous"]
         self.assertEqual(2, len(reasons))
 
+    def test_ended_ungraded_lane_cannot_claim_or_change_valid_lane(self):
+        cases = (("same_second", 0, 0, 0, "2025-12-31"),
+                 ("adjacent_second", 0, 1, 1, "2025-12-31"),
+                 ("before_since", 86399, 86400, 86400, "2026-01-02"))
+        for name, aborted_start, aborted_end, valid_start, since in cases:
+            with self.subTest(name=name):
+                valid = self.lane(run="valid", start=valid_start, grade=valid_start + 100)
+                write_lines(self.codex / "session.jsonl", [
+                    {"type": "session_meta", "timestamp": stamp(valid_start),
+                     "payload": {"id": "session", "cwd": "/w/l1", "timestamp": stamp(valid_start)}},
+                    {"type": "response_item", "timestamp": stamp(valid_start),
+                     "payload": {"type": "message", "role": "user",
+                                 "internal_chat_message_metadata_passthrough": {"content_item_kinds": ["user.text"]}}},
+                    {"type": "response_item", "timestamp": stamp(valid_start + 20),
+                     "payload": {"type": "message", "role": "assistant"}},
+                    {"type": "event_msg", "timestamp": stamp(valid_start + 20),
+                     "payload": {"type": "token_count", "info": {"total_token_usage": {
+                         "input_tokens": 1000, "output_tokens": 100}}}}])
+                write_lines(self.log, valid)
+                expected = self.run_field(since=since)
+                self.assertEqual(20, expected["runs"][0]["active_s"])
+                self.assertEqual(1100, expected["runs"][0]["tokens"]["total"])
+                aborted = self.lane(run="aborted", start=aborted_start)[0]
+                write_lines(self.log, valid + [aborted, {"v": 1, "event": "end", "run": "aborted",
+                                                         "at": stamp(aborted_end)}])
+                self.assertEqual(expected, self.run_field(since=since))
+
+    def test_ungraded_live_lane_remains_in_field_rows(self):
+        write_lines(self.log, self.lane(run="live", cli="agy", model="gemini-3.8-flash-high")[0:1])
+        report = self.run_field()
+        self.assertEqual(["live"], [run["run"] for run in report["runs"]])
+        self.assertIsNone(report["runs"][0]["outcome"])
+
     def test_session_spanning_prior_lane_before_since_marks_current_lane_ambiguous(self):
         events = []
         events.extend(self.lane(run="r_prior", cli="codex", model="gpt-6-sol", start=0, grade=100))

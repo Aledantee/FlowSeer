@@ -340,6 +340,7 @@ def score(args):
             ends[rid] = event
         elif kind == "review":
             reviews.append(event)
+    starts = {rid: start for rid, start in starts.items() if rid in grades or rid not in ends}
     claude = []
     lane_directories = {claude_directory(event.get("worktree", "")) for event in starts.values()
                         if event.get("cli") == "claude"}
