@@ -113,7 +113,7 @@ or stop here. The same question ends a run the gate stopped with
 ## Refresh
 
 Audit each solution under `docs/solutions/`. Dispatch one worker per
-solution, up to three at once, as `delegate` describes for role
+solution, as many at once as `delegate`'s Wave size allows, for role
 `execute`; when it sends the work to this session, audit the solutions
 one at a time here. Edit `docs/solutions/README.md` from the coordinating
 session only.

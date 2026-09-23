@@ -144,7 +144,7 @@ Rules:
 - `After:` names only the units whose landed code this unit imports,
   edits, or tests against; a preferred order, a shared convention, or
   "it reads better" is not an `After`. `implement` runs every unit whose
-  prerequisites have landed at once, up to three, so each `After` edge
+  prerequisites have landed at once, as many as quota allows, so each `After` edge
   that is not a real dependency serializes work that could run in
   parallel. Two units that touch the same file are never independent.
   After the Units, write the waves the graph yields, as

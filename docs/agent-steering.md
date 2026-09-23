@@ -384,8 +384,10 @@ arrives at the same shape by routing each workflow step to the cheapest
 model that still makes progress. Users describe the failure mode from the
 other side: a task that spawned seven subagents on the session model and
 exhausted a budget before one of them finished, cured by naming a smaller
-model for them. `delegate` caps concurrent workers at three for the same
-reason.
+model for them. `delegate` therefore sizes each wave from measured
+headroom rather than from how much work is ready: a pool holds two lanes
+under 50% used, one up to 85%, none above, and the coordinator caps the
+sum at six.
 
 Send editing workers to an Orca worker when Orca's runtime is reachable.
 The asynchronous-agent study behind CAID found that isolated workspaces, a
@@ -425,8 +427,8 @@ and `orca account list` reports which providers are signed in and how much
 of each rate-limit window is used, which is why `delegate` discovers the
 worker agent and provider per session instead of assuming Claude and picks
 the provider for each wave by remaining quota. The 85% threshold is a
-starting point chosen so that a three-worker wave cannot push a window
-over its limit mid-run; tune it when a wave gets cut off or when quota sits
+starting point chosen so that the two lanes a pool may hold under 50%
+cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
 idle.
 
 Orca reads usage only for the providers it has credentials for. On
@@ -549,10 +551,21 @@ times faster with 11 to 14 points more passes than sequential, and naive
 file-level splitting at 60% more cost for 3 points; uncoordinated
 parallel agents were fastest and worst. So `implement` groups units into
 waves from their `After` lines and dispatches a wave of two or more to
-workers, three at once, through a coordinator that merges and verifies;
-`plan` writes `After` for real dependencies only, lists the waves, and
-lets disjoint phases run in separate worktrees. The cap of three stays,
-for the budget reason above.
+workers through a coordinator that merges and verifies; `plan` writes
+`After` for real dependencies only, lists the waves, and lets disjoint
+phases run in separate worktrees.
+
+Widen a wave when the pools are idle. Until 2026-09-23 every wave ran at
+most three workers and `drive` one phase at a time, whatever the pools
+showed, so a drive over independent phases ran them in turn while the
+prepaid pools it did not route to stayed idle and are paid for anyway.
+The cap now follows the pool rows `delegate` reads before each wave, and
+only independent work widens with it: the Co-Coder result that gives
+parallelism its gain is the same one that makes naive splitting cost
+more, so dependent units still chain. Six is the ceiling because every
+lane still passes through one coordinator's tree check, merge, and
+verifier, and the verifier runs one at a time; it is a starting value,
+to be raised if merges keep pace and lowered if a wave's merges back up.
 
 Prove a phase's prerequisites are in the tree. On 2026-09-14 phase 2 of
 the analysis-completeness plan was implemented twice, in two worktrees
@@ -671,8 +684,10 @@ the verifier. A plan without phases goes through the same four stages,
 because the loop typed by hand was the same for it. The per-unit ledger
 lives in the implement worker's git directory, so `drive` reads it before
 the child worktree goes and reports it as the gate `close` would have
-read. The stage worker counts against `delegate`'s three and may hold two
-of its own, which is why one phase is driven at a time. A decision that
+read. Each stage worker takes one slot of `delegate`'s cap and holds a
+budget of its own from the rest, and independent phases run at once when
+the cap leaves every one of them at least one worker; the parent's
+`Landed:` lines are the only file they both write. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
 

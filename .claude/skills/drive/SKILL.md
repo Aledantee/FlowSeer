@@ -60,8 +60,10 @@ in a child worktree branched from this branch's `HEAD`.
 | review | `review` is absent or not an accept | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` |
 | compound | `compound` is absent | `compound` on the plan | `execute` | the plan's `compound` field is set |
 
-`<base>` is this branch's commit before the plan's implement stage merged,
-so the review reads exactly that plan's change. Naming the branch and the
+`<base>` is the commit the implement worker's branch forked from, taken
+as `git merge-base HEAD <branch>` before that branch merges, so the review
+reads exactly that plan's change even when another phase merged here
+while it ran. Naming the branch and the
 plan path is what makes `review` record its verdict in the plan: a bare
 commit range reads to it as other work, which records nothing.
 
@@ -76,11 +78,13 @@ The brief follows `delegate`, and adds three things:
   pool this session and every native subagent already draw on.
 - A decision the skill would put to the user is a blocker to state and
   stop on.
-- The worker budget. `delegate` allows three workers at once, and the
-  stage worker is one of them, so it may hold two of its own, for
-  `implement`'s waves or `review`'s fix loop, and runs the rest in turn.
-  The stage skill's own rules about workers stand; only the count is this
-  drive's.
+- The worker budget: the stage's share of the cap from `delegate`'s Wave
+  size, read just before the dispatch, less one for the stage worker
+  itself, and at least one. That is how many workers of its own it may
+  hold, for `implement`'s waves or `review`'s fix loop; it runs the rest
+  in turn. With one phase in flight the share is the whole cap; step 3
+  says how phases split it. The stage skill's own rules about workers
+  stand; only the count is this drive's.
 
 After each stage:
 
@@ -120,17 +124,40 @@ disagrees with the tree (a phase reads `implemented` with an empty
 `Landed:`, or the parent reads `implemented` while a phase still needs a
 stage), stop and report it: the run that left it was interrupted, and
 guessing which side is right is how a phase lands twice. A round takes
-the first phase its last line names that is not parked, and runs step 2
-on it from the stage the command printed. One
-phase is driven at a time, because its stage worker already spends the
-worker budget. Phases with disjoint packages and no `After:` between them
-can run at once in separate worktrees, one drive each, as
-`plan/references/phases.md` describes; the parent's `Landed:` lines are
-the only thing they share.
+the phases its last line names that are not parked, in its order, and
+runs step 2 on each from the stage the command printed.
+
+Several of them run at once when the quota allows and the phases are
+independent:
+
+- Independent means no `After:` between them and, for any stage past
+  re-plan, no package in common across the `Files:` lines of their plans'
+  Units. A phase that still needs re-planning has no units yet; its
+  re-plan stage edits only its own plan file and can run beside anything,
+  but its implement stage waits for the check.
+- Read the cap from `delegate`'s Wave size before the round. Run
+  `k = min(independent ready phases, cap / 2)` phases at once, rounded
+  down and at least one, and give each a share of `cap / k`, rounded down,
+  so each stage worker holds at least one worker of its own. A cap of
+  three drives one phase with a budget of two; a cap of six drives up to
+  three phases with a budget of one each.
+- Each phase moves through its stages on its own. Merge each stage as its
+  worker settles and run step 2's after-stage list for it; a phase's next
+  stage branches from this branch's `HEAD` at that moment, which then
+  holds whatever else has merged.
+- The parent is the one file concurrent phases both write. A conflict
+  that touches only the parent's `Landed:` lines or `status` is resolved
+  here by keeping every landed range; any other conflict goes back to
+  the worker, as `implement/references/workers.md` describes.
+- Recompute the cap when a phase finishes or parks, and start the next
+  ready phase into the freed share.
 
 A phase that lands fills its `Landed:` line, which moves the phases
 waiting on it into the next round. The parent itself has no stage: its
-`status` follows its last phase, as `implement` writes it.
+`status` follows its last phase, as `implement` writes it. When the last
+phases landed concurrently, each implement worker saw the other still
+open and left the parent `planned`; once both have merged, set it to
+`implemented` here, commit, and run the verifier on the parent path.
 
 ## 4. Park what needs the user, continue elsewhere
 
@@ -167,7 +194,8 @@ question for the same reason `steer` stages one.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result, plans parked with the question each
-waits on, phases still waiting and on what, the pools used and left idle,
+waits on, phases still waiting and on what, which phases ran at once and
+the cap each round read, the pools used and left idle,
 the commands run with results, and the child worktrees that remain with
 the reason.
 

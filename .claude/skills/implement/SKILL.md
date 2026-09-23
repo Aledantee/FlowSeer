@@ -66,7 +66,8 @@ task stay as they are; at Finish, report anything that appeared since.
 
 Group the units into waves from their `After` lines: a wave is every unit
 whose prerequisites have landed. A wave of two or more units runs in
-workers, up to three at once, as `references/workers.md` describes; load
+workers, as many at once as `delegate`'s Wave size allows (or the budget
+a `drive` brief names), as `references/workers.md` describes; load
 it before the first such wave, and for any plan with a `parent:` field.
 A wave of one unit runs here. Serial execution of independent units is
 the slow path and needs a reason in the report, such as no pool with

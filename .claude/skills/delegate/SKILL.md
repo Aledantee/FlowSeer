@@ -48,8 +48,8 @@ Resolve a role to a lane in this order, once per lane:
    a wave that reaches it says so.
 3. Drop models the role `exclude`s. For `review-unit`, also drop the
    executor's vendor.
-4. Move a pool that already holds a running lane of this wave to the back
-   until that lane settles.
+4. Drop a pool whose running lanes of this wave fill its slots (Wave
+   size, below), and move one that holds any running lane to the back.
 5. Take the model whose pool has the most headroom, and within ten points
    the one with the lower registry price. A signed-in pool whose source
    failed (`windows: null`) counts as full headroom until it answers with a
@@ -72,8 +72,39 @@ model id, so that lane launches as `gemini-3.8-flash-high`.
 `--cli`, `--model`, `--effort`, and `--agent`; the Agent tool takes `model`.
 Name the model on every worker; never `inherit` or unset, and never the
 coordinating session's own model. One model per task from start to finish.
-At most three workers run at once; start the next wave after the first
-settles.
+
+## Wave size
+
+How many workers run at once follows the quota, and only independent work
+widens with it: the units of one wave (no `After` between them, no shared
+file), phases with no `After` between them and disjoint files, one
+solution per worker in a refresh, one reviewer per unit. Work that chains
+runs in turn however much quota is idle.
+
+Each usable pool holds slots, read from the worst window that applies to
+the lane in its `pool-usage.sh` row:
+
+| Worst applicable window | Slots |
+| --- | --- |
+| under 50% | 2 |
+| 50% to 85% | 1 |
+| unknown (`windows: null`) | 1 |
+| over 85%, or signed out | 0 |
+
+The wave's cap is the sum of the slots over the pools that fit the role,
+at most six, and never more than the independent tasks ready. Four idle
+pools give six at once; one pool at 60% gives one, and the rest of the
+wave runs in rounds. The six is the coordinator's limit, not the pools':
+every lane passes through one session's tree check, merge, and verifier
+run, and the verifier runs one at a time. Recompute the cap before every
+wave; a 429 mid-wave takes that pool's slots away for the rest of it.
+Read-only native subagents count against the `claude` pool's slots like
+any lane on it. Start the next wave after the current one settles.
+
+A worker that runs a skill which dispatches workers of its own (a `drive`
+stage) gets a budget in its brief, a number of workers it may hold, and
+uses that instead of computing a cap: two coordinators reading the same
+rows would each spend the whole headroom.
 
 ## Discover what this host offers
 
