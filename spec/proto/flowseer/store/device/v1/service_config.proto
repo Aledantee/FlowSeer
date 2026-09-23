@@ -205,4 +205,11 @@ message ServiceIntervals {
   // until it is reported dormant. Unset means three minutes and one hour.
   google.protobuf.Duration edge_stale_after = 6 [(buf.validate.field).duration.gte = {seconds: 1}];
   google.protobuf.Duration edge_dormant_after = 7 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How often expired packet captures are swept from disk. Unset means one
+  // minute. The sweep walks the stored session records and unlinks the pcapng
+  // payload of each one past its retention deadline, leaving the record for
+  // audit. It is separate from read_sweep because it touches a different store
+  // and a different workload: session metadata and on-disk files rather than
+  // journal keys.
+  google.protobuf.Duration capture_sweep = 8 [(buf.validate.field).duration.gte = {seconds: 1}];
 }
