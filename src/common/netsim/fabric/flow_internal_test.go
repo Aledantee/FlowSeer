@@ -672,7 +672,7 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 // aggregate run must leave no settled aggregate journey or re-entry set behind
 // and no pending journey for the aggregated frames, evicted or timed out holds
 // included. In the retained run the held frames that resolution abandoned stay
-// pending, which is the pre-existing behavior this change does not alter.
+// pending, as they do without aggregation.
 func TestAggregateRetentionPreservesReleaseAttribution(t *testing.T) {
 	retained := runHeldProperty(t, false)
 	aggregated := runHeldProperty(t, true)

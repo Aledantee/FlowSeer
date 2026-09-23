@@ -206,8 +206,9 @@ type Fabric struct {
 	// switch held the frame for neighbor resolution, so the frame's FrameID
 	// stays under the device of the frame's last entry, ascending, as a
 	// placeholder a release can claim. The journey itself is freed, and a
-	// placeholder carries no payload. A hold resolution abandons is never
-	// claimed and its placeholder stays.
+	// placeholder carries no payload. A hold resolution abandons stays a
+	// candidate, as a retained held journey does, so a later release on the
+	// same device may name it and claim its placeholder.
 	heldAggregates map[string][]FrameID
 	// flows accumulates per-flow statistics as journeys settle.
 	flows map[FlowID]*FlowStats

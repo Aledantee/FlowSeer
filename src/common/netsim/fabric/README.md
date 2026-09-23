@@ -269,8 +269,9 @@ a switch holds for neighbor resolution settles and folds `Held` at the hold,
 and its aggregate journey is freed there too: the frame then travels with no
 journey, so the fabric keeps only its `FrameID` under the holding device until
 the release claims it, which is what lets the released frame name the frame it
-was held from. A hold resolution abandons is never claimed, so its placeholder
-stays. A protocol journey is never freed.
+was held from. A hold resolution abandons stays a candidate, as a retained
+held journey does, so a later release on the same device may name it and claim
+its placeholder. A protocol journey is never freed.
 `Fabric.Flows()` returns an independent copy of every flow's statistics,
 keyed by flow.
 
