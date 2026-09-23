@@ -124,11 +124,9 @@ func TestQueuePopClearsKeyIndexes(t *testing.T) {
 	}
 }
 
-// TestQueueHeapOrderMatchesCompareArrival drives 10,000 arrivals whose fields
-// come from a linear congruential step, with a unique Seq and at most one
-// dequeue per endpoint and one wake per device, then removes 1,000 by key. The
-// heap pops in exactly the order compareArrival sorts: the heap is not stable,
-// so that holds only because unique Seq values make the order total.
+// TestQueueHeapOrderMatchesCompareArrival checks the total order under
+// interleaved pushes, indexed removals, and pops. Unique Seq values make
+// compareArrival a total order even when timestamps and kinds tie.
 func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 	fab := &Fabric{}
 	fab.initRunState()
@@ -144,73 +142,125 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 	}
 
 	pushed := make([]Arrival, 0, total)
+	active := make([]bool, 0, total)
+	dequeueCandidates := make([]int, 0, total/3)
+	wakeCandidates := make([]int, 0, total/3)
 	usedDequeue := make(map[Endpoint]bool)
 	usedWake := make(map[string]bool)
-	for i := range total {
-		x := next()
-		arr := Arrival{
-			At:  base.Add(time.Duration(x%1000) * time.Microsecond),
-			Seq: uint64(i) + 1,
-		}
-		switch x % 3 {
-		case 0:
-			ep := Endpoint{Node: fmt.Sprintf("sw%d", x%40), Port: fmt.Sprintf("1/1/%d", x%8)}
-			if usedDequeue[ep] {
-				arr.Kind = ArrivalFrame
-			} else {
-				usedDequeue[ep] = true
-				arr.Kind = ArrivalDequeue
-				arr.Device, arr.Port = ep.Node, ep.Port
+
+	sortedRemaining := func() []Arrival {
+		expected := make([]Arrival, 0, len(pushed))
+		for i, arr := range pushed {
+			if active[i] {
+				expected = append(expected, arr)
 			}
-		case 1:
-			dev := fmt.Sprintf("sw%d", x%40)
-			if usedWake[dev] {
-				arr.Kind = ArrivalFrame
-			} else {
-				usedWake[dev] = true
-				arr.Kind = ArrivalWake
-				arr.Device = dev
-			}
-		default:
-			arr.Kind = ArrivalFrame
-			arr.Device = fmt.Sprintf("sw%d", x%40)
-			arr.Port = fmt.Sprintf("1/1/%d", x%8)
 		}
-		pushed = append(pushed, arr)
-		fab.enqueue(arr)
+		slices.SortFunc(expected, compareArrival)
+		return expected
+	}
+	checkPop := func(want Arrival) {
+		got := fab.popArrival()
+		if compareArrival(got, want) != 0 {
+			t.Fatalf("pop = %+v, want %+v", got, want)
+		}
+		active[int(want.Seq)-1] = false
+		switch got.Kind {
+		case ArrivalDequeue:
+			if _, ok := fab.dequeueItems[Endpoint{Node: got.Device, Port: got.Port}]; ok {
+				t.Fatalf("popped dequeue left its index behind")
+			}
+		case ArrivalWake:
+			if _, ok := fab.wakeItems[got.Device]; ok {
+				t.Fatalf("popped wake left its index behind")
+			}
+		}
 	}
 
-	want := slices.Clone(pushed)
-	slices.SortFunc(want, compareArrival)
-
-	// Remove 1,000 items by key, interleaved in a fixed order, and drop them
-	// from the expected sequence.
-	removed := make(map[int]bool)
 	removedDequeues := 0
 	removedWakes := 0
-	for i := 0; i < total && (removedDequeues < removals/2 || removedWakes < removals/2); i++ {
-		arr := pushed[i]
-		switch {
-		case arr.Kind == ArrivalDequeue && removedDequeues < removals/2:
+	nextDequeue := 0
+	nextWake := 0
+	for i := range total {
+		arr := Arrival{
+			At:     base.Add(time.Duration(next()%1000) * time.Microsecond),
+			Seq:    uint64(i) + 1,
+			Device: fmt.Sprintf("sw%d", next()%4096),
+			Port:   fmt.Sprintf("1/1/%d", next()%64),
+			Kind:   ArrivalFrame,
+		}
+		switch next() % 3 {
+		case 0:
+			ep := Endpoint{Node: arr.Device, Port: arr.Port}
+			if !usedDequeue[ep] {
+				usedDequeue[ep] = true
+				arr.Kind = ArrivalDequeue
+				dequeueCandidates = append(dequeueCandidates, i)
+			}
+		case 1:
+			if !usedWake[arr.Device] {
+				usedWake[arr.Device] = true
+				arr.Kind = ArrivalWake
+				wakeCandidates = append(wakeCandidates, i)
+			}
+		}
+
+		pushed = append(pushed, arr)
+		active = append(active, true)
+		fab.enqueue(arr)
+
+		if i > 0 && i%50 == 0 {
+			checkPop(sortedRemaining()[0])
+		}
+
+		switch i % 12 {
+		case 0:
+			if removedDequeues == removals/2 {
+				continue
+			}
+			for nextDequeue < len(dequeueCandidates) && !active[dequeueCandidates[nextDequeue]] {
+				nextDequeue++
+			}
+			if nextDequeue == len(dequeueCandidates) {
+				continue
+			}
+			idx := dequeueCandidates[nextDequeue]
+			arr := pushed[idx]
 			before := len(fab.queue)
 			fab.removeDequeueArrival(Endpoint{Node: arr.Device, Port: arr.Port})
 			if len(fab.queue) != before-1 {
 				t.Fatalf("removeDequeueArrival removed %d arrivals, want 1", before-len(fab.queue))
 			}
-			removed[i] = true
+			active[idx] = false
 			removedDequeues++
-		case arr.Kind == ArrivalWake && removedWakes < removals/2:
+			nextDequeue++
+		case 6:
+			if removedWakes == removals/2 {
+				continue
+			}
+			for nextWake < len(wakeCandidates) && !active[wakeCandidates[nextWake]] {
+				nextWake++
+			}
+			if nextWake == len(wakeCandidates) {
+				continue
+			}
+			idx := wakeCandidates[nextWake]
+			arr := pushed[idx]
 			before := len(fab.queue)
 			fab.removeWakeArrival(arr.Device)
 			if len(fab.queue) != before-1 {
 				t.Fatalf("removeWakeArrival removed %d arrivals, want 1", before-len(fab.queue))
 			}
-			removed[i] = true
+			active[idx] = false
 			removedWakes++
+			nextWake++
 		}
 	}
 
-	// Removing a key that is not queued changes nothing.
+	if removedDequeues != removals/2 || removedWakes != removals/2 {
+		t.Fatalf("removed %d dequeues and %d wakes, want %d each", removedDequeues, removedWakes, removals/2)
+	}
+
+	// An absent key must leave the queue unchanged.
 	before := len(fab.queue)
 	fab.removeDequeueArrival(Endpoint{Node: "absent", Port: "absent"})
 	fab.removeWakeArrival("absent")
@@ -218,21 +268,11 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 		t.Fatalf("removing absent keys changed the queue length")
 	}
 
-	var expected []Arrival
-	for i, arr := range pushed {
-		if !removed[i] {
-			expected = append(expected, arr)
-		}
-	}
-	slices.SortFunc(expected, compareArrival)
-
+	expected := sortedRemaining()
 	if len(fab.queue) != len(expected) {
 		t.Fatalf("queue length = %d after removals, want %d", len(fab.queue), len(expected))
 	}
-	for i := range expected {
-		got := fab.popArrival()
-		if compareArrival(got, expected[i]) != 0 {
-			t.Fatalf("pop %d = %+v, want %+v", i, got, expected[i])
-		}
+	for _, want := range expected {
+		checkPop(want)
 	}
 }

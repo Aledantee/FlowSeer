@@ -1,11 +1,19 @@
 package fabric_test
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
@@ -193,6 +201,150 @@ func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	stats := fab.Flows()[7]
 	if !hasIssue(stats.Metadata.Issues(), fabric.IssuePropagationUnknown) {
 		t.Errorf("flow metadata issues = %+v, want propagation-unknown", stats.Metadata.Issues())
+	}
+}
+
+// TestAggregateHeldFrameReleaseKeepsItsProvenance covers the journey of an
+// aggregate frame a switch holds for neighbor resolution: the hold settles the
+// frame's own journey and folds Held once, but the journey is not freed until
+// the switch releases it, so the released frame links back through
+// OriginRelease instead of appearing as a fresh injection.
+func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	vid10 := vlan.ID(10)
+	vid20 := vlan.ID(20)
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
+	addrH2 := netip.MustParseAddr("10.0.20.7")
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{"sw1": {
+			MAC:   swMAC,
+			Ports: ports,
+			Bridge: &bridge.Config{
+				VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+						"1/1/2": {PVID: &vid20, Untagged: []vlan.ID{20}},
+					},
+				},
+			},
+			Routing: &routing.Config{
+				VRFs: map[string]routing.VRF{
+					routing.DefaultVRF: {
+						Interfaces: map[string]routing.Interface{
+							"vlan10": {VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+							"vlan20": {VLAN: 20, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						},
+					},
+				},
+			},
+		}},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.10.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
+				},
+			},
+			"h2": {Address: macH2},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+		},
+	}
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:        cfg.Start,
+		Origin:    fabric.Endpoint{Node: "h1"},
+		Packet:    &fabric.Packet{To: addrH2, Protocol: 17, Payload: []byte("ping")},
+		Retention: fabric.RetainAggregate,
+		Flow:      9,
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+
+	replyFrame, err := arp.Encode(arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    macH2,
+		SenderAddr:   addrH2,
+		TargetMAC:    swMAC,
+		TargetAddr:   netip.MustParseAddr("10.0.20.1"),
+	}, swMAC)
+	if err != nil {
+		t.Fatalf("encode ARP reply: %v", err)
+	}
+	replyID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start.Add(time.Second),
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame:  replyFrame,
+	})
+	if err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+
+	fab.Run(20)
+
+	if got := fab.Flows()[9].Held; got != 1 {
+		t.Fatalf("Held = %d, want the held frame counted once", got)
+	}
+
+	var released *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.FrameID == heldID || j.FrameID == replyID {
+			continue
+		}
+		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+			jj := j
+			released = &jj
+			break
+		}
+	}
+	if released == nil {
+		t.Fatalf("no released journey delivered to h2 among: %+v", fab.Report())
+	}
+	if released.Origin.Kind != fabric.OriginRelease {
+		t.Errorf("released origin kind = %s, want %s", released.Origin.Kind, fabric.OriginRelease)
+	}
+	if released.Origin.Of != heldID {
+		t.Errorf("released origin parent = %d, want the held frame %d", released.Origin.Of, heldID)
+	}
+}
+
+// TestInjectRefusesUnknownRetention covers the validation: a retention value
+// above RetainAggregate is refused rather than silently treated as
+// RetainJourney.
+func TestInjectRefusesUnknownRetention(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	_, err := fab.Inject(fabric.Injection{
+		At:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
+		Origin:    fabric.Endpoint{Node: "h1"},
+		Frame:     flowFrame(src, dst),
+		Retention: fabric.Retention(2),
+		Flow:      1,
+	})
+	if err == nil {
+		t.Fatal("Inject with an unknown retention returned no error")
 	}
 }
 

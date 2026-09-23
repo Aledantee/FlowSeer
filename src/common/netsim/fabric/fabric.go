@@ -202,6 +202,14 @@ type Fabric struct {
 	// journey, when its count reaches zero at the end of the call that
 	// touched it.
 	inflight map[FrameID]int
+	// heldAggregates records what a freed aggregate journey left behind: a
+	// switch held the frame for neighbor resolution, so the frame's FrameID
+	// stays under the device of the frame's last entry, ascending, as a
+	// placeholder a release can claim. The journey itself is freed, and a
+	// placeholder carries no payload. A hold resolution abandons stays a
+	// candidate, as a retained held journey does, so a later release on the
+	// same device may name it and claim its placeholder.
+	heldAggregates map[string][]FrameID
 	// flows accumulates per-flow statistics as journeys settle.
 	flows map[FlowID]*FlowStats
 	// touched collects the frame IDs count changes touched during the current
@@ -555,6 +563,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		entered:        make(map[FrameID]map[Endpoint]bool),
 		cableCrossings: make(map[Endpoint]uint),
 		inflight:       make(map[FrameID]int),
+		heldAggregates: make(map[string][]FrameID),
 	}
 
 	return fab, nil
@@ -657,6 +666,14 @@ func (f *Fabric) Fork() *Fabric {
 		inflight = maps.Clone(f.inflight)
 	}
 
+	var heldAggregates map[string][]FrameID
+	if len(f.heldAggregates) > 0 {
+		heldAggregates = make(map[string][]FrameID, len(f.heldAggregates))
+		for device, ids := range f.heldAggregates {
+			heldAggregates[device] = slices.Clone(ids)
+		}
+	}
+
 	var flows map[FlowID]*FlowStats
 	if f.flows != nil {
 		flows = make(map[FlowID]*FlowStats, len(f.flows))
@@ -702,6 +719,7 @@ func (f *Fabric) Fork() *Fabric {
 		counters:       counters,
 		metadataCache:  f.metadataCache,
 		inflight:       inflight,
+		heldAggregates: heldAggregates,
 		flows:          flows,
 		touched:        nil,
 		err:            f.err,

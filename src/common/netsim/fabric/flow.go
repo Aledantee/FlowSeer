@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"maps"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -13,13 +14,16 @@ import (
 type FlowID uint32
 
 // FlowStats reports what became of the frames one flow offered. Delivered
-// counts accepted deliveries per destination host; Copies counts the
+// counts accepted deliveries per destination host. Copies counts the
 // deliveries of mirror and reflector copies per mirror name or "reflection",
-// which are never the stream being delivered. Drops counts dropped frames by
-// reason; Lost counts cable losses; Unresolved, Rejected, and Held count
-// frames whose journey ended in those outcomes. Latency summarizes
-// Delivery.At minus the injection time over every delivery. Metadata is the
-// merge of every folded journey's metadata.
+// which are never the stream being delivered: a copy contributes only this
+// count and its metadata, so its latency and its drops, losses, unresolved,
+// rejection, or held outcome stay out of the stream's counters. Drops counts
+// drop events by reason, so a flooded frame refused on two egress ports counts
+// twice; Lost counts cable losses; Unresolved, Rejected, and Held count frames
+// whose journey ended in those outcomes. Latency summarizes Delivery.At minus
+// the injection time over every non-copy delivery. Metadata is the merge of
+// every folded journey's metadata.
 type FlowStats struct {
 	Offered    uint64
 	Delivered  map[string]uint64
@@ -69,8 +73,12 @@ func (f *Fabric) Flows() map[FlowID]FlowStats {
 }
 
 // settle folds a journey whose last in-flight arrival has left into its flow
-// and, when its retention is [RetainAggregate], frees it. A journey settles
-// once; a later settle of the same frame is a no-op.
+// and, when its retention is [RetainAggregate], frees it. A journey a switch
+// holds for neighbor resolution settles at the hold, counting under
+// [FlowStats.Held] once; because the frame then travels with no journey, the
+// freed journey leaves a placeholder keyed by the holding device so
+// [Fabric.injectEmission] can still name it as the holder of the released
+// frame. A journey settles once; a later settle of the same frame is a no-op.
 func (f *Fabric) settle(fid FrameID) {
 	j := f.journeys[fid]
 	if j == nil || j.settled || f.inflight[fid] > 0 {
@@ -82,32 +90,70 @@ func (f *Fabric) settle(fid FrameID) {
 	}
 	delete(f.inflight, fid)
 	if j.Injection.Retention == RetainAggregate {
+		if isJourneyHeld(j) {
+			f.recordHeldAggregate(fid, j)
+		}
 		delete(f.journeys, fid)
 		delete(f.entered, fid)
 	}
 }
 
+// recordHeldAggregate keeps the FrameID of a freed aggregate journey a switch
+// held for neighbor resolution, under the device of the frame's last entry and
+// ascending, so a release can still name the frame it was held from. The
+// journey is gone; only the identity stays.
+func (f *Fabric) recordHeldAggregate(fid FrameID, j *Journey) {
+	device := j.Entries[len(j.Entries)-1].Device
+	if f.heldAggregates == nil {
+		f.heldAggregates = make(map[string][]FrameID)
+	}
+	ids := f.heldAggregates[device]
+	at, _ := slices.BinarySearch(ids, fid)
+	ids = slices.Insert(ids, at, fid)
+	f.heldAggregates[device] = ids
+}
+
+// claimHeldAggregate removes the placeholder a release just named, so a later
+// release cannot name the same held frame twice.
+func (f *Fabric) claimHeldAggregate(device string, fid FrameID) {
+	ids := f.heldAggregates[device]
+	for i, id := range ids {
+		if id == fid {
+			f.heldAggregates[device] = slices.Delete(ids, i, i+1)
+			break
+		}
+	}
+}
+
 // foldJourney folds one settled journey into its flow's statistics. A
 // mirror or reflector copy counts its deliveries under Copies, keyed by its
-// mirror name, rather than under Delivered.
+// mirror name, rather than under Delivered, and contributes nothing else to
+// the stream's counters: its latency is measured from the mirror hop's own
+// injection, and its drops, losses, unresolved, rejection, and held outcomes
+// are the copy's, not the stream's. It still merges its metadata.
 func (f *Fabric) foldJourney(j *Journey) {
 	stats := f.flowAccumulator(j.Injection.Flow)
 	if j.Origin.Kind == OriginInjection {
 		stats.Offered++
 	}
 
-	for _, delivery := range j.Deliveries {
-		if j.Origin.Kind == OriginMirror {
+	if j.Origin.Kind == OriginMirror {
+		for range j.Deliveries {
 			if stats.Copies == nil {
 				stats.Copies = make(map[string]uint64)
 			}
 			stats.Copies[copyMirrorName(j)]++
-		} else {
-			if stats.Delivered == nil {
-				stats.Delivered = make(map[string]uint64)
-			}
-			stats.Delivered[delivery.Host]++
 		}
+		stats.Metadata = mergeMetadata(stats.Metadata, j.Metadata)
+
+		return
+	}
+
+	for _, delivery := range j.Deliveries {
+		if stats.Delivered == nil {
+			stats.Delivered = make(map[string]uint64)
+		}
+		stats.Delivered[delivery.Host]++
 		stats.Latency.add(delivery.At.Sub(j.Injection.At))
 	}
 

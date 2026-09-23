@@ -119,7 +119,7 @@ func TestRepresentativeFabricForkAllocs(t *testing.T) {
 	})
 
 	if allocs > forkAllocationBaseline {
-		t.Fatalf("Fabric.Fork allocated %.0f objects, want <= %d (baseline measured 2026-09-18)", allocs, forkAllocationBaseline)
+		t.Fatalf("Fabric.Fork allocated %.0f objects, want <= %d (baseline measured 2026-09-23)", allocs, forkAllocationBaseline)
 	}
 }
 

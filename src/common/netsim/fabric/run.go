@@ -43,7 +43,9 @@ const (
 	// RetainJourney keeps a settled journey in [Fabric.Report].
 	RetainJourney Retention = iota
 	// RetainAggregate frees a settled journey once its flow's statistics hold
-	// a frame's worth of what became of it. It requires a nonzero flow.
+	// a frame's worth of what became of it. It requires a nonzero flow. A
+	// frame a switch held for neighbor resolution leaves only its FrameID
+	// behind, under the holding device, until a release claims it.
 	RetainAggregate
 )
 
@@ -51,8 +53,9 @@ const (
 //
 // Retention and Flow decide what the fabric keeps of the frame once it
 // settles: a zero Flow folds into no statistics, and RetainAggregate frees
-// the settled journey. A mirror or reflector copy inherits both from the
-// frame it copies.
+// the settled journey, leaving only a held frame's FrameID until a release
+// claims it. A mirror or reflector copy inherits both from the frame it
+// copies.
 type Injection struct {
 	At        time.Time
 	Origin    Endpoint
@@ -173,11 +176,17 @@ func (f *Fabric) runStarted() bool {
 // Inject returns an error if the origin names an unknown host, an unknown switch port, a reflector (which has
 // no port of its own to inject at), a host without a connected cable, a switch origin with Packet set, a host
 // without an IP stack when Packet is set, a Packet injection specifying Frame fields, a non-empty origin port
-// for host packet injection, if packet origination fails, or if At precedes the fabric clock after a
-// nonzero-time step has run.
+// for host packet injection, if packet origination fails, if At precedes the fabric clock after a
+// nonzero-time step has run, if Retention is above [RetainAggregate], or if Retention is
+// [RetainAggregate] with a zero Flow.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
+	if inj.Retention > RetainAggregate {
+		return 0, errs.New().
+			Attr("retention", inj.Retention).
+			Msgf("unknown retention %d", inj.Retention)
+	}
 	if inj.Retention == RetainAggregate && inj.Flow == 0 {
 		return 0, errs.New().
 			Attr("retention", inj.Retention).
@@ -1251,6 +1260,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 				Kind: OriginRelease,
 				Of:   holdingFID,
 			}
+			f.claimHeldAggregate(device, holdingFID)
 		}
 	}
 
@@ -1295,11 +1305,16 @@ func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {
 			}
 		}
 	}
+	for _, fid := range f.heldAggregates[device] {
+		if !released[fid] {
+			candidateIDs = append(candidateIDs, fid)
+		}
+	}
 	slices.Sort(candidateIDs)
 
 	for _, fid := range candidateIDs {
 		j := f.journeys[fid]
-		if bytes.Equal(j.Injection.Frame.Payload, frame.Payload) {
+		if j != nil && bytes.Equal(j.Injection.Frame.Payload, frame.Payload) {
 			return fid
 		}
 	}
@@ -1825,6 +1840,9 @@ func (f *Fabric) initRunState() {
 	}
 	if f.inflight == nil {
 		f.inflight = make(map[FrameID]int)
+	}
+	if f.heldAggregates == nil {
+		f.heldAggregates = make(map[string][]FrameID)
 	}
 	if f.nextFrameID == 0 {
 		f.nextFrameID = 1
