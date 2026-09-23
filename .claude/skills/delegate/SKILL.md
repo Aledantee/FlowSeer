@@ -29,10 +29,11 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 | Adversarial read of a plan | `critique` | the pool's CLI |
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
 
-A constraint on the CLI or vendor is stated by the role in the registry
-(`fit`, `exclude`) and nowhere else. A stage being a skill under
-`.claude/skills/` does not tie it to `claude`: every agent CLI reads that
-file and follows it.
+A constraint on the CLI or vendor comes from the role's fields in the
+registry (`fit`, `exclude`, `vendor_differs_from`, `never_sensitive`),
+which the steps below apply, and from nowhere else. A stage being a skill
+under `.claude/skills/` does not tie it to `claude`: every agent CLI reads
+that file and follows it.
 
 Resolve a role to a lane in this order, once per lane:
 
@@ -145,21 +146,24 @@ native subagents on every host. Editing work goes to an Orca worker when
 to a `general-purpose` subagent with `isolation: worktree` only when the
 role's fit set holds a Claude model, pinned to that model. A native
 subagent runs only on Claude, and a Claude model outside the fit set is
-not calibrated as fit for the role. When the fit set holds none
-(`execute` today):
+not calibrated as fit for the role.
+
+A stage worker of `close` or `drive` runs a skill and commits its
+checkpoint, so it is editing work whatever role supplies its model, a
+`review-seam` stage included. Without Orca such a stage does not run here
+or in a read-only subagent: stop and name the stage for the user to run in
+a fresh session. Other editing work whose role's fit set holds no Claude
+model (`execute` today) runs as follows:
 
 - The coordinator does the units itself, one at a time, along the calling
   skill's path for a wave of one. This is the user's standing exception to
   "never the coordinating session's own model" above.
 - When the role `exclude`s the coordinator's model (`execute-sensitive`
   on a top-tier session), nothing runs: report the unit as blocked on Orca.
-- When the calling skill requires a session of its own for the stage
-  (`close`, `drive`), do not run it here: stop and name the stage for the
-  user to run in a fresh session.
 
-Orca uses
-a local socket the Bash sandbox blocks, so every `orca` command runs with
-the sandbox disabled; a sandboxed call reports the runtime as not running.
+Orca uses a local socket the Bash sandbox blocks, so every `orca` command
+runs with the sandbox disabled; a sandboxed call reports the runtime as
+not running.
 
 ### Orca worker
 
@@ -206,22 +210,25 @@ generated buf.lock` prints nothing, with `<base>` the commit the lane was
 started from. Then format what it changed and commit the result, since the
 verifier's format gate fails on what the hook would have fixed. Run the
 message-sync hook on each changed schema, which the verifier does not
-cover, and list the suppressions the branch adds, each of which the worker
-has to justify as `AGENTS.md` requires:
+cover, and the suppression hook on the lines the branch adds (it prints
+the first five matches):
 
 ```bash
 git diff --name-only --diff-filter=d <base>..<branch> -- '*.go' ':!generated' | xargs -r sh -c 'gofumpt -w "$@" && goimports -w "$@"' sh
 git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | xargs -r -n1 buf format -w
 git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | while read -r f; do
   jq -n --arg cwd "$PWD" --arg f "$PWD/$f" '{cwd:$cwd,tool_input:{file_path:$f}}' | tools/hooks/proto-check.sh; done
-git diff -U0 <base>..<branch> | grep -E '^\+' | grep -E '//[[:space:]]*nolint|buf:lint:ignore|buf:breaking:ignore|shellcheck disable|#[[:space:]]*nosec'
+git diff -U0 <base>..<branch> | sed -n 's/^+\([^+].*\)/\1/p' | jq -Rs '{tool_input:{file_path:"<branch>",content:.}}' | tools/hooks/suppression-warn.sh
 ```
 
-Then run the verifier.
+A reported message-sync gap is fixed before the verifier runs. A
+suppression the worker's report does not justify is removed and its
+finding fixed; one it does justify goes into the report for the user,
+since `AGENTS.md` makes a suppression a policy change. Then run the
+verifier.
 
-A child whose branch did not land stays, and
-the report names it with the reason, so the user can read it before it
-goes. Never remove a child with a dirty tree; say what is there.
+A child whose branch did not land stays, and the report names it with
+the reason, so the user can read it before it goes. Never remove a child with a dirty tree; say what is there.
 
 ## Write the brief
 
@@ -251,7 +258,8 @@ in order:
 6. The boundaries: no edits outside the named files, no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
    `generated/`, or `buf.lock`, no plan labels in code. Work is set aside
-   with a temporary commit or a copy under `$TMPDIR`, never `git stash`:
+   with a temporary commit or a copy under the worker's own `$TMPDIR`
+   (it never crosses a sandbox boundary, unlike a brief), never `git stash`:
    the stash stack is shared by every worktree and concurrent session, and
    a worker's checkout does not inherit the session note that says so.
 7. For a worker on any runtime: do not ask questions, and when something

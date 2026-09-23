@@ -75,12 +75,12 @@ exits 2 on an `--effort` its CLI branch cannot apply. The script records
 wall time, the CLI's reported usage, and the exit code. Grade each lane
 with the acceptance tests and the verifier, and write
 `local.<role>: {effort, runs, base, pass, wall_s, cost_usd}` on the model,
-with `base` the commit the lane branched from, `effort` the level the lane
-actually ran at (the id suffix on `agy`, `none` for a model with an empty
-`effort` list), and `pass`, `wall_s`, `cost_usd` as lists, one value per
-run, when `runs` is above 1. A result without them cannot
-show that it was measured at another level or on another base than the
-role routes at. A model enters or leaves a role's fit set only on a
+with `base` the commit the lane branched from and `effort` the level the
+lane actually ran at: the id suffix on `agy`, and the literal `none` for a
+model whose `effort` list is empty, since no level reaches it. When `runs`
+is above 1, `pass`, `wall_s`, and `cost_usd` are lists, one value per run.
+A result without `effort`, `runs`, and `base` cannot show that it was
+measured at another level or on another base than the role routes at. A model enters or leaves a role's fit set only on a
 calibration result, never on a benchmark.
 
 ## 5. Write and report

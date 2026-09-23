@@ -72,7 +72,10 @@ print(json.dumps(body))
 EOF
     curl -sS --max-time 3600 -X POST "http://127.0.0.1:$port/session/$sid/message" \
       -H 'content-type: application/json' --data-binary @"$raw.body" >"$raw" 2>"$raw.err"
-    kill "$spid" 2>/dev/null ;;
+    rc=$?
+    kill "$spid" 2>/dev/null
+    # code=$? below reads the last command of the branch, which is kill here.
+    (exit "$rc") ;;
   *) echo "unknown cli $cli" >&2; exit 2 ;;
 esac
 code=$?

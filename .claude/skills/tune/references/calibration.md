@@ -25,7 +25,7 @@ under the race detector:
 ```bash
 cp .claude/skills/tune/references/calibration/merge_accept_test.go.txt <worktree>/src/common/pump/merge_accept_test.go
 (cd <worktree> && for t in $(sed -n 's/^func \(Test[A-Za-z0-9_]*\).*/\1/p' src/common/pump/merge_accept_test.go); do
-  go test -race -count=3 -run "^$t\$" ./src/common/pump/ >"$t.log" 2>&1 && echo "PASS $t" || { echo "FAIL $t"; tail -5 "$t.log"; }; done)
+  go test -race -count=3 -run "^$t\$" ./src/common/pump/ >"${TMPDIR:?}/$t.log" 2>&1 && echo "PASS $t" || { echo "FAIL $t"; tail -5 "$TMPDIR/$t.log"; }; done)
 ```
 
 `testing/synctest` bubbles fail when a goroutine is still blocked at the

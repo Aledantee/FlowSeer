@@ -50,7 +50,9 @@ models:
 # when `runs` is above 1 (`tune` step 4). A result without `runs` is one
 # run. `effort: default` means the CLI's own default, because `bench.sh`
 # dropped `--effort` on the `claude` lanes until 2026-09-18; such a result
-# says nothing about the model at the role's level.
+# says nothing about the model at the role's level. A row without `effort`
+# or `base` predates the rule: `evidence.md`, calibration 2026-09-09, says
+# what is known (Gemini and Sol ran at `high`, no base was recorded).
 roles:
   lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
   research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19

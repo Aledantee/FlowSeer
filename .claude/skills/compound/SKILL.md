@@ -115,8 +115,8 @@ or stop here. The same question ends a run the gate stopped with
 Audit each solution under `docs/solutions/`. Dispatch one worker per
 solution, up to three at once, as `delegate` describes for role
 `execute`; when it sends the work to this session, audit the solutions
-one at a time here. Edit
-`docs/solutions/README.md` from the coordinating session only.
+one at a time here. Edit `docs/solutions/README.md` from the coordinating
+session only.
 
 1. Open every cited path and confirm the quoted lines and symbols exist.
    Check that `module` exists, `applies_when` still describes the situation,
