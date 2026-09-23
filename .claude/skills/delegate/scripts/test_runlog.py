@@ -92,6 +92,30 @@ class RunlogTests(unittest.TestCase):
         self.assertEqual(len(list(result)), 1)
         self.assertEqual(result.skipped, 1)
 
+    def test_append_after_damaged_tail_keeps_each_event_readable(self):
+        commands = {
+            "start": ("--lane", "l1", "--cli", "codex", "--model", "gpt-6-sol",
+                      "--role", "execute", "--worktree", "/w/l1", "--branch", "u/l1",
+                      "--base", "abc123"),
+            "grade": ("--run", "r1", "--outcome", "accepted", "--verify", "pass"),
+            "end": ("--run", "r1", "--head", "def456"),
+            "review": ("--model", "claude-opus-5-5", "--role", "review-unit",
+                       "--agent", "a1", "--findings", "1", "--held", "1",
+                       "--unverified", "0"),
+        }
+        for tail in (b'{"v":', b'{"v":"\xe2'):
+            for kind, args in commands.items():
+                with self.subTest(tail=tail, event=kind):
+                    self.log.write_bytes(tail)
+                    result = self.command(kind, *args)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    lines = self.log.read_bytes().splitlines()
+                    self.assertEqual(len(lines), 2)
+                    self.assertEqual(json.loads(lines[1])["event"], kind)
+                    read_result = runlog.read(self.log)
+                    self.assertEqual(read_result.skipped, 1)
+                    self.assertEqual([event["event"] for event in read_result], [kind])
+
 
 if __name__ == "__main__":
     unittest.main()

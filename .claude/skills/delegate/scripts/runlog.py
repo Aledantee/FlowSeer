@@ -33,11 +33,11 @@ def read(path=None):
     events = []
     skipped = 0
     try:
-        with path.open(encoding="utf-8") as stream:
+        with path.open("rb") as stream:
             for line in stream:
                 try:
                     event = json.loads(line)
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     skipped += 1
                     continue
                 if isinstance(event, dict):
@@ -93,9 +93,13 @@ def append(event, path=None):
     target = Path(path) if path is not None else log_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(event, separators=(",", ":")) + "\n").encode("utf-8")
-    descriptor = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    descriptor = os.open(str(target), os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
     try:
         fcntl.flock(descriptor, fcntl.LOCK_EX)
+        size = os.fstat(descriptor).st_size
+        if size and os.pread(descriptor, 1, size - 1) != b"\n":
+            if os.write(descriptor, b"\n") != 1:
+                raise OSError("short run log separator write")
         if os.write(descriptor, data) != len(data):
             raise OSError("short run log write")
     finally:

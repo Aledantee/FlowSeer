@@ -13,8 +13,8 @@
 # orca-worker.sh stop   SLUG
 #
 # `start` prints one JSON line {"name","terminal","worktree","path","branch","run"}
-# and exits 0 only when the worker was pointed at its brief; any failure
-# after the worktree exists removes it again. Orca prefixes the branch with
+# and exits 0 only when the worker was pointed at its brief and lane state was
+# saved; any failure after the worktree exists removes it again. Orca prefixes the branch with
 # the git user, so read `branch` from that line instead of assuming the slug.
 # The launch line carries the model because `orca orchestration worker-start
 # --model` pins Claude, Codex, and Cursor ids only. Lane state lives in
@@ -78,12 +78,20 @@ case "$cmd" in
     branch=$(printf '%s' "$created" | json 'd["result"]["worktree"]["branch"].removeprefix("refs/heads/")')
     [[ -n $wt && -n $path && -n $branch ]] || die "worktree create returned no id, path, or branch: $created"
     # Every failure from here on removes what was created.
-    term=
+    term='' run_id='' base_sha=''
     undo() {
+      local reason="$*" head_sha end_out
+      if [[ -n $run_id ]]; then
+        head_sha=$(git -C "$path" rev-parse HEAD 2>/dev/null) || head_sha=$base_sha
+        end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
+          || reason="${reason}; run log end failed: $end_out"
+      fi
       [[ -n $term ]] && orca terminal close --terminal "$term" --json >/dev/null 2>&1
       orca worktree rm --worktree "id:$wt" --force --json >/dev/null 2>&1
-      rm -f "$state_dir/$lane.json"; die "$*"
+      rm -f "$state_dir/$lane.json" >/dev/null 2>&1 || true
+      die "$reason"
     }
+    base_sha=$(git -C "$path" rev-parse HEAD 2>&1) || undo "cannot resolve initial HEAD at $path: $base_sha"
 
     case "$cli" in
       claude) line="claude --model $model --dangerously-skip-permissions${effort:+ --effort $effort}" ;;
@@ -98,7 +106,8 @@ case "$cmd" in
       || undo "terminal create failed: $started"
     term=$(printf '%s' "$started" | json 'd["result"]["terminal"]["handle"]')
     [[ -n $term ]] || undo "terminal create returned no handle: $started"
-    orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1
+    orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1 \
+      || undo "terminal wait failed for $lane"
 
     # Codex startup dialogs: its update offer and the hooks review for a
     # repository with .codex/hooks.json. A prompt sent into either is lost.
@@ -109,20 +118,25 @@ case "$cmd" in
       for _ in 1 2 3 4; do
         sleep 2; s=$(screen "$term")
         if grep -q 'Skip until next version' <<<"$s"; then
-          orca terminal send --terminal "$term" --text 3 --enter --json >/dev/null
+          orca terminal send --terminal "$term" --text 3 --enter --json >/dev/null \
+            || undo "cannot dismiss Codex update offer for $lane"
         elif grep -q 'hook needs review' <<<"$s"; then
-          orca terminal send --terminal "$term" --text t --json >/dev/null; sleep 1
-          orca terminal send --terminal "$term" --text $'\e' --json >/dev/null
+          orca terminal send --terminal "$term" --text t --json >/dev/null \
+            || undo "cannot dismiss Codex hooks review for $lane"
+          sleep 1
+          orca terminal send --terminal "$term" --text $'\e' --json >/dev/null \
+            || undo "cannot dismiss Codex hooks review for $lane"
         else
           break
         fi
       done
       grep -q 'hook needs review' <<<"$(screen "$term")" && undo "$lane still shows the hooks review after four rounds"
     fi
-    st=$(orca terminal show --terminal "$term" --json 2>/dev/null | json 'd["result"]["terminal"].get("status") or d["result"].get("status")')
+    st=$(orca terminal show --terminal "$term" --json 2>/dev/null | json 'd["result"]["terminal"].get("status") or d["result"].get("status")') \
+      || undo "terminal show failed for $lane"
+    [[ -n $st ]] || undo "terminal show returned no status for $lane"
     [[ $st == exited ]] && undo "$cli exited at startup: $(screen "$term" | tail -5)"
 
-    base_sha=$(git rev-parse "$base" 2>&1) || undo "cannot resolve base $base: $base_sha"
     start_args=(
       start
       --lane "$lane"
@@ -137,7 +151,8 @@ case "$cmd" in
     [[ -n $agent ]] && start_args+=(--agent "$agent")
     [[ -n $plan ]] && start_args+=(--plan "$plan")
     [[ -n $unit ]] && start_args+=(--unit "$unit")
-    run_id=$(python3 "$script_dir/runlog.py" "${start_args[@]}" 2>&1) || undo "run log start failed: $run_id"
+    run_out=$(python3 "$script_dir/runlog.py" "${start_args[@]}" 2>&1) || undo "run log start failed: $run_out"
+    run_id=$run_out
 
     # The brief goes in a file in the worker's checkout and the terminal gets
     # a one-line pointer: a long paragraph through `orca terminal send`
@@ -146,20 +161,25 @@ case "$cmd" in
     # cannot observe delivery for every CLI ("provider: unsupported"), so the
     # screen is the check, and a dropped submission is sent once more.
     exclude=$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude
-    grep -q -x -F "/$brief_name" "$exclude" 2>/dev/null || { mkdir -p "$(dirname "$exclude")"; echo "/$brief_name" >>"$exclude"; }
+    if ! grep -q -x -F "/$brief_name" "$exclude" 2>/dev/null; then
+      mkdir -p "$(dirname "$exclude")" || undo "cannot create git exclude directory"
+      echo "/$brief_name" >>"$exclude" || undo "cannot write git exclude file"
+    fi
     cp "$brief" "$path/$brief_name" || undo "cannot write the brief into $path"
     pointer="Read $brief_name in this directory and carry it out. Never commit or delete that file."
-    ok=
+    ok='' send_error=''
     for _ in 1 2; do
-      orca terminal send --terminal "$term" --text "$pointer" --enter --wait-submit 20 --json >/dev/null 2>&1
+      send_out=$(orca terminal send --terminal "$term" --text "$pointer" --enter --wait-submit 20 --json 2>&1) \
+        || { send_error="; send failed: $send_out"; continue; }
       sleep 2
       grep -q -F -- "Read $brief_name" <<<"$(screen "$term")" && { ok=1; break; }
       sleep 2
     done
-    [[ -n $ok ]] || undo "pointer not on $lane's screen after two submissions: $(screen "$term" | tail -8)"
-    mkdir -p "$state_dir"
-    python3 -c 'import json,sys; json.dump(dict(zip(("name","cli","terminal","worktree","path","branch","run"), sys.argv[2:])), open(sys.argv[1],"w"))' \
-      "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch" "$run_id"
+    [[ -n $ok ]] || undo "pointer not on $lane's screen after two submissions${send_error}: $(screen "$term" | tail -8)"
+    mkdir -p "$state_dir" || undo "cannot create lane state directory $state_dir"
+    state_out=$(python3 -c 'import json,sys; json.dump(dict(zip(("name","cli","terminal","worktree","path","branch","run"), sys.argv[2:])), open(sys.argv[1],"w"))' \
+      "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch" "$run_id" 2>&1) \
+      || undo "cannot write lane state for $lane: $state_out"
     printf '{"name":"%s","terminal":"%s","worktree":"%s","path":"%s","branch":"%s","run":"%s"}\n' "$lane" "$term" "$wt" "$path" "$branch" "$run_id"
     ;;
   wait)
@@ -250,9 +270,10 @@ case "$cmd" in
       || die "$branch has commits that are not merged into $(git branch --show-current); merge it first, or remove the lane by hand in Orca"
     head_sha=$(git rev-parse "$branch" 2>&1) || die "cannot resolve branch $branch: $head_sha"
     end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) || die "run log end failed: $end_out"
-    orca terminal close --terminal "$term" --json >/dev/null 2>&1
+    orca terminal close --terminal "$term" --json >/dev/null 2>&1 \
+      || die "terminal close failed for $name"
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
-    rm -f "$state_dir/$name.json"
+    rm -f "$state_dir/$name.json" || die "cannot remove lane state for $name"
     ;;
   *) sed -n '2,21p' "$0" >&2; exit 2 ;;
 esac

@@ -35,6 +35,7 @@ class OrcaWorkerTests(unittest.TestCase):
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 log_file = os.environ.get("ORCA_STUB_LOG")
@@ -43,23 +44,72 @@ if log_file:
         f.write(" ".join(sys.argv[1:]) + "\\n")
 
 args = sys.argv[1:]
+failure = os.environ.get("ORCA_STUB_FAIL")
+child = Path(os.environ["ORCA_STUB_CHILD"])
+pointer_file = Path(os.environ["ORCA_STUB_POINTER_FILE"])
 if args and args[0] == "status":
     print(json.dumps({{"result": {{"runtime": {{"reachable": True}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
-    print("")
+    print("Read .orca-brief.md" if pointer_file.exists() else "")
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "close":
     print(json.dumps({{"result": {{"status": "ok"}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "rm":
+    runlog = Path(os.environ["FLOWSEER_RUNLOG"])
+    Path(os.environ["ORCA_STUB_AT_RM"]).write_text(runlog.read_text() if runlog.exists() else "")
+    subprocess.run(["git", "worktree", "remove", "--force", str(child)], check=False, capture_output=True)
+    subprocess.run(["git", "branch", "-D", "wt1"], check=False, capture_output=True)
     print(json.dumps({{"result": {{"status": "ok"}}}}))
+elif len(args) >= 2 and args[0] == "terminal" and args[1] == "create":
+    if failure == "advance-base":
+        subprocess.run(["git", "commit", "--allow-empty", "-m", "advance base"], check=True, capture_output=True)
+    if failure == "brief-copy":
+        (child / ".orca-brief.md" / "brief.md").mkdir(parents=True)
+    if failure == "exclude-write":
+        exclude = Path.cwd() / ".git" / "info" / "exclude"
+        exclude.unlink()
+        exclude.mkdir()
+    print(json.dumps({{"result": {{"terminal": {{"handle": "term-1"}}}}}}))
+elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
+    if failure == "terminal-wait":
+        sys.exit(1)
+    print(json.dumps({{"result": {{"wait": {{"status": "idle"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
+    if failure == "terminal-show":
+        sys.exit(1)
     print(json.dumps({{"result": {{"terminal": {{"status": "idle"}}}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "create":
-    print(json.dumps({{"result": {{"worktree": {{"id": "wt1", "path": str(Path.cwd()), "branch": "refs/heads/wt1"}}}}}}))
+    base = args[args.index("--base-branch") + 1]
+    subprocess.run(["git", "worktree", "add", "-b", "wt1", str(child), base], check=True, capture_output=True)
+    print(json.dumps({{"result": {{"worktree": {{"id": "wt1", "path": str(child), "branch": "refs/heads/wt1"}}}}}}))
+elif len(args) >= 2 and args[0] == "terminal" and args[1] == "send":
+    if failure == "pointer":
+        print("injected pointer failure", file=sys.stderr)
+        sys.exit(1)
+    pointer_file.write_text("sent")
+    if failure == "state-mkdir":
+        Path(os.environ["ORCA_STUB_STATE_DIR"]).write_text("occupied")
+    print(json.dumps({{"result": {{"status": "ok"}}}}))
 else:
     print(json.dumps({{"result": {{}}}}))
 """
         stub_orca.write_text(stub_script)
         stub_orca.chmod(stub_orca.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+        stub_python = self.bin_dir / "python3"
+        stub_python.write_text(f"""#!{sys.executable}
+import os
+import sys
+
+if os.environ.get("ORCA_STUB_FAIL") == "state-write" and len(sys.argv) > 2 and sys.argv[1] == "-c" and "json.dump(dict(zip" in sys.argv[2]:
+    print("injected state write failure", file=sys.stderr)
+    sys.exit(1)
+os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+""")
+        stub_python.chmod(stub_python.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+        stub_sleep = self.bin_dir / "sleep"
+        stub_sleep.write_text("#!/bin/sh\nexit 0\n")
+        stub_sleep.chmod(stub_sleep.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
         self.runlog = self.root / "runs.jsonl"
         self.state_dir = self.repo / ".git" / "orca-workers"
@@ -70,6 +120,10 @@ else:
             "PATH": f"{self.bin_dir}:{os.environ.get('PATH', '')}",
             "FLOWSEER_RUNLOG": str(self.runlog),
             "ORCA_STUB_LOG": str(self.orca_log),
+            "ORCA_STUB_CHILD": str(self.root / "child-l1"),
+            "ORCA_STUB_POINTER_FILE": str(self.root / "pointer-sent"),
+            "ORCA_STUB_STATE_DIR": str(self.state_dir),
+            "ORCA_STUB_AT_RM": str(self.root / "runlog-at-rm.jsonl"),
         }
 
     def command(self, *args, cwd=None):
@@ -87,6 +141,28 @@ else:
             return ""
         return self.orca_log.read_text()
 
+    def start(self):
+        brief = self.repo / "brief.md"
+        brief.write_text("task description")
+        return self.command(
+            "start", "--lane", "l1", "--cli", "codex", "--model", "gpt-6-sol",
+            "--role", "execute", "--brief", str(brief),
+        )
+
+    def assert_rolled_back_run(self, result, message):
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(message, result.stderr)
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["start", "end"])
+        self.assertEqual(events[1]["run"], events[0]["run"])
+        self.assertEqual(events[1]["head"], events[0]["base"])
+        at_rm = [json.loads(line) for line in (self.root / "runlog-at-rm.jsonl").read_text().splitlines()]
+        self.assertEqual([event["event"] for event in at_rm], ["start", "end"])
+        self.assertIn("terminal close --terminal term-1", self.orca_calls())
+        self.assertIn("worktree rm --worktree id:wt1", self.orca_calls())
+        self.assertFalse((self.root / "child-l1").exists())
+        self.assertFalse((self.state_dir / "l1.json").exists())
+
     def test_start_requires_role_before_worktree_create(self):
         brief = self.repo / "brief.md"
         brief.write_text("task description")
@@ -98,6 +174,68 @@ else:
         self.assertIn("--role is required", result.stderr)
         self.assertNotIn("worktree create", self.orca_calls())
         self.assertFalse((self.state_dir / "l1.json").exists())
+
+    def test_start_logs_child_head_before_base_advances(self):
+        initial_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=self.repo, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        self.env["ORCA_STUB_FAIL"] = "advance-base"
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        event = json.loads(self.runlog.read_text().splitlines()[0])
+        child_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=self.root / "child-l1", check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        parent_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=self.repo, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        self.assertEqual(event["base"], child_head)
+        self.assertEqual(child_head, initial_head)
+        self.assertNotEqual(parent_head, initial_head)
+        self.assertTrue((self.state_dir / "l1.json").exists())
+
+    def test_start_pointer_failure_closes_run_before_removing_worktree(self):
+        self.env["ORCA_STUB_FAIL"] = "pointer"
+        result = self.start()
+        self.assert_rolled_back_run(result, "pointer not on")
+        calls = self.orca_calls()
+        self.assertLess(calls.index("terminal send"), calls.index("worktree rm"))
+
+    def test_start_brief_copy_failure_closes_run(self):
+        self.env["ORCA_STUB_FAIL"] = "brief-copy"
+        result = self.start()
+        self.assert_rolled_back_run(result, "cannot write the brief")
+
+    def test_start_exclude_write_failure_closes_run(self):
+        self.env["ORCA_STUB_FAIL"] = "exclude-write"
+        result = self.start()
+        self.assert_rolled_back_run(result, "cannot write git exclude file")
+
+    def test_start_terminal_checks_roll_back_before_logging(self):
+        for failure, message in (("terminal-wait", "terminal wait failed"),
+                                 ("terminal-show", "terminal show failed")):
+            with self.subTest(failure=failure):
+                self.env["ORCA_STUB_FAIL"] = failure
+                result = self.start()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+                self.assertFalse(self.runlog.exists())
+                self.assertFalse((self.root / "child-l1").exists())
+                self.assertFalse((self.state_dir / "l1.json").exists())
+
+    def test_start_state_directory_failure_closes_run(self):
+        self.state_dir.rmdir()
+        self.env["ORCA_STUB_FAIL"] = "state-mkdir"
+        result = self.start()
+        self.assert_rolled_back_run(result, "cannot create lane state directory")
+
+    def test_start_state_write_failure_closes_run(self):
+        self.env["ORCA_STUB_FAIL"] = "state-write"
+        result = self.start()
+        self.assert_rolled_back_run(result, "cannot write lane state")
+        self.assertIn("injected state write failure", result.stderr)
 
     def test_stop_refuses_ungraded_lane_and_removes_nothing(self):
         child_path = self.root / "child-l1"
