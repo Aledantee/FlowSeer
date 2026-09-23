@@ -3,6 +3,7 @@
 package lab
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -48,19 +49,20 @@ func TestConfigFromEnv(t *testing.T) {
 }
 
 func TestInjectCommand(t *testing.T) {
-	got := InjectCommand("ospf", 2*time.Second, 20*time.Second)
+	cfg := Config{InjectionInterface: "eth0"}
+	got := cfg.InjectCommand("ospf", 2*time.Second, 20*time.Second)
 	want := []string{"netpen", "ospf", "-i", "eth0", "--json=true", "--duration", "2s", "--timeout", "20s"}
-	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+	if !slices.Equal(got, want) {
 		t.Errorf("InjectCommand() = %q, want %q", got, want)
 	}
 }
 
-func TestParseHostKeyPin(t *testing.T) {
+func TestValidateHostKeyPin(t *testing.T) {
 	const valid = "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
-	if got, err := parseHostKeyPin(valid); err != nil || got != valid {
-		t.Errorf("parseHostKeyPin(valid) = %q, %v", got, err)
+	if err := validateHostKeyPin(valid); err != nil {
+		t.Errorf("validateHostKeyPin(valid) = %v", err)
 	}
-	if _, err := parseHostKeyPin("SHA256:not-a-fingerprint"); err == nil {
-		t.Fatal("parseHostKeyPin(malformed) = nil error, want refusal")
+	if err := validateHostKeyPin("SHA256:not-a-fingerprint"); err == nil {
+		t.Fatal("validateHostKeyPin(malformed) = nil error, want refusal")
 	}
 }

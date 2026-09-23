@@ -4,12 +4,17 @@ type: feat
 date: 2026-09-23
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: mixed
 amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 ---
 
 # Lab-Backed netpen Vendor Validation (OSPF / IOS-XE thin slice) - Plan
+
+> Partially implemented: 3 of 5 units passed, 2026-09-23T20:47:59Z to
+> 2026-09-23T21:04:08Z. U4-U5 are blocked until the injector has packet
+> capabilities, IOS-XE `.42` has the required OSPF baseline, and the injector
+> data interface is wired to that segment.
 
 ## Goal
 
@@ -178,8 +183,9 @@ Change: Adds a `//go:build netpen_t2` support package `lab`. `Config` is read
 from the environment — injector host, user, private-key path, and injection
 interface; target management host, user, password (`secret.Value`), host-key
 pin, and platform — replacing the Docker-oriented `NETPEN_T2_IMAGE`/
-`NETPEN_T2_TARGET`. `InjectCommand(attack string, d, timeout time.Duration)
-[]string` builds the injector argv. `RunInjector(ctx, Config, argv)` SSH-execs
+`NETPEN_T2_TARGET`. `(Config).InjectCommand(attack string, d, timeout
+time.Duration) []string` builds the injector argv from the configured interface.
+`RunInjector(ctx, Config, argv)` SSH-execs
 the argv on the injector via `golang.org/x/crypto/ssh` and returns stdout
 (JSONL), stderr, and exit code as a struct. `golang.org/x/crypto` becomes a new
 direct require (it is not in netpen's graph today), so `go.mod`/`go.sum` change.

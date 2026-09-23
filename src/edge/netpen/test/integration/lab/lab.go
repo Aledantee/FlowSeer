@@ -35,8 +35,8 @@ const (
 	envTargetPlatform        = "NETPEN_LAB_TARGET_PLATFORM"
 )
 
-// Config names the injector and target endpoints for one live-lab run. Config
-// values are immutable after construction and safe for concurrent reads.
+// Config names the injector and target endpoints for one live-lab run. Callers
+// must not mutate a Config while another goroutine is using it.
 type Config struct {
 	// InjectorHost is the injector's SSH host, with an optional port.
 	InjectorHost string
@@ -95,21 +95,21 @@ func ConfigFromEnv() (Config, error) {
 		}
 		variable.set(value)
 	}
-	if _, err := parseHostKeyPin(cfg.InjectorHostKeySHA256); err != nil {
+	if err := validateHostKeyPin(cfg.InjectorHostKeySHA256); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", envInjectorHostKeySHA256, err)
 	}
-	if _, err := parseHostKeyPin(cfg.TargetHostKeySHA256); err != nil {
+	if err := validateHostKeyPin(cfg.TargetHostKeySHA256); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", envTargetHostKeySHA256, err)
 	}
 
 	return cfg, nil
 }
 
-// InjectCommand builds the deterministic netpen command used by the lab's
-// eth0-backed OSPF fixture.
-func InjectCommand(attack string, duration, timeout time.Duration) []string {
+// InjectCommand builds a deterministic netpen command for the configured data
+// interface.
+func (c Config) InjectCommand(attack string, duration, timeout time.Duration) []string {
 	return []string{
-		"netpen", attack, "-i", "eth0", "--json=true",
+		"netpen", attack, "-i", c.InjectionInterface, "--json=true",
 		"--duration", duration.String(), "--timeout", timeout.String(),
 	}
 }
@@ -129,8 +129,7 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	if err != nil {
 		return InjectorResult{}, fmt.Errorf("parse injector private key: %w", err)
 	}
-	pin, err := parseHostKeyPin(cfg.InjectorHostKeySHA256)
-	if err != nil {
+	if err := validateHostKeyPin(cfg.InjectorHostKeySHA256); err != nil {
 		return InjectorResult{}, fmt.Errorf("injector host-key pin: %w", err)
 	}
 	address := sshAddress(cfg.InjectorHost)
@@ -142,7 +141,7 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	connection, channels, requests, err := ssh.NewClientConn(transport, address, &ssh.ClientConfig{
 		User:            cfg.InjectorUser,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-		HostKeyCallback: pinnedHostKey(pin),
+		HostKeyCallback: pinnedHostKey(cfg.InjectorHostKeySHA256),
 	})
 	if err != nil {
 		_ = transport.Close()
@@ -184,16 +183,16 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	}
 }
 
-func parseHostKeyPin(pin string) (string, error) {
+func validateHostKeyPin(pin string) error {
 	const prefix = "SHA256:"
 	if !strings.HasPrefix(pin, prefix) {
-		return "", fmt.Errorf("fingerprint must start with %s", prefix)
+		return fmt.Errorf("fingerprint must start with %s", prefix)
 	}
 	digest, err := base64.RawStdEncoding.DecodeString(strings.TrimPrefix(pin, prefix))
 	if err != nil || len(digest) != sha256.Size {
-		return "", fmt.Errorf("fingerprint is not a SHA-256 digest")
+		return fmt.Errorf("fingerprint is not a SHA-256 digest")
 	}
-	return pin, nil
+	return nil
 }
 
 func pinnedHostKey(pin string) ssh.HostKeyCallback {
