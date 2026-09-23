@@ -89,6 +89,24 @@ class FieldTest(unittest.TestCase):
         self.assertAlmostEqual(0.0041, run["cost_usd"])
         self.assertTrue(run["est"])
 
+    def test_codex_activity_joins_when_terminal_opens_before_log_start(self):
+        write_lines(self.log, self.lane(start=0, grade=100))
+        write_lines(self.codex / "early.jsonl", [
+            {"type": "session_meta", "timestamp": stamp(-2),
+             "payload": {"id": "early", "cwd": "/w/l1", "timestamp": stamp(-2)}},
+            {"type": "response_item", "timestamp": stamp(5),
+             "payload": {"type": "message", "role": "user",
+                         "internal_chat_message_metadata_passthrough": {
+                             "content_item_kinds": ["user.text"]}}},
+            {"type": "response_item", "timestamp": stamp(20),
+             "payload": {"type": "message", "role": "assistant"}},
+            {"type": "event_msg", "timestamp": stamp(20),
+             "payload": {"type": "token_count", "info": {"total_token_usage": {
+                 "input_tokens": 100, "output_tokens": 10}}}}])
+        run = self.run_field()["runs"][0]
+        self.assertEqual(15, run["active_s"])
+        self.assertEqual(100, run["tokens"]["input"])
+
     def test_native_model_and_review_role_come_from_transcript_and_event(self):
         write_lines(self.log, [{"v": 1, "event": "review", "run": "review-1", "at": stamp(90),
                                "model": "claude-sonnet-5", "role": "review-unit", "agent": "a1",

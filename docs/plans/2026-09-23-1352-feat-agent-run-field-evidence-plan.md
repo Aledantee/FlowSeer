@@ -155,6 +155,13 @@ figure rests on that join.
   Why: each store records the working directory (all three read on
   2026-09-23), and a worktree path is unique while the lane lives.
 
+- Ruled: a transcript joins when its recorded activity overlaps the lane
+  window, even if its session metadata predates `start`. Why: the real
+  Codex smoke session began at 12:26:45 UTC, two seconds before the
+  `start` event written after terminal launch; its user turn and tokens
+  fell inside the window. Cost if wrong: the scorer's join and transcript
+  fixtures need changing.
+
 - **agy transcripts are not parsed in this plan.** Its runs report
   `transcript: unsupported` and keep the run log's elapsed time and
   grade. Why: the format under `~/.gemini/antigravity-cli/conversations/`

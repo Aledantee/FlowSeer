@@ -160,6 +160,7 @@ def claude_session(path):
             output=item.get("output_tokens"),
             reasoning=(item.get("output_tokens_details") or {}).get("thinking_tokens")))
     return {"id": path.stem, "cwd": cwd, "started": instant(dated[0]["timestamp"]),
+            "ended": instant(dated[-1]["timestamp"]),
             "entrypoint": entrypoint, "agent": agent, "model": model,
             "active_s": active_time(dated, claude_open), "tokens": usage, "tool_errors": errors}
 
@@ -190,11 +191,14 @@ def codex_session(path):
             model = data.get("model") or model
         if item.get("type") == "event_msg" and data.get("type") == "turn_context":
             model = data.get("model") or model
+    dated = [instant(item.get("timestamp")) for item in items]
+    ended = max((at for at in dated if at is not None), default=None)
     result = tokens(input=max(0, (latest.get("input_tokens") or 0) - (latest.get("cached_input_tokens") or 0)),
                     cache_read=latest.get("cached_input_tokens"),
                     output=latest.get("output_tokens"), reasoning=latest.get("reasoning_output_tokens"))
     return {"id": payload.get("id") or path.stem, "cwd": payload.get("cwd"),
             "started": instant(payload.get("timestamp") or meta.get("timestamp")),
+            "ended": ended,
             "model": model, "active_s": active_time(items, codex_open),
             "tokens": result, "tool_errors": None}
 
@@ -210,6 +214,7 @@ def opencode_sessions(path, match):
                 continue
             rows = db.execute("SELECT data, time_created, time_updated FROM message WHERE session_id=? ORDER BY time_created", (sid,))
             usage, cost = tokens(), 0.0
+            ended = instant(created)
             timeline = []
             for raw, at, updated in rows:
                 try:
@@ -225,8 +230,12 @@ def opencode_sessions(path, match):
                 timeline.append({"timestamp": at, "role": item.get("role")})
                 if updated and updated != at:
                     timeline.append({"timestamp": updated, "role": None})
+                message_end = instant(updated or at)
+                if message_end and (ended is None or message_end > ended):
+                    ended = message_end
                 agent = item.get("agent") or agent
             sessions.append({"id": sid, "cwd": cwd, "started": instant(created), "agent": agent,
+                             "ended": ended,
                              "model": model, "active_s": active_time(timeline, lambda item: item["role"] == "user"),
                              "tokens": usage,
                              "cost_usd": round(cost, 8), "tool_errors": None})
@@ -235,7 +244,8 @@ def opencode_sessions(path, match):
 
 def joinable(session, start, end, cwd):
     at = session.get("started")
-    return session.get("cwd") == cwd and at is not None and start <= at <= end
+    last = session.get("ended") or at
+    return session.get("cwd") == cwd and at is not None and at <= end and last >= start
 
 
 def empty_run(source, model, role, cli, outcome=None, verify=None):
