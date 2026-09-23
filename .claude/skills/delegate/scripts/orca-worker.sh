@@ -31,7 +31,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 json() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1" 2>/dev/null; }
 state_dir=$(git rev-parse --path-format=absolute --git-common-dir)/orca-workers
 field() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$state_dir/$1.json" "$2" 2>/dev/null; }
-screen() { orca terminal read --terminal "$1" --screen 2>/dev/null; }
+screen() { [[ -n $1 ]] || return 1; orca terminal read --terminal "$1" --screen 2>/dev/null; }
 brief_name=.orca-brief.md
 # Every agent TUI here shows an "esc ... interrupt" hint only while a turn runs.
 working() { grep -q -i -E 'esc( to)? interrupt' <<<"$1"; }
@@ -236,6 +236,10 @@ case "$cmd" in
     ((${#files[@]})) || { echo "no live lanes"; exit 0; }
     for f in "${files[@]}"; do
       n=$(basename "$f" .json); term=$(field "$n" terminal)
+      if [[ -z $term ]]; then
+        echo "$n $(field "$n" cli) unavailable-terminal $(field "$n" path)"
+        continue
+      fi
       s=$(screen "$term") || { echo "$n $(field "$n" cli) gone $(field "$n" path)"; continue; }
       if working "$s"; then st=working; else st=idle; fi
       echo "$n $(field "$n" cli) $st $(field "$n" path)"
