@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 ---
 
 # Offered-Load Streams Phase 1 - Engine Scale and Flow Statistics - Plan
+
+> Implemented. 3 units, 2026-09-23T16:08:00Z to 2026-09-23T17:08:35Z.
 
 ## Goal
 

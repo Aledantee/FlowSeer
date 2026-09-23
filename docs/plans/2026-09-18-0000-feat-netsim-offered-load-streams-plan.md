@@ -101,7 +101,7 @@ plan carries the acceptance examples for its own.
 ### U1. Engine scale and flow statistics
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase1-plan.md`
 After: none
-Landed:
+Landed: `cb5f0bae..b11463f5`
 
 ### U2. Stated egress buffers and tail drop
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase2-plan.md`
