@@ -124,21 +124,10 @@ type EgressDepth struct {
 	Peak  uint64
 }
 
-func wireOctets(frame ethernet.Frame) int {
-	raw, _ := frame.Encode()
-	n := len(raw)
-	minOctets := 60 + 4*len(frame.Tags)
-	if n < minOctets {
-		n = minOctets
-	}
-
-	return n + 24
-}
-
 // serialization is the time the frame occupies the wire at rateBPS. Every
 // caller transmits on a link that negotiated, so the rate is never 0.
 func serialization(frame ethernet.Frame, rateBPS uint64) time.Duration {
-	return rateInterval(uint64(wireOctets(frame))*8, rateBPS)
+	return rateInterval(uint64(frame.WireOctets())*8, rateBPS)
 }
 
 func rateInterval(wireBits, rateBPS uint64) time.Duration {
@@ -502,7 +491,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	// passed the original ingress policy, so a downstream switch must not charge
 	// its bytes again. A reflection carries OriginMirror for provenance but no
 	// mirror name; it is a first-class datagram the policer must still see.
-	frameWireOctets := wireOctets(arr.Frame)
+	frameWireOctets := arr.Frame.WireOctets()
 	if journey.Origin.Mirror == "" && !sw.Police(arr.At, arr.Port, frameWireOctets) {
 		for _, p := range inPorts {
 			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)

@@ -145,6 +145,23 @@ func (f Frame) Encode() ([]byte, error) {
 	return out, nil
 }
 
+// WireOctets returns the octets f occupies on the wire: its encoded length, raised to
+// the IEEE 802.3 minimum of 60 octets plus the four each tag adds, plus 24 for the
+// preamble, start delimiter, interpacket gap, and frame check sequence. A frame whose
+// [Frame.Encode] fails is still measured at that minimum instead of the zero length the
+// failed call returned, because the derived figure is the accessor's and the error
+// belongs to the caller that asked for bytes.
+func (f Frame) WireOctets() int {
+	raw, _ := f.Encode()
+	n := len(raw)
+	minOctets := 60 + 4*len(f.Tags)
+	if n < minOctets {
+		n = minOctets
+	}
+
+	return n + 24
+}
+
 // Decode decodes an Ethernet II frame from wire bytes, peeling 802.1Q tags while the
 // EtherType is 0x8100 (C-Tag) or 0x88A8 (S-Tag). It returns an error if the frame is
 // shorter than the minimum Ethernet header (14 bytes) or if a tag is truncated.

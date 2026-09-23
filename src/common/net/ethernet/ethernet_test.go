@@ -336,6 +336,50 @@ func TestFrameOuterVID(t *testing.T) {
 	}
 }
 
+func TestFrameWireOctets(t *testing.T) {
+	tests := []struct {
+		name  string
+		frame ethernet.Frame
+		want  int
+	}{
+		{
+			name:  "an untagged minimum frame is 84 wire octets",
+			frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 46)},
+			want:  84,
+		},
+		{
+			name: "a short tagged frame is padded to the tagged minimum",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   make([]byte, 10),
+			},
+			want: 88,
+		},
+		{
+			name:  "a 1518-octet frame is 1542 wire octets",
+			frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1504)},
+			want:  1542,
+		},
+		{
+			name: "a frame whose Encode errors is still padded",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: 0x9100, VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			want: 88,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.frame.WireOctets(); got != tc.want {
+				t.Errorf("WireOctets() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestFramePriority(t *testing.T) {
 	tests := []struct {
 		name    string
