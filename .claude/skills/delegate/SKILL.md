@@ -50,10 +50,12 @@ Resolve a role to a lane in this order, once per lane:
    executor's vendor.
 4. Move a pool that already holds a running lane of this wave to the back
    until that lane settles.
-5. Take the model whose pool has the most headroom, and within ten points
-   the one with the lower registry price. A signed-in pool whose source
-   failed (`windows: null`) counts as full headroom until it answers with a
-   429.
+5. Take the first model left in the role's `fit` order. `fit` lists the
+   models best-first by their calibration on the role: speed, then pool
+   usage, among those that passed. Headroom enters only through steps 1
+   and 4, so a pool is passed over when it is hot or busy, not because a
+   later model's pool has more room. A signed-in pool whose source failed
+   (`windows: null`) counts as having room until it answers with a 429.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
