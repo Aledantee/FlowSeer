@@ -249,6 +249,13 @@ figure rests on that join.
   `~/.codex/config.toml` on 2026-09-23, so `tune` has no Codex retention
   value to name in its field step.
 
+- **Start rollback when cleanup fails (the user's ruling, 2026-09-23).**
+  When `undo` cannot close the terminal or remove the worktree, it keeps
+  the lane's state file and its message says the lane is still live, so
+  `status` shows the lane and a person removes it. A failed `end` write
+  inside `undo` is accepted as residual risk: it needs a second fault, and
+  it costs at most one transcript join in `field.py`.
+
 ## Requirements
 
 1. `runlog.py start --lane l1 --cli codex --model gpt-6-sol --role execute
@@ -479,18 +486,4 @@ bootstrap order).
 
 ## Open questions
 
-- Parked by drive: review ended `rework` after three rounds on the start
-  rollback in `.claude/skills/delegate/scripts/orca-worker.sh` (`undo`).
-  Two medium findings remain. First, when `runlog.py end` fails inside
-  `undo`, the lane is removed but its `start` stays open, and a later
-  lane at the same path can be scored as ambiguous by
-  `.claude/skills/tune/scripts/field.py`. Second, when `end` is written
-  but `orca terminal close` or `orca worktree rm` fails, `undo` deletes
-  the state file while the lane still lives, so `status` no longer shows
-  it. Options: fix the second (keep the state file and say so whenever
-  removal fails) and accept the first as a double fault |
-  fix both, with the property "a live lane always has a state file and
-  an open `start`" made executable in `test_orca_worker.py` | accept both
-  as residual risk. Recommended: fix the second and accept the first,
-  because an orphaned live worktree is invisible, while a failed log
-  write costs at most one transcript join.
+None.
