@@ -92,7 +92,13 @@ ownership across specialized packages:
   millions of journeys. Those statistics report what the flow offered,
   delivered per host, dropped by reason, lost, unresolved, rejected, and held
   for resolution, and how late each delivery arrived, with the trust metadata
-  of everything the answer rests on.
+  of everything the answer rests on. An egress queue states a buffer in
+  encoded frame octets or leaves it unstated: a frame that would make the
+  queue's depth exceed a stated buffer is tail-dropped with reason
+  `queue-full`, and a queue with none never drops but its endpoint reports an
+  `Incomplete` `queue-buffer-unstated` issue once the queue backs up past one
+  maximum-size frame, so a loss figure taken without a stated buffer is marked
+  as resting on nothing.
   This is the event model of ns-3 without goroutines. The queue also
   holds the wake-ups a layer schedules and the frames a device emits on
   its own, spanning tree first, under the same total order, so the single

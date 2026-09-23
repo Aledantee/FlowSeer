@@ -938,28 +938,39 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 	raw, _ := frame.Encode()
 	octets := uint64(len(raw))
 	if sw := f.switches[txEnd.Node]; sw != nil {
-		if buffer, stated := sw.QueueBuffer(egressPort, pcp); stated && q.depth[pcp]+octets > buffer {
-			f.record(journey, Entry{
-				At:     now,
-				Kind:   EntryDrop,
-				Device: txEnd.Node,
-				Port:   egressPort,
-				Reason: traffic.ReasonQueueFull,
-				Step: &trace.Step{
-					Layer:   traffic.Layer,
-					Op:      trace.OpDrop,
-					RuleID:  traffic.RuleQueueDrop,
-					Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
-					Inputs:  []trace.Fact{traffic.QueueDropFact(q.depth[pcp], buffer, int(octets))},
-				},
-			})
-			f.countEgressDrop(txEnd.Node, egressPort, traffic.ReasonQueueFull)
-			if egressPort != txEnd.Port {
-				f.countEgressDrop(txEnd.Node, txEnd.Port, traffic.ReasonQueueFull)
-			}
+		buffer, stated := sw.QueueBuffer(egressPort, pcp)
+		if stated {
+			if q.depth[pcp]+octets > buffer {
+				f.record(journey, Entry{
+					At:     now,
+					Kind:   EntryDrop,
+					Device: txEnd.Node,
+					Port:   egressPort,
+					Reason: traffic.ReasonQueueFull,
+					Step: &trace.Step{
+						Layer:   traffic.Layer,
+						Op:      trace.OpDrop,
+						RuleID:  traffic.RuleQueueDrop,
+						Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
+						Inputs:  []trace.Fact{traffic.QueueDropFact(q.depth[pcp], buffer, int(octets))},
+					},
+				})
+				f.countEgressDrop(txEnd.Node, egressPort, traffic.ReasonQueueFull)
+				if egressPort != txEnd.Port {
+					f.countEgressDrop(txEnd.Node, txEnd.Port, traffic.ReasonQueueFull)
+				}
 
-			return
+				return
+			}
+		} else {
+			threshold := uint64(1500 + 18)
+			if mtu, ok := sw.PortMTU(txEnd.Port); ok {
+				threshold = uint64(mtu + 18)
+			}
+			f.markQueueBufferUnstated(txEnd, q.depth[pcp]+octets, threshold, journey)
 		}
+	} else {
+		f.markQueueBufferUnstated(txEnd, q.depth[pcp]+octets, 1500+18, journey)
 	}
 	q.pending[pcp] = append(q.pending[pcp], queued{
 		frame:      cloneFrame(frame),

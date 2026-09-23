@@ -95,6 +95,11 @@ const (
 	// IssuePropagationUnknown marks an operational link whose medium is unspecified and which has no
 	// Delay, so the propagation time of every frame crossing it is unknown and taken as zero.
 	IssuePropagationUnknown analysis.IssueCode = "propagation-unknown"
+
+	// IssueQueueBufferUnstated marks an endpoint whose egress queue has backed
+	// up past one maximum-size frame without a stated buffer, so its loss
+	// figure is unknown.
+	IssueQueueBufferUnstated analysis.IssueCode = "queue-buffer-unstated"
 )
 
 // FaultKind identifies the nature of a cable impairment, distinguishing physical defects

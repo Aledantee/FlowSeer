@@ -70,6 +70,7 @@ var fabricFieldClasses = map[string]forkClass{
 	"busyUntil":      classDeepCopied,
 	"egress":         classDeepCopied,
 	"counters":       classDeepCopied,
+	"unstatedBacked": classDeepCopied,
 	"metadataCache":  classImmutableShared,
 	"inflight":       classDeepCopied,
 	"heldAggregates": classDeepCopied,

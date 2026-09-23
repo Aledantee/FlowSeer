@@ -673,7 +673,9 @@ on the record: every link it filled carries one assumption naming the facts.
 ## Topology metadata
 
 `Fabric.Metadata()` returns trust metadata over the whole analysis for the
-links as they stand, so a later `SetFault` changes it:
+links as they stand, so a later `SetFault` changes it, and for the endpoints
+whose unstated-buffer queue first backed up during the run, so a queue crossing
+changes it too:
 
 | Code                              | Scope | Status      | Raised when                                        |
 | --------------------------------- | ----- | ----------- | -------------------------------------------------- |
@@ -683,6 +685,7 @@ links as they stand, so a later `SetFault` changes it:
 | `adjacency-unresolved`            | port  | Incomplete  | no cable and no `Uncabled` entry names the port     |
 | `oper-status-conflict`            | port  | Incomplete  | a configured `Up` or `Down` differs from a derived `Up` or `Down` |
 | `observed-speed-conflict`         | port  | Incomplete  | an end observed a speed its negotiated link lacks  |
+| `queue-buffer-unstated`           | port  | Incomplete  | an endpoint's queue with no stated buffer backs up past one maximum-size frame |
 
 A link's scope is `analysis.LinkScope` keyed by its cable's `Diff` subject key,
 such as `h1:-sw1:1/1/1`. A host end's port scope is its node scope. An unset or
@@ -727,6 +730,12 @@ the links it neither crossed nor consulted.
 The metadata is fixed once the entry is recorded. A `SetFault` that later cuts
 a link whose `propagation-unknown` issue a journey picked up leaves that
 journey's metadata as it was, while `Fabric.Metadata` drops the issue.
+
+`queue-buffer-unstated` is raised for the endpoint the first time one of its
+unstated-buffer queues backs up past one maximum-size frame for the port's MTU,
+and folded directly into the crossing frame's journey, so a journey that
+depends on the endpoint carries it even when the crossing frame is the run's
+last one.
 
 ## Fault kinds
 

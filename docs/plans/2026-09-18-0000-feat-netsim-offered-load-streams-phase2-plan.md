@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 ---
 
 # Offered-Load Streams Phase 2 - Stated Egress Buffers and Tail Drop - Plan
+
+> Implemented. 3 units, 2026-09-23T18:49Z to 2026-09-23T19:47Z.
 
 > Re-planned 2026-09-23 against the tree that holds phase 1's landed units.
 

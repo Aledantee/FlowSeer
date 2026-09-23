@@ -36,9 +36,27 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"busyUntil":      probeFabricBusyUntil,
 	"egress":         probeFabricEgress,
 	"counters":       probeFabricCounters,
+	"unstatedBacked": probeFabricUnstatedBacked,
 	"inflight":       probeFabricInflight,
 	"heldAggregates": probeFabricHeldAggregates,
 	"flows":          probeFabricFlows,
+}
+
+func probeFabricUnstatedBacked(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	ep := Endpoint{Node: "sw1", Port: "1/1/1"}
+	fab.unstatedBacked = map[Endpoint]struct{}{ep: {}}
+	fork := fab.Fork()
+
+	forkEP := Endpoint{Node: "sw1", Port: "1/1/2"}
+	fork.unstatedBacked[forkEP] = struct{}{}
+	if _, ok := fab.unstatedBacked[forkEP]; ok {
+		t.Errorf("source unstatedBacked gained entry added to fork")
+	}
+	delete(fork.unstatedBacked, ep)
+	if _, ok := fab.unstatedBacked[ep]; !ok {
+		t.Errorf("source unstatedBacked lost entry deleted from fork")
+	}
 }
 
 func probeFabricCfg(t *testing.T) {

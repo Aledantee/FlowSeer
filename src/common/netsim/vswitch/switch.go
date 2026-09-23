@@ -586,6 +586,18 @@ func (s *Switch) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
 	return s.traffic.QueueBuffer(name, pcp)
 }
 
+// PortMTU returns a port's configured maximum transmission unit in octets and
+// whether the port states one. An unstated MTU is zero, which the forwarding
+// path treats as no limit.
+func (s *Switch) PortMTU(name string) (int, bool) {
+	p, ok := s.ports.Port(name)
+	if !ok {
+		return 0, false
+	}
+
+	return p.MTU, p.MTU > 0
+}
+
 // Ports returns a copy of the switch port table.
 func (s *Switch) Ports() port.Table {
 	return s.ports.Clone()

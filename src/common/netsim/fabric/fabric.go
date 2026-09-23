@@ -191,9 +191,15 @@ type Fabric struct {
 	egress         map[Endpoint]*egressQueue
 	counters       map[Endpoint]*Counters
 
+	// unstatedBacked names the endpoints whose unstated-buffer egress queue
+	// has backed up past one maximum-size frame, so [Fabric.Metadata] carries
+	// the queue-buffer-unstated issue for them.
+	unstatedBacked map[Endpoint]struct{}
+
 	// metadataCache holds the value [Fabric.Metadata] last built. Its inputs
 	// are fixed after construction except where [Fabric.SetFault] rewrites a
-	// link and its trust, which nils the cache. The value is immutable, so a
+	// link and its trust, or a queue with no stated buffer first backs up past
+	// one maximum-size frame; both nil the cache. The value is immutable, so a
 	// fork may share it.
 	metadataCache *analysis.Metadata
 
@@ -661,6 +667,11 @@ func (f *Fabric) Fork() *Fabric {
 		}
 	}
 
+	var unstatedBacked map[Endpoint]struct{}
+	if len(f.unstatedBacked) > 0 {
+		unstatedBacked = maps.Clone(f.unstatedBacked)
+	}
+
 	var inflight map[FrameID]int
 	if f.inflight != nil {
 		inflight = maps.Clone(f.inflight)
@@ -717,6 +728,7 @@ func (f *Fabric) Fork() *Fabric {
 		busyUntil:      busyUntil,
 		egress:         egress,
 		counters:       counters,
+		unstatedBacked: unstatedBacked,
 		metadataCache:  f.metadataCache,
 		inflight:       inflight,
 		heldAggregates: heldAggregates,
@@ -909,7 +921,8 @@ func unlinkedEnd(ep Endpoint, uncabled map[Endpoint]Uncabled) LinkEnd {
 // construction specification's evidence catalog.
 //
 // The result is cached: its inputs are fixed after construction except where
-// [Fabric.SetFault] rewrites a link, and SetFault clears the cache.
+// [Fabric.SetFault] rewrites a link, or a queue with no stated buffer first
+// backs up past one maximum-size frame. Both clear the cache.
 func (f *Fabric) Metadata() analysis.Metadata {
 	if f.metadataCache != nil {
 		return *f.metadataCache
@@ -951,10 +964,57 @@ func (f *Fabric) Metadata() analysis.Metadata {
 		}
 	}
 
+	for _, ep := range slices.SortedFunc(maps.Keys(f.unstatedBacked), compareEndpoint) {
+		issues = append(issues, analysis.Issue{
+			Code:    IssueQueueBufferUnstated,
+			Status:  analysis.Incomplete,
+			Scope:   endpointScope(ep),
+			Message: fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
+		})
+	}
+
 	md := analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, assumptions)
 	f.metadataCache = &md
 
 	return md
+}
+
+// raise folds a single issue into a journey's metadata directly, bypassing the
+// dependency scope [Fabric.record] uses, so a queue-buffer issue reaches the
+// crossing frame's journey even when no later hop would carry it.
+func (f *Fabric) raise(j *Journey, issue analysis.Issue) {
+	if j == nil {
+		return
+	}
+
+	j.Metadata = mergeMetadata(j.Metadata, analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{issue}, f.evidence, nil))
+}
+
+// markQueueBufferUnstated records the first time an endpoint's unstated-buffer
+// egress queue backs up past threshold octets: it marks the endpoint so
+// [Fabric.Metadata] reports the issue, folds the same issue into the crossing
+// frame's journey, and clears the metadata cache. depth is the queue depth with
+// the frame just enqueued counted. A queue that crosses on two PCPs marks its
+// endpoint once.
+func (f *Fabric) markQueueBufferUnstated(ep Endpoint, depth, threshold uint64, journey *Journey) {
+	if depth <= threshold {
+		return
+	}
+	if _, marked := f.unstatedBacked[ep]; marked {
+		return
+	}
+	if f.unstatedBacked == nil {
+		f.unstatedBacked = make(map[Endpoint]struct{})
+	}
+	f.unstatedBacked[ep] = struct{}{}
+
+	f.raise(journey, analysis.Issue{
+		Code:    IssueQueueBufferUnstated,
+		Status:  analysis.Incomplete,
+		Scope:   endpointScope(ep),
+		Message: fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
+	})
+	f.metadataCache = nil
 }
 
 // observedOperStatus reports whether a state says something definite: an unset
