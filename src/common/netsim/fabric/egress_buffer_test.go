@@ -132,10 +132,11 @@ func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.
 	}
 }
 
-// TestEgressStatedBufferTailDrop covers 6a: a 2000-octet stated buffer drops
-// the frames that would overflow it, counts them in OutDiscards and
-// Discards["queue-full"], folds them into their flows, and never reports a
-// peak above the buffer.
+// TestEgressStatedBufferTailDrop asserts a 2000-octet stated buffer drops the
+// frames that would overflow it and counts only those as discards: OutDiscards
+// and Discards["queue-full"] move together, the transmitted frame counters
+// match what h3 received, the drops fold into their flows, and no peak exceeds
+// the buffer.
 func TestEgressStatedBufferTailDrop(t *testing.T) {
 	buffer := uint64(2000)
 	fab, macs := egressBufferTopology(t, &buffer)
@@ -154,11 +155,15 @@ func TestEgressStatedBufferTailDrop(t *testing.T) {
 		t.Errorf("OutDiscards = %d, Discards[queue-full] = %d; want equal", counters.OutDiscards, counters.Discards[traffic.ReasonQueueFull])
 	}
 
-	var flowDrops uint64
+	var (
+		flowDrops uint64
+		delivered uint64
+	)
 	for _, flow := range []fabric.FlowID{1, 2} {
 		stats := fab.Flows()[flow]
 		drops := stats.Drops[traffic.ReasonQueueFull]
 		flowDrops += drops
+		delivered += stats.Delivered["h3"]
 		if got := stats.Delivered["h3"] + drops; got != stats.Offered {
 			t.Errorf("flow %d Delivered[h3]+Drops[queue-full] = %d, want Offered %d", flow, got, stats.Offered)
 		}
@@ -167,13 +172,22 @@ func TestEgressStatedBufferTailDrop(t *testing.T) {
 		t.Errorf("flow drops = %d, want the port's queue-full count %d", flowDrops, counters.Discards[traffic.ReasonQueueFull])
 	}
 
+	// A tail-dropped frame never left the port, so only the delivered frames
+	// count as transmitted, in frames and in the encoded octets they carry.
+	if counters.OutUnicast != delivered {
+		t.Errorf("OutUnicast = %d, want the delivered frame count %d", counters.OutUnicast, delivered)
+	}
+	if counters.OutOctets != delivered*1014 {
+		t.Errorf("OutOctets = %d, want %d encoded octets for %d delivered frames", counters.OutOctets, delivered*1014, delivered)
+	}
+
 	peak := fab.Snapshot().EgressDepths[fabric.Endpoint{Node: "sw1", Port: "1/1/3"}][0].Peak
 	if peak > 2000 {
 		t.Errorf("peak = %d, want at most the stated buffer 2000", peak)
 	}
 }
 
-// TestEgressStatedBufferUnderCapacity covers 6b: the same traffic under an
+// TestEgressStatedBufferUnderCapacity asserts the same traffic under an
 // 8000-octet buffer delivers every frame, leaves Drops empty, and reports a
 // peak below the buffer.
 func TestEgressStatedBufferUnderCapacity(t *testing.T) {
@@ -202,7 +216,7 @@ func TestEgressStatedBufferUnderCapacity(t *testing.T) {
 	}
 }
 
-// TestEgressBufferCountsEncodedFrameOctets covers 6c: two 1000-octet-payload
+// TestEgressBufferCountsEncodedFrameOctets asserts two 1000-octet-payload
 // untagged frames are 1014 encoded octets each, so a 2028-octet buffer admits
 // the second and a 2027-octet buffer refuses it. A wire-octet count (1038
 // each) would refuse at 2028, separating the two units.
@@ -240,8 +254,8 @@ func TestEgressBufferCountsEncodedFrameOctets(t *testing.T) {
 	}
 }
 
-// TestEgressUnstatedBufferNeverDrops covers 7a: the same fabric with no
-// Queues entry delivers every frame and drops none.
+// TestEgressUnstatedBufferNeverDrops asserts the same fabric with no Queues
+// entry delivers every frame and drops none.
 func TestEgressUnstatedBufferNeverDrops(t *testing.T) {
 	fab, macs := egressBufferTopology(t, nil)
 	primeEgressLearning(t, fab, macs)
@@ -263,9 +277,9 @@ func TestEgressUnstatedBufferNeverDrops(t *testing.T) {
 	}
 }
 
-// TestEgressUnstatedBufferReportsPeak covers 7b: ten 1014-octet frames
-// enqueued on one endpoint at a single instant make a peak within one frame of
-// ten frames' octets and equal to the greatest depth seen; after the drain the
+// TestEgressUnstatedBufferReportsPeak asserts ten 1014-octet frames enqueued
+// on one endpoint at a single instant make a peak within one frame of ten
+// frames' octets and equal to the greatest depth seen; after the drain the
 // depth is zero and the peak is unchanged.
 func TestEgressUnstatedBufferReportsPeak(t *testing.T) {
 	fab, macs := egressBufferTopology(t, nil)
