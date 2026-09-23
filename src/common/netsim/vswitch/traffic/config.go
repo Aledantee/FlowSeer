@@ -53,11 +53,15 @@ type Policer struct {
 	BurstOctets int
 }
 
-// PortQueues defines maximum rates in bits per second by priority code point
-// for one port. An absent priority has no configured maximum. PortQueues is not
-// safe for concurrent use.
+// PortQueues defines maximum rates in bits per second and buffer sizes in
+// encoded frame octets by priority code point for one port. An absent priority
+// has no configured maximum or no stated buffer. BufferOctets counts the length
+// ethernet.Frame.Encode returns, the switch's own frame octets without the
+// wire's preamble, start delimiter, and interpacket gap. PortQueues is not safe
+// for concurrent use.
 type PortQueues struct {
-	MaxRateBPS map[vlan.PCP]uint64
+	MaxRateBPS   map[vlan.PCP]uint64
+	BufferOctets map[vlan.PCP]uint64
 }
 
 // Config defines traffic handling for a virtual switch. Its zero value has no
@@ -88,6 +92,10 @@ func (c Config) Clone() Config {
 			if queues.MaxRateBPS != nil {
 				queueCopy.MaxRateBPS = make(map[vlan.PCP]uint64, len(queues.MaxRateBPS))
 				maps.Copy(queueCopy.MaxRateBPS, queues.MaxRateBPS)
+			}
+			if queues.BufferOctets != nil {
+				queueCopy.BufferOctets = make(map[vlan.PCP]uint64, len(queues.BufferOctets))
+				maps.Copy(queueCopy.BufferOctets, queues.BufferOctets)
 			}
 			cp.Queues[name] = queueCopy
 		}
@@ -126,7 +134,8 @@ func (c Config) Normalize() Config {
 }
 
 // Validate checks mirror names and destinations, logical selector ports and
-// VLANs, policer bursts, and queue rates against the supplied port table.
+// VLANs, policer bursts, and queue rates and buffers against the supplied port
+// table.
 func (c Config) Validate(ports port.Table) error {
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
@@ -276,27 +285,42 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("port", name).
 				Msgf("queue port %q absent from port table", name)
 		}
-		pcps := make([]vlan.PCP, 0, len(queues.MaxRateBPS))
-		for pcp := range queues.MaxRateBPS {
-			pcps = append(pcps, pcp)
-		}
-		slices.Sort(pcps)
-		for _, pcp := range pcps {
-			rate := queues.MaxRateBPS[pcp]
+		for _, pcp := range unionPCPs(queues.MaxRateBPS, queues.BufferOctets) {
 			field := "queues." + name + ".max_rate_bps." + strconv.Itoa(int(pcp))
+			if rate, ok := queues.MaxRateBPS[pcp]; ok {
+				if !pcp.Valid() {
+					return errs.New().
+						Attr("field", field).
+						Attr("port", name).
+						Attr("pcp", pcp).
+						Msgf("queue PCP %d on port %q is invalid", pcp, name)
+				}
+				if rate == 0 {
+					return errs.New().
+						Attr("field", field).
+						Attr("port", name).
+						Attr("pcp", pcp).
+						Msgf("queue maximum rate on port %q PCP %d must be positive", name, pcp)
+				}
+			}
+			buffer, ok := queues.BufferOctets[pcp]
+			if !ok {
+				continue
+			}
+			bufferField := "queues." + name + ".buffer_octets." + strconv.Itoa(int(pcp))
 			if !pcp.Valid() {
 				return errs.New().
-					Attr("field", field).
+					Attr("field", bufferField).
 					Attr("port", name).
 					Attr("pcp", pcp).
 					Msgf("queue PCP %d on port %q is invalid", pcp, name)
 			}
-			if rate == 0 {
+			if buffer == 0 {
 				return errs.New().
-					Attr("field", field).
+					Attr("field", bufferField).
 					Attr("port", name).
 					Attr("pcp", pcp).
-					Msgf("queue maximum rate on port %q PCP %d must be positive", name, pcp)
+					Msgf("queue buffer on port %q PCP %d must be positive", name, pcp)
 			}
 		}
 	}
@@ -313,6 +337,18 @@ func (c Config) MaxRate(name string, pcp vlan.PCP) (uint64, bool) {
 	rate, ok := queues.MaxRateBPS[pcp]
 
 	return rate, ok
+}
+
+// QueueBuffer returns the stated buffer in encoded frame octets for a port and
+// priority.
+func (c Config) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
+	queues, ok := c.Queues[name]
+	if !ok {
+		return 0, false
+	}
+	buffer, ok := queues.BufferOctets[pcp]
+
+	return buffer, ok
 }
 
 // OutputPorts returns the sorted set of ports reserved for mirror output.

@@ -2,12 +2,10 @@ package traffic
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
 // Bucket is a lazily refilled ingress token bucket whose tokens are octets.
@@ -100,16 +98,12 @@ func RetentionKey(cfg Config) string {
 		q := norm.Queues[name]
 		b.WriteString(name)
 		b.WriteString(":{")
-		pcps := make([]int, 0, len(q.MaxRateBPS))
-		for p := range q.MaxRateBPS {
-			pcps = append(pcps, int(p))
-		}
-		slices.Sort(pcps)
+		pcps := unionPCPs(q.MaxRateBPS, q.BufferOctets)
 		for j, pcp := range pcps {
 			if j > 0 {
 				b.WriteByte(',')
 			}
-			fmt.Fprintf(&b, "%d=%d", pcp, q.MaxRateBPS[vlan.PCP(pcp)])
+			fmt.Fprintf(&b, "%d=rate:%d,buffer:%d", pcp, q.MaxRateBPS[pcp], q.BufferOctets[pcp])
 		}
 		b.WriteByte('}')
 	}

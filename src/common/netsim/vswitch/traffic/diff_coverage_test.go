@@ -29,7 +29,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 			"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1500},
 		},
 		Queues: map[string]traffic.PortQueues{
-			"1/1/1": {MaxRateBPS: map[vlan.PCP]uint64{0: 1_000_000}},
+			"1/1/1": {MaxRateBPS: map[vlan.PCP]uint64{0: 1_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 4096}},
 		},
 	}
 

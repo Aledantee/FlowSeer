@@ -37,6 +37,15 @@ func (f MaxRateFact) TypeID() string { return "traffic.max_rate_bps" }
 // Canonical returns the decimal string of the max rate.
 func (f MaxRateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
+// QueueBufferFact wraps a queue buffer in encoded frame octets as a trace.Fact.
+type QueueBufferFact uint64
+
+// TypeID returns the fact type identifier for QueueBufferFact.
+func (f QueueBufferFact) TypeID() string { return "traffic.queue_buffer_octets" }
+
+// Canonical returns the decimal string of the buffer.
+func (f QueueBufferFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
 // SelectAllFact wraps a boolean select_all flag as a trace.Fact.
 type SelectAllFact bool
 
@@ -199,24 +208,25 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	for _, portName := range unionKeys(a.Queues, b.Queues) {
-		aRates := a.Queues[portName].MaxRateBPS
-		bRates := b.Queues[portName].MaxRateBPS
-		for _, pcp := range unionPCPs(aRates, bRates) {
-			aRate := aRates[pcp]
-			bRate := bRates[pcp]
-			if aRate == bRate {
-				continue
+		aQueues := a.Queues[portName]
+		bQueues := b.Queues[portName]
+		for _, pcp := range unionPCPs(aQueues.MaxRateBPS, bQueues.MaxRateBPS, aQueues.BufferOctets, bQueues.BufferOctets) {
+			subject := trace.Subject{
+				Kind: "port",
+				Key:  fmt.Sprintf("%s/%d", portName, pcp),
 			}
-			changes = append(changes, trace.Change{
-				Layer: Layer,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  fmt.Sprintf("%s/%d", portName, pcp),
-				},
-				Field: "max_rate",
-				From:  MaxRateFact(aRate),
-				To:    MaxRateFact(bRate),
-			})
+			if aRate, bRate := aQueues.MaxRateBPS[pcp], bQueues.MaxRateBPS[pcp]; aRate != bRate {
+				changes = append(changes, trace.Change{
+					Layer: Layer, Subject: subject, Field: "max_rate",
+					From: MaxRateFact(aRate), To: MaxRateFact(bRate),
+				})
+			}
+			if aBuffer, bBuffer := aQueues.BufferOctets[pcp], bQueues.BufferOctets[pcp]; aBuffer != bBuffer {
+				changes = append(changes, trace.Change{
+					Layer: Layer, Subject: subject, Field: "buffer_octets",
+					From: QueueBufferFact(aBuffer), To: QueueBufferFact(bBuffer),
+				})
+			}
 		}
 	}
 
@@ -277,13 +287,12 @@ func unionKeys[V any](a, b map[string]V) []string {
 	return sortedKeys(keys)
 }
 
-func unionPCPs(a, b map[vlan.PCP]uint64) []vlan.PCP {
-	keys := make(map[vlan.PCP]struct{}, len(a)+len(b))
-	for key := range a {
-		keys[key] = struct{}{}
-	}
-	for key := range b {
-		keys[key] = struct{}{}
+func unionPCPs(queues ...map[vlan.PCP]uint64) []vlan.PCP {
+	keys := make(map[vlan.PCP]struct{})
+	for _, q := range queues {
+		for key := range q {
+			keys[key] = struct{}{}
+		}
 	}
 	pcps := make([]vlan.PCP, 0, len(keys))
 	for key := range keys {

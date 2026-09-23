@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
@@ -74,6 +75,29 @@ func TestBucketCloneHasIndependentState(t *testing.T) {
 	}
 	if got, want := bucket.Tokens(), float64(6); got != want {
 		t.Errorf("original Tokens = %v after clone mutation, want %v", got, want)
+	}
+}
+
+func TestRetentionKeyTracksQueueBuffer(t *testing.T) {
+	t.Parallel()
+
+	base := traffic.Config{Queues: map[string]traffic.PortQueues{
+		"1/1/1": {
+			MaxRateBPS:   map[vlan.PCP]uint64{0: 1_000_000},
+			BufferOctets: map[vlan.PCP]uint64{0: 2000},
+		},
+	}}
+	changed := base.Clone()
+	changed.Queues["1/1/1"] = traffic.PortQueues{
+		MaxRateBPS:   map[vlan.PCP]uint64{0: 1_000_000},
+		BufferOctets: map[vlan.PCP]uint64{0: 4000},
+	}
+
+	if traffic.RetentionKey(base) == traffic.RetentionKey(changed) {
+		t.Error("RetentionKey ignored a change confined to a queue buffer")
+	}
+	if traffic.RetentionKey(base) != traffic.RetentionKey(base.Clone()) {
+		t.Error("RetentionKey differs between a configuration and its clone")
 	}
 }
 

@@ -38,7 +38,9 @@ func TestConfigValidate(t *testing.T) {
 	valid := traffic.Config{
 		Mirrors:  []traffic.Mirror{{Name: "m1", SelectAll: true, OutputPort: "1/1/4"}},
 		Policers: map[string]traffic.Policer{"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000}},
-		Queues:   map[string]traffic.PortQueues{"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}}},
+		Queues: map[string]traffic.PortQueues{
+			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 4096}},
+		},
 	}
 	if err := valid.Validate(ports); err != nil {
 		t.Fatalf("Validate failed for valid configuration: %v", err)
@@ -170,6 +172,20 @@ func TestConfigValidate(t *testing.T) {
 			}},
 			wantField: "queues.1/1/24.max_rate_bps.8",
 		},
+		{
+			name: "zero queue buffer",
+			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
+				"1/1/1": {BufferOctets: map[vlan.PCP]uint64{0: 0}},
+			}},
+			wantField: "queues.1/1/1.buffer_octets.0",
+		},
+		{
+			name: "invalid queue buffer PCP",
+			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
+				"1/1/1": {BufferOctets: map[vlan.PCP]uint64{8: 1}},
+			}},
+			wantField: "queues.1/1/1.buffer_octets.8",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -198,7 +214,7 @@ func TestConfigCloneIsIndependent(t *testing.T) {
 		}},
 		Policers: map[string]traffic.Policer{"1/1/1": {RateBPS: 1}},
 		Queues: map[string]traffic.PortQueues{
-			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{7: 2}},
+			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{7: 2}, BufferOctets: map[vlan.PCP]uint64{7: 2000}},
 		},
 	}
 	clone := original.Clone()
@@ -208,6 +224,7 @@ func TestConfigCloneIsIndependent(t *testing.T) {
 	*clone.Mirrors[0].OutputVLAN = 100
 	clone.Policers["1/1/1"] = traffic.Policer{RateBPS: 3}
 	clone.Queues["1/1/24"].MaxRateBPS[7] = 4
+	clone.Queues["1/1/24"].BufferOctets[7] = 9
 
 	if original.Mirrors[0].SelectSrcPorts[0] != "1/1/1" || original.Mirrors[0].SelectDstPorts[0] != "1/1/24" {
 		t.Errorf("original mirror selectors changed: %+v", original.Mirrors[0])
@@ -220,6 +237,12 @@ func TestConfigCloneIsIndependent(t *testing.T) {
 	}
 	if original.Queues["1/1/24"].MaxRateBPS[7] != 2 {
 		t.Errorf("original queue rate = %d, want 2", original.Queues["1/1/24"].MaxRateBPS[7])
+	}
+	if original.Queues["1/1/24"].BufferOctets[7] != 2000 {
+		t.Errorf("original queue buffer = %d, want 2000", original.Queues["1/1/24"].BufferOctets[7])
+	}
+	if clone.Queues["1/1/24"].BufferOctets[7] != 9 {
+		t.Errorf("clone queue buffer = %d, want 9", clone.Queues["1/1/24"].BufferOctets[7])
 	}
 }
 
@@ -234,7 +257,7 @@ func TestConfigLookups(t *testing.T) {
 			{Name: "m4", OutputVLAN: vlanPtr(99)},
 		},
 		Queues: map[string]traffic.PortQueues{
-			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{7: 100_000_000}},
+			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{7: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{7: 2000}},
 		},
 	}
 	if got, want := cfg.OutputPorts(), []string{"1/1/24", "1/1/4"}; !slices.Equal(got, want) {
@@ -245,6 +268,12 @@ func TestConfigLookups(t *testing.T) {
 	}
 	if _, ok := cfg.MaxRate("1/1/24", 0); ok {
 		t.Error("MaxRate reported an absent PCP")
+	}
+	if got, ok := cfg.QueueBuffer("1/1/24", 7); !ok || got != 2000 {
+		t.Errorf("QueueBuffer = %d, %t, want 2000, true", got, ok)
+	}
+	if _, ok := cfg.QueueBuffer("1/1/24", 0); ok {
+		t.Error("QueueBuffer reported an absent PCP")
 	}
 }
 
@@ -270,6 +299,23 @@ func TestDiffReportsFieldsAndIgnoresSetOrder(t *testing.T) {
 	}
 	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", traffic.SnapLenFact(64), traffic.SnapLenFact(128))
 	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", traffic.RateFact(1_000_000), traffic.RateFact(2_000_000))
+}
+
+func TestDiffReportsQueueBuffer(t *testing.T) {
+	t.Parallel()
+
+	a := traffic.Config{Queues: map[string]traffic.PortQueues{
+		"1/1/1": {BufferOctets: map[vlan.PCP]uint64{0: 2000}},
+	}}
+	b := traffic.Config{Queues: map[string]traffic.PortQueues{
+		"1/1/1": {BufferOctets: map[vlan.PCP]uint64{0: 4000}},
+	}}
+
+	changes := traffic.Diff(a, b)
+	if len(changes) != 1 {
+		t.Fatalf("Diff returned %d changes, want 1: %+v", len(changes), changes)
+	}
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1/0"}, "buffer_octets", traffic.QueueBufferFact(2000), traffic.QueueBufferFact(4000))
 }
 
 func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {

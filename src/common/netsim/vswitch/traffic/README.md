@@ -49,13 +49,18 @@ when enough tokens exist. A refused frame spends nothing. Rate zero disables
 policing.
 
 `Config.MaxRate` looks up a port and PCP in the queue table. A missing entry
-means that priority has no configured maximum.
+means that priority has no configured maximum. `PortQueues.BufferOctets` states
+a queue buffer in encoded frame octets, the length `ethernet.Frame.Encode`
+returns, so it excludes the wire's preamble, start delimiter, and interpacket
+gap. `Config.QueueBuffer` looks it up the same way; a missing entry means that
+priority's buffer is unbounded and its queue never tail-drops.
 
 ## State retention
 
 `RetentionKey(cfg Config) string` encodes the normalized traffic configuration
-as `Diff` sees it. `vswitch.Derive` retains active token buckets per matching
-policer when the layer's retention key is unchanged.
+as `Diff` sees it, each queue's rate and stated buffer included.
+`vswitch.Derive` retains active token buckets per matching policer when the
+layer's retention key is unchanged.
 
 ## Sources
 

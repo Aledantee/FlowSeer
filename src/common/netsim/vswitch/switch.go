@@ -576,6 +576,16 @@ func (s *Switch) QueueMaxRate(name string, pcp vlan.PCP) (uint64, bool) {
 	return s.traffic.MaxRate(name, pcp)
 }
 
+// QueueBuffer returns the stated buffer in encoded frame octets for a port and
+// priority. A port or priority without a stated buffer reports false.
+func (s *Switch) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
+	if s.traffic == nil {
+		return 0, false
+	}
+
+	return s.traffic.QueueBuffer(name, pcp)
+}
+
 // Ports returns a copy of the switch port table.
 func (s *Switch) Ports() port.Table {
 	return s.ports.Clone()

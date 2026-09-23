@@ -732,7 +732,7 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000},
 			},
 			Queues: map[string]traffic.PortQueues{
-				"1/1/2": {MaxRateBPS: map[vlan.PCP]uint64{5: 100_000_000}},
+				"1/1/2": {MaxRateBPS: map[vlan.PCP]uint64{5: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{5: 4096}},
 			},
 		},
 	}
@@ -756,6 +756,12 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 	}
 	if rate, ok := sw.QueueMaxRate("1/1/2", 0); ok || rate != 0 {
 		t.Errorf("QueueMaxRate(1/1/2, 0) = (%d, %t), want (0, false)", rate, ok)
+	}
+	if buffer, ok := sw.QueueBuffer("1/1/2", 5); !ok || buffer != 4096 {
+		t.Errorf("QueueBuffer(1/1/2, 5) = (%d, %t), want (4096, true)", buffer, ok)
+	}
+	if buffer, ok := sw.QueueBuffer("1/1/2", 0); ok || buffer != 0 {
+		t.Errorf("QueueBuffer(1/1/2, 0) = (%d, %t), want (0, false)", buffer, ok)
 	}
 
 	tests := []struct {
