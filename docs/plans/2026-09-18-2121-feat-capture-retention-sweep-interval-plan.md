@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/unpinned-buf-remote-plugins-drift-the-whole-generated-tree.md
 execution: code
 ---
 
