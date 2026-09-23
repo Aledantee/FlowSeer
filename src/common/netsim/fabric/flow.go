@@ -73,10 +73,10 @@ func (f *Fabric) Flows() map[FlowID]FlowStats {
 
 // settle folds a journey whose last in-flight arrival has left into its flow
 // and, when its retention is [RetainAggregate], frees it. A journey a switch
-// holds for neighbor resolution settles at the hold, folding [Held] once, but
-// is not freed there: it must outlive the hold so [Fabric.injectEmission] can
-// name it as the holder of the released frame. A journey settles once; a later
-// settle of the same frame is a no-op.
+// holds for neighbor resolution settles at the hold, counting under
+// [FlowStats.Held] once, but is not freed there: it must outlive the hold so
+// [Fabric.injectEmission] can name it as the holder of the released frame. A
+// journey settles once; a later settle of the same frame is a no-op.
 func (f *Fabric) settle(fid FrameID) {
 	j := f.journeys[fid]
 	if j == nil || j.settled || f.inflight[fid] > 0 {

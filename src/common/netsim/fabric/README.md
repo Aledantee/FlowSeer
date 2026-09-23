@@ -301,9 +301,10 @@ per-frame record rather than at retention.
 Measured on the development host (Apple M4 Pro, 2026-09-23): the aggregate
 benchmark took 295 s, and with `-benchmem` reported 2.5 TB of cumulative
 allocation over 5.0 billion allocations; the hundred-thousand-journey
-benchmark took 39 s. The stated budget is 120 s and 2 GiB, so the measured
-time is over it. The run loop fingerprints the fabric after every
-step, and that per-step work, not retention, dominates both figures.
+benchmark took 39 s, against a target of 120 s and 2 GiB for the million-frame
+run. The run loop fingerprints the fabric after every step, and the
+fingerprint builds a `Snapshot`, which copies and sorts the whole arrival
+queue; that per-step work, not retention, dominates both figures.
 
 ## Media and reach
 
