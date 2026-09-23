@@ -905,16 +905,21 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 	if memberName != "" {
 		outPorts = append(outPorts, memberName)
 	}
-	for _, p := range outPorts {
-		f.countEgress(device, p, outOctets, outClass)
+	countOut := func() {
+		for _, p := range outPorts {
+			f.countEgress(device, p, outOctets, outClass)
+		}
 	}
 
 	ref, ok := f.linkEnd(device, outPort)
 	if !ok {
+		countOut()
+
 		return
 	}
 
 	if ref.end.Speed.SpeedBPS == 0 {
+		countOut()
 		cableCopy := ref.link.Clone()
 		f.record(journey, Entry{
 			At:     now,
@@ -926,10 +931,18 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 		return
 	}
 
-	f.enqueueEgress(now, ref.end.Endpoint, portName, frame, seq, fid, journey, pcp, mirror)
+	// A frame the stated-buffer tail drop refuses never left the port, so it
+	// counts as a discard only, not as a transmission.
+	if admitted := f.enqueueEgress(now, ref.end.Endpoint, portName, frame, seq, fid, journey, pcp, mirror); admitted {
+		countOut()
+	}
 }
 
-func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) {
+// enqueueEgress appends a frame to txEnd's shaped egress queue and reports
+// whether the queue admitted it. A stated buffer that the frame would overflow
+// tail-drops it and returns false, so the caller counts a discard, not a
+// transmission.
+func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) bool {
 	q := f.egress[txEnd]
 	if q == nil {
 		q = &egressQueue{}
@@ -960,11 +973,11 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 					f.countEgressDrop(txEnd.Node, txEnd.Port, traffic.ReasonQueueFull)
 				}
 
-				return
+				return false
 			}
 		} else {
 			threshold := uint64(1500 + 18)
-			if mtu, ok := sw.PortMTU(txEnd.Port); ok {
+			if mtu, ok := sw.PortMTU(egressPort); ok {
 				threshold = uint64(mtu + 18)
 			}
 			f.markQueueBufferUnstated(txEnd, q.depth[pcp]+octets, threshold, journey)
@@ -987,6 +1000,8 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 	q.peak[pcp] = max(q.peak[pcp], q.depth[pcp])
 	f.inflightAdd(fid)
 	f.serve(now, txEnd)
+
+	return true
 }
 
 func (f *Fabric) serve(now time.Time, txEnd Endpoint) {

@@ -202,7 +202,9 @@ var journeyStatePrecedence = []JourneyState{
 // link of any such port. A switch entry naming no port contributes no endpoint scope at all: the only scope
 // available to it is the whole switch's node scope, which would pull in every other port's issues along with
 // it, so it depends on none. An acceptance a host could not decide adds an issue on the journey's scope. A
-// later [Fabric.SetFault] does not change a journey already recorded.
+// queue that has no stated buffer and backs up past one maximum-size frame folds its queue-buffer-unstated
+// issue directly into the crossing frame's journey, so that journey keeps it even when the crossing frame
+// is the run's last. A later [Fabric.SetFault] does not change a journey already recorded.
 type Journey struct {
 	FrameID    FrameID
 	Protocol   bool
@@ -420,7 +422,7 @@ func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
 		merged = mergeMetadata(merged, scopedMetadata(f.Metadata(), dependencies))
 	}
 	if len(raised) > 0 {
-		merged = mergeMetadata(merged, analysis.NewMetadata(analysis.WholeScope(), raised, f.evidence, nil))
+		merged = f.mergeRaised(merged, raised)
 	}
 	j.Metadata = merged
 }

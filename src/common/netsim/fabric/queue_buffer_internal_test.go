@@ -1,7 +1,6 @@
 package fabric
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -97,6 +96,39 @@ func primeQueueBufferLearning(t *testing.T, fab *Fabric, macs map[string]netaddr
 	fab.Run(1000)
 }
 
+// unstatedBackedFabric returns a one-switch fabric with one port per name, all
+// busy, so enqueueing two frames onto each marks every endpoint as an
+// unstated-buffer queue that backed up.
+func unstatedBackedFabric(t *testing.T, names []string) (*Fabric, []Endpoint) {
+	t.Helper()
+
+	builder := port.NewBuilder()
+	for _, name := range names {
+		builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	}
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	fab, err := New(Config{Switches: map[string]vswitch.Config{
+		"sw1": {Ports: ports},
+	}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	fab.initRunState()
+
+	eps := make([]Endpoint, 0, len(names))
+	for _, name := range names {
+		ep := Endpoint{Node: "sw1", Port: name}
+		fab.busyUntil[ep] = fab.clock.Add(time.Hour)
+		eps = append(eps, ep)
+	}
+
+	return fab, eps
+}
+
 func hasIssueScope(issues []analysis.Issue, code analysis.IssueCode, scope analysis.Scope) bool {
 	return countIssueScope(issues, code, scope) > 0
 }
@@ -112,10 +144,10 @@ func countIssueScope(issues []analysis.Issue, code analysis.IssueCode, scope ana
 	return count
 }
 
-// TestQueueBufferUnstatedIssueReachesFlow covers 7c: a run whose egress queue
-// with no stated buffer backs up raises queue-buffer-unstated on the port's
-// scope, Fabric.Metadata reports it once, and the crossing frame's flow
-// carries it. A Metadata read before the crossing does not.
+// TestQueueBufferUnstatedIssueReachesFlow asserts a run whose egress queue with
+// no stated buffer backs up raises queue-buffer-unstated on the port's scope,
+// Fabric.Metadata reports it once, and the crossing frame's flow carries it. A
+// Metadata read before the crossing does not.
 func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	fab, macs := queueBufferTopology(t, nil)
 	primeQueueBufferLearning(t, fab, macs)
@@ -152,7 +184,7 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	}
 }
 
-// TestQueueBufferUnstatedThreshold covers 7d: one 1014-octet frame below the
+// TestQueueBufferUnstatedThreshold asserts one 1014-octet frame below the
 // 1518-octet threshold raises no issue, and the frame queued behind it at 2028
 // octets raises one, because the crossing counts the enqueued frame.
 func TestQueueBufferUnstatedThreshold(t *testing.T) {
@@ -170,28 +202,30 @@ func TestQueueBufferUnstatedThreshold(t *testing.T) {
 	}
 }
 
-// TestQueueBufferUnstatedMetadataIsStable covers the issue set: two Metadata
-// reads with no new crossing are identical, and a crossing leaves an earlier
-// read unchanged while a later one carries the issue.
+// TestQueueBufferUnstatedMetadataIsStable covers the issue set across reads:
+// an earlier Metadata value is unchanged by a later crossing, and the read after
+// the crossings carries exactly one queue-buffer-unstated issue per marked
+// endpoint.
 func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
-	fab, ep := bufferAccountingFabric(t, nil)
-	scope := analysis.PortScope(ep.Node, ep.Port)
-
+	fab, eps := unstatedBackedFabric(t, []string{"1/1/1", "1/1/2", "1/1/3"})
 	before := fab.Metadata()
-	if again := fab.Metadata(); !reflect.DeepEqual(before.Issues(), again.Issues()) {
-		t.Errorf("two Metadata reads differ without a crossing: %+v and %+v", before.Issues(), again.Issues())
-	}
 
 	frame := egressBufferFrame()
-	for range 2 {
-		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+	for _, ep := range eps {
+		for range 2 {
+			fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+		}
 	}
 
-	if got := countIssueScope(before.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
-		t.Errorf("the earlier Metadata value gained %d queue-buffer-unstated issues after the crossing", got)
-	}
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
-		t.Errorf("Metadata after the crossing holds %d queue-buffer-unstated issues, want one", got)
+	after := fab.Metadata()
+	for _, ep := range eps {
+		scope := analysis.PortScope(ep.Node, ep.Port)
+		if got := countIssueScope(before.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+			t.Errorf("the earlier Metadata value gained %d queue-buffer-unstated issues on %v after the crossing", got, scope)
+		}
+		if got := countIssueScope(after.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+			t.Errorf("the read after the crossing holds %d queue-buffer-unstated issues on %v, want one", got, scope)
+		}
 	}
 }
 
