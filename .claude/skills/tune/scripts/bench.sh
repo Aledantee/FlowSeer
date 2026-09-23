@@ -44,7 +44,11 @@ case "$cli" in
     env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" --model "$model" \
       ${effort:+--effort "$effort"} --output-format json --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
   codex)
+    # The user's global compound-engineering plugin runs its own review
+    # workflow inside the lane; it turned a 7/7 run into 110 minutes on
+    # 2026-09-09, so a lane measures the model without it.
     codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
+      -c 'plugins."compound-engineering@compound-engineering-plugin".enabled=false' \
       -m "$model" ${effort:+-c model_reasoning_effort="$effort"} "$prompt" >"$raw" 2>"$raw.err" </dev/null ;;
   agy)
     # print mode returns partial output after 5 minutes unless told otherwise.

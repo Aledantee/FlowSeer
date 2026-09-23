@@ -55,8 +55,12 @@ Writes which CLIs exist, which pools are signed in, what Orca can pin with
 every invocation.
 
 opencode's `synthetic/` list is its own catalogue and keeps ids Synthetic
-has stopped serving: on 2026-09-19 four of ten answered 404. Send each new
-id one request before it goes in the registry.
+has stopped serving: on 2026-09-19 four of ten answered 404, and by
+2026-09-23 the same four answered a probe without error, so a request no
+longer tells a served id from a retired one. Read the served ids and their
+context from `GET https://api.synthetic.new/openai/v1/models` with the
+`synthetic` key from opencode's `auth.json`, and compare the registry's
+`agent` names with the `agent` block in `~/.config/opencode/opencode.json`.
 
 ## 2. Pull live catalogues
 
@@ -144,17 +148,20 @@ Calibrate models flagged by field runs as missing `local.<role>` first.
 
 ## 5. Write and report
 
-Update the machine-wide registry: `as_of`, changed fields, fit sets. When
-the project file overrides a field this run changed, name the override in
+Update the machine-wide registry: `as_of`, changed fields, fit sets. Keep each
+role's `fit` list best-first by calibrated speed, then pool usage, among models
+that passed; `delegate` uses this order after filtering hot and busy pools.
+When the project file overrides a field this run changed, name the override in
 the report: the project keeps routing on its own value. Keep the opencode
 agent block in `~/.config/opencode/opencode.json` in step with
 `opencode_agents`. Keep the registry's role-order header accurate: fit sets
 are ordered by field success when every member has enough evidence, with
-median active time breaking close results; otherwise they retain calibration
-order. `delegate` uses that order to break pool-headroom ties.
+median active time breaking close results; otherwise they keep calibration
+order. `delegate` takes the first fitting model in that order.
 
+A change to a role's `fit` membership or order is never applied silently.
 Report field-driven proposals separately from calibration-driven ones,
 along with the commands run, every changed field and its evidence, and
-anything a source refused to answer. Ask the user (`AGENTS.md`, Agent
-behavior) about each proposed fit-set change before applying it, so a
-person sees which default moves and why.
+anything a source refused to answer, then ask the user (`AGENTS.md`, Agent
+behavior) per proposed membership or order change whether to apply it, so
+a person sees which default moved and why.

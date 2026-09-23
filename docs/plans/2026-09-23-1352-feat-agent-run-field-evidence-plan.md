@@ -11,6 +11,10 @@ execution: mixed
 ---
 
 # Agent run log and field evidence for tune - Plan
+> The `delegate` tie-break decided below was superseded before landing:
+> `main` switched step 5 to take the first fitting model in the `fit`
+> order (`c487c98b`), which makes the order `tune` writes decide routing
+> outright. The merge kept `main`'s step 5.
 
 > Implemented. 5 units, 2026-09-23T12:07:23Z to 2026-09-23T12:31:56Z.
 

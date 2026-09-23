@@ -38,7 +38,8 @@ echo "pools:"
 
 # opencode: zen is per-token and has no window; list the model ids by pool.
 # The synthetic list is opencode's catalogue, which keeps ids Synthetic has
-# stopped serving; only a request shows whether an id still answers.
+# stopped serving, and Synthetic answers requests for some of those without
+# an error; its served list is GET api.synthetic.new/openai/v1/models.
 if have opencode; then
   opencode models 2>/dev/null | python3 -c '
 import sys

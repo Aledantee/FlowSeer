@@ -43,3 +43,14 @@ branch into the coordinator's worktree. That merge belongs to the coordinator;
 the coordinator branch's reflog records the fast-forward merge.
 Suggested change: Record the coordinator's HEAD before dispatch and fail the
 stage if it changes before the coordinator's merge step.
+
+## 2026-09-23 tune: opencode lane usage omits earlier messages
+Skill or agent: `.claude/skills/tune/SKILL.md`, step 4, and
+`.claude/skills/tune/scripts/bench.sh` opencode lane.
+What happened: The step ran as written, but the session message endpoint
+returned only the final message's usage and cost. A multi-step Kimi K3 lane
+reported $0.03 while Synthetic's pool meter recorded $1.28. The resulting
+cost figure understates work done before the final message.
+Suggested change: After the run, total usage and cost over all messages in
+the opencode session. Compare that total with the pool meter when the lane has
+exclusive pool use, before reporting lane cost or comparing models.

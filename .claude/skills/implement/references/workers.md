@@ -8,8 +8,8 @@ A wave is every unit whose `After` prerequisites have landed. Dispatch the
 wave's units to workers at once, one unit each, up to the cap `delegate`'s
 Wave size computes from the pool rows read just before the wave, or up to
 the budget a `drive` brief names. Dispatch goes through Orca when its
-runtime is reachable, which puts each
-unit on the pool with the most headroom whatever its CLI, else where its
+runtime is reachable, which puts each unit on the first model in the
+role's `fit` order whose pool has room, whatever its CLI, else where its
 "Orca or native" section says; when that is this session, the units run
 one at a time here and the rest of this file does not apply. A wave wider
 than the cap runs in rounds, the cap recomputed before each. A phase plan runs even a wave of one in a worker, so

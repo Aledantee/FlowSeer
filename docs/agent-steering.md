@@ -374,8 +374,8 @@ and nothing else.
 
 Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
 `independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
-on Haiku and resolves editing workers from the registry's fit set by pool
-headroom, and no agent uses `inherit` any more: the coordinating session
+on Haiku and resolves editing workers from the registry's fit set, taking
+the first model in its best-first order whose pool has room, and no agent uses `inherit` any more: the coordinating session
 may run the most expensive model, and none of the delegated work needs it. Anthropic's subagent guide recommends Haiku
 for read-only exploration; its research-system report measured an Opus lead
 with Sonnet workers beating a single Opus agent by 90.2% on its internal
