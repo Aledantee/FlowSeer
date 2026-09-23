@@ -1,7 +1,7 @@
 ---
 name: tune
 description: Refresh the model registry that `delegate` routes on. Discovers which agent CLIs and prepaid pools this host can reach, pulls live model catalogues and prices, records external evidence, optionally calibrates candidate models on a fixed repository task, and writes the machine-wide registry `~/.claude/models/registry.yaml` plus the host pool file. Use when asked to tune, when a new model or CLI appears, when `delegate` warns the registry is stale, or before a large plan is dispatched. Not for choosing a model for one task; `delegate` does that from the registry.
-argument-hint: "[discover | catalogue | calibrate <lane>... | all]"
+argument-hint: "[discover | catalogue | field | calibrate <lane>... | all]"
 ---
 
 # Tune the model registry
@@ -37,6 +37,10 @@ the machine-wide `as_of` is today, `host.yaml` is regenerated, and the report
 names every field that changed with its evidence and the file it changed in.
 Failure: a step that cannot reach its source says so and leaves the previous
 value with its old date; it never guesses.
+
+`field` runs steps 1, 3a, and 5 from local run and transcript stores. It does
+not need a catalogue request or a calibration lane. `all` includes the field
+step before calibration; `discover` and `catalogue` keep their named scope.
 
 ## 1. Discover the host
 
@@ -76,6 +80,39 @@ source URL — date`. Conflicting numbers are recorded as conflicting.
 Benchmarks run on different harnesses are not compared in the registry;
 `terminal_bench` is filled only from a run whose harness is named.
 
+## 3a. Read field results
+
+Run the scorer with `--since` set to the latest `field.<role>.as_of` in the
+effective registry, or 90 days before today when no field block exists. Pass
+both registry files in precedence order:
+
+```bash
+python3 .claude/skills/tune/scripts/field.py --since YYYY-MM-DD \
+  --registry ~/.claude/models/registry.yaml .claude/models/registry.yaml
+```
+
+`field.py` prints JSON. Read `unmatched` before using any rate: a missing
+transcript removes speed and cost evidence, and a role outside the registry
+cannot receive a field block. Aggregate `runs` by model and role across
+sources; do not average the per-source `groups` rates. Write `field.<role>`
+only for a registry role with at least five graded runs, or at least ten
+findings for a review role. Each block records `as_of`, `since`, `runs`, the
+accepted, amended, rejected, and blocked counts, `verify_pass`, the reviewer
+`held` and `findings` when applicable, and medians of `active_s`, total
+tokens, and `cost_usd`. Append one dated `evidence.md` line naming the run
+log and transcript sources for each block changed.
+
+These thresholds are a starting point. Propose fit-set order by accepted
+over graded runs, leaving blocked out of the denominator. Within ten
+percentage points, put the lower median `active_s` first. Keep calibration
+order unless every model in that role's fit set has enough graded runs for
+the comparison. Propose removal when amended plus rejected reaches 40% of
+at least five graded runs, or a reviewer's held share is below 50% of at
+least ten findings. A model seen in a role without `local.<role>` becomes a
+calibration candidate. Field evidence can order a fit set or support a
+removal proposal; entry still requires a calibration result. Step 5 asks
+before applying any proposed fit-set change.
+
 ## 4. Calibrate on the repository (optional, costs money)
 
 The public numbers do not say how a model does on this Go tree with race
@@ -99,9 +136,11 @@ with `base` the commit the lane branched from and `effort` the level the
 lane actually ran at: the id suffix on `agy`, and the literal `none` for a
 model whose `effort` list is empty, since no level reaches it. When `runs`
 is above 1, `pass`, `wall_s`, and `cost_usd` are lists, one value per run.
-A result without `effort`, `runs`, and `base` cannot show that it was
-measured at another level or on another base than the role routes at. A model enters or leaves a role's fit set only on a
-calibration result, never on a benchmark.
+A result without `effort`, `runs`, and `base` cannot show whether it was
+measured at another level or on another base than the role routes at. Entry
+to a role's fit set requires a calibration result. Field results can change
+its order or support a removal proposal under step 3a; a benchmark cannot.
+Calibrate models flagged by field runs as missing `local.<role>` first.
 
 ## 5. Write and report
 
@@ -109,8 +148,13 @@ Update the machine-wide registry: `as_of`, changed fields, fit sets. When
 the project file overrides a field this run changed, name the override in
 the report: the project keeps routing on its own value. Keep the opencode
 agent block in `~/.config/opencode/opencode.json` in step with
-`opencode_agents`. A change to a role's fit set is never applied silently:
-report the commands run, each changed field with its evidence, and
-anything a source refused to answer, then ask the user (`AGENTS.md`, Agent
-behavior) per proposed fit-set change whether to apply it, so a person
-sees which default moved and why.
+`opencode_agents`. Keep the registry's role-order header accurate: fit sets
+are ordered by field success when every member has enough evidence, with
+median active time breaking close results; otherwise they retain calibration
+order. `delegate` uses that order to break pool-headroom ties.
+
+Report field-driven proposals separately from calibration-driven ones,
+along with the commands run, every changed field and its evidence, and
+anything a source refused to answer. Ask the user (`AGENTS.md`, Agent
+behavior) about each proposed fit-set change before applying it, so a
+person sees which default moves and why.

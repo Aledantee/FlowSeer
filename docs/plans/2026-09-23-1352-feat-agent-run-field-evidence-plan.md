@@ -4,11 +4,13 @@ type: feat
 date: 2026-09-23
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Agent run log and field evidence for tune - Plan
+
+> Implemented. 5 units, 2026-09-23T12:07:23Z to 2026-09-23T12:31:56Z.
 
 ## Goal
 
@@ -242,6 +244,10 @@ figure rests on that join.
   was 30 days old, which is the default window, and the store grows about
   4.7 GB a month. This is a machine setting, not part of this change.
 
+- **Codex retention check.** No session retention setting was configured in
+  `~/.codex/config.toml` on 2026-09-23, so `tune` has no Codex retention
+  value to name in its field step.
+
 ## Requirements
 
 1. `runlog.py start --lane l1 --cli codex --model gpt-6-sol --role execute
@@ -462,17 +468,14 @@ bootstrap order).
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `delegate`, `drive`, `review`, and `tune` describe the new flags,
+- [x] Verifier green for every changed path.
+- [x] `delegate`, `drive`, `review`, and `tune` describe the new flags,
       the grade, the tie-break, the review event, and the field step in
       the same change.
-- [ ] `docs/agent-steering.md` records the why.
-- [ ] This plan's `status` set, with an outcome note under its title.
-- [ ] No plan labels in code.
+- [x] `docs/agent-steering.md` records the why.
+- [x] This plan's `status` set, with an outcome note under its title.
+- [x] No plan labels in code.
 
 ## Open questions
 
-- Codex keeps its sessions under `~/.codex/sessions/`; whether it prunes
-  them was not checked. The implementer checks the Codex config for a
-  retention setting and, when one exists, names it in `tune`'s field
-  step.
+None.

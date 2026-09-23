@@ -389,6 +389,16 @@ headroom rather than from how much work is ready: a pool holds two lanes
 under 50% used, one up to 85%, none above, and the coordinator caps the
 sum at six.
 
+Grade each Orca lane before stopping it. A merged branch cannot tell whether
+the coordinator accepted the work as written or repaired it, and an unmerged
+branch cannot distinguish rejection from a worker that stopped on a blocker.
+The event log records that judgment while the lane still exists. `tune`
+joins it to CLI transcripts to compare models on this repository's actual
+tasks. Field results may reorder calibrated fit-set members, or support a
+removal proposal, once the sample threshold is met. They cannot add a model:
+entry still needs a calibration result on the fixed task so a busy week of
+easy work does not establish fitness for the role.
+
 Send editing workers to an Orca worker when Orca's runtime is reachable.
 The asynchronous-agent study behind CAID found that isolated workspaces, a
 central integrator, and test-based verification at merge improved paper
