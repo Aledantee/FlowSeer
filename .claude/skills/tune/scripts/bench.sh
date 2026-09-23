@@ -77,6 +77,22 @@ EOF
     curl -sS --max-time 3600 -X POST "http://127.0.0.1:$port/session/$sid/message" \
       -H 'content-type: application/json' --data-binary @"$raw.body" >"$raw" 2>"$raw.err"
     rc=$?
+    # The reply carries only the final message's usage; a multi-step run
+    # spends most of its tokens before it. Keep every step-finish part of
+    # the session and of its child sessions (the task tool's subagents).
+    # No file means the usage was not measured, which is not zero.
+    rm -f "$raw.steps"
+    python3 - "$port" "$sid" "$raw.steps" 2>>"$raw.err" <<'EOF'
+import json, sys, urllib.request
+port, sid, dest = sys.argv[1:]
+get = lambda p: json.load(urllib.request.urlopen("http://127.0.0.1:%s%s" % (port, p), timeout=60))
+out, todo = [], [sid]
+while todo:
+    s = todo.pop()
+    out += [p for m in get("/session/%s/message" % s) for p in m["parts"] if p["type"] == "step-finish"]
+    todo += [c["id"] for c in get("/session/%s/children" % s)]
+json.dump(out, open(dest, "w"))
+EOF
     kill "$spid" 2>/dev/null
     # code=$? below reads the last command of the branch, which is kill here.
     (exit "$rc") ;;
@@ -123,18 +139,18 @@ elif cli == "agy":
     except json.JSONDecodeError:
         pass
 elif cli == "opencode":
-    for line in text.splitlines():
-        try:
-            e = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        t = e.get("tokens") or (e.get("part") or {}).get("tokens") or (e.get("info") or {}).get("tokens")
-        if isinstance(t, dict):
-            add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
-            add("cache_read", (t.get("cache") or {}).get("read"))
-        c = e.get("cost") or (e.get("info") or {}).get("cost")
-        if isinstance(c, (int, float)):
-            cost = (cost or 0) + c
+    # Step-finish parts, not message infos: a message's info may hold only
+    # its last step's tokens.
+    try:
+        steps = json.load(open(raw + ".steps"))
+    except (OSError, json.JSONDecodeError):
+        steps, usage = [], None
+    for p in steps:
+        t = p.get("tokens") or {}
+        add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
+        add("cache_read", (t.get("cache") or {}).get("read"))
+        if isinstance(p.get("cost"), (int, float)):
+            cost = (cost or 0) + p["cost"]
 
 json.dump({"lane": lane, "cli": cli, "model": model, "effort": effort or None,
            "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost},

@@ -62,10 +62,18 @@ and the stage name as `--unit`.
 | review | `review` is absent or not an accept | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` |
 | compound | `compound` is absent | `compound` on the plan | `execute` | the plan's `compound` field is set |
 
-`<base>` is the commit the implement worker's branch forked from, taken
-as `git merge-base HEAD <branch>` before that branch merges, so the review
-reads exactly that plan's change even when another phase merged here
-while it ran. Naming the branch and the
+`<base>` is the commit the implement worker's branch forked from, read
+from the `start` event its lane logged, by the `run` that
+`orca-worker.sh start` printed:
+
+```bash
+python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; print(next(e["base"] for e in runlog.read() if e.get("event") == "start" and e["run"] == sys.argv[1]))' <run>
+```
+
+So the review reads exactly that plan's change even when another phase
+merged here while it ran, or the worker merged its own branch here.
+`git merge-base HEAD <branch>` gives the branch tip in that last case.
+Naming the branch and the
 plan path is what makes `review` record its verdict in the plan: a bare
 commit range reads to it as other work, which records nothing.
 
@@ -101,7 +109,16 @@ After each stage:
 
    Every unit `passed` goes into the report as the per-unit gate `land`
    would have read. A `blocked` unit parks the plan (step 4).
-3. Merge the worker's branch here.
+3. Merge the worker's branch here. First check whether the worker merged
+   it itself, against its brief, with `<base>` read as above for this
+   lane's `run`:
+
+   ```bash
+   [ "$(git rev-list --count <base>..<branch>)" -gt 0 ] && git merge-base --is-ancestor <branch> HEAD && echo self-merged
+   ```
+
+   On `self-merged`, name it in the report and grade the lane with a
+   `--note` saying so; steps 4 to 7 still run.
 4. Run the verifier once on the union of the changed paths, sandbox
    disabled:
 

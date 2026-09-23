@@ -47,7 +47,19 @@ Resolve a role to a lane in this order, once per lane:
 2. Drop `zen` unless every fitting prepaid pool is hot. `zen` is per-token;
    a wave that reaches it says so.
 3. Drop models the role `exclude`s. For `review-unit`, also drop the
-   executor's vendor.
+   `vendor` of the model that executed the unit under review. The run
+   log names it; a `-` unit is a lane that ran several units, and a unit
+   with no line was executed by the coordinator, on its own vendor. A
+   `google` id carries the effort suffix (`gemini-3.8-flash-high` is
+   `gemini-3.8-flash`), and an opencode agent name is the registry
+   model whose `agent` it is:
+
+   ```bash
+   python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; [print(e.get("unit") or "-", e.get("model") or e["agent"]) for e in runlog.read() if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1]]' docs/plans/<plan>.md
+   ```
+
+   A reviewer a session spawns as its own subagent runs on that session's
+   vendor, so it is a lane this step applies to like any other.
 4. Drop a pool whose running lanes of this wave fill its slots (Wave
    size, below), and move one that holds any running lane to the back.
 5. Take the first model left in the role's `fit` order. `fit` lists the
@@ -179,7 +191,11 @@ says whether it did.
 ## Orca or native
 
 Read-only delegates (`lookup`, `research`, `review-*`, `judge`) stay
-native subagents on every host. Editing work goes to an Orca worker when
+native subagents on every host, except a `review-unit` reviewer when
+step 3 drops the coordinator's own vendor: it runs on the first fitting
+pool's CLI through `orca-worker.sh start --role review-unit`. Without
+Orca that unit gets no independent reviewer; the coordinator's own
+reading in `review` is its pass, and the report says so. Editing work goes to an Orca worker when
 `orca status --json` reports `runtime.reachable: true`. Otherwise it goes
 to a `general-purpose` subagent with `isolation: worktree` only when the
 role's fit set holds a Claude model, pinned to that model. A native
@@ -314,7 +330,10 @@ in order:
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files, no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-   `generated/`, or `buf.lock`, no plan labels in code. Work is set aside
+   `generated/`, or `buf.lock`, no plan labels in code, and no git write
+   in any checkout but the worker's own: the coordinator merges the
+   worker's branch, and a worker that merges into the coordinator's
+   checkout lands work there before the tree check. Work is set aside
    with a temporary commit or a copy under the worker's own `$TMPDIR`
    (it never crosses a sandbox boundary, unlike a brief), never `git stash`:
    the stash stack is shared by every worktree and concurrent session, and

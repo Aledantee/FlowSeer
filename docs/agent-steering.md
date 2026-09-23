@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-18
+last_updated: 2026-09-23
 ---
 
 # Agent steering
@@ -177,11 +177,11 @@ always-on index did. The planning skill this repository used before was
 skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
-After the 2026-09-18 pass the workflow skills sit between 130 and 260
+After the 2026-09-23 pass the workflow skills sit between 105 and 300
 lines, `review` and `implement` the longest because each ends with the
 option table its outcomes leave and `implement`'s Finish step names the
 scripts that read deviations and test changes off the tree, and `delegate`
-at about 245: its runtime lanes and quota rules are each
+at about 380: its runtime lanes and quota rules are each
 conditional on the host rather than on the task, and a coordinator that
 loads the skill needs all of them in the same turn; the Orca procedures
 moved to `references/orca.md` on 2026-09-10.
@@ -418,7 +418,11 @@ the worker's screen, and a lane is a terminal and a branch with no token.
 That day's run covered the `opencode` lane only; `references/orca.md`
 says what is still unmeasured. Read-only delegates stay native subagents,
 which load their definition and nothing else, where a runtime worker is a
-full agent session. Without Orca, `delegate` falls back to a native
+full agent session. The exception is a unit reviewer on the executor's
+vendor: a reviewer from the same vendor shares the executor's blind
+spots, and on 2026-09-23 a seam worker on `gpt-6-sol` reviewed
+`gpt-6-sol` units with its own subagents, so `delegate` sends such a
+reviewer to another pool's CLI. Without Orca, `delegate` falls back to a native
 subagent with worktree isolation only when the role's fit set holds a
 Claude model; otherwise the coordinator works the units itself. A native
 subagent runs only on Claude, and after Sonnet 5 left `execute` on

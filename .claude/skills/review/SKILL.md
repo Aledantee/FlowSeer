@@ -74,7 +74,10 @@ else's contract.
 
 Dispatch one `independent-reviewer` per unit, in parallel within the limit
 `delegate` sets, each with its own file list, its own specification, and only
-the conventions that unit needs. Give a unit reviewer the names of its
+the conventions that unit needs. Resolve each reviewer's lane through
+`delegate`'s step 3 before it starts: a reviewer on the executor's vendor is
+not independent, and that includes a subagent of this session when this
+session runs on that vendor. Give a unit reviewer the names of its
 neighbours and the contract it is meant to keep, and tell it to judge its own
 files: something it suspects about a neighbour comes back as a question, not a
 finding.

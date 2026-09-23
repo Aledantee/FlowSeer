@@ -62,8 +62,14 @@ uncached input, 2,000 cache reads, 3,000 five-minute writes, 4,000 one-hour
 writes, and 500 output tokens at `[2, 10]` cost $0.0309.
 
 Mark every computed figure `est`. opencode's recorded message cost takes
-precedence and is not estimated. A prepaid pool's marginal cost is zero below
+precedence and is not estimated; `bench.sh` sums it over every step of the
+session and its child sessions, because the reply to the prompt carries
+only the last message's, and writes `usage: null` when it could not read
+the steps. A prepaid pool's marginal cost is zero below
 its cap, so also report what share of the pool's window the lane consumed
-when the pool exposes one.
+when the pool exposes one. When the lane had its pool to itself, compare
+that share with the reported cost before ranking lanes: a meter that moved
+well past what the cost accounts for means usage the CLI did not report,
+and the report gives both figures.
 
 Remove the worktrees and branches when the comparison is recorded.
