@@ -288,9 +288,6 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 
 func (c *central) baseURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.apiPort) }
 
-// start brings central up and returns once its API listener is bound, which
-// Options.Bound reports. Waiting on that rather than retrying a call is what
-// keeps the rest of this file free of readiness loops.
 // captureSweepLine renders the capture_sweep interval entry, or nothing when
 // the cadence is left at zero so the host takes its own default.
 func captureSweepLine(d time.Duration) string {
@@ -300,6 +297,9 @@ func captureSweepLine(d time.Duration) string {
 	return fmt.Sprintf("\n  capture_sweep { nanos: %d }", d.Nanoseconds())
 }
 
+// start brings central up and returns once its API listener is bound, which
+// Options.Bound reports. Waiting on that rather than retrying a call is what
+// keeps the rest of this file free of readiness loops.
 func (c *central) start() {
 	c.t.Helper()
 	body := fmt.Sprintf(`
