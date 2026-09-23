@@ -7,6 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
@@ -18,8 +19,17 @@ import (
 func bufferAccountingFabric(t *testing.T, buffer *uint64) (*Fabric, Endpoint) {
 	t.Helper()
 
+	return mtuAccountingFabric(t, 0, buffer)
+}
+
+// mtuAccountingFabric is [bufferAccountingFabric] with a stated port MTU, so a
+// test can pin the unstated-buffer threshold to the port's own maximum-size
+// frame.
+func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*Fabric, Endpoint) {
+	t.Helper()
+
 	builder := port.NewBuilder()
-	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: mtu})
 	ports, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build ports: %v", err)
@@ -46,8 +56,57 @@ func bufferAccountingFabric(t *testing.T, buffer *uint64) (*Fabric, Endpoint) {
 	return fab, ep
 }
 
+// lagAccountingFabric returns a one-switch fabric with a LAG "lag1" over
+// members "1/1/1" and "1/1/2". The LAG states the MTU and any buffer; the
+// members state neither, so a lookup against a member would miss both. Every
+// member endpoint is busy, so enqueueEgress records depth instead of draining
+// through a link the fabric does not have.
+func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*Fabric, []Endpoint) {
+	t.Helper()
+
+	builder := port.NewBuilder()
+	builder.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up, MTU: lagMTU})
+	members := []string{"1/1/1", "1/1/2"}
+	for _, name := range members {
+		builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	}
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	var queues map[string]traffic.PortQueues
+	if buffer != nil {
+		queues = map[string]traffic.PortQueues{
+			"lag1": {BufferOctets: map[vlan.PCP]uint64{0: *buffer}},
+		}
+	}
+
+	fab, err := New(Config{Switches: map[string]vswitch.Config{
+		"sw1": {Ports: ports, Traffic: &traffic.Config{Queues: queues}},
+	}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	fab.initRunState()
+
+	eps := make([]Endpoint, 0, len(members))
+	for _, name := range members {
+		ep := Endpoint{Node: "sw1", Port: name}
+		fab.busyUntil[ep] = fab.clock.Add(time.Hour)
+		eps = append(eps, ep)
+	}
+
+	return fab, eps
+}
+
 func egressBufferFrame() ethernet.Frame {
 	return ethernet.Frame{Src: netaddr.MAC{0x02}, Dst: netaddr.MAC{0x03}, Payload: make([]byte, 1000)}
+}
+
+// jumboEgressFrame is one 9000-octet-payload frame, 9014 encoded octets.
+func jumboEgressFrame() ethernet.Frame {
+	return ethernet.Frame{Src: netaddr.MAC{0x02}, Dst: netaddr.MAC{0x03}, Payload: make([]byte, 9000)}
 }
 
 // TestEgressQueueDepthAndPeak covers the octet accounting: ten 1014-octet
@@ -116,6 +175,100 @@ func TestEgressStatedBufferBoundary(t *testing.T) {
 		if got, want := queueFull, uint64(2-tc.admits); got != want {
 			t.Errorf("buffer %d: Discards[queue-full] = %d, want %d", tc.buffer, got, want)
 		}
+	}
+}
+
+// TestEgressStatedBufferNeverMarksUnstated covers a stated queue that backs up
+// past one maximum-size frame: it keeps enforcing only its stated buffer and
+// never marks the endpoint as an unstated-buffer queue.
+func TestEgressStatedBufferNeverMarksUnstated(t *testing.T) {
+	buffer := uint64(4000)
+	fab, ep := bufferAccountingFabric(t, &buffer)
+	frame := egressBufferFrame()
+	for range 2 {
+		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+	}
+
+	if got, want := fab.egress[ep].depth[0], uint64(2*1014); got != want {
+		t.Fatalf("depth = %d, want %d: the 4000-octet buffer holds both frames", got, want)
+	}
+	if len(fab.unstatedBacked) != 0 {
+		t.Fatalf("a stated-buffer queue marked endpoints %v, want none", fab.unstatedBacked)
+	}
+	scope := analysis.PortScope(ep.Node, ep.Port)
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+		t.Errorf("Metadata holds %d queue-buffer-unstated issues, want none on a stated queue", got)
+	}
+}
+
+// TestEgressUnstatedThresholdUsesPortMTU covers the threshold of an
+// unstated-buffer queue on a port that states its own MTU: a 9000-octet MTU
+// makes the threshold 9018 octets, so two 1014-octet frames stay below it and
+// only a depth past 9018 marks the endpoint. A fixed 1518-octet threshold would
+// mark at 2028.
+func TestEgressUnstatedThresholdUsesPortMTU(t *testing.T) {
+	fab, ep := mtuAccountingFabric(t, 9000, nil)
+	frame := egressBufferFrame()
+	journey := &Journey{}
+
+	for range 2 {
+		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "")
+	}
+	if len(fab.unstatedBacked) != 0 {
+		t.Fatalf("depth 2028 marked %v, want none below the 9018-octet threshold", fab.unstatedBacked)
+	}
+
+	for range 7 {
+		fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "")
+	}
+	if _, marked := fab.unstatedBacked[ep]; !marked {
+		t.Fatalf("depth 9126 left %v unmarked, want a mark past the 9018-octet threshold", fab.unstatedBacked)
+	}
+}
+
+// TestEgressLagBufferEnforcedOnMember covers a buffer stated on a LAG name: it
+// is read from the LAG and enforced on the selected member's own egress queue,
+// so the occupancy and the drop live on the member endpoint, not the LAG name.
+func TestEgressLagBufferEnforcedOnMember(t *testing.T) {
+	buffer := uint64(2000)
+	fab, eps := lagAccountingFabric(t, 0, &buffer)
+	member := eps[0]
+	frame := egressBufferFrame()
+	journey := &Journey{}
+	for range 2 {
+		fab.enqueueEgress(fab.clock, member, "lag1", frame, 1, 1, journey, 0, "")
+	}
+
+	if got := fab.egress[member].depth[0]; got != 1014 {
+		t.Errorf("member depth = %d, want 1014: the 2000-octet buffer refuses the second frame", got)
+	}
+	if _, keyed := fab.egress[Endpoint{Node: "sw1", Port: "lag1"}]; keyed {
+		t.Errorf("the LAG name holds an egress queue; a LAG buffer is enforced per member")
+	}
+	if got, want := len(journey.Entries), 1; got != want {
+		t.Errorf("drop entries = %d, want %d", got, want)
+	}
+	if got := fab.Snapshot().EgressDepths[member][0].Depth; got != 1014 {
+		t.Errorf("EgressDepths[%v][0].Depth = %d, want 1014, keyed by the member endpoint", member, got)
+	}
+	scope := analysis.PortScope(member.Node, member.Port)
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+		t.Errorf("a stated LAG buffer raised %d queue-buffer-unstated issues, want none", got)
+	}
+}
+
+// TestEgressLagThresholdUsesLagMTU covers the threshold of an unstated-buffer
+// member queue behind a LAG that states an MTU: the threshold comes from the
+// LAG name, not the member, so one 9014-octet frame on a member with no MTU of
+// its own stays below 9018 and does not mark. Reading the member's unset MTU
+// would fall back to 1518 and mark.
+func TestEgressLagThresholdUsesLagMTU(t *testing.T) {
+	fab, eps := lagAccountingFabric(t, 9000, nil)
+	member := eps[0]
+	fab.enqueueEgress(fab.clock, member, "lag1", jumboEgressFrame(), 1, 1, &Journey{}, 0, "")
+
+	if len(fab.unstatedBacked) != 0 {
+		t.Fatalf("one 9014-octet frame marked %v, want none below the LAG's 9018-octet threshold", fab.unstatedBacked)
 	}
 }
 

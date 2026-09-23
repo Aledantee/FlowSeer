@@ -965,12 +965,7 @@ func (f *Fabric) Metadata() analysis.Metadata {
 	}
 
 	for _, ep := range slices.SortedFunc(maps.Keys(f.unstatedBacked), compareEndpoint) {
-		issues = append(issues, analysis.Issue{
-			Code:    IssueQueueBufferUnstated,
-			Status:  analysis.Incomplete,
-			Scope:   endpointScope(ep),
-			Message: fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
-		})
+		issues = append(issues, queueBufferUnstatedIssue(ep))
 	}
 
 	md := analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, assumptions)
@@ -979,15 +974,26 @@ func (f *Fabric) Metadata() analysis.Metadata {
 	return md
 }
 
-// raise folds a single issue into a journey's metadata directly, bypassing the
-// dependency scope [Fabric.record] uses, so a queue-buffer issue reaches the
-// crossing frame's journey even when no later hop would carry it.
-func (f *Fabric) raise(j *Journey, issue analysis.Issue) {
-	if j == nil {
-		return
+// queueBufferUnstatedIssue is the issue an endpoint raises once an unstated-buffer
+// egress queue first backs up past one maximum-size frame.
+func queueBufferUnstatedIssue(ep Endpoint) analysis.Issue {
+	return analysis.Issue{
+		Code:    IssueQueueBufferUnstated,
+		Status:  analysis.Incomplete,
+		Scope:   endpointScope(ep),
+		Message: fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
+	}
+}
+
+// mergeRaised folds issues raised about a journey into base. It bypasses the
+// dependency scope [Fabric.record] applies to an entry, so an issue reaches a
+// journey even when no later hop would carry it.
+func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) analysis.Metadata {
+	if len(issues) == 0 {
+		return base
 	}
 
-	j.Metadata = mergeMetadata(j.Metadata, analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{issue}, f.evidence, nil))
+	return mergeMetadata(base, analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, nil))
 }
 
 // markQueueBufferUnstated records the first time an endpoint's unstated-buffer
@@ -1008,12 +1014,9 @@ func (f *Fabric) markQueueBufferUnstated(ep Endpoint, depth, threshold uint64, j
 	}
 	f.unstatedBacked[ep] = struct{}{}
 
-	f.raise(journey, analysis.Issue{
-		Code:    IssueQueueBufferUnstated,
-		Status:  analysis.Incomplete,
-		Scope:   endpointScope(ep),
-		Message: fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
-	})
+	if journey != nil {
+		journey.Metadata = f.mergeRaised(journey.Metadata, []analysis.Issue{queueBufferUnstatedIssue(ep)})
+	}
 	f.metadataCache = nil
 }
 
