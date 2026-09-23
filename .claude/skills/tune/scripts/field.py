@@ -62,7 +62,7 @@ def add_tokens(left, right):
 
 def cost_estimate(usage, price):
     """Apply the shared calibration formula to normalized token counts."""
-    if price is None:
+    if price is None or usage is None:
         return None
     input_price, output_price = price
     input_units = (usage["input"] + 0.1 * usage["cache_read"]
@@ -251,23 +251,32 @@ def joinable(session, start, end, cwd):
 def empty_run(source, model, role, cli, outcome=None, verify=None):
     return {"source": source, "model": model, "role": role, "cli": cli,
             "outcome": outcome, "verify": verify, "elapsed_s": None, "active_s": None,
-            "tokens": tokens(), "cost_usd": None, "est": True, "tool_errors": None,
+            "tokens": None, "cost_usd": None, "est": True, "tool_errors": None,
             "findings": 0, "held": 0}
 
 
 def apply_sessions(run, sessions, prices):
     if not sessions:
         return
-    run["active_s"] = round(sum(item.get("active_s") or 0 for item in sessions), 3)
-    for item in sessions:
-        run["tokens"] = add_tokens(run["tokens"], item["tokens"])
+    active_values = [item["active_s"] for item in sessions if item.get("active_s") is not None]
+    run["active_s"] = round(sum(active_values), 3) if active_values else None
+    token_sessions = [item["tokens"] for item in sessions if item.get("tokens") is not None]
+    if token_sessions:
+        run["tokens"] = tokens()
+        for t in token_sessions:
+            run["tokens"] = add_tokens(run["tokens"], t)
+    else:
+        run["tokens"] = None
     if run["cli"] == "claude":
         run["model"] = next((item["model"] for item in sessions if item.get("model")), run["model"])
-        run["tool_errors"] = sum(item["tool_errors"] for item in sessions)
+        error_values = [item["tool_errors"] for item in sessions if item.get("tool_errors") is not None]
+        run["tool_errors"] = sum(error_values) if error_values else 0
     elif run["cli"] == "opencode":
-        run["cost_usd"] = round(sum(item["cost_usd"] for item in sessions), 8)
-        run["est"] = False
-    if run["est"]:
+        cost_values = [item["cost_usd"] for item in sessions if item.get("cost_usd") is not None]
+        if cost_values:
+            run["cost_usd"] = round(sum(cost_values), 8)
+            run["est"] = False
+    if run["est"] and run.get("tokens") is not None:
         run["cost_usd"] = cost_estimate(run["tokens"], prices.get(run["model"]))
 
 
@@ -286,7 +295,7 @@ def groups_for(runs):
         medians = {}
         for field, values in (("elapsed_s", [r["elapsed_s"] for r in rows]),
                               ("active_s", [r["active_s"] for r in rows]),
-                              ("tokens", [r["tokens"]["total"] for r in rows]),
+                              ("tokens", [r["tokens"]["total"] if r.get("tokens") else None for r in rows]),
                               ("cost_usd", [r["cost_usd"] for r in rows])):
             present = [value for value in values if value is not None]
             medians[field] = statistics.median(present) if present else None
@@ -363,6 +372,27 @@ def score(args):
     runs, unmatched, joined = [], [], set()
     if log.skipped:
         unmatched.append({"reason": "malformed_runlog_lines", "count": log.skipped})
+    lane_windows = defaultdict(list)
+    for rid, start in starts.items():
+        at = instant(start.get("at"))
+        cwd = start.get("worktree", "")
+        if at is None or args.match not in cwd:
+            continue
+        grade = grades.get(rid, {})
+        end = instant((ends.get(rid) or grade).get("at")) or now
+        lane_windows[cwd].append((at, end, rid, start.get("cli")))
+
+    ambiguous_runs = set()
+    for cli_name, candidates in (("claude", claude), ("codex", codex), ("opencode", opencode)):
+        for session in candidates:
+            if session.get("native"):
+                continue
+            scwd = session.get("cwd") or ""
+            overlapping_lanes = [rid for at, end, rid, ccli in lane_windows.get(scwd, [])
+                                 if ccli == cli_name and joinable(session, at, end, scwd)]
+            if len(overlapping_lanes) > 1:
+                ambiguous_runs.update(overlapping_lanes)
+
     for rid, start in starts.items():
         at = instant(start.get("at"))
         cwd = start.get("worktree", "")
@@ -382,11 +412,15 @@ def score(args):
         matches = [item for item in candidates if not item.get("native") and joinable(item, at, end, cwd)]
         for item in matches:
             joined.add((cli, item["id"]))
-        apply_sessions(run, matches, prices)
         if cli == "agy":
             run["transcript"] = "unsupported"
+        elif rid in ambiguous_runs:
+            run["transcript"] = "ambiguous"
+            unmatched.append({"run": rid, "reason": "transcript_ambiguous"})
         elif not matches:
             unmatched.append({"run": rid, "reason": "transcript_missing"})
+        else:
+            apply_sessions(run, matches, prices)
         for review in reviews:
             if review.get("agent") == rid:
                 run["findings"] += review.get("findings", 0)
