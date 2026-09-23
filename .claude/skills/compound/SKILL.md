@@ -31,8 +31,8 @@ amended or proposed through `plan`. A solution with
 `problem_type: architecture_pattern` explains how to apply a decision and
 links to the record that made it.
 
-Whichever way the gate goes, leave the outcome where `close` reads it
-(`close`, step 1): `compound: <solution path>`, `compound: no lesson`, or
+Whichever way the gate goes, leave the outcome where `land` reads it
+(`land`, step 1): `compound: <solution path>`, `compound: no lesson`, or
 `compound: observation logged`, as a field in the plan's frontmatter beside
 `status`, committed together with the solution and followed by the verifier
 on the changed paths so the receipt post-dates the commit, or as a line
@@ -106,14 +106,14 @@ Run the verifier on the changed files and report the path and the one
 sentence a reader should remember.
 
 When the work's `implement` and `review` checkpoints are in place, end by
-asking the user (`AGENTS.md`, Agent behavior) whether to run `close` now
+asking the user (`AGENTS.md`, Agent behavior) whether to run `land` now
 or stop here. The same question ends a run the gate stopped with
 `compound: no lesson` or `compound: observation logged`.
 
 ## Refresh
 
 Audit each solution under `docs/solutions/`. Dispatch one worker per
-solution, up to three at once, as `delegate` describes for role
+solution, as many at once as `delegate`'s Wave size allows, for role
 `execute`; when it sends the work to this session, audit the solutions
 one at a time here. Edit `docs/solutions/README.md` from the coordinating
 session only.

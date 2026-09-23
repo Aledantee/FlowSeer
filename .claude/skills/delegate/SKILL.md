@@ -48,14 +48,15 @@ Resolve a role to a lane in this order, once per lane:
    a wave that reaches it says so.
 3. Drop models the role `exclude`s. For `review-unit`, also drop the
    executor's vendor.
-4. Move a pool that already holds a running lane of this wave to the back
-   until that lane settles.
+4. Drop a pool whose running lanes of this wave fill its slots (Wave
+   size, below), and move one that holds any running lane to the back.
 5. Take the first model left in the role's `fit` order. `fit` lists the
    models best-first by their calibration on the role: speed, then pool
    usage, among those that passed. Headroom enters only through steps 1
-   and 4, so a pool is passed over when it is hot or busy, not because a
-   later model's pool has more room. A signed-in pool whose source failed
-   (`windows: null`) counts as having room until it answers with a 429.
+   and 4, so a pool is passed over when it is hot or its slots are taken,
+   not because a later model's pool has more room. A signed-in pool whose
+   source failed (`windows: null`) counts as having room until it answers
+   with a 429.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
@@ -74,8 +75,39 @@ model id, so that lane launches as `gemini-3.8-flash-high`.
 `--cli`, `--model`, `--effort`, and `--agent`; the Agent tool takes `model`.
 Name the model on every worker; never `inherit` or unset, and never the
 coordinating session's own model. One model per task from start to finish.
-At most three workers run at once; start the next wave after the first
-settles.
+
+## Wave size
+
+How many workers run at once follows the quota, and only independent work
+widens with it: the units of one wave (no `After` between them, no shared
+file), phases with no `After` between them and disjoint files, one
+solution per worker in a refresh, one reviewer per unit. Work that chains
+runs in turn however much quota is idle.
+
+Each usable pool holds slots, read from the worst window that applies to
+the lane in its `pool-usage.sh` row:
+
+| Worst applicable window | Slots |
+| --- | --- |
+| under 50% | 2 |
+| 50% to 85% | 1 |
+| unknown (`windows: null`) | 1 |
+| over 85%, or signed out | 0 |
+
+The wave's cap is the sum of the slots over the pools that fit the role,
+at most six, and never more than the independent tasks ready. Four idle
+pools give six at once; one pool at 60% gives one, and the rest of the
+wave runs in rounds. The six is the coordinator's limit, not the pools':
+every lane passes through one session's tree check, merge, and verifier
+run, and the verifier runs one at a time. Recompute the cap before every
+wave; a 429 mid-wave takes that pool's slots away for the rest of it.
+Read-only native subagents count against the `claude` pool's slots like
+any lane on it. Start the next wave after the current one settles.
+
+A worker that runs a skill which dispatches workers of its own (a `drive`
+stage) gets a budget in its brief, a number of workers it may hold, and
+uses that instead of computing a cap: two coordinators reading the same
+rows would each spend the whole headroom.
 
 ## Discover what this host offers
 
@@ -154,7 +186,7 @@ role's fit set holds a Claude model, pinned to that model. A native
 subagent runs only on Claude, and a Claude model outside the fit set is
 not calibrated as fit for the role.
 
-A stage worker of `close` or `drive` runs a skill and commits its
+A stage worker of `land` or `drive` runs a skill and commits its
 checkpoint, so it is editing work whatever role supplies its model, a
 `review-seam` stage included. Without Orca such a stage does not run here
 or in a read-only subagent: stop and name the stage for the user to run in

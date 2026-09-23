@@ -4,7 +4,7 @@
 A session that drives a parent plan is interrupted, compacted, and resumed,
 and its account of which phase is where drifts from the files. The stage is
 therefore read from the parent's `Landed:` lines and each phase plan's
-frontmatter, the same fields `implement`, `review`, `compound`, and `close`
+frontmatter, the same fields `implement`, `review`, `compound`, and `land`
 write and gate on.
 
 Usage:
@@ -70,7 +70,7 @@ def phases(parent):
 
 
 def on_main(landed):
-    """Whether the phase's last commit is on main, where close already gated it."""
+    """Whether the phase's last commit is on main, where land already gated it."""
     commit = COMMIT_RANGE.search(landed)
     if not commit:
         return False
@@ -89,7 +89,7 @@ def stage(unit, landed):
     fields = frontmatter(unit["plan"])
     status = fields.get("status")
     if unit.get("landed"):
-        # A phase on main was gated by close, whatever its plan says since;
+        # A phase on main was gated by land, whatever its plan says since;
         # phases older than the review and compound fields carry neither.
         if not COMMIT_RANGE.search(unit["landed"]):
             return "landed (no commit range)"
@@ -127,7 +127,7 @@ def report(parent):
     settled = ("done", "on main", "waits", "landed")
     ready = [u["id"] for u, s in zip(units, stages) if not s.startswith(settled)]
     # Only a phase that finished on this branch leaves something to land.
-    rest = "close" if "done" in stages else "nothing"
+    rest = "land" if "done" in stages else "nothing"
     print("next: " + (", ".join(ready) if ready else rest))
     return 0
 

@@ -95,7 +95,7 @@ parent: <path of the parent plan; only in a phase plan>
 `partially-implemented`, `superseded`, or `abandoned`. `artifact_readiness`
 describes the plan's completeness and does not change with progress.
 `review` and `compound` each add a field of their own name beside `status`
-when they run (`review: accept`, `compound: no lesson`); `close` reads the
+when they run (`review: accept`, `compound: no lesson`); `land` reads the
 three together, so a plan carries its own checkpoints into the history.
 
 Body, in this order; leave out an empty section.
@@ -144,7 +144,7 @@ Rules:
 - `After:` names only the units whose landed code this unit imports,
   edits, or tests against; a preferred order, a shared convention, or
   "it reads better" is not an `After`. `implement` runs every unit whose
-  prerequisites have landed at once, up to three, so each `After` edge
+  prerequisites have landed at once, as many as quota allows, so each `After` edge
   that is not a real dependency serializes work that could run in
   parallel. Two units that touch the same file are never independent.
   After the Units, write the waves the graph yields, as

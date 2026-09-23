@@ -35,7 +35,7 @@ cluster, in dependency order:
   means units landed.
 - `After:` between phases names real dependencies only, like `After:`
   between units. Phases whose packages are disjoint run at once in
-  separate worktrees, one session each, and the parent's `Landed:` lines
+  separate worktrees, which `drive` does when the quota allows, and the parent's `Landed:` lines
   are the only thing they share.
 - Each phase plan is a full plan at
   `docs/plans/<date>-<type>-<slug>-phase<N>-plan.md` with a `parent:`

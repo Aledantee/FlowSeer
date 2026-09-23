@@ -720,7 +720,7 @@ fi
 # Before the dirty marker is cleared and the receipt is written, because
 # those two are what every downstream consumer reads. A run that exits
 # non-zero here having already cleared them would tell its operator it
-# failed and tell the Stop hook and close that the tree was verified.
+# failed and tell the Stop hook and land that the tree was verified.
 if [[ $gates_selected == false ]]; then
   echo "FlowSeer verification selected no build, test or lint gate for these paths." >&2
   printf '  paths: %s\n' "${paths[*]:-<none>}" >&2
@@ -752,7 +752,7 @@ if [[ -s $marker ]]; then
     # Rewritten in the same second as the receipt below, so a marker with
     # the receipt's mtime is this run's own doing, not an artifact. Say
     # what survived, or a passing run teaches its readers to ignore the
-    # marker and `close` finds a gate that decides nothing.
+    # marker and `land` finds a gate that decides nothing.
     sort -u "$remaining" >"$marker"
     echo "Unverified edits remain after this run:"
     sed 's/^/  /' "$marker"

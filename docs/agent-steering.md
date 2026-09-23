@@ -101,7 +101,7 @@ delegation does not transfer responsibility for the final result.
 ## Project skills
 
 FlowSeer ships eight workflow skills under `.claude/skills/`: `next`,
-`plan`, `implement`, `review`, `compound`, `close`, `drive`, and `steer`,
+`plan`, `implement`, `review`, `compound`, `land`, `drive`, and `steer`,
 next to the
 `verify-change` gate and the `delegate` routing skill that the others load
 before dispatching an agent. The decisions below were taken against published
@@ -114,21 +114,21 @@ the repository used before 2026-09-05, and `/skill-doctor` showed 19 of
 those skills never invoked on this machine. Each unused skill still cost
 listing tokens on every turn. The first four skills map onto the six used
 steps: brainstorming folds into `plan`, doc review into `plan` and
-`review`, refreshing solutions into `compound`. `close` was added on
-2026-09-05 for a step every session repeated by hand.
+`review`, refreshing solutions into `compound`. `land` (first named
+`close`) was added on 2026-09-05 for a step every session repeated by hand.
 
-Gate the merge on evidence, not on the conversation. `close` is the one
+Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` each
-leave a checkpoint that `close` reads: the plan's `status`, `review`, and
+leave a checkpoint that `land` reads: the plan's `status`, `review`, and
 `compound` fields, the verifier receipt under the git dir, and in Orca the
 card's status and comment. Work that skipped the plan has no frontmatter,
 so the same three lines go to a `flowseer-checkpoints` file beside the
 receipt, with the commit range standing in for the plan. Every checkpoint
 is on disk because an answer given in the conversation is unreadable to
-a later session or a re-run, so `close` stops on a verdict it cannot read
+a later session or a re-run, so `land` stops on a verdict it cannot read
 from a file rather than asking for one.
-A missing checkpoint pauses the merge, and `close` asks whether to run
+A missing checkpoint pauses the merge, and `land` asks whether to run
 the missing skill now; on yes it dispatches the skill to a worker in a
 child worktree, or to a subagent with worktree isolation where no runtime
 is reachable, merges that branch, and re-reads the checkpoint from disk.
@@ -151,7 +151,7 @@ Merge from the worktree, and leave `main` one fast-forward away. Claude
 Code refuses a worktree-isolated session every git command that names
 another checkout, reads included; the refusal is the harness's, not the
 repository guard's, which is passive for Bash in a linked worktree, and
-disabling the sandbox does not lift it. So `close` merges `main` into the
+disabling the sandbox does not lift it. So `land` merges `main` into the
 branch inside the worktree, where the tests and the verifier already are,
 verifies the union with `--base main`, and emits the primary checkout's
 `git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
@@ -270,7 +270,7 @@ gates need before the first gate, because a session's PATH must not
 decide whether the tree verifies and a late tool failure reads as a gate
 result; and a passing run prints the dirty-marker lines it could not
 clear, because a targeted run rewrites the marker in the same second as
-the receipt and a silent survivor reads as an artifact, so `close` takes
+the receipt and a silent survivor reads as an artifact, so `land` takes
 the marker's content as its remedy. The marker hook itself was the last
 of these. It guessed from a Bash command's text whether the command wrote
 a file, and measured against one session's commands the pattern missed a
@@ -338,7 +338,7 @@ the model overwrites JSON less readily than Markdown. So `implement`
 keeps `flowseer-plan-status.json` in the worktree's git directory, beside
 the verifier receipt: per unit an id, status, commit, verifier time, and a
 one-line note for a decision the next unit needs. The verifier validates
-it on every run, `close` gates the merge on every unit `passed` and removes
+it on every run, `land` gates the merge on every unit `passed` and removes
 it after the merge, and a resumed session checks each recorded commit
 against `HEAD` before editing. The skills write it and the checkpoints
 file through `ledger.py` in the verifier's scripts rather than by hand:
@@ -384,8 +384,10 @@ arrives at the same shape by routing each workflow step to the cheapest
 model that still makes progress. Users describe the failure mode from the
 other side: a task that spawned seven subagents on the session model and
 exhausted a budget before one of them finished, cured by naming a smaller
-model for them. `delegate` caps concurrent workers at three for the same
-reason.
+model for them. `delegate` therefore sizes each wave from measured
+headroom rather than from how much work is ready: a pool holds two lanes
+under 50% used, one up to 85%, none above, and the coordinator caps the
+sum at six.
 
 Send editing workers to an Orca worker when Orca's runtime is reachable.
 The asynchronous-agent study behind CAID found that isolated workspaces, a
@@ -413,7 +415,7 @@ subagent runs only on Claude, and after Sonnet 5 left `execute` on
 2026-09-18 that role had no Claude model, so the fallback would have run
 editing work on a model with no calibration for it. The user chose
 sequential work over naming an uncalibrated fallback on 2026-09-23. A
-stage of `close` or `drive` stops instead, because it needs a session of
+stage of `land` or `drive` stops instead, because it needs a session of
 its own that commits a checkpoint. The Orca command surface is
 version-matched and served by the binary (`orca skills get orca-cli`,
 `orca skills get orchestration`), so the skills show the shape of the loop
@@ -425,8 +427,8 @@ and `orca account list` reports which providers are signed in and how much
 of each rate-limit window is used, which is why `delegate` discovers the
 worker agent and provider per session instead of assuming Claude and picks
 the provider for each wave by remaining quota. The 85% threshold is a
-starting point chosen so that a three-worker wave cannot push a window
-over its limit mid-run; tune it when a wave gets cut off or when quota sits
+starting point chosen so that the two lanes a pool may hold under 50%
+cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
 idle.
 
 Orca reads usage only for the providers it has credentials for. On
@@ -549,10 +551,21 @@ times faster with 11 to 14 points more passes than sequential, and naive
 file-level splitting at 60% more cost for 3 points; uncoordinated
 parallel agents were fastest and worst. So `implement` groups units into
 waves from their `After` lines and dispatches a wave of two or more to
-workers, three at once, through a coordinator that merges and verifies;
-`plan` writes `After` for real dependencies only, lists the waves, and
-lets disjoint phases run in separate worktrees. The cap of three stays,
-for the budget reason above.
+workers through a coordinator that merges and verifies; `plan` writes
+`After` for real dependencies only, lists the waves, and lets disjoint
+phases run in separate worktrees.
+
+Widen a wave when the pools are idle. Until 2026-09-23 every wave ran at
+most three workers and `drive` one phase at a time, whatever the pools
+showed, so a drive over independent phases ran them in turn while the
+prepaid pools it did not route to stayed idle and are paid for anyway.
+The cap now follows the pool rows `delegate` reads before each wave, and
+only independent work widens with it: the Co-Coder result that gives
+parallelism its gain is the same one that makes naive splitting cost
+more, so dependent units still chain. Six is the ceiling because every
+lane still passes through one coordinator's tree check, merge, and
+verifier, and the verifier runs one at a time; it is a starting value,
+to be raised if merges keep pace and lowered if a wave's merges back up.
 
 Prove a phase's prerequisites are in the tree. On 2026-09-14 phase 2 of
 the analysis-completeness plan was implemented twice, in two worktrees
@@ -606,7 +619,7 @@ day. The improvised loop also drifted: over the first two phases of the
 protobuf tree refactor the coordinator loaded `implement`, `delegate`, and
 `compound` once each and never `plan` or `review`, whose work went to
 workers as hand-written briefs, and both phases were reviewed and fixed
-with no `review` field written, the verdict `close` refuses to merge
+with no `review` field written, the verdict `land` refuses to merge
 without. `drive` therefore names the stage and loads the skill that owns it,
 restating none of their rules, so a correction to a stage still has one
 place to go. Its state is `plan-state.py` over the parent's `Landed:`
@@ -614,8 +627,8 @@ lines and the phase plans' frontmatter, the fields the other skills
 already write, for the reason the ledger exists: that coordinator's
 transcript reached 5 MB, and a resumed session has to find its place
 without it. A phase whose last commit is on `main` needs no stage, since
-`close` gated it there and older phases predate the `review` and
-`compound` fields. The skill stops before `close`, which stays a person's
+`land` gated it there and older phases predate the `review` and
+`compound` fields. The skill stops before `land`, which stays a person's
 request like every other merge into `main`.
 
 The integration branch is `main`. The skills named `master` until
@@ -634,7 +647,7 @@ the skill said "the user asks for `review`". So the rule sits once in
 `AGENTS.md`, and each skill's last step names the options its outcome
 leaves, the recommended one first: `plan` offers implementation or a
 fresh session, `implement` offers `review`, `review` offers `compound` or
-the fix loop by verdict, `compound` offers `close`, and `close` offers to
+the fix loop by verdict, `compound` offers `land`, and `land` offers to
 run a missing checkpoint's skill. Nothing runs on its own: a step that
 runs itself after every other step produces work nobody asked for, and
 the five cases in the scan where the user redirected instead of accepting
@@ -670,9 +683,11 @@ round; the coordinator keeps the state command's output, the merges, and
 the verifier. A plan without phases goes through the same four stages,
 because the loop typed by hand was the same for it. The per-unit ledger
 lives in the implement worker's git directory, so `drive` reads it before
-the child worktree goes and reports it as the gate `close` would have
-read. The stage worker counts against `delegate`'s three and may hold two
-of its own, which is why one phase is driven at a time. A decision that
+the child worktree goes and reports it as the gate `land` would have
+read. Each stage worker takes one slot of `delegate`'s cap and holds a
+budget of its own from the rest, and independent phases run at once when
+the cap leaves every one of them at least one worker; the parent's
+`Landed:` lines are the only file they both write. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
 

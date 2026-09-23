@@ -192,14 +192,14 @@ orca worktree set --worktree active --comment "<existing>; review: rework" --jso
 A subject scope reports its units and seams first, so the reader can see what
 was covered, then the interplay findings, then the unit findings under their
 unit. Its verdict judges the subject (sound, sound with fixes, unsound), and it
-never goes in the worktree comment: `close` reads a `review:` entry there as a
+never goes in the worktree comment: `land` reads a `review:` entry there as a
 verdict on the branch, and a subject review has not looked at the branch.
 Findings too large to fix in place go to `plan` with what this review
 established, not into a fix attempt at the end of an audit.
 
 When the scope is this branch's work (the working tree, the branch, or its
-plan's paths), record the verdict where `close` reads it, step 1 of
-`close`: the plan's frontmatter gains `review: <verdict>` beside `status`,
+plan's paths), record the verdict where `land` reads it, step 1 of
+`land`: the plan's frontmatter gains `review: <verdict>` beside `status`,
 committed with a message naming the review, and then the verifier runs on
 the plan path so the receipt post-dates that commit; planless work appends
 the same line to `$(git rev-parse --git-dir)/flowseer-checkpoints` with
@@ -224,7 +224,7 @@ On "apply the fixes", make them, run the verifier on the changed paths,
 report what changed, and set the verdict to `review: accept after fixes`.
 A subject review reads its rows by findings, with sound with fixes and
 unsound in place of the branch verdicts, and offers the fixes or `plan`,
-never `compound` or `close`. A sound subject with nothing to fix ends
+never `compound` or `land`. A sound subject with nothing to fix ends
 without a question.
 
 ## 6. Fix and re-review, when asked
