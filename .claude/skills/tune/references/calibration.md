@@ -44,12 +44,26 @@ One worktree per lane, branched from the same commit:
 git worktree add -b bench-<lane> /Users/aledante/Projects/worktrees/FlowSeer/bench-<lane> HEAD
 ```
 
-`bench.sh` writes `wall_s` and the CLI's reported usage. Where the CLI
-reports no dollar figure, estimate from the registry price:
-`input * price[0] + output * price[1]` per million, with cache reads at a
-tenth of the input price. Report cost per lane as that estimate and mark it
-estimated; a prepaid pool's marginal cost is zero below its cap, so also
-report what share of the pool's window the lane consumed when the pool
-exposes one.
+`bench.sh` writes `wall_s` and the CLI's reported usage. For a comparable
+estimate, `field.py` applies the same formula to each transcript using the
+registry's prices per million tokens:
+
+```text
+cost_usd = ((input + 0.1 * cache_read + 1.25 * cache_write_5m
+             + 2 * cache_write_1h) * price[0] + output * price[1]) / 1_000_000
+```
+
+`input` is uncached input. Codex reports cached input inside `input_tokens`,
+so subtract `cached_input_tokens` before applying the formula. Its reasoning
+tokens are already inside `output_tokens`; report them separately, but do not
+charge them twice. Claude reports cache writes by duration: `ephemeral_5m`
+uses the 1.25 multiplier and `ephemeral_1h` uses 2. For example, 1,000
+uncached input, 2,000 cache reads, 3,000 five-minute writes, 4,000 one-hour
+writes, and 500 output tokens at `[2, 10]` cost $0.0309.
+
+Mark every computed figure `est`. opencode's recorded message cost takes
+precedence and is not estimated. A prepaid pool's marginal cost is zero below
+its cap, so also report what share of the pool's window the lane consumed
+when the pool exposes one.
 
 Remove the worktrees and branches when the comparison is recorded.
