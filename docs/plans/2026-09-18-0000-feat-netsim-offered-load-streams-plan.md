@@ -98,37 +98,37 @@ plan carries the acceptance examples for its own.
 
 ## Units
 
-### P1. Engine scale and flow statistics
+### U1. Engine scale and flow statistics
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase1-plan.md`
 After: none
 Landed:
 
-### P2. Stated egress buffers and tail drop
+### U2. Stated egress buffers and tail drop
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase2-plan.md`
-After: P1
+After: U1
 Landed:
 
-### P3. Stream package and the pull loop
+### U3. Stream package and the pull loop
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase3-plan.md`
-After: P1, P2
+After: U1, U2
 Landed:
 
-### P4. Capture file as a stream source
+### U4. Capture file as a stream source
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase4-plan.md`
-After: P3
+After: U3
 Landed:
 
-### P5. On-wire transmitter and the lab comparison
+### U5. On-wire transmitter and the lab comparison
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase5-plan.md`
-After: P3
+After: U3
 Landed:
 
-Waves: P1 | P2 | P3 | P4 P5
+Waves: U1 | U2 | U3 | U4 U5
 
 ## Verification
 
-Each phase runs the verifier on its changed paths. After P3,
-`go test -race ./src/common/netsim/...` and the phase 1 benchmark. After P5, a
+Each phase runs the verifier on its changed paths. After U3,
+`go test -race ./src/common/netsim/...` and the phase 1 benchmark. After U5, a
 lab run the owner approves in advance.
 
 ## Definition of done
