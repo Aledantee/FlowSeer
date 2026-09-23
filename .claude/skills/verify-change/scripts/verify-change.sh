@@ -682,6 +682,20 @@ if [[ $hook_tooling == true ]]; then
   if [[ -x tools/hooks/tests/run.sh ]]; then
     run tools/hooks/tests/run.sh
   fi
+  for test_dir in .claude/skills/*/scripts; do
+    test_files=("$test_dir"/test_*.py)
+    [[ -f ${test_files[0]} ]] || continue
+    if ! test_output=$(run env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$test_dir" -p 'test_*.py' 2>&1); then
+      printf '%s\n' "$test_output"
+      exit 1
+    fi
+    printf '%s\n' "$test_output"
+    if [[ ! $test_output =~ Ran\ [1-9][0-9]*\ tests? ]]; then
+      printf '%s\n' "Python tests in $test_dir ran zero tests." >&2
+      printf '%s\n' "python3 -m unittest $test_dir" >"$gate_file"
+      exit 1
+    fi
+  done
 fi
 
 if [[ $serena == true ]]; then
