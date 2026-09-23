@@ -11,6 +11,9 @@ import sqlite3
 import statistics
 import sys
 
+# The imported scripts live in skill directories; bytecode caches there
+# would leave every worktree that runs tune with an untracked __pycache__.
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "delegate" / "scripts"))
 import runlog
 

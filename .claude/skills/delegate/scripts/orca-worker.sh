@@ -277,7 +277,8 @@ case "$cmd" in
     [[ -n $wt ]] || die "no lane named $name; status lists them"
     run_id=$(field "$name" run)
     [[ -n $run_id ]] || die "lane $name has no run; cannot verify grade"
-    python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; sys.exit(0 if any(e.get("event") == "grade" and e.get("run") == sys.argv[2] for e in runlog.read()) else 1)' \
+    # -B: a bytecode cache beside runlog.py would leave the tree untracked.
+    python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; sys.exit(0 if any(e.get("event") == "grade" and e.get("run") == sys.argv[2] for e in runlog.read()) else 1)' \
       "$script_dir" "$run_id" || die "lane $name has no grade event; grade it before stop"
     working "$(screen "$term")" && die "$name is still working; wait for it, or interrupt it by hand in Orca"
     rm -f "$path/$brief_name"
