@@ -106,8 +106,10 @@ case "$cmd" in
       || undo "terminal create failed: $started"
     term=$(printf '%s' "$started" | json 'd["result"]["terminal"]["handle"]')
     [[ -n $term ]] || undo "terminal create returned no handle: $started"
-    orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1 \
-      || undo "terminal wait failed for $lane"
+    # The wait only paces startup: it fails within seconds for an agy
+    # terminal that is running. The status check below catches a CLI that
+    # exited.
+    orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1
 
     # Codex startup dialogs: its update offer and the hooks review for a
     # repository with .codex/hooks.json. A prompt sent into either is lost.
@@ -269,9 +271,13 @@ case "$cmd" in
     git merge-base --is-ancestor "$branch" HEAD 2>/dev/null \
       || die "$branch has commits that are not merged into $(git branch --show-current); merge it first, or remove the lane by hand in Orca"
     head_sha=$(git rev-parse "$branch" 2>&1) || die "cannot resolve branch $branch: $head_sha"
-    end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) || die "run log end failed: $end_out"
+    # `end` waits for the terminal to close, so the log never ends a run
+    # whose worker still runs, and precedes the removal, so a failed removal
+    # still leaves the run ended.
     orca terminal close --terminal "$term" --json >/dev/null 2>&1 \
-      || die "terminal close failed for $name"
+      || die "terminal close failed for $name; nothing removed"
+    end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
+      || die "run log end failed after $name's terminal closed: $end_out"
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
     rm -f "$state_dir/$name.json" || die "cannot remove lane state for $name"
     ;;
