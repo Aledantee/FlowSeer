@@ -31,6 +31,13 @@ documented as the model.
   (a stream as a plain value, a source the run pulls, SplitMix64 with a spec
   seed, and the corpus load cases). It promotes nothing new, so it adds no
   direction record of its own.
+- U1 wire-octet fixture (owner ruling, 2026-09-23): the 84-octet case is the
+  64-octet minimum Ethernet frame (46-octet payload, 60 encoded), not a 64-octet
+  payload. `WireOctets = max(len(raw), 60+4*len(Tags)) + 24` gives 84 only when
+  the encoded frame is at the 60-octet floor; a literal 64-octet payload encodes
+  to 78 and yields 102. The Tests and Requirements lines are corrected to say
+  minimum frame, per IEEE 802.3 (the 64-octet minimum frame is 84 on the wire
+  with preamble, SFD, IFG, and FCS).
 - One wire-octet figure serves both packages. `ethernet.Frame.WireOctets() int`
   is `max(len(Encode()), 60+4*len(Tags)) + 24`, exactly the body of `fabric`'s
   `wireOctets` (`src/common/netsim/fabric/run.go:127-136`). Why: `stream` may
@@ -164,7 +171,7 @@ Numbers are the parent's; letters are this phase's acceptance examples.
    `Config.Start` is `t0`, injects at `t0 + n*100µs`; the source's 1000th offset
    is `99.9ms` and its 1001st `Next` returns `ok == false`.
    9b. Burst and gap. A bits-per-second stream at 1 Gbit/s of untagged
-   64-octet-payload frames (`84` wire octets, so `672ns` interval),
+   64-octet minimum frames (46-octet payload; `84` wire octets, so `672ns` interval),
    `Burst: 10`, `Gap: 1ms`, `Count: 20` yields offsets `0, 672ns, …, 6048ns`
    for the first ten frames, `1.00672ms` for the eleventh, and
    `1.00672ms + 9*672ns` for the twentieth.
@@ -244,8 +251,9 @@ body of `fabric.wireOctets` (`run.go:127-136`) with its doc comment stating the
 `wireOctets` and reads `arr.Frame.WireOctets()` in `serialization`
 (`run.go:141`) and `Step` (`run.go:505`); `serialization` still takes
 `ethernet.Frame`.
-Tests: `ethernet_test.go` gains a table: an untagged 64-octet-payload frame is
-84; a tagged frame whose `Encode` is shorter than `60+4*len(Tags)` takes the
+Tests: `ethernet_test.go` gains a table: an untagged 64-octet minimum frame
+(46-octet payload, 60 encoded) is 84; a tagged frame whose `Encode` is shorter
+than `60+4*len(Tags)` takes the
 pad; a 1518-octet frame is 1542; a frame whose `Encode` errors still pads (the
 frame-accessor contract is that `Encode`'s error is the caller's; `WireOctets`
 ignores it as `wireOctets` did), pinned as a case.
@@ -422,14 +430,3 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
-- Parked by drive: U1's Tests line says "an untagged 64-octet-payload frame is
-  84", but `WireOctets = max(len(raw), 60+4*len(Tags)) + 24` gives 102 for a
-  64-octet payload (raw = 14 header + 64 = 78; max(78,60)+24 = 102). The 84
-  figure is the IEEE 802.3 minimum frame on the wire: a <=46-octet payload
-  encodes to <=60, and max(.,60)+24 = 84. So the fixture is mis-worded, not the
-  code. The implement worker stopped rather than change the fixture (the brief
-  forbade weakening it). Options: correct the Tests line to "an untagged
-  minimum-size frame (46-octet payload) is 84" and resume U1 | keep 64-octet
-  payload and change the expected figure to 102. Recommended: the minimum-frame
-  wording, because 84 is the standard minimum-frame-on-wire figure the plan
-  clearly intends and the `60` floor in the formula encodes that intent.
