@@ -52,6 +52,9 @@ if args and args[0] == "status":
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
     print("Read .orca-brief.md" if pointer_file.exists() else "")
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "close":
+    if failure == "terminal-close":
+        print("injected close failure", file=sys.stderr)
+        sys.exit(1)
     print(json.dumps({{"result": {{"status": "ok"}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "rm":
     runlog = Path(os.environ["FLOWSEER_RUNLOG"])
@@ -70,13 +73,14 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "create":
         exclude.mkdir()
     print(json.dumps({{"result": {{"terminal": {{"handle": "term-1"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
-    if failure == "terminal-wait":
+    if failure in ("terminal-wait", "terminal-exited"):
         sys.exit(1)
     print(json.dumps({{"result": {{"wait": {{"status": "idle"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
     if failure == "terminal-show":
         sys.exit(1)
-    print(json.dumps({{"result": {{"terminal": {{"status": "idle"}}}}}}))
+    status = {{"terminal-wait": "running", "terminal-exited": "exited"}}.get(failure, "idle")
+    print(json.dumps({{"result": {{"terminal": {{"status": status}}}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "create":
     base = args[args.index("--base-branch") + 1]
     subprocess.run(["git", "worktree", "add", "-b", "wt1", str(child), base], check=True, capture_output=True)
@@ -141,11 +145,11 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
             return ""
         return self.orca_log.read_text()
 
-    def start(self):
+    def start(self, cli="codex", model="gpt-6-sol"):
         brief = self.repo / "brief.md"
         brief.write_text("task description")
         return self.command(
-            "start", "--lane", "l1", "--cli", "codex", "--model", "gpt-6-sol",
+            "start", "--lane", "l1", "--cli", cli, "--model", model,
             "--role", "execute", "--brief", str(brief),
         )
 
@@ -214,16 +218,29 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assert_rolled_back_run(result, "cannot write git exclude file")
 
     def test_start_terminal_checks_roll_back_before_logging(self):
-        for failure, message in (("terminal-wait", "terminal wait failed"),
-                                 ("terminal-show", "terminal show failed")):
+        for failure, message in (("terminal-show", "terminal show failed"),
+                                 ("terminal-exited", "agy exited at startup")):
             with self.subTest(failure=failure):
                 self.env["ORCA_STUB_FAIL"] = failure
-                result = self.start()
+                result = self.start(cli="agy", model="gemini-4-pro")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
                 self.assertFalse(self.runlog.exists())
                 self.assertFalse((self.root / "child-l1").exists())
                 self.assertFalse((self.state_dir / "l1.json").exists())
+
+    def test_start_survives_failed_wait_on_running_terminal(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-wait"
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("terminal wait --terminal term-1", self.orca_calls())
+        self.assertIn("terminal send --terminal term-1", self.orca_calls())
+        self.assertEqual(json.loads(result.stdout)["name"], "l1")
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["start"])
+        self.assertTrue((self.root / "child-l1").exists())
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
 
     def test_start_state_directory_failure_closes_run(self):
         self.state_dir.rmdir()
@@ -283,7 +300,7 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assertEqual(events[1]["verify"], "fail")
         self.assertEqual(events[1]["note"], "adjusted test")
 
-    def test_stop_after_grade_writes_end_and_removes_lane(self):
+    def graded_lane(self):
         subprocess.run(["git", "checkout", "-b", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
         (self.repo / "work.txt").write_text("lane output")
         subprocess.run(["git", "add", "."], cwd=self.repo, check=True, capture_output=True)
@@ -308,7 +325,10 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
             json.dumps({"v": 1, "event": "grade", "run": "run-l1",
                         "at": "2026-09-23T12:00:00Z", "outcome": "accepted", "verify": "pass"}) + "\n"
         )
+        return state_file, child_path, branch_head
 
+    def test_stop_after_grade_writes_end_and_removes_lane(self):
+        state_file, _, branch_head = self.graded_lane()
         result = self.command("stop", "l1")
         self.assertEqual(result.returncode, 0, result.stderr)
         events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
@@ -317,9 +337,25 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assertEqual(end_event["event"], "end")
         self.assertEqual(end_event["run"], "run-l1")
         self.assertEqual(end_event["head"], branch_head)
+        at_rm = [json.loads(line) for line in (self.root / "runlog-at-rm.jsonl").read_text().splitlines()]
+        self.assertEqual([event["event"] for event in at_rm], ["grade", "end"])
         self.assertFalse(state_file.exists())
-        self.assertIn("terminal close --terminal term-1", self.orca_calls())
-        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+        calls = self.orca_calls()
+        self.assertIn("terminal close --terminal term-1", calls)
+        self.assertIn("worktree rm --worktree id:wt-1", calls)
+        self.assertLess(calls.index("terminal close"), calls.index("worktree rm"))
+
+    def test_stop_close_failure_logs_no_end_and_keeps_lane(self):
+        state_file, child_path, _ = self.graded_lane()
+        self.env["ORCA_STUB_FAIL"] = "terminal-close"
+        result = self.command("stop", "l1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("terminal close failed", result.stderr)
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["grade"])
+        self.assertTrue(state_file.exists())
+        self.assertTrue(child_path.exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
 
 
 if __name__ == "__main__":
