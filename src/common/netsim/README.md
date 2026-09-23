@@ -13,6 +13,7 @@ goroutines or wall-clock dependencies.
 | `../net/icmp`      | ICMPv4 and ICMPv6 header decoder: type, code, checksum       |
 | `trace`            | Step, outcome, and change trace records                      |
 | `analysis`         | Analysis trust metadata, scoped issues, and evidence catalog |
+| `stream`           | Finite Ethernet frame sources with deterministic timing      |
 | `vswitch`          | Virtual switch composing pipeline capabilities               |
 | `vswitch/port`     | Port table, administrative state, and MTU                    |
 | `vswitch/lag`      | Bond modes, the 256-bucket member selection table, member delays, LACP |
