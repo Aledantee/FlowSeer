@@ -30,6 +30,11 @@ and does not (`src/common/netsim/fabric/run.go:1185-1187`).
 
 - The parent's decisions and the direction record apply; this phase lands the
   record's retention and engine bullets.
+- Benchmark budget (owner ruling, 2026-09-23): the 120 s/2 GiB guess is
+  replaced by the measured figure. `BenchmarkAggregateMillion` runs at ~295 s
+  on the development host (M4 Pro) and that is the accepted budget; the record
+  is not tuned around it and no phase builds on the engine being faster. A
+  later performance pass, if wanted, is its own plan.
 - The heap keeps `compareArrival` as its order and tracks indexes for removal.
   At most one `ArrivalDequeue` exists per endpoint, which the `dequeuePending`
   fault guard keeps (`run.go:989-991`), and one `ArrivalWake` per device, which
@@ -137,8 +142,9 @@ Numbers are the parent's; letters are this phase's acceptance examples.
     second benchmark runs the same load with `RetainJourney`, at 100,000
     frames, so a missed budget can be laid at `record` or at retention. The
     unit records its time and allocation in the
-    `fabric` README. The budget is 120 s and 2 GiB on the development host; a
-    result over it is reported, not tuned around.
+    `fabric` README. The accepted budget is the measured ~295 s and under 2 GiB
+    on the development host (M4 Pro; owner ruling in Decisions); a result over
+    it is reported, not tuned around.
 
 ## Out of scope
 
@@ -233,14 +239,5 @@ go test -run '^$' -bench BenchmarkAggregateMillion -benchtime 1x ./src/common/ne
 
 ## Open questions
 
-- The benchmark budget of 120 s and 2 GiB is a guess made without a profile.
-  U3 reports the measured figure, and the owner decides whether it holds.
-- Parked by drive: `BenchmarkAggregateMillion` measured ~295 s (M4 Pro) against
-  the guessed 120 s budget; peak memory was not shown to fail the 2 GiB guess.
-  The code is accepted (review: accept after fixes) and the verifier is green;
-  only the budget ruling is open, and phases 2-5 build on this engine.
-  Options: revise the budget to the measured figure and continue to phase 2 |
-  open a phase-1 performance-tuning follow-up before phase 2. Recommended:
-  revise and continue, because the plan framed the budget as a post-measurement
-  owner decision, not an acceptance gate, and no phase-2 design depends on the
-  engine being faster.
+- None. The benchmark budget was the owner's to decide after measurement; the
+  ruling is recorded in Decisions.
