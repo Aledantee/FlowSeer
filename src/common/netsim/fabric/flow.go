@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"maps"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -74,9 +75,10 @@ func (f *Fabric) Flows() map[FlowID]FlowStats {
 // settle folds a journey whose last in-flight arrival has left into its flow
 // and, when its retention is [RetainAggregate], frees it. A journey a switch
 // holds for neighbor resolution settles at the hold, counting under
-// [FlowStats.Held] once, but is not freed there: it must outlive the hold so
-// [Fabric.injectEmission] can name it as the holder of the released frame. A
-// journey settles once; a later settle of the same frame is a no-op.
+// [FlowStats.Held] once; because the frame then travels with no journey, the
+// freed journey leaves a placeholder keyed by the holding device so
+// [Fabric.injectEmission] can still name it as the holder of the released
+// frame. A journey settles once; a later settle of the same frame is a no-op.
 func (f *Fabric) settle(fid FrameID) {
 	j := f.journeys[fid]
 	if j == nil || j.settled || f.inflight[fid] > 0 {
@@ -87,23 +89,40 @@ func (f *Fabric) settle(fid FrameID) {
 		f.foldJourney(j)
 	}
 	delete(f.inflight, fid)
-	if j.Injection.Retention == RetainAggregate && !isJourneyHeld(j) {
+	if j.Injection.Retention == RetainAggregate {
+		if isJourneyHeld(j) {
+			f.recordHeldAggregate(fid, j)
+		}
 		delete(f.journeys, fid)
 		delete(f.entered, fid)
 	}
 }
 
-// releaseHeld frees a settled [RetainAggregate] journey a switch held for
-// neighbor resolution, once the release of its frame has claimed it. A
-// RetainJourney journey stays in [Fabric.Report], and a held journey that
-// resolution abandoned is never claimed, so it stays retained.
-func (f *Fabric) releaseHeld(fid FrameID) {
-	j := f.journeys[fid]
-	if j == nil || !j.settled || j.Injection.Retention != RetainAggregate {
-		return
+// recordHeldAggregate keeps the FrameID of a freed aggregate journey a switch
+// held for neighbor resolution, under the device of the frame's last entry and
+// ascending, so a release can still name the frame it was held from. The
+// journey is gone; only the identity stays.
+func (f *Fabric) recordHeldAggregate(fid FrameID, j *Journey) {
+	device := j.Entries[len(j.Entries)-1].Device
+	if f.heldAggregates == nil {
+		f.heldAggregates = make(map[string][]FrameID)
 	}
-	delete(f.journeys, fid)
-	delete(f.entered, fid)
+	ids := f.heldAggregates[device]
+	at, _ := slices.BinarySearch(ids, fid)
+	ids = slices.Insert(ids, at, fid)
+	f.heldAggregates[device] = ids
+}
+
+// claimHeldAggregate removes the placeholder a release just named, so a later
+// release cannot name the same held frame twice.
+func (f *Fabric) claimHeldAggregate(device string, fid FrameID) {
+	ids := f.heldAggregates[device]
+	for i, id := range ids {
+		if id == fid {
+			f.heldAggregates[device] = slices.Delete(ids, i, i+1)
+			break
+		}
+	}
 }
 
 // foldJourney folds one settled journey into its flow's statistics. A

@@ -265,10 +265,12 @@ journey that names a flow folds into that flow's `FlowStats`:
 
 `RetainJourney` is the zero value and keeps the settled journey in `Report()`.
 `RetainAggregate` frees it, and `Inject` refuses it with a zero flow. A frame
-a switch holds for neighbor resolution settles and folds `Held` at the hold
-but is freed only when the release claims it, so the released frame can name
-the journey it was held from; a held frame resolution abandons is never
-claimed and stays retained. A protocol journey is never freed.
+a switch holds for neighbor resolution settles and folds `Held` at the hold,
+and its aggregate journey is freed there too: the frame then travels with no
+journey, so the fabric keeps only its `FrameID` under the holding device until
+the release claims it, which is what lets the released frame name the frame it
+was held from. A hold resolution abandons is never claimed, so its placeholder
+stays. A protocol journey is never freed.
 `Fabric.Flows()` returns an independent copy of every flow's statistics,
 keyed by flow.
 

@@ -37,6 +37,7 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"egress":         probeFabricEgress,
 	"counters":       probeFabricCounters,
 	"inflight":       probeFabricInflight,
+	"heldAggregates": probeFabricHeldAggregates,
 	"flows":          probeFabricFlows,
 }
 
@@ -178,6 +179,26 @@ func probeFabricInflight(t *testing.T) {
 	fork.inflight[2] = 1
 	if _, ok := fab.inflight[2]; ok {
 		t.Errorf("source inflight saw entry added to fork")
+	}
+}
+
+func probeFabricHeldAggregates(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	fork := fab.Fork()
+
+	fab.heldAggregates["sw2"] = []FrameID{1}
+	if _, ok := fork.heldAggregates["sw2"]; ok {
+		t.Errorf("fork heldAggregates saw entry added to source")
+	}
+
+	fork.heldAggregates["sw3"] = []FrameID{2}
+	if _, ok := fab.heldAggregates["sw3"]; ok {
+		t.Errorf("source heldAggregates saw entry added to fork")
+	}
+
+	fork.heldAggregates["sw1"][0] = 3
+	if fab.heldAggregates["sw1"][0] == 3 {
+		t.Errorf("source heldAggregates slice changed when fork's changed")
 	}
 }
 

@@ -72,6 +72,7 @@ var fabricFieldClasses = map[string]forkClass{
 	"counters":       classDeepCopied,
 	"metadataCache":  classImmutableShared,
 	"inflight":       classDeepCopied,
+	"heldAggregates": classDeepCopied,
 	"flows":          classDeepCopied,
 	"touched":        classResetOnFork,
 	"err":            classImmutableShared,
@@ -280,6 +281,9 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 	}
 	fab.cableCrossings = map[Endpoint]uint{
 		{Node: "sw1", Port: "1/1/1"}: 1,
+	}
+	fab.heldAggregates = map[string][]FrameID{
+		"sw1": {5},
 	}
 	fab.busyUntil = map[Endpoint]time.Time{
 		{Node: "sw1", Port: "1/1/1"}: fab.clock.Add(10 * time.Millisecond),
