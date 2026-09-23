@@ -219,9 +219,11 @@ $s stop <slug>            # after grade and merge: closes the terminal, removes 
 
 `start` requires `--role` and takes optional `--plan` and `--unit`. It exits
 0 only when the worker exists in a child worktree branched from this
-worktree's branch and has the brief on its screen; a failure removes what
-it created and says why. Once the terminal is up and before sending the
-brief pointer, it logs a `start` event to the run log with base commit and
+worktree's branch and has the brief on its screen. A failed start removes the
+worktree when cleanup succeeds. If terminal close or worktree removal fails,
+`status` keeps showing the lane for manual removal, and the error says so.
+Once the terminal is up and before sending the brief pointer, it logs a
+`start` event to the run log with base commit and
 metadata, and stores `run` in the state file. Its JSON line names the
 branch, which Orca prefixes with the git user, and `run`. `wait` prints
 `idle` when the turn ended: check the tree, then read the report. A

@@ -38,8 +38,9 @@ names the lane; this file is the procedure.
   and before sending the pointer, `start` writes a `start` event to the run
   log with the lane metadata and base commit, storing `run` in the state file
   and printed JSON line.
-- On any failure after the worktree exists, closes the terminal, removes
-  the worktree, and says why.
+- On a failure after the worktree exists, closes the terminal and removes
+  the worktree. If either cleanup call fails, it keeps or writes lane state
+  so `status` still lists the lane, and reports that it needs manual removal.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
   seen satisfied while an opencode worker was mid-turn. The turn has ended
   when the screen shows no "esc interrupt" hint on two reads five seconds

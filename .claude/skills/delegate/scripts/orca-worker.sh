@@ -14,8 +14,9 @@
 #
 # `start` prints one JSON line {"name","terminal","worktree","path","branch","run"}
 # and exits 0 only when the worker was pointed at its brief and lane state was
-# saved; any failure after the worktree exists removes it again. Orca prefixes the branch with
-# the git user, so read `branch` from that line instead of assuming the slug.
+# saved; failures after the worktree exists remove it when cleanup succeeds.
+# Orca prefixes the branch with the git user, so read `branch` from that line
+# instead of assuming the slug.
 # The launch line carries the model because `orca orchestration worker-start
 # --model` pins Claude, Codex, and Cursor ids only. Lane state lives in
 # <git common dir>/orca-workers/. Run unsandboxed: Orca is a local socket.
@@ -77,17 +78,31 @@ case "$cmd" in
     path=$(printf '%s' "$created" | json 'd["result"]["worktree"]["path"]')
     branch=$(printf '%s' "$created" | json 'd["result"]["worktree"]["branch"].removeprefix("refs/heads/")')
     [[ -n $wt && -n $path && -n $branch ]] || die "worktree create returned no id, path, or branch: $created"
-    # Every failure from here on removes what was created.
+    # A failed cleanup keeps lane state so status still names what needs removal.
     term='' run_id='' base_sha=''
+    save_state() {
+      python3 -c 'import json,sys; json.dump(dict(zip(("name","cli","terminal","worktree","path","branch","run"), sys.argv[2:])), open(sys.argv[1],"w"))' \
+        "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch" "$run_id"
+    }
     undo() {
-      local reason="$*" head_sha end_out
+      local reason="$*" head_sha end_out cleanup_failed='' state_out=''
       if [[ -n $run_id ]]; then
         head_sha=$(git -C "$path" rev-parse HEAD 2>/dev/null) || head_sha=$base_sha
         end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
           || reason="${reason}; run log end failed: $end_out"
       fi
-      [[ -n $term ]] && orca terminal close --terminal "$term" --json >/dev/null 2>&1
-      orca worktree rm --worktree "id:$wt" --force --json >/dev/null 2>&1
+      if [[ -n $term ]] && ! orca terminal close --terminal "$term" --json >/dev/null 2>&1; then
+        cleanup_failed='terminal close failed'
+      fi
+      if [[ -z $cleanup_failed ]] && ! orca worktree rm --worktree "id:$wt" --force --json >/dev/null 2>&1; then
+        cleanup_failed='worktree removal failed'
+      fi
+      if [[ -n $cleanup_failed ]]; then
+        if ! mkdir -p "$state_dir" 2>/dev/null || ! state_out=$(save_state 2>&1); then
+          reason="${reason}; cannot save lane state for $lane${state_out:+: $state_out}"
+        fi
+        die "$reason; $cleanup_failed; lane $lane is still live and must be removed by hand"
+      fi
       rm -f "$state_dir/$lane.json" >/dev/null 2>&1 || true
       die "$reason"
     }
@@ -179,8 +194,7 @@ case "$cmd" in
     done
     [[ -n $ok ]] || undo "pointer not on $lane's screen after two submissions${send_error}: $(screen "$term" | tail -8)"
     mkdir -p "$state_dir" || undo "cannot create lane state directory $state_dir"
-    state_out=$(python3 -c 'import json,sys; json.dump(dict(zip(("name","cli","terminal","worktree","path","branch","run"), sys.argv[2:])), open(sys.argv[1],"w"))' \
-      "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch" "$run_id" 2>&1) \
+    state_out=$(save_state 2>&1) \
       || undo "cannot write lane state for $lane: $state_out"
     printf '{"name":"%s","terminal":"%s","worktree":"%s","path":"%s","branch":"%s","run":"%s"}\n' "$lane" "$term" "$wt" "$path" "$branch" "$run_id"
     ;;

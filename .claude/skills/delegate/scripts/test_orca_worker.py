@@ -52,17 +52,23 @@ if args and args[0] == "status":
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
     print("Read .orca-brief.md" if pointer_file.exists() else "")
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "close":
-    if failure == "terminal-close":
+    if failure == "terminal-close" or os.environ.get("ORCA_STUB_CLOSE_FAIL") == "1":
         print("injected close failure", file=sys.stderr)
         sys.exit(1)
     print(json.dumps({{"result": {{"status": "ok"}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "rm":
     runlog = Path(os.environ["FLOWSEER_RUNLOG"])
     Path(os.environ["ORCA_STUB_AT_RM"]).write_text(runlog.read_text() if runlog.exists() else "")
+    if os.environ.get("ORCA_STUB_RM_FAIL") == "1":
+        print("injected worktree removal failure", file=sys.stderr)
+        sys.exit(1)
     subprocess.run(["git", "worktree", "remove", "--force", str(child)], check=False, capture_output=True)
     subprocess.run(["git", "branch", "-D", "wt1"], check=False, capture_output=True)
     print(json.dumps({{"result": {{"status": "ok"}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "create":
+    if failure == "terminal-create":
+        print("injected terminal creation failure", file=sys.stderr)
+        sys.exit(1)
     if failure == "advance-base":
         subprocess.run(["git", "commit", "--allow-empty", "-m", "advance base"], check=True, capture_output=True)
     if failure == "brief-copy":
@@ -105,8 +111,12 @@ import os
 import sys
 
 if os.environ.get("ORCA_STUB_FAIL") == "state-write" and len(sys.argv) > 2 and sys.argv[1] == "-c" and "json.dump(dict(zip" in sys.argv[2]:
-    print("injected state write failure", file=sys.stderr)
-    sys.exit(1)
+    marker = os.environ.get("ORCA_STUB_STATE_WRITE_MARKER")
+    if not marker or not os.path.exists(marker):
+        if marker:
+            open(marker, "w").close()
+        print("injected state write failure", file=sys.stderr)
+        sys.exit(1)
 os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
 """)
         stub_python.chmod(stub_python.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
@@ -253,6 +263,76 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         result = self.start()
         self.assert_rolled_back_run(result, "cannot write lane state")
         self.assertIn("injected state write failure", result.stderr)
+
+    def test_start_keeps_lane_when_worktree_removal_fails(self):
+        self.env["ORCA_STUB_FAIL"] = "pointer"
+        self.env["ORCA_STUB_RM_FAIL"] = "1"
+        result = self.start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lane l1 is still live and must be removed by hand", result.stderr)
+        state_file = self.state_dir / "l1.json"
+        self.assertTrue(state_file.exists())
+        state = json.loads(state_file.read_text())
+        self.assertEqual(state["terminal"], "term-1")
+        self.assertEqual(state["worktree"], "wt1")
+        self.assertEqual(state["path"], str(self.root / "child-l1"))
+        self.assertEqual(state["branch"], "wt1")
+        self.assertTrue(state["run"])
+        self.assertTrue((self.root / "child-l1").exists())
+        self.assertIn("l1 codex", self.command("status").stdout)
+
+    def test_start_keeps_pre_run_lane_when_worktree_removal_fails(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-show"
+        self.env["ORCA_STUB_RM_FAIL"] = "1"
+        result = self.start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lane l1 is still live and must be removed by hand", result.stderr)
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual(state["terminal"], "term-1")
+        self.assertEqual(state["worktree"], "wt1")
+        self.assertEqual(state["run"], "")
+        self.assertTrue((self.root / "child-l1").exists())
+        self.assertIn("l1 codex", self.command("status").stdout)
+
+    def test_start_keeps_lane_without_terminal_when_worktree_removal_fails(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-create"
+        self.env["ORCA_STUB_RM_FAIL"] = "1"
+        result = self.start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lane l1 is still live and must be removed by hand", result.stderr)
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual(state["terminal"], "")
+        self.assertEqual(state["worktree"], "wt1")
+        self.assertEqual(state["run"], "")
+        self.assertTrue((self.root / "child-l1").exists())
+        self.assertIn("l1 codex", self.command("status").stdout)
+
+    def test_start_restores_state_after_write_and_removal_fail(self):
+        self.env["ORCA_STUB_FAIL"] = "state-write"
+        self.env["ORCA_STUB_RM_FAIL"] = "1"
+        self.env["ORCA_STUB_STATE_WRITE_MARKER"] = str(self.root / "state-write-attempted")
+        result = self.start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lane l1 is still live and must be removed by hand", result.stderr)
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual(state["terminal"], "term-1")
+        self.assertEqual(state["worktree"], "wt1")
+        self.assertTrue(state["run"])
+        self.assertTrue((self.root / "child-l1").exists())
+
+    def test_start_keeps_worktree_when_terminal_close_fails(self):
+        self.env["ORCA_STUB_FAIL"] = "pointer"
+        self.env["ORCA_STUB_CLOSE_FAIL"] = "1"
+        result = self.start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("terminal close failed", result.stderr)
+        self.assertIn("lane l1 is still live and must be removed by hand", result.stderr)
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual(state["terminal"], "term-1")
+        self.assertEqual(state["worktree"], "wt1")
+        self.assertTrue(state["run"])
+        self.assertTrue((self.root / "child-l1").exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
 
     def test_stop_refuses_ungraded_lane_and_removes_nothing(self):
         child_path = self.root / "child-l1"
