@@ -51,7 +51,9 @@ Before the first dispatch:
 
 The plan goes through these stages in order, starting at the first one
 whose "done when" the files do not already show. Each stage is one worker
-in a child worktree branched from this branch's `HEAD`.
+in a child worktree branched from this branch's `HEAD`, started with
+`orca-worker.sh start` using `--role` from the table below, `--plan <path>`,
+and the stage name as `--unit`.
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
@@ -101,15 +103,24 @@ After each stage:
    would have read. A `blocked` unit parks the plan (step 4).
 3. Merge the worker's branch here.
 4. Run the verifier once on the union of the changed paths, sandbox
-   disabled.
-5. Remove the child worktree.
-6. Read the stage's "done when" off the merged files. A stage that
+   disabled:
+
+   ```bash
+   .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+   ```
+
+5. Grade the lane before stopping it:
+
+   ```bash
+   .claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail
+   ```
+
+   `accepted` when merged as left, `amended` when the coordinator corrected
+   the work, with `--verify pass` when the verifier ran green.
+6. Remove the child worktree (`.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`).
+7. Read the stage's "done when" off the merged files. A stage that
    reports success and leaves the field unset parks the plan with that
    as its question; it is not run again.
-
-```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
-```
 
 A stage runs once. The caps inside the skills (three verifier rounds on a
 unit, three review rounds on a mechanism) already decide when patching
