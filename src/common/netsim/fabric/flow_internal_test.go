@@ -263,6 +263,10 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}, Accept: HostAccept{Promiscuous: true}}
 		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}, LengthMeters: 5})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
+	case "mirror-reject":
+		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}}
+		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}, LengthMeters: 5})
+		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "reflector":
 		reflec := Reflector{
 			Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0xaa},
@@ -331,6 +335,71 @@ func TestMirrorCopyFoldsIntoCopies(t *testing.T) {
 	if stats.Copies["analyzer"] == 0 {
 		t.Errorf("Copies = %+v, want the analyzer mirror's copy", stats.Copies)
 	}
+}
+
+// TestMirrorCopyStaysOutOfTheStreamCounters covers a flow whose frame is
+// mirrored: the copy folds under Copies alone, so the stream's latency and
+// outcome counters describe the stream, not the copy. A promiscuous analyzer
+// accepts the copy; a non-promiscuous one refuses it. Either way the copy
+// contributes no latency and no rejection to the stream that was delivered.
+func TestMirrorCopyStaysOutOfTheStreamCounters(t *testing.T) {
+	t0 := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
+	frame := ethernet.Frame{
+		Src:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+		Dst:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
+		Payload: []byte("mirrored"),
+	}
+
+	t.Run("accepted copy", func(t *testing.T) {
+		fab := invariantFabric(t, "mirror", t0)
+		if _, err := fab.Inject(Injection{
+			At:        t0.Add(time.Millisecond),
+			Origin:    Endpoint{Node: "h1"},
+			Frame:     frame,
+			Retention: RetainAggregate,
+			Flow:      5,
+		}); err != nil {
+			t.Fatalf("Inject: %v", err)
+		}
+		if res := fab.Run(100); res.Stop != StopQueueDrained {
+			t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+		}
+
+		stats := fab.Flows()[5]
+		if stats.Copies["analyzer"] != 1 {
+			t.Errorf("Copies = %+v, want one analyzer copy", stats.Copies)
+		}
+		if stats.Latency.Count != 1 {
+			t.Errorf("Latency.Count = %d, want 1: only the stream's own delivery", stats.Latency.Count)
+		}
+		if stats.Delivered["h2"] != 1 {
+			t.Errorf("Delivered = %+v, want one to h2", stats.Delivered)
+		}
+	})
+
+	t.Run("rejected copy", func(t *testing.T) {
+		fab := invariantFabric(t, "mirror-reject", t0)
+		if _, err := fab.Inject(Injection{
+			At:        t0.Add(time.Millisecond),
+			Origin:    Endpoint{Node: "h1"},
+			Frame:     frame,
+			Retention: RetainAggregate,
+			Flow:      6,
+		}); err != nil {
+			t.Fatalf("Inject: %v", err)
+		}
+		if res := fab.Run(100); res.Stop != StopQueueDrained {
+			t.Fatalf("Run stop = %s, want %s", res.Stop, StopQueueDrained)
+		}
+
+		stats := fab.Flows()[6]
+		if stats.Rejected != 0 {
+			t.Errorf("Rejected = %d, want 0: the analyzer refused the copy, not the stream", stats.Rejected)
+		}
+		if stats.Delivered["h2"] != 1 {
+			t.Errorf("Delivered = %+v, want one to h2", stats.Delivered)
+		}
+	})
 }
 
 // TestHeldFlowCountsHeld routes an aggregated packet through a neighbor hold

@@ -178,6 +178,11 @@ func (f *Fabric) runStarted() bool {
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
+	if inj.Retention > RetainAggregate {
+		return 0, errs.New().
+			Attr("retention", inj.Retention).
+			Msgf("unknown retention %d", inj.Retention)
+	}
 	if inj.Retention == RetainAggregate && inj.Flow == 0 {
 		return 0, errs.New().
 			Attr("retention", inj.Retention).
@@ -1251,6 +1256,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 				Kind: OriginRelease,
 				Of:   holdingFID,
 			}
+			f.releaseHeld(holdingFID)
 		}
 	}
 

@@ -90,9 +90,9 @@ ownership across specialized packages:
   `RetainAggregate` injection frees it and folds what became of the frame into
   the flow's statistics, so a run can offer millions of frames without holding
   millions of journeys. Those statistics report what the flow offered,
-  delivered per host, dropped by reason, lost, resolved, held for resolution,
-  and how late each delivery arrived, with the trust metadata of everything
-  the answer rests on.
+  delivered per host, dropped by reason, lost, unresolved, rejected, and held
+  for resolution, and how late each delivery arrived, with the trust metadata
+  of everything the answer rests on.
   This is the event model of ns-3 without goroutines. The queue also
   holds the wake-ups a layer schedules and the frames a device emits on
   its own, spanning tree first, under the same total order, so the single
