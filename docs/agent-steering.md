@@ -406,9 +406,14 @@ the worker's screen, and a lane is a terminal and a branch with no token.
 That day's run covered the `opencode` lane only; `references/orca.md`
 says what is still unmeasured. Read-only delegates stay native subagents,
 which load their definition and nothing else, where a runtime worker is a
-full agent session. Without Orca, `delegate` falls back to native subagents
-with worktree isolation. The Orca command surface
-is version-matched and served by the binary (`orca skills get orca-cli`,
+full agent session. Without Orca, `delegate` falls back to a native
+subagent with worktree isolation only when the role's fit set holds a
+Claude model; otherwise the coordinator works the units itself. A native
+subagent runs only on Claude, and after Sonnet 5 left `execute` on
+2026-09-18 that role had no Claude model, so the fallback would have run
+editing work on a model with no calibration for it. The user chose
+sequential work over naming an uncalibrated fallback on 2026-09-23. The
+Orca command surface is version-matched and served by the binary (`orca skills get orca-cli`,
 `orca skills get orchestration`), so the skills show the shape of the loop
 and defer to that guide for flags.
 Two facts found on 2026-09-05 shape the skill's wording: the CLI reaches the

@@ -70,10 +70,18 @@ which lanes to run; a prepaid pool still consumes its window. Then, per lane:
   --brief <brief file> --dir <worktree> --out <json>
 ```
 
-The script records wall time, the CLI's reported usage, and the exit code.
-Grade each lane with the acceptance tests and the verifier, and write
-`local.<role>: {pass, wall_s, cost_usd}` on the model. A model enters or
-leaves a role's fit set only on a calibration result, never on a benchmark.
+Run each lane at the `effort` of the role it is graded for; `bench.sh`
+exits 2 on an `--effort` its CLI branch cannot apply. The script records
+wall time, the CLI's reported usage, and the exit code. Grade each lane
+with the acceptance tests and the verifier, and write
+`local.<role>: {effort, runs, base, pass, wall_s, cost_usd}` on the model,
+with `base` the commit the lane branched from, `effort` the level the lane
+actually ran at (the id suffix on `agy`, `none` for a model with an empty
+`effort` list), and `pass`, `wall_s`, `cost_usd` as lists, one value per
+run, when `runs` is above 1. A result without them cannot
+show that it was measured at another level or on another base than the
+role routes at. A model enters or leaves a role's fit set only on a
+calibration result, never on a benchmark.
 
 ## 5. Write and report
 

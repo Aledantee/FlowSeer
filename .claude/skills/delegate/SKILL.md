@@ -22,12 +22,17 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 | --- | --- | --- |
 | Lookup with no judgment: which files reference a symbol, which fixtures exist, where a string appears | `lookup` | `Explore` subagent, or the pool's CLI |
 | Bounded question that needs conventions read and evidence weighed | `research` | `repo-researcher` subagent, or the pool's CLI |
-| Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else a `general-purpose` subagent with `isolation: worktree` |
+| Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else see Orca or native |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
 | Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent |
 | Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent; never on a `sensitive` unit |
 | Adversarial read of a plan | `critique` | the pool's CLI |
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
+
+A constraint on the CLI or vendor is stated by the role in the registry
+(`fit`, `exclude`) and nowhere else. A stage being a skill under
+`.claude/skills/` does not tie it to `claude`: every agent CLI reads that
+file and follows it.
 
 Resolve a role to a lane in this order, once per lane:
 
@@ -136,8 +141,23 @@ says whether it did.
 
 Read-only delegates (`lookup`, `research`, `review-*`, `judge`) stay
 native subagents on every host. Editing work goes to an Orca worker when
-`orca status --json` reports `runtime.reachable: true`, and to a
-`general-purpose` subagent with `isolation: worktree` otherwise. Orca uses
+`orca status --json` reports `runtime.reachable: true`. Otherwise it goes
+to a `general-purpose` subagent with `isolation: worktree` only when the
+role's fit set holds a Claude model, pinned to that model. A native
+subagent runs only on Claude, and a Claude model outside the fit set is
+not calibrated as fit for the role. When the fit set holds none
+(`execute` today):
+
+- The coordinator does the units itself, one at a time, along the calling
+  skill's path for a wave of one. This is the user's standing exception to
+  "never the coordinating session's own model" above.
+- When the role `exclude`s the coordinator's model (`execute-sensitive`
+  on a top-tier session), nothing runs: report the unit as blocked on Orca.
+- When the calling skill requires a session of its own for the stage
+  (`close`, `drive`), do not run it here: stop and name the stage for the
+  user to run in a fresh session.
+
+Orca uses
 a local socket the Bash sandbox blocks, so every `orca` command runs with
 the sandbox disabled; a sandboxed call reports the runtime as not running.
 
@@ -179,15 +199,38 @@ describes what a session believes it did, and the gap between that and
 the tree is where a silent tool failure lives. Then merge the worker's
 branch into this worktree and run the verifier once, sandbox disabled, on
 the union of changed paths. A worker on `agy` or `opencode` loads none of
-the repository hooks, so first check that `git diff --name-only
-<base>..<branch> -- generated buf.lock` prints nothing, with `<base>` the
-commit the lane was started from. A child whose branch did not land stays, and
+the repository hooks: no format-on-edit, no guard on `generated/`, no Stop
+gate. The coordinator's checks after the merge are the only gate its
+branch gets. First check that `git diff --name-only <base>..<branch> --
+generated buf.lock` prints nothing, with `<base>` the commit the lane was
+started from. Then format what it changed and commit the result, since the
+verifier's format gate fails on what the hook would have fixed. Run the
+message-sync hook on each changed schema, which the verifier does not
+cover, and list the suppressions the branch adds, each of which the worker
+has to justify as `AGENTS.md` requires:
+
+```bash
+git diff --name-only --diff-filter=d <base>..<branch> -- '*.go' ':!generated' | xargs -r sh -c 'gofumpt -w "$@" && goimports -w "$@"' sh
+git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | xargs -r -n1 buf format -w
+git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | while read -r f; do
+  jq -n --arg cwd "$PWD" --arg f "$PWD/$f" '{cwd:$cwd,tool_input:{file_path:$f}}' | tools/hooks/proto-check.sh; done
+git diff -U0 <base>..<branch> | grep -E '^\+' | grep -E '//[[:space:]]*nolint|buf:lint:ignore|buf:breaking:ignore|shellcheck disable|#[[:space:]]*nosec'
+```
+
+Then run the verifier.
+
+A child whose branch did not land stays, and
 the report names it with the reason, so the user can read it before it
 goes. Never remove a child with a dirty tree; say what is there.
 
 ## Write the brief
 
-A delegate has none of this conversation. The brief states, in order:
+A delegate has none of this conversation. Write the brief file, like a
+reviewer's diff, in the session scratchpad directory and pass its absolute
+path. Never `$TMPDIR`: `orca-worker.sh` runs unsandboxed, where `$TMPDIR`
+names a different, shared directory, and a stale brief another session
+left at the same name is dispatched without an error. The brief states,
+in order:
 
 1. The goal in one sentence and the definition of done. A requirement
    carried from the plan is quoted, and the brief says it is not the

@@ -122,6 +122,10 @@ intent in code doing the opposite. Ask:
   `testdata/` file), does the implementer's reason hold against the diff,
   and does the suite still prove what that test proved?
 - Does a README, convention doc, or schema comment now disagree with the code?
+  When the change amends a `docs/architecture/` record, check the record's
+  premises (what it says exists or is absent) against the tree, not only the
+  paths it cites: fresh paths make a reader trust a premise an earlier
+  change made false.
 - Is anything added that has one caller, one implementation, or no caller?
 - Does the change move a boundary an accepted direction record fixes?
 - For schema: do the Config/State/Event triad and each LocalRef/GlobalRef

@@ -11,7 +11,7 @@
 
 set -uo pipefail
 
-lane= cli= model= effort= agent= brief= dir= out=
+lane='' cli='' model='' effort='' agent='' brief='' dir='' out=''
 while (($#)); do
   case "$1" in
     --lane) lane=$2; shift 2 ;;
@@ -28,6 +28,12 @@ done
 for v in lane cli model brief dir out; do
   [[ -n "${!v}" ]] || { echo "--$v is required" >&2; exit 2; }
 done
+# A lane recorded at an effort it never ran at is worse than no lane: agy
+# takes effort in the model id and opencode in the agent's model config.
+if [[ -n "$effort" && ( "$cli" == agy || "$cli" == opencode ) ]]; then
+  echo "--effort cannot be applied on $cli; put the level in the model id (agy) or the opencode agent" >&2
+  exit 2
+fi
 
 raw="${out%.json}.raw"
 prompt=$(cat "$brief")

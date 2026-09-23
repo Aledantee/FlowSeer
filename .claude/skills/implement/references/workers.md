@@ -7,8 +7,9 @@ no wave wider than one, does not need it.
 A wave is every unit whose `After` prerequisites have landed. Dispatch the
 wave's units to workers at once, up to three, one unit each, as `delegate`
 describes: through Orca when its runtime is reachable, which puts each
-unit on the pool with the most headroom whatever its CLI, else a
-`general-purpose` subagent with `isolation: worktree`. A wave wider than
+unit on the pool with the most headroom whatever its CLI, else where its
+"Orca or native" section says; when that is this session, the units run
+one at a time here and the rest of this file does not apply. A wave wider than
 three runs in rounds. A phase plan runs even a wave of one in a worker, so
 a fresh context per unit keeps the coordinator's own context to the
 ledger; a plain plan runs a wave of one here.

@@ -19,18 +19,22 @@ sends, and Go's `select` does not promise which ready case runs.
 ## Acceptance tests
 
 `calibration/merge_accept_test.go.txt` holds tests the candidate never
-sees. To grade, copy it into the package and run under the race detector:
+sees. To grade, copy it into the package and run each test on its own
+under the race detector:
 
 ```bash
 cp .claude/skills/tune/references/calibration/merge_accept_test.go.txt <worktree>/src/common/pump/merge_accept_test.go
-(cd <worktree> && go test -race -count=3 ./src/common/pump/ 2>&1 | tail -20)
+(cd <worktree> && for t in $(sed -n 's/^func \(Test[A-Za-z0-9_]*\).*/\1/p' src/common/pump/merge_accept_test.go); do
+  go test -race -count=3 -run "^$t\$" ./src/common/pump/ >"$t.log" 2>&1 && echo "PASS $t" || { echo "FAIL $t"; tail -5 "$t.log"; }; done)
 ```
 
 `testing/synctest` bubbles fail when a goroutine is still blocked at the
-end, so a leaked forwarder shows up as a failure, not a hang. Then run the
-verifier on the candidate's changed paths from the worktree root. A lane
-passes when both are green; record partial credit as the count of passing
-acceptance tests over the total.
+end, so a leaked forwarder shows up as a failure, not a hang. A deadlock
+panics and ends the test binary, so one run of the whole package never
+reaches the tests after the failing one and undercounts; that is why each
+test runs alone. Then run the verifier on the candidate's changed paths
+from the worktree root. A lane passes when both are green; record partial
+credit as the count of `PASS` lines over the total.
 
 ## Lanes and cost
 

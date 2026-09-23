@@ -46,10 +46,11 @@ models:
 # that do it, in no order: `delegate` picks by pool headroom. `effort` is the
 # level passed where the model supports one; a model whose `effort` list lacks
 # the level gets the highest level it lists. A `local` result carries the
-# effort it was measured at when that differs from the role's: `default`
-# means the CLI's own default, because `bench.sh` dropped `--effort` on the
-# `claude` lanes until 2026-09-18. Such a result says nothing about the
-# model at the role's level, and every `local` result is one run.
+# `effort` it ran at, its `runs`, and its `base` commit, with per-run lists
+# when `runs` is above 1 (`tune` step 4). A result without `runs` is one
+# run. `effort: default` means the CLI's own default, because `bench.sh`
+# dropped `--effort` on the `claude` lanes until 2026-09-18; such a result
+# says nothing about the model at the role's level.
 roles:
   lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
   research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19

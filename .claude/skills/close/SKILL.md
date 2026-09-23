@@ -89,8 +89,8 @@ now:
 On yes, the skill runs in a session of its own, never in this one: this
 session's context stays on the merge, and a review is independent only
 when its reader did not watch the work being closed. Dispatch one worker as
-`delegate` describes for editing work (an Orca worker, else a
-`general-purpose` subagent with `isolation: worktree`),
+`delegate` describes for editing work (its "Orca or native" says where
+it runs when Orca is not reachable),
 role `execute` for `implement` and `compound`, `review-seam` for `review`.
 The brief names the skill to run, this branch as the scope, the plan path
 or the request in a few words, and asks for the checkpoint:
