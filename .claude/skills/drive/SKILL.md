@@ -64,10 +64,10 @@ and the stage name as `--unit`.
 
 `<base>` is the commit the implement worker's branch forked from, read
 from the `start` event its lane logged, by the `run` that
-`orca-worker.sh start` printed:
+`orca-worker.sh start` printed, set as `$run`:
 
 ```bash
-python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; print(next(e["base"] for e in runlog.read() if e.get("event") == "start" and e["run"] == sys.argv[1]))' <run>
+base=$(python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; print(next(e["base"] for e in runlog.read() if e.get("event") == "start" and e["run"] == sys.argv[1]))' "$run")
 ```
 
 So the review reads exactly that plan's change even when another phase
@@ -110,11 +110,11 @@ After each stage:
    Every unit `passed` goes into the report as the per-unit gate `land`
    would have read. A `blocked` unit parks the plan (step 4).
 3. Merge the worker's branch here. First check whether the worker merged
-   it itself, against its brief, with `<base>` read as above for this
-   lane's `run`:
+   it itself, against its brief, with `$base` read as above for this
+   lane's `run` and `$branch` the `branch` from its `start` line:
 
    ```bash
-   [ "$(git rev-list --count <base>..<branch>)" -gt 0 ] && git merge-base --is-ancestor <branch> HEAD && echo self-merged
+   [ "$(git rev-list --count "$base..$branch")" -gt 0 ] && git merge-base --is-ancestor "$branch" HEAD && echo self-merged
    ```
 
    On `self-merged`, name it in the report and grade the lane with a

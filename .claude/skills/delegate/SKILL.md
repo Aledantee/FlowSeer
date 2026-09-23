@@ -48,14 +48,16 @@ Resolve a role to a lane in this order, once per lane:
    a wave that reaches it says so.
 3. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review. The run
-   log names it; a `-` unit is a lane that ran several units, and a unit
-   with no line was executed by the coordinator, on its own vendor. A
+   log names it, with `$plan` set to the plan's path. A unit with no line
+   of its own ran in a lane that ran several: one printed as `-`, or as
+   a `drive` stage name such as `implement`. With no such lane either,
+   the coordinator executed it, on its own vendor. A
    `google` id carries the effort suffix (`gemini-3.8-flash-high` is
    `gemini-3.8-flash`), and an opencode agent name is the registry
    model whose `agent` it is:
 
    ```bash
-   python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; [print(e.get("unit") or "-", e.get("model") or e["agent"]) for e in runlog.read() if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1]]' docs/plans/<plan>.md
+   python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; [print(e.get("unit") or "-", e.get("model") or e["agent"]) for e in runlog.read() if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1]]' "$plan"
    ```
 
    A reviewer a session spawns as its own subagent runs on that session's
