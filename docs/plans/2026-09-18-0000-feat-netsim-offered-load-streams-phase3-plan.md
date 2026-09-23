@@ -422,3 +422,14 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
+- Parked by drive: U1's Tests line says "an untagged 64-octet-payload frame is
+  84", but `WireOctets = max(len(raw), 60+4*len(Tags)) + 24` gives 102 for a
+  64-octet payload (raw = 14 header + 64 = 78; max(78,60)+24 = 102). The 84
+  figure is the IEEE 802.3 minimum frame on the wire: a <=46-octet payload
+  encodes to <=60, and max(.,60)+24 = 84. So the fixture is mis-worded, not the
+  code. The implement worker stopped rather than change the fixture (the brief
+  forbade weakening it). Options: correct the Tests line to "an untagged
+  minimum-size frame (46-octet payload) is 84" and resume U1 | keep 64-octet
+  payload and change the expected figure to 102. Recommended: the minimum-frame
+  wording, because 84 is the standard minimum-frame-on-wire figure the plan
+  clearly intends and the `60` floor in the formula encodes that intent.
