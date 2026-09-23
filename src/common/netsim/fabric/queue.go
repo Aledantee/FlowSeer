@@ -101,6 +101,9 @@ func (h arrivalHeap) Pop() any {
 func (f *Fabric) enqueue(arr Arrival) {
 	f.initQueueIndexes()
 	heap.Push(arrivalHeap{fabric: f}, arr)
+	if arr.Kind == ArrivalFrame {
+		f.inflightAdd(arr.FrameID)
+	}
 }
 
 func (f *Fabric) popArrival() Arrival {

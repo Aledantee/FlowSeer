@@ -212,6 +212,10 @@ type Journey struct {
 	Deliveries []Delivery
 	Metadata   analysis.Metadata
 	State      JourneyState
+
+	// settled records that the journey's last in-flight arrival has left and
+	// its flow fold has run, so a later settle of the same frame folds once.
+	settled bool
 }
 
 // Report returns independent copies of all recorded journeys sorted in ascending order of frame ID.

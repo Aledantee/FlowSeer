@@ -36,6 +36,8 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"busyUntil":      probeFabricBusyUntil,
 	"egress":         probeFabricEgress,
 	"counters":       probeFabricCounters,
+	"inflight":       probeFabricInflight,
+	"flows":          probeFabricFlows,
 }
 
 func probeFabricCfg(t *testing.T) {
@@ -161,6 +163,37 @@ func probeFabricQueue(t *testing.T) {
 	fork.queue = append(fork.queue, Arrival{Seq: 8888})
 	if fab.queue[len(fab.queue)-1].Seq == 8888 {
 		t.Errorf("source queue saw fork arrival")
+	}
+}
+
+func probeFabricInflight(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	fork := fab.Fork()
+
+	fab.inflight[1] = 1
+	if _, ok := fork.inflight[1]; ok {
+		t.Errorf("fork inflight saw entry added to source")
+	}
+
+	fork.inflight[2] = 1
+	if _, ok := fab.inflight[2]; ok {
+		t.Errorf("source inflight saw entry added to fork")
+	}
+}
+
+func probeFabricFlows(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	fab.flows = make(map[FlowID]*FlowStats)
+	fork := fab.Fork()
+
+	fab.flows[1] = &FlowStats{Offered: 1}
+	if _, ok := fork.flows[1]; ok {
+		t.Errorf("fork flows saw entry added to source")
+	}
+
+	fork.flows[2] = &FlowStats{Offered: 2}
+	if _, ok := fab.flows[2]; ok {
+		t.Errorf("source flows saw entry added to fork")
 	}
 }
 

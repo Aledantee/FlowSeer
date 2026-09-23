@@ -240,6 +240,64 @@ injected at `t0` and `t0 + 1ns` reach `sw1` at `t0 + 672ns` and
 unlimited PCP 7 frame queued between those copies takes the free trunk before
 the second PCP 0 frame.
 
+## Journey retention and flow statistics
+
+An injection names a `Flow` and a `Retention`. A frame is in flight while it
+has an arrival in the queue or an item in an egress queue; when its last one
+leaves, the frame settles at the end of the call that removed it. A settled
+journey that names a flow folds into that flow's `FlowStats`:
+
+- `Offered` counts the frames the caller injected directly;
+- `Delivered` counts accepted deliveries per destination host;
+- `Copies` counts the deliveries of mirror and reflector copies per mirror
+  name, or `"reflection"` for a reflector copy, which is never the stream
+  being delivered;
+- `Drops`, `Lost`, `Unresolved`, `Rejected`, and `Held` count what became of a
+  frame instead of a delivery, `Held` naming a frame a switch held for
+  neighbor resolution;
+- `Latency` summarizes `Delivery.At` minus the injection time over every
+  delivery;
+- `Metadata` is the merge of every folded journey's trust metadata, so a flow
+  carries the issues its frames depended on.
+
+`RetainJourney` is the zero value and keeps the settled journey in `Report()`.
+`RetainAggregate` frees it, and `Inject` refuses it with a zero flow. A
+protocol journey is never freed. `Fabric.Flows()` returns an independent copy
+of every flow's statistics, keyed by flow.
+
+```go
+if _, err := fab.Inject(fabric.Injection{
+	At:        fab.Snapshot().Clock,
+	Origin:    fabric.Endpoint{Node: "h1"},
+	Frame:     frame,
+	Retention: fabric.RetainAggregate,
+	Flow:      7,
+}); err != nil {
+	log.Fatal(err)
+}
+fab.Run(1_000_000)
+stats := fab.Flows()[7]
+fmt.Printf("%d offered, %d delivered to h2, p99 unavailable, min %s\n",
+	stats.Offered, stats.Delivered["h2"], stats.Latency.Min)
+```
+
+## Offered-load scale
+
+`BenchmarkAggregateMillion` injects one million 64-octet frames from `h1`
+across `sw1` and `sw2` to `h2` in batches of ten thousand, each batch at the
+run's clock and drained by a run with a one-million-step budget; the benchmark
+fails if a batch leaves the arrival queue non-empty.
+`BenchmarkAggregateHundredThousandJourneys` runs the same load at a hundred
+thousand frames with journey retention, so a missed budget can be laid at the
+per-frame record rather than at retention.
+
+Measured on the development host (Apple M4 Pro, 2026-09-23): the aggregate
+benchmark took 295 s, and with `-benchmem` reported 2.5 TB of cumulative
+allocation over 5.0 billion allocations; the hundred-thousand-journey
+benchmark took 39 s. The phase's stated budget is 120 s and 2 GiB, so the
+measured time is over it. The run loop fingerprints the fabric after every
+step, and that per-step work, not retention, dominates both figures.
+
 ## Media and reach
 
 Each cable states a transmission medium (`TwistedPair`, `MultimodeFiber`,
@@ -864,7 +922,7 @@ primed with two thousand and forty-eight learned forwarding entries and four
 thousand and ninety-six queued arrivals.
 
 `Fabric.Fork` duplicates this topology with zero shared mutable state. Allocation
-overhead at this scale is bounded by a measured allocation constant (16,797
+overhead at this scale is bounded by a measured allocation constant (16,815
 allocations, measured 2026-09-23). Scaling the queued arrival depth four-fold
 scales allocations proportionally within a bounded multiple.
 

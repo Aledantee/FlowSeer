@@ -35,12 +35,31 @@ type Packet struct {
 	Payload  []byte
 }
 
+// Retention states whether a settled journey is kept in [Fabric.Report] or
+// freed, leaving only its flow's statistics.
+type Retention uint8
+
+const (
+	// RetainJourney keeps a settled journey in [Fabric.Report].
+	RetainJourney Retention = iota
+	// RetainAggregate frees a settled journey once its flow's statistics hold
+	// a frame's worth of what became of it. It requires a nonzero flow.
+	RetainAggregate
+)
+
 // Injection specifies a frame or packet to introduce into the fabric at a particular origin endpoint and timestamp.
+//
+// Retention and Flow decide what the fabric keeps of the frame once it
+// settles: a zero Flow folds into no statistics, and RetainAggregate frees
+// the settled journey. A mirror or reflector copy inherits both from the
+// frame it copies.
 type Injection struct {
-	At     time.Time
-	Origin Endpoint
-	Frame  ethernet.Frame
-	Packet *Packet
+	At        time.Time
+	Origin    Endpoint
+	Frame     ethernet.Frame
+	Packet    *Packet
+	Retention Retention
+	Flow      FlowID
 }
 
 // Device represents the instantaneous subsystem state of a virtual switch in the fabric.
@@ -159,6 +178,13 @@ func (f *Fabric) runStarted() bool {
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
+	if inj.Retention == RetainAggregate && inj.Flow == 0 {
+		return 0, errs.New().
+			Attr("retention", inj.Retention).
+			Msg("aggregate retention requires a nonzero flow")
+	}
+	defer f.settleTouched()
+
 	var (
 		targetDevice string
 		targetPort   string
@@ -266,6 +292,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		Injection: inj,
 	}
 	f.journeys[fid] = journey
+	f.touch(fid)
 	f.record(journey, Entry{
 		At:     inj.At,
 		Kind:   EntryInjection,
@@ -325,10 +352,14 @@ func (f *Fabric) Step() (Entry, bool) {
 		return Entry{}, false
 	}
 	f.initRunState()
+	defer f.settleTouched()
 
 	arr := f.popArrival()
 	f.clock = arr.At
 	f.stepped = true
+	if arr.Kind == ArrivalFrame {
+		f.inflightRemove(arr.FrameID)
+	}
 
 	if arr.Kind == ArrivalWake {
 		delete(f.wakes, arr.Device)
@@ -558,9 +589,11 @@ func (f *Fabric) Step() (Entry, bool) {
 		seq := f.nextSeq
 		f.nextSeq++
 		inj := Injection{
-			At:     arr.At,
-			Origin: Endpoint{Node: arr.Device, Port: copy.Port},
-			Frame:  cloneFrame(copy.Frame),
+			At:        arr.At,
+			Origin:    Endpoint{Node: arr.Device, Port: copy.Port},
+			Frame:     cloneFrame(copy.Frame),
+			Retention: journey.Injection.Retention,
+			Flow:      journey.Injection.Flow,
 		}
 		copyJourney := &Journey{
 			FrameID: fid,
@@ -572,6 +605,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			Injection: inj,
 		}
 		f.journeys[fid] = copyJourney
+		f.touch(fid)
 		f.record(copyJourney, Entry{
 			At:     arr.At,
 			Kind:   EntryInjection,
@@ -741,9 +775,11 @@ func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflecto
 	f.nextSeq++
 
 	inj := Injection{
-		At:     at,
-		Origin: Endpoint{Node: name, Port: att.Port},
-		Frame:  copyFrame,
+		At:        at,
+		Origin:    Endpoint{Node: name, Port: att.Port},
+		Frame:     copyFrame,
+		Retention: parent.Injection.Retention,
+		Flow:      parent.Injection.Flow,
 	}
 	copyJourney := &Journey{
 		FrameID: fid,
@@ -754,6 +790,7 @@ func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflecto
 		Injection: inj,
 	}
 	f.journeys[fid] = copyJourney
+	f.touch(fid)
 	f.entered[fid] = cloneEntered(f.entered[parent.FrameID])
 	f.record(copyJourney, Entry{
 		At:     at,
@@ -885,6 +922,7 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 		enqueued:   now,
 		mirror:     mirror,
 	})
+	f.inflightAdd(fid)
 	f.serve(now, txEnd)
 }
 
@@ -958,6 +996,7 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 		} else {
 			q.pending[selected] = pending[1:]
 		}
+		f.inflightRemove(item.fid)
 
 		ref, ok := f.linkEnd(txEnd.Node, txEnd.Port)
 		if !ok {
@@ -1015,6 +1054,47 @@ func (f *Fabric) scheduleDequeue(txEnd Endpoint, at time.Time) {
 		Device: txEnd.Node,
 		Port:   txEnd.Port,
 	})
+}
+
+// inflightAdd records that fid gained an in-flight arrival and marks it for
+// settlement at the end of the calling Inject or Step.
+func (f *Fabric) inflightAdd(fid FrameID) {
+	if f.inflight == nil {
+		f.inflight = make(map[FrameID]int)
+	}
+	f.inflight[fid]++
+	f.touched = append(f.touched, fid)
+}
+
+// inflightRemove records that fid lost an in-flight arrival and marks it for
+// settlement, so a frame whose last arrival left folds at the end of the call
+// rather than at the decrement.
+func (f *Fabric) inflightRemove(fid FrameID) {
+	if n := f.inflight[fid]; n > 1 {
+		f.inflight[fid] = n - 1
+	} else {
+		delete(f.inflight, fid)
+	}
+	f.touched = append(f.touched, fid)
+}
+
+// touch marks fid for settlement without changing its in-flight count.
+func (f *Fabric) touch(fid FrameID) {
+	f.touched = append(f.touched, fid)
+}
+
+// settleTouched settles every frame the current call's count changes touched,
+// folding and, for aggregate retention, freeing each journey whose last
+// in-flight arrival has left.
+func (f *Fabric) settleTouched() {
+	if len(f.touched) == 0 {
+		return
+	}
+	touched := f.touched
+	f.touched = nil
+	for _, fid := range touched {
+		f.settle(fid)
+	}
 }
 
 // recordFault stores the first scheduling fault. Later faults are dropped so
@@ -1181,6 +1261,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 		Injection: inj,
 	}
 	f.journeys[fid] = journey
+	f.touch(fid)
 	f.record(journey, Entry{
 		At:     now,
 		Kind:   EntryInjection,
@@ -1741,6 +1822,9 @@ func (f *Fabric) initRunState() {
 	f.initQueueIndexes()
 	if f.wakes == nil {
 		f.wakes = make(map[string]time.Time)
+	}
+	if f.inflight == nil {
+		f.inflight = make(map[FrameID]int)
 	}
 	if f.nextFrameID == 0 {
 		f.nextFrameID = 1

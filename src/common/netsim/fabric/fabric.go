@@ -197,6 +197,17 @@ type Fabric struct {
 	// fork may share it.
 	metadataCache *analysis.Metadata
 
+	// inflight counts the arrivals of each frame that are still in the queue
+	// or an egress queue. A frame settles, folding and possibly freeing its
+	// journey, when its count reaches zero at the end of the call that
+	// touched it.
+	inflight map[FrameID]int
+	// flows accumulates per-flow statistics as journeys settle.
+	flows map[FlowID]*FlowStats
+	// touched collects the frame IDs count changes touched during the current
+	// Inject or Step, drained as it settles them.
+	touched []FrameID
+
 	// err is the first scheduling-invariant breach [Fabric.scheduleDequeue]
 	// recorded. It is sticky: once set, [Fabric.Step] refuses to advance and
 	// [Fabric.Err] reports it. A caller must read Err to see a fault, because
@@ -543,6 +554,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		journeys:       make(map[FrameID]*Journey),
 		entered:        make(map[FrameID]map[Endpoint]bool),
 		cableCrossings: make(map[Endpoint]uint),
+		inflight:       make(map[FrameID]int),
 	}
 
 	return fab, nil
@@ -640,6 +652,20 @@ func (f *Fabric) Fork() *Fabric {
 		}
 	}
 
+	var inflight map[FrameID]int
+	if f.inflight != nil {
+		inflight = maps.Clone(f.inflight)
+	}
+
+	var flows map[FlowID]*FlowStats
+	if f.flows != nil {
+		flows = make(map[FlowID]*FlowStats, len(f.flows))
+		for id, stats := range f.flows {
+			cp := stats.Clone()
+			flows[id] = &cp
+		}
+	}
+
 	var counters map[Endpoint]*Counters
 	if f.counters != nil {
 		counters = make(map[Endpoint]*Counters, len(f.counters))
@@ -675,6 +701,9 @@ func (f *Fabric) Fork() *Fabric {
 		egress:         egress,
 		counters:       counters,
 		metadataCache:  f.metadataCache,
+		inflight:       inflight,
+		flows:          flows,
+		touched:        nil,
 		err:            f.err,
 	}
 }
@@ -1229,6 +1258,7 @@ func (f *Fabric) Mcheck(node, portName string) error {
 			Msgf("node %q is not a switch", node)
 	}
 	f.initRunState()
+	defer f.settleTouched()
 	sw.Mcheck(f.clock, portName)
 	for _, em := range sw.Drain() {
 		f.injectEmission(f.clock, node, em)
@@ -1242,6 +1272,7 @@ func (f *Fabric) Mcheck(node, portName string) error {
 // current fabric clock, re-evaluating operational link states and notifying attached switches.
 // It returns an error if no cable connects the specified endpoints or if the fault configuration is invalid.
 func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
+	defer f.settleTouched()
 	if err := validateFault(fault); err != nil {
 		return err
 	}

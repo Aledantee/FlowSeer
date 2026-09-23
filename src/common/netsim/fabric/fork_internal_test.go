@@ -71,6 +71,9 @@ var fabricFieldClasses = map[string]forkClass{
 	"egress":         classDeepCopied,
 	"counters":       classDeepCopied,
 	"metadataCache":  classImmutableShared,
+	"inflight":       classDeepCopied,
+	"flows":          classDeepCopied,
+	"touched":        classResetOnFork,
 	"err":            classImmutableShared,
 }
 
