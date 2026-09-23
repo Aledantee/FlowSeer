@@ -34,7 +34,10 @@ names the lane; this file is the procedure.
   file name is in the repository's `info/exclude`, so the child's tree
   stays clean. Orca reports `provider: unsupported` for opencode and
   cannot confirm delivery, so the script checks the screen for the
-  pointer and sends it once more when it is missing.
+  pointer and sends it once more when it is missing. Once the terminal is up
+  and before sending the pointer, `start` writes a `start` event to the run
+  log with the lane metadata and base commit, storing `run` in the state file
+  and printed JSON line.
 - On any failure after the worktree exists, closes the terminal, removes
   the worktree, and says why.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
@@ -42,10 +45,15 @@ names the lane; this file is the procedure.
   when the screen shows no "esc interrupt" hint on two reads five seconds
   apart. With `--timeout` it prints `timeout`, and the worker is still at
   work.
-- `stop` refuses a lane that is mid-turn, whose checkout is dirty, or
-  whose branch is not merged into this one. `orca worktree rm` deletes the
-  branch with the checkout, so no `git branch -d` follows, and an unmerged
-  lane removed that way would lose its commits.
+- `grade` appends a `grade` event (`accepted`, `amended`, `rejected`, or
+  `blocked`, with verifier outcome `pass`, `fail`, or `none`) for the lane's
+  `run` to the run log. Re-grading appends another; scorers read the last.
+- `stop` refuses a lane that has no `grade` event for its `run`, is mid-turn,
+  whose checkout is dirty, or whose branch is not merged into this one. Before
+  removing the lane, it writes an `end` event with the branch head to the run
+  log. `orca worktree rm` deletes the branch with the checkout, so no `git
+  branch -d` follows, and an unmerged lane removed that way would lose its
+  commits.
 
 Measured on 2026-09-19 on the `opencode` lane only (Orca 1.4.203). The
 `claude`, `codex`, and `agy` launch lines and the Codex dialog handling
@@ -54,6 +62,7 @@ through this script yet.
 
 ## When a step fails
 
+- `start` says `--role is required`: pass a registry role name.
 - `start` says a lane with that name exists: a previous lane was not
   stopped. `status` lists it; `stop` it or pick another slug.
 - `start` says the runtime is not reachable: the call ran sandboxed, or
@@ -71,6 +80,8 @@ through this script yet.
   the merge.
 - `stop` says the checkout is dirty: read what is there and report it; a
   worker that left files uncommitted is left in place.
+- `stop` says the lane has no grade event: grade the lane with `orca-worker.sh grade`
+  before stopping it.
 - A codex worker still stops at the hooks review: Orca reports "Agent
   startup blocked: codex-hooks-review-prompt". Use another pool unless
   that dialog has been answered on this host.

@@ -51,9 +51,9 @@ Resolve a role to a lane in this order, once per lane:
 4. Drop a pool whose running lanes of this wave fill its slots (Wave
    size, below), and move one that holds any running lane to the back.
 5. Take the model whose pool has the most headroom, and within ten points
-   the one with the lower registry price. A signed-in pool whose source
-   failed (`windows: null`) counts as full headroom until it answers with a
-   429.
+   the one earlier in the fit set, then the lower registry price. A signed-in
+   pool whose source failed (`windows: null`) counts as full headroom until
+   it answers with a 429.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
@@ -208,24 +208,41 @@ differs.
 
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
-$s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --brief <file>
-$s start --lane <slug> --cli opencode --agent <opencode agent> --brief <file>
+$s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
+$s start --lane <slug> --cli opencode --agent <opencode agent> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
 $s wait <slug>            # blocks; prints idle, exited, or timeout, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s status                 # one line per live lane
-$s stop <slug>            # after the merge: closes the terminal, removes checkout and branch
+$s grade <slug> --outcome <accepted|amended|rejected|blocked> --verify <pass|fail|none> [--note <text>]
+$s stop <slug>            # after grade and merge: closes the terminal, removes checkout and branch
 ```
 
-`start` exits 0 only when the worker exists in a child worktree branched
-from this worktree's branch and has the brief on its screen; a failure
-removes what it created and says why. Its JSON line names the branch,
-which Orca prefixes with the git user. `wait` prints `idle` when the turn
-ended: check the tree, then read the report. A permission dialog also
-reads as idle, which is why the screen follows: answer a dialog the brief
-anticipated with `$s keys <slug> <text>`, otherwise report it. Then merge
-the branch here, run the verifier on the changed paths, and `$s stop
-<slug>`. `stop` refuses a lane that is mid-turn, dirty, or not merged
-here, because removing the worktree deletes its branch.
+`start` requires `--role` and takes optional `--plan` and `--unit`. It exits
+0 only when the worker exists in a child worktree branched from this
+worktree's branch and has the brief on its screen; a failure removes what
+it created and says why. Once the terminal is up and before sending the
+brief pointer, it logs a `start` event to the run log with base commit and
+metadata, and stores `run` in the state file. Its JSON line names the
+branch, which Orca prefixes with the git user, and `run`. `wait` prints
+`idle` when the turn ended: check the tree, then read the report. A
+permission dialog also reads as idle, which is why the screen follows:
+answer a dialog the brief anticipated with `$s keys <slug> <text>`,
+otherwise report it.
+
+Then merge the branch here, run the verifier on the changed paths, grade
+the lane, and `$s stop <slug>`. `stop` refuses a lane that has no `grade`
+event for its `run`, is mid-turn, dirty, or not merged here, because
+removing the worktree deletes its branch. On stop, it logs an `end` event
+with the branch head before removing the lane.
+
+| Outcome | A lane that commits work | A lane that returns a report (`critique`, `research`, `review-unit` on a pool CLI) |
+| --- | --- | --- |
+| `accepted` | Merged as the worker left it, apart from what the hooks would have formatted. | The report is used as written. |
+| `amended` | Merged after the coordinator changed the work to make it correct or green. | Used after the coordinator corrected it. |
+| `rejected` | Not merged, or redone. | Discarded. |
+| `blocked` | The worker stopped on a stated blocker. | The worker stopped on a stated blocker. |
+
+`--verify` is the first verifier run after the merge, or `none` when nothing was merged.
 
 ### Reading a worker's report
 

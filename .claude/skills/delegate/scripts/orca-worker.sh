@@ -3,15 +3,16 @@
 # running the chosen CLI with the model on its launch line, the brief, and
 # the settled-state wait.
 #
-# orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --brief FILE [--base REF]
-# orca-worker.sh start --lane SLUG --cli opencode --agent NAME --brief FILE [--base REF]
+# orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
+# orca-worker.sh start --lane SLUG --cli opencode --agent NAME --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
 # orca-worker.sh wait   SLUG [--timeout MS]      # prints idle|exited|timeout, then the screen
 # orca-worker.sh read   SLUG [--lines N]
 # orca-worker.sh keys   SLUG TEXT                # raw text into the terminal, no Enter
 # orca-worker.sh status
+# orca-worker.sh grade  SLUG --outcome accepted|amended|rejected|blocked --verify pass|fail|none [--note TEXT]
 # orca-worker.sh stop   SLUG
 #
-# `start` prints one JSON line {"name","terminal","worktree","path","branch"}
+# `start` prints one JSON line {"name","terminal","worktree","path","branch","run"}
 # and exits 0 only when the worker was pointed at its brief; any failure
 # after the worktree exists removes it again. Orca prefixes the branch with
 # the git user, so read `branch` from that line instead of assuming the slug.
@@ -24,6 +25,7 @@ set -uo pipefail
 die() { echo "orca-worker: $*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null || die "$1 not on PATH"; }
 need orca; need python3; need git
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 json() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1" 2>/dev/null; }
 state_dir=$(git rev-parse --path-format=absolute --git-common-dir)/orca-workers
@@ -36,7 +38,7 @@ working() { grep -q -i -E 'esc( to)? interrupt' <<<"$1"; }
 cmd=${1:-}; shift || true
 case "$cmd" in
   start)
-    lane='' cli='' model='' effort='' agent='' brief='' base=''
+    lane='' cli='' model='' effort='' agent='' role='' plan='' unit='' brief='' base=''
     while (($#)); do
       case "$1" in
         --lane) lane=$2; shift 2 ;;
@@ -44,12 +46,15 @@ case "$cmd" in
         --model) model=$2; shift 2 ;;
         --effort) effort=$2; shift 2 ;;
         --agent) agent=$2; shift 2 ;;
+        --role) role=$2; shift 2 ;;
+        --plan) plan=$2; shift 2 ;;
+        --unit) unit=$2; shift 2 ;;
         --brief) brief=$2; shift 2 ;;
         --base) base=$2; shift 2 ;;
         *) die "unknown flag $1" ;;
       esac
     done
-    for v in lane cli brief; do [[ -n "${!v}" ]] || die "--$v is required"; done
+    for v in lane cli brief role; do [[ -n "${!v}" ]] || die "--$v is required"; done
     [[ "$lane" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "lane must match [a-z][a-z0-9_-]{0,31}"
     [[ -f "$brief" ]] || die "brief $brief not found"
     case "$cli" in
@@ -117,6 +122,23 @@ case "$cmd" in
     st=$(orca terminal show --terminal "$term" --json 2>/dev/null | json 'd["result"]["terminal"].get("status") or d["result"].get("status")')
     [[ $st == exited ]] && undo "$cli exited at startup: $(screen "$term" | tail -5)"
 
+    base_sha=$(git rev-parse "$base" 2>&1) || undo "cannot resolve base $base: $base_sha"
+    start_args=(
+      start
+      --lane "$lane"
+      --cli "$cli"
+      --role "$role"
+      --worktree "$path"
+      --branch "$branch"
+      --base "$base_sha"
+    )
+    [[ -n $model ]] && start_args+=(--model "$model")
+    [[ -n $effort ]] && start_args+=(--effort "$effort")
+    [[ -n $agent ]] && start_args+=(--agent "$agent")
+    [[ -n $plan ]] && start_args+=(--plan "$plan")
+    [[ -n $unit ]] && start_args+=(--unit "$unit")
+    run_id=$(python3 "$script_dir/runlog.py" "${start_args[@]}" 2>&1) || undo "run log start failed: $run_id"
+
     # The brief goes in a file in the worker's checkout and the terminal gets
     # a one-line pointer: a long paragraph through `orca terminal send`
     # arrives as stray characters, silently at both ends. The file is
@@ -136,9 +158,9 @@ case "$cmd" in
     done
     [[ -n $ok ]] || undo "pointer not on $lane's screen after two submissions: $(screen "$term" | tail -8)"
     mkdir -p "$state_dir"
-    python3 -c 'import json,sys; json.dump(dict(zip(("name","cli","terminal","worktree","path","branch"), sys.argv[2:])), open(sys.argv[1],"w"))' \
-      "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch"
-    printf '{"name":"%s","terminal":"%s","worktree":"%s","path":"%s","branch":"%s"}\n' "$lane" "$term" "$wt" "$path" "$branch"
+    python3 -c 'import json,sys; json.dump(dict(zip(("name","cli","terminal","worktree","path","branch","run"), sys.argv[2:])), open(sys.argv[1],"w"))' \
+      "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch" "$run_id"
+    printf '{"name":"%s","terminal":"%s","worktree":"%s","path":"%s","branch":"%s","run":"%s"}\n' "$lane" "$term" "$wt" "$path" "$branch" "$run_id"
     ;;
   wait)
     name=${1:-}; shift || true; timeout=0
@@ -183,12 +205,40 @@ case "$cmd" in
       echo "$n $(field "$n" cli) $st $(field "$n" path)"
     done
     ;;
+  grade)
+    name=${1:-}; shift || true
+    [[ -n $name ]] || die "grade SLUG --outcome OUTCOME --verify VERIFY [--note NOTE]"
+    outcome='' verify='' note=''
+    while (($#)); do
+      case "$1" in
+        --outcome) outcome=$2; shift 2 ;;
+        --verify) verify=$2; shift 2 ;;
+        --note) note=$2; shift 2 ;;
+        *) die "unknown flag $1" ;;
+      esac
+    done
+    [[ -n $outcome ]] || die "--outcome is required"
+    [[ -n $verify ]] || die "--verify is required"
+    [[ -f "$state_dir/$name.json" ]] || die "no lane named $name; status lists them"
+    run_id=$(field "$name" run)
+    [[ -n $run_id ]] || die "lane $name has no run"
+    grade_args=(
+      grade
+      --run "$run_id"
+      --outcome "$outcome"
+      --verify "$verify"
+    )
+    [[ -n $note ]] && grade_args+=(--note "$note")
+    out=$(python3 "$script_dir/runlog.py" "${grade_args[@]}" 2>&1) || die "$out"
+    ;;
   stop)
     name=${1:-}; [[ -n $name ]] || die "stop SLUG"
     term=$(field "$name" terminal); wt=$(field "$name" worktree); path=$(field "$name" path)
     [[ -n $wt ]] || die "no lane named $name; status lists them"
-    # A worker mid-turn is not removed under it, and a dirty checkout stays
-    # for a person to read.
+    run_id=$(field "$name" run)
+    [[ -n $run_id ]] || die "lane $name has no run; cannot verify grade"
+    python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; sys.exit(0 if any(e.get("event") == "grade" and e.get("run") == sys.argv[2] for e in runlog.read()) else 1)' \
+      "$script_dir" "$run_id" || die "lane $name has no grade event; grade it before stop"
     working "$(screen "$term")" && die "$name is still working; wait for it, or interrupt it by hand in Orca"
     rm -f "$path/$brief_name"
     dirty=$(git -C "$path" status --porcelain 2>/dev/null)
@@ -198,6 +248,8 @@ case "$cmd" in
     branch=$(field "$name" branch)
     git merge-base --is-ancestor "$branch" HEAD 2>/dev/null \
       || die "$branch has commits that are not merged into $(git branch --show-current); merge it first, or remove the lane by hand in Orca"
+    head_sha=$(git rev-parse "$branch" 2>&1) || die "cannot resolve branch $branch: $head_sha"
+    end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) || die "run log end failed: $end_out"
     orca terminal close --terminal "$term" --json >/dev/null 2>&1
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
     rm -f "$state_dir/$name.json"
