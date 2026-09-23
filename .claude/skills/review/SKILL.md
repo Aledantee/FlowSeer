@@ -177,6 +177,37 @@ not be verified is reported as a direction, not a patch, and says which
 claim is unchecked; a verified finding otherwise lends its authority to a
 remedy the coordinator applies first and checks second.
 
+Once every finding is settled, log how each reviewer's findings fared, so
+`tune` can rank reviewers by what held. Make one call per reviewer this step
+judged, zeros included for a reviewer that found nothing, with the sandbox
+disabled: the log lives under `~/.claude/models`, where the sandbox allows
+no writes.
+
+```bash
+python3 .claude/skills/delegate/scripts/runlog.py review --model claude-opus-5-5 \
+  --role review-unit --agent <agent id or run> --plan docs/plans/<plan>.md \
+  --findings 4 --held 3 --unverified 1
+```
+
+- `--model` is the registry id the reviewer ran on, never an alias such as
+  `opus` or `inherit`.
+- `--role` is `review-seam` for a reviewer dispatched for the interplay and
+  `review-unit` for every other.
+- `--agent` is the agent id the Agent tool returned for a native reviewer.
+  A reviewer on a pool's CLI gives the `run` from the JSON line
+  `orca-worker.sh start` printed, because `stop` deletes the state file
+  that also holds it.
+- `--plan` is the plan path, left out when the scope has no plan.
+- `--findings` counts what the reviewer returned. `--held` counts those
+  this step kept, a finding moved to "pre-existing" included, and
+  `--unverified` those marked unverified. A finding dropped as a misreading
+  counts in `--findings` alone.
+
+The coordinator's own reading logs nothing: this step is where the
+coordinator checks findings, so a held share for its own would be the
+coordinator grading itself. A failed call prints `runlog: <reason>`. Quote that line in
+the report and carry on; the verdict does not depend on the log.
+
 ## 5. Report
 
 Verdict first (accept, accept after fixes, rework), then findings, most severe
