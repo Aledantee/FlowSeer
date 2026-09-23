@@ -502,8 +502,13 @@ func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, er
 		return service.Attempt{}, err
 	}
 
+	interval := h.cfg.Intervals().CaptureSweep
+	if interval <= 0 {
+		interval = defaultCaptureSweepInterval
+	}
+
 	return service.Attempt{Runner: func(ctx context.Context) error {
-		ticker := time.NewTicker(defaultCaptureSweepInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for {

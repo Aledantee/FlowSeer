@@ -4,11 +4,13 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Configurable Capture Retention Sweep Interval - Plan
+
+> Implemented. 2 units, 2026-09-23T18:11Z to 2026-09-23T18:20Z.
 
 ## Goal
 
@@ -45,6 +47,12 @@ sweep must share an existing interval rather than carrying its own cadence in
 - Unset or zero duration preserves the existing one-minute default. Why:
   Existing configurations and conformance tests continue running with
   `defaultCaptureSweepInterval` without requiring config updates.
+- Ruled: the sweeper-wiring integration test configures `capture_sweep` at one
+  second, not the 200ms this plan first named. Why: the `gte = {seconds: 1}`
+  bound refuses a sub-second value at config load, so 200ms is unreachable
+  through the deployment file the test drives. One second still distinguishes
+  the configured cadence from the one-minute default within the test window.
+  Cost if wrong: the test's poll window and configured interval, nothing shipped.
 
 ## Requirements
 
@@ -58,9 +66,9 @@ sweep must share an existing interval rather than carrying its own cadence in
    `intervals.capture_sweep = 15s` yields
    `cfg.Intervals().CaptureSweep == 15 * time.Second`.
 3. `setupCaptureSweeper` in `src/services/device/internal/host/host.go` uses the
-   configured interval. Acceptance: When `CaptureSweep` is configured to 200ms
-   in a test, the sweeper ticks and executes `SweepExpired` on that interval;
-   when unset, it ticks every one minute.
+   configured interval. Acceptance: When `CaptureSweep` is configured to one
+   second (the schema minimum) in a test, the sweeper ticks and executes
+   `SweepExpired` on that interval; when unset, it ticks every one minute.
 
 ## Out of scope
 

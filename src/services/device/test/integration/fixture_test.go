@@ -216,6 +216,10 @@ type central struct {
 	apiPort   int
 	busPort   int
 
+	// captureSweep overrides the retention sweep cadence when set. Zero leaves
+	// the field out so the host applies its one-minute default.
+	captureSweep time.Duration
+
 	// client is built once and reused. A fresh http.Transport per call keeps
 	// its own idle pool with no IdleConnTimeout, and the status polls run at
 	// 50ms for minutes, so a per-call transport leaks thousands of
@@ -287,6 +291,15 @@ func (c *central) baseURL() string { return fmt.Sprintf("https://127.0.0.1:%d", 
 // start brings central up and returns once its API listener is bound, which
 // Options.Bound reports. Waiting on that rather than retrying a call is what
 // keeps the rest of this file free of readiness loops.
+// captureSweepLine renders the capture_sweep interval entry, or nothing when
+// the cadence is left at zero so the host takes its own default.
+func captureSweepLine(d time.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("\n  capture_sweep { nanos: %d }", d.Nanoseconds())
+}
+
 func (c *central) start() {
 	c.t.Helper()
 	body := fmt.Sprintf(`
@@ -304,10 +317,10 @@ edges {
 }
 intervals {
   dispatch_resend { seconds: 1 }
-  drift { seconds: 3600 }
+  drift { seconds: 3600 }%s
 }
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), c.busPort)
+		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep))
 
 	cfg, err := centralhost.LoadConfig(writeFile(c.t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {

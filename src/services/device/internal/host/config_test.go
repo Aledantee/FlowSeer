@@ -98,6 +98,21 @@ func TestUnsetIntervalsArePassedThroughAsZero(t *testing.T) {
 	}
 }
 
+// A named capture_sweep reaches the host as the duration it was written as, so
+// the sweeper runs on the operator's cadence rather than the built-in minute.
+func TestCaptureSweepIntervalIsParsed(t *testing.T) {
+	withSweep := strings.Replace(validConfig,
+		`cluster_urls: "wss://central.example.test:8444"`,
+		`cluster_urls: "wss://central.example.test:8444"`+"\n}\nintervals {\n  capture_sweep { seconds: 15 }", 1)
+	cfg, err := host.LoadConfig(writeConfig(t, withSweep))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got := cfg.Intervals().CaptureSweep; got != 15*time.Second {
+		t.Fatalf("CaptureSweep = %v, want the configured fifteen seconds", got)
+	}
+}
+
 func TestLoadConfigRefusals(t *testing.T) {
 	cases := map[string]struct {
 		body string
@@ -126,6 +141,13 @@ func TestLoadConfigRefusals(t *testing.T) {
 		// failed start with no edge able to connect.
 		"certificate without its key": {
 			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" certificate_file: "/tls.crt" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			code: host.ErrCodeConfigInvalid,
+		},
+		// A capture sweep faster than a second is refused by the schema's
+		// duration bound, so the host never spins the sweeper on a sub-second
+		// tick that walks every session record.
+		"capture sweep below one second": {
+			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" } intervals { capture_sweep { nanos: 500000000 } }`,
 			code: host.ErrCodeConfigInvalid,
 		},
 	}

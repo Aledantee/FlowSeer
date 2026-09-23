@@ -507,6 +507,102 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 }
 
+// TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval proves the
+// host's retention sweeper honors the configured capture_sweep cadence. A
+// central started with a one-second sweep (the schema minimum) purges an
+// artifact whose deadline has passed within a few ticks, where the built-in
+// one-minute default would leave it on disk for the length of the test.
+func TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+
+	c := newCentral(t, dir, registryPath)
+	c.captureSweep = time.Second
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	// Fabricate a completed session with an already-expired artifact directly
+	// in the shared captures bucket and directory, so the running service's
+	// sweeper is the only thing that can purge it. Going through the store
+	// writes the record the sweeper lists and the pcapng file it unlinks
+	// without needing an enrolled edge to upload one.
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
+	if hub == nil {
+		t.Fatal("central reported nil hub")
+	}
+	capturesDir := filepath.Join(dir, "central-state", "captures")
+	kv, err := hub.JetStream().KeyValue(ctx, edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("open captures KV: %v", err)
+	}
+	store, err := captureapi.NewStore(kv, capturesDir)
+	if err != nil {
+		t.Fatalf("open captures store: %v", err)
+	}
+
+	const sessionID = "0192e700-0000-7000-8000-0000000000fe"
+	config := modelcapturev1.CaptureSessionConfig_builder{
+		Ref: modelcapturev1.CaptureSessionGlobalRef_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-00000000dead")}.Build(),
+			}.Build(),
+			CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{Id: proto.String(sessionID)}.Build(),
+		}.Build(),
+		Name: proto.String("sweep-cadence"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
+		}.Build(),
+	}.Build()
+	if _, err := store.CreateSession(ctx, config); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	const linkType = netcapturev1.LinkType_LINK_TYPE_ETHERNET
+	packet := netcapturev1.PacketRecord_builder{
+		CapturedAt:     timestamppb.Now(),
+		OriginalLength: proto.Uint32(uint32(len("sweep"))),
+		Data:           []byte("sweep"),
+	}.Build()
+	if err := store.AppendPackets(ctx, sessionID, linkType, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
+		t.Fatalf("AppendPackets: %v", err)
+	}
+	counters := netcapturev1.CaptureCounters_builder{Received: proto.Uint64(1), Accepted: proto.Uint64(1)}.Build()
+	artifact, err := store.FinalizeArtifact(ctx, sessionID, linkType, 128, counters, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatalf("FinalizeArtifact: %v", err)
+	}
+	if _, err := store.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+		rec.GetState().SetArtifact(artifact)
+		return nil
+	}); err != nil {
+		t.Fatalf("MutateSession: %v", err)
+	}
+
+	artifactPath := filepath.Join(capturesDir, sessionID+".pcapng")
+	if _, err := os.Stat(artifactPath); err != nil {
+		t.Fatalf("expected artifact file on disk at %s: %v", artifactPath, err)
+	}
+
+	// The one-second sweeper should unlink the expired payload well within
+	// this window; the one-minute default would not.
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("artifact %s was not swept within the window; the sweeper ignored the configured interval", artifactPath)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 type integrationCaptureSource struct {
 	frames chan rawsocket.Frame
 	closed chan struct{}
