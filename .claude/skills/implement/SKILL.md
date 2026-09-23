@@ -173,7 +173,7 @@ into the last unit's commit, rewrite that unit's `commit` in the ledger
 with the new hash (`ledger.py set <unit> passed`, which reads `HEAD`
 again), and only then run the verifier, as the last action of
 the task, sandbox disabled. A run before the last edit is evidence about a
-tree that no longer exists, and `close` refuses a receipt older than the
+tree that no longer exists, and `land` refuses a receipt older than the
 last commit. Run it as `--base main -- <paths>`, the task's paths
 explicit when the worktree holds unrelated changes, and `--base main`
 alone otherwise; a run against `HEAD` after the commit sees an empty
@@ -199,7 +199,7 @@ same way, one reason per line: a deleted or skipped test and a rewritten
 golden file are the recorded ways a passing suite stops proving anything.
 
 Recording the outcome in the plan, read from the ledger, in the same commit
-as the last unit leaves the ledger in place for `close` to gate on. Set
+as the last unit leaves the ledger in place for `land` to gate on. Set
 `status: implemented` and add `> Implemented.` under the title when every
 unit landed; otherwise `status: partially-implemented` and
 `> Partially implemented: <units>.` with the reason. The note carries the
@@ -214,7 +214,7 @@ fails it. Set the parent to `implemented` when this was its last phase,
 in the same commit. A request that skipped the plan records the outcome as
 one line, `implemented: <request in a few words>`, written as the whole
 content of `$(git rev-parse --git-dir)/flowseer-checkpoints`, the file
-`close` (step 1) reads for planless work; overwriting rather than
+`land` (step 1) reads for planless work; overwriting rather than
 appending drops the lines an earlier task left in a reused worktree:
 
 ```bash
@@ -222,9 +222,9 @@ appending drops the lines an earlier task left in a reused worktree:
 ```
 
 Write it even for a small change, since it is then the only implementation
-signal `close` has. In Orca the card entry below is written as well.
+signal `land` has. In Orca the card entry below is written as well.
 
-In Orca, mark the card for `close`, naming the plan path, or the request in
+In Orca, mark the card for `land`, naming the plan path, or the request in
 a few words when there is no plan:
 
 ```bash

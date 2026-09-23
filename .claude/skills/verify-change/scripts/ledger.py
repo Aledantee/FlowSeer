@@ -201,7 +201,7 @@ def main(argv: list[str]) -> None:
     show = commands.add_parser("show", help="print the ledger")
     show.set_defaults(run=cmd_show)
 
-    checkpoint = commands.add_parser("checkpoint", help="record a `key: value` line for close")
+    checkpoint = commands.add_parser("checkpoint", help="record a `key: value` line for land")
     checkpoint.add_argument("key")
     checkpoint.add_argument("value")
     checkpoint.add_argument("--replace", action="store_true", help="write the file anew instead of appending")

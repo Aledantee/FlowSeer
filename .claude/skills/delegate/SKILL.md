@@ -183,7 +183,7 @@ role's fit set holds a Claude model, pinned to that model. A native
 subagent runs only on Claude, and a Claude model outside the fit set is
 not calibrated as fit for the role.
 
-A stage worker of `close` or `drive` runs a skill and commits its
+A stage worker of `land` or `drive` runs a skill and commits its
 checkpoint, so it is editing work whatever role supplies its model, a
 `review-seam` stage included. Without Orca such a stage does not run here
 or in a read-only subagent: stop and name the stage for the user to run in

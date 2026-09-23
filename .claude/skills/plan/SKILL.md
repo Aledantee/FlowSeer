@@ -95,7 +95,7 @@ parent: <path of the parent plan; only in a phase plan>
 `partially-implemented`, `superseded`, or `abandoned`. `artifact_readiness`
 describes the plan's completeness and does not change with progress.
 `review` and `compound` each add a field of their own name beside `status`
-when they run (`review: accept`, `compound: no lesson`); `close` reads the
+when they run (`review: accept`, `compound: no lesson`); `land` reads the
 three together, so a plan carries its own checkpoints into the history.
 
 Body, in this order; leave out an empty section.

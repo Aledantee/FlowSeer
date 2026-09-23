@@ -68,10 +68,10 @@ no remote. The Claude worktree hook defaults to the sibling
   question tool, the report ends with the same question and options as
   text. A delegated worker never asks; it states the blocker and stops.
 - The project skills `next`, `plan`, `implement`, `review`, `compound`,
-  `close`, `drive`, and `steer` under `.claude/skills/` carry the
+  `land`, `drive`, and `steer` under `.claude/skills/` carry the
   multi-step workflows; each says when it applies and when to skip it.
   `next` picks the work, and `drive` takes a plan through `implement`,
-  `review`, and `compound` in worker sessions. `close` merges into `main`
+  `review`, and `compound` in worker sessions. `land` merges into `main`
   only after `implement`, `review`, and `compound` have left their
   checkpoints and leaves the worktree ready for removal; removing it is a
   person's action. `steer` works the queue in `docs/agent-observations.md`
@@ -103,8 +103,8 @@ no remote. The Claude worktree hook defaults to the sibling
 4. Review the final diff against the request and repository guidance. Report the
    commands run, their results, and any residual risk.
 5. When the verified work is uncommitted or unmerged, end by asking what
-   happens to it (Agent behavior): commit it, commit and land it through
-   `close` (which asks for a review verdict and a `compound` outcome
+   happens to it (Agent behavior): commit it, commit it and run
+   `land` (which asks for a review verdict and a `compound` outcome
    first), or leave it as it is. Commit or merge only on that answer.
 
 ## Investigation discipline

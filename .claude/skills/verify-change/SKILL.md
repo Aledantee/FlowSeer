@@ -23,7 +23,7 @@ the sandbox denies both.
 | all Go modules, protobuf sources, and Claude configuration | `verify-change.sh --full` |
 
 - Run it on the final tree, after the last edit. An earlier run is evidence
-  about a tree that no longer exists, and `close` compares the receipt's
+  about a tree that no longer exists, and `land` compares the receipt's
   `verified_at` with the last commit.
 - Finish a cross-module or schema change with `--full`. A targeted run is
   enough for documentation, hook, or single-module work.
@@ -116,7 +116,7 @@ call, a Bash write from the tree, by comparing the content hashes of the
 dirty paths (`tools/hooks/tree-state.sh`) with the listing stored after the
 previous Bash call. A command's text decides nothing. A passing run records
 its scope in the worktree's git metadata, clears the marker lines it
-verified, and rewrites that listing; `close` reads the receipt.
+verified, and rewrites that listing; `land` reads the receipt.
 
 - A targeted run clears only the paths it named and records `full=false`.
   It prints the lines that remain under
@@ -167,7 +167,7 @@ directory, as the verifier is for its receipt. The shape:
 `resume` lists the `in_progress` units, or the next `pending` unit when
 none is in progress, and is empty once every unit is `passed`. `note` is
 one line, only for a decision or pitfall the next unit needs. Unit ids are
-unique. `plan` resolves against the tree root and must exist. `close` gates the merge on
+unique. `plan` resolves against the tree root and must exist. `land` gates the merge on
 every unit being `passed` and removes the ledger after the merge.
 
 When the plan carries a `parent:` field, the check also proves the phase

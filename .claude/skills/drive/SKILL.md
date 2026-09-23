@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Take a FlowSeer plan from its file to ready-to-close without the user starting each step. For one plan, runs plan (when it needs re-planning), implement, review with its fix loop, and compound, each in a worker session of its own, merging and verifying between them. For a parent plan, drives each open phase that way in dependency order. Parks a plan that needs a decision from the user, continues with independent ones, and resumes from the plan files in a later session. Use when asked to drive a plan, when `next` offers it, or to continue a drive. Not for picking the work (`next`), for work without a plan, or for landing on main (`close`).
+description: Take a FlowSeer plan from its file to ready-to-land without the user starting each step. For one plan, runs plan (when it needs re-planning), implement, review with its fix loop, and compound, each in a worker session of its own, merging and verifying between them. For a parent plan, drives each open phase that way in dependency order. Parks a plan that needs a decision from the user, continues with independent ones, and resumes from the plan files in a later session. Use when asked to drive a plan, when `next` offers it, or to continue a drive. Not for picking the work (`next`), for work without a plan, or for landing on main (`land`).
 argument-hint: "[plan or parent plan path]"
 ---
 
@@ -97,7 +97,7 @@ After each stage:
    cat "$(git -C <child> rev-parse --git-dir)/flowseer-plan-status.json"
    ```
 
-   Every unit `passed` goes into the report as the per-unit gate `close`
+   Every unit `passed` goes into the report as the per-unit gate `land`
    would have read. A `blocked` unit parks the plan (step 4).
 3. Merge the worker's branch here.
 4. Run the verifier once on the union of the changed paths, sandbox
@@ -187,7 +187,7 @@ them before anything else.
 
 The drive stops when every plan in scope has its three fields set, when
 only parked or waiting plans remain, when no pool is usable, or when the
-verifier is red on a merged union. Landing stays with `close`, which the
+verifier is red on a merged union. Landing stays with `land`, which the
 user starts from the question below, because a merge into `main` lands
 for every other worktree; a policy-surface change stays a parked
 question for the same reason `steer` stages one.
@@ -202,7 +202,7 @@ the reason.
 Then ask the user (`AGENTS.md`, Agent behavior), in one call:
 
 - every parked question, with its options and the recommendation;
-- when everything in scope landed: run `close` now (recommended), or stop
+- when everything in scope landed: run `land` now (recommended), or stop
   here;
 - when plans remain and a question was answered: continue the drive now,
   or stop here.

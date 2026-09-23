@@ -39,7 +39,7 @@ note directly under its title, in the same change as the last unit. Keep
 not its progress. A plan whose paths or package names have since moved keeps
 its text; the outcome note says where the code lives now. The `review` and
 `compound` skills each add a field of their own name beside `status`
-(`review: accept`, `compound: no lesson`), which `close` reads before
+(`review: accept`, `compound: no lesson`), which `land` reads before
 merging.
 
 A large plan is split into a parent plan and phase plans; a phase plan
@@ -47,7 +47,7 @@ names its parent in a `parent:` field, and the parent stays `planned`
 until the last phase lands. While a plan is being implemented, the
 worktree keeps a status ledger at
 `$(git rev-parse --git-dir)/flowseer-plan-status.json`, never committed,
-whose shape `.claude/skills/verify-change/SKILL.md` documents; `close`
+whose shape `.claude/skills/verify-change/SKILL.md` documents; `land`
 removes it after the merge.
 
 ## Documentation map

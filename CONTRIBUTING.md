@@ -137,7 +137,7 @@ is not.
 
 Point it at `AGENTS.md` and let it work. The workflows under `.claude/skills/`
 carry the multi-step procedures (`plan`, `implement`, `review`, `compound`,
-`close`), and `docs/agent-steering.md` explains why they are shaped that way.
+`land`), and `docs/agent-steering.md` explains why they are shaped that way.
 Repository guidance outranks an agent's private memory; when they disagree,
 correct the memory.
 

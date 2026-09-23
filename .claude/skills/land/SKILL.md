@@ -1,10 +1,10 @@
 ---
-name: close
+name: land
 description: Land finished FlowSeer work by merging main into the current worktree's branch, verifying the result there, and leaving main one fast-forward away, with the worktree and its Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Does not merge while any of the three has not left its checkpoint or the review verdict is not accept, and offers to run the missing one; removes merged child worktrees but never its own worktree or the Orca session.
 argument-hint: "[plan path]"
 ---
 
-# Close finished FlowSeer work
+# Land finished FlowSeer work
 
 A merge into main lands for every other worktree, so this skill checks the
 evidence the other skills left before it merges. When a checkpoint is
