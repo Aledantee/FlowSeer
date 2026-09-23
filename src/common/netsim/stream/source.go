@@ -22,6 +22,7 @@ type specSource struct {
 	n         int
 	numerator uint64
 	rate      uint64
+	rng       SplitMix64
 }
 
 func (s *specSource) Next() (time.Duration, ethernet.Frame, bool) {
@@ -31,8 +32,12 @@ func (s *specSource) Next() (time.Duration, ethernet.Frame, bool) {
 	hi, lo := bits.Mul64(uint64(s.n), s.numerator)
 	base, _ := bits.Div64(hi, lo, s.rate)
 	gap := uint64(s.n/s.spec.Burst) * uint64(s.spec.Gap)
+	frame := s.spec.Frame
+	for _, variation := range s.spec.Variations {
+		frame = variation.Apply(s.n, frame, &s.rng)
+	}
 	s.n++
-	return time.Duration(base + gap), s.spec.Frame, true
+	return time.Duration(base + gap), frame, true
 }
 
 func (s *specSource) Clone() Source {

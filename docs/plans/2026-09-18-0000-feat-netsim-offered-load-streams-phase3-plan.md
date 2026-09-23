@@ -4,13 +4,17 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 ---
 
 # Offered-Load Streams Phase 3 - Stream Package and the Pull Loop - Plan
+
+> Partially implemented: U1, U2, U3. 3 units, 2026-09-23T21:07:12Z to
+> 2026-09-23T21:32:47Z. U4 is blocked by the existing reflector `Attachment`
+> name; U5 depends on U4.
 
 > Re-planned 2026-09-23 against the tree that holds phases 1 and 2.
 
@@ -418,6 +422,11 @@ and it needs the owner's approval per run.
 
 ## Open questions
 
+- U4 cannot declare `fabric.Attachment`: `src/common/netsim/fabric/config.go`
+  already declares that name for reflector configuration, with references
+  outside U4's file list. The owner must choose whether to rename the existing
+  reflector type and expand U4's file scope, or rename the new stream type and
+  revise the plan. U5 waits on that decision.
 - The reference SplitMix64 source publishes no vectors; the five per seed under
   Requirement 10c are computed from the reference algorithm and cross-checked
   against the first output for seed 0. The implementer confirms the vectors

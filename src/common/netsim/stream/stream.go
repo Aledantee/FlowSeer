@@ -16,12 +16,14 @@ type Rate struct {
 	BitsPerSecond   uint64
 }
 
-// Spec describes a finite stream of Ethernet frames. Frame and its slices are
-// immutable while a source uses them. Start belongs to the consumer's epoch;
-// a source returns offsets relative to that start.
+// Spec describes a finite stream of Ethernet frames. Frame and the values in
+// Variations, including their slices, are immutable while a source uses them.
+// Start belongs to the consumer's epoch; a source returns offsets relative to it.
 type Spec struct {
 	Frame ethernet.Frame
 	Rate  Rate
+	// Variations transform each frame in order after copying the template.
+	Variations []Variation
 	// Burst is the number of frames per burst; zero means one.
 	Burst int
 	// Gap is extra idle time after each burst's line spacing.
@@ -35,8 +37,8 @@ type Spec struct {
 	Seed uint64
 }
 
-// Validate reports invalid rates, bounds, frame encoding, or timing that cannot
-// fit in a time.Duration. A zero Burst means one frame per burst.
+// Validate reports invalid rates, bounds, variations, frame encoding, or timing
+// that cannot fit in a time.Duration. A zero Burst means one frame per burst.
 func (s Spec) Validate() error {
 	if (s.Rate.FramesPerSecond == 0) == (s.Rate.BitsPerSecond == 0) {
 		return fmt.Errorf("stream rate must specify exactly one unit")
@@ -49,6 +51,30 @@ func (s Spec) Validate() error {
 	}
 	if _, err := s.Frame.Encode(); err != nil {
 		return fmt.Errorf("encode stream frame: %w", err)
+	}
+	for i, variation := range s.Variations {
+		if variation == nil {
+			return fmt.Errorf("variation %d is nil", i)
+		}
+		if err := variation.Validate(); err != nil {
+			return fmt.Errorf("variation %d: %w", i, err)
+		}
+		var sizes []int
+		switch v := variation.(type) {
+		case SizeVariation:
+			sizes = v.Sizes
+		case *SizeVariation:
+			sizes = v.Sizes
+		case UDPPortVariation, *UDPPortVariation:
+			if _, _, _, err := decodeUDPFrame(s.Frame); err != nil {
+				return fmt.Errorf("variation %d: %w", i, err)
+			}
+		}
+		for _, size := range sizes {
+			if size < 18+4*len(s.Frame.Tags) {
+				return fmt.Errorf("variation %d: frame size %d is smaller than tagged Ethernet header and FCS", i, size)
+			}
+		}
 	}
 
 	numerator, rate, err := s.spacing()
@@ -104,12 +130,15 @@ func (s Spec) Normalize() (Spec, error) {
 		s.Count = count
 		s.Duration = 0
 	}
-	return s, nil
+	return s.Clone(), nil
 }
 
-// Clone returns a value copy. Its Frame slices remain shared and must be
-// treated as immutable by both copies.
-func (s Spec) Clone() Spec { return s }
+// Clone copies the variation list. Its Frame slices and the variation values
+// remain shared and must be treated as immutable by both copies.
+func (s Spec) Clone() Spec {
+	s.Variations = append([]Variation(nil), s.Variations...)
+	return s
+}
 
 // Source constructs an independent iterator over a normalized spec. The
 // caller adds Start to each offset returned by [Source.Next].
@@ -122,7 +151,7 @@ func (s Spec) Source() (Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &specSource{spec: normalized, numerator: numerator, rate: rate}, nil
+	return &specSource{spec: normalized, numerator: numerator, rate: rate, rng: NewSplitMix64(normalized.Seed)}, nil
 }
 
 func (s Spec) spacing() (numerator, rate uint64, err error) {
