@@ -30,12 +30,13 @@ const (
 )
 
 var snapshotFieldClasses = map[string]fieldClassification{
-	"Clock":   fieldExcluded,
-	"Queue":   fieldExcluded,
-	"Queued":  fieldExcluded,
-	"Links":   fieldIncluded,
-	"Devices": fieldIncluded,
-	"Busy":    fieldExcluded,
+	"Clock":        fieldExcluded,
+	"Queue":        fieldExcluded,
+	"Queued":       fieldExcluded,
+	"Links":        fieldIncluded,
+	"Devices":      fieldIncluded,
+	"Busy":         fieldExcluded,
+	"EgressDepths": fieldExcluded,
 }
 
 var deviceFieldClasses = map[string]fieldClassification{

@@ -90,10 +90,15 @@ type Snapshot struct {
 	Links   []Link
 	Devices map[string]Device
 	Busy    map[Endpoint]time.Time
+	// EgressDepths carries each endpoint queue's current and peak depth in
+	// encoded frame octets. It is absent from [Snapshot.Fingerprint] and from
+	// [Compare], because queue depth is transient.
+	EgressDepths map[Endpoint]map[vlan.PCP]EgressDepth
 }
 
 type queued struct {
 	frame      ethernet.Frame
+	octets     uint64
 	seq        uint64
 	fid        FrameID
 	journey    *Journey
@@ -108,6 +113,15 @@ type egressQueue struct {
 	dequeueAt      time.Time
 	dequeuePending bool
 	rateClock      [8]time.Time
+	depth          [8]uint64
+	peak           [8]uint64
+}
+
+// EgressDepth is an egress queue's current and greatest depth, in encoded frame
+// octets, for one endpoint and priority.
+type EgressDepth struct {
+	Depth uint64
+	Peak  uint64
 }
 
 func wireOctets(frame ethernet.Frame) int {
@@ -921,8 +935,35 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 		q = &egressQueue{}
 		f.egress[txEnd] = q
 	}
+	raw, _ := frame.Encode()
+	octets := uint64(len(raw))
+	if sw := f.switches[txEnd.Node]; sw != nil {
+		if buffer, stated := sw.QueueBuffer(egressPort, pcp); stated && q.depth[pcp]+octets > buffer {
+			f.record(journey, Entry{
+				At:     now,
+				Kind:   EntryDrop,
+				Device: txEnd.Node,
+				Port:   egressPort,
+				Reason: traffic.ReasonQueueFull,
+				Step: &trace.Step{
+					Layer:   traffic.Layer,
+					Op:      trace.OpDrop,
+					RuleID:  traffic.RuleQueueDrop,
+					Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
+					Inputs:  []trace.Fact{traffic.QueueDropFact(q.depth[pcp], buffer, int(octets))},
+				},
+			})
+			f.countEgressDrop(txEnd.Node, egressPort, traffic.ReasonQueueFull)
+			if egressPort != txEnd.Port {
+				f.countEgressDrop(txEnd.Node, txEnd.Port, traffic.ReasonQueueFull)
+			}
+
+			return
+		}
+	}
 	q.pending[pcp] = append(q.pending[pcp], queued{
 		frame:      cloneFrame(frame),
+		octets:     octets,
 		seq:        seq,
 		fid:        fid,
 		journey:    journey,
@@ -931,6 +972,8 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 		enqueued:   now,
 		mirror:     mirror,
 	})
+	q.depth[pcp] += octets
+	q.peak[pcp] = max(q.peak[pcp], q.depth[pcp])
 	f.inflightAdd(fid)
 	f.serve(now, txEnd)
 }
@@ -1005,6 +1048,7 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 		} else {
 			q.pending[selected] = pending[1:]
 		}
+		q.depth[selected] -= item.octets
 		f.inflightRemove(item.fid)
 
 		ref, ok := f.linkEnd(txEnd.Node, txEnd.Port)
@@ -1799,22 +1843,36 @@ func (f *Fabric) Snapshot() Snapshot {
 		}
 	}
 	var queued map[Endpoint]int
-	for ep, q := range f.egress {
-		if count := q.pendingCount(); count > 0 {
+	var egressDepths map[Endpoint]map[vlan.PCP]EgressDepth
+	for ep, eq := range f.egress {
+		if count := eq.pendingCount(); count > 0 {
 			if queued == nil {
 				queued = make(map[Endpoint]int)
 			}
 			queued[ep] = count
 		}
+		for pcp := range eq.depth {
+			if eq.depth[pcp] == 0 && eq.peak[pcp] == 0 {
+				continue
+			}
+			if egressDepths == nil {
+				egressDepths = make(map[Endpoint]map[vlan.PCP]EgressDepth)
+			}
+			if egressDepths[ep] == nil {
+				egressDepths[ep] = make(map[vlan.PCP]EgressDepth)
+			}
+			egressDepths[ep][vlan.PCP(pcp)] = EgressDepth{Depth: eq.depth[pcp], Peak: eq.peak[pcp]}
+		}
 	}
 
 	return Snapshot{
-		Clock:   f.clock,
-		Queue:   q,
-		Queued:  queued,
-		Links:   links,
-		Devices: devices,
-		Busy:    busy,
+		Clock:        f.clock,
+		Queue:        q,
+		Queued:       queued,
+		Links:        links,
+		Devices:      devices,
+		Busy:         busy,
+		EgressDepths: egressDepths,
 	}
 }
 

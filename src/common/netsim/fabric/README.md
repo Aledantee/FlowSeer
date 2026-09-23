@@ -226,6 +226,19 @@ rate-limited, the endpoint schedules its dequeue at the earliest rate clock.
 `Entry.Wait` is the transmission start minus its enqueue time, and `Entry.PCP`
 records the selected priority.
 
+`traffic.PortQueues.BufferOctets` states a queue buffer in encoded frame
+octets, the length `ethernet.Frame.Encode` returns, so it excludes the wire's
+preamble, start delimiter, and interpacket gap. The queue tracks its depth and
+peak per PCP in the same octets. A frame that would make `depth+octets` exceed
+a stated buffer is tail-dropped before it is appended: the journey records an
+`EntryDrop` with reason `queue-full` and a layer-`traffic` step whose input is a
+`traffic.QueueDropFact` naming the depth, the buffer, and the frame's octets,
+and the port's `OutDiscards` and `Discards["queue-full"]` both move. A queue
+with no stated buffer never drops. `Snapshot.EgressDepths` reports each
+endpoint queue's `Depth` and `Peak` for every PCP that has held a frame, so a
+drained queue still reports its peak. The depth and peak stay out of
+`Snapshot.Fingerprint` and of `Compare`, because queue depth is transient.
+
 For example, two tagged frames arriving together at `sw1:1/1/2`, PCP 0 first
 and PCP 7 second, are both pending before the trunk dequeue. PCP 7 starts at
 `t0`, takes 704 ns to serialize, and reaches `sw2` after the trunk's 1494 ns
