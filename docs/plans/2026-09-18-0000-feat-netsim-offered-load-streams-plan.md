@@ -106,7 +106,7 @@ Landed: `cb5f0bae..b11463f5`
 ### U2. Stated egress buffers and tail drop
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase2-plan.md`
 After: U1
-Landed: `6a51fd13..f805419d`
+Landed: `6a51fd13..5f211ffc`
 
 ### U3. Stream package and the pull loop
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase3-plan.md`
