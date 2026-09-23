@@ -439,3 +439,14 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
+- Parked by drive: U1-U3 are landed; U4 is blocked on the `fabric.Attachment`
+  name collision above and U5 waits on U4. Options: name the new stream type
+  `StreamAttachment` with `Fabric.AttachStream` and leave the reflector
+  `Attachment` untouched (least churn; phase 4 references become
+  `StreamAttachment.Start`) | rename the reflector type to `ReflectorAttachment`
+  and give the stream type the plain `Attachment`/`Fabric.Attach` name (a
+  breaking change that hands the more central concept the clearer name) |
+  re-plan U4-U5 to decide the naming with full context and coordinate phase 4.
+  Recommended: `StreamAttachment`/`Fabric.AttachStream`, because it is the
+  smallest change, keeps the reflector API stable, and the stream attachment
+  reads clearly under its own name; resume U4-U5 implement after the edit.
