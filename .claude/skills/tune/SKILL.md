@@ -51,8 +51,12 @@ Writes which CLIs exist, which pools are signed in, what Orca can pin with
 every invocation.
 
 opencode's `synthetic/` list is its own catalogue and keeps ids Synthetic
-has stopped serving: on 2026-09-19 four of ten answered 404. Send each new
-id one request before it goes in the registry.
+has stopped serving: on 2026-09-19 four of ten answered 404, and by
+2026-09-23 the same four answered a probe without error, so a request no
+longer tells a served id from a retired one. Read the served ids and their
+context from `GET https://api.synthetic.new/openai/v1/models` with the
+`synthetic` key from opencode's `auth.json`, and compare the registry's
+`agent` names with the `agent` block in `~/.config/opencode/opencode.json`.
 
 ## 2. Pull live catalogues
 
