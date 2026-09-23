@@ -109,12 +109,15 @@ calibration result, never on a benchmark.
 
 ## 5. Write and report
 
-Update the machine-wide registry: `as_of`, changed fields, fit sets. When
-the project file overrides a field this run changed, name the override in
+Update the machine-wide registry: `as_of`, changed fields, fit sets. Keep each
+role's `fit` list best-first by calibrated speed, then pool usage, among models
+that passed; `delegate` uses this order after filtering hot and busy pools.
+When the project file overrides a field this run changed, name the override in
 the report: the project keeps routing on its own value. Keep the opencode
 agent block in `~/.config/opencode/opencode.json` in step with
-`opencode_agents`. A change to a role's fit set is never applied silently:
+`opencode_agents`. A change to a role's `fit` membership or order is never
+applied silently:
 report the commands run, each changed field with its evidence, and
 anything a source refused to answer, then ask the user (`AGENTS.md`, Agent
-behavior) per proposed fit-set change whether to apply it, so a person
-sees which default moved and why.
+behavior) per proposed membership or order change whether to apply it, so a
+person sees which default moved and why.
