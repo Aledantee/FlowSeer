@@ -60,6 +60,8 @@ var fabricFieldClasses = map[string]forkClass{
 	"stepped":        classImmutableShared,
 	"queue":          classDeepCopied,
 	"wakes":          classDeepCopied,
+	"dequeueItems":   classDeepCopied,
+	"wakeItems":      classDeepCopied,
 	"nextFrameID":    classImmutableShared,
 	"nextSeq":        classImmutableShared,
 	"journeys":       classDeepCopied,

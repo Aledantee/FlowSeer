@@ -28,6 +28,8 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"byEnd":          probeFabricByEnd,
 	"queue":          probeFabricQueue,
 	"wakes":          probeFabricWakes,
+	"dequeueItems":   probeFabricDequeueItems,
+	"wakeItems":      probeFabricWakeItems,
 	"journeys":       probeFabricJourneys,
 	"entered":        probeFabricEntered,
 	"cableCrossings": probeFabricCableCrossings,
@@ -159,6 +161,36 @@ func probeFabricQueue(t *testing.T) {
 	fork.queue = append(fork.queue, Arrival{Seq: 8888})
 	if fab.queue[len(fab.queue)-1].Seq == 8888 {
 		t.Errorf("source queue saw fork arrival")
+	}
+}
+
+func probeFabricDequeueItems(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	fork := fab.Fork()
+
+	fab.dequeueItems[Endpoint{Node: "src"}] = 1
+	if _, ok := fork.dequeueItems[Endpoint{Node: "src"}]; ok {
+		t.Errorf("fork dequeueItems saw entry added to source")
+	}
+
+	fork.dequeueItems[Endpoint{Node: "dst"}] = 2
+	if _, ok := fab.dequeueItems[Endpoint{Node: "dst"}]; ok {
+		t.Errorf("source dequeueItems saw entry added to fork")
+	}
+}
+
+func probeFabricWakeItems(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	fork := fab.Fork()
+
+	fab.wakeItems["src"] = 1
+	if _, ok := fork.wakeItems["src"]; ok {
+		t.Errorf("fork wakeItems saw entry added to source")
+	}
+
+	fork.wakeItems["dst"] = 2
+	if _, ok := fab.wakeItems["dst"]; ok {
+		t.Errorf("source wakeItems saw entry added to fork")
 	}
 }
 

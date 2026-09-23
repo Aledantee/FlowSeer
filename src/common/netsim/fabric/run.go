@@ -326,8 +326,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	f.initRunState()
 
-	arr := f.queue[0]
-	f.queue = f.queue[1:]
+	arr := f.popArrival()
 	f.clock = arr.At
 	f.stepped = true
 
@@ -1037,9 +1036,7 @@ func (f *Fabric) removeDequeue(txEnd Endpoint) {
 	q := f.egress[txEnd]
 	q.dequeueAt = time.Time{}
 	q.dequeuePending = false
-	f.queue = slices.DeleteFunc(f.queue, func(arr Arrival) bool {
-		return arr.Kind == ArrivalDequeue && arr.Device == txEnd.Node && arr.Port == txEnd.Port
-	})
+	f.removeDequeueArrival(txEnd)
 }
 
 func (q *egressQueue) pendingCount() int {
@@ -1303,9 +1300,7 @@ func (f *Fabric) scheduleWake(device string) {
 
 func (f *Fabric) removeWake(device string) {
 	delete(f.wakes, device)
-	f.queue = slices.DeleteFunc(f.queue, func(arr Arrival) bool {
-		return arr.Kind == ArrivalWake && arr.Device == device
-	})
+	f.removeWakeArrival(device)
 }
 
 // Run repeatedly invokes [Fabric.Step] until the arrival queue is empty, budget steps have executed,
@@ -1662,8 +1657,11 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 func (f *Fabric) Snapshot() Snapshot {
 	var q []Arrival
 	if len(f.queue) > 0 {
-		q = make([]Arrival, len(f.queue))
-		copy(q, f.queue)
+		q = slices.Clone(f.queue)
+		slices.SortFunc(q, compareArrival)
+		for i := range q {
+			q[i].index = 0
+		}
 	}
 
 	links := f.Links()
@@ -1740,6 +1738,7 @@ func (f *Fabric) initRunState() {
 	if f.egress == nil {
 		f.egress = make(map[Endpoint]*egressQueue)
 	}
+	f.initQueueIndexes()
 	if f.wakes == nil {
 		f.wakes = make(map[string]time.Time)
 	}

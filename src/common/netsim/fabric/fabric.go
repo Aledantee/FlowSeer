@@ -180,6 +180,8 @@ type Fabric struct {
 	stepped        bool
 	queue          []Arrival
 	wakes          map[string]time.Time
+	dequeueItems   map[Endpoint]int
+	wakeItems      map[string]int
 	nextFrameID    FrameID
 	nextSeq        uint64
 	journeys       map[FrameID]*Journey
@@ -528,6 +530,8 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		byEnd:          byEnd,
 		clock:          cloned.Start,
 		wakes:          make(map[string]time.Time),
+		dequeueItems:   make(map[Endpoint]int),
+		wakeItems:      make(map[string]int),
 		nextFrameID:    1,
 		nextSeq:        1,
 		journeys:       make(map[FrameID]*Journey),
@@ -584,6 +588,16 @@ func (f *Fabric) Fork() *Fabric {
 	var wakes map[string]time.Time
 	if f.wakes != nil {
 		wakes = maps.Clone(f.wakes)
+	}
+
+	var dequeueItems map[Endpoint]int
+	if f.dequeueItems != nil {
+		dequeueItems = maps.Clone(f.dequeueItems)
+	}
+
+	var wakeItems map[string]int
+	if f.wakeItems != nil {
+		wakeItems = maps.Clone(f.wakeItems)
 	}
 
 	var journeys map[FrameID]*Journey
@@ -644,6 +658,8 @@ func (f *Fabric) Fork() *Fabric {
 		stepped:        f.stepped,
 		queue:          queue,
 		wakes:          wakes,
+		dequeueItems:   dequeueItems,
+		wakeItems:      wakeItems,
 		nextFrameID:    f.nextFrameID,
 		nextSeq:        f.nextSeq,
 		journeys:       journeys,
