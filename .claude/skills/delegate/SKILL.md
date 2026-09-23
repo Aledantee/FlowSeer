@@ -13,10 +13,13 @@ parallel. A question that one grep answers is not delegated.
 
 ## Pick the role, then resolve the lane
 
-Delegated work is named by role, never by model. `.claude/models/registry.yaml`
-maps each role to a fit set of models, each model to a prepaid pool, and
-each pool to the CLI and the way it is pinned. `tune` keeps it true; when
-its `as_of` is more than 30 days old, say so in the report and continue.
+Delegated work is named by role, never by model. The registry maps each
+role to a fit set of models, each model to a prepaid pool, and each pool to
+the CLI and the way it is pinned. Read the machine-wide
+`~/.claude/models/registry.yaml` when present, then lay the project's
+`.claude/models/registry.yaml` over it: `tune` says how an override merges.
+`tune` keeps the registry true; when its `as_of` is more than 30 days old,
+say so in the report and continue.
 
 | Work | Role | Worker |
 | --- | --- | --- |
@@ -37,7 +40,7 @@ that file and follows it.
 
 Resolve a role to a lane in this order, once per lane:
 
-1. Drop models whose pool row (`host.local.yaml`, refreshed per wave by
+1. Drop models whose pool row (`~/.claude/models/host.yaml`, refreshed per wave by
    `scripts/pool-usage.sh`) shows `signed_in` false or null, or over 85% on
    a window that applies to the model. Orca reporting a provider as
    `unavailable` is not a pool row; see Dispatch by quota.
@@ -77,7 +80,8 @@ settles.
 Before the first dispatch of a session:
 
 ```bash
-.claude/skills/tune/scripts/discover-host.sh > .claude/models/host.local.yaml
+mkdir -p ~/.claude/models
+.claude/skills/tune/scripts/discover-host.sh > ~/.claude/models/host.yaml
 ```
 
 The file records the agent CLIs present (`claude`, `codex`, `agy`,

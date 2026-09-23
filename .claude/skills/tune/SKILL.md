@@ -1,34 +1,54 @@
 ---
 name: tune
-description: Refresh the model registry that `delegate` routes on. Discovers which agent CLIs and prepaid pools this host can reach, pulls live model catalogues and prices, records external evidence, optionally calibrates candidate models on a fixed repository task, and writes `.claude/models/registry.yaml` plus the host-local pool file. Use when asked to tune, when a new model or CLI appears, when `delegate` warns the registry is stale, or before a large plan is dispatched. Not for choosing a model for one task; `delegate` does that from the registry.
+description: Refresh the model registry that `delegate` routes on. Discovers which agent CLIs and prepaid pools this host can reach, pulls live model catalogues and prices, records external evidence, optionally calibrates candidate models on a fixed repository task, and writes the machine-wide registry `~/.claude/models/registry.yaml` plus the host pool file. Use when asked to tune, when a new model or CLI appears, when `delegate` warns the registry is stale, or before a large plan is dispatched. Not for choosing a model for one task; `delegate` does that from the registry.
 argument-hint: "[discover | catalogue | calibrate <lane>... | all]"
 ---
 
 # Tune the model registry
 
-The registry (`.claude/models/registry.yaml`) is the routing table: pools,
-models with price, context, effort levels and refusal posture, and the fit
-set per role. `delegate` never names a model; it names a role and resolves it
-here. This skill keeps the registry true. Every number it writes carries a
-source and a date in `.claude/models/evidence.md`; a number without one is
-an opinion and does not go in.
+The registry is the routing table: pools, models with price, context,
+effort levels and refusal posture, and the fit set per role. `delegate`
+never names a model; it names a role and resolves it here. This skill keeps
+the registry true. Every number it writes carries a source and a date in
+`~/.claude/models/evidence.md`; a number without one is an opinion and does
+not go in.
 
-Inputs: the current registry, the network, the installed CLIs. Completion: the
-registry's `as_of` is today, `host.local.yaml` is regenerated, and the report
-names every field that changed with its evidence. Failure: a step that cannot
-reach its source says so and leaves the previous value with its old date; it
-never guesses.
+The registry is machine-wide, because pools, prices, and calibrations belong
+to the machine and its accounts, not to one checkout:
+
+| File | Holds | Written by |
+| --- | --- | --- |
+| `~/.claude/models/registry.yaml` | The registry every project on this machine reads | this skill |
+| `~/.claude/models/evidence.md` | Source and date per registry number | this skill |
+| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, `pool-usage.sh` refreshes |
+| `.claude/models/registry.yaml` in a project | Overrides for that project, committed | a person, or this skill on request |
+
+The effective registry is the machine-wide file with the project file laid
+over it. Under `pools`, `models`, `roles`, and `opencode_agents` a project
+entry replaces the machine-wide entry of the same name and adds the ones it
+lacks; any other top-level key in the project file (`sensitive_paths`,
+`as_of`) replaces the machine-wide key whole. Either file may be absent;
+with neither, there is no registry and this skill writes the machine-wide
+one. Write a result to the project file only when it holds for that project
+alone, such as its `sensitive_paths` or a fit set the project narrows.
+
+Inputs: the effective registry, the network, the installed CLIs. Completion:
+the machine-wide `as_of` is today, `host.yaml` is regenerated, and the report
+names every field that changed with its evidence and the file it changed in.
+Failure: a step that cannot reach its source says so and leaves the previous
+value with its old date; it never guesses.
 
 ## 1. Discover the host
 
 ```bash
-.claude/skills/tune/scripts/discover-host.sh > .claude/models/host.local.yaml
+mkdir -p ~/.claude/models
+.claude/skills/tune/scripts/discover-host.sh > ~/.claude/models/host.yaml
 ```
 
 Writes which CLIs exist, which pools are signed in, what Orca can pin with
 `--model`, the `opencode` model ids split by `synthetic/` (prepaid) and
-`opencode/` (per-token), and the Claude rate-limit windows. The file is
-gitignored: it describes this machine. Run this step on every invocation.
+`opencode/` (per-token), and the Claude rate-limit windows. Run this step on
+every invocation.
 
 opencode's `synthetic/` list is its own catalogue and keeps ids Synthetic
 has stopped serving: on 2026-09-19 four of ten answered 404. Send each new
@@ -37,7 +57,7 @@ id one request before it goes in the registry.
 ## 2. Pull live catalogues
 
 ```bash
-python3 .claude/skills/tune/scripts/catalogue.py .claude/models/registry.yaml
+python3 .claude/skills/tune/scripts/catalogue.py ~/.claude/models/registry.yaml .claude/models/registry.yaml
 ```
 
 Reads models.dev and OpenRouter, prints per registry model the vendor price
@@ -85,7 +105,9 @@ calibration result, never on a benchmark.
 
 ## 5. Write and report
 
-Update the registry: `as_of`, changed fields, fit sets. Keep the opencode
+Update the machine-wide registry: `as_of`, changed fields, fit sets. When
+the project file overrides a field this run changed, name the override in
+the report: the project keeps routing on its own value. Keep the opencode
 agent block in `~/.config/opencode/opencode.json` in step with
 `opencode_agents`. A change to a role's fit set is never applied silently:
 report the commands run, each changed field with its evidence, and

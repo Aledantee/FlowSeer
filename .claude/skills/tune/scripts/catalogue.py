@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Compare the registry's models against live catalogues.
 
-Usage: catalogue.py .claude/models/registry.yaml
+Usage: catalogue.py REGISTRY [OVERRIDE...]
+
+Pass the machine-wide registry first, then the project override; a model in
+a later file replaces the model of the same id in an earlier one. A missing
+file is skipped.
 
 Reads models.dev (vendor list prices) and OpenRouter (broker prices, creation
 dates), prints one line per registry model with both feeds' price and context
@@ -11,6 +15,7 @@ under `models:`.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -29,7 +34,15 @@ def fetch(url):
     return json.loads(out.stdout)
 
 
-def registry_models(path):
+def registry_models(paths):
+    out = {}
+    for path in paths:
+        if os.path.exists(path):
+            out.update(registry_file_models(path))
+    return out
+
+
+def registry_file_models(path):
     out, section = {}, None
     for line in open(path):
         if re.match(r"^\w", line):
@@ -46,8 +59,8 @@ def norm(s):
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
-def main(path):
-    reg = registry_models(path)
+def main(paths):
+    reg = registry_models(paths)
     md = fetch(MODELS_DEV)
     orr = {m["id"]: m for m in fetch(OPENROUTER)["data"]}
 
@@ -79,6 +92,6 @@ def main(path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         sys.exit(__doc__)
-    main(sys.argv[1])
+    main(sys.argv[1:])
