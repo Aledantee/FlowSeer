@@ -393,8 +393,17 @@ def score(args):
     codex = [session for path in args.codex_sessions.rglob("*.jsonl") if path.stat().st_mtime >= since.timestamp()
              if (session := codex_session(path)) and args.match in (session.get("cwd") or "")]
     opencode = opencode_sessions(args.opencode_db, args.match)
-    runs, unmatched, joined = [], [], set()
     branch_names = 0
+    attributed_claude = []
+    for session in claude:
+        if (not session.get("native") and session.get("entrypoint") == "sdk-cli"
+                and (session.get("prompt") or "").startswith(BRANCH_NAME_PROMPT)):
+            if session["started"] >= since and args.match in (session.get("cwd") or ""):
+                branch_names += 1
+            continue
+        attributed_claude.append(session)
+    claude = attributed_claude
+    runs, unmatched, joined = [], [], set()
     if log.skipped:
         unmatched.append({"reason": "malformed_runlog_lines", "count": log.skipped})
     lane_windows = defaultdict(list)
@@ -468,9 +477,6 @@ def score(args):
             source = "coordinator" if session["entrypoint"] == "cli" else "headless"
             role = "coordinator" if source == "coordinator" else "headless"
         else:
-            continue
-        if source == "headless" and (session.get("prompt") or "").startswith(BRANCH_NAME_PROMPT):
-            branch_names += 1
             continue
         if not session.get("model"):
             reason = "rate_limited" if session.get("limited") else "model_missing"

@@ -159,6 +159,41 @@ class FieldTest(unittest.TestCase):
         self.assertEqual([], result["runs"])
         self.assertEqual([{"reason": "branch_name_calls", "count": 2}], result["unmatched"])
 
+    def test_branch_name_call_does_not_join_overlapping_claude_lane(self):
+        write_lines(self.log, self.lane(cli="claude", model="claude-sonnet-5", start=0))
+        write_lines(self.claude / "-w-l1" / "session.jsonl", [
+            {"type": "user", "timestamp": stamp(10), "cwd": "/w/l1", "entrypoint": "cli",
+             "message": {"role": "user", "content": "work"}},
+            {"type": "assistant", "timestamp": stamp(25), "cwd": "/w/l1", "entrypoint": "cli",
+             "message": {"id": "work", "model": "claude-sonnet-5",
+                         "usage": {"input_tokens": 100, "output_tokens": 20}}}])
+        self.headless("branch", "Generate a short git branch name for this task.",
+                      "claude-sonnet-5", "fix-the-thing")
+
+        result = self.run_field()
+        self.assertEqual(["r1"], [run["run"] for run in result["runs"]])
+        self.assertEqual(15, result["runs"][0]["active_s"])
+        self.assertEqual(120, result["runs"][0]["tokens"]["total"])
+        self.assertEqual([{"reason": "branch_name_calls", "count": 1}], result["unmatched"])
+
+    def test_branch_name_call_does_not_make_overlapping_lanes_ambiguous(self):
+        events = self.lane(run="r1", cli="claude", model="claude-sonnet-5", start=0, grade=100)
+        events.extend(self.lane(run="r2", cli="claude", model="claude-sonnet-5", start=50, grade=150))
+        write_lines(self.log, events)
+        write_lines(self.claude / "-w-l1" / "branch.jsonl", [
+            {"type": "user", "timestamp": stamp(60), "cwd": "/w/l1", "entrypoint": "sdk-cli",
+             "message": {"role": "user", "content": "Generate a short git branch name for this task."}},
+            {"type": "assistant", "timestamp": stamp(62), "cwd": "/w/l1", "entrypoint": "sdk-cli",
+             "message": {"id": "branch", "model": "claude-sonnet-5",
+                         "usage": {"input_tokens": 10, "output_tokens": 5}}}])
+
+        result = self.run_field()
+        self.assertEqual(["r1", "r2"], [run["run"] for run in result["runs"]])
+        self.assertEqual(2, sum(item["reason"] == "transcript_missing" for item in result["unmatched"]
+                                if "run" in item))
+        self.assertEqual([{"reason": "branch_name_calls", "count": 1}],
+                         [item for item in result["unmatched"] if "run" not in item])
+
     def test_group_marks_three_runs_small_and_five_sufficient(self):
         events = []
         for index in range(3):
