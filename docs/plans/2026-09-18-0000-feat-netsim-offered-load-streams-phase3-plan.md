@@ -22,7 +22,7 @@ parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 
 A caller attaches streams to a fabric and reads per-stream results. The means:
 `src/common/netsim/stream` holding the spec, the field variations, SplitMix64,
-and a `Source` iterator; `Fabric.Attach`; and a pull in `Step` that injects every
+and a `Source` iterator; `Fabric.AttachStream`; and a pull in `Step` that injects every
 source frame due at or before the earliest queued arrival. The plan is wrong if
 a pulled stream cannot reproduce the same frames injected eagerly, requirement
 11, because the two orders then give two different answers and only one can be
@@ -42,6 +42,11 @@ documented as the model.
   to 78 and yields 102. The Tests and Requirements lines are corrected to say
   minimum frame, per IEEE 802.3 (the 64-octet minimum frame is 84 on the wire
   with preamble, SFD, IFG, and FCS).
+- U4 attachment name (owner ruling, 2026-09-23): the stream attachment is
+  `StreamAttachment` and the method is `Fabric.AttachStream`, because
+  `fabric.Attachment` (`config.go:359`) already names reflector configuration.
+  The reflector type is left unchanged; phase 4 references the stream start as
+  `StreamAttachment.Start`.
 - One wire-octet figure serves both packages. `ethernet.Frame.WireOctets() int`
   is `max(len(Encode()), 60+4*len(Tags)) + 24`, exactly the body of `fabric`'s
   `wireOctets` (`src/common/netsim/fabric/run.go:127-136`). Why: `stream` may
@@ -89,9 +94,9 @@ documented as the model.
   the failure the third-kind solution names
   (`docs/solutions/architecture-patterns/a-third-kind-joins-a-two-kind-system-silently.md`).
   `Spec.Source() (Source, error)` returns an implementation over a normalized
-  spec, and `Spec.Start` is the offset a caller gives `Attachment.Start`; the
+  spec, and `Spec.Start` is the offset a caller gives `StreamAttachment.Start`; the
   source does not include it, so one `Source` can be retimed.
-- `Spec.Start` is an offset from the consumer's epoch; `Attachment.Start` is an
+- `Spec.Start` is an offset from the consumer's epoch; `StreamAttachment.Start` is an
   offset from `Fabric.Config.Start`; a frame's absolute time is
   `Config.Start + Attachment.Start + Next.at`. Why: requirement 9's `t0` is the
   fabric's start, phase 4 attaches "at `h1` with start `t0`"
@@ -334,8 +339,8 @@ Files: `src/common/netsim/fabric/attach.go`,
 `docs/architecture/2026-09-10-virtual-device-direction.md`
 After: U1, U2
 Change: `fabric` declares
-`Attachment{Origin Endpoint; Source stream.Source; Start time.Duration;
-Flow FlowID; Retention Retention}` and `Fabric.Attach(att Attachment) error`,
+`StreamAttachment{Origin Endpoint; Source stream.Source; Start time.Duration;
+Flow FlowID; Retention Retention}` and `Fabric.AttachStream(att StreamAttachment) error`,
 mirroring `Inject`'s origin, retention, and flow refusals (`run.go:199-208`,
 `:218-292`) plus a nil source and a start before the clock once the run has
 started. `Fabric` carries `attachments []attachedSource`, where
@@ -372,7 +377,7 @@ Files: `src/common/netsim/internal/netsimtest/load_cases.go`,
 `src/common/netsim/internal/netsimtest/README.md`
 After: U3, U4
 Change: three `Case` values, each a `fabric.ConstructionSpec` with one switch
-and two hosts, a `stream.Spec`, and a `Fabric.Attach` with `RetainJourney`;
+and two hosts, a `stream.Spec`, and a `Fabric.AttachStream` with `RetainJourney`;
 `Execute` selects the decisive journey (the frame with a `queue-full` drop, the
 first frame whose metadata carries `queue-buffer-unstated`, or the frame with a
 `policed` drop), verifies `Flows()` consistency, and returns it with its ordered
@@ -422,11 +427,6 @@ and it needs the owner's approval per run.
 
 ## Open questions
 
-- U4 cannot declare `fabric.Attachment`: `src/common/netsim/fabric/config.go`
-  already declares that name for reflector configuration, with references
-  outside U4's file list. The owner must choose whether to rename the existing
-  reflector type and expand U4's file scope, or rename the new stream type and
-  revise the plan. U5 waits on that decision.
 - The reference SplitMix64 source publishes no vectors; the five per seed under
   Requirement 10c are computed from the reference algorithm and cross-checked
   against the first output for seed 0. The implementer confirms the vectors
@@ -439,14 +439,3 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
-- Parked by drive: U1-U3 are landed; U4 is blocked on the `fabric.Attachment`
-  name collision above and U5 waits on U4. Options: name the new stream type
-  `StreamAttachment` with `Fabric.AttachStream` and leave the reflector
-  `Attachment` untouched (least churn; phase 4 references become
-  `StreamAttachment.Start`) | rename the reflector type to `ReflectorAttachment`
-  and give the stream type the plain `Attachment`/`Fabric.Attach` name (a
-  breaking change that hands the more central concept the clearer name) |
-  re-plan U4-U5 to decide the naming with full context and coordinate phase 4.
-  Recommended: `StreamAttachment`/`Fabric.AttachStream`, because it is the
-  smallest change, keeps the reflector API stable, and the stream attachment
-  reads clearly under its own name; resume U4-U5 implement after the edit.
