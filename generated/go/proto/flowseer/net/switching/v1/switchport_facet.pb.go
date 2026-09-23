@@ -244,8 +244,8 @@ const file_flowseer_net_switching_v1_switchport_facet_proto_rawDesc = "" +
 	"\x11untagged_vlan_ids\x18\x04 \x03(\rB\x14\xbaH\x11\x92\x01\x0e\x10\xfe\x1f\x18\x01\"\a*\x05\x18\xfe\x1f(\x01R\x0funtaggedVlanIds\x12+\n" +
 	"\x11ingress_filtering\x18\x05 \x01(\bR\x10ingressFiltering\x12R\n" +
 	"\x0fframe_admission\x18\x06 \x01(\x0e2).flowseer.net.switching.v1.FrameAdmissionR\x0eframeAdmission:\xa5\x01\xbaH\xa1\x01\x1a\x9e\x01\n" +
-	"%switchport_facet.memberships_disjoint\x12;a VLAN cannot be both tagged and untagged on one switchport\x1a8(this.tagged_vlan_ids + this.untagged_vlan_ids).unique()B\x8e\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\x14SwitchportFacetProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"%switchport_facet.memberships_disjoint\x12;a VLAN cannot be both tagged and untagged on one switchport\x1a8(this.tagged_vlan_ids + this.untagged_vlan_ids).unique()B\x8c\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\x14SwitchportFacetProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_switchport_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_switching_v1_switchport_facet_proto_goTypes = []any{

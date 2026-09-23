@@ -529,8 +529,8 @@ const file_flowseer_runtime_v1_message_proto_rawDesc = "" +
 	"\x18MESSAGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MESSAGE_KIND_COMMAND\x10\x01\x12\x16\n" +
 	"\x12MESSAGE_KIND_EVENT\x10\x02\x12\x16\n" +
-	"\x12MESSAGE_KIND_REPLY\x10\x03B\xdf\x01\n" +
-	"\x17com.flowseer.runtime.v1B\fMessageProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1;runtimev1\xa2\x02\x03FRX\xaa\x02\x13Flowseer.Runtime.V1\xca\x02\x13Flowseer\\Runtime\\V1\xe2\x02\x1fFlowseer\\Runtime\\V1\\GPBMetadata\xea\x02\x15Flowseer::Runtime::V1b\beditionsp\xe9\a"
+	"\x12MESSAGE_KIND_REPLY\x10\x03B\xdd\x01\n" +
+	"\x17com.flowseer.runtime.v1B\fMessageProtoZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1;runtimev1\xa2\x02\x03FRX\xaa\x02\x13Flowseer.Runtime.V1\xca\x02\x13Flowseer\\Runtime\\V1\xe2\x02\x1fFlowseer\\Runtime\\V1\\GPBMetadata\xea\x02\x15Flowseer::Runtime::V1b\beditionsp\xe9\a"
 
 var file_flowseer_runtime_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_runtime_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

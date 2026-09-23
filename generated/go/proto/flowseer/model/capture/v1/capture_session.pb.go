@@ -2141,8 +2141,8 @@ const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\x1eCAPTURE_STOP_REASON_BYTE_COUNT\x10\x02\x12 \n" +
 	"\x1cCAPTURE_STOP_REASON_DURATION\x10\x03\x12 \n" +
 	"\x1cCAPTURE_STOP_REASON_OPERATOR\x10\x04\x12\x1d\n" +
-	"\x19CAPTURE_STOP_REASON_ERROR\x10\x05B\x8b\x02\n" +
-	"\x1dcom.flowseer.model.capture.v1B\x13CaptureSessionProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1;capturev1\xa2\x02\x03FMC\xaa\x02\x19Flowseer.Model.Capture.V1\xca\x02\x19Flowseer\\Model\\Capture\\V1\xe2\x02%Flowseer\\Model\\Capture\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Model::Capture::V1b\beditionsp\xe9\a"
+	"\x19CAPTURE_STOP_REASON_ERROR\x10\x05B\x89\x02\n" +
+	"\x1dcom.flowseer.model.capture.v1B\x13CaptureSessionProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1;capturev1\xa2\x02\x03FMC\xaa\x02\x19Flowseer.Model.Capture.V1\xca\x02\x19Flowseer\\Model\\Capture\\V1\xe2\x02%Flowseer\\Model\\Capture\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Model::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_capture_v1_capture_session_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_capture_v1_capture_session_proto_msgTypes = make([]protoimpl.MessageInfo, 12)

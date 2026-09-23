@@ -630,8 +630,8 @@ const file_flowseer_edge_attach_v1_edge_service_proto_rawDesc = "" +
 	"\tAttachBus\x12).flowseer.edge.attach.v1.AttachBusRequest\x1a*.flowseer.edge.attach.v1.AttachBusResponse\x12h\n" +
 	"\vListDevices\x12+.flowseer.edge.attach.v1.ListDevicesRequest\x1a,.flowseer.edge.attach.v1.ListDevicesResponse\x12\x86\x01\n" +
 	"\x15AcquireReadCredential\x125.flowseer.edge.attach.v1.AcquireReadCredentialRequest\x1a6.flowseer.edge.attach.v1.AcquireReadCredentialResponse\x12\x85\x01\n" +
-	"\x14OpenDeviceSubmission\x124.flowseer.edge.attach.v1.OpenDeviceSubmissionRequest\x1a5.flowseer.edge.attach.v1.OpenDeviceSubmissionResponse0\x01B\xfb\x01\n" +
-	"\x1bcom.flowseer.edge.attach.v1B\x10EdgeServiceProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
+	"\x14OpenDeviceSubmission\x124.flowseer.edge.attach.v1.OpenDeviceSubmissionRequest\x1a5.flowseer.edge.attach.v1.OpenDeviceSubmissionResponse0\x01B\xf9\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\x10EdgeServiceProtoZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_attach_v1_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_flowseer_edge_attach_v1_edge_service_proto_goTypes = []any{

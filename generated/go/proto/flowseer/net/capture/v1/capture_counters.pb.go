@@ -236,8 +236,8 @@ const file_flowseer_net_capture_v1_capture_counters_proto_rawDesc = "" +
 	"\baccepted\x18\x02 \x01(\x04R\baccepted\x120\n" +
 	"\x14dropped_by_interface\x18\x03 \x01(\x04R\x12droppedByInterface\x12*\n" +
 	"\x11dropped_by_budget\x18\x04 \x01(\x04R\x0fdroppedByBudget\x120\n" +
-	"\x14dropped_by_transport\x18\x05 \x01(\x04R\x12droppedByTransportB\x80\x02\n" +
-	"\x1bcom.flowseer.net.capture.v1B\x14CaptureCountersProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
+	"\x14dropped_by_transport\x18\x05 \x01(\x04R\x12droppedByTransportB\xfe\x01\n" +
+	"\x1bcom.flowseer.net.capture.v1B\x14CaptureCountersProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_capture_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_capture_v1_capture_counters_proto_goTypes = []any{

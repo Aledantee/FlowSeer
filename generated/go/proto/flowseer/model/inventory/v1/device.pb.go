@@ -1167,8 +1167,8 @@ const file_flowseer_model_inventory_v1_device_proto_rawDesc = "" +
 	"\x14DeviceManagementMode\x12&\n" +
 	"\"DEVICE_MANAGEMENT_MODE_UNSPECIFIED\x10\x00\x12+\n" +
 	"'DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED\x10\x01\x12(\n" +
-	"$DEVICE_MANAGEMENT_MODE_AUTHORITATIVE\x10\x02B\x91\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\vDeviceProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"$DEVICE_MANAGEMENT_MODE_AUTHORITATIVE\x10\x02B\x8f\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\vDeviceProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_inventory_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)

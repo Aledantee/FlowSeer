@@ -1311,8 +1311,8 @@ const file_ruckus_nanopb_nanopb_proto_rawDesc = "" +
 	"\x0enanopb_fileopt\x12\x1c.google.protobuf.FileOptions\x18\xf2\a \x01(\v2\x0e.NanoPBOptionsR\rnanopbFileopt:U\n" +
 	"\rnanopb_msgopt\x12\x1f.google.protobuf.MessageOptions\x18\xf2\a \x01(\v2\x0e.NanoPBOptionsR\fnanopbMsgopt:T\n" +
 	"\x0enanopb_enumopt\x12\x1c.google.protobuf.EnumOptions\x18\xf2\a \x01(\v2\x0e.NanoPBOptionsR\rnanopbEnumopt:F\n" +
-	"\x06nanopb\x12\x1d.google.protobuf.FieldOptions\x18\xf2\a \x01(\v2\x0e.NanoPBOptionsR\x06nanopbBn\n" +
-	"\x18fi.kapsi.koti.jpa.nanopbB\vNanopbProtoP\x01Z8go.aledante.io/FlowSeer/generated/go/proto/ruckus/nanopb\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x06nanopb\x12\x1d.google.protobuf.FieldOptions\x18\xf2\a \x01(\v2\x0e.NanoPBOptionsR\x06nanopbBl\n" +
+	"\x18fi.kapsi.koti.jpa.nanopbB\vNanopbProtoZ8go.aledante.io/FlowSeer/generated/go/proto/ruckus/nanopb\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_nanopb_nanopb_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_ruckus_nanopb_nanopb_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

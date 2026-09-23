@@ -140,8 +140,8 @@ const file_flowseer_net_phy_v1_auto_negotiation_facet_proto_rawDesc = "" +
 	"0flowseer/net/phy/v1/auto_negotiation_facet.proto\x12\x13flowseer.net.phy.v1\x1a1flowseer/net/phy/v1/auto_negotiation_status.proto\"t\n" +
 	"\x14AutoNegotiationFacet\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12B\n" +
-	"\x06status\x18\x02 \x01(\x0e2*.flowseer.net.phy.v1.AutoNegotiationStatusR\x06statusB\xe9\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x19AutoNegotiationFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x06status\x18\x02 \x01(\x0e2*.flowseer.net.phy.v1.AutoNegotiationStatusR\x06statusB\xe7\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x19AutoNegotiationFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_auto_negotiation_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_auto_negotiation_facet_proto_goTypes = []any{

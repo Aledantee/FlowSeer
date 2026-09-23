@@ -1386,8 +1386,8 @@ const file_flowseer_net_addr_v1_ip_proto_rawDesc = "" +
 	"\tIpVersion\x12\x1a\n" +
 	"\x16IP_VERSION_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rIP_VERSION_V4\x10\x01\x12\x11\n" +
-	"\rIP_VERSION_V6\x10\x02B\xde\x01\n" +
-	"\x18com.flowseer.net.addr.v1B\aIpProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
+	"\rIP_VERSION_V6\x10\x02B\xdc\x01\n" +
+	"\x18com.flowseer.net.addr.v1B\aIpProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_addr_v1_ip_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_net_addr_v1_ip_proto_msgTypes = make([]protoimpl.MessageInfo, 10)

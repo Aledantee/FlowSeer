@@ -108,8 +108,8 @@ const file_flowseer_net_protocol_lldp_v1_port_id_subtype_proto_rawDesc = "" +
 	"\x1fPORT_ID_SUBTYPE_NETWORK_ADDRESS\x10\x04\x12\"\n" +
 	"\x1ePORT_ID_SUBTYPE_INTERFACE_NAME\x10\x05\x12$\n" +
 	" PORT_ID_SUBTYPE_AGENT_CIRCUIT_ID\x10\x06\x12\x19\n" +
-	"\x15PORT_ID_SUBTYPE_LOCAL\x10\aB\xa1\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x12PortIdSubtypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x15PORT_ID_SUBTYPE_LOCAL\x10\aB\x9f\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x12PortIdSubtypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_port_id_subtype_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_port_id_subtype_proto_goTypes = []any{

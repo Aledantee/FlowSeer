@@ -274,8 +274,8 @@ const file_flowseer_net_ip_v1_neighbor_entry_proto_rawDesc = "" +
 	"\x06origin\x18\x04 \x01(\x0e2\".flowseer.net.ip.v1.NeighborOriginR\x06origin\x12\x1b\n" +
 	"\tis_router\x18\x05 \x01(\bR\bisRouter\x12L\n" +
 	"\freachability\x18\x06 \x01(\x0e2(.flowseer.net.ip.v1.NeighborReachabilityR\freachability:\xa8\x01\xbaH\xa4\x01\x1a\xa1\x01\n" +
-	"'neighbor_entry.router_flag_is_ipv6_only\x12;the neighbor router flag is valid only for an IPv6 neighbor\x1a9!has(this.is_router) || (has(this.ip) && has(this.ip.v6))B\xdb\x01\n" +
-	"\x16com.flowseer.net.ip.v1B\x12NeighborEntryProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
+	"'neighbor_entry.router_flag_is_ipv6_only\x12;the neighbor router flag is valid only for an IPv6 neighbor\x1a9!has(this.is_router) || (has(this.ip) && has(this.ip.v6))B\xd9\x01\n" +
+	"\x16com.flowseer.net.ip.v1B\x12NeighborEntryProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_neighbor_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_ip_v1_neighbor_entry_proto_goTypes = []any{

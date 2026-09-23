@@ -229,8 +229,8 @@ const file_flowseer_net_protocol_lldp_v1_local_system_proto_rawDesc = "" +
 	"\x12system_description\x18\x03 \x01(\tR\x11systemDescription\x12p\n" +
 	"\x16capabilities_supported\x18\x04 \x03(\x0e2/.flowseer.net.protocol.lldp.v1.SystemCapabilityB\b\xbaH\x05\x92\x01\x02\x18\x01R\x15capabilitiesSupported\x12l\n" +
 	"\x14capabilities_enabled\x18\x05 \x03(\x0e2/.flowseer.net.protocol.lldp.v1.SystemCapabilityB\b\xbaH\x05\x92\x01\x02\x18\x01R\x13capabilitiesEnabled\x12c\n" +
-	"\x14management_addresses\x18\x06 \x03(\v20.flowseer.net.protocol.lldp.v1.ManagementAddressR\x13managementAddressesB\x9f\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x10LocalSystemProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x14management_addresses\x18\x06 \x03(\v20.flowseer.net.protocol.lldp.v1.ManagementAddressR\x13managementAddressesB\x9d\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x10LocalSystemProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_local_system_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_local_system_proto_goTypes = []any{

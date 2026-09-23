@@ -717,8 +717,8 @@ const file_flowseer_model_access_v1_interface_proto_rawDesc = "" +
 	"\fCompleteness\x12\x1c\n" +
 	"\x18COMPLETENESS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15COMPLETENESS_COMPLETE\x10\x01\x12\x18\n" +
-	"\x14COMPLETENESS_PARTIAL\x10\x02B\xff\x01\n" +
-	"\x1ccom.flowseer.model.access.v1B\x0eInterfaceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
+	"\x14COMPLETENESS_PARTIAL\x10\x02B\xfd\x01\n" +
+	"\x1ccom.flowseer.model.access.v1B\x0eInterfaceProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_access_v1_interface_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_access_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 4)

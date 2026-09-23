@@ -209,8 +209,8 @@ const file_flowseer_net_phy_v1_mau_type_proto_rawDesc = "" +
 	"\aMauType\x12\x1d\n" +
 	"\x04iana\x18\x01 \x01(\rB\a\xbaH\x04*\x02 \x00H\x00R\x04iana\x12.\n" +
 	"\x03oid\x18\x02 \x01(\tB\x1a\xbaH\x17r\x152\x13^[0-9]+(\\.[0-9]+)+$H\x00R\x03oidB\r\n" +
-	"\x04kind\x12\x05\xbaH\x02\b\x01B\xdc\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\fMauTypeProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x04kind\x12\x05\xbaH\x02\b\x01B\xda\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\fMauTypeProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_mau_type_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_mau_type_proto_goTypes = []any{

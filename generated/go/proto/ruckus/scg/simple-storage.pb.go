@@ -276,8 +276,8 @@ const file_ruckus_scg_simple_storage_proto_rawDesc = "" +
 	"\x02id\x12\x1d.google.protobuf.FieldOptions\x18І\x03 \x01(\bR\x02id:9\n" +
 	"\aversion\x12\x1d.google.protobuf.FieldOptions\x18ц\x03 \x01(\bR\aversion:7\n" +
 	"\x06ingest\x12\x1d.google.protobuf.FieldOptions\x18҆\x03 \x01(\tR\x06ingest:A\n" +
-	"\vfileContent\x12\x1d.google.protobuf.FieldOptions\x18ӆ\x03 \x01(\bR\vfileContentB\xc5\x02\n" +
-	"+com.com.ruckuswireless.scg.protobuf.storageB\x12SimpleStorageProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\xa2\x02\x05CRSPS\xaa\x02'Com.Ruckuswireless.Scg.Protobuf.Storage\xca\x02'Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\xe2\x023Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\\GPBMetadata\xea\x02+Com::Ruckuswireless::Scg::Protobuf::Storage\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\vfileContent\x12\x1d.google.protobuf.FieldOptions\x18ӆ\x03 \x01(\bR\vfileContentB\xc3\x02\n" +
+	"+com.com.ruckuswireless.scg.protobuf.storageB\x12SimpleStorageProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\xa2\x02\x05CRSPS\xaa\x02'Com.Ruckuswireless.Scg.Protobuf.Storage\xca\x02'Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\xe2\x023Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\\GPBMetadata\xea\x02+Com::Ruckuswireless::Scg::Protobuf::Storage\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_scg_simple_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_ruckus_scg_simple_storage_proto_goTypes = []any{

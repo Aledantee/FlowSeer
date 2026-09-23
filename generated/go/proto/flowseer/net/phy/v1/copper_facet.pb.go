@@ -157,8 +157,8 @@ const file_flowseer_net_phy_v1_copper_facet_proto_rawDesc = "" +
 	"\fpoe_settings\x18\x01 \x01(\v2 .flowseer.net.phy.v1.PoeSettingsR\vpoeSettings\x12/\n" +
 	"\x03poe\x18\x02 \x01(\v2\x1d.flowseer.net.phy.v1.PoeFacetR\x03poe\x12A\n" +
 	"\n" +
-	"poe_detail\x18\x03 \x01(\v2\".flowseer.net.phy.v1.PoePortDetailR\tpoeDetailB\xe0\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x10CopperFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"poe_detail\x18\x03 \x01(\v2\".flowseer.net.phy.v1.PoePortDetailR\tpoeDetailB\xde\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x10CopperFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_copper_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_copper_facet_proto_goTypes = []any{

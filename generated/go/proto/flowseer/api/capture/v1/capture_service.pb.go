@@ -1379,8 +1379,8 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\x13ListCaptureSessions\x123.flowseer.api.capture.v1.ListCaptureSessionsRequest\x1a4.flowseer.api.capture.v1.ListCaptureSessionsResponse\x12\x83\x01\n" +
 	"\x14DeleteCaptureSession\x124.flowseer.api.capture.v1.DeleteCaptureSessionRequest\x1a5.flowseer.api.capture.v1.DeleteCaptureSessionResponse\x12\x7f\n" +
 	"\x12TailCaptureSession\x122.flowseer.api.capture.v1.TailCaptureSessionRequest\x1a3.flowseer.api.capture.v1.TailCaptureSessionResponse0\x01\x12\x8b\x01\n" +
-	"\x16DownloadCaptureSession\x126.flowseer.api.capture.v1.DownloadCaptureSessionRequest\x1a7.flowseer.api.capture.v1.DownloadCaptureSessionResponse0\x01B\xff\x01\n" +
-	"\x1bcom.flowseer.api.capture.v1B\x13CaptureServiceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
+	"\x16DownloadCaptureSession\x126.flowseer.api.capture.v1.DownloadCaptureSessionRequest\x1a7.flowseer.api.capture.v1.DownloadCaptureSessionResponse0\x01B\xfd\x01\n" +
+	"\x1bcom.flowseer.api.capture.v1B\x13CaptureServiceProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_capture_v1_capture_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_flowseer_api_capture_v1_capture_service_proto_goTypes = []any{

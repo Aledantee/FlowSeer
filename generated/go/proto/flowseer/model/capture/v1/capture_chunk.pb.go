@@ -370,8 +370,8 @@ const file_flowseer_model_capture_v1_capture_chunk_proto_rawDesc = "" +
 	"\x14CaptureArtifactChunk\x12\x1e\n" +
 	"\x06offset\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\x06offset\x12 \n" +
 	"\x04data\x18\x02 \x01(\fB\f\xbaH\t\xc8\x01\x01z\x04\x18\x80\x80@R\x04data\x12\x14\n" +
-	"\x05final\x18\x03 \x01(\bR\x05finalB\x89\x02\n" +
-	"\x1dcom.flowseer.model.capture.v1B\x11CaptureChunkProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1;capturev1\xa2\x02\x03FMC\xaa\x02\x19Flowseer.Model.Capture.V1\xca\x02\x19Flowseer\\Model\\Capture\\V1\xe2\x02%Flowseer\\Model\\Capture\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Model::Capture::V1b\beditionsp\xe9\a"
+	"\x05final\x18\x03 \x01(\bR\x05finalB\x87\x02\n" +
+	"\x1dcom.flowseer.model.capture.v1B\x11CaptureChunkProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1;capturev1\xa2\x02\x03FMC\xaa\x02\x19Flowseer.Model.Capture.V1\xca\x02\x19Flowseer\\Model\\Capture\\V1\xe2\x02%Flowseer\\Model\\Capture\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Model::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_capture_v1_capture_chunk_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_model_capture_v1_capture_chunk_proto_goTypes = []any{

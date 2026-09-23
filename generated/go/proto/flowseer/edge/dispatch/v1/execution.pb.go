@@ -1173,8 +1173,8 @@ const file_flowseer_edge_dispatch_v1_execution_proto_rawDesc = "" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"9\n" +
 	"\x0fHoldResolvedAck\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceB\x87\x02\n" +
-	"\x1dcom.flowseer.edge.dispatch.v1B\x0eExecutionProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1;dispatchv1\xa2\x02\x03FED\xaa\x02\x19Flowseer.Edge.Dispatch.V1\xca\x02\x19Flowseer\\Edge\\Dispatch\\V1\xe2\x02%Flowseer\\Edge\\Dispatch\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Edge::Dispatch::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceB\x85\x02\n" +
+	"\x1dcom.flowseer.edge.dispatch.v1B\x0eExecutionProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1;dispatchv1\xa2\x02\x03FED\xaa\x02\x19Flowseer.Edge.Dispatch.V1\xca\x02\x19Flowseer\\Edge\\Dispatch\\V1\xe2\x02%Flowseer\\Edge\\Dispatch\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Edge::Dispatch::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_dispatch_v1_execution_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_flowseer_edge_dispatch_v1_execution_proto_goTypes = []any{

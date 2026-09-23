@@ -102,8 +102,8 @@ const file_flowseer_net_phy_v1_ethernet_fec_mode_proto_rawDesc = "" +
 	"\x17ETHERNET_FEC_MODE_RS528\x10\x03\x12\x1b\n" +
 	"\x17ETHERNET_FEC_MODE_RS544\x10\x04\x12,\n" +
 	"(ETHERNET_FEC_MODE_RS544_DUAL_INTERLEAVED\x10\x05\x12\x1b\n" +
-	"\x17ETHERNET_FEC_MODE_OTHER\x10\x06B\xe4\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x14EthernetFecModeProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x17ETHERNET_FEC_MODE_OTHER\x10\x06B\xe2\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x14EthernetFecModeProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_fec_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_phy_v1_ethernet_fec_mode_proto_goTypes = []any{

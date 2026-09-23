@@ -138,8 +138,8 @@ const file_flowseer_net_phy_v1_ethernet_capabilities_proto_rawDesc = "" +
 	"\x14EthernetCapabilities\x12@\n" +
 	"\x14supported_speeds_bps\x18\x01 \x03(\x04B\x0e\xbaH\v\x92\x01\b\x18\x01\"\x042\x02 \x00R\x12supportedSpeedsBps\x12<\n" +
 	"\x1aauto_negotiation_supported\x18\x02 \x01(\bR\x18autoNegotiationSupported\x12e\n" +
-	"\x13supported_fec_modes\x18\x03 \x03(\x0e2$.flowseer.net.phy.v1.EthernetFecModeB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05\x82\x01\x02 \x00R\x11supportedFecModesB\xe9\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x19EthernetCapabilitiesProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x13supported_fec_modes\x18\x03 \x03(\x0e2$.flowseer.net.phy.v1.EthernetFecModeB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05\x82\x01\x02 \x00R\x11supportedFecModesB\xe7\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x19EthernetCapabilitiesProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_capabilities_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_ethernet_capabilities_proto_goTypes = []any{

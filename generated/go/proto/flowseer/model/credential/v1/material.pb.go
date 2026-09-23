@@ -784,8 +784,8 @@ const file_flowseer_model_credential_v1_material_proto_rawDesc = "" +
 	"\x1eSNMP_PRIV_PROTOCOL_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19SNMP_PRIV_PROTOCOL_AES128\x10\x01\x12\x1d\n" +
 	"\x19SNMP_PRIV_PROTOCOL_AES192\x10\x02\x12\x1d\n" +
-	"\x19SNMP_PRIV_PROTOCOL_AES256\x10\x03B\x9a\x02\n" +
-	" com.flowseer.model.credential.v1B\rMaterialProtoP\x01ZTgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1;credentialv1\xa2\x02\x03FMC\xaa\x02\x1cFlowseer.Model.Credential.V1\xca\x02\x1cFlowseer\\Model\\Credential\\V1\xe2\x02(Flowseer\\Model\\Credential\\V1\\GPBMetadata\xea\x02\x1fFlowseer::Model::Credential::V1b\beditionsp\xe9\a"
+	"\x19SNMP_PRIV_PROTOCOL_AES256\x10\x03B\x98\x02\n" +
+	" com.flowseer.model.credential.v1B\rMaterialProtoZTgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1;credentialv1\xa2\x02\x03FMC\xaa\x02\x1cFlowseer.Model.Credential.V1\xca\x02\x1cFlowseer\\Model\\Credential\\V1\xe2\x02(Flowseer\\Model\\Credential\\V1\\GPBMetadata\xea\x02\x1fFlowseer::Model::Credential::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_credential_v1_material_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_credential_v1_material_proto_msgTypes = make([]protoimpl.MessageInfo, 3)

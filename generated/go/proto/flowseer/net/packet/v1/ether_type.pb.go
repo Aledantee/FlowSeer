@@ -144,8 +144,8 @@ const file_flowseer_net_packet_v1_ether_type_proto_rawDesc = "" +
 	"\n" +
 	"ether_type\x12\x17.buf.validate.EnumRules\x18І\x03 \x01(\bB\x82\x01\xc2H\x7f\n" +
 	"}\n" +
-	"\x0fenum.ether_type\x12@value must be an IEEE EtherType rather than an IEEE 802.3 length\x1a(!rule || (this >= 1536 && this <= 65535)R\tetherTypeB\xf3\x01\n" +
-	"\x1acom.flowseer.net.packet.v1B\x0eEtherTypeProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
+	"\x0fenum.ether_type\x12@value must be an IEEE EtherType rather than an IEEE 802.3 length\x1a(!rule || (this >= 1536 && this <= 65535)R\tetherTypeB\xf1\x01\n" +
+	"\x1acom.flowseer.net.packet.v1B\x0eEtherTypeProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_ether_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_ether_type_proto_goTypes = []any{

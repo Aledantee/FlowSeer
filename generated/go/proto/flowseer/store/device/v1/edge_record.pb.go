@@ -142,8 +142,8 @@ const file_flowseer_store_device_v1_edge_record_proto_rawDesc = "" +
 	"\n" +
 	"StoredEdge\x12B\n" +
 	"\x06record\x18\x01 \x01(\v2\".flowseer.model.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x06record\x12-\n" +
-	"\x0esetup_key_hash\x18\x02 \x01(\fB\a\xbaH\x04z\x02h R\fsetupKeyHashB\x80\x02\n" +
-	"\x1ccom.flowseer.store.device.v1B\x0fEdgeRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
+	"\x0esetup_key_hash\x18\x02 \x01(\fB\a\xbaH\x04z\x02h R\fsetupKeyHashB\xfe\x01\n" +
+	"\x1ccom.flowseer.store.device.v1B\x0fEdgeRecordProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_edge_record_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_store_device_v1_edge_record_proto_goTypes = []any{

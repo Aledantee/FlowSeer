@@ -126,8 +126,8 @@ const file_flowseer_net_phy_v1_module_diagnostics_proto_rawDesc = "" +
 	",flowseer/net/phy/v1/module_diagnostics.proto\x12\x13flowseer.net.phy.v1\x1a,flowseer/net/phy/v1/module_temperature.proto\x1a(flowseer/net/phy/v1/supply_voltage.proto\"\x9b\x01\n" +
 	"\x11ModuleDiagnostics\x12H\n" +
 	"\vtemperature\x18\x01 \x01(\v2&.flowseer.net.phy.v1.ModuleTemperatureR\vtemperature\x12<\n" +
-	"\avoltage\x18\x02 \x01(\v2\".flowseer.net.phy.v1.SupplyVoltageR\avoltageB\xe6\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x16ModuleDiagnosticsProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\avoltage\x18\x02 \x01(\v2\".flowseer.net.phy.v1.SupplyVoltageR\avoltageB\xe4\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x16ModuleDiagnosticsProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_module_diagnostics_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_module_diagnostics_proto_goTypes = []any{

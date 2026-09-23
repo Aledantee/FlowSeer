@@ -70,8 +70,8 @@ var File_flowseer_net_interface_v1_loopback_interface_proto protoreflect.FileDes
 const file_flowseer_net_interface_v1_loopback_interface_proto_rawDesc = "" +
 	"\n" +
 	"2flowseer/net/interface/v1/loopback_interface.proto\x12\x19flowseer.net.interface.v1\"\x13\n" +
-	"\x11LoopbackInterfaceB\x92\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x16LoopbackInterfaceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\x11LoopbackInterfaceB\x90\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x16LoopbackInterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_loopback_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_loopback_interface_proto_goTypes = []any{

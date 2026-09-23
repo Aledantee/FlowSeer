@@ -106,8 +106,8 @@ const file_flowseer_net_protocol_lldp_v1_system_capability_proto_rawDesc = "" +
 	"\x18SYSTEM_CAPABILITY_ROUTER\x10\x04\x12\x1f\n" +
 	"\x1bSYSTEM_CAPABILITY_TELEPHONE\x10\x05\x12)\n" +
 	"%SYSTEM_CAPABILITY_DOCSIS_CABLE_DEVICE\x10\x06\x12\"\n" +
-	"\x1eSYSTEM_CAPABILITY_STATION_ONLY\x10\aB\xa4\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x15SystemCapabilityProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x1eSYSTEM_CAPABILITY_STATION_ONLY\x10\aB\xa2\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x15SystemCapabilityProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_system_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_system_capability_proto_goTypes = []any{

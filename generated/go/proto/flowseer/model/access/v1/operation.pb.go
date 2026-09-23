@@ -1223,8 +1223,8 @@ const file_flowseer_model_access_v1_operation_proto_rawDesc = "" +
 	"\x17BLOCK_REASON_EDGE_STALE\x10\a*O\n" +
 	"\fSystemReason\x12\x1d\n" +
 	"\x19SYSTEM_REASON_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cSYSTEM_REASON_RECONCILIATION\x10\x01B\xff\x01\n" +
-	"\x1ccom.flowseer.model.access.v1B\x0eOperationProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
+	"\x1cSYSTEM_REASON_RECONCILIATION\x10\x01B\xfd\x01\n" +
+	"\x1ccom.flowseer.model.access.v1B\x0eOperationProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_access_v1_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_flowseer_model_access_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 5)

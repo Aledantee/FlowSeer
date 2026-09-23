@@ -173,8 +173,8 @@ const file_flowseer_net_phy_v1_poe_settings_proto_rawDesc = "" +
 	"\vPoeSettings\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x124\n" +
 	"\x16power_limit_milliwatts\x18\x02 \x01(\rR\x14powerLimitMilliwatts\x12F\n" +
-	"\bpriority\x18\x03 \x01(\x0e2 .flowseer.net.phy.v1.PoePriorityB\b\xbaH\x05\x82\x01\x02 \x00R\bpriorityB\xe0\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x10PoeSettingsProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\bpriority\x18\x03 \x01(\x0e2 .flowseer.net.phy.v1.PoePriorityB\b\xbaH\x05\x82\x01\x02 \x00R\bpriorityB\xde\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x10PoeSettingsProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_poe_settings_proto_goTypes = []any{

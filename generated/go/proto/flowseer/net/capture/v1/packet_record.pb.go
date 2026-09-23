@@ -233,8 +233,8 @@ const file_flowseer_net_capture_v1_packet_record_proto_rawDesc = "" +
 	"\x0foriginal_length\x18\x03 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x0eoriginalLength\x12 \n" +
 	"\x04data\x18\x04 \x01(\fB\f\xbaH\t\xc8\x01\x01z\x04\x18\xff\xff\x03R\x04data\x12?\n" +
 	"\x06mirror\x18\x05 \x01(\v2'.flowseer.net.capture.v1.MirrorEnvelopeR\x06mirror:\xbc\x01\xbaH\xb8\x01\x1a\xb5\x01\n" +
-	"\x1fpacket_record.length_consistent\x128original_length must be at least the captured byte count\x1aX!has(this.original_length) || !has(this.data) || this.original_length >= size(this.data)B\xfd\x01\n" +
-	"\x1bcom.flowseer.net.capture.v1B\x11PacketRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
+	"\x1fpacket_record.length_consistent\x128original_length must be at least the captured byte count\x1aX!has(this.original_length) || !has(this.data) || this.original_length >= size(this.data)B\xfb\x01\n" +
+	"\x1bcom.flowseer.net.capture.v1B\x11PacketRecordProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_packet_record_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_capture_v1_packet_record_proto_goTypes = []any{

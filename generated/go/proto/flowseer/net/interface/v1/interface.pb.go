@@ -858,8 +858,8 @@ const file_flowseer_net_interface_v1_interface_proto_rawDesc = "" +
 	"\x05other\x18\x11 \x01(\v2).flowseer.net.interface.v1.OtherInterfaceH\x00R\x05other\x12+\n" +
 	"\x02ip\x18\x14 \x01(\v2\x1b.flowseer.net.ip.v1.IpFacetR\x02ip\x12;\n" +
 	"\x06filter\x18\x15 \x01(\v2#.flowseer.net.filter.v1.FilterFacetR\x06filterB\r\n" +
-	"\x04kind\x12\x05\xbaH\x02\b\x01B\x8a\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x0eInterfaceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\x04kind\x12\x05\xbaH\x02\b\x01B\x88\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x0eInterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_interface_proto_goTypes = []any{

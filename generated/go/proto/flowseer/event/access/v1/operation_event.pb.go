@@ -1441,8 +1441,8 @@ const file_flowseer_event_access_v1_operation_event_proto_rawDesc = "" +
 	"field_name\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\tfieldName\"\f\n" +
 	"\n" +
-	"LaneFrozenB\x84\x02\n" +
-	"\x1ccom.flowseer.event.access.v1B\x13OperationEventProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1;accessv1\xa2\x02\x03FEA\xaa\x02\x18Flowseer.Event.Access.V1\xca\x02\x18Flowseer\\Event\\Access\\V1\xe2\x02$Flowseer\\Event\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Event::Access::V1b\beditionsp\xe9\a"
+	"LaneFrozenB\x82\x02\n" +
+	"\x1ccom.flowseer.event.access.v1B\x13OperationEventProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1;accessv1\xa2\x02\x03FEA\xaa\x02\x18Flowseer.Event.Access.V1\xca\x02\x18Flowseer\\Event\\Access\\V1\xe2\x02$Flowseer\\Event\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Event::Access::V1b\beditionsp\xe9\a"
 
 var file_flowseer_event_access_v1_operation_event_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_flowseer_event_access_v1_operation_event_proto_goTypes = []any{

@@ -2201,8 +2201,8 @@ const file_ruckus_ap_ap_rogue_proto_rawDesc = "" +
 	"\vtotScanTime\x18\x16 \x01(\x04R\vtotScanTime\x12\"\n" +
 	"\fserialNumber\x18\x17 \x01(\tR\fserialNumber\x12$\n" +
 	"\rapRadioDeploy\x18\x18 \x01(\tR\rapRadioDeploy\x12?\n" +
-	"\x14ideal_stats_required\x18\x19 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBr\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\fApRogueProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x14ideal_stats_required\x18\x19 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBp\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\fApRogueProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_rogue_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_ruckus_ap_ap_rogue_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

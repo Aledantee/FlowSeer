@@ -76,8 +76,8 @@ const file_flowseer_net_protocol_stp_v1_protocol_version_proto_rawDesc = "" +
 	"\x0fProtocolVersion\x12 \n" +
 	"\x1cPROTOCOL_VERSION_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14PROTOCOL_VERSION_STP\x10\x01\x12\x19\n" +
-	"\x15PROTOCOL_VERSION_RSTP\x10\x02B\x9c\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x14ProtocolVersionProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\x15PROTOCOL_VERSION_RSTP\x10\x02B\x9a\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x14ProtocolVersionProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_protocol_version_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_stp_v1_protocol_version_proto_goTypes = []any{

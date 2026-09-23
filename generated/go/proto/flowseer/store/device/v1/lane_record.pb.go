@@ -919,8 +919,8 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\rintent_digest\x18\x04 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h\bR\fintentDigest\x12S\n" +
 	"\vdisposition\x18\x03 \x01(\x0e2%.flowseer.model.access.v1.DispositionB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdispositionB\x80\x02\n" +
-	"\x1ccom.flowseer.store.device.v1B\x0fLaneRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdispositionB\xfe\x01\n" +
+	"\x1ccom.flowseer.store.device.v1B\x0fLaneRecordProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_lane_record_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_flowseer_store_device_v1_lane_record_proto_goTypes = []any{

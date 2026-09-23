@@ -100,8 +100,8 @@ const file_flowseer_net_capture_v1_link_type_proto_rawDesc = "" +
 	"\x13LINK_TYPE_LINUX_SLL\x10q\x12\x13\n" +
 	"\x0eLINK_TYPE_IPV4\x10\xe4\x01\x12\x13\n" +
 	"\x0eLINK_TYPE_IPV6\x10\xe5\x01\x12\x19\n" +
-	"\x14LINK_TYPE_LINUX_SLL2\x10\x94\x02B\xf9\x01\n" +
-	"\x1bcom.flowseer.net.capture.v1B\rLinkTypeProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
+	"\x14LINK_TYPE_LINUX_SLL2\x10\x94\x02B\xf7\x01\n" +
+	"\x1bcom.flowseer.net.capture.v1B\rLinkTypeProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_link_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_capture_v1_link_type_proto_goTypes = []any{

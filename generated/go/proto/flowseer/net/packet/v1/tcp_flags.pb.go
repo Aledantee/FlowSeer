@@ -275,8 +275,8 @@ const file_flowseer_net_packet_v1_tcp_flags_proto_rawDesc = "" +
 	"\fTCP_FLAG_CWR\x10\x80\x01:\xdb\x01\n" +
 	"\btcp_flag\x12\x17.buf.validate.EnumRules\x18ц\x03 \x01(\bB\xa4\x01\xc2H\xa0\x01\n" +
 	"\x9d\x01\n" +
-	"\renum.tcp_flag\x12Fvalue must be a one-hot TCP flag bit from the fixed 12-bit flag region\x1aD!rule || this in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]R\atcpFlagB\xf2\x01\n" +
-	"\x1acom.flowseer.net.packet.v1B\rTcpFlagsProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
+	"\renum.tcp_flag\x12Fvalue must be a one-hot TCP flag bit from the fixed 12-bit flag region\x1aD!rule || this in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]R\atcpFlagB\xf0\x01\n" +
+	"\x1acom.flowseer.net.packet.v1B\rTcpFlagsProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_tcp_flags_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_tcp_flags_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

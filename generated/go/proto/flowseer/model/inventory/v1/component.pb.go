@@ -979,8 +979,8 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\x12\x16\n" +
 	"\x12COMPONENT_KIND_CPU\x10\v\x12\x1a\n" +
 	"\x16COMPONENT_KIND_STORAGE\x10\f\x12\x1e\n" +
-	"\x1aCOMPONENT_KIND_TRANSCEIVER\x10\rB\x94\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0eComponentProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x1aCOMPONENT_KIND_TRANSCEIVER\x10\rB\x92\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0eComponentProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_component_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_component_proto_msgTypes = make([]protoimpl.MessageInfo, 4)

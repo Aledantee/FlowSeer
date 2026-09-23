@@ -1282,8 +1282,8 @@ const file_flowseer_model_inventory_v1_integration_proto_rawDesc = "" +
 	"\x1eINTEGRATION_LIFECYCLE_VERIFIED\x10\x02\x12 \n" +
 	"\x1cINTEGRATION_LIFECYCLE_FAILED\x10\x03\x12\"\n" +
 	"\x1eINTEGRATION_LIFECYCLE_DEGRADED\x10\x04\x12!\n" +
-	"\x1dINTEGRATION_LIFECYCLE_RETIRED\x10\x05B\x96\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x10IntegrationProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x1dINTEGRATION_LIFECYCLE_RETIRED\x10\x05B\x94\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x10IntegrationProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_integration_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_integration_proto_msgTypes = make([]protoimpl.MessageInfo, 7)

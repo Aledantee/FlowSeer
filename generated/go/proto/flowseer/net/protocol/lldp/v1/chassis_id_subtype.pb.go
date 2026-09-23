@@ -108,8 +108,8 @@ const file_flowseer_net_protocol_lldp_v1_chassis_id_subtype_proto_rawDesc = "" +
 	"\x1eCHASSIS_ID_SUBTYPE_MAC_ADDRESS\x10\x04\x12&\n" +
 	"\"CHASSIS_ID_SUBTYPE_NETWORK_ADDRESS\x10\x05\x12%\n" +
 	"!CHASSIS_ID_SUBTYPE_INTERFACE_NAME\x10\x06\x12\x1c\n" +
-	"\x18CHASSIS_ID_SUBTYPE_LOCAL\x10\aB\xa4\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x15ChassisIdSubtypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x18CHASSIS_ID_SUBTYPE_LOCAL\x10\aB\xa2\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x15ChassisIdSubtypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_chassis_id_subtype_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_chassis_id_subtype_proto_goTypes = []any{

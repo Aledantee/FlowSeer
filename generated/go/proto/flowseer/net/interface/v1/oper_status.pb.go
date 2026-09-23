@@ -105,8 +105,8 @@ const file_flowseer_net_interface_v1_oper_status_proto_rawDesc = "" +
 	"\x13OPER_STATUS_UNKNOWN\x10\x04\x12\x17\n" +
 	"\x13OPER_STATUS_DORMANT\x10\x05\x12\x1b\n" +
 	"\x17OPER_STATUS_NOT_PRESENT\x10\x06\x12 \n" +
-	"\x1cOPER_STATUS_LOWER_LAYER_DOWN\x10\aB\x8b\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x0fOperStatusProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\x1cOPER_STATUS_LOWER_LAYER_DOWN\x10\aB\x89\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x0fOperStatusProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_oper_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_interface_v1_oper_status_proto_goTypes = []any{

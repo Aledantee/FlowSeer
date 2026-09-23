@@ -19683,8 +19683,8 @@ const file_ruckus_ap_ap_status_proto_rawDesc = "" +
 	"\tUNDEFINED\x10\x00\x12\r\n" +
 	"\tLOW_POWER\x10\x01\x12\x12\n" +
 	"\x0eSTANDARD_POWER\x10\x02\x12\x12\n" +
-	"\x0eVERY_LOW_POWER\x10\x03Bs\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\rApStatusProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x0eVERY_LOW_POWER\x10\x03Bq\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\rApStatusProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_status_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
 var file_ruckus_ap_ap_status_proto_msgTypes = make([]protoimpl.MessageInfo, 22)

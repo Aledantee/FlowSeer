@@ -249,8 +249,8 @@ const file_flowseer_net_protocol_lacp_v1_lacp_info_proto_rawDesc = "" +
 	"\x03key\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x03key\x12.\n" +
 	"\rport_priority\x18\x04 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\fportPriority\x12\"\n" +
 	"\aport_id\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x06portId\x12A\n" +
-	"\x05state\x18\x06 \x03(\x0e2+.flowseer.net.protocol.lacp.v1.LacpStateBitR\x05stateB\x9c\x02\n" +
-	"!com.flowseer.net.protocol.lacp.v1B\rLacpInfoProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
+	"\x05state\x18\x06 \x03(\x0e2+.flowseer.net.protocol.lacp.v1.LacpStateBitR\x05stateB\x9a\x02\n" +
+	"!com.flowseer.net.protocol.lacp.v1B\rLacpInfoProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lacp_v1_lacp_info_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lacp_v1_lacp_info_proto_goTypes = []any{

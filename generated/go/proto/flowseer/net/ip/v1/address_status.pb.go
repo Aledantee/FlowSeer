@@ -111,8 +111,8 @@ const file_flowseer_net_ip_v1_address_status_proto_rawDesc = "" +
 	"\x16ADDRESS_STATUS_UNKNOWN\x10\x05\x12\x1c\n" +
 	"\x18ADDRESS_STATUS_TENTATIVE\x10\x06\x12\x1c\n" +
 	"\x18ADDRESS_STATUS_DUPLICATE\x10\a\x12\x1d\n" +
-	"\x19ADDRESS_STATUS_OPTIMISTIC\x10\bB\xdb\x01\n" +
-	"\x16com.flowseer.net.ip.v1B\x12AddressStatusProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
+	"\x19ADDRESS_STATUS_OPTIMISTIC\x10\bB\xd9\x01\n" +
+	"\x16com.flowseer.net.ip.v1B\x12AddressStatusProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_address_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_ip_v1_address_status_proto_goTypes = []any{

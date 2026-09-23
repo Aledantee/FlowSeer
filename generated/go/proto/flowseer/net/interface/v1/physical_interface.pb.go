@@ -169,8 +169,8 @@ const file_flowseer_net_interface_v1_physical_interface_proto_rawDesc = "" +
 	"switchport\x18\x02 \x01(\v2*.flowseer.net.switching.v1.SwitchportFacetR\n" +
 	"switchport\x12&\n" +
 	"\n" +
-	"lag_parent\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tlagParentB\x92\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x16PhysicalInterfaceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"lag_parent\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tlagParentB\x90\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x16PhysicalInterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_physical_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_physical_interface_proto_goTypes = []any{
