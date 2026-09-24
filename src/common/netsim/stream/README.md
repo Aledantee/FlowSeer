@@ -46,7 +46,10 @@ func attachCapture(fab *fabric.Fabric, path string) error {
 ```
 
 The first record maps to offset zero; later records retain their spacing and
-file order. Source and destination MACs are preserved. A capture with a
+file order. Source and destination MACs are preserved. At a host origin, the
+fabric replaces captured VLAN tags with one tag for the host's VLAN, with
+priority and DEI bits set to zero, or removes all tags if the host is untagged.
+An added tag adds four wire octets; a removed tag saves four. A capture with a
 non-Ethernet link type, a truncated frame, or an explicitly declared FCS is
 refused before attachment. Without FCS metadata, the adapter assumes the
 captured bytes exclude the FCS; it cannot infer that from packet bytes. The
