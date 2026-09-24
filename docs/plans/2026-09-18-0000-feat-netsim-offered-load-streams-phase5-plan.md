@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 ---
