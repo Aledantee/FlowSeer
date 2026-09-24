@@ -177,9 +177,11 @@ func (f *Fabric) runStarted() bool {
 
 // Inject queues a frame or originated packet for introduction into the fabric at the requested origin endpoint and time.
 //
-// For a host origin, the host's configured VLAN form is applied (adding its C-TAG or leaving the frame untagged)
-// and the frame is transmitted on the host's cable end: the journey records a crossing, the host end's busy clock
-// is charged, and the arrival at the connected switch port is the transmission end plus the cable's propagation.
+// For a host origin, the host's configured VLAN form is applied (adding its C-TAG or leaving the frame untagged).
+// A host transmits immediately unless a queued arrival precedes At or another host injection is pending before
+// the first step. Pending hosts transmit in time order with attached streams at Step. The link state is checked
+// and the host end's busy clock is charged when transmission occurs. A transmitted frame records a crossing and
+// arrives at the connected switch port after serialization and cable propagation.
 // When Packet is set, the frame is originated by the host's IP stack and Frame must have no field set. For a device
 // port origin, the frame is queued directly as given at At.
 // A host whose link is not Up transmits nothing, and the injection is still valid: the journey records a drop with
@@ -191,6 +193,10 @@ func (f *Fabric) runStarted() bool {
 // nonzero-time step has run, if Retention is above [RetainAggregate], or if Retention is
 // [RetainAggregate] with a zero Flow.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
+	return f.inject(inj, true)
+}
+
+func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 	f.initRunState()
 
 	if inj.Retention > RetainAggregate {
@@ -322,7 +328,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	})
 
 	switch {
-	case hostRef != nil && !f.runStarted() && ((len(f.queue) > 0 && f.queue[0].At.Before(inj.At)) || len(f.pendingHosts) > 0):
+	case hostRef != nil && deferHost && !f.runStarted() && ((len(f.queue) > 0 && f.queue[0].At.Before(inj.At)) || len(f.pendingHosts) > 0):
 		item := pendingHostInjection{at: inj.At, frame: frame, fid: fid, seq: seq, origin: inj.Origin}
 		index := len(f.pendingHosts)
 		for index > 0 && item.at.Before(f.pendingHosts[index-1].at) {
@@ -366,22 +372,9 @@ func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.F
 	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, frame, seq, fid, journey, pcp, "")
 }
 
-func (f *Fabric) pullPendingHosts() {
-	defer f.settleTouched()
-	for len(f.pendingHosts) > 0 {
-		item := f.pendingHosts[0]
-		if len(f.queue) > 0 && item.at.After(f.queue[0].At) {
-			return
-		}
-		f.pendingHosts[0] = pendingHostInjection{}
-		f.pendingHosts = f.pendingHosts[1:]
-		f.inflightRemove(item.fid)
-		f.injectHostFrame(item.at, item.origin, item.frame, item.seq, item.fid, f.journeys[item.fid])
-	}
-}
-
 // Step advances simulation time to the earliest queued arrival and processes it through the destination device.
 //
+// Pending host injections and attached stream frames are released before the next arrival is chosen.
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
 // Corrupted arrivals are discarded with [ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
 // and, when accepted, originates the reflected copies; it never reaches the switch forwarding path below.
@@ -393,8 +386,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	if f.err != nil {
 		return Entry{}, false
 	}
-	f.pullPendingHosts()
-	f.pullSources()
+	f.pullInputs()
 	if f.err != nil {
 		return Entry{}, false
 	}
@@ -1504,6 +1496,7 @@ func (f *Fabric) Run(budget int) RunResult {
 }
 
 // RunScenario validates and executes a declared scenario under its specified budget and window.
+// It refuses actions when the fabric has attached streams because their pull order does not account for action times.
 func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	norm, err := s.Normalize()
 	if err != nil {
@@ -1511,6 +1504,9 @@ func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	}
 	if err := norm.Validate(); err != nil {
 		return RunResult{}, err
+	}
+	if len(f.attachments) > 0 && len(norm.Actions) > 0 {
+		return RunResult{}, errs.Msg("scenario actions cannot run with an attached stream")
 	}
 
 	initialSpec := f.Spec()
@@ -1628,8 +1624,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			stop = StopFault
 			break
 		}
-		f.pullPendingHosts()
-		f.pullSources()
+		f.pullInputs()
 		if f.err != nil {
 			stop = StopFault
 			break

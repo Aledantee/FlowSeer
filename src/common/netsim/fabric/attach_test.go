@@ -249,3 +249,138 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 		}
 	}
 }
+
+func TestAttachedStreamStepKeepsClockMonotonic(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	start := fab.Config().Start
+	frame := flowFrame(src, dst)
+	if _, err := fab.Inject(fabric.Injection{At: start.Add(50 * time.Microsecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject switch: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject host: %v", err)
+	}
+	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, frame, 1, 10_000), Flow: 1}); err != nil {
+		t.Fatalf("AttachStream: %v", err)
+	}
+	var previous time.Time
+	steps := 0
+	for range 20 {
+		entry, ok := fab.Step()
+		if !ok {
+			break
+		}
+		if entry.At.Before(previous) {
+			t.Fatalf("Step time moved backward from %s to %s", previous, entry.At)
+		}
+		previous = entry.At
+		steps++
+	}
+	if steps < 2 {
+		t.Fatalf("Step processed %d arrivals, want at least two", steps)
+	}
+}
+
+func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
+	attached, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	eager, _, _ := newTwoSwitchTopology(t, fabric.Fault{})
+	start := attached.Config().Start
+	frame := flowFrame(src, dst)
+	switchInjection := fabric.Injection{At: start.Add(50 * time.Microsecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}
+	lateHost := fabric.Injection{At: start.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Flow: 2}
+	streamHost := fabric.Injection{At: start.Add(200 * time.Microsecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Flow: 1}
+	for _, inj := range []fabric.Injection{switchInjection, lateHost} {
+		if _, err := attached.Inject(inj); err != nil {
+			t.Fatalf("attached Inject: %v", err)
+		}
+	}
+	if err := attached.AttachStream(fabric.StreamAttachment{Origin: streamHost.Origin, Source: streamSource(t, frame, 1, 10_000), Start: 200 * time.Microsecond, Flow: 1}); err != nil {
+		t.Fatalf("AttachStream: %v", err)
+	}
+	for _, inj := range []fabric.Injection{switchInjection, streamHost, lateHost} {
+		if _, err := eager.Inject(inj); err != nil {
+			t.Fatalf("eager Inject: %v", err)
+		}
+	}
+	attached.Run(1000)
+	eager.Run(1000)
+	for _, flow := range []fabric.FlowID{1, 2} {
+		var got, want []time.Time
+		for _, journey := range attached.Report() {
+			if journey.Injection.Flow == flow {
+				for _, delivery := range journey.Deliveries {
+					got = append(got, delivery.At)
+				}
+			}
+		}
+		for _, journey := range eager.Report() {
+			if journey.Injection.Flow == flow {
+				for _, delivery := range journey.Deliveries {
+					want = append(want, delivery.At)
+				}
+			}
+		}
+		if len(want) == 0 || !reflect.DeepEqual(got, want) {
+			t.Errorf("flow %d delivery times = %v, want %v", flow, got, want)
+		}
+	}
+}
+
+func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	start := fab.Config().Start
+	frame := flowFrame(src, dst)
+	if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject switch: %v", err)
+	}
+	for _, offset := range []time.Duration{100 * time.Microsecond, 50 * time.Microsecond} {
+		if _, err := fab.Inject(fabric.Injection{At: start.Add(offset), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+			t.Fatalf("Inject at %s: %v", offset, err)
+		}
+	}
+	fab.Run(1000)
+	journeys := fab.Report()
+	if len(journeys) != 3 || len(journeys[1].Deliveries) == 0 || len(journeys[2].Deliveries) == 0 {
+		t.Fatalf("journeys = %+v, want two host deliveries", journeys)
+	}
+	if !journeys[2].Deliveries[0].At.Before(journeys[1].Deliveries[0].At) {
+		t.Fatalf("50us delivery %s is not before 100us delivery %s", journeys[2].Deliveries[0].At, journeys[1].Deliveries[0].At)
+	}
+}
+
+func TestEagerHostInjectionChecksLinkAtRelease(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	start := fab.Config().Start
+	if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+		t.Fatalf("Inject switch: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{At: start.Add(100 * time.Microsecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: flowFrame(src, dst)}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+		t.Fatalf("SetFault: %v", err)
+	}
+	fab.Run(1000)
+	journeys := fab.Report()
+	if len(journeys) != 2 || len(journeys[1].Entries) < 2 || journeys[1].Entries[1].Kind != fabric.EntryDrop {
+		t.Fatalf("journeys = %+v, want a host link drop after injection", journeys)
+	}
+}
+
+func TestRunScenarioRefusesActionsWithAttachedStream(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	start := fab.Config().Start
+	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 1, 10_000), Start: 5 * time.Millisecond, Flow: 1}); err != nil {
+		t.Fatalf("AttachStream: %v", err)
+	}
+	_, err := fab.RunScenario(fabric.Scenario{
+		Name: "stream with action", Budget: 100,
+		Actions: []fabric.Action{{
+			At: start.Add(time.Millisecond), Kind: fabric.ActionFault,
+			Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}},
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "attached stream") {
+		t.Fatalf("RunScenario error = %v, want attached stream refusal", err)
+	}
+}
