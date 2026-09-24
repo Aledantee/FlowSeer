@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -45,17 +46,20 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 func probeFabricUnstatedBacked(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	ep := Endpoint{Node: "sw1", Port: "1/1/1"}
-	fab.unstatedBacked = map[Endpoint]struct{}{ep: {}}
+	fab.unstatedBacked = map[Endpoint]trace.EvidenceRef{ep: "source-ref"}
 	fork := fab.Fork()
 
 	forkEP := Endpoint{Node: "sw1", Port: "1/1/2"}
-	fork.unstatedBacked[forkEP] = struct{}{}
+	fork.unstatedBacked[forkEP] = "fork-ref"
 	if _, ok := fab.unstatedBacked[forkEP]; ok {
 		t.Errorf("source unstatedBacked gained entry added to fork")
 	}
 	delete(fork.unstatedBacked, ep)
 	if _, ok := fab.unstatedBacked[ep]; !ok {
 		t.Errorf("source unstatedBacked lost entry deleted from fork")
+	}
+	if got, want := fab.unstatedBacked[ep], trace.EvidenceRef("source-ref"); got != want {
+		t.Errorf("source evidence ref = %q, want %q", got, want)
 	}
 }
 

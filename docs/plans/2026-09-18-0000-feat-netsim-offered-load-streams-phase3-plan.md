@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 
 # Offered-Load Streams Phase 3 - Stream Package and the Pull Loop - Plan
 
-> Partially implemented: U1-U4 landed. U5 is the remaining unit.
+> Implemented. 5 units, verified 2026-09-24T17:03:11Z.
 
 > Re-planned 2026-09-23 against the tree that holds phases 1 and 2.
 
@@ -421,6 +421,7 @@ Files: `src/common/netsim/trace/trace.go`,
 `src/common/netsim/internal/netsimtest/load_cases.go`,
 `src/common/netsim/internal/netsimtest/load_cases_test.go`,
 `src/common/netsim/internal/netsimtest/cases.go`,
+`src/common/netsim/internal/netsimtest/corpus_test.go`,
 `src/common/netsim/internal/netsimtest/README.md`,
 `docs/architecture/2026-09-10-virtual-device-direction.md`
 After: U3, U4
@@ -500,6 +501,7 @@ test accepts the new immutable catalog.
 their complete ordered steps, subjects, fact values, outcomes, issue scope,
 status, and evidence entries; 13b verifies the selected journey is the frame
 whose queue entry crossed and all stream frames avoid a drop.
+`corpus_test.go` pins the registry's new total and the three planning case IDs.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/trace src/common/netsim/vswitch/traffic src/common/netsim/fabric src/common/netsim/internal/netsimtest docs/architecture/2026-09-10-virtual-device-direction.md`
 
 Waves: U1 | U2 | U3 U4 | U5
@@ -528,14 +530,14 @@ and it needs the owner's approval per run.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `stream`, `trace`, `traffic`, and `fabric` READMEs and the `netsim`
+- [x] Verifier green for every changed path.
+- [x] `stream`, `trace`, `traffic`, and `fabric` READMEs and the `netsim`
       package table updated; the direction record's run and comparison rules,
       randomness sentence, and scenario seed sentence updated with the code
       that changes them.
-- [ ] This plan's `status` set with an outcome note under its title, and the
+- [x] This plan's `status` set with an outcome note under its title, and the
       parent's `Landed:` line for U3 filled.
-- [ ] No plan labels in code.
+- [x] No plan labels in code.
 
 ## Open questions
 

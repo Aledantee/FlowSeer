@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 36 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 36", len(allCases))
+	if len(allCases) != 39 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 39", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -594,6 +594,9 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"planning/mstp-vlan-instances-diverge",
 		"planning/mstp-vlan-instances-diverge-instance-blocks-alternate",
 		"planning/mstp-vlan-instances-diverge-vlan20-crosses-l1",
+		"planning/oversubscribed-trunk-stated-buffer",
+		"planning/oversubscribed-trunk-unstated-buffer",
+		"planning/policed-stream",
 		"planning/port-vlan-change",
 		"planning/pvst-per-vlan-root",
 		"planning/scenario-replays-link-flap",

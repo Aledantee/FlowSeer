@@ -77,6 +77,12 @@ through [EvidenceRef]. The reference is an opaque key into an evidence catalog
 managed by higher-level analysis packages. The trace package stores, sorts,
 and deduplicates references without inspecting their catalog entries.
 
+`OpQueue` marks an egress queue observation. The first enqueue beyond an
+unstated buffer's maximum-frame threshold carries a producer-owned
+`traffic.queue.buffer-unstated` rule, a typed depth fact, and one reference to
+runtime evidence. It records why readiness is Incomplete; the frame may still
+be delivered.
+
 ## Canonical ordering and equality
 
 Comparing traces from two runs must not depend on map iteration order or slice

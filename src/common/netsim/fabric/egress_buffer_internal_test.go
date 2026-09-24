@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
@@ -102,6 +103,79 @@ func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*Fabric, []E
 
 func egressBufferFrame() ethernet.Frame {
 	return ethernet.Frame{Src: netaddr.MAC{0x02}, Dst: netaddr.MAC{0x03}, Payload: make([]byte, 1000)}
+}
+
+func TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue(t *testing.T) {
+	fab, ep := bufferAccountingFabric(t, nil)
+	frame := egressBufferFrame()
+	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+	journey := &Journey{}
+	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 2, 2, journey, 0, "")
+
+	if got, want := len(journey.Entries), 1; got != want {
+		t.Fatalf("entries at enqueue = %d, want %d", got, want)
+	}
+	entry := journey.Entries[0]
+	if entry.Kind != EntryQueueThreshold || entry.Step == nil {
+		t.Fatalf("entry = %+v, want queue threshold step", entry)
+	}
+	if entry.Step.Op != trace.OpQueue || entry.Step.RuleID != traffic.RuleQueueBufferUnstated {
+		t.Errorf("step = %+v, want queue operation and unstated-buffer rule", entry.Step)
+	}
+	if got, want := entry.Step.Inputs[0].Canonical(), "depth_before_octets=1014;frame_octets=1014;threshold_octets=1518"; got != want {
+		t.Errorf("queue fact = %q, want %q", got, want)
+	}
+	if got, want := entry.Step.Subject, (trace.Subject{Kind: "port", Key: ep.Port + "/0"}); got != want {
+		t.Errorf("subject = %+v, want %+v", got, want)
+	}
+	if len(entry.Step.Evidence) != 1 {
+		t.Fatalf("step evidence = %v, want one reference", entry.Step.Evidence)
+	}
+	ref := entry.Step.Evidence[0]
+	value, ok := fab.runtimeEvidence.Lookup(ref)
+	if !ok || value.Kind != "fabric.runtime" || value.Origin != "egress-queue" {
+		t.Fatalf("runtime evidence = %+v, found %t", value, ok)
+	}
+	if err := validateEvidence("queue", []trace.EvidenceRef{ref}, fab.Metadata().Evidence()); err != nil {
+		t.Errorf("queue evidence does not validate: %v", err)
+	}
+	var matching []analysis.Issue
+	for _, issue := range fab.Metadata().IssuesFor(analysis.PortScope(ep.Node, ep.Port)) {
+		if issue.Code == IssueQueueBufferUnstated {
+			matching = append(matching, issue)
+		}
+	}
+	if len(matching) != 1 || len(matching[0].Evidence) != 1 || matching[0].Evidence[0] != ref {
+		t.Fatalf("queue issues = %+v, want same reference %q", matching, ref)
+	}
+	for name, metadata := range map[string]analysis.Metadata{"fabric": fab.Metadata(), "journey": journey.Metadata} {
+		if _, ok := metadata.Evidence().Lookup(ref); !ok {
+			t.Errorf("%s catalog does not resolve %q", name, ref)
+		}
+	}
+}
+
+func TestEgressLagThresholdKeepsLogicalSubjectAndPhysicalIssue(t *testing.T) {
+	fab, members := lagAccountingFabric(t, 0, nil)
+	member := members[0]
+	frame := egressBufferFrame()
+	fab.enqueueEgress(fab.clock, member, "lag1", frame, 1, 1, &Journey{}, 5, "")
+	journey := &Journey{}
+	fab.enqueueEgress(fab.clock, member, "lag1", frame, 2, 2, journey, 5, "")
+	if len(journey.Entries) != 1 || journey.Entries[0].Step == nil {
+		t.Fatalf("LAG crossing entries = %+v, want queue step", journey.Entries)
+	}
+	entry := journey.Entries[0]
+	if got, want := entry.Step.Subject, (trace.Subject{Kind: "port", Key: "lag1/5"}); got != want {
+		t.Errorf("logical queue subject = %+v, want %+v", got, want)
+	}
+	if entry.Device != member.Node || entry.Port != member.Port {
+		t.Errorf("entry endpoint = %s/%s, want %s/%s", entry.Device, entry.Port, member.Node, member.Port)
+	}
+	scope := analysis.PortScope(member.Node, member.Port)
+	if got := countIssueScope(journey.Metadata.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+		t.Errorf("member scoped queue issues = %d, want one", got)
+	}
 }
 
 // jumboEgressFrame is one 9000-octet-payload frame, 9014 encoded octets.

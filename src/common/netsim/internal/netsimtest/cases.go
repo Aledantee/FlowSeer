@@ -2499,5 +2499,8 @@ func DefaultRegistry() *Registry {
 	RegisterMDNSCases(r)
 	RegisterReflectorCases(r)
 	RegisterFilterCases(r)
+	r.MustRegister(CasePlanningOversubscribedTrunkStatedBuffer())
+	r.MustRegister(CasePlanningOversubscribedTrunkUnstatedBuffer())
+	r.MustRegister(CasePlanningPolicedStream())
 	return r
 }

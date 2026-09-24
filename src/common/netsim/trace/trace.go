@@ -38,6 +38,9 @@ const (
 	// OpTransmit delivers a frame to an egress port or medium.
 	OpTransmit Op = "transmit"
 
+	// OpQueue observes an egress queue as it admits a frame.
+	OpQueue Op = "queue"
+
 	// OpDrop discards a frame due to policy, unknown state, or resource exhaustion.
 	OpDrop Op = "drop"
 )

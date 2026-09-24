@@ -101,7 +101,16 @@ ownership across specialized packages:
   `queue-full`, and a queue with none never drops but its endpoint reports an
   `Incomplete` `queue-buffer-unstated` issue once the queue backs up past one
   maximum-size frame, so a loss figure taken without a stated buffer is marked
-  as resting on nothing.
+  as resting on nothing. The first enqueue that crosses that threshold records
+  a `QueueThreshold` journey entry before the frame joins the pending queue.
+  Its `OpQueue` step names the logical egress port and PCP and carries a typed
+  fact with depth before enqueue, encoded frame octets, and the threshold.
+  The entry names the physical endpoint. The endpoint's issue and that step
+  cite the same `fabric.runtime` evidence, whose context records the endpoint,
+  queue, frame, instant, and fact values. The runtime catalog is available
+  through `Fabric.Metadata()` and journey metadata; `Fabric.Spec()` remains
+  the construction input and does not acquire runtime evidence. A later
+  crossing on another PCP of the same endpoint creates no second event.
   This is the event model of ns-3 without goroutines. The queue also
   holds the wake-ups a layer schedules and the frames a device emits on
   its own, spanning tree first, under the same total order, so the single
@@ -380,7 +389,10 @@ rather than whole-state fingerprints or shallow boolean equality:
   carried frame content. Across the run, it compares `Stop` reason, `Status`,
   `Pending` work count, and `Issues`, followed by the final `Snapshot`
   behavioral state. Metadata, evidence, semantic trace text, and raw
-  `Fingerprints`/`Cycle` diagnostics are diagnostic only.
+  `Fingerprints`/`Cycle` diagnostics are diagnostic only. The ordered entry
+  comparison skips `QueueThreshold` entries and their count, because they
+  diagnose an unstated buffer. Drops, deliveries, and their timing remain
+  behavioral observables.
 - **Three honest dispositions.** Comparison returns `analysis.Disposition`,
   defined as `Equivalent`, `Different`, or `Inconclusive`. Dispositions are
   non-empty strings with no zero value. The disposition is derived rather than

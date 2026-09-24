@@ -70,6 +70,10 @@ const (
 
 	// EntryDequeue records an endpoint selecting its next egress frame.
 	EntryDequeue EntryKind = "Dequeue"
+
+	// EntryQueueThreshold records the first crossing of an unstated egress
+	// buffer's diagnostic depth threshold on a physical endpoint.
+	EntryQueueThreshold EntryKind = "QueueThreshold"
 )
 
 // Entry records a single discrete event or hop in a frame's traversal of the network fabric.
@@ -80,6 +84,7 @@ const (
 // Rejection, or Unresolved entry, which carries no preceding Arrival, and on the Drop entry a
 // [vswitch.NeighborDrop] produces for a held frame that left its hold queue and reached no wire, where
 // Port and Reason likewise come from the drop rather than from reading the step back.
+// A QueueThreshold entry carries the physical endpoint and the queue observation step.
 type Entry struct {
 	At            time.Time
 	Kind          EntryKind

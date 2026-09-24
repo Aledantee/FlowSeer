@@ -450,10 +450,12 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}, true
 	}
 
-	minEntries := min(len(jA.Entries), len(jB.Entries))
+	entriesA := slices.DeleteFunc(slices.Clone(jA.Entries), func(e Entry) bool { return e.Kind == EntryQueueThreshold })
+	entriesB := slices.DeleteFunc(slices.Clone(jB.Entries), func(e Entry) bool { return e.Kind == EntryQueueThreshold })
+	minEntries := min(len(entriesA), len(entriesB))
 	for k := 0; k < minEntries; k++ {
-		eA := jA.Entries[k]
-		eB := jB.Entries[k]
+		eA := entriesA[k]
+		eB := entriesB[k]
 
 		if eA.Kind != eB.Kind {
 			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
@@ -545,11 +547,11 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}
 	}
 
-	if len(jA.Entries) != len(jB.Entries) {
+	if len(entriesA) != len(entriesB) {
 		return Difference{
 			Observable: "path",
-			Current:    fmt.Sprintf("%d entries", len(jA.Entries)),
-			Expected:   fmt.Sprintf("%d entries", len(jB.Entries)),
+			Current:    fmt.Sprintf("%d entries", len(entriesA)),
+			Expected:   fmt.Sprintf("%d entries", len(entriesB)),
 		}, true
 	}
 

@@ -282,6 +282,17 @@ queue's `Depth` and `Peak` for every PCP that has held a frame, so a drained
 queue still reports its peak. The depth and peak stay out of
 `Snapshot.Fingerprint` and of `Compare`, because queue depth is transient.
 
+The first unstated enqueue beyond one maximum-size encoded frame records an
+`EntryQueueThreshold` before it enters the pending queue. Its `traffic` step
+uses `OpQueue`, the logical port and PCP as its subject, and a
+`QueueThresholdFact` with the depth before enqueue, frame octets, and the
+port-MTU-derived threshold. The entry names the physical endpoint. It carries
+one evidence reference shared with that endpoint's Incomplete
+`queue-buffer-unstated` issue. For example, a tagged 1018-octet frame entering
+behind another on a 1518-octet threshold records `depth_before_octets=1018`
+and `frame_octets=1018`. A second PCP crossing on that endpoint creates no
+second event or issue.
+
 For example, two tagged frames arriving together at `sw1:1/1/2`, PCP 0 first
 and PCP 7 second, are both pending before the trunk dequeue. PCP 7 starts at
 `t0`, takes 704 ns to serialize, and reaches `sw2` after the trunk's 1494 ns
@@ -742,6 +753,13 @@ Issues cite the references of the cable or entry they rest on. Evidence is not
 behavior, so `Diff` and `DiffSpecs` report no change for it, while `Equal`
 compares it.
 
+Queue crossings add `fabric.runtime` evidence with origin `egress-queue`.
+Its context names the rule, physical endpoint, logical port, PCP, frame ID,
+instant, and queue fact fields. `Fabric.Metadata().Evidence()` includes this
+runtime catalog so the queue issue's ref resolves; `Spec().Evidence` keeps only
+construction evidence. Earlier metadata snapshots and forks retain their own
+catalog values.
+
 A valid host injection onto a link that is not `Up` is not an error. On a
 `Down` link the journey records an `EntryDrop` with the link's reason; on an
 `Unknown` link, an `EntryUnresolved`. Both carry the host's cable and transmit
@@ -778,8 +796,10 @@ journey's metadata as it was, while `Fabric.Metadata` drops the issue.
 
 `queue-buffer-unstated` is raised for the endpoint the first time one of its
 unstated-buffer queues backs up past one maximum-size frame for the port's MTU.
-The crossing frame's journey carries it directly, so it survives when that frame
-is the run's last one, and any entry recorded after the mark whose dependencies
+The crossing frame's queue entry depends on its physical endpoint, so it
+carries the issue and its evidence even when that frame is the run's last one.
+An aggregate-retained flow keeps that metadata after the journey is freed.
+Any entry recorded after the mark whose dependencies
 overlap the endpoint picks it up from `Fabric.Metadata`. A frame queued ahead of
 the crossing and delivered after does not: its entries were recorded before the
 mark, and its later delivery entry depends on the receiving host, not the
@@ -980,6 +1000,9 @@ behavioral snapshots:
 
 Semantic trace annotations, step evidence references, and human diagnostic messages
 are diagnostic: differences in diagnostics alone never yield `Different`.
+`EntryQueueThreshold` is likewise omitted from the ordered behavioral-entry
+comparison, including its entry count. A changed delivery or drop still yields
+a difference.
 
 ### Internal fork lifecycle
 

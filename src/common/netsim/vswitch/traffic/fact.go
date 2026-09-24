@@ -11,6 +11,10 @@ const (
 	// want of stated buffer.
 	RuleQueueDrop trace.RuleID = "traffic.queue.drop"
 
+	// RuleQueueBufferUnstated identifies the first queue depth beyond one
+	// maximum-size frame where no buffer size was stated.
+	RuleQueueBufferUnstated trace.RuleID = "traffic.queue.buffer-unstated"
+
 	// ReasonQueueFull identifies a frame dropped because its egress queue has no
 	// room in its stated buffer.
 	ReasonQueueFull trace.Reason = "queue-full"
@@ -45,6 +49,19 @@ func QueueDropFact(depthOctets, bufferOctets uint64, frameOctets int) trace.Fact
 	return queueDropFact("depth_octets=" + strconv.FormatUint(depthOctets, 10) +
 		";buffer_octets=" + strconv.FormatUint(bufferOctets, 10) +
 		";frame_octets=" + strconv.Itoa(frameOctets))
+}
+
+type queueThresholdFact string
+
+func (f queueThresholdFact) TypeID() string    { return "traffic.queue_threshold" }
+func (f queueThresholdFact) Canonical() string { return string(f) }
+
+// QueueThresholdFact returns an immutable snapshot of the depth before an
+// enqueue, the frame's encoded size, and the port-MTU-derived threshold.
+func QueueThresholdFact(depthBefore, frameOctets, thresholdOctets uint64) trace.Fact {
+	return queueThresholdFact("depth_before_octets=" + strconv.FormatUint(depthBefore, 10) +
+		";frame_octets=" + strconv.FormatUint(frameOctets, 10) +
+		";threshold_octets=" + strconv.FormatUint(thresholdOctets, 10))
 }
 
 // PolicerDecisionFact returns an immutable snapshot of an ingress policer decision.

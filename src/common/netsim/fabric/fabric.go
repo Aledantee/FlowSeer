@@ -12,6 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -19,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 // ConstructionSpec captures the topology and each switch's complete construction
@@ -168,35 +170,34 @@ func NewConstructionSpec(cfg Config) (ConstructionSpec, error) {
 //
 // A Fabric is not safe for concurrent use.
 type Fabric struct {
-	cfg            Config
-	evidence       analysis.EvidenceCatalog
-	links          []Link
-	linkTrust      []linkTrust
-	uncabled       map[Endpoint]Uncabled
-	switches       map[string]*vswitch.Switch
-	hostStacks     map[string]*routing.Layer
-	byEnd          map[Endpoint]linkEndRef
-	clock          time.Time
-	stepped        bool
-	queue          []Arrival
-	attachments    []attachedSource
-	pendingHosts   []pendingHostInjection
-	wakes          map[string]time.Time
-	dequeueItems   map[Endpoint]int
-	wakeItems      map[string]int
-	nextFrameID    FrameID
-	nextSeq        uint64
-	journeys       map[FrameID]*Journey
-	entered        map[FrameID]map[Endpoint]bool
-	cableCrossings map[Endpoint]uint
-	busyUntil      map[Endpoint]time.Time
-	egress         map[Endpoint]*egressQueue
-	counters       map[Endpoint]*Counters
+	cfg             Config
+	evidence        analysis.EvidenceCatalog
+	runtimeEvidence analysis.EvidenceCatalog
+	links           []Link
+	linkTrust       []linkTrust
+	uncabled        map[Endpoint]Uncabled
+	switches        map[string]*vswitch.Switch
+	hostStacks      map[string]*routing.Layer
+	byEnd           map[Endpoint]linkEndRef
+	clock           time.Time
+	stepped         bool
+	queue           []Arrival
+	attachments     []attachedSource
+	pendingHosts    []pendingHostInjection
+	wakes           map[string]time.Time
+	dequeueItems    map[Endpoint]int
+	wakeItems       map[string]int
+	nextFrameID     FrameID
+	nextSeq         uint64
+	journeys        map[FrameID]*Journey
+	entered         map[FrameID]map[Endpoint]bool
+	cableCrossings  map[Endpoint]uint
+	busyUntil       map[Endpoint]time.Time
+	egress          map[Endpoint]*egressQueue
+	counters        map[Endpoint]*Counters
 
-	// unstatedBacked names the endpoints whose unstated-buffer egress queue
-	// has backed up past one maximum-size frame, so [Fabric.Metadata] carries
-	// the queue-buffer-unstated issue for them.
-	unstatedBacked map[Endpoint]struct{}
+	// unstatedBacked retains each endpoint's first queue-threshold evidence ref.
+	unstatedBacked map[Endpoint]trace.EvidenceRef
 
 	// metadataCache holds the value [Fabric.Metadata] last built. Its inputs
 	// are fixed after construction except where [Fabric.SetFault] rewrites a
@@ -679,7 +680,7 @@ func (f *Fabric) Fork() *Fabric {
 		}
 	}
 
-	var unstatedBacked map[Endpoint]struct{}
+	var unstatedBacked map[Endpoint]trace.EvidenceRef
 	if len(f.unstatedBacked) > 0 {
 		unstatedBacked = maps.Clone(f.unstatedBacked)
 	}
@@ -718,37 +719,38 @@ func (f *Fabric) Fork() *Fabric {
 	}
 
 	return &Fabric{
-		cfg:            f.cfg.Clone(),
-		evidence:       f.evidence,
-		links:          links,
-		linkTrust:      cloneLinkTrustSlice(f.linkTrust),
-		uncabled:       uncabled,
-		switches:       switches,
-		hostStacks:     hostStacks,
-		byEnd:          byEnd,
-		clock:          f.clock,
-		stepped:        f.stepped,
-		queue:          queue,
-		attachments:    attachments,
-		pendingHosts:   pendingHosts,
-		wakes:          wakes,
-		dequeueItems:   dequeueItems,
-		wakeItems:      wakeItems,
-		nextFrameID:    f.nextFrameID,
-		nextSeq:        f.nextSeq,
-		journeys:       journeys,
-		entered:        entered,
-		cableCrossings: cableCrossings,
-		busyUntil:      busyUntil,
-		egress:         egress,
-		counters:       counters,
-		unstatedBacked: unstatedBacked,
-		metadataCache:  f.metadataCache,
-		inflight:       inflight,
-		heldAggregates: heldAggregates,
-		flows:          flows,
-		touched:        nil,
-		err:            f.err,
+		cfg:             f.cfg.Clone(),
+		evidence:        f.evidence,
+		runtimeEvidence: f.runtimeEvidence,
+		links:           links,
+		linkTrust:       cloneLinkTrustSlice(f.linkTrust),
+		uncabled:        uncabled,
+		switches:        switches,
+		hostStacks:      hostStacks,
+		byEnd:           byEnd,
+		clock:           f.clock,
+		stepped:         f.stepped,
+		queue:           queue,
+		attachments:     attachments,
+		pendingHosts:    pendingHosts,
+		wakes:           wakes,
+		dequeueItems:    dequeueItems,
+		wakeItems:       wakeItems,
+		nextFrameID:     f.nextFrameID,
+		nextSeq:         f.nextSeq,
+		journeys:        journeys,
+		entered:         entered,
+		cableCrossings:  cableCrossings,
+		busyUntil:       busyUntil,
+		egress:          egress,
+		counters:        counters,
+		unstatedBacked:  unstatedBacked,
+		metadataCache:   f.metadataCache,
+		inflight:        inflight,
+		heldAggregates:  heldAggregates,
+		flows:           flows,
+		touched:         nil,
+		err:             f.err,
 	}
 }
 
@@ -979,10 +981,14 @@ func (f *Fabric) Metadata() analysis.Metadata {
 	}
 
 	for _, ep := range slices.SortedFunc(maps.Keys(f.unstatedBacked), compareEndpoint) {
-		issues = append(issues, queueBufferUnstatedIssue(ep))
+		issues = append(issues, queueBufferUnstatedIssue(ep, f.unstatedBacked[ep]))
 	}
 
-	md := analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, assumptions)
+	catalog := f.evidence
+	for _, entry := range f.runtimeEvidence.Entries() {
+		catalog, _ = catalog.Add(entry.Evidence)
+	}
+	md := analysis.NewMetadata(analysis.WholeScope(), issues, catalog, assumptions)
 	f.metadataCache = &md
 
 	return md
@@ -990,12 +996,13 @@ func (f *Fabric) Metadata() analysis.Metadata {
 
 // queueBufferUnstatedIssue is the issue an endpoint raises once an unstated-buffer
 // egress queue first backs up past one maximum-size frame.
-func queueBufferUnstatedIssue(ep Endpoint) analysis.Issue {
+func queueBufferUnstatedIssue(ep Endpoint, ref trace.EvidenceRef) analysis.Issue {
 	return analysis.Issue{
-		Code:    IssueQueueBufferUnstated,
-		Status:  analysis.Incomplete,
-		Scope:   endpointScope(ep),
-		Message: fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
+		Code:     IssueQueueBufferUnstated,
+		Status:   analysis.Incomplete,
+		Scope:    endpointScope(ep),
+		Message:  fmt.Sprintf("egress queue on node %q port %q states no buffer and has backed up past one maximum-size frame", ep.Node, ep.Port),
+		Evidence: []trace.EvidenceRef{ref},
 	}
 }
 
@@ -1010,28 +1017,41 @@ func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) an
 	return mergeMetadata(base, analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, nil))
 }
 
-// markQueueBufferUnstated records the first time an endpoint's unstated-buffer
-// egress queue backs up past threshold octets: it marks the endpoint so
-// [Fabric.Metadata] reports the issue, folds the same issue into the crossing
-// frame's journey, and clears the metadata cache. depth is the queue depth with
-// the frame just enqueued counted. A queue that crosses on two PCPs marks its
-// endpoint once.
-func (f *Fabric) markQueueBufferUnstated(ep Endpoint, depth, threshold uint64, journey *Journey) {
-	if depth <= threshold {
+// markQueueBufferUnstated records the first threshold crossing per physical
+// endpoint before enqueue, retaining its evidence for later metadata reads.
+func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort string, pcp vlan.PCP, fid FrameID, depthBefore, frameOctets, threshold uint64, journey *Journey) {
+	if depthBefore+frameOctets <= threshold {
 		return
 	}
 	if _, marked := f.unstatedBacked[ep]; marked {
 		return
 	}
 	if f.unstatedBacked == nil {
-		f.unstatedBacked = make(map[Endpoint]struct{})
+		f.unstatedBacked = make(map[Endpoint]trace.EvidenceRef)
 	}
-	f.unstatedBacked[ep] = struct{}{}
-
-	if journey != nil {
-		journey.Metadata = f.mergeRaised(journey.Metadata, []analysis.Issue{queueBufferUnstatedIssue(ep)})
-	}
+	fact := traffic.QueueThresholdFact(depthBefore, frameOctets, threshold)
+	context := "rule=" + strconv.Quote(string(traffic.RuleQueueBufferUnstated)) +
+		";physical_node=" + strconv.Quote(ep.Node) +
+		";physical_port=" + strconv.Quote(ep.Port) +
+		";egress_port=" + strconv.Quote(egressPort) +
+		";pcp=" + strconv.FormatUint(uint64(pcp), 10) +
+		";frame_id=" + strconv.FormatUint(uint64(fid), 10) +
+		";at=" + strconv.Quote(now.UTC().Format(time.RFC3339Nano)) +
+		";" + fact.Canonical()
+	var ref trace.EvidenceRef
+	f.runtimeEvidence, ref = f.runtimeEvidence.Add(analysis.Evidence{
+		Kind: "fabric.runtime", Origin: "egress-queue", Context: context,
+	})
+	f.unstatedBacked[ep] = ref
 	f.metadataCache = nil
+	f.record(journey, Entry{
+		At: now, Kind: EntryQueueThreshold, Device: ep.Node, Port: ep.Port, PCP: pcp,
+		Step: &trace.Step{
+			Layer: traffic.Layer, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
+			Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
+			Inputs:  []trace.Fact{fact}, Evidence: []trace.EvidenceRef{ref},
+		},
+	})
 }
 
 // observedOperStatus reports whether a state says something definite: an unset

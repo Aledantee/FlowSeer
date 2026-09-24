@@ -21,6 +21,18 @@ established across the library:
 - `planning/port-vlan-change`: Reconfigures an access switchport from VLAN 10 to
   VLAN 20 and asserts both forwarding sides, their ordered traces, and typed
   diff facts ([bridge.PVIDFact], [bridge.VLANsFact]) without string parsing.
+- `planning/oversubscribed-trunk-stated-buffer`: A 32-frame stream reaches a
+  10 Mbit/s tagged trunk from a 1 Gbit/s ingress. Its 1518-octet egress buffer
+  tail-drops the third frame at 1018 octets of prior queue depth, with a
+  `QueueDropFact` and Complete readiness.
+- `planning/oversubscribed-trunk-unstated-buffer`: The same stream has no
+  stated buffer. The third frame records the first queue threshold crossing
+  and reaches h2; its Incomplete issue and queue step cite the same runtime
+  evidence. All 32 frames avoid a queue drop, so the zero-loss estimate is
+  explicitly limited by the unknown buffer size.
+- `planning/policed-stream`: A 1 Mbit/s ingress policer with a 1518-octet
+  burst refuses the second frame of the 32-frame stream. Its
+  `PolicerDecisionFact` records the 1038 wire octets charged to the bucket.
 - `topology-shadowing/partial-model-unknown-port`: Loads a device model with one
   unknown operational port via [netmodel.Load]. Proves that the construction
   specification remains usable, readiness is Incomplete strictly for the

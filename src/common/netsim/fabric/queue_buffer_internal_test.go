@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -151,6 +153,7 @@ func countIssueScope(issues []analysis.Issue, code analysis.IssueCode, scope ana
 func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	fab, macs := queueBufferTopology(t, nil)
 	primeQueueBufferLearning(t, fab, macs)
+	constructionEvidence := fab.Spec().Evidence.Entries()
 
 	scope := analysis.PortScope("sw1", "1/1/3")
 	if got := fab.Metadata().IssuesFor(scope); len(got) != 0 {
@@ -182,6 +185,24 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	if !hasIssueScope(flow.Metadata.Issues(), IssueQueueBufferUnstated, scope) {
 		t.Errorf("flow metadata issues = %+v, want queue-buffer-unstated on %v", flow.Metadata.Issues(), scope)
 	}
+	var ref trace.EvidenceRef
+	for _, issue := range flow.Metadata.Issues() {
+		if issue.Code == IssueQueueBufferUnstated {
+			if len(issue.Evidence) != 1 {
+				t.Fatalf("flow queue issue evidence = %v, want one reference", issue.Evidence)
+			}
+			ref = issue.Evidence[0]
+		}
+	}
+	if ref == "" {
+		t.Fatal("aggregate flow lost its queue evidence reference")
+	}
+	if _, ok := flow.Metadata.Evidence().Lookup(ref); !ok {
+		t.Errorf("aggregate flow catalog does not resolve %q", ref)
+	}
+	if got := fab.Spec().Evidence.Entries(); !slices.Equal(got, constructionEvidence) {
+		t.Errorf("runtime crossing changed Spec evidence from %+v to %+v", constructionEvidence, got)
+	}
 }
 
 // TestQueueBufferUnstatedThreshold asserts one 1014-octet frame below the
@@ -191,14 +212,22 @@ func TestQueueBufferUnstatedThreshold(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
 	frame := egressBufferFrame()
 
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+	first := &Journey{}
+	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, first, 0, "")
 	if len(fab.unstatedBacked) != 0 {
 		t.Fatalf("one 1014-octet frame marked %v, want no mark below the 1518-octet threshold", fab.unstatedBacked)
 	}
+	if len(first.Entries) != 0 || len(fab.runtimeEvidence.Entries()) != 0 {
+		t.Fatalf("below-threshold enqueue recorded %d entries and %d evidence entries", len(first.Entries), len(fab.runtimeEvidence.Entries()))
+	}
 
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+	second := &Journey{}
+	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 2, 2, second, 0, "")
 	if _, marked := fab.unstatedBacked[ep]; !marked {
 		t.Fatalf("the second frame left %v unmarked, want a mark at 2028 octets", fab.unstatedBacked)
+	}
+	if len(second.Entries) != 1 || second.Entries[0].Kind != EntryQueueThreshold {
+		t.Errorf("crossing enqueue entries = %+v, want one queue threshold", second.Entries)
 	}
 }
 
@@ -209,6 +238,7 @@ func TestQueueBufferUnstatedThreshold(t *testing.T) {
 func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
 	fab, eps := unstatedBackedFabric(t, []string{"1/1/1", "1/1/2", "1/1/3"})
 	before := fab.Metadata()
+	beforeCatalog := before.Evidence().Entries()
 
 	frame := egressBufferFrame()
 	for _, ep := range eps {
@@ -218,6 +248,9 @@ func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
 	}
 
 	after := fab.Metadata()
+	if got := before.Evidence().Entries(); !slices.Equal(got, beforeCatalog) {
+		t.Errorf("old metadata evidence changed from %+v to %+v", beforeCatalog, got)
+	}
 	for _, ep := range eps {
 		scope := analysis.PortScope(ep.Node, ep.Port)
 		if got := countIssueScope(before.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
@@ -234,14 +267,20 @@ func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
 func TestQueueBufferUnstatedMarksOncePerEndpoint(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
 	frame := egressBufferFrame()
+	var recorded int
 	for _, pcp := range []vlan.PCP{0, 7} {
 		for range 2 {
-			fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, pcp, "")
+			journey := &Journey{}
+			fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, pcp, "")
+			recorded += len(journey.Entries)
 		}
 	}
 
 	if len(fab.unstatedBacked) != 1 {
 		t.Fatalf("marked endpoints = %v, want one", fab.unstatedBacked)
+	}
+	if recorded != 1 || len(fab.runtimeEvidence.Entries()) != 1 {
+		t.Errorf("two PCP crossings recorded %d entries and %d evidence values, want one each", recorded, len(fab.runtimeEvidence.Entries()))
 	}
 	scope := analysis.PortScope(ep.Node, ep.Port)
 	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
@@ -289,5 +328,19 @@ func TestQueueBufferUnstatedForkIsIndependent(t *testing.T) {
 	}
 	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
 		t.Errorf("source Metadata holds %d queue-buffer-unstated issues after the fork marked, want none", got)
+	}
+	if len(fab.runtimeEvidence.Entries()) != 0 {
+		t.Errorf("source gained runtime evidence after fork marked: %+v", fab.runtimeEvidence.Entries())
+	}
+	ref := fork.unstatedBacked[ep]
+	if _, ok := fork.Metadata().Evidence().Lookup(ref); !ok {
+		t.Errorf("fork catalog does not resolve %q", ref)
+	}
+	copyAfterCrossing := fork.Fork()
+	if got := copyAfterCrossing.unstatedBacked[ep]; got != ref {
+		t.Errorf("forked crossing ref = %q, want %q", got, ref)
+	}
+	if _, ok := copyAfterCrossing.Metadata().Evidence().Lookup(ref); !ok {
+		t.Errorf("forked crossing catalog does not resolve %q", ref)
 	}
 }

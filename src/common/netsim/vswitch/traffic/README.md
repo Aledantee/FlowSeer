@@ -55,6 +55,13 @@ returns, so it excludes the wire's preamble, start delimiter, and interpacket
 gap. `Config.QueueBuffer` looks it up the same way; a missing entry means that
 priority's buffer is unbounded and its queue never tail-drops.
 
+On an unstated queue, `traffic.queue.buffer-unstated` names the first enqueue
+that raises the physical endpoint's queue above one port-MTU-sized encoded
+frame. `QueueThresholdFact` records the depth before that enqueue, the frame's
+encoded octets, and the threshold. A LAG supplies the logical queue and MTU;
+the selected member owns the physical queue and its issue. Later crossings on
+another PCP of the same member create no second event.
+
 ## State retention
 
 `RetentionKey(cfg Config) string` encodes the normalized traffic configuration

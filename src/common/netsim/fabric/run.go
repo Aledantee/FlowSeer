@@ -1007,10 +1007,10 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 			if mtu, ok := sw.PortMTU(egressPort); ok {
 				threshold = uint64(mtu + 18)
 			}
-			f.markQueueBufferUnstated(txEnd, q.depth[pcp]+octets, threshold, journey)
+			f.markQueueBufferUnstated(now, txEnd, egressPort, pcp, fid, q.depth[pcp], octets, threshold, journey)
 		}
 	} else {
-		f.markQueueBufferUnstated(txEnd, q.depth[pcp]+octets, 1500+18, journey)
+		f.markQueueBufferUnstated(now, txEnd, egressPort, pcp, fid, q.depth[pcp], octets, 1500+18, journey)
 	}
 	q.pending[pcp] = append(q.pending[pcp], queued{
 		frame:      cloneFrame(frame),
