@@ -111,8 +111,19 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	if !ok || stats.Offered != 32 {
 		return ExecutionResult{}, fmt.Errorf("flow %d offered %d frames, found %t; want 32", flow, stats.Offered, ok)
 	}
-	if decisive == traffic.RuleQueueBufferUnstated && len(stats.Drops) != 0 {
-		return ExecutionResult{}, fmt.Errorf("unstated queue dropped flow %d frames: %v", flow, stats.Drops)
+	switch decisive {
+	case traffic.RuleQueueBufferUnstated:
+		if len(stats.Drops) != 0 {
+			return ExecutionResult{}, fmt.Errorf("unstated queue dropped flow %d frames: %v", flow, stats.Drops)
+		}
+	case traffic.RuleQueueDrop:
+		if stats.Drops[traffic.ReasonQueueFull] == 0 {
+			return ExecutionResult{}, fmt.Errorf("flow %d missing queue-full drops: %v", flow, stats.Drops)
+		}
+	case traffic.RulePolicerRefuse:
+		if stats.Drops[traffic.ReasonPoliced] == 0 {
+			return ExecutionResult{}, fmt.Errorf("flow %d missing policed drops: %v", flow, stats.Drops)
+		}
 	}
 	for _, j := range fab.Report() {
 		if j.Injection.Flow != flow {
@@ -142,6 +153,9 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 				if entry.Result != nil && entry.Result.Outcome == trace.Dropped {
 					result.Reason = entry.Result.Reason
 				}
+			}
+			if result.Outcome == trace.Dropped && stats.Drops[result.Reason] == 0 {
+				return ExecutionResult{}, fmt.Errorf("flow %d drop reason %s not counted in drops: %v", flow, result.Reason, stats.Drops)
 			}
 			return result, nil
 		}

@@ -930,11 +930,14 @@ func unlinkedEnd(ep Endpoint, uncabled map[Endpoint]Uncabled) LinkEnd {
 //   - an adjacency-unresolved issue on the port scope of every unresolved switch
 //     port, and oper-status-conflict or observed-speed-conflict issues on the port
 //     scope where an observation disagrees with what executes;
+//   - a queue-buffer-unstated issue on the endpoint scope of every endpoint whose
+//     egress queue states no buffer and has backed up past one maximum-size frame;
 //   - one assumption per link [Config.PhyAssumption] filled.
 //
 // A link's scope key is its cable's [Diff] subject key. Issues cite the evidence
-// references of the cable or Uncabled entry they rest on, resolved in the
-// construction specification's evidence catalog.
+// references of the cable, Uncabled entry, or runtime queue crossing they rest
+// on; Metadata merges the runtime catalog with the construction specification's
+// evidence catalog so all cited references resolve.
 //
 // The result is cached: its inputs are fixed after construction except where
 // [Fabric.SetFault] rewrites a link, or a queue with no stated buffer first
@@ -1020,7 +1023,7 @@ func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) an
 // markQueueBufferUnstated records the first threshold crossing per physical
 // endpoint before enqueue, retaining its evidence for later metadata reads.
 func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort string, pcp vlan.PCP, fid FrameID, depthBefore, frameOctets, threshold uint64, journey *Journey) {
-	if depthBefore+frameOctets <= threshold {
+	if depthBefore > threshold || depthBefore+frameOctets <= threshold {
 		return
 	}
 	if _, marked := f.unstatedBacked[ep]; marked {
@@ -1029,11 +1032,17 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 	if f.unstatedBacked == nil {
 		f.unstatedBacked = make(map[Endpoint]trace.EvidenceRef)
 	}
+	target := egressPort
+	subject := trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)}
+	if egressPort == "" {
+		target = ep.Node
+		subject = trace.Subject{Kind: "host", Key: fmt.Sprintf("%s/%d", ep.Node, pcp)}
+	}
 	fact := traffic.QueueThresholdFact(depthBefore, frameOctets, threshold)
 	context := "rule=" + strconv.Quote(string(traffic.RuleQueueBufferUnstated)) +
 		";physical_node=" + strconv.Quote(ep.Node) +
 		";physical_port=" + strconv.Quote(ep.Port) +
-		";egress_port=" + strconv.Quote(egressPort) +
+		";egress_port=" + strconv.Quote(target) +
 		";pcp=" + strconv.FormatUint(uint64(pcp), 10) +
 		";frame_id=" + strconv.FormatUint(uint64(fid), 10) +
 		";at=" + strconv.Quote(now.UTC().Format(time.RFC3339Nano)) +
@@ -1048,7 +1057,7 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 		At: now, Kind: EntryQueueThreshold, Device: ep.Node, Port: ep.Port, PCP: pcp,
 		Step: &trace.Step{
 			Layer: traffic.Layer, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
-			Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
+			Subject: subject,
 			Inputs:  []trace.Fact{fact}, Evidence: []trace.EvidenceRef{ref},
 		},
 	})
