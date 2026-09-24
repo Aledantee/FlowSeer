@@ -111,7 +111,7 @@ Landed: `6a51fd13..5f211ffc`
 ### U3. Stream package and the pull loop
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase3-plan.md`
 After: U1, U2
-Landed:
+Landed: `6bcb4d9b..1a6fefc5`
 
 ### U4. Capture file as a stream source
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase4-plan.md`
