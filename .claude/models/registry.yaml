@@ -1,8 +1,73 @@
-# Project override of the machine-wide model registry at
-# `~/.claude/models/registry.yaml`, which the `tune` skill writes. An entry
-# here replaces the machine-wide entry of the same name under `pools`,
-# `models`, `roles`, and `opencode_agents`; any other top-level key replaces
-# the machine-wide key whole. Keep only what is specific to this repository.
+# Model registry. Written by the `tune` skill; read by `delegate`.
+# Prices are USD per million tokens (input, output) at the vendor's list rate;
+# a prepaid pool makes them irrelevant below its cap. `pool: null` marks a
+# model no signed-in pool serves: it stays because a plan ledger may name it,
+# and it is in no fit set. `refusal_cyber` is the tune skill's measured
+# or reported likelihood that a safety classifier declines security tooling
+# work. Sources and dates live in `.claude/models/evidence.md`.
+as_of: 2026-09-22  # calibrations 2026-09-09 and 2026-09-19/20: Merge task, see evidence.md; Sonnet 5 execute re-calibrated at xhigh 2026-09-18; catalogue re-pulled 2026-09-19 19:50Z, which priced the synthetic pool and took the five ids Synthetic does not answer back off it
+
+pools:
+  claude: {cli: claude, pin: orca-model, meter: requests}
+  codex: {cli: codex, pin: orca-model, meter: requests}
+  google: {cli: agy, pin: launch-flag, meter: requests}
+  synthetic: {cli: opencode, pin: launch-flag, meter: requests}  # rolling five-hour request limit and weekly credit limit, both read from GET api.synthetic.new/v2/quotas
+  zen: {cli: opencode, pin: launch-flag, meter: per-token, overflow_only: true}
+
+models:
+  claude-fable-5-1: {pool: claude, vendor: anthropic, price: [10, 50], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: high}
+  claude-opus-5: {pool: claude, vendor: anthropic, price: [5, 25], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: medium, local: {review-seam: {effort: default, found_known_bug: true, extra_valid: 1, wall_s: 148, cost_usd: 0.66}}}
+  claude-sonnet-5: {pool: claude, vendor: anthropic, price: [2, 10], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, local: {execute: {effort: xhigh, runs: 2, base: bd9e0862, pass: [6/7, 5/7], wall_s: [591, 580], cost_usd: [1.58, 1.39], note: deadlock on source error in both runs; same failure at default effort 2026-09-09 (6/7)}, review-unit: {effort: default, found_known_bug: false, wall_s: 140, cost_usd: 0.31}}}
+  claude-haiku-4-5: {pool: claude, vendor: anthropic, price: [1, 5], context: 200000, effort: [], refusal_cyber: low}
+  gpt-6-astra: {pool: codex, vendor: openai, price: [10, 50], context: 1050000, effort: [low, medium, high, xhigh, max], refusal_cyber: high}
+  gpt-5.6-sol: {pool: codex, vendor: openai, price: [4, 20], context: 1050000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, terminal_bench: null, local: {execute: {pass: 7/7, wall_s: '>6600 (global codex plugin self-review)', cost_usd: null}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 530, cost_usd: 3.5}}}
+  gpt-5.6-luna: {pool: codex, vendor: openai, price: [0.2, 1.2], context: 1050000, effort: [low, medium, high], refusal_cyber: low}
+  gemini-3.8-flash: {pool: google, vendor: google, price: [0.75, 3.75], context: 1048576, effort: [low, medium, high], refusal_cyber: medium, id_format: "gemini-3.8-flash-<effort>", local: {execute: {pass: 7/7, wall_s: 201, cost_usd: 0.56}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 275, cost_usd: 0.48}}}
+  glm-5.3: {pool: null, vendor: zai, price: [1.4, 4.4], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 88.2, open_weights: true, local: {execute: {pass: void, wall_s: 902, cost_usd: 0.17, note: "recorded 0/7 on 2026-09-09 for 32K reasoning then finish=length with no tool call; that is opencode's default output cap, so the lane measured the harness. Was removed from the execute fit set on this result"}}}
+  glm-5.3-flashx: {pool: null, vendor: zai, price: [0.37, 1.25], context: 1000000, effort: [], refusal_cyber: low, open_weights: true}  # GLM-5.3-Flash's weights on a faster serving stack, 2026-09-18; no new evaluation, and Synthetic does not serve it
+  glm-5.3-flash: {pool: synthetic, pool_id: "synthetic/hf:zai-org/GLM-5.3-Flash", vendor: zai, price: [0.15, 0.5], context: 524288, effort: [], refusal_cyber: low, open_weights: true, local: {execute: {base: bd9e0862, pass: void, runs: 3, wall_s: [469, 423, 775], cost_usd: [0.018, 0.019, 0.017], note: "every run ends finish=length at exactly 32,000 output tokens with no tool call and no file: through an agent profile, through the same profile with a per-model limit override, and on the default agent with no profile. Synthetic serves 33,100 tokens to a direct call and opencode publishes 65,536 for the model, so the ceiling is opencode's and the model reasons past it on this brief. Not a score; unusable for execute through opencode until that ceiling moves"}}}  # [0.07, 0.25] was a launch promotion that ended 2026-09-09; Z.ai serves 1M context, Synthetic 512K
+  kimi-k3: {pool: synthetic, pool_id: "synthetic/hf:moonshotai/Kimi-K3", vendor: moonshotai, price: [3, 15], context: 524288, effort: [], refusal_cyber: low, terminal_bench: 88.3, open_weights: true, local: {execute: {runs: 2, base: [unrecorded, bd9e0862], pass: [7/7, 6/7], wall_s: [1235, 460], cost_usd: [0.82, 0.026], race: [true, true], note: "run 1 on the go pool 2026-09-09 at the vendor's 1M context; run 2 on synthetic 2026-09-19 at 512K on the default agent, failing TestMergeAcceptSourceErrorPropagates, the source-error deadlock Sonnet 5 also had, first without -race and the same under -race -count=3 on 2026-09-22; its own tests pass"}}}
+  # The rest of the synthetic pool. Price and context are the `synthetic`
+  # provider rows on models.dev, which is what opencode bills this pool at and
+  # is not the upstream vendor's: Synthetic truncates the context and marks its
+  # own rate up. None of these is calibrated on this repository, so none is in
+  # a fit set.
+  deepseek-v4.1-flash: {pool: synthetic, pool_id: "synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash", vendor: deepseek, price: [0.6, 1.2], context: 524288, effort: [], refusal_cyber: low, terminal_bench: null, open_weights: true, local: {execute: {base: bd9e0862, pass: 7/7, wall_s: 332, cost_usd: 0.002, race: true, note: "default agent; its own tests pass; 7/7 first graded without -race on 2026-09-20 and confirmed under -race -count=3 on 2026-09-22 after gcc was installed. Entered execute on it"}}}  # DeepSeek reports Terminal-Bench 2.1 90.6 on its own harness, not comparable with this column
+  nemotron-3-super: {pool: synthetic, pool_id: "synthetic/hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4", vendor: nvidia, price: [0.3, 1.0], context: 262144, effort: [], refusal_cyber: low, terminal_bench: null, open_weights: true, local: {execute: {base: bd9e0862, pass: 1/7, wall_s: 3600, cost_usd: null, race: true, note: "cut off at the harness's 3,600 s ceiling mid-turn with both files on disk and staged; what existed compiles and passes only TestMergeAcceptZeroSourcesCompletes, the same under -race -count=3 on 2026-09-22; cost unrecorded, the lane's record was lost to a bench.sh edit during the run"}}}
+  gpt-oss-120b: {pool: synthetic, pool_id: "synthetic/hf:openai/gpt-oss-120b", vendor: openai, price: [0.1, 0.1], context: 131072, effort: [], refusal_cyber: low, open_weights: true, local: {execute: {base: bd9e0862, pass: 5/7, wall_s: 282, cost_usd: 0.004, race: true, note: "default agent; its own tests pass; no data race reported, but stop propagation is nondeterministic: TestMergeAcceptSourceErrorPropagates and TestMergeAcceptContextCancelPropagates each fail on some of three counts, so single runs read 6/7 with a different test missing each time (2026-09-20 without -race, 2026-09-22 with)"}}}  # returned nothing through a custom agent profile, which is why profiles are gone; smallest context in the registry
+  # Registered on the synthetic pool 2026-09-19 and taken back off it the same
+  # day by the smoke test: Synthetic answers HTTP 404 for the first four ("no
+  # longer supported") and GLM-4.7-Flash did not reply within 240 s. opencode's
+  # catalogue still lists all five, so `opencode models` overstates the pool.
+  # Price and context below are the upstream vendor's.
+  minimax-m3: {pool: null, vendor: minimax, price: [0.3, 1.2], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 66.0, vision: true, open_weights: true}
+  kimi-k2.7-code: {pool: null, vendor: moonshotai, price: [0.95, 4], context: 262144, effort: [], refusal_cyber: low, open_weights: true}
+  qwen3.6-27b: {pool: null, vendor: alibaba, price: [0.6, 3.6], context: 262144, effort: [], refusal_cyber: low, open_weights: true}
+  glm-4.7-flash: {pool: null, vendor: zai, price: [0, 0], context: 200000, effort: [], refusal_cyber: low, open_weights: true}
+  glm-5.2: {pool: null, vendor: zai, price: [1.4, 4.4], context: 1000000, effort: [], refusal_cyber: low, open_weights: true}
+  qwen3.8-max: {pool: null, vendor: alibaba, price: [2, 6], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 86.6, local: {review-unit: {found_known_bug: false, extra_valid: 1, wall_s: 1669, cost_usd: 0.63}}}
+  deepseek-v4-flash: {pool: null, vendor: deepseek, price: [0.15, 0.6], context: 1000000, effort: [], refusal_cyber: low, open_weights: true}  # DeepSeek's row moved from [0.14, 0.28] when V4.1 Flash shipped 2026-09-10; 0.14/0.28 is now only NVIDIA's hosted copy
+  deepseek-v4-pro: {pool: null, vendor: deepseek, price: [0.435, 0.87], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 87.9, open_weights: true}  # 0813 checkpoint; DeepSeek routes its traffic to V4.1 Flash from 2026-09-14, so the id survives its own weights; no calibration, in no fit set
+  qwen3.8-flash: {pool: null, vendor: alibaba, price: [0.15, 0.47], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
+  grok-4.6: {pool: null, vendor: xai, price: [2, 6], context: 500000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
+
+# A role names what a piece of delegated work needs. `fit` lists the models
+# that do it, in no order: `delegate` picks by pool headroom. `effort` is the
+# level passed where the model supports one; a model whose `effort` list lacks
+# the level gets the highest level it lists. A `local` result carries the
+# effort it was measured at when that differs from the role's: `default`
+# means the CLI's own default, because `bench.sh` dropped `--effort` on the
+# `claude` lanes until 2026-09-18. Such a result says nothing about the
+# model at the role's level, and every `local` result is one run.
+roles:
+  lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
+  research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
+  execute: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, kimi-k3, deepseek-v4.1-flash]}  # deepseek-v4.1-flash added 2026-09-22 on its 7/7 of 2026-09-20 (one run, no -race, base bd9e0862); claude-sonnet-5 removed 2026-09-18 (6/7, 6/7, 5/7 across default and xhigh, same deadlock). glm-5.3 was removed 2026-09-09 on a lane that opencode cut at its 32,000-token output cap: that result is void, and whether glm-5.3 belongs here is unmeasured, not settled
+  execute-sensitive: {effort: high, fit: [gpt-5.6-sol, kimi-k3], exclude: [claude-opus-5, claude-fable-5-1, gpt-6-astra]}
+  review-unit: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, claude-opus-5], vendor_differs_from: executor}  # sonnet, qwen3.8-max missed the calibration bug 2026-09-09
+  review-seam: {effort: high, fit: [claude-opus-5, gpt-5.6-sol]}
+  judge: {effort: max, fit: [claude-fable-5-1, gpt-6-astra], never_sensitive: true}
+  critique: {effort: high, fit: [gemini-3.8-flash, kimi-k3]}  # minimax-m3 left with the go pool 2026-09-19; Synthetic answers 404 for it
 
 # Paths whose units carry the `sensitive` tag: security classifiers on the
 # top tier decline work here, and a decline inside Claude Code is a silent
@@ -12,3 +77,10 @@ sensitive_paths:
   - src/common/internal/netpenguard/**
   - src/modules/localnet/**
   - src/protocol/snmp/**
+
+# opencode lanes run the default agent with the model on the launch line
+# (`opencode --model <pool_id>`), the same way `claude` and `codex` take
+# `--model`. There are no agent profiles: a profile that pins a model gets no
+# system prompt, and on 2026-09-19 that left one model reasoning for 32K
+# tokens without a tool call and another answering nothing, while both
+# answered in seconds on the default agent.

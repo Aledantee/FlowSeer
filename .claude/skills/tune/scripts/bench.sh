@@ -11,7 +11,7 @@
 
 set -uo pipefail
 
-lane='' cli='' model='' effort='' agent='' brief='' dir='' out=''
+lane= cli= model= effort= agent= brief= dir= out=
 while (($#)); do
   case "$1" in
     --lane) lane=$2; shift 2 ;;
@@ -28,12 +28,6 @@ done
 for v in lane cli model brief dir out; do
   [[ -n "${!v}" ]] || { echo "--$v is required" >&2; exit 2; }
 done
-# A lane recorded at an effort it never ran at is worse than no lane: agy
-# takes effort in the model id and opencode in the agent's model config.
-if [[ -n "$effort" && ( "$cli" == agy || "$cli" == opencode ) ]]; then
-  echo "--effort cannot be applied on $cli; put the level in the model id (agy) or the opencode agent" >&2
-  exit 2
-fi
 
 raw="${out%.json}.raw"
 prompt=$(cat "$brief")
@@ -44,11 +38,7 @@ case "$cli" in
     env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" --model "$model" \
       ${effort:+--effort "$effort"} --output-format json --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
   codex)
-    # The user's global compound-engineering plugin runs its own review
-    # workflow inside the lane; it turned a 7/7 run into 110 minutes on
-    # 2026-09-09, so a lane measures the model without it.
     codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
-      -c 'plugins."compound-engineering@compound-engineering-plugin".enabled=false' \
       -m "$model" ${effort:+-c model_reasoning_effort="$effort"} "$prompt" >"$raw" 2>"$raw.err" </dev/null ;;
   agy)
     # print mode returns partial output after 5 minutes unless told otherwise.
@@ -56,16 +46,29 @@ case "$cli" in
       --print-timeout 60m >"$raw" 2>"$raw.err" </dev/null ;;
   opencode)
     # `opencode run` never returns headless (1.18.30); the server API does.
+    #
+    # One database per lane. Every `opencode serve` writes the same SQLite
+    # file under ~/.local/share/opencode, and lanes running at once corrupt
+    # each other through it: on 2026-09-19 one server never bound its port and
+    # another died 202 s in on "Failed to execute statement". OPENCODE_DB
+    # moves only the database; credentials still come from auth.json.
+    export OPENCODE_DB="$raw.db"
     port=$((20000 + RANDOM % 20000))
     opencode serve --port "$port" >"$raw.serve" 2>&1 &
     spid=$!
-    for _ in $(seq 1 30); do
-      curl -sf -X POST "http://127.0.0.1:$port/session" -H 'content-type: application/json' -d '{}' \
+    for _ in $(seq 1 60); do
+      curl -sf --max-time 5 -X POST "http://127.0.0.1:$port/session" -H 'content-type: application/json' -d '{}' \
         -o "$raw.session" && break
       sleep 1
     done
-    sid=$(python3 -c "import json; print(json.load(open('$raw.session'))['id'])")
-    python3 - "$prompt" "$agent" "$model" >"$raw.body" <<'EOF'
+    sid=$(python3 -c "import json; print(json.load(open('$raw.session'))['id'])" 2>/dev/null)
+    if [[ -z $sid ]]; then
+      # A lane that never started must not report like a lane that ran and did
+      # nothing: both leave an empty $raw, so say so here instead.
+      echo "opencode serve never accepted a session on port $port" >"$raw.err"
+      rc=1
+    else
+      python3 - "$prompt" "$agent" "$model" >"$raw.body" <<'EOF'
 import json, sys
 prompt, agent, model = sys.argv[1:]
 provider, _, mid = model.partition("/")
@@ -74,38 +77,22 @@ if agent:
     body["agent"] = agent
 print(json.dumps(body))
 EOF
-    curl -sS --max-time 3600 -X POST "http://127.0.0.1:$port/session/$sid/message" \
-      -H 'content-type: application/json' --data-binary @"$raw.body" >"$raw" 2>"$raw.err"
-    rc=$?
-    # The reply carries only the final message's usage; a multi-step run
-    # spends most of its tokens before it. Keep every step-finish part of
-    # the session and of its child sessions (the task tool's subagents).
-    # No file means the usage was not measured, which is not zero.
-    rm -f "$raw.steps"
-    python3 - "$port" "$sid" "$raw.steps" 2>>"$raw.err" <<'EOF'
-import json, sys, urllib.request
-port, sid, dest = sys.argv[1:]
-get = lambda p: json.load(urllib.request.urlopen("http://127.0.0.1:%s%s" % (port, p), timeout=60))
-out, todo = [], [sid]
-while todo:
-    s = todo.pop()
-    out += [p for m in get("/session/%s/message" % s) for p in m["parts"] if p["type"] == "step-finish"]
-    todo += [c["id"] for c in get("/session/%s/children" % s)]
-json.dump(out, open(dest, "w"))
-EOF
-    kill "$spid" 2>/dev/null
-    # code=$? below reads the last command of the branch, which is kill here.
-    (exit "$rc") ;;
+      curl -sS --max-time 3600 -X POST "http://127.0.0.1:$port/session/$sid/message" \
+        -H 'content-type: application/json' --data-binary @"$raw.body" >"$raw" 2>"$raw.err"
+      rc=$?
+    fi
+    kill "$spid" 2>/dev/null ;;
   *) echo "unknown cli $cli" >&2; exit 2 ;;
 esac
-code=$?
+# The opencode branch ends in `kill`, whose status says nothing about the run.
+code=${rc-$?}
 end=$(date +%s)
 
 python3 - "$cli" "$raw" "$lane" "$model" "$effort" "$((end - start))" "$code" "$out" <<'EOF'
 import json, sys
 cli, raw, lane, model, effort, wall, code, out = sys.argv[1:]
 usage = {"input": 0, "output": 0, "cache_read": 0, "reasoning": 0}
-cost = None
+cost = error = finish = tools = None
 text = open(raw, errors="replace").read()
 
 def add(k, v):
@@ -139,21 +126,39 @@ elif cli == "agy":
     except json.JSONDecodeError:
         pass
 elif cli == "opencode":
-    # Step-finish parts, not message infos: a message's info may hold only
-    # its last step's tokens.
     try:
-        steps = json.load(open(raw + ".steps"))
-    except (OSError, json.JSONDecodeError):
-        steps, usage = [], None
-    for p in steps:
-        t = p.get("tokens") or {}
-        add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
-        add("cache_read", (t.get("cache") or {}).get("read"))
-        if isinstance(p.get("cost"), (int, float)):
-            cost = (cost or 0) + p["cost"]
+        d = json.loads(text)
+    except json.JSONDecodeError:
+        d = {}
+    if isinstance(d, dict) and "name" in d and "info" not in d:
+        # The server answered with an error object instead of a message.
+        error = "%s: %s" % (d["name"], (d.get("data") or {}).get("message", ""))
+    info = d.get("info") if isinstance(d, dict) else None
+    if isinstance(info, dict):
+        finish = info.get("finish")
+        parts = d.get("parts") or []
+        tools = sum(1 for p in parts if p.get("type") == "tool")
+    for line in text.splitlines():
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        t = e.get("tokens") or (e.get("part") or {}).get("tokens") or (e.get("info") or {}).get("tokens")
+        if isinstance(t, dict):
+            add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
+            add("cache_read", (t.get("cache") or {}).get("read"))
+        c = e.get("cost") or (e.get("info") or {}).get("cost")
+        if isinstance(c, (int, float)):
+            cost = (cost or 0) + c
 
-json.dump({"lane": lane, "cli": cli, "model": model, "effort": effort or None,
-           "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost},
-          open(out, "w"), indent=1)
+result = {"lane": lane, "cli": cli, "model": model, "effort": effort or None,
+          "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost}
+if finish is not None:
+    result["finish"] = finish
+if tools is not None:
+    result["tool_calls"] = tools
+if error is not None:
+    result["error"] = error
+json.dump(result, open(out, "w"), indent=1)
 print(open(out).read())
 EOF

@@ -4,6 +4,13 @@
 
 set -uo pipefail
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=tools/hooks/common.sh
+source "$script_dir/common.sh"
+# The conformance gates below shell out to go, which the environment that
+# started the client need not have on PATH.
+hook_go_on_path
+
 input=$(cat)
 cwd=$(jq -r '.cwd // "."' <<<"$input")
 root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || {

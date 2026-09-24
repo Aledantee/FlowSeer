@@ -12,12 +12,35 @@ hook_init() {
   hook_go_tools_on_path
 }
 
+# The toolchain itself has the same problem one level down. A hook inherits
+# the environment of the process that started the client, and a client
+# launched from anything but a login shell never read ~/.profile, so the
+# directory a tarball install puts go in is missing and every Go gate reports
+# "go: command not found" on a machine where go works fine. Add the standard
+# install locations, and only when go is not already resolvable, so a PATH
+# that is already correct is left alone.
+hook_go_on_path() {
+  local candidate
+  command -v go >/dev/null 2>&1 && return 0
+  for candidate in /usr/local/go/bin "${HOME:-}/go/bin" /usr/lib/go/bin; do
+    [ -x "$candidate/go" ] || continue
+    case ":$PATH:" in
+      *":$candidate:"*) ;;
+      *) PATH=$PATH:$candidate ;;
+    esac
+    export PATH
+    return 0
+  done
+  return 0
+}
+
 # Go tools install to $(go env GOPATH)/bin, which a session's PATH does not
 # always carry; the format hook then reports every Go edit as unformatted
 # although the formatters are installed. Search that directory whenever go
 # itself is found, so the session's PATH does not decide what a hook can do.
 hook_go_tools_on_path() {
   local gobin gopath
+  hook_go_on_path
   command -v go >/dev/null 2>&1 || return 0
   # GOBIN wins when set; otherwise the first GOPATH entry, which is where
   # go install writes. An empty answer adds nothing: "/bin" ahead of PATH

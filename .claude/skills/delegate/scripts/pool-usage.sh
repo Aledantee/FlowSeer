@@ -3,7 +3,8 @@
 # every window of the four prepaid pools. Each pool is read from the source
 # that owns its numbers, because no single tool sees all four:
 #
-#   claude, codex  orca account list --json      (rateLimits)
+#   claude, codex  orca account list --json      (rateLimits), falling back
+#                  to each CLI's own token when Orca has no account for it
 #   google         agy -p /quota                 (answers without a model turn)
 #   synthetic      GET api.synthetic.new/v2/quotas (rolling five-hour request
 #                  limit and weekly credit limit; the call is not counted)
@@ -85,7 +86,39 @@ def orca_pools():
         signed_in = rl.get("status") == "ok"
         if pool == "codex":
             signed_in = signed_in or bool(result.get("codex", {}).get("systemDefault", {}).get("hasAuth"))
-        emit(pool, signed_in, "orca", windows or None, resets, rl.get("error"))
+        if pool == "claude":
+            # Orca knows only about accounts registered with Orca. The CLI
+            # keeps its own OAuth token, and a host where `claude` is signed
+            # in but Orca has no Claude account read as signed out, which
+            # took all four Claude models out of every fit set (2026-09-19).
+            # `codex` has had the same fallback all along, through
+            # systemDefault.hasAuth.
+            signed_in = signed_in or claude_cli_signed_in()
+        note = rl.get("error")
+        if pool == "claude" and signed_in and not windows and rl.get("status") != "ok":
+            # Signed in on the CLI's own token, so the pool is usable, but
+            # Orca is the only source of the windows and it has nothing.
+            note = note or "signed in on the claude CLI token; orca has no account for it, so no windows"
+        emit(pool, signed_in, "orca", windows or None, resets, note)
+
+
+def claude_cli_signed_in():
+    """True when the `claude` CLI holds an OAuth token that has not expired.
+
+    A refresh token that is still valid counts: the CLI renews the access
+    token on its own, so an expired access token alone is not a sign-out.
+    """
+    try:
+        auth = json.load(open(os.path.expanduser("~/.claude/.credentials.json")))
+        oauth = auth["claudeAiOauth"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    now = datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
+    for field in ("expiresAt", "refreshTokenExpiresAt"):
+        expiry = oauth.get(field)
+        if isinstance(expiry, (int, float)) and expiry > now:
+            return True
+    return False
 
 
 def google_pool():

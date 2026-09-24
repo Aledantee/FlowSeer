@@ -17,7 +17,7 @@ names the lane; this file is the procedure.
   and the model on that line. `orca orchestration worker-start --model`
   pins Claude, Codex, and Cursor ids only, so it cannot start an `agy` or
   `opencode` lane on a chosen model; a launch line can. opencode takes
-  `--agent <name>`, and the agent fixes the model.
+  `--model provider/model` and runs its default agent.
 - Unsets `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, and
   `CLAUDE_CODE_CHILD_SESSION` on the launch line: a Claude worker started
   under the coordinator's child-session variables runs with transcript

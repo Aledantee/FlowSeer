@@ -54,7 +54,7 @@ check_family() {
   local missing=""
   local suffix
   for suffix in "$@"; do
-    if rg -q "^[[:space:]]*message[[:space:]]+${base}${suffix}[[:space:]]*\\{" "$HOOK_ROOT/spec/proto"; then
+    if grep -rqE "^[[:space:]]*message[[:space:]]+${base}${suffix}[[:space:]]*\\{" "$HOOK_ROOT/spec/proto"; then
       continue
     fi
     # docs/conventions/protobuf.md asks the file-level comment of a
