@@ -213,6 +213,75 @@ func TestOSPF_ChecksumValid(t *testing.T) {
 	}
 }
 
+func TestOSPF_LSAChecksumValid(t *testing.T) {
+	leg := testtest.New()
+	defer func() { _ = leg.Close() }()
+
+	_, err := runSingleWithBudget(t, leg, "ospf", "", 1*time.Second)
+	if err != nil {
+		t.Fatalf("run ospf: %v", err)
+	}
+
+	tx := leg.TX()
+	if len(tx) < 4 {
+		t.Fatalf("TX count: got %d, want at least 4", len(tx))
+	}
+
+	tests := []struct {
+		name  string
+		frame []byte
+	}{
+		{name: "lsa-update", frame: tx[2]},
+		{name: "flush", frame: tx[3]},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			frame := test.frame
+			if len(frame) < 15 {
+				t.Fatalf("frame length: got %d, want at least 15", len(frame))
+			}
+
+			ospfOffset := 14 + int(frame[14]&0x0f)*4
+			lsaOffset := ospfOffset + 24 + 4
+			if len(frame) < lsaOffset+20 {
+				t.Fatalf("frame length: got %d, want at least %d", len(frame), lsaOffset+20)
+			}
+
+			lsaLength := int(binary.BigEndian.Uint16(frame[lsaOffset+18 : lsaOffset+20]))
+			if lsaLength < 20 || len(frame) < lsaOffset+lsaLength {
+				t.Fatalf("LSA length: got %d, frame has %d bytes", lsaLength, len(frame)-lsaOffset)
+			}
+			lsa := frame[lsaOffset : lsaOffset+lsaLength]
+			got := binary.BigEndian.Uint16(lsa[16:18])
+			if got == 0 {
+				t.Fatal("LSA checksum is zero")
+			}
+
+			var c0, c1 int
+			for i := 2; i < len(lsa); i++ {
+				octet := int(lsa[i])
+				if i == 16 || i == 17 {
+					octet = 0
+				}
+				c0 = (c0 + octet) % 255
+				c1 = (c1 + c0) % 255
+			}
+			x := ((len(lsa)-17)*c0 - c1) % 255
+			if x <= 0 {
+				x += 255
+			}
+			y := 510 - c0 - x
+			if y > 255 {
+				y -= 255
+			}
+			want := uint16(x)<<8 | uint16(y)
+			if got != want {
+				t.Errorf("LSA checksum: got %#04x, want %#04x", got, want)
+			}
+		})
+	}
+}
+
 // TestOSPF_TeardownOrder: the teardown steps execute in arm order:
 // flush first (armed first), then goodbye. The recorded TX after completion
 // should show flush before goodbye.

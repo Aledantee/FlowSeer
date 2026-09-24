@@ -245,6 +245,32 @@ func ospfChecksum(p []byte) uint16 {
 	return ^uint16(sum)
 }
 
+// ospfLSAChecksum computes the RFC 2328 section 12.1.7 Fletcher checksum.
+// LS age is excluded because routers update it in transit.
+func ospfLSAChecksum(lsa []byte) uint16 {
+	const checksumOffset = 16
+
+	var c0, c1 int
+	for i := 2; i < len(lsa); i++ {
+		octet := int(lsa[i])
+		if i == checksumOffset || i == checksumOffset+1 {
+			octet = 0
+		}
+		c0 = (c0 + octet) % 255
+		c1 = (c1 + c0) % 255
+	}
+
+	x := ((len(lsa)-checksumOffset-1)*c0 - c1) % 255
+	if x <= 0 {
+		x += 255
+	}
+	y := 510 - c0 - x
+	if y > 255 {
+		y -= 255
+	}
+	return uint16(x)<<8 | uint16(y)
+}
+
 // craftDBDesc builds an OSPFv2 Database Description packet.
 func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) {
 	hdr := make([]byte, ospfHeaderLen)
@@ -303,7 +329,6 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 	binary.BigEndian.PutUint32(lsaHeader[4:8], routerID)  // Link State ID
 	binary.BigEndian.PutUint32(lsaHeader[8:12], routerID) // Advertising Router
 	binary.BigEndian.PutUint32(lsaHeader[12:16], seq)     // LS Sequence Number
-	// Checksum at [16:18] — left 0 (not validated in-memory)
 	// Length at [18:20] — set below
 
 	// Router-LSA body: flags(1) + 0(1) + numLinks(2) + link(12)
@@ -321,8 +346,10 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 	lsaLen := uint16(len(lsaHeader) + len(lsaBody))
 	binary.BigEndian.PutUint16(lsaHeader[18:20], lsaLen)
 
-	body = append(body, lsaHeader...)
-	body = append(body, lsaBody...)
+	lsa := append([]byte(nil), lsaHeader...)
+	lsa = append(lsa, lsaBody...)
+	binary.BigEndian.PutUint16(lsa[16:18], ospfLSAChecksum(lsa))
+	body = append(body, lsa...)
 
 	binary.BigEndian.PutUint16(hdr[2:4], uint16(len(hdr)+len(body)))
 
@@ -368,6 +395,7 @@ func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error
 	binary.BigEndian.PutUint32(lsaHeader[8:12], routerID)
 	binary.BigEndian.PutUint32(lsaHeader[12:16], 0x80000001)       // Fixture sequence
 	binary.BigEndian.PutUint16(lsaHeader[18:20], ospfLSAHeaderLen) // length = header only
+	binary.BigEndian.PutUint16(lsaHeader[16:18], ospfLSAChecksum(lsaHeader))
 
 	body = append(body, lsaHeader...)
 
