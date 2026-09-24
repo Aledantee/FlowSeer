@@ -12,9 +12,7 @@ parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 
 # Offered-Load Streams Phase 3 - Stream Package and the Pull Loop - Plan
 
-> Partially implemented: U1, U2, U3. 3 units, 2026-09-23T21:07:12Z to
-> 2026-09-23T21:32:47Z. U4 is blocked by the existing reflector `Attachment`
-> name; U5 depends on U4.
+> Partially implemented: U1-U4 landed. U5 is the remaining unit.
 
 > Re-planned 2026-09-23 against the tree that holds phases 1 and 2.
 
@@ -47,13 +45,32 @@ documented as the model.
   `fabric.Attachment` (`config.go:359`) already names reflector configuration.
   The reflector type is left unchanged; phase 4 references the stream start as
   `StreamAttachment.Start`.
-- U5 evidence prerequisite (owner ruling, 2026-09-24): the unstated-buffer issue
-  must carry an evidence reference. `queueBufferUnstatedIssue` built it with none,
-  which `ValidateCase` refuses and the trust contract forbids for any non-Complete
-  issue. U5's scope is expanded to fix it in `fabric` (capture the crossing
-  trace-step ref in `markQueueBufferUnstated`, store it per endpoint, and cite it
-  in the issue) so a load case that exercises it is admissible. This completes
-  phase 2's issue correctly rather than working around the corpus bar.
+- U5 queue-threshold evidence (owner ruling, 2026-09-24): the first enqueue
+  that changes an unstated-buffer endpoint's queue depth from at most one
+  maximum-size frame to above it records `EntryQueueThreshold` on that frame's
+  journey, before the frame enters the pending queue. Its `trace.Step` has
+  `Layer: traffic.Layer`, `Op: trace.OpQueue`,
+  `RuleID: traffic.RuleQueueBufferUnstated`, a `port` subject keyed by
+  `<egressPort>/<pcp>`, and a `traffic.QueueThresholdFact` input with the depth
+  before enqueue, encoded frame octets, and the port-MTU-derived threshold.
+  A runtime `analysis.Evidence` names that same event, including the physical
+  endpoint, logical queue, frame ID, instant, and fact values. The step and
+  `IssueQueueBufferUnstated` cite its one catalog reference. Why: the later
+  cable `EntryCrossing` has no step (`run.go:1311`), and the crossing can happen
+  with an empty journey (`egress_buffer_internal_test.go:209`); an enqueue-time
+  step records the observation when it actually happens.
+- U5 extends the trace operation contract with `trace.OpQueue`; the queue rule
+  and typed fact belong to `traffic`, which already owns `RuleQueueDrop` and
+  `QueueDropFact`. This is a cross-package decision, so U5 amends the existing
+  proposed `docs/architecture/2026-09-10-virtual-device-direction.md` when
+  it implements the event. The record already requires the unstated-buffer
+  issue at that threshold (§ Decision) but does not settle the trace event or
+  its evidence lifecycle. The addition states that the event is diagnostic:
+  `Compare` excludes `EntryQueueThreshold` from its ordered behavioral-entry
+  comparison while continuing to compare drops, deliveries, and their timing.
+  Runtime evidence stays apart from construction evidence, so `Fabric.Spec()`
+  still describes inputs. The record remains `proposed-direction`; U5 changes
+  no accepted record or wire contract.
 - One wire-octet figure serves both packages. `ethernet.Frame.WireOctets() int`
   is `max(len(Encode()), 60+4*len(Tags)) + 24`, exactly the body of `fabric`'s
   `wireOctets` (`src/common/netsim/fabric/run.go:127-136`). Why: `stream` may
@@ -232,9 +249,17 @@ Numbers are the parent's; letters are this phase's acceptance examples.
     the `traffic.queue.drop` step with a `traffic.queue_decision` fact and
     `Complete` metadata.
     13b. No buffer. `planning/oversubscribed-trunk-unstated-buffer`: the same
-    trunk with no `Queues` entry; no frame drops, and the decisive journey's
-    metadata holds `queue-buffer-unstated` at `Incomplete` on the backed-up
-    port's scope.
+    trunk with no `Queues` entry; no frame drops. The first frame that makes
+    an egress queue's encoded-octet depth exceed the maximum-size-frame
+    threshold has an `EntryQueueThreshold` before its later transmission,
+    carrying a `trace.OpQueue` step with `traffic.queue.buffer-unstated`, a
+    `traffic.queue_threshold` fact, and one evidence reference. Its journey's
+    `queue-buffer-unstated` issue is `Incomplete` on the physical backed-up
+    port's scope and cites the same reference; the journey and fabric metadata
+    catalogs resolve it. For two 1014-octet frames and a 1518-octet threshold,
+    the second frame records depth before 1014 and frame octets 1014. The queue
+    entry is diagnostic: adding or removing it alone does not change a fabric
+    comparison's behavioral path difference.
     13c. Policed. `planning/policed-stream`: a stream into a port with a
     `traffic.Policer`; the decisive journey, outcome `Dropped`, reason
     `policed`, carries the `traffic.policer.refuse` step with a
@@ -378,39 +403,104 @@ wakes, and a mid-run `Fork` whose two forks yield the same remaining frames.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/fabric docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U5. Conformance corpus load cases
-Files: `src/common/netsim/internal/netsimtest/load_cases.go`,
+Files: `src/common/netsim/trace/trace.go`,
+`src/common/netsim/trace/README.md`,
+`src/common/netsim/vswitch/traffic/fact.go`,
+`src/common/netsim/vswitch/traffic/fact_test.go`,
+`src/common/netsim/vswitch/traffic/README.md`,
+`src/common/netsim/fabric/journey.go`,
+`src/common/netsim/fabric/run.go`,
+`src/common/netsim/fabric/fabric.go`,
+`src/common/netsim/fabric/compare.go`,
+`src/common/netsim/fabric/compare_internal_test.go`,
+`src/common/netsim/fabric/fork_test.go`,
+`src/common/netsim/fabric/fork_internal_test.go`,
+`src/common/netsim/fabric/queue_buffer_internal_test.go`,
+`src/common/netsim/fabric/egress_buffer_internal_test.go`,
+`src/common/netsim/fabric/README.md`,
+`src/common/netsim/internal/netsimtest/load_cases.go`,
 `src/common/netsim/internal/netsimtest/load_cases_test.go`,
 `src/common/netsim/internal/netsimtest/cases.go`,
 `src/common/netsim/internal/netsimtest/README.md`,
-`src/common/netsim/fabric/fabric.go`,
-`src/common/netsim/fabric/egress_buffer_internal_test.go`
+`docs/architecture/2026-09-10-virtual-device-direction.md`
 After: U3, U4
-Change (evidence prerequisite): `queueBufferUnstatedIssue` (`fabric.go:993`)
-must attach an evidence reference, because `ValidateCase` refuses a non-Complete
-issue with none and every issue must cite its evidence under the trust contract.
-`markQueueBufferUnstated` (`fabric.go:1019`) holds the crossing frame's journey,
-so it captures that crossing's trace-step ref; `f.unstatedBacked` stores the ref
-per endpoint (a `map[Endpoint][]trace.EvidenceRef`, not a set); `Metadata` passes
-it to `queueBufferUnstatedIssue(ep, evidence)`; and the ref resolves in the
-evidence catalog so `validateEvidence` (`fabric.go:418`) passes, mirroring how
-`IssueOperStatusConflict` cites its derived evidence (`fabric.go:970-975`). A case
-in `egress_buffer_internal_test.go` asserts the issue's `Evidence` is non-empty
-and names the crossing step. Then, three `Case` values, each a
-`fabric.ConstructionSpec` with one switch
-and two hosts, a `stream.Spec`, and a `Fabric.AttachStream` with `RetainJourney`;
-`Execute` selects the decisive journey (the frame with a `queue-full` drop, the
-first frame whose metadata carries `queue-buffer-unstated`, or the frame with a
-`policed` drop), verifies `Flows()` consistency, and returns it with its ordered
-steps and metadata. `DefaultRegistry` registers the three; the README's case
-table gains their rows. Trace rules are `traffic.RuleQueueDrop` with
-`traffic.QueueDropFact` for 13a, `traffic.RulePolicerRefuse` with
-`traffic.PolicerDecisionFact` for 13c; 13b's decisive element is a delivered
-frame with `IssueQueueBufferUnstated` on `analysis.PortScope`.
-Tests: `load_cases_test.go` runs each case through the corpus's own execution
-and expectation checks and fails on a mismatch; the corpus `ValidateCase` bar
-(`src/common/netsim/internal/netsimtest/corpus.go:536-648`) is satisfied by
-non-empty rules, subjects, facts, and steps.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/internal/netsimtest`
+Change: `trace` adds `OpQueue` for an egress-queue observation; `traffic` adds
+`RuleQueueBufferUnstated = "traffic.queue.buffer-unstated"` and an immutable
+`QueueThresholdFact(depthBefore, frameOctets, thresholdOctets uint64)` with type ID
+`traffic.queue_threshold` and canonical
+`depth_before_octets=<n>;frame_octets=<n>;threshold_octets=<n>` fields.
+`fabric` adds `EntryQueueThreshold`. In `enqueueEgress`, the unstated
+path passes the current time, physical endpoint, logical egress port, PCP,
+frame ID, pre-enqueue depth, encoded frame octets, threshold, and journey to
+`markQueueBufferUnstated`. Only the first `depthBefore + frameOctets >
+threshold` per physical endpoint marks it; a stated buffer never reaches this
+path. The marker adds `analysis.Evidence{Kind: "fabric.runtime", Origin:
+"egress-queue"}` to `Fabric.runtimeEvidence`, a separate, immutable catalog.
+Its `Context` is a stable, semicolon-delimited record of the rule ID, physical
+node and port, logical egress port, PCP, frame ID, `now.UTC()` in RFC3339Nano,
+and the three fact fields in the order above; quote string fields with
+`strconv.Quote`. It stores the returned ref in
+`unstatedBacked map[Endpoint]trace.EvidenceRef`, invalidates
+`metadataCache`, and calls `record` with an `EntryQueueThreshold` holding the
+step and that ref; the entry's physical `Device`/`Port` dependency folds the
+new issue into the crossing frame's metadata at record time. `Metadata` merges
+construction and runtime catalogs and passes the endpoint's ref to
+`queueBufferUnstatedIssue`. `Fork` clones the endpoint map and shares the
+immutable runtime catalog; `Spec` continues to return construction evidence
+only. A later queue crossing on another PCP of the same endpoint adds no
+second issue, step, or catalog entry. `validateEvidence` (`fabric.go:418`) can
+resolve the issue ref against `Fabric.Metadata().Evidence()`; construction
+validation still checks construction refs, while the new runtime ref is checked
+against the combined catalog in tests and the corpus. The same ref is on the
+entry step and in the crossing journey's catalog. The trace, traffic,
+and fabric READMEs explain this event and its first-crossing behavior.
+`diffJourney` filters `EntryQueueThreshold` from both journeys before comparing
+ordered behavioral entries and their counts; the raw entries and `journeySteps`
+still expose it for diagnosis and corpus checks. The virtual-device direction
+record's run and comparison sections gain the same enqueue-event, evidence,
+and diagnostic-only rules. `fork_test.go` updates its `unstatedBacked` probe
+from set values to refs, and `fork_internal_test.go` classifies
+`runtimeEvidence` as immutable shared state.
+
+Three `Case` values each use a `fabric.ConstructionSpec` with one switch and
+two hosts, a `stream.Spec` of 32 untagged frames with 1000 payload octets at
+10,000 frames per second, and `Fabric.AttachStream` with `RetainJourney`.
+The trunk cases share a VLAN 10 access port from h1, a tagged VLAN 10 egress
+port toward h2 (whose host VLAN is 10), a 1 Gbit/s ingress link, and a
+10 Mbit/s egress link; only the egress `Queues` buffer setting differs
+(1518 encoded octets versus absent).
+The policed case sets an ingress `traffic.Policer` to 1 Mbit/s with a
+1518-octet burst, so later frames are refused. `Execute` selects the
+tail-dropped frame for 13a, the first threshold-crossing frame for 13b, and
+the policed frame for 13c, checks the selected flow against `Flows()`, and
+returns its exact ordered steps and metadata. The unstated case expects the
+new queue step and the issue's catalog entry as well as delivery without a
+drop; the other cases expect `traffic.RuleQueueDrop` with `QueueDropFact` and
+`traffic.RulePolicerRefuse` with `PolicerDecisionFact`, respectively.
+`DefaultRegistry` registers all three and the README case table names them.
+Tests: `fact_test.go` pins the queue fact's type ID and canonical octet fields.
+`egress_buffer_internal_test.go` starts with an empty journey, crosses a
+port-MTU threshold, and asserts one new entry and step at enqueue (before any
+cable crossing), the step and issue share one ref, and that ref resolves in
+both metadata catalogs. Its LAG case checks the step's logical LAG/PCP subject
+against the issue's physical member-port scope. `queue_buffer_internal_test.go`
+covers no event at or below the threshold, no event for a stated buffer, and
+one event across two PCPs
+on the same endpoint, an old metadata snapshot staying unchanged, an
+aggregate-retained flow resolving the same ref after its journey is freed,
+`Spec().Evidence` remaining unchanged by the run, and a fork copy retaining
+its ref while a pre-crossing fork can mark independently.
+`compare_internal_test.go` gives `diffJourney` matching delivered journeys
+with the queue entry on only one side and expects no path or timing difference;
+it then changes one side's delivery or drop and expects that behavioral
+difference despite the queue entry. `fork_test.go` checks the ref map remains
+independent after a fork; `fork_internal_test.go`'s exhaustive Fabric-field
+test accepts the new immutable catalog.
+`load_cases_test.go` runs 13a-13c through `ValidateCase` and `AssertCase`, pins
+their complete ordered steps, subjects, fact values, outcomes, issue scope,
+status, and evidence entries; 13b verifies the selected journey is the frame
+whose queue entry crossed and all stream frames avoid a drop.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/trace src/common/netsim/vswitch/traffic src/common/netsim/fabric src/common/netsim/internal/netsimtest docs/architecture/2026-09-10-virtual-device-direction.md`
 
 Waves: U1 | U2 | U3 U4 | U5
 
@@ -425,7 +515,8 @@ U5 needs both U3's variations and U4's `Attach`.
 ```bash
 go test -race ./src/common/net/... ./src/common/netsim/...
 .claude/skills/verify-change/scripts/verify-change.sh -- \
-  src/common/net/ethernet src/common/netsim/stream src/common/netsim/fabric \
+  src/common/net/ethernet src/common/netsim/stream src/common/netsim/trace \
+  src/common/netsim/vswitch/traffic src/common/netsim/fabric \
   src/common/netsim/internal/netsimtest docs/architecture/2026-09-10-virtual-device-direction.md
 ```
 
@@ -438,9 +529,10 @@ and it needs the owner's approval per run.
 ## Definition of done
 
 - [ ] Verifier green for every changed path.
-- [ ] `stream` and `fabric` READMEs and the `netsim` package table updated, and
-      the direction record's run bullet, randomness sentence, and scenario seed
-      sentence rewritten in the change that makes them false.
+- [ ] `stream`, `trace`, `traffic`, and `fabric` READMEs and the `netsim`
+      package table updated; the direction record's run and comparison rules,
+      randomness sentence, and scenario seed sentence updated with the code
+      that changes them.
 - [ ] This plan's `status` set with an outcome note under its title, and the
       parent's `Landed:` line for U3 filled.
 - [ ] No plan labels in code.
@@ -459,17 +551,3 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
-- Parked by drive (U5, second): attaching evidence to the unstated-buffer issue
-  is not a scoped fix. `markQueueBufferUnstated` runs at enqueue (`run.go:1010`)
-  before any crossing is recorded, the crossing entry carries no `trace.Step`
-  (`run.go:1311`), and the marker is reached with an empty journey
-  (`egress_buffer_internal_test.go:209`), so no trace step exists to cite. Making
-  the issue cite real evidence needs a new trace event for the queue-crossing —
-  a trace-model design decision this plan does not settle. Options: re-plan U5 to
-  add a queue-crossing trace step so the issue cites it, then implement (the
-  correct fix) | drop corpus case 13b (unstated-buffer) and land 13a (queue-full)
-  and 13c (policer), which already have trace evidence, deferring 13b until the
-  trace work | land phases 1-2 and phase-3 U1-U4 as they are and revisit U5 with
-  the evidence model separately. Recommended: re-plan U5, because the issue is
-  genuinely incomplete without evidence and a queue-crossing trace step is the
-  honest source; this is design work, not another implement pass.
