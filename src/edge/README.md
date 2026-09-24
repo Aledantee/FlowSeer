@@ -8,6 +8,7 @@ the customer network — as opposed to the control-plane services in
 | --------- | --------------------------------------------------------- |
 | `agent`   | The device access agent: enrolls with central, holds its dispatch stream, drives the local-network access lane. `cmd/agent` is its binary |
 | `netpen`  | L2/L3 security audit and attack tool, run by an operator   |
+| `netsimload` | Finite offered-load transmitter and capture comparison tool. `cmd/netsimload` is its binary |
 
 "Edge" names what an application is *designed for*, not only where it ends up
 running. An agent that lives here because it can operate on a remote network may
@@ -31,3 +32,16 @@ family stay out of the main module's graph, and
 `src/common/internal/netpenguard` fails the build if they leak. A new edge
 application with a heavy dependency family should do the same and extend that
 guard's allowlist.
+
+`netsimload` stays in the root module because it consumes the root-owned stream
+and fabric values. Its packet sender uses `golang.org/x/sys/unix` directly and
+does not import netpen's gopacket link. It needs `CAP_NET_RAW` (or equivalent
+raw-socket permission) for both named interfaces. It never selects a default
+interface, and the transmit and receive interfaces must be distinct and up.
+
+The wire signature reserves the first 32 payload octets for `FSLD`, version 1,
+flow ID, sequence, and submission timestamp. The application README documents
+the byte layout and the distinction between userspace submission, capture, and
+simulator timestamps. A physical-switch comparison is a separately approved
+operation: it requires advance notice to power on the normally-off switch and
+an owner-approved blast-radius statement before any traffic is sent.

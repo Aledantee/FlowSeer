@@ -121,7 +121,7 @@ Landed: `5bfe805f..337a1d93`
 ### U5. On-wire transmitter and the lab comparison
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase5-plan.md`
 After: U3
-Landed:
+Landed: `d15ae3b1..8c714b53`
 
 Waves: U1 | U2 | U3 | U4 U5
 
