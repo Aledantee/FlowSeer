@@ -175,9 +175,12 @@ fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 
 The source reports offsets from its own start. The injection time is
 `Config.Start + StreamAttachment.Start + source offset`. Before each step, the
-run injects source frames due no later than the earliest queued arrival. When
-the queue is empty, it pulls the earliest source frame to keep the run moving.
-Frames at the same time are injected in attachment order. A host source ends
+run releases pending host injections and pulls stream frames
+due no later than the earliest queued arrival. When the queue is empty, it
+releases the earliest frame to keep the run moving. Eager host injections win
+ties with stream frames; streams at the same time follow attachment order.
+`RunScenario` refuses actions when streams are attached because the action loop
+does not order actions against source frames. A host source ends
 when its origin link is `Down`; an `Unknown` link leaves each frame unresolved.
 
 Every attached frame belongs to a nonzero flow. The default `RetainJourney`
@@ -760,10 +763,16 @@ runtime catalog so the queue issue's ref resolves; `Spec().Evidence` keeps only
 construction evidence. Earlier metadata snapshots and forks retain their own
 catalog values.
 
-A valid host injection onto a link that is not `Up` is not an error. On a
-`Down` link the journey records an `EntryDrop` with the link's reason; on an
-`Unknown` link, an `EntryUnresolved`. Both carry the host's cable and transmit
-nothing.
+A host injection transmits immediately unless a queued arrival precedes its
+requested time or another host injection is already pending before the first
+step. Pending host injections are released in time order with attached streams.
+The host busy clock and link check happen when the frame transmits, either at
+`Inject` or at release. A fault set after `Inject` can therefore change the
+outcome of a pending injection, but not an immediate transmission.
+A valid host injection onto a link that is not `Up` is not an error. On a `Down`
+link the journey records an `EntryDrop` with the link's reason at its injection
+time; on an `Unknown` link, an `EntryUnresolved`. Both carry the host's cable and
+transmit nothing.
 
 ## Journey metadata
 
