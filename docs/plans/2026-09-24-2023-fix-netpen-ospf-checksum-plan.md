@@ -7,6 +7,7 @@ artifact_readiness: implementation-ready
 status: implemented
 review: accept
 execution: code
+compound: docs/solutions/conventions/a-permissive-synthetic-tier-passes-attacks-a-real-vendor-rejects.md
 amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 ---
 
