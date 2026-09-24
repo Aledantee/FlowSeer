@@ -40,12 +40,16 @@ steps a source or destination address within 48 bits; `Count` is the number of
 offsets before it repeats. `SizeVariation` cycles through sizes that include
 the four-octet FCS. It adjusts the Ethernet payload length for the header and
 each VLAN tag, preserving the original payload prefix and zero-padding when
-needed. Bit-rate spacing uses the template frame's wire size, so a size sweep
-can change the bits emitted in each interval. `UDPPortVariation` steps a source
-or destination port in an IP/UDP
-template. A UDP port change passes through `udp.Encode` and `ip.Header.Encode`
+needed. A size variation requires a frames-per-second rate because bit-rate
+spacing cannot use the template's wire size for frames of varying sizes.
+`UDPPortVariation` steps a source or destination port in an IP/UDP template.
+A UDP port change passes through `udp.Encode` and `ip.Header.Encode`
 so both checksums are recomputed; it never patches a byte in place. The
-template must decode as IP/UDP before `Source` can be constructed.
+template must survive IP/UDP decoding and re-encoding before `Source` can be
+constructed. Earlier size variations must leave the whole IP packet intact.
+It cannot follow a custom variation whose effect on the IP packet is unknown.
+The port variation preserves bytes after the IP packet, including Ethernet
+padding, and refuses fragmented IPv4 templates.
 
 MAC and UDP variations can draw an offset from `SplitMix64` instead of stepping.
 `Spec.Seed` sets the sequence, so two sources built from the same spec emit the

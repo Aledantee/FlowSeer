@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -122,33 +123,50 @@ func (v UDPPortVariation) Validate() error {
 }
 
 // Apply decodes and re-encodes UDP and IP so their checksums track the changed
-// port. A frame that cannot be decoded as IP/UDP is returned unchanged.
+// port. [Spec.Validate] refuses templates and preceding sizes that cannot be
+// re-encoded before a source starts.
 func (v UDPPortVariation) Apply(n int, frame ethernet.Frame, rng *SplitMix64) ethernet.Frame {
-	ipHeader, udpHeader, payload, err := decodeUDPFrame(frame)
-	if err != nil {
-		return frame
-	}
 	var delta uint16
 	if v.Draw {
 		delta = uint16(rng.Next() % uint64(v.Count))
 	} else {
 		delta = uint16(uint64(n%v.Count) * uint64(v.Step))
 	}
+	ipHeader, udpHeader, payload, err := decodeUDPFrame(frame)
+	if err != nil {
+		return frame
+	}
 	if v.Dst {
 		udpHeader.DstPort += delta
 	} else {
 		udpHeader.SrcPort += delta
 	}
-	datagram, err := udp.Encode(udpHeader, payload, ipHeader.Src, ipHeader.Dst)
+	frame, err = encodeUDPFrame(frame, ipHeader, udpHeader, payload)
 	if err != nil {
 		return frame
+	}
+	return frame
+}
+
+func encodeUDPFrame(frame ethernet.Frame, ipHeader ip.Header, udpHeader udp.Header, payload []byte) (ethernet.Frame, error) {
+	datagram, err := udp.Encode(udpHeader, payload, ipHeader.Src, ipHeader.Dst)
+	if err != nil {
+		return frame, fmt.Errorf("encode UDP for variation: %w", err)
 	}
 	encoded, err := ipHeader.Encode(datagram)
 	if err != nil {
-		return frame
+		return frame, fmt.Errorf("encode IP for UDP variation: %w", err)
 	}
-	frame.Payload = encoded
-	return frame
+	packetLen := ipPacketLength(frame.Payload, ipHeader)
+	frame.Payload = append(encoded, frame.Payload[packetLen:]...)
+	return frame, nil
+}
+
+func ipPacketLength(payload []byte, header ip.Header) int {
+	if header.V4 != nil {
+		return int(binary.BigEndian.Uint16(payload[2:4]))
+	}
+	return ip.V6HeaderLen + int(binary.BigEndian.Uint16(payload[4:6]))
 }
 
 func decodeUDPFrame(frame ethernet.Frame) (ip.Header, udp.Header, []byte, error) {
@@ -161,6 +179,9 @@ func decodeUDPFrame(frame ethernet.Frame) (ip.Header, udp.Header, []byte, error)
 	}
 	if ipHeader.Protocol != 17 || (frame.EtherType == ethernet.EtherTypeIPv4) != (ipHeader.V4 != nil) {
 		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP variation requires matching IP/UDP payload")
+	}
+	if ipHeader.V4 != nil && (ipHeader.V4.FragmentOffset != 0 || ipHeader.V4.Flags&1 != 0) {
+		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP variation requires an unfragmented IPv4 packet")
 	}
 	udpHeader, payload, err := udp.Decode(datagram)
 	if err != nil {

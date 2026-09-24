@@ -60,13 +60,12 @@ func TestMACVariationStep(t *testing.T) {
 }
 
 func TestVariationsApplyInOrder(t *testing.T) {
-	source := variationSource(t, variationSpec(ethernet.Frame{}, 2,
-		stream.MACVariation{Field: stream.MACDestination, Step: 1, Count: 8},
-		stream.MACVariation{Field: stream.MACDestination, Step: 2, Count: 8}))
-	source.Next()
+	source := variationSource(t, variationSpec(ethernet.Frame{}, 1,
+		stream.SizeVariation{Sizes: []int{64}},
+		stream.SizeVariation{Sizes: []int{128}}))
 	_, frame, ok := source.Next()
-	if !ok || frame.Dst != (netaddr.MAC{0, 0, 0, 0, 0, 3}) {
-		t.Errorf("second frame = (%s, %t), want (00:00:00:00:00:03, true)", frame.Dst, ok)
+	if !ok || len(frame.Payload)+18 != 128 {
+		t.Errorf("frame size = (%d, %t), want (128, true)", len(frame.Payload)+18, ok)
 	}
 }
 
@@ -196,6 +195,159 @@ func TestUDPPortVariationChecksums(t *testing.T) {
 			t.Errorf("frame %d checksum = 0x%04x, want a changed checksum", n, udpHeader.Checksum)
 		}
 		previousChecksum = udpHeader.Checksum
+	}
+}
+
+func TestUDPPortVariationPreservesEthernetPadding(t *testing.T) {
+	frame := udpFrame(t)
+	packetLen := len(frame.Payload)
+	padding := bytes.Repeat([]byte{0xa5}, 46-packetLen)
+	frame.Payload = append(frame.Payload, padding...)
+	source := variationSource(t, variationSpec(frame, 1,
+		stream.UDPPortVariation{Dst: true, Step: 1, Count: 2}))
+	_, got, ok := source.Next()
+	if !ok {
+		t.Fatal("Next() exhausted")
+	}
+	if len(got.Payload) != 46 || !bytes.Equal(got.Payload[packetLen:], padding) {
+		t.Errorf("payload length and padding = (%d, %x), want (46, %x)", len(got.Payload), got.Payload[packetLen:], padding)
+	}
+	encoded, err := got.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if len(encoded) != 60 {
+		t.Errorf("encoded octets = %d, want 60", len(encoded))
+	}
+}
+
+func TestSizeThenUDPPortVariationPreservesSizes(t *testing.T) {
+	frame := udpFrame(t)
+	source := variationSource(t, variationSpec(frame, 2,
+		stream.SizeVariation{Sizes: []int{64, 1518}},
+		stream.UDPPortVariation{Dst: true, Step: 1, Count: 2}))
+	for n, want := range []int{64, 1518} {
+		_, got, ok := source.Next()
+		if !ok {
+			t.Fatalf("Next(%d) exhausted", n)
+		}
+		encoded, err := got.Encode()
+		if err != nil {
+			t.Fatalf("Encode(%d): %v", n, err)
+		}
+		if len(encoded)+4 != want {
+			t.Errorf("frame %d size = %d, want %d", n, len(encoded)+4, want)
+		}
+	}
+}
+
+func TestUDPPortVariationDrawConsumesInvalidFrame(t *testing.T) {
+	v := stream.UDPPortVariation{Dst: true, Count: 7, Draw: true}
+	rng := stream.NewSplitMix64(42)
+	want := stream.NewSplitMix64(42)
+	v.Apply(0, ethernet.Frame{}, &rng)
+	want.Next()
+	if got, expected := rng.Next(), want.Next(); got != expected {
+		t.Errorf("next draw = 0x%x, want 0x%x after invalid frame", got, expected)
+	}
+}
+
+func TestUDPPortVariationRejectsUnencodableIPv6(t *testing.T) {
+	h := ip.Header{
+		Src: netip.MustParseAddr("2001:db8::1"), Dst: netip.MustParseAddr("2001:db8::2"),
+		HopLimit: 64, Protocol: 17, V6: &ip.V6{},
+	}
+	datagram, err := udp.Encode(udp.Header{SrcPort: 5000, DstPort: 1000}, []byte{1}, h.Src, h.Dst)
+	if err != nil {
+		t.Fatalf("udp.Encode: %v", err)
+	}
+	payload, err := h.Encode(datagram)
+	if err != nil {
+		t.Fatalf("ip.Encode: %v", err)
+	}
+	copy(payload[8:24], netip.MustParseAddr("::ffff:192.0.2.1").AsSlice())
+	copy(payload[24:40], netip.MustParseAddr("::ffff:192.0.2.2").AsSlice())
+	spec := variationSpec(ethernet.Frame{EtherType: ethernet.EtherTypeIPv6, Payload: payload}, 1,
+		stream.UDPPortVariation{Dst: true, Count: 2})
+	if err := spec.Validate(); err == nil {
+		t.Error("Validate() error = nil, want refusal")
+	}
+	if source, err := spec.Source(); err == nil {
+		t.Errorf("Source() = %v, nil, want refusal", source)
+	}
+}
+
+func TestUDPPortVariationRejectsTruncatedIPPacket(t *testing.T) {
+	spec := variationSpec(udpFrame(t), 2,
+		stream.SizeVariation{Sizes: []int{64, 40}},
+		stream.UDPPortVariation{Dst: true, Count: 2})
+	if err := spec.Validate(); err == nil {
+		t.Error("Validate() error = nil, want refusal")
+	}
+	if source, err := spec.Source(); err == nil {
+		t.Errorf("Source() = %v, nil, want refusal", source)
+	}
+}
+
+type corruptIPVariation struct{}
+
+func (corruptIPVariation) Validate() error { return nil }
+
+func (corruptIPVariation) Apply(_ int, frame ethernet.Frame, _ *stream.SplitMix64) ethernet.Frame {
+	frame.Payload = []byte{1}
+	return frame
+}
+
+func TestUDPPortVariationRejectsEarlierCustomVariation(t *testing.T) {
+	spec := variationSpec(udpFrame(t), 1,
+		corruptIPVariation{}, stream.UDPPortVariation{Dst: true, Count: 2})
+	if err := spec.Validate(); err == nil {
+		t.Error("Validate() error = nil, want refusal")
+	}
+	if source, err := spec.Source(); err == nil {
+		t.Errorf("Source() = %v, nil, want refusal", source)
+	}
+}
+
+func TestUDPPortVariationRejectsIPv4Fragments(t *testing.T) {
+	base := udpFrame(t)
+	for _, tc := range []struct {
+		name   string
+		flags  uint8
+		offset uint16
+	}{
+		{name: "non-first fragment", offset: 1},
+		{name: "more fragments", flags: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, datagram, err := ip.Decode(base.Payload)
+			if err != nil {
+				t.Fatalf("ip.Decode: %v", err)
+			}
+			h.V4.Flags = tc.flags
+			h.V4.FragmentOffset = tc.offset
+			payload, err := h.Encode(datagram)
+			if err != nil {
+				t.Fatalf("ip.Encode: %v", err)
+			}
+			spec := variationSpec(ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: payload}, 1,
+				stream.UDPPortVariation{Dst: true, Count: 2})
+			if err := spec.Validate(); err == nil {
+				t.Error("Validate() error = nil, want refusal")
+			}
+		})
+	}
+}
+
+func TestBitRateRejectsSizeVariation(t *testing.T) {
+	spec := variationSpec(ethernet.Frame{Payload: make([]byte, 46)}, 2,
+		stream.SizeVariation{Sizes: []int{64, 1518}})
+	spec.Rate = stream.Rate{BitsPerSecond: 1_000_000_000}
+	if err := spec.Validate(); err == nil {
+		t.Error("Validate() error = nil, want refusal")
+	}
+	if source, err := spec.Source(); err == nil {
+		t.Errorf("Source() = %v, nil, want refusal", source)
 	}
 }
 
