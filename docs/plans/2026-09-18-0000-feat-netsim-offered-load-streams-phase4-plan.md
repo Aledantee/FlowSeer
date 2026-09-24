@@ -3,7 +3,7 @@ title: Offered-Load Streams Phase 4 - Capture File as a Stream Source - Plan
 type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: code
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
@@ -11,55 +11,166 @@ parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 
 # Offered-Load Streams Phase 4 - Capture File as a Stream Source - Plan
 
-> Re-planned by plan when its turn comes; the tree will have moved.
-
 ## Goal
 
-A pcap or pcapng file of Ethernet frames replays into a fabric at a chosen
-origin with its recorded spacing. The means: a reader under
-`src/common/net/pcap` and an adapter in `stream` from records to a `Source`.
-The plan is wrong if the captures worth replaying are Linux cooked captures
-(`LINKTYPE_LINUX_SLL2`, 276), which carry no Ethernet header to replay.
+An Ethernet pcap or pcapng file supplies frames to a fabric at a chosen origin,
+starting at the attachment's epoch and retaining the capture's spacing. A
+reader in `src/common/net/pcap` decodes records; an adapter in `stream` checks
+and snapshots them as a `stream.Source`. This plan is wrong if the captures to
+replay are predominantly Linux cooked captures (`LINKTYPE_LINUX_SLL2`, 276),
+which lack the Ethernet header that `ethernet.Decode` requires.
 
 ## Decisions
 
-- The parent's decisions and the direction record apply.
-- The reader is the repository's own code and returns `Record{At time.Time,
-  Data []byte, OrigLen uint32}` plus the link type. Why: the main module has no
-  pcap dependency, `gopacket` is pinned only in the netpen module
-  (`src/edge/netpen/go.mod:17`), and `src/common` takes no generated types.
-  The two-consumer test of `src/common/README.md:22-24` is met by `netsim` and
-  by the phase 5 transmitter.
-- Formats: classic pcap in both byte orders with microsecond and nanosecond
-  magic, and pcapng Section Header, Interface Description, and Enhanced Packet
-  blocks with `if_tsresol`. Other blocks are skipped. The re-plan fetches
-  draft-ietf-opsawg-pcapng and the pcap file format draft and cites sections.
-- A record shorter than its original length (a snap length cut) is refused by
-  the adapter, not padded. Why: a truncated frame serializes in less time than
-  the real one and would understate load.
-- Tests decode fixture bytes whose fields were checked by hand against a hex
-  dump, per
+- The parent's decisions and
+  `docs/architecture/2026-09-18-offered-load-streams-direction.md` apply. The
+  direction record remains proposed; this phase makes no change to it.
+- `pcap.NewReader(io.Reader) (*Reader, error)` detects classic pcap or pcapng.
+  Its `Next() (Record, error)` returns `io.EOF` only at a clean record boundary.
+  `Record` contains `At time.Time`, owned `Data []byte`, `OrigLen uint32`,
+  `LinkType uint16`, and `HasFCS bool` for metadata declaring an FCS. Link type
+  belongs to each record because pcapng EPBs select IDBs. The reader uses no
+  generated capture types. Its placement in `common` serves `stream` now and
+  the phase 5 transmitter later. The existing `src/modules/capture/pcapng.Writer`
+  stays in its module because it accepts protobuf records.
+- Classic pcap support covers version 2.4 in both byte orders and with
+  microsecond or nanosecond magic. The reader consumes the 24-octet file
+  header and each 16-octet record header; the low 16 bits of the file header's
+  link-type word identify the link type and upper bits can declare FCS. A
+  fractional timestamp must be below one second in its selected units.
+  [PCAP draft 09, sections 4-5](https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcap-09)
+  defines the layout.
+- Pcapng support covers Section Header, Interface Description, and Enhanced
+  Packet blocks in either byte order. A new SHB resets interface IDs and may
+  change byte order. An EPB uses its selected IDB's link type, timestamp
+  resolution (default 10^-6, decimal or binary `if_tsresol`), and signed
+  `if_tsoffset` in seconds. The reader checks block alignment, repeated length,
+  options, and packet padding before slicing. It skips metadata and unknown
+  blocks but refuses Simple Packet and obsolete Packet blocks: silently
+  discarding their frames would understate load. Conversion discards
+  sub-nanosecond fractions and rejects timestamp overflow.
+  [Pcapng draft 06, sections 3.1, 3.4, 4.1-4.4](https://datatracker.ietf.org/doc/html/draft-ietf-opsawg-pcapng-06)
+  defines these fields.
+- The reader refuses a captured length above 1 MiB before allocating packet
+  bytes, checks it against a nonzero snapshot length, and reports truncated
+  headers, blocks, or data as errors. It skips unknown block bodies with a
+  bounded buffer rather than allocating their declared size. One MiB covers
+  oversized Ethernet test frames while bounding allocation from an untrusted
+  packet length. `go doc io.EOF` distinguishes clean completion from
+  unexpected end of structured data.
+- `stream.NewCaptureSource([]pcap.Record) (Source, error)` validates and copies
+  the records before attachment. It accepts empty input as an exhausted
+  source. It refuses link type other than 1 (naming the numeric type), unequal
+  original and captured lengths, invalid Ethernet headers, explicitly declared
+  FCS, decreasing timestamps, and offsets outside `time.Duration`. The first
+  timestamp maps to zero; equal timestamps retain file order. `Clone` copies
+  the cursor, and `Next` returns independent frame bytes. This snapshot keeps
+  file I/O out of `stream` and makes all read errors visible before attachment;
+  `Source.Next` has no error return. Checked offset conversion matters because
+  `time.Time.Sub` saturates on overflow (`go doc time.Time.Sub`).
+- Replay preserves source and destination MACs. FCS-bearing captures are
+  refused because `ethernet.Decode` would treat the FCS as payload and
+  `Frame.WireOctets` would count it twice. An unmarked capture is treated as
+  FCS-free; its bytes cannot prove whether an FCS is present. The adapter does
+  not guess or rewrite MACs.
+- Tests use small hand-checked literal fixtures under `pcap/testdata/`, per
   `docs/solutions/conventions/a-codec-round-trip-cannot-locate-a-field-on-the-wire.md`.
-  The capture module's writer is a second, independent encoder, so one test
-  reads a file it wrote; that is a cross-check, not the wire proof.
-- Fixtures are new small files under the package's `testdata/`. The netpen
-  captures are not reused. Why: they belong to a separate module and their
-  content is crafted protocol frames, not a load.
+  A little-endian microsecond pcap header starts `d4 c3 b2 a1 02 00 04 00`
+  and ends `ff ff 00 00 01 00 00 00`; 1,700,000,000 seconds is
+  `00 f1 53 65`, 250 microseconds is `fa 00 00 00`, and a 60-octet
+  record length is `3c 00 00 00`. A frame begins
+  `02 00 00 00 00 02 02 00 00 00 00 01 08 00`. A separate pcapng fixture
+  pins `if_tsresol=9` and the little-endian EPB timestamp halves for
+  1,700,000,000,000,000,000 nanoseconds to
+  `fe 9c 97 17 00 00 2a 36`. The capture module's writer is an additional
+  interoperability check, not the wire proof.
 
 ## Requirements
 
-14. A hand-checked classic pcap of three frames yields three records with the
-    expected timestamps to the microsecond and the expected first 14 octets; a
-    pcapng file with `if_tsresol` 9 yields nanosecond timestamps; a file with
-    link type 276 is refused with the link type named.
-15. A capture of two frames 250 µs apart, attached at `h1` with start `t0`,
-    injects at `t0` and `t0 + 250 µs`; a capture with a truncated record is
-    refused at attach.
+14. The reader returns bytes, original lengths, link types, and absolute
+    timestamps of hand-checked classic and pcapng fixtures. For example, a
+    classic record at 1,700,000,000 seconds and 250 microseconds yields
+    `2023-11-14T22:13:20.000250Z` and the Ethernet prefix above; a pcapng
+    `if_tsresol=9` record at 1,700,000,000,000,000,000 ticks yields
+    `2023-11-14T22:13:20Z`. A truncated block is an error, not `io.EOF`.
+15. A two-frame Ethernet capture 250 microseconds apart, converted to a source
+    and attached at host `h1` with fabric start `t0`, injects at `t0` and
+    `t0+250µs` with both MACs intact. A record with `OrigLen=64` and 60
+    captured octets is refused while constructing the source, before
+    `AttachStream`; a complete link type 276 record is refused with `276` in
+    the error.
+
+## Out of scope
+
+- Non-Ethernet link types, captures that explicitly declare an FCS, and
+  guessing FCS presence when metadata is absent.
+- File-backed `Source` iteration: `Next` cannot report a later read error and
+  `Clone` needs a stable cursor. The caller reads records before building the
+  source; capture memory scales with the file's records, while fabric playback
+  still pulls one frame at a time.
+- Changes to capture protobufs, the pcapng writer's production API, fabric's
+  stream attachment contract, or the phase 5 transmitter.
+
+## Units
+
+### U1. Decode capture records
+
+Files: `src/common/net/pcap/doc.go`, `src/common/net/pcap/reader.go`,
+`src/common/net/pcap/classic.go`, `src/common/net/pcap/ng.go`,
+`src/common/net/pcap/reader_test.go`, `src/common/net/pcap/testdata/`,
+`src/common/net/pcap/README.md`, `src/modules/capture/pcapng/writer_test.go`
+After: none
+Change: The reader returns one record at a time with the contract above,
+tracks pcapng interfaces per section, and reports structural and timestamp
+errors. The writer test reads a writer-produced file through the reader.
+Tests: `reader_test.go` pins fixture field positions and times, all four
+classic magic/byte-order combinations, big-endian pcapng and a second section,
+per-interface decimal and binary resolutions, `if_tsoffset`, classic and
+pcapng FCS declarations, unknown metadata, and refusals for bad trailer,
+invalid interface ID, excessive length, captured length beyond snap length,
+truncated data, and SPB/PB. The writer test checks EPB data and its default
+microsecond timestamp. Each refusal input is otherwise valid, per
+`docs/solutions/conventions/a-refusal-test-needs-an-input-only-the-refusal-rejects.md`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/pcap/doc.go src/common/net/pcap/reader.go src/common/net/pcap/classic.go src/common/net/pcap/ng.go src/common/net/pcap/reader_test.go src/common/net/pcap/testdata src/common/net/pcap/README.md src/modules/capture/pcapng/writer_test.go`
+
+### U2. Adapt records to a source and attach one
+
+Files: `src/common/netsim/stream/capture.go`,
+`src/common/netsim/stream/capture_test.go`,
+`src/common/netsim/stream/README.md`,
+`src/common/netsim/fabric/attach_test.go`
+After: U1
+Change: The adapter validates and copies records before returning a Source.
+The stream README shows reading a file through `pcap.Reader`, building the
+source, and attaching it with `fabric.StreamAttachment{Origin:
+fabric.Endpoint{Node: "h1"}, Start: 0, Flow: 1}`. The adapter does not import
+`fabric`; no fabric production change is needed.
+Tests: `capture_test.go` proves zero first offset, 250-microsecond spacing,
+stable exhaustion, independent clone cursors and frame bytes, preserved MACs,
+empty input, and separate refusals for link type 276, truncation, FCS metadata,
+bad Ethernet header, decreasing timestamps, and duration overflow.
+`attach_test.go` loads a fixture, attaches its source at `h1`, runs the fabric,
+and asserts both `Journey.Injection.At` values and frame MACs; it checks that
+a truncated capture never reaches `AttachStream`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/stream/capture.go src/common/netsim/stream/capture_test.go src/common/netsim/stream/README.md src/common/netsim/fabric/attach_test.go`
+
+Waves: U1 | U2
+
+## Verification
+
+- `go test -race ./src/common/net/pcap ./src/modules/capture/pcapng ./src/common/netsim/stream ./src/common/netsim/fabric`
+- Run each unit's diff-aware verifier on every changed path. Check the
+  writer-produced pcapng with `capinfos` or `tshark` when installed; the
+  literal fixtures remain the wire proof without those tools.
+
+## Definition of done
+
+- [ ] The verifier passes for every changed path, and the package READMEs
+      show the supported formats, replay example, and FCS limit.
+- [ ] This plan's `status` becomes `implemented` with an outcome note below
+      its title after code lands; no plan labels enter code or commit messages.
 
 ## Open questions
 
-- Whether replay rewrites source MACs to the origin host's. A capture taken on
-  a trunk carries many sources, and `Inject` at a host keeps the frame's
-  addresses, so the default is no rewrite.
-- Whether `ethernet.Decode` needs to strip a trailing FCS some captures carry;
-  it has no FCS handling today (`src/common/net/ethernet/ethernet.go:148-189`).
+None for implementation. Acceptance of the offered-load direction record is a
+parent-plan decision and does not change this reader or adapter contract.
