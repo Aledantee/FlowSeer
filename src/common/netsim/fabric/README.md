@@ -146,6 +146,46 @@ func main() {
 }
 ```
 
+## Attached streams
+
+`AttachStream` lets the run pull frames from a `stream.Source` without expanding
+the entire stream into the arrival queue. Add the `netsim/stream` import to the
+example above, then use a valid `frame` for host `h1`:
+
+```go
+source, err := (stream.Spec{
+	Frame: frame,
+	Rate: stream.Rate{FramesPerSecond: 1_000},
+	Count: 40,
+}).Source()
+if err != nil {
+	panic(err)
+}
+if err := fab.AttachStream(fabric.StreamAttachment{
+	Origin: fabric.Endpoint{Node: "h1"},
+	Source: source,
+	Flow: 7,
+}); err != nil {
+	panic(err)
+}
+result := fab.Run(10_000)
+stats := fab.Flows()[7]
+fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
+```
+
+The source reports offsets from its own start. The injection time is
+`Config.Start + StreamAttachment.Start + source offset`. Before each step, the
+run injects source frames due no later than the earliest queued arrival. When
+the queue is empty, it pulls the earliest source frame to keep the run moving.
+Frames at the same time are injected in attachment order. A host source ends
+when its origin link is `Down`; an `Unknown` link leaves each frame unresolved.
+
+Every attached frame belongs to a nonzero flow. The default `RetainJourney`
+keeps its journey in `Report`; choose `RetainAggregate` to fold the outcome into
+`Flows` and release the settled journey. The fabric owns the source cursor
+after attachment. `Fork` clones that cursor and any peeked frame, so each fork
+continues the remaining stream independently.
+
 ## Traversal journey
 
 Calling `Report()` returns an independent copy of the journey recorded for each

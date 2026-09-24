@@ -108,6 +108,14 @@ type queued struct {
 	mirror     string
 }
 
+type pendingHostInjection struct {
+	at     time.Time
+	frame  ethernet.Frame
+	fid    FrameID
+	seq    uint64
+	origin Endpoint
+}
+
 type egressQueue struct {
 	pending        [8][]queued
 	dequeueAt      time.Time
@@ -314,22 +322,16 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	})
 
 	switch {
-	case hostRef != nil && hostRef.end.Oper != port.Up:
-		kind := EntryDrop
-		if hostRef.end.Oper == port.Unknown {
-			kind = EntryUnresolved
+	case hostRef != nil && !f.runStarted() && ((len(f.queue) > 0 && f.queue[0].At.Before(inj.At)) || len(f.pendingHosts) > 0):
+		item := pendingHostInjection{at: inj.At, frame: frame, fid: fid, seq: seq, origin: inj.Origin}
+		index := len(f.pendingHosts)
+		for index > 0 && item.at.Before(f.pendingHosts[index-1].at) {
+			index--
 		}
-		cable := hostRef.link.Clone()
-		f.record(journey, Entry{
-			At:     inj.At,
-			Kind:   kind,
-			Device: inj.Origin.Node,
-			Cable:  &cable,
-			Reason: hostRef.end.Reason,
-		})
+		f.pendingHosts = slices.Insert(f.pendingHosts, index, item)
+		f.inflightAdd(fid)
 	case hostRef != nil:
-		pcp, _ := frame.Priority()
-		f.enqueueEgress(inj.At, hostRef.end.Endpoint, hostRef.end.Port, frame, seq, fid, journey, pcp, "")
+		f.injectHostFrame(inj.At, inj.Origin, frame, seq, fid, journey)
 	default:
 		arr := Arrival{
 			At:      inj.At,
@@ -347,6 +349,37 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	return fid, nil
 }
 
+func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey) {
+	ref, _ := f.linkEnd(origin.Node, "")
+	if ref.end.Oper != port.Up {
+		kind := EntryDrop
+		if ref.end.Oper == port.Unknown {
+			kind = EntryUnresolved
+		}
+		cable := ref.link.Clone()
+		f.record(journey, Entry{
+			At: at, Kind: kind, Device: origin.Node, Cable: &cable, Reason: ref.end.Reason,
+		})
+		return
+	}
+	pcp, _ := frame.Priority()
+	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, frame, seq, fid, journey, pcp, "")
+}
+
+func (f *Fabric) pullPendingHosts() {
+	defer f.settleTouched()
+	for len(f.pendingHosts) > 0 {
+		item := f.pendingHosts[0]
+		if len(f.queue) > 0 && item.at.After(f.queue[0].At) {
+			return
+		}
+		f.pendingHosts[0] = pendingHostInjection{}
+		f.pendingHosts = f.pendingHosts[1:]
+		f.inflightRemove(item.fid)
+		f.injectHostFrame(item.at, item.origin, item.frame, item.seq, item.fid, f.journeys[item.fid])
+	}
+}
+
 // Step advances simulation time to the earliest queued arrival and processes it through the destination device.
 //
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
@@ -357,6 +390,11 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 // Step returns false when the arrival queue is empty or a scheduling fault has
 // been recorded; [Fabric.Err] distinguishes the two.
 func (f *Fabric) Step() (Entry, bool) {
+	if f.err != nil {
+		return Entry{}, false
+	}
+	f.pullPendingHosts()
+	f.pullSources()
 	if f.err != nil {
 		return Entry{}, false
 	}
@@ -1590,6 +1628,12 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			stop = StopFault
 			break
 		}
+		f.pullPendingHosts()
+		f.pullSources()
+		if f.err != nil {
+			stop = StopFault
+			break
+		}
 
 		if len(pendingActions) > 0 {
 			if len(f.queue) == 0 || !pendingActions[0].At.After(f.queue[0].At) {
@@ -1637,7 +1681,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			}
 		}
 
-		if window > 0 && len(pendingActions) == 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
+		if window > 0 && len(pendingActions) == 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() && !f.sourcesPending() {
 			stop = StopConverged
 			break
 		}

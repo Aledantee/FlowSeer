@@ -72,7 +72,10 @@ ownership across specialized packages:
   on a fabric alike, so a pair of fabrics composes pairs of switches.
 - A simulation is a run: injected frames, each with a time and an origin,
   sit in a queue of pending arrivals ordered by time and then by a fixed
-  tie-break; a step takes one arrival, forwards it on its device, and
+  tie-break. Attached streams supply further frames: before each step, the
+  run pulls source frames due at or before the earliest queued arrival, or
+  the earliest source frame when the queue is empty. A step takes one arrival,
+  forwards it on its device, and
   enqueues one copy per egress cable; a copy is a transmission on the
   egress port that starts when the port is free and its queue's turn comes,
   in strict priority by PCP, takes the frame's serialization at the negotiated
@@ -108,9 +111,9 @@ ownership across specialized packages:
 - A cable is a model of its own: a length and a medium that give a
   propagation time and bound the negotiated speed, an optional delay that
   replaces the propagation term, a top speed, and a declared fault (cut,
-  one direction dead, a deterministic loss or corruption rule). Nothing in
-  a run is random, so a run reproduces, and the journey names the cable
-  where a frame was lost.
+  one direction dead, a deterministic loss or corruption rule). A run is a
+  function of its configuration, its injections and streams, and their seeds;
+  the journey names the cable where a frame was lost.
 - The shapes come from prior art, recorded in
   [the prior art research](2026-09-10-network-simulation-prior-art-research.md):
   a trace is a list of per-layer operations as Packet Tracer shows them,
@@ -357,8 +360,8 @@ Without that exclusion, periodic protocol events (such as spanning tree BPDUs)
 would advance the clock and refresh counters on every step, making a settled
 fabric look perpetually changing or disguising budget exhaustion as normal
 progress. A scenario declares its observation window and positive step budget as
-an in-memory Go value; it carries no file persistence, no packet-capture parser,
-and no pseudo-random seed.
+an in-memory Go value; it carries no file persistence or packet-capture parser.
+When the run names streams, their seeds determine field draws.
 
 ### Current-against-candidate comparison
 
