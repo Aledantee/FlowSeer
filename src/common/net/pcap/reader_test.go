@@ -3,6 +3,7 @@ package pcap_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -23,6 +24,9 @@ func TestReaderClassicFixture(t *testing.T) {
 	}
 	if got := wire[:8]; !bytes.Equal(got, []byte{0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0}) {
 		t.Fatalf("header = % x, want little-endian microsecond pcap", got)
+	}
+	if got := wire[16:24]; !bytes.Equal(got, []byte{0xff, 0xff, 0, 0, 1, 0, 0, 0}) {
+		t.Fatalf("snaplen and link type = % x, want literal header fields", got)
 	}
 	if got := wire[24:40]; !bytes.Equal(got, []byte{
 		0, 0xf1, 0x53, 0x65, 0xfa, 0, 0, 0, 0x3c, 0, 0, 0, 0x3c, 0, 0, 0,
@@ -105,6 +109,7 @@ func TestReaderClassicRefusals(t *testing.T) {
 		{"truncated file header", valid[:12], true},
 		{"wrong version", replaceBytes(valid, 4, []byte{3, 0}), true},
 		{"truncated record header", valid[:30], false},
+		{"record header without packet", valid[:40], false},
 		{"truncated packet", valid[:len(valid)-1], false},
 		{"fraction outside second", classicWire(binary.LittleEndian, false, 1_000_000, 60, 60, 0), false},
 		{"packet above limit", classicWire(binary.LittleEndian, false, 250, 1<<20+1, 1<<20+1, 0), false},
@@ -113,16 +118,88 @@ func TestReaderClassicRefusals(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := pcap.NewReader(bytes.NewReader(tc.wire))
 			if tc.atNew {
-				if err == nil {
-					t.Fatal("NewReader succeeded, want error")
+				if err == nil || errors.Is(err, io.EOF) {
+					t.Fatalf("NewReader error = %v, want structural error", err)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("NewReader: %v", err)
 			}
-			if _, err := r.Next(); err == nil || err == io.EOF {
+			if _, err := r.Next(); err == nil || errors.Is(err, io.EOF) {
 				t.Fatalf("Next error = %v, want structural error", err)
+			}
+		})
+	}
+}
+
+func TestReaderClassicFCSFlags(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		linkWord uint32
+	}{
+		{"length without presence bit", 0x40000001},
+		{"presence bit without length", 0x04000001},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := pcap.NewReader(bytes.NewReader(classicWire(binary.LittleEndian, false, 0, 60, 60, tc.linkWord)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec, err := r.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rec.HasFCS {
+				t.Errorf("HasFCS = true, want false for link word %#x", tc.linkWord)
+			}
+		})
+	}
+}
+
+func TestReaderStructuredTruncations(t *testing.T) {
+	order := binary.LittleEndian
+	classic := classicWire(order, false, 250, 60, 60, 0)
+	section := ngSection(order)
+	idb := ngIDB(order, 1, 0, nil)
+	epb := ngEPB(order, 0, 0, testFrame, nil)
+	packetPrefix := append(append([]byte(nil), section...), idb...)
+	optionIDB := ngIDB(order, 1, 0, ngOption(order, 9, []byte{9}))
+	optionSection := ngBlock(order, 0x0a0d0d0a, append(append([]byte(nil), section[8:24]...), 0, 0, 0, 0))
+	unknown := ngBlock(order, 5, []byte{0, 0, 0, 0})
+	paddedEPB := ngEPB(order, 0, 0, testFrame[:59], nil)
+
+	for _, tc := range []struct {
+		name    string
+		wire    []byte
+		atNew   bool
+		context string
+	}{
+		{"file magic", nil, true, "file header"},
+		{"classic file header", classic[:4], true, "file header"},
+		{"classic record data", classic[:40], false, "packet data"},
+		{"pcapng section length", section[:4], true, "section header"},
+		{"pcapng section byte order", section[:8], true, "section byte order"},
+		{"pcapng section fields", section[:12], true, "section fields"},
+		{"pcapng section options header", optionSection[:24], true, "section options"},
+		{"pcapng section trailer", section[:24], true, "block trailer"},
+		{"pcapng interface fields", append(section, idb[:8]...), false, "interface fields"},
+		{"pcapng interface options header", append(section, optionIDB[:16]...), false, "interface options"},
+		{"pcapng interface options value", append(section, optionIDB[:20]...), false, "interface options"},
+		{"pcapng interface options padding", append(section, optionIDB[:21]...), false, "interface options"},
+		{"pcapng packet fields", append(packetPrefix, epb[:8]...), false, "packet fields"},
+		{"pcapng packet data", append(packetPrefix, epb[:28]...), false, "packet data"},
+		{"pcapng packet padding", append(packetPrefix, paddedEPB[:87]...), false, "packet padding"},
+		{"pcapng unknown block body", append(section, unknown[:8]...), false, "block type 5"},
+		{"pcapng packet trailer", append(packetPrefix, epb[:len(epb)-4]...), false, "block trailer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := pcap.NewReader(bytes.NewReader(tc.wire))
+			if !tc.atNew && err == nil {
+				_, err = r.Next()
+			}
+			if err == nil || errors.Is(err, io.EOF) || !strings.Contains(err.Error(), tc.context) {
+				t.Fatalf("error = %v, want structural %s error", err, tc.context)
 			}
 		})
 	}
@@ -193,6 +270,48 @@ func TestReaderPcapngInterfacesAndSections(t *testing.T) {
 	}
 }
 
+func TestReaderPcapngSectionVersions(t *testing.T) {
+	order := binary.LittleEndian
+	for _, tc := range []struct {
+		name  string
+		minor uint16
+		ok    bool
+	}{
+		{"version 1.2", 2, true},
+		{"version 1.1", 1, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			section := ngSection(order)
+			order.PutUint16(section[14:16], tc.minor)
+			wire := append(append(section, ngIDB(order, 1, 0, nil)...), ngEPB(order, 0, 0, testFrame, nil)...)
+			r, err := pcap.NewReader(bytes.NewReader(wire))
+			if !tc.ok {
+				if err == nil || !strings.Contains(err.Error(), "unsupported version 1.1") {
+					t.Fatalf("NewReader error = %v, want unsupported version 1.1", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec, err := r.Next()
+			if err != nil || !bytes.Equal(rec.Data, testFrame) {
+				t.Fatalf("Next = %x, %v, want EPB data", rec.Data, err)
+			}
+		})
+	}
+}
+
+func TestReaderPcapngMisalignedSection(t *testing.T) {
+	order := binary.LittleEndian
+	sectionBody := append([]byte(nil), ngSection(order)[8:24]...)
+	section := ngBlock(order, 0x0a0d0d0a, append(sectionBody, 0, 0))
+	_, err := pcap.NewReader(bytes.NewReader(section))
+	if err == nil || !strings.Contains(err.Error(), "invalid section length 30") {
+		t.Fatalf("NewReader error = %v, want invalid section length 30", err)
+	}
+}
+
 func TestReaderPcapngOffsetAndFCS(t *testing.T) {
 	order := binary.LittleEndian
 	idbOptions := append(ngOption(order, 14, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}), ngOption(order, 13, []byte{4})...)
@@ -253,12 +372,19 @@ func TestReaderPcapngSubNanosecondResolution(t *testing.T) {
 func TestReaderPcapngRefusals(t *testing.T) {
 	order := binary.LittleEndian
 	good := append(ngSection(order), ngIDB(order, 1, 0, nil)...)
+	epbStart := len(good)
 	good = append(good, ngEPB(order, 0, 0, testFrame, nil)...)
 	badOptionPadding := ngOption(order, 9, []byte{9})
 	badOptionPadding[len(badOptionPadding)-1] = 1
 	badPaddingData := append([]byte(nil), testFrame[:59]...)
 	badPadding := ngEPB(order, 0, 0, badPaddingData, nil)
 	badPadding[len(badPadding)-5] = 1
+	obsoleteBody := append(make([]byte, 20), testFrame...)
+	order.PutUint32(obsoleteBody[12:16], 60)
+	order.PutUint32(obsoleteBody[16:20], 60)
+	offset := make([]byte, 8)
+	order.PutUint64(offset, 1<<62-1)
+	offsetOptions := append(ngOption(order, 9, []byte{0}), ngOption(order, 14, offset)...)
 	for _, tc := range []struct {
 		name string
 		wire []byte
@@ -266,7 +392,10 @@ func TestReaderPcapngRefusals(t *testing.T) {
 		{"bad trailer", replaceBytes(good, len(good)-4, []byte{0, 0, 0, 0})},
 		{"truncated block", good[:len(good)-1]},
 		{"truncated packet data", good[:len(good)-10]},
-		{"misaligned block", append(ngSection(order), []byte{5, 0, 0, 0, 14, 0, 0, 0}...)},
+		{"packet block header without fields", good[:epbStart+8]},
+		{"unknown block header without body", append(ngSection(order), ngBlock(order, 5, []byte{0, 0, 0, 0})[:8]...)},
+		{"packet fields without data", good[:epbStart+28]},
+		{"misaligned block", append(ngSection(order), ngBlock(order, 5, []byte{0, 0})...)},
 		{"bad option length", append(append(ngSection(order), ngIDB(order, 1, 0, ngOption(order, 9, []byte{9, 9}))...), ngEPB(order, 0, 0, testFrame, nil)...)},
 		{"bad option padding", append(append(ngSection(order), ngIDB(order, 1, 0, badOptionPadding)...), ngEPB(order, 0, 0, testFrame, nil)...)},
 		{"invalid interface", append(append(ngSection(order), ngIDB(order, 1, 0, nil)...), ngEPB(order, 1, 0, testFrame, nil)...)},
@@ -274,15 +403,17 @@ func TestReaderPcapngRefusals(t *testing.T) {
 		{"packet above snaplen", append(append(ngSection(order), ngIDB(order, 1, 32, nil)...), ngEPB(order, 0, 0, testFrame, nil)...)},
 		{"bad packet padding", append(append(ngSection(order), ngIDB(order, 1, 0, nil)...), badPadding...)},
 		{"simple packet", append(append(ngSection(order), ngIDB(order, 1, 0, nil)...), ngBlock(order, 3, append([]byte{60, 0, 0, 0}, testFrame...))...)},
-		{"obsolete packet", append(append(ngSection(order), ngIDB(order, 1, 0, nil)...), ngBlock(order, 2, append(make([]byte, 20), testFrame...))...)},
+		{"obsolete packet", append(append(ngSection(order), ngIDB(order, 1, 0, nil)...), ngBlock(order, 2, obsoleteBody)...)},
 		{"timestamp overflow", append(append(ngSection(order), ngIDB(order, 1, 0, ngOption(order, 9, []byte{0}))...), ngEPB(order, 0, ^uint64(0), testFrame, nil)...)},
+		{"timestamp time range overflow", append(append(ngSection(order), ngIDB(order, 1, 0, ngOption(order, 9, []byte{0}))...), ngEPB(order, 0, 1<<63-1, testFrame, nil)...)},
+		{"timestamp offset time range overflow", append(append(ngSection(order), ngIDB(order, 1, 0, offsetOptions)...), ngEPB(order, 0, 1<<62, testFrame, nil)...)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := pcap.NewReader(bytes.NewReader(tc.wire))
 			if err != nil {
 				t.Fatalf("NewReader: %v", err)
 			}
-			if _, err := r.Next(); err == nil || err == io.EOF {
+			if _, err := r.Next(); err == nil || errors.Is(err, io.EOF) {
 				t.Fatalf("Next error = %v, want structural error", err)
 			}
 		})
