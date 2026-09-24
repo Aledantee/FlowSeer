@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/a-metadata-issue-needs-a-trace-event-where-the-observation-happens.md
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
