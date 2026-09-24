@@ -12,9 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/common/net/pcap"
 	"go.aledante.io/FlowSeer/src/modules/capture/pcapng"
 )
 
@@ -146,6 +148,40 @@ func TestWriter_StructuralWalk(t *testing.T) {
 	}
 	if got := binary.LittleEndian.Uint64(opts[6]); got != numRecords {
 		t.Errorf("ISB isb_filteraccept = %d, want %d", got, numRecords)
+	}
+}
+
+func TestWriterRecordsReadAsPcapng(t *testing.T) {
+	data := []byte{2, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 1, 8, 0}
+	record := newRecord(t, 1, data)
+	wantAt := time.Unix(1_700_000_000, 250_000)
+	record.SetCapturedAt(timestamppb.New(wantAt))
+	if err := protovalidate.Validate(record); err != nil {
+		t.Fatalf("PacketRecord fixture: %v", err)
+	}
+
+	var wire bytes.Buffer
+	w, err := pcapng.NewWriter(&wire, capturev1.LinkType_LINK_TYPE_ETHERNET, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteRecord(record); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(&capturev1.CaptureCounters{}); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := pcap.NewReader(&wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := r.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.At.Equal(wantAt) || got.LinkType != 1 || got.OrigLen != uint32(len(data)) || !bytes.Equal(got.Data, data) {
+		t.Errorf("record = %+v, want at %s, Ethernet, length %d, data % x", got, wantAt, len(data), data)
 	}
 }
 
