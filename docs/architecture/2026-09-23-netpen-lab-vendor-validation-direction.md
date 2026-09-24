@@ -3,7 +3,7 @@ title: netpen Lab Vendor Validation - Direction
 type: direction
 date: 2026-09-23
 topic: netpen-lab-vendor-validation
-status: proposed-direction
+status: accepted-direction
 ---
 
 # netpen Lab Vendor Validation - Direction

@@ -105,6 +105,9 @@ change, and routes back as a blocker.
   `matrix_test.go` guards its structure; auto-writeback is a larger mechanism
   this slice does not need.
 - The lab-backed vendor-validation approach is promoted to a direction record,
+  accepted by the user on 2026-09-24
+  (`docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md`,
+  `status: accepted-direction`),
   because it lifts the netpen port plan's accepted limitation that vendor
   validation may land only via fixtures + t1 and it governs all future netpen
   vendor validation beyond this plan's units.
@@ -160,7 +163,7 @@ change, and routes back as a blocker.
 ## Units
 
 ### U1. Direction record: netpen lab vendor validation
-Files: `docs/architecture/2026-09-23-netpen-lab-vendor-validation.md`
+Files: `docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md`
 After: none
 Change: Records that netpen vendor behavioral truth (VALIDATION_MATRIX source
 (b)) is obtained from a live lab — injection driven over SSH to a Linux injector
@@ -172,7 +175,7 @@ validation may land only via fixtures + t1. States the tier mapping: `netpen_t1`
 is containerized reproducibility and wire shape; `netpen_t2` is live vendor
 behavioral truth over SSH.
 Tests: none (docs).
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architecture/2026-09-23-netpen-lab-vendor-validation.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md`
 
 ### U2. Lab config and SSH injector driver
 Files: `src/edge/netpen/test/integration/lab/lab.go`,
@@ -314,8 +317,3 @@ Waves: U1 U2 U3 | U4 | U5
   leave U4-U5 for a later drive. Recommended: operator prepares the lab, then
   resume, because U4-U5 carry the plan's actual vendor evidence and U1-U3 alone
   leave the matrix rows pending.
-- Parked by drive: the direction record
-  `docs/architecture/2026-09-23-netpen-lab-vendor-validation.md` (U1, landed)
-  awaits acceptance. Options: accept as accepted direction | amend | leave
-  proposed. Recommended: accept, because it records the lab-backed vendor-truth
-  approach this plan and future netpen vendor validation rest on.
