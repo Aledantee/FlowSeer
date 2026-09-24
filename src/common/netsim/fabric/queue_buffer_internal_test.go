@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -288,16 +289,51 @@ func TestQueueBufferUnstatedMarksOncePerEndpoint(t *testing.T) {
 	}
 }
 
+// TestQueueBufferUnstatedAlreadyAboveThresholdRecordsNothing asserts that a queue
+// already above threshold at its first unstated enqueue records nothing, because
+// the ruling requires the enqueue to transition depth from at most one
+// maximum-size frame to above it.
+func TestQueueBufferUnstatedAlreadyAboveThresholdRecordsNothing(t *testing.T) {
+	fab, members := lagAccountingFabric(t, 9000, nil)
+	member := members[0]
+	frame := egressBufferFrame()
+
+	for i := range 5 {
+		j := &Journey{}
+		fab.enqueueEgress(fab.clock, member, "lag1", frame, uint64(i+1), FrameID(i+1), j, 0, "")
+		if len(j.Entries) != 0 {
+			t.Fatalf("enqueue %d under lag1 recorded entries: %+v", i, j.Entries)
+		}
+	}
+	if len(fab.unstatedBacked) != 0 {
+		t.Fatalf("unstatedBacked marked unexpectedly: %v", fab.unstatedBacked)
+	}
+
+	journey := &Journey{}
+	fab.enqueueEgress(fab.clock, member, member.Port, frame, 6, 6, journey, 0, "")
+	if len(journey.Entries) != 0 {
+		t.Errorf("enqueue when depthBefore > threshold recorded entries = %+v, want none", journey.Entries)
+	}
+	if _, marked := fab.unstatedBacked[member]; marked {
+		t.Errorf("member was marked when depthBefore > threshold: %v", fab.unstatedBacked)
+	}
+	if len(fab.runtimeEvidence.Entries()) != 0 {
+		t.Errorf("runtime evidence recorded when depthBefore > threshold: %+v", fab.runtimeEvidence.Entries())
+	}
+}
+
 // TestQueueBufferUnstatedHostScope covers a host's cable end: with no switch
-// queue to state a buffer, the mark scopes to the host's node.
+// queue to state a buffer, the mark scopes to the host's node, uses kind host,
+// and names the node in context.
 func TestQueueBufferUnstatedHostScope(t *testing.T) {
 	fab, _ := bufferAccountingFabric(t, nil)
 	hostEnd := Endpoint{Node: "h1"}
 	fab.busyUntil[hostEnd] = fab.clock.Add(time.Hour)
 	frame := egressBufferFrame()
-	for range 2 {
-		fab.enqueueEgress(fab.clock, hostEnd, "", frame, 1, 1, &Journey{}, 0, "")
-	}
+	first := &Journey{}
+	fab.enqueueEgress(fab.clock, hostEnd, "", frame, 1, 1, first, 0, "")
+	second := &Journey{}
+	fab.enqueueEgress(fab.clock, hostEnd, "", frame, 2, 2, second, 0, "")
 
 	if _, marked := fab.unstatedBacked[hostEnd]; !marked {
 		t.Fatalf("host end left unmarked: %v", fab.unstatedBacked)
@@ -305,6 +341,22 @@ func TestQueueBufferUnstatedHostScope(t *testing.T) {
 	scope := analysis.NodeScope("h1")
 	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
 		t.Errorf("Metadata holds %d queue-buffer-unstated issues on the host node, want one", got)
+	}
+	if len(second.Entries) != 1 || second.Entries[0].Step == nil {
+		t.Fatalf("host crossing entries = %+v, want queue step", second.Entries)
+	}
+	wantSubject := trace.Subject{Kind: "host", Key: "h1/0"}
+	if got := second.Entries[0].Step.Subject; got != wantSubject {
+		t.Errorf("host queue subject = %+v, want %+v", got, wantSubject)
+	}
+	ref := fab.unstatedBacked[hostEnd]
+	ev, ok := fab.runtimeEvidence.Lookup(ref)
+	if !ok {
+		t.Fatalf("runtime evidence for %q not found", ref)
+	}
+	wantContext := `;egress_port="h1";`
+	if !strings.Contains(ev.Context, wantContext) {
+		t.Errorf("evidence context %q does not contain %q", ev.Context, wantContext)
 	}
 }
 

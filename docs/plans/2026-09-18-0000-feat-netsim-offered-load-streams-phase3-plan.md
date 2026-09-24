@@ -5,6 +5,7 @@ date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
@@ -168,10 +169,11 @@ documented as the model.
   stream unfinished. Why not both: the action ordering uses `pendingActions[0].At`
   against `f.queue[0].At`, and a source frame pulled past an action's time would
   reorder them. Combining `Attach` with scenario actions is out of scope.
-- Each attachment names a nonzero `Flow`; its frames use `RetainAggregate`
-  unless the attachment asks for `RetainJourney`. Why: the direction's
-  millions-of-frames figure needs journeys freed, and the corpus cases and the
-  requirement 11 test need journeys kept; one knob serves both.
+- Each attachment names a nonzero `Flow`; its frames use `RetainJourney` by
+  default, matching `Inject`, and use `RetainAggregate` when the attachment asks
+  for it. Why: the direction's millions-of-frames figure needs journeys freed,
+  and the corpus cases and the requirement 11 test need journeys kept; one knob
+  serves both.
 - A host origin whose link is `Down` ends its stream: the pull drops the
   attachment before injecting. An `Unknown` link injects, and `Inject` records
   `EntryUnresolved` per frame as it already does (`run.go:327-340`); a

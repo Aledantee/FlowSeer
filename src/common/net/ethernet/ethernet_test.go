@@ -357,7 +357,7 @@ func TestFrameWireOctets(t *testing.T) {
 			want: 88,
 		},
 		{
-			name:  "a 1518-octet frame is 1542 wire octets",
+			name:  "a 1518-octet encoding is 1542 wire octets",
 			frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1504)},
 			want:  1542,
 		},

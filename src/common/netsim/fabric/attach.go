@@ -83,7 +83,9 @@ func (f *Fabric) sourcesPending() bool {
 	return false
 }
 
-func (f *Fabric) pullSources() {
+func (f *Fabric) pullInputs() {
+	defer f.settleTouched()
+
 	for i := range f.attachments {
 		source := &f.attachments[i]
 		if source.ended || source.peeked {
@@ -107,14 +109,32 @@ func (f *Fabric) pullSources() {
 				selected = i
 			}
 		}
-		if selected < 0 {
+		pendingFirst := len(f.pendingHosts) > 0 &&
+			(selected < 0 || !f.attachments[selected].at.Before(f.pendingHosts[0].at))
+		if selected < 0 && !pendingFirst {
 			return
 		}
 
-		source := &f.attachments[selected]
-		if len(f.queue) > 0 && source.at.After(f.queue[0].At) {
+		var at time.Time
+		if pendingFirst {
+			at = f.pendingHosts[0].at
+		} else {
+			at = f.attachments[selected].at
+		}
+		if len(f.queue) > 0 && at.After(f.queue[0].At) {
 			return
 		}
+
+		if pendingFirst {
+			item := f.pendingHosts[0]
+			f.pendingHosts[0] = pendingHostInjection{}
+			f.pendingHosts = f.pendingHosts[1:]
+			f.inflightRemove(item.fid)
+			f.injectHostFrame(item.at, item.origin, item.frame, item.seq, item.fid, f.journeys[item.fid])
+			continue
+		}
+
+		source := &f.attachments[selected]
 		if _, isHost := f.cfg.Hosts[source.attachment.Origin.Node]; isHost {
 			ref, _ := f.linkEnd(source.attachment.Origin.Node, "")
 			if ref.end.Oper == port.Down {
@@ -124,10 +144,10 @@ func (f *Fabric) pullSources() {
 			}
 		}
 
-		_, err := f.Inject(Injection{
+		_, err := f.inject(Injection{
 			At: source.at, Origin: source.attachment.Origin, Frame: source.frame,
 			Flow: source.attachment.Flow, Retention: source.attachment.Retention,
-		})
+		}, false)
 		if err != nil {
 			f.err = errs.Wrap(err, "inject attached stream frame")
 			return

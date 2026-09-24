@@ -173,8 +173,25 @@ func TestEgressLagThresholdKeepsLogicalSubjectAndPhysicalIssue(t *testing.T) {
 		t.Errorf("entry endpoint = %s/%s, want %s/%s", entry.Device, entry.Port, member.Node, member.Port)
 	}
 	scope := analysis.PortScope(member.Node, member.Port)
-	if got := countIssueScope(journey.Metadata.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+	issues := journey.Metadata.IssuesFor(scope)
+	if got := countIssueScope(issues, IssueQueueBufferUnstated, scope); got != 1 {
 		t.Errorf("member scoped queue issues = %d, want one", got)
+	}
+	if len(entry.Step.Evidence) != 1 {
+		t.Fatalf("step evidence = %v, want one reference", entry.Step.Evidence)
+	}
+	var memberIssue *analysis.Issue
+	for i := range issues {
+		if issues[i].Code == IssueQueueBufferUnstated && issues[i].Scope == scope {
+			memberIssue = &issues[i]
+			break
+		}
+	}
+	if memberIssue == nil || len(memberIssue.Evidence) != 1 {
+		t.Fatalf("member queue issue = %+v, want one evidence reference", memberIssue)
+	}
+	if got, want := entry.Step.Evidence[0], memberIssue.Evidence[0]; got != want {
+		t.Errorf("step evidence ref %q != member issue ref %q", got, want)
 	}
 }
 

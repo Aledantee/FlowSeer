@@ -52,6 +52,8 @@ func (s Spec) Validate() error {
 	if _, err := s.Frame.Encode(); err != nil {
 		return fmt.Errorf("encode stream frame: %w", err)
 	}
+	minEarlierSize := math.MaxInt
+	customEarlierVariation := false
 	for i, variation := range s.Variations {
 		if variation == nil {
 			return fmt.Errorf("variation %d is nil", i)
@@ -66,14 +68,37 @@ func (s Spec) Validate() error {
 		case *SizeVariation:
 			sizes = v.Sizes
 		case UDPPortVariation, *UDPPortVariation:
-			if _, _, _, err := decodeUDPFrame(s.Frame); err != nil {
+			if customEarlierVariation {
+				return fmt.Errorf("variation %d: UDP port variation cannot follow a custom variation", i)
+			}
+			ipHeader, udpHeader, payload, err := decodeUDPFrame(s.Frame)
+			if err != nil {
 				return fmt.Errorf("variation %d: %w", i, err)
 			}
+			encoded, err := encodeUDPFrame(s.Frame, ipHeader, udpHeader, payload)
+			if err != nil {
+				return fmt.Errorf("variation %d: %w", i, err)
+			}
+			packetLen := ipPacketLength(s.Frame.Payload, ipHeader)
+			if encodedLen := ipPacketLength(encoded.Payload, ipHeader); encodedLen != packetLen {
+				return fmt.Errorf("variation %d: UDP variation changes IP packet length from %d to %d", i, packetLen, encodedLen)
+			}
+			packetSize := 18 + 4*len(s.Frame.Tags) + packetLen
+			if minEarlierSize < packetSize {
+				return fmt.Errorf("variation %d: earlier frame size %d truncates the IP packet of %d octets", i, minEarlierSize, packetSize)
+			}
+		case MACVariation, *MACVariation:
+		default:
+			customEarlierVariation = true
+		}
+		if len(sizes) > 0 && s.Rate.BitsPerSecond != 0 {
+			return fmt.Errorf("variation %d: size variation requires a frames-per-second rate", i)
 		}
 		for _, size := range sizes {
 			if size < 18+4*len(s.Frame.Tags) {
 				return fmt.Errorf("variation %d: frame size %d is smaller than tagged Ethernet header and FCS", i, size)
 			}
+			minEarlierSize = min(minEarlierSize, size)
 		}
 	}
 
