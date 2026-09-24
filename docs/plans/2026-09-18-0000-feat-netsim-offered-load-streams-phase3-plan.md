@@ -105,7 +105,7 @@ documented as the model.
   source does not include it, so one `Source` can be retimed.
 - `Spec.Start` is an offset from the consumer's epoch; `StreamAttachment.Start` is an
   offset from `Fabric.Config.Start`; a frame's absolute time is
-  `Config.Start + Attachment.Start + Next.at`. Why: requirement 9's `t0` is the
+  `Config.Start + StreamAttachment.Start + Next.at`. Why: requirement 9's `t0` is the
   fabric's start, phase 4 attaches "at `h1` with start `t0`"
   (`docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase4-plan.md`,
   requirement 15), and `Inject.At` is absolute, so the placement is explicit
