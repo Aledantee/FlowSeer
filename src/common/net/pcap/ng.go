@@ -38,7 +38,7 @@ func (r *Reader) readSection(length [4]byte) error {
 	if _, err := io.ReadFull(body, fixed[:]); err != nil {
 		return fmt.Errorf("pcapng: section fields: %w", structuredEOF(err))
 	}
-	if major, minor := r.order.Uint16(fixed[:2]), r.order.Uint16(fixed[2:4]); major != 1 || minor != 0 {
+	if major, minor := r.order.Uint16(fixed[:2]), r.order.Uint16(fixed[2:4]); major != 1 || (minor != 0 && minor != 2) {
 		return fmt.Errorf("pcapng: unsupported version %d.%d", major, minor)
 	}
 	if err := readOptions(body, r.order, nil); err != nil {
@@ -275,9 +275,10 @@ func ngTimestamp(ticks uint64, resolution byte, offset int64) (time.Time, error)
 		return time.Time{}, fmt.Errorf("pcapng: timestamp overflows time.Time")
 	}
 	unixSeconds := int64(seconds) + offset
-	at := time.Unix(unixSeconds, int64(nanos)).UTC()
-	if at.Unix() != unixSeconds || at.Nanosecond() != int(nanos) {
+	// time.Time stores seconds since year 1, so its internal seconds overflow first.
+	const unixToInternalSeconds = 62_135_596_800
+	if unixSeconds > maxSeconds-unixToInternalSeconds {
 		return time.Time{}, fmt.Errorf("pcapng: timestamp overflows time.Time")
 	}
-	return at, nil
+	return time.Unix(unixSeconds, int64(nanos)).UTC(), nil
 }
