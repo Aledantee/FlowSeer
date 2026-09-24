@@ -26,7 +26,6 @@ type FlowObservation struct {
 	Missing        uint64       `json:"missing"`
 	Duplicates     uint64       `json:"duplicates"`
 	Reordered      uint64       `json:"reordered"`
-	Malformed      uint64       `json:"malformed"`
 	LateAfterClose uint64       `json:"late_after_close"`
 	Latency        LatencyStats `json:"latency"`
 }
@@ -99,6 +98,11 @@ func (a *Accumulator) RecordReceive(wire []byte, capturedAt time.Time) {
 		a.malformed++
 		return
 	}
+	latency := capturedAt.Sub(signature.SubmittedAt)
+	if signature.SubmittedAt.UnixNano() < 0 || latency < 0 {
+		a.malformed++
+		return
+	}
 	if a.closed {
 		flow.observation.LateAfterClose++
 	}
@@ -117,11 +121,6 @@ func (a *Accumulator) RecordReceive(wire []byte, capturedAt time.Time) {
 		flow.haveHighest = true
 	}
 
-	latency := capturedAt.Sub(signature.SubmittedAt)
-	if signature.SubmittedAt.UnixNano() < 0 || latency < 0 {
-		flow.observation.Malformed++
-		return
-	}
 	if flow.observation.Latency.Count == 0 || latency < flow.observation.Latency.Min {
 		flow.observation.Latency.Min = latency
 	}

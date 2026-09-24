@@ -3,6 +3,7 @@ package netsimload
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -50,5 +51,19 @@ func TestReportSortsFlowsAndPreservesSimulatorIssues(t *testing.T) {
 	var decoded map[string]any
 	if err := json.Unmarshal(first.Bytes(), &decoded); err != nil {
 		t.Fatalf("report JSON: %v", err)
+	}
+}
+
+func TestReportKeepsLabMissingOutsideSimulatorLoss(t *testing.T) {
+	metadata := analysis.NewMetadata(analysis.WholeScope(), nil, analysis.EvidenceCatalog{}, nil)
+	flows := map[fabric.FlowID]fabric.FlowStats{7: {Offered: 4, Delivered: map[string]uint64{"host": 4}}}
+	lab := Observation{Flows: map[fabric.FlowID]FlowObservation{7: {Sent: 4, UniqueReceived: 3, Missing: 1}}}
+	report := NewReport(flows, metadata, lab, "host")
+	if report.Simulator.Flows[0].Lost != 0 || len(report.Simulator.Flows[0].Drops) != 0 || report.Normalized[0].SimulatorUnreceived != 0 || report.Normalized[0].LabUnreceived != 1 {
+		t.Fatalf("report conflated live missing with simulator loss: %+v", report)
+	}
+	projected := NewReportFromSimulator(report.Simulator, lab, "host")
+	if !reflect.DeepEqual(projected, report) {
+		t.Fatalf("projected report = %+v, want %+v", projected, report)
 	}
 }

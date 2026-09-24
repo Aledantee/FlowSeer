@@ -168,6 +168,21 @@ type captureSpan struct {
 	last  time.Time
 }
 
+func (span *captureSpan) record(at time.Time) {
+	span.Lock()
+	defer span.Unlock()
+	if span.first.IsZero() {
+		span.first = at
+	}
+	span.last = at
+}
+
+func (span *captureSpan) duration() time.Duration {
+	span.Lock()
+	defer span.Unlock()
+	return span.last.Sub(span.first)
+}
+
 type timedSource struct {
 	rawsocket.Source
 	span *captureSpan
@@ -199,12 +214,7 @@ func (source timedSource) Receive(ctx context.Context) <-chan rawsocket.Frame {
 				if frame.Err == nil {
 					if signature, err := netsimload.DecodeWireSignature(frame.Data); err == nil {
 						if _, ok := source.ids[signature.FlowID]; ok {
-							source.span.Lock()
-							if source.span.first.IsZero() {
-								source.span.first = frame.CapturedAt
-							}
-							source.span.last = frame.CapturedAt
-							source.span.Unlock()
+							source.span.record(frame.CapturedAt)
 						}
 					}
 				}
@@ -238,6 +248,9 @@ func TestLabConfigRefusesPartialAndMalformedValues(t *testing.T) {
 		{"NETSIMLOAD_LAB_VLAN", "4095"},
 		{"NETSIMLOAD_LAB_TX_MAC", "01:00:00:00:00:01"},
 		{"NETSIMLOAD_LAB_RX_SPEED_BPS", "0"},
+		{"NETSIMLOAD_LAB_RX_INTERFACE", "eth1"},
+		{"NETSIMLOAD_LAB_RX_PORT", "1/1/1"},
+		{"NETSIMLOAD_LAB_RX_MAC", "02:00:00:00:00:01"},
 	} {
 		_, configured, err := readLabConfig(func(name string) string {
 			if name == tc.name {
@@ -400,9 +413,7 @@ func TestICX7150Comparison(t *testing.T) {
 					t.Errorf("flow %d has no signed receptions", id)
 				}
 			}
-			span.Lock()
-			measured := span.last.Sub(span.first)
-			span.Unlock()
+			measured := span.duration()
 			want := 9999 * time.Millisecond
 			delta := measured - want
 			if delta < 0 {

@@ -41,8 +41,11 @@ func (s *scriptedSource) Clone() stream.Source {
 }
 
 type fakeClock struct {
-	now   time.Time
-	waits []time.Time
+	now            time.Time
+	waits          []time.Time
+	onWait         func(context.Context, time.Time) error
+	ignoreCanceled bool
+	lateBy         time.Duration
 }
 
 func (c *fakeClock) Now() time.Time {
@@ -50,13 +53,20 @@ func (c *fakeClock) Now() time.Time {
 }
 
 func (c *fakeClock) Wait(ctx context.Context, deadline time.Time) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	if c.onWait != nil {
+		if err := c.onWait(ctx, deadline); err != nil {
+			return err
+		}
+	}
+	if !c.ignoreCanceled {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 	}
 	c.waits = append(c.waits, deadline)
-	c.now = deadline
+	c.now = deadline.Add(c.lateBy)
 	return nil
 }
 
@@ -77,13 +87,19 @@ type fakeSender struct {
 	mu       sync.Mutex
 	writes   [][]byte
 	writeErr error
+	onSend   func(context.Context, []byte) error
 	closeErr error
 	closed   bool
 }
 
-func (s *fakeSender) Send(_ context.Context, frame []byte) error {
+func (s *fakeSender) Send(ctx context.Context, frame []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.onSend != nil {
+		if err := s.onSend(ctx, frame); err != nil {
+			return err
+		}
+	}
 	if s.writeErr != nil {
 		return s.writeErr
 	}
@@ -156,7 +172,7 @@ type packetioSender interface {
 }
 
 func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
-	clock := &fakeClock{now: time.Unix(1700000000, 0)}
+	clock := &fakeClock{now: time.Unix(1700000000, 0), lateBy: 100 * time.Microsecond}
 	sender := &fakeSender{}
 	receiver := newFakeReceiver()
 	frame := ethernet.Frame{Payload: make([]byte, SignatureSize)}
@@ -200,6 +216,199 @@ func TestRunPacesOneEpochAndBreaksEqualOffsetsByFlowID(t *testing.T) {
 	if observation.Flows[1].Sent != 2 || observation.Flows[2].Sent != 1 {
 		t.Fatalf("observation = %+v", observation)
 	}
+	for i, wire := range sender.writes {
+		signature, decodeErr := DecodeWireSignature(wire)
+		if decodeErr != nil {
+			t.Fatal(decodeErr)
+		}
+		if want := clock.waits[i].Add(clock.lateBy); !signature.SubmittedAt.Equal(want) {
+			t.Fatalf("write %d submitted at %s, want send clock %s", i, signature.SubmittedAt, want)
+		}
+	}
+}
+
+func TestRunReturnsStatisticsErrorAndInterfaceDrops(t *testing.T) {
+	statsErr := errors.New("packet statistics failed")
+	config := oneFrameConfig()
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"statistics error", statsErr},
+		{"drops", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			receiver := newFakeReceiver()
+			receiver.statsErr = tc.err
+			receiver.interfaceDrops = 7
+			observation, err := RunWith(context.Background(), config, testDependencies(&fakeClock{now: time.Unix(1700000000, 0)}, &fakeSender{}, receiver, upInterface))
+			if tc.err != nil && !errors.Is(err, tc.err) {
+				t.Fatalf("RunWith error = %v, want %v", err, tc.err)
+			}
+			if tc.err == nil && err != nil {
+				t.Fatalf("RunWith: %v", err)
+			}
+			if observation.InterfaceDrops != 7 {
+				t.Fatalf("interface drops = %d, want 7", observation.InterfaceDrops)
+			}
+		})
+	}
+}
+
+func TestRunStopsPromptlyWhenCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	clock := &fakeClock{now: time.Unix(1700000000, 0)}
+	clock.onWait = func(_ context.Context, _ time.Time) error {
+		if len(clock.waits) == 1 {
+			cancel()
+		}
+		return nil
+	}
+	sender := &fakeSender{}
+	config := oneFrameConfig()
+	config.Flows[0].Source = &scriptedSource{items: []sourceItem{{frame: testFrame()}, {at: time.Second, frame: testFrame()}}}
+	observation, err := RunWith(ctx, config, testDependencies(clock, sender, newFakeReceiver(), upInterface))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("RunWith error = %v, want cancellation", err)
+	}
+	if len(sender.writes) != 1 || observation.Flows[1].Sent != 1 {
+		t.Fatalf("writes = %d, observation = %+v; want one send", len(sender.writes), observation)
+	}
+}
+
+func TestRunDrainsFromLastSubmission(t *testing.T) {
+	start := time.Unix(1700000000, 0)
+	clock := &fakeClock{now: start, lateBy: 100 * time.Millisecond}
+	config := oneFrameConfig()
+	config.Drain = 3 * time.Second
+	config.Flows[0].Source = &scriptedSource{items: []sourceItem{{at: 2 * time.Second, frame: testFrame()}}}
+	_, err := RunWith(context.Background(), config, testDependencies(clock, &fakeSender{}, newFakeReceiver(), upInterface))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(clock.waits) != 2 || !clock.waits[1].Equal(start.Add(5*time.Second+100*time.Millisecond)) {
+		t.Fatalf("waits = %v, want send at +2s and drain until +5.1s", clock.waits)
+	}
+}
+
+func TestRunReportsCloseErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		receiverErr error
+		senderErr   error
+	}{
+		{"receiver", errors.New("receiver close failed"), nil},
+		{"sender", nil, errors.New("sender close failed")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			receiver := newFakeReceiver()
+			receiver.closeErr = tc.receiverErr
+			sender := &fakeSender{closeErr: tc.senderErr}
+			_, err := RunWith(context.Background(), oneFrameConfig(), testDependencies(&fakeClock{now: time.Unix(1700000000, 0)}, sender, receiver, upInterface))
+			want := tc.receiverErr
+			if want == nil {
+				want = tc.senderErr
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("RunWith error = %v, want %v", err, want)
+			}
+			if !sender.closed {
+				t.Fatal("sender was not closed")
+			}
+			select {
+			case <-receiver.closed:
+			default:
+				t.Fatal("receiver did not finish")
+			}
+		})
+	}
+}
+
+func TestRunReturnsReceiverErrorWhenSendSeesCancellation(t *testing.T) {
+	receiveErr := errors.New("capture failed during send")
+	receiver := newFakeReceiver()
+	sender := &fakeSender{onSend: func(ctx context.Context, _ []byte) error {
+		receiver.frames <- rawsocket.Frame{Err: receiveErr}
+		<-ctx.Done()
+		return ctx.Err()
+	}}
+	_, err := RunWith(context.Background(), oneFrameConfig(), testDependencies(&fakeClock{now: time.Unix(1700000000, 0)}, sender, receiver, upInterface))
+	if !errors.Is(err, receiveErr) {
+		t.Fatalf("RunWith error = %v, want receiver error", err)
+	}
+}
+
+func TestRunSeesReceiverErrorAfterNonblockingWait(t *testing.T) {
+	receiveErr := errors.New("capture failed during wait")
+	receiver := newFakeReceiver()
+	clock := &fakeClock{now: time.Unix(1700000000, 0), ignoreCanceled: true}
+	triggered := false
+	clock.onWait = func(ctx context.Context, _ time.Time) error {
+		if !triggered {
+			triggered = true
+			receiver.frames <- rawsocket.Frame{Err: receiveErr}
+			<-ctx.Done()
+		}
+		return nil
+	}
+	sender := &fakeSender{}
+	_, err := RunWith(context.Background(), oneFrameConfig(), testDependencies(clock, sender, receiver, upInterface))
+	if !errors.Is(err, receiveErr) || len(sender.writes) != 0 {
+		t.Fatalf("RunWith error = %v, writes = %d; want capture error before send", err, len(sender.writes))
+	}
+}
+
+func TestAccumulatorLockReleasedOnPanic(t *testing.T) {
+	var mu sync.Mutex
+	panicked := false
+	func() {
+		defer func() { panicked = recover() != nil }()
+		withAccumulator(&mu, func() { panic("record failed") })
+	}()
+	if !panicked {
+		t.Fatal("record function did not panic")
+	}
+	if !mu.TryLock() {
+		t.Fatal("accumulator lock remained held after record panicked")
+	}
+	defer mu.Unlock()
+}
+
+func TestRunUsesStreamBurstAndGapOffsets(t *testing.T) {
+	start := time.Unix(1700000000, 0)
+	clock := &fakeClock{now: start}
+	spec := stream.Spec{Frame: testFrame(), Rate: stream.Rate{FramesPerSecond: 1000}, Count: 4, Burst: 2, Gap: time.Second}
+	source, err := spec.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := oneFrameConfig()
+	config.Flows[0].Source = source
+	_, err = RunWith(context.Background(), config, testDependencies(clock, &fakeSender{}, newFakeReceiver(), upInterface))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []time.Duration{0, time.Millisecond, time.Second + 2*time.Millisecond, time.Second + 3*time.Millisecond}
+	if len(clock.waits) != len(want)+1 {
+		t.Fatalf("waits = %v", clock.waits)
+	}
+	for i, offset := range want {
+		if !clock.waits[i].Equal(start.Add(offset)) {
+			t.Fatalf("wait %d = %s, want %s", i, clock.waits[i], start.Add(offset))
+		}
+	}
+}
+
+func oneFrameConfig() Config {
+	return Config{TXInterface: "tx0", RXInterface: "rx0", Flows: []FlowSource{{ID: 1, Source: &scriptedSource{items: []sourceItem{{frame: testFrame()}}}}}}
+}
+
+func testFrame() ethernet.Frame {
+	return ethernet.Frame{Payload: make([]byte, SignatureSize)}
+}
+
+func upInterface(name string) (InterfaceInfo, error) {
+	return InterfaceInfo{Name: name, Up: true}, nil
 }
 
 func TestRunRejectsInterfacesAndPreflightBeforeOpening(t *testing.T) {

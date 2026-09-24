@@ -263,9 +263,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 					signalReceiverError(receiveErr)
 					goto done
 				}
-				observationMu.Lock()
-				accumulator.RecordFrame(frame)
-				observationMu.Unlock()
+				withAccumulator(&observationMu, func() { accumulator.RecordFrame(frame) })
 			case <-runCtx.Done():
 				goto done
 			}
@@ -273,7 +271,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 
 	done:
 		_, drops, statsErr := receiver.Stats()
-		if statsErr != nil && receiveErr == nil && runCtx.Err() == nil {
+		if statsErr != nil && receiveErr == nil {
 			receiveErr = fmt.Errorf("read capture statistics: %w", statsErr)
 			signalReceiverError(receiveErr)
 		}
@@ -322,13 +320,11 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 			break
 		}
 		if err := sender.Send(runCtx, wire); err != nil {
-			runErr = err
+			runErr = firstRunError(ctx, err, receiveErrors)
 			break
 		}
 
-		observationMu.Lock()
-		accumulator.RecordSend(head.flowID, head.sequence)
-		observationMu.Unlock()
+		withAccumulator(&observationMu, func() { accumulator.RecordSend(head.flowID, head.sequence) })
 		head.sequence++
 		advanceHead(head)
 	}
@@ -339,9 +335,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 		}
 	}
 
-	observationMu.Lock()
-	accumulator.Close()
-	observationMu.Unlock()
+	withAccumulator(&observationMu, func() { accumulator.Close() })
 	cancel()
 	outcome := <-receiverDone
 	closeErr := receiver.Close()
@@ -360,11 +354,17 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 		runErr = fmt.Errorf("close transmit interface: %w", senderErr)
 	}
 
-	observationMu.Lock()
-	accumulator.SetInterfaceDrops(outcome.interfaceDrops)
-	observation = accumulator.Snapshot()
-	observationMu.Unlock()
+	withAccumulator(&observationMu, func() {
+		accumulator.SetInterfaceDrops(outcome.interfaceDrops)
+		observation = accumulator.Snapshot()
+	})
 	return observation, runErr
+}
+
+func withAccumulator(mu *sync.Mutex, record func()) {
+	mu.Lock()
+	defer mu.Unlock()
+	record()
 }
 
 func flowIDs(flows []FlowSource) []fabric.FlowID {

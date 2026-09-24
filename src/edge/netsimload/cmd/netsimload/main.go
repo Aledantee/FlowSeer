@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -143,44 +142,7 @@ func compare(input io.Reader, output io.Writer) error {
 		}
 	}
 
-	ids := make([]fabric.FlowID, 0, len(document.Simulator.Flows))
-	for _, flow := range document.Simulator.Flows {
-		ids = append(ids, flow.ID)
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	normalized := make([]netsimload.NormalizedFlow, 0, len(ids))
-	flowsByID := make(map[fabric.FlowID]netsimload.SimulatorFlow, len(ids))
-	for _, flow := range document.Simulator.Flows {
-		flowsByID[flow.ID] = flow
-	}
-	for _, id := range ids {
-		flow := flowsByID[id]
-		lab := document.Lab.Flows[id]
-		delivered := flow.Delivered[document.Destination]
-		simulatorUnreceived := subtract(flow.Offered, delivered)
-		normalized = append(normalized, netsimload.NormalizedFlow{
-			ID:                  id,
-			Destination:         document.Destination,
-			SimulatorOffered:    flow.Offered,
-			SimulatorDelivered:  delivered,
-			SimulatorUnreceived: simulatorUnreceived,
-			LabOffered:          lab.Sent,
-			LabDelivered:        lab.UniqueReceived,
-			LabUnreceived:       lab.Missing,
-		})
-	}
-
-	report := netsimload.Report{
-		Contract:   "netsimload/report/v1",
-		Simulator:  document.Simulator,
-		Lab:        observationReport(document.Lab),
-		Normalized: normalized,
-		Limitations: []string{
-			"software submission timestamps measure userspace handoff to the kernel, not physical NIC departure",
-			"receive timestamps measure capture delivery to userspace",
-			"sequence gaps do not identify a switch drop reason or cable loss",
-		},
-	}
+	report := netsimload.NewReportFromSimulator(document.Simulator, document.Lab, document.Destination)
 	return report.WriteJSON(output)
 }
 
@@ -272,20 +234,4 @@ func writeJSON(output io.Writer, value any) error {
 	encoder := json.NewEncoder(output)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
-}
-
-func observationReport(observation netsimload.Observation) netsimload.ObservationReport {
-	ids := netsimload.SortedFlowIDs(observation)
-	flows := make([]netsimload.ObservedFlow, 0, len(ids))
-	for _, id := range ids {
-		flows = append(flows, netsimload.ObservedFlow{ID: id, FlowObservation: observation.Flows[id]})
-	}
-	return netsimload.ObservationReport{Flows: flows, Malformed: observation.Malformed, InterfaceDrops: observation.InterfaceDrops}
-}
-
-func subtract(offered, delivered uint64) uint64 {
-	if delivered >= offered {
-		return 0
-	}
-	return offered - delivered
 }

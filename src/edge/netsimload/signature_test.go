@@ -48,17 +48,39 @@ func TestSignatureRoundTrip(t *testing.T) {
 }
 
 func TestDecodeSignatureRejectsBadLayout(t *testing.T) {
-	payload := make([]byte, SignatureSize)
-	for _, mutate := range []func([]byte){
-		func(p []byte) { copy(p, []byte("NOPE")) },
-		func(p []byte) { copy(p, []byte("FSLD")); p[7] = 2 },
-		func(p []byte) { copy(p, []byte("FSLD")); p[15] = 1 },
+	valid, err := hex.DecodeString("46534c44000000010102030400000000111213141516171817979cfe3d85cd15")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func([]byte) []byte
+	}{
+		{"magic", func(p []byte) []byte { p[0] = 'N'; return p }},
+		{"version", func(p []byte) []byte { p[7] = 2; return p }},
+		{"reserved word", func(p []byte) []byte { p[15] = 1; return p }},
+		{"short payload", func(p []byte) []byte { return p[:SignatureSize-1] }},
 	} {
-		mutate(payload)
-		if _, err := DecodeSignature(payload); err == nil {
-			t.Fatal("DecodeSignature accepted invalid signature")
-		}
-		payload = make([]byte, SignatureSize)
+		t.Run(tc.name, func(t *testing.T) {
+			payload := tc.mutate(bytes.Clone(valid))
+			if _, err := DecodeSignature(payload); err == nil {
+				t.Fatal("DecodeSignature accepted invalid signature")
+			}
+		})
+	}
+}
+
+func TestDecodeSignatureLiteralVector(t *testing.T) {
+	payload, err := hex.DecodeString("46534c44000000010102030400000000111213141516171817979cfe3d85cd15")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DecodeSignature(payload)
+	if err != nil {
+		t.Fatalf("DecodeSignature: %v", err)
+	}
+	if got.FlowID != 0x01020304 || got.Sequence != 0x1112131415161718 || !got.SubmittedAt.Equal(time.Unix(1700000000, 123456789)) {
+		t.Fatalf("literal signature = %+v", got)
 	}
 }
 

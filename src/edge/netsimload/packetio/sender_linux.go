@@ -4,7 +4,6 @@ package packetio
 
 import (
 	"context"
-	"encoding/binary"
 	"io"
 	"net"
 	"sync"
@@ -40,6 +39,8 @@ type linuxSender struct {
 	closed bool
 }
 
+const sendOnlyProtocol = 0
+
 func openSender(interfaceName string) (Sender, error) {
 	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
@@ -50,7 +51,7 @@ func openSender(interfaceName string) (Sender, error) {
 			Msgf("resolve transmit interface %q", interfaceName)
 	}
 
-	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW|unix.SOCK_CLOEXEC, int(ethPAllNetworkOrder()))
+	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW|unix.SOCK_CLOEXEC, sendOnlyProtocol)
 	if err != nil {
 		return nil, errs.From(err).
 			Code(ErrCodeSenderOpen).
@@ -61,7 +62,7 @@ func openSender(interfaceName string) (Sender, error) {
 	}
 
 	address := &unix.SockaddrLinklayer{
-		Protocol: ethPAllNetworkOrder(),
+		Protocol: sendOnlyProtocol,
 		Ifindex:  iface.Index,
 	}
 	if err := unix.Bind(fd, address); err != nil {
@@ -116,12 +117,4 @@ func (s *linuxSender) Close() error {
 	s.closed = true
 
 	return s.sock.close()
-}
-
-// ethPAllNetworkOrder returns ETH_P_ALL in the byte order expected by
-// AF_PACKET's socket and bind calls.
-func ethPAllNetworkOrder() uint16 {
-	var bytes [2]byte
-	binary.BigEndian.PutUint16(bytes[:], uint16(unix.ETH_P_ALL))
-	return binary.NativeEndian.Uint16(bytes[:])
 }

@@ -5,6 +5,7 @@ package netsimload
 import (
 	"encoding/json"
 	"io"
+	"slices"
 	"sort"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -87,32 +88,36 @@ type IssueReport struct {
 // destination is the named simulator host used for the normalized delivery
 // row; it is not inferred from whichever map key happens to sort first.
 func NewReport(flows map[fabric.FlowID]fabric.FlowStats, metadata analysis.Metadata, lab Observation, destination string) Report {
-	ids := make([]fabric.FlowID, 0, len(flows))
-	for id := range flows {
-		ids = append(ids, id)
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-
 	simulator := SimulatorReport{Status: metadata.Status().String(), Issues: issueReports(metadata.Issues())}
-	normalized := make([]NormalizedFlow, 0, len(ids))
-	for _, id := range ids {
-		stats := flows[id]
+	for id, stats := range flows {
 		flowMetadata := stats.Metadata
 		if flowMetadata.Scope() == analysis.WholeScope() && len(flowMetadata.Issues()) == 0 && flowMetadata.Status() == analysis.Complete {
 			flowMetadata = metadata
 		}
 		simulator.Flows = append(simulator.Flows, simulatorFlow(id, stats, flowMetadata))
 
-		labFlow := lab.Flows[id]
-		delivered := stats.Delivered[destination]
-		unreceived := stats.Offered - delivered
-		if delivered > stats.Offered {
+	}
+	return NewReportFromSimulator(simulator, lab, destination)
+}
+
+// NewReportFromSimulator combines a projected simulator report and a lab
+// observation for destination. It sorts the supplied flow rows by ID and
+// preserves their status, issues, and raw counters.
+func NewReportFromSimulator(simulator SimulatorReport, lab Observation, destination string) Report {
+	simulator.Flows = slices.Clone(simulator.Flows)
+	sort.Slice(simulator.Flows, func(i, j int) bool { return simulator.Flows[i].ID < simulator.Flows[j].ID })
+	normalized := make([]NormalizedFlow, 0, len(simulator.Flows))
+	for _, flow := range simulator.Flows {
+		labFlow := lab.Flows[flow.ID]
+		delivered := flow.Delivered[destination]
+		unreceived := flow.Offered - delivered
+		if delivered > flow.Offered {
 			unreceived = 0
 		}
 		normalized = append(normalized, NormalizedFlow{
-			ID:                  id,
+			ID:                  flow.ID,
 			Destination:         destination,
-			SimulatorOffered:    stats.Offered,
+			SimulatorOffered:    flow.Offered,
 			SimulatorDelivered:  delivered,
 			SimulatorUnreceived: unreceived,
 			LabOffered:          labFlow.Sent,

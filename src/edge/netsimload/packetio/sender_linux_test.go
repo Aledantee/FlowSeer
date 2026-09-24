@@ -9,6 +9,12 @@ import (
 	"testing"
 )
 
+func TestLinuxSenderUsesSendOnlyProtocol(t *testing.T) {
+	if sendOnlyProtocol != 0 {
+		t.Fatalf("AF_PACKET protocol = %d, want zero so the sender receives nothing", sendOnlyProtocol)
+	}
+}
+
 type fakeWriteSocket struct {
 	writes    [][]byte
 	writeN    int

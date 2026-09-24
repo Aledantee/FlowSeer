@@ -1,6 +1,7 @@
 package netsimload
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -49,11 +50,37 @@ func TestAccumulatorRejectsNegativeAndFutureLatency(t *testing.T) {
 	accumulator.RecordSend(1, 0)
 	recordSignedReceive(t, accumulator, 1, 0, time.Unix(-1, 0), base)
 	accumulator.RecordSend(1, 1)
+	accumulator.Close()
 	recordSignedReceive(t, accumulator, 1, 1, base.Add(time.Second), base)
 
-	flow := accumulator.Snapshot().Flows[1]
-	if flow.UniqueReceived != 2 || flow.Malformed != 2 || flow.Latency.Count != 0 {
-		t.Fatalf("flow = %+v, want two malformed timestamp observations", flow)
+	observation := accumulator.Snapshot()
+	flow := observation.Flows[1]
+	if observation.Malformed != 2 || flow.UniqueReceived != 0 || flow.Missing != 2 || flow.LateAfterClose != 0 || flow.Latency.Count != 0 {
+		t.Fatalf("observation = %+v, want two unassigned malformed frames and two missing sequences", observation)
+	}
+}
+
+func TestAccumulatorTracksInterleavedFlowsAndSequenceBoundaries(t *testing.T) {
+	base := time.Unix(1700000000, 0)
+	accumulator := NewAccumulator(1, 2)
+	for _, sequence := range []uint64{0, 1, 2, math.MaxUint64} {
+		accumulator.RecordSend(1, sequence)
+	}
+	for _, sequence := range []uint64{0, math.MaxUint64} {
+		accumulator.RecordSend(2, sequence)
+	}
+	for _, item := range []struct {
+		id       fabric.FlowID
+		sequence uint64
+	}{{1, 0}, {2, math.MaxUint64}, {1, 2}, {2, 0}, {1, math.MaxUint64}} {
+		recordSignedReceive(t, accumulator, item.id, item.sequence, base, base.Add(time.Microsecond))
+	}
+	observation := accumulator.Snapshot()
+	if got := observation.Flows[1]; got.Sent != 4 || got.UniqueReceived != 3 || got.Missing != 1 {
+		t.Fatalf("flow 1 = %+v, want one interior gap", got)
+	}
+	if got := observation.Flows[2]; got.Sent != 2 || got.UniqueReceived != 2 || got.Missing != 0 || got.Reordered != 1 {
+		t.Fatalf("flow 2 = %+v, want both boundary sequences and one reorder", got)
 	}
 }
 
