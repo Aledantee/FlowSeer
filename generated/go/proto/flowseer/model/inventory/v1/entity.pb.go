@@ -297,8 +297,8 @@ const file_flowseer_model_inventory_v1_entity_proto_rawDesc = "" +
 	"\x15ENTITY_TYPE_ATTRIBUTE\x10\x04\x12\x1b\n" +
 	"\x17ENTITY_TYPE_INTEGRATION\x10\x05\x12\x17\n" +
 	"\x13ENTITY_TYPE_BINDING\x10\x06\x12\x19\n" +
-	"\x15ENTITY_TYPE_PLACEMENT\x10\aB\x91\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\vEntityProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x15ENTITY_TYPE_PLACEMENT\x10\aB\x8f\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\vEntityProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_entity_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_entity_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

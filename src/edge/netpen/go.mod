@@ -16,6 +16,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/gopacket/gopacket v1.7.1
 	go.aledante.io/FlowSeer v0.0.0-00010101000000-000000000000
+	golang.org/x/crypto v0.56.0
 	golang.org/x/net v0.58.0
 	golang.org/x/term v0.45.0
 )

@@ -593,8 +593,8 @@ const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	"\x13received_link_modes\x18\x1f \x03(\x0e2 .flowseer.net.phy.v1.MauLinkModeB\b\xbaH\x05\x92\x01\x02\x18\x01R\x11receivedLinkModes\x12A\n" +
 	"\bcounters\x18  \x01(\v2%.flowseer.net.phy.v1.EthernetCountersR\bcounters:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
 	"0ethernet_facet.auto_negotiation_requires_support\x12Nauto-negotiation cannot be enabled when capability support is explicitly false\x1a\xfd\x01!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || !has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabledB\v\n" +
-	"\ttransportJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x06mediumR\x03poeR\vtransceiverB\xe2\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x12EthernetFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\ttransportJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x06mediumR\x03poeR\vtransceiverB\xe0\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x12EthernetFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_ethernet_facet_proto_goTypes = []any{

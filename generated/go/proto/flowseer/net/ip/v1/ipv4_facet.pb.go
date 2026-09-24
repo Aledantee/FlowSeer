@@ -173,8 +173,8 @@ const file_flowseer_net_ip_v1_ipv4_facet_proto_rawDesc = "" +
 	"\n" +
 	"forwarding\x18\x02 \x01(\bR\n" +
 	"forwarding\x12\x1d\n" +
-	"\x03mtu\x18\x03 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(DR\x03mtuB\xd7\x01\n" +
-	"\x16com.flowseer.net.ip.v1B\x0eIpv4FacetProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
+	"\x03mtu\x18\x03 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(DR\x03mtuB\xd5\x01\n" +
+	"\x16com.flowseer.net.ip.v1B\x0eIpv4FacetProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_ipv4_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_ip_v1_ipv4_facet_proto_goTypes = []any{

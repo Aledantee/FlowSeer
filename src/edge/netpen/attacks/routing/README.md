@@ -18,9 +18,11 @@ EIGRP rejects incomplete, fragmented, or unrelated IPv4 envelopes before decodin
 
 These sequences model fixture traffic. A finding records an attempted sequence;
 the behaviors do not verify route installation or successful restoration. OSPF
-packet and LSA checksums are left zero, and its exchange does not implement a full
-adjacency state machine. The fixture generator mirrors the packet construction,
-so byte equality alone cannot establish protocol correctness.
+packets carry valid RFC 2328 checksums (the header checksum and the Fletcher
+LSA-body checksum), which real IOS-XE requires to form an adjacency, but the
+exchange does not implement a full adjacency state machine. The fixture generator
+mirrors the packet construction, so byte equality alone cannot establish protocol
+correctness.
 
 WPAD serves only a PAC response on an OS-selected loopback port and closes the
 listener when the behavior returns. Its credential length and protocol fields

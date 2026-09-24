@@ -72,8 +72,8 @@ const file_flowseer_net_switching_v1_vlan_id_proto_rawDesc = "" +
 	"vlanTagVid:\xa1\x01\n" +
 	"\bvlan_pcp\x12\x19.buf.validate.UInt32Rules\x18҆\x03 \x01(\bBi\xc2Hf\n" +
 	"d\n" +
-	"\x0fuint32.vlan_pcp\x12<value must fit the three-bit IEEE 802.1Q priority code point\x1a\x13!rule || this <= 7uR\avlanPcpB\x85\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\vVlanIdProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\x0fuint32.vlan_pcp\x12<value must fit the three-bit IEEE 802.1Q priority code point\x1a\x13!rule || this <= 7uR\avlanPcpB\x83\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\vVlanIdProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_vlan_id_proto_goTypes = []any{
 	(*validate.UInt32Rules)(nil), // 0: buf.validate.UInt32Rules

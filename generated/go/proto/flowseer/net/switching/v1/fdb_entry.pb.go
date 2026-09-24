@@ -242,8 +242,8 @@ const file_flowseer_net_switching_v1_fdb_entry_proto_rawDesc = "" +
 	"\x0einterface_name\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\rinterfaceName\x12;\n" +
 	"\x04kind\x18\x04 \x01(\x0e2'.flowseer.net.switching.v1.FdbEntryKindR\x04kind\x12A\n" +
 	"\x06status\x18\x05 \x01(\x0e2).flowseer.net.switching.v1.FdbEntryStatusR\x06status:\xab\x01\xbaH\xa7\x01\x1a\xa4\x01\n" +
-	"\x18fdb_entry.mac_is_unicast\x12>the FDB address must be an individual (unicast) EUI-48 address\x1aH!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')B\x87\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\rFdbEntryProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\x18fdb_entry.mac_is_unicast\x12>the FDB address must be an individual (unicast) EUI-48 address\x1aH!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')B\x85\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\rFdbEntryProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_fdb_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_switching_v1_fdb_entry_proto_goTypes = []any{

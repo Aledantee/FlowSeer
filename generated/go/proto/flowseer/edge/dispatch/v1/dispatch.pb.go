@@ -1077,8 +1077,8 @@ const file_flowseer_edge_dispatch_v1_dispatch_proto_rawDesc = "" +
 	"\x1bDISPATCH_KIND_HOLD_RESOLVED\x10\x042\xda\x01\n" +
 	"\x0fDispatchService\x12h\n" +
 	"\tSubscribe\x12+.flowseer.edge.dispatch.v1.SubscribeRequest\x1a,.flowseer.edge.dispatch.v1.SubscribeResponse0\x01\x12]\n" +
-	"\x06Report\x12(.flowseer.edge.dispatch.v1.ReportRequest\x1a).flowseer.edge.dispatch.v1.ReportResponseB\x86\x02\n" +
-	"\x1dcom.flowseer.edge.dispatch.v1B\rDispatchProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1;dispatchv1\xa2\x02\x03FED\xaa\x02\x19Flowseer.Edge.Dispatch.V1\xca\x02\x19Flowseer\\Edge\\Dispatch\\V1\xe2\x02%Flowseer\\Edge\\Dispatch\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Edge::Dispatch::V1b\beditionsp\xe9\a"
+	"\x06Report\x12(.flowseer.edge.dispatch.v1.ReportRequest\x1a).flowseer.edge.dispatch.v1.ReportResponseB\x84\x02\n" +
+	"\x1dcom.flowseer.edge.dispatch.v1B\rDispatchProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1;dispatchv1\xa2\x02\x03FED\xaa\x02\x19Flowseer.Edge.Dispatch.V1\xca\x02\x19Flowseer\\Edge\\Dispatch\\V1\xe2\x02%Flowseer\\Edge\\Dispatch\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Edge::Dispatch::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_dispatch_v1_dispatch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

@@ -277,8 +277,8 @@ const file_flowseer_net_phy_v1_poe_facet_proto_rawDesc = "" +
 	"\x15power_draw_milliwatts\x18\x04 \x01(\rR\x13powerDrawMilliwatts\x126\n" +
 	"\x06status\x18\x05 \x01(\x0e2\x1e.flowseer.net.phy.v1.PoeStatusR\x06status\x12<\n" +
 	"\x1aallocated_power_milliwatts\x18\x06 \x01(\rR\x18allocatedPowerMilliwatts:\xf1\x01\xbaH\xed\x01\x1a\xea\x01\n" +
-	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERB\xdd\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\rPoeFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERB\xdb\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\rPoeFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_poe_facet_proto_goTypes = []any{

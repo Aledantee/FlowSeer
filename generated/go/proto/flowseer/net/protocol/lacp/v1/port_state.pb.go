@@ -475,8 +475,8 @@ const file_flowseer_net_protocol_lacp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
 	"lacpdus_rx\x18\v \x01(\x04R\tlacpdusRx\x12\x1f\n" +
 	"\vbad_lacpdus\x18\f \x01(\x04R\n" +
-	"badLacpdusB\x9d\x02\n" +
-	"!com.flowseer.net.protocol.lacp.v1B\x0ePortStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
+	"badLacpdusB\x9b\x02\n" +
+	"!com.flowseer.net.protocol.lacp.v1B\x0ePortStateProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lacp_v1_port_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lacp_v1_port_state_proto_goTypes = []any{

@@ -112,8 +112,8 @@ const file_flowseer_net_addr_v1_oui_proto_rawDesc = "" +
 	"\x1eflowseer/net/addr/v1/oui.proto\x12\x14flowseer.net.addr.v1\")\n" +
 	"\x03Oui\x12\"\n" +
 	"\x06octets\x18\x01 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02h\x03R\x06octetsB\xdf\x01\n" +
-	"\x18com.flowseer.net.addr.v1B\bOuiProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x01z\x02h\x03R\x06octetsB\xdd\x01\n" +
+	"\x18com.flowseer.net.addr.v1B\bOuiProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_addr_v1_oui_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_addr_v1_oui_proto_goTypes = []any{

@@ -2625,8 +2625,8 @@ const file_ruckus_scg_commons_proto_rawDesc = "" +
 	"\x03MIN\x10\x06\x12\a\n" +
 	"\x03SUM\x10\a\x12\b\n" +
 	"\x04TERM\x10\b\x12\x12\n" +
-	"\x0eDATE_HISTOGRAM\x10\tB\xbf\x02\n" +
-	"+com.com.ruckuswireless.scg.protobuf.storageB\fCommonsProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\xa2\x02\x05CRSPS\xaa\x02'Com.Ruckuswireless.Scg.Protobuf.Storage\xca\x02'Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\xe2\x023Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\\GPBMetadata\xea\x02+Com::Ruckuswireless::Scg::Protobuf::Storage\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x0eDATE_HISTOGRAM\x10\tB\xbd\x02\n" +
+	"+com.com.ruckuswireless.scg.protobuf.storageB\fCommonsProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\xa2\x02\x05CRSPS\xaa\x02'Com.Ruckuswireless.Scg.Protobuf.Storage\xca\x02'Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\xe2\x023Com\\Ruckuswireless\\Scg\\Protobuf\\Storage\\GPBMetadata\xea\x02+Com::Ruckuswireless::Scg::Protobuf::Storage\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_scg_commons_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_ruckus_scg_commons_proto_msgTypes = make([]protoimpl.MessageInfo, 18)

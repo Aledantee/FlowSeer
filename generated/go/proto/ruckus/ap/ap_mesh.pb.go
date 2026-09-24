@@ -1953,8 +1953,8 @@ const file_ruckus_ap_ap_mesh_proto_rawDesc = "" +
 	"\fserialNumber\x18\x19 \x01(\tR\fserialNumber\x12?\n" +
 	"\x14ideal_stats_required\x18\x1a \x01(\v2\r.AttributeMapR\x12idealStatsRequired\x12%\n" +
 	"\x0euplink_channel\x18\x1b \x01(\tR\ruplinkChannel\x12)\n" +
-	"\x10downlink_channel\x18\x1c \x01(\tR\x0fdownlinkChannelBq\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\vApMeshProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x10downlink_channel\x18\x1c \x01(\tR\x0fdownlinkChannelBo\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\vApMeshProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_mesh_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_ruckus_ap_ap_mesh_proto_goTypes = []any{

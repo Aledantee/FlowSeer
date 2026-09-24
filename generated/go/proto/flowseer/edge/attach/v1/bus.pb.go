@@ -235,8 +235,8 @@ const file_flowseer_edge_attach_v1_bus_proto_rawDesc = "" +
 	"\fcluster_urls\x18\x04 \x03(\tB\x0e\xbaH\v\x92\x01\b\b\x01\"\x04r\x02\x10\x01R\vclusterUrls\x1a;\n" +
 	"\rSubjectsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\xf3\x01\n" +
-	"\x1bcom.flowseer.edge.attach.v1B\bBusProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\xf1\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\bBusProtoZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_attach_v1_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_edge_attach_v1_bus_proto_goTypes = []any{

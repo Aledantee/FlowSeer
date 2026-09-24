@@ -1083,8 +1083,8 @@ const file_flowseer_model_inventory_v1_binding_proto_rawDesc = "" +
 	"\x1bMANAGEMENT_PROTOCOL_NETCONF\x10\x03\x12 \n" +
 	"\x1cMANAGEMENT_PROTOCOL_RESTCONF\x10\x04\x12\x1c\n" +
 	"\x18MANAGEMENT_PROTOCOL_GNMI\x10\x05\x12\x1c\n" +
-	"\x18MANAGEMENT_PROTOCOL_HTTP\x10\x06B\x92\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\fBindingProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x18MANAGEMENT_PROTOCOL_HTTP\x10\x06B\x90\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\fBindingProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_binding_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_flowseer_model_inventory_v1_binding_proto_msgTypes = make([]protoimpl.MessageInfo, 5)

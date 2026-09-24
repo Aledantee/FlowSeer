@@ -1,0 +1,4 @@
+LABRT42#show ip ospf neighbor
+
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+LABRT42#

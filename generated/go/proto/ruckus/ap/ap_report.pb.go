@@ -13568,8 +13568,8 @@ const file_ruckus_ap_ap_report_proto_rawDesc = "" +
 	"\x0fap2apConnRxMsgs\x18& \x01(\rR\x0fap2apConnRxMsgs\x12*\n" +
 	"\x10ap2apConnRxBytes\x18' \x01(\rR\x10ap2apConnRxBytes\x12(\n" +
 	"\x0fap2apConnTxMsgs\x18( \x01(\rR\x0fap2apConnTxMsgs\x12*\n" +
-	"\x10ap2apConnTxBytes\x18) \x01(\rR\x10ap2apConnTxBytesBs\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\rApReportProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x10ap2apConnTxBytes\x18) \x01(\rR\x10ap2apConnTxBytesBq\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\rApReportProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_report_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_ruckus_ap_ap_report_proto_msgTypes = make([]protoimpl.MessageInfo, 22)

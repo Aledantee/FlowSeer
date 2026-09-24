@@ -262,8 +262,8 @@ const file_ruckus_ap_ap_common_proto_rawDesc = "" +
 	"mapEntries\"8\n" +
 	"\x0eAttributeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05valueBs\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\rApCommonProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x05value\x18\x02 \x01(\tR\x05valueBq\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\rApCommonProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_ruckus_ap_ap_common_proto_goTypes = []any{

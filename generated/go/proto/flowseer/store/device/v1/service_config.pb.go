@@ -871,6 +871,7 @@ type ServiceIntervals struct {
 	xxx_hidden_SubmissionPulse   *durationpb.Duration   `protobuf:"bytes,5,opt,name=submission_pulse,json=submissionPulse"`
 	xxx_hidden_EdgeStaleAfter    *durationpb.Duration   `protobuf:"bytes,6,opt,name=edge_stale_after,json=edgeStaleAfter"`
 	xxx_hidden_EdgeDormantAfter  *durationpb.Duration   `protobuf:"bytes,7,opt,name=edge_dormant_after,json=edgeDormantAfter"`
+	xxx_hidden_CaptureSweep      *durationpb.Duration   `protobuf:"bytes,8,opt,name=capture_sweep,json=captureSweep"`
 	unknownFields                protoimpl.UnknownFields
 	sizeCache                    protoimpl.SizeCache
 }
@@ -949,6 +950,13 @@ func (x *ServiceIntervals) GetEdgeDormantAfter() *durationpb.Duration {
 	return nil
 }
 
+func (x *ServiceIntervals) GetCaptureSweep() *durationpb.Duration {
+	if x != nil {
+		return x.xxx_hidden_CaptureSweep
+	}
+	return nil
+}
+
 func (x *ServiceIntervals) SetDrift(v *durationpb.Duration) {
 	x.xxx_hidden_Drift = v
 }
@@ -975,6 +983,10 @@ func (x *ServiceIntervals) SetEdgeStaleAfter(v *durationpb.Duration) {
 
 func (x *ServiceIntervals) SetEdgeDormantAfter(v *durationpb.Duration) {
 	x.xxx_hidden_EdgeDormantAfter = v
+}
+
+func (x *ServiceIntervals) SetCaptureSweep(v *durationpb.Duration) {
+	x.xxx_hidden_CaptureSweep = v
 }
 
 func (x *ServiceIntervals) HasDrift() bool {
@@ -1026,6 +1038,13 @@ func (x *ServiceIntervals) HasEdgeDormantAfter() bool {
 	return x.xxx_hidden_EdgeDormantAfter != nil
 }
 
+func (x *ServiceIntervals) HasCaptureSweep() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_CaptureSweep != nil
+}
+
 func (x *ServiceIntervals) ClearDrift() {
 	x.xxx_hidden_Drift = nil
 }
@@ -1054,6 +1073,10 @@ func (x *ServiceIntervals) ClearEdgeDormantAfter() {
 	x.xxx_hidden_EdgeDormantAfter = nil
 }
 
+func (x *ServiceIntervals) ClearCaptureSweep() {
+	x.xxx_hidden_CaptureSweep = nil
+}
+
 type ServiceIntervals_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1078,6 +1101,13 @@ type ServiceIntervals_builder struct {
 	// until it is reported dormant. Unset means three minutes and one hour.
 	EdgeStaleAfter   *durationpb.Duration
 	EdgeDormantAfter *durationpb.Duration
+	// How often expired packet captures are swept from disk. Unset means one
+	// minute. The sweep walks the stored session records and unlinks the pcapng
+	// payload of each one past its retention deadline, leaving the record for
+	// audit. It is separate from read_sweep because it touches a different store
+	// and a different workload: session metadata and on-disk files rather than
+	// journal keys.
+	CaptureSweep *durationpb.Duration
 }
 
 func (b0 ServiceIntervals_builder) Build() *ServiceIntervals {
@@ -1091,6 +1121,7 @@ func (b0 ServiceIntervals_builder) Build() *ServiceIntervals {
 	x.xxx_hidden_SubmissionPulse = b.SubmissionPulse
 	x.xxx_hidden_EdgeStaleAfter = b.EdgeStaleAfter
 	x.xxx_hidden_EdgeDormantAfter = b.EdgeDormantAfter
+	x.xxx_hidden_CaptureSweep = b.CaptureSweep
 	return m0
 }
 
@@ -1127,7 +1158,7 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\aheaders\x18\x02 \x03(\v27.flowseer.store.device.v1.ServiceTelemetry.HeadersEntryB\b\xbaH\x05\x9a\x01\x02\x10\x10R\aheaders\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb4\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x80\x05\n" +
 	"\x10ServiceIntervals\x12;\n" +
 	"\x05drift\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x05drift\x12U\n" +
@@ -1143,14 +1174,16 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x10edge_stale_after\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x0eedgeStaleAfter\x12S\n" +
 	"\x12edge_dormant_after\x18\a \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x10edgeDormantAfter*w\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x10edgeDormantAfter\x12J\n" +
+	"\rcapture_sweep\x18\b \x01(\v2\x19.google.protobuf.DurationB\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\fcaptureSweep*w\n" +
 	"\bLogLevel\x12\x19\n" +
 	"\x15LOG_LEVEL_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOG_LEVEL_DEBUG\x10\x01\x12\x12\n" +
 	"\x0eLOG_LEVEL_INFO\x10\x02\x12\x12\n" +
 	"\x0eLOG_LEVEL_WARN\x10\x03\x12\x13\n" +
-	"\x0fLOG_LEVEL_ERROR\x10\x04B\x83\x02\n" +
-	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
+	"\x0fLOG_LEVEL_ERROR\x10\x04B\x81\x02\n" +
+	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_service_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
@@ -1179,11 +1212,12 @@ var file_flowseer_store_device_v1_service_config_proto_depIdxs = []int32{
 	7,  // 11: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
 	7,  // 12: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
 	7,  // 13: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	7,  // 14: flowseer.store.device.v1.ServiceIntervals.capture_sweep:type_name -> google.protobuf.Duration
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_device_v1_service_config_proto_init() }

@@ -135,8 +135,8 @@ const file_flowseer_net_protocol_stp_v1_bridge_id_proto_rawDesc = "" +
 	"\bBridgeId\x12\x8f\x01\n" +
 	"\bpriority\x18\x01 \x01(\rBs\xbaHp\xba\x01j\n" +
 	"\x12bridge_id.priority\x12/priority must be a multiple of 4096 below 65536\x1a#this % 4096u == 0u && this < 65536u\xc8\x01\x01R\bpriority\x12D\n" +
-	"\aaddress\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddressB\x95\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\rBridgeIdProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\aaddress\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddressB\x93\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\rBridgeIdProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_bridge_id_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_bridge_id_proto_goTypes = []any{

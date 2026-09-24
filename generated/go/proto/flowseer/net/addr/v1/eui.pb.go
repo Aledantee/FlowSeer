@@ -380,8 +380,8 @@ const file_flowseer_net_addr_v1_eui_proto_rawDesc = "" +
 	"EuiAddress\x12:\n" +
 	"\x05eui48\x18\x01 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressH\x00R\x05eui48\x12:\n" +
 	"\x05eui64\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui64AddressH\x00R\x05eui64B\r\n" +
-	"\x04kind\x12\x05\xbaH\x02\b\x01B\xdf\x01\n" +
-	"\x18com.flowseer.net.addr.v1B\bEuiProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
+	"\x04kind\x12\x05\xbaH\x02\b\x01B\xdd\x01\n" +
+	"\x18com.flowseer.net.addr.v1B\bEuiProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1;addrv1\xa2\x02\x03FNA\xaa\x02\x14Flowseer.Net.Addr.V1\xca\x02\x14Flowseer\\Net\\Addr\\V1\xe2\x02 Flowseer\\Net\\Addr\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Addr::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_addr_v1_eui_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_net_addr_v1_eui_proto_goTypes = []any{

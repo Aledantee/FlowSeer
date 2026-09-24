@@ -517,8 +517,8 @@ const file_flowseer_net_phy_v1_pluggable_module_proto_rawDesc = "" +
 	"\vdiagnostics\x18\r \x01(\v2&.flowseer.net.phy.v1.ModuleDiagnosticsR\vdiagnostics\x125\n" +
 	"\x05lanes\x18\x0e \x03(\v2\x1f.flowseer.net.phy.v1.ModuleLaneR\x05lanes:\xf4\x04\xbaH\xf0\x04\x1a\xf3\x03\n" +
 	"4pluggable_module.empty_cage_has_no_module_attributes\x12Dan explicitly empty cage cannot carry module identity or diagnostics\x1a\xf4\x02this.present || (!has(this.form_factor) && !has(this.connector) && !has(this.vendor) && !has(this.part_number) && !has(this.revision) && !has(this.serial_number) && !has(this.date_code) && !has(this.encoding_code) && !has(this.nominal_bit_rate_mbps) && this.media_codes.size() == 0 && this.application_codes.size() == 0 && !has(this.diagnostics) && this.lanes.size() == 0)\x1ax\n" +
-	"$pluggable_module.lane_indexes_unique\x12+lane indexes must be unique within a module\x1a#this.lanes.map(l, l.index).unique()B\xe4\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x14PluggableModuleProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"$pluggable_module.lane_indexes_unique\x12+lane indexes must be unique within a module\x1a#this.lanes.map(l, l.index).unique()B\xe2\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x14PluggableModuleProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_pluggable_module_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_pluggable_module_proto_goTypes = []any{

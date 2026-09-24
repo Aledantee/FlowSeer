@@ -154,6 +154,7 @@ type Intervals struct {
 	SubmissionPulse   time.Duration
 	EdgeStaleAfter    time.Duration
 	EdgeDormantAfter  time.Duration
+	CaptureSweep      time.Duration
 }
 
 // Intervals reads the configured cadences.
@@ -167,5 +168,6 @@ func (c *Config) Intervals() Intervals {
 		SubmissionPulse:   i.GetSubmissionPulse().AsDuration(),
 		EdgeStaleAfter:    i.GetEdgeStaleAfter().AsDuration(),
 		EdgeDormantAfter:  i.GetEdgeDormantAfter().AsDuration(),
+		CaptureSweep:      i.GetCaptureSweep().AsDuration(),
 	}
 }

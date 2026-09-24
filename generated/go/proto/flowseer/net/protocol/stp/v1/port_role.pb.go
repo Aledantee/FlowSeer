@@ -91,8 +91,8 @@ const file_flowseer_net_protocol_stp_v1_port_role_proto_rawDesc = "" +
 	"\x0ePORT_ROLE_ROOT\x10\x02\x12\x18\n" +
 	"\x14PORT_ROLE_DESIGNATED\x10\x03\x12\x17\n" +
 	"\x13PORT_ROLE_ALTERNATE\x10\x04\x12\x14\n" +
-	"\x10PORT_ROLE_BACKUP\x10\x05B\x95\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\rPortRoleProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\x10PORT_ROLE_BACKUP\x10\x05B\x93\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\rPortRoleProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_port_role_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_stp_v1_port_role_proto_goTypes = []any{

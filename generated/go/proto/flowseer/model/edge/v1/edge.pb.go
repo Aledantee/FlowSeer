@@ -1270,8 +1270,8 @@ const file_flowseer_model_edge_v1_edge_proto_rawDesc = "" +
 	"\x17SETUP_KEY_STATUS_ISSUED\x10\x01\x12\x1d\n" +
 	"\x19SETUP_KEY_STATUS_CONSUMED\x10\x02\x12\x1c\n" +
 	"\x18SETUP_KEY_STATUS_REVOKED\x10\x03\x12\x1c\n" +
-	"\x18SETUP_KEY_STATUS_EXPIRED\x10\x04B\xec\x01\n" +
-	"\x1acom.flowseer.model.edge.v1B\tEdgeProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
+	"\x18SETUP_KEY_STATUS_EXPIRED\x10\x04B\xea\x01\n" +
+	"\x1acom.flowseer.model.edge.v1B\tEdgeProtoZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_edge_v1_edge_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_flowseer_model_edge_v1_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 7)

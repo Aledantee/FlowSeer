@@ -738,8 +738,8 @@ const file_flowseer_net_protocol_stp_v1_port_state_proto_rawDesc = "" +
 	"\x15oper_protocol_version\x18\x11 \x01(\x0e2-.flowseer.net.protocol.stp.v1.ProtocolVersionR\x13operProtocolVersion\x12\x19\n" +
 	"\btx_bpdus\x18\x12 \x01(\x04R\atxBpdus\x12\x19\n" +
 	"\brx_bpdus\x18\x13 \x01(\x04R\arxBpdus\x12\x1b\n" +
-	"\tbad_bpdus\x18\x14 \x01(\x04R\bbadBpdusB\x96\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x0ePortStateProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\tbad_bpdus\x18\x14 \x01(\x04R\bbadBpdusB\x94\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x0ePortStateProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_port_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_port_state_proto_goTypes = []any{

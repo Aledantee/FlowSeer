@@ -367,8 +367,8 @@ const file_flowseer_net_protocol_lldp_v1_neighbor_proto_rawDesc = "" +
 	"\x14capabilities_enabled\x18\b \x03(\x0e2/.flowseer.net.protocol.lldp.v1.SystemCapabilityB\b\xbaH\x05\x92\x01\x02\x18\x01R\x13capabilitiesEnabled\x12c\n" +
 	"\x14management_addresses\x18\t \x03(\v20.flowseer.net.protocol.lldp.v1.ManagementAddressR\x13managementAddresses\x12:\n" +
 	"\x14time_to_live_seconds\x18\n" +
-	" \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x11timeToLiveSecondsB\x9c\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\rNeighborProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	" \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x11timeToLiveSecondsB\x9a\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\rNeighborProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_goTypes = []any{

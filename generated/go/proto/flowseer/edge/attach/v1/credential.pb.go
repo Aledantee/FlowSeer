@@ -1122,8 +1122,8 @@ const file_flowseer_edge_attach_v1_credential_proto_rawDesc = "" +
 	"\x13SubmissionAuthority\x12$\n" +
 	" SUBMISSION_AUTHORITY_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fSUBMISSION_AUTHORITY_AUTHORIZED\x10\x01\x12 \n" +
-	"\x1cSUBMISSION_AUTHORITY_REVOKED\x10\x02B\xfa\x01\n" +
-	"\x1bcom.flowseer.edge.attach.v1B\x0fCredentialProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
+	"\x1cSUBMISSION_AUTHORITY_REVOKED\x10\x02B\xf8\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\x0fCredentialProtoZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_attach_v1_credential_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_edge_attach_v1_credential_proto_msgTypes = make([]protoimpl.MessageInfo, 7)

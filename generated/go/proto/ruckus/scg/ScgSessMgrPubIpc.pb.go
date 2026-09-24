@@ -10046,8 +10046,8 @@ const file_ruckus_scg_ScgSessMgrPubIpc_proto_rawDesc = "" +
 	"\"GBP_SESSMGR_PUBS_EVT_TYPE_UE_AUTHD\x10\x10\x12(\n" +
 	"$GBP_SESSMGR_PUBS_EVT_TYPE_UE_UNAUTHD\x10\x11\x12&\n" +
 	"\"GBP_SESSMGR_PUBS_EVT_TYPE_UE_LEAVE\x10\x12\x12+\n" +
-	"'GBP_SESSMGR_PUBS_MSG_TYPE_OBR_LOG_LEVEL\x10\x13B\xcf\x01\n" +
-	"\x14com.ScgSessMgrPubIpcB\x15ScgSessMgrPubIpcProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\xa2\x02\x03SXX\xaa\x02\x10ScgSessMgrPubIpc\xca\x02\x10ScgSessMgrPubIpc\xe2\x02\x1cScgSessMgrPubIpc\\GPBMetadata\xea\x02\x10ScgSessMgrPubIpc\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"'GBP_SESSMGR_PUBS_MSG_TYPE_OBR_LOG_LEVEL\x10\x13B\xcd\x01\n" +
+	"\x14com.ScgSessMgrPubIpcB\x15ScgSessMgrPubIpcProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\xa2\x02\x03SXX\xaa\x02\x10ScgSessMgrPubIpc\xca\x02\x10ScgSessMgrPubIpc\xe2\x02\x1cScgSessMgrPubIpc\\GPBMetadata\xea\x02\x10ScgSessMgrPubIpc\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_scg_ScgSessMgrPubIpc_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
 var file_ruckus_scg_ScgSessMgrPubIpc_proto_msgTypes = make([]protoimpl.MessageInfo, 20)

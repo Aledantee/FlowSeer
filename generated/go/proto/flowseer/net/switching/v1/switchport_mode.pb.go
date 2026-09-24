@@ -94,8 +94,8 @@ const file_flowseer_net_switching_v1_switchport_mode_proto_rawDesc = "" +
 	"\x16SWITCHPORT_MODE_ACCESS\x10\x02\x12\x19\n" +
 	"\x15SWITCHPORT_MODE_TRUNK\x10\x03\x12\x1a\n" +
 	"\x16SWITCHPORT_MODE_HYBRID\x10\x04\x12 \n" +
-	"\x1cSWITCHPORT_MODE_DOT1Q_TUNNEL\x10\x05B\x8d\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\x13SwitchportModeProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\x1cSWITCHPORT_MODE_DOT1Q_TUNNEL\x10\x05B\x8b\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\x13SwitchportModeProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_switchport_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_switching_v1_switchport_mode_proto_goTypes = []any{

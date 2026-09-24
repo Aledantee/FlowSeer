@@ -4247,9 +4247,9 @@ const file_ruckus_ap_ap_avc_proto_rawDesc = "" +
 	"\bwfc_info\x18\x12 \x03(\v2\x0f.WifiCallingMsgR\awfcInfo\x12$\n" +
 	"\rapRadioDeploy\x18\x13 \x01(\tR\rapRadioDeploy\x124\n" +
 	"\vapp_metrics\x18\x14 \x01(\v2\x13.ApplicationMetricsR\n" +
-	"appMetricsBp\n" +
+	"appMetricsBn\n" +
 	"\x1fcom.ruckuswireless.scg.protobufB\n" +
-	"ApAvcProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"ApAvcProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_avc_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_ruckus_ap_ap_avc_proto_msgTypes = make([]protoimpl.MessageInfo, 9)

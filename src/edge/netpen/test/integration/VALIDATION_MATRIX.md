@@ -1,9 +1,9 @@
 # netpen Validation Matrix
 
 This matrix inventories every (behavior, mode) pair's intended ground-truth
-source, per KTD15. No live T1 or T2 run is recorded here. Fixture provenance
-labels do not establish that this integration suite has executed a wire or
-vendor assertion.
+source, per KTD15. No live T1 run is recorded here; the `ospf` row carries one
+live T2 result below. Fixture provenance labels do not establish that this
+integration suite has executed a wire or vendor assertion.
 
 ## Ground-truth sources
 
@@ -11,9 +11,10 @@ vendor assertion.
   harvested from `l2l3-audit` (KTD14) pins the protocol structure.
   The Go behavior's TX is compared byte-for-byte (deterministic) or by
   field-set (randomized) against the fixture.
-- **(b)** Planned T2 vendor behavioral truth: an operator-supplied Cisco NOS
-  must produce expected findings. T2 currently logs intended runs without
-  executing or asserting behavior. No row has this evidence.
+- **(b)** T2 vendor behavioral truth: an operator-supplied Cisco NOS must
+  produce expected findings. T2 logs intended runs for the other behaviors
+  without executing or asserting them; the `ospf` row is the first with this
+  evidence.
 - **(c)** Planned ring self-consistency: captured frames would need to decode
   correctly. The ring compose fixture exists, but this suite has no capture or
   decoder test. These rows have no wire or vendor evidence from this suite.
@@ -23,7 +24,7 @@ vendor assertion.
 | Class | Meaning |
 |-------|---------|
 | (a)   | Python-fixture wire-shape truth (KTD14 pcap pin) |
-| (b)   | t2 vendor behavioral truth (none yet) |
+| (b)   | t2 vendor behavioral truth (recorded for `ospf`) |
 | (c)   | Planned ring self-consistency (no executing integration assertion) |
 
 ## Columns
@@ -34,8 +35,8 @@ vendor assertion.
 | Mode | Mode flag (base = mode-less) |
 | Durability | Catalog durability class |
 | Fixture provenance | (a) Python-fixture / (c) ring-only / (a)+(c) both |
-| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list |
-| t2 status | never (t2 is opt-in, not yet run) |
+| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list; t2 (b) = live result carried by the t2 run |
+| t2 status | never = t2 not yet run; dated result = live vendor observable on that date |
 | Teardown | teardown path from catalog (empty = none) |
 
 ## Matrix
@@ -62,7 +63,7 @@ vendor assertion.
 | mld | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
 | mvrp | base | transient-decay | (c) | N/A | never | MRP timers, minutes |
 | ndpspoof | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| ospf | base | temporary-restored | (a) | not recorded | never | goodbye/flush teardown |
+| ospf | base | temporary-restored | (a) | t2 (b) | 2026-09-24 IOS-XE 17.3.2: neighbor 10.0.0.153 accepted, 10.0.0.99 elected BDR | goodbye/flush teardown |
 | portsteal | base | transient-decay | (a) | N/A | never | CAM aging |
 | portsteal | relay | temporary-restored | (a) | N/A | never | ip_forward restore armed |
 | raflood | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
@@ -82,6 +83,14 @@ vendor assertion.
 | vtp | set | permanent-destructive | (c) | N/A | never | opt-in per R15 |
 | vtp | wipe | permanent-destructive | (c) | N/A | never | opt-in per R15 |
 | wpad | base | transient-decay | (a) | not recorded | never | client proxy config residue, bound = TTL |
+
+## Live OSPF source-(b) result
+
+The `ospf` row is this file's first source-(b) entry. It came from the
+lab-backed `netpen_t2` path, which is why that row names the t2 run in its
+`t1 AE6` cell. IOS-XE accepted the injection only after netpen computed the OSPF
+packet checksum; zero-checksum packets are dropped per RFC 2328, so the `t1` FRR
+tier and AE6 never surfaced the defect.
 
 ## AE6 superset attacks (R4)
 

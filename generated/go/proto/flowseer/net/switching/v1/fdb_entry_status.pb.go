@@ -80,8 +80,8 @@ const file_flowseer_net_switching_v1_fdb_entry_status_proto_rawDesc = "" +
 	"\x0eFdbEntryStatus\x12 \n" +
 	"\x1cFDB_ENTRY_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17FDB_ENTRY_STATUS_ACTIVE\x10\x01\x12\x1c\n" +
-	"\x18FDB_ENTRY_STATUS_INVALID\x10\x02B\x8d\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\x13FdbEntryStatusProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\x18FDB_ENTRY_STATUS_INVALID\x10\x02B\x8b\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\x13FdbEntryStatusProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_fdb_entry_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_switching_v1_fdb_entry_status_proto_goTypes = []any{

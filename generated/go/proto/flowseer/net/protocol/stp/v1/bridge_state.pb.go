@@ -506,8 +506,8 @@ const file_flowseer_net_protocol_stp_v1_bridge_state_proto_rawDesc = "" +
 	"\x10topology_changes\x18\f \x01(\x04R\x0ftopologyChanges\x12V\n" +
 	"\x1atime_since_topology_change\x18\r \x01(\v2\x19.google.protobuf.DurationR\x17timeSinceTopologyChange\x12-\n" +
 	"\rtx_hold_count\x18\x0e \x01(\rB\t\xbaH\x06*\x04\x18\n" +
-	"(\x01R\vtxHoldCountB\x98\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x10BridgeStateProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"(\x01R\vtxHoldCountB\x96\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x10BridgeStateProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_bridge_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_bridge_state_proto_goTypes = []any{

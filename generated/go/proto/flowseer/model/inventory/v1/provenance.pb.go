@@ -237,8 +237,8 @@ const file_flowseer_model_inventory_v1_provenance_proto_rawDesc = "" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x129\n" +
 	"\x04edge\x18\x04 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefR\x04edge\x12=\n" +
 	"\x14firmware_fingerprint\x18\x05 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprintB\x95\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0fProvenanceProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprintB\x93\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0fProvenanceProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_provenance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_model_inventory_v1_provenance_proto_goTypes = []any{

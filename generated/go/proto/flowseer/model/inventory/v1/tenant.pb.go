@@ -144,8 +144,8 @@ const file_flowseer_model_inventory_v1_tenant_proto_rawDesc = "" +
 	"(flowseer/model/inventory/v1/tenant.proto\x12\x1bflowseer.model.inventory.v1\"\v\n" +
 	"\tTenantRef\"J\n" +
 	"\x06Tenant\x12@\n" +
-	"\x03ref\x18\x01 \x01(\v2&.flowseer.model.inventory.v1.TenantRefB\x06\xbaH\x03\xc8\x01\x01R\x03refB\x91\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\vTenantProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x03ref\x18\x01 \x01(\v2&.flowseer.model.inventory.v1.TenantRefB\x06\xbaH\x03\xc8\x01\x01R\x03refB\x8f\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\vTenantProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_tenant_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_model_inventory_v1_tenant_proto_goTypes = []any{

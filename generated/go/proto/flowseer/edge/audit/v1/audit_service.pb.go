@@ -147,8 +147,8 @@ const file_flowseer_edge_audit_v1_audit_service_proto_rawDesc = "" +
 	"\x05event\x18\x01 \x01(\v2..flowseer.event.access.v1.DeviceOperationEventB\x06\xbaH\x03\xc8\x01\x01R\x05event\"\x11\n" +
 	"\x0fDeliverResponse2j\n" +
 	"\fAuditService\x12Z\n" +
-	"\aDeliver\x12&.flowseer.edge.audit.v1.DeliverRequest\x1a'.flowseer.edge.audit.v1.DeliverResponseB\xf5\x01\n" +
-	"\x1acom.flowseer.edge.audit.v1B\x11AuditServiceProtoP\x01ZIgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1;auditv1\xa2\x02\x03FEA\xaa\x02\x16Flowseer.Edge.Audit.V1\xca\x02\x16Flowseer\\Edge\\Audit\\V1\xe2\x02\"Flowseer\\Edge\\Audit\\V1\\GPBMetadata\xea\x02\x19Flowseer::Edge::Audit::V1b\beditionsp\xe9\a"
+	"\aDeliver\x12&.flowseer.edge.audit.v1.DeliverRequest\x1a'.flowseer.edge.audit.v1.DeliverResponseB\xf3\x01\n" +
+	"\x1acom.flowseer.edge.audit.v1B\x11AuditServiceProtoZIgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1;auditv1\xa2\x02\x03FEA\xaa\x02\x16Flowseer.Edge.Audit.V1\xca\x02\x16Flowseer\\Edge\\Audit\\V1\xe2\x02\"Flowseer\\Edge\\Audit\\V1\\GPBMetadata\xea\x02\x19Flowseer::Edge::Audit::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_audit_v1_audit_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_edge_audit_v1_audit_service_proto_goTypes = []any{

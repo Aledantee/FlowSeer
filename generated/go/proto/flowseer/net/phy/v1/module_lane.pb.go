@@ -223,8 +223,8 @@ const file_flowseer_net_phy_v1_module_lane_proto_rawDesc = "" +
 	"\x15wavelength_nanometers\x18\x02 \x01(\rB\a\xbaH\x04*\x02 \x00R\x14wavelengthNanometers\x12<\n" +
 	"\btx_power\x18\x03 \x01(\v2!.flowseer.net.phy.v1.OpticalPowerR\atxPower\x12<\n" +
 	"\brx_power\x18\x04 \x01(\v2!.flowseer.net.phy.v1.OpticalPowerR\arxPower\x124\n" +
-	"\x04bias\x18\x05 \x01(\v2 .flowseer.net.phy.v1.BiasCurrentR\x04biasB\xdf\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x0fModuleLaneProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x04bias\x18\x05 \x01(\v2 .flowseer.net.phy.v1.BiasCurrentR\x04biasB\xdd\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x0fModuleLaneProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_module_lane_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_module_lane_proto_goTypes = []any{

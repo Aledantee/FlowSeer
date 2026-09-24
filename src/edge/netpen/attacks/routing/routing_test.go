@@ -10,6 +10,7 @@ package routing_test
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"net"
@@ -116,7 +117,9 @@ func fixturePackets(t *testing.T, name string) [][]byte {
 
 // TestOSPF_FixturePins verifies the OSPF attack TX matches the fixture
 // byte-for-byte (hello, db-desc, lsa-update), and the teardown TX matches
-// the restore fixture (flush, goodbye).
+// the restore fixture (flush, goodbye). These fixtures carry protocol-valid
+// checksums instead of the zero checksums in the Python characterization
+// capture, which IOS-XE rejects.
 func TestOSPF_FixturePins(t *testing.T) {
 	leg := testtest.New()
 	defer func() { _ = leg.Close() }()
@@ -151,6 +154,133 @@ func TestOSPF_FixturePins(t *testing.T) {
 
 	if f := findFinding(t, recs); f == nil {
 		t.Fatal("no finding emitted")
+	}
+}
+
+func assertOSPFChecksumValid(t *testing.T, frame []byte) {
+	t.Helper()
+
+	if len(frame) < 15 {
+		t.Fatalf("frame length: got %d, want at least 15", len(frame))
+	}
+
+	ospfOffset := 14 + int(frame[14]&0x0f)*4
+	if len(frame) < ospfOffset+24 {
+		t.Fatalf("frame length: got %d, want at least %d", len(frame), ospfOffset+24)
+	}
+
+	packetLength := int(binary.BigEndian.Uint16(frame[ospfOffset+2 : ospfOffset+4]))
+	if packetLength < 24 || len(frame) < ospfOffset+packetLength {
+		t.Fatalf("OSPF packet length: got %d, frame has %d bytes", packetLength, len(frame)-ospfOffset)
+	}
+	packet := frame[ospfOffset : ospfOffset+packetLength]
+	got := binary.BigEndian.Uint16(packet[12:14])
+	if got == 0 {
+		t.Fatal("OSPF checksum is zero")
+	}
+
+	var sum uint32
+	for i := 0; i+1 < len(packet); i += 2 {
+		if i >= 16 && i < 24 {
+			continue
+		}
+		sum += uint32(packet[i])<<8 | uint32(packet[i+1])
+	}
+	if len(packet)%2 == 1 {
+		sum += uint32(packet[len(packet)-1]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = (sum & 0xffff) + (sum >> 16)
+	}
+	if uint16(sum) != 0xffff {
+		t.Errorf("OSPF checksum residue: got %#04x, want 0xffff", uint16(sum))
+	}
+}
+
+func TestOSPF_ChecksumValid(t *testing.T) {
+	leg := testtest.New()
+	defer func() { _ = leg.Close() }()
+
+	_, err := runSingleWithBudget(t, leg, "ospf", "", 1*time.Second)
+	if err != nil {
+		t.Fatalf("run ospf: %v", err)
+	}
+
+	names := []string{"hello", "db-desc", "lsa-update", "flush", "goodbye"}
+	fixtures := append(fixturePackets(t, "ospf.pcap"), fixturePackets(t, "ospf_restore.pcap")...)
+	sources := []struct {
+		name   string
+		frames [][]byte
+	}{
+		{name: "emitted", frames: leg.TX()},
+		{name: "fixture", frames: fixtures},
+	}
+
+	for _, source := range sources {
+		if len(source.frames) != len(names) {
+			t.Fatalf("%s frame count: got %d, want %d", source.name, len(source.frames), len(names))
+		}
+		for i, name := range names {
+			t.Run(source.name+"/"+name, func(t *testing.T) {
+				assertOSPFChecksumValid(t, source.frames[i])
+			})
+		}
+	}
+}
+
+func TestOSPF_LSAChecksumValid(t *testing.T) {
+	leg := testtest.New()
+	defer func() { _ = leg.Close() }()
+
+	_, err := runSingleWithBudget(t, leg, "ospf", "", 1*time.Second)
+	if err != nil {
+		t.Fatalf("run ospf: %v", err)
+	}
+
+	tx := leg.TX()
+	if len(tx) < 4 {
+		t.Fatalf("TX count: got %d, want at least 4", len(tx))
+	}
+
+	tests := []struct {
+		name  string
+		frame []byte
+	}{
+		{name: "lsa-update", frame: tx[2]},
+		{name: "flush", frame: tx[3]},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			frame := test.frame
+			if len(frame) < 15 {
+				t.Fatalf("frame length: got %d, want at least 15", len(frame))
+			}
+
+			ospfOffset := 14 + int(frame[14]&0x0f)*4
+			lsaOffset := ospfOffset + 24 + 4
+			if len(frame) < lsaOffset+20 {
+				t.Fatalf("frame length: got %d, want at least %d", len(frame), lsaOffset+20)
+			}
+
+			lsaLength := int(binary.BigEndian.Uint16(frame[lsaOffset+18 : lsaOffset+20]))
+			if lsaLength < 20 || len(frame) < lsaOffset+lsaLength {
+				t.Fatalf("LSA length: got %d, frame has %d bytes", lsaLength, len(frame)-lsaOffset)
+			}
+			lsa := frame[lsaOffset : lsaOffset+lsaLength]
+			got := binary.BigEndian.Uint16(lsa[16:18])
+			if got == 0 {
+				t.Fatal("LSA checksum is zero")
+			}
+
+			var c0, c1 int
+			for _, octet := range lsa[2:] {
+				c0 = (c0 + int(octet)) % 255
+				c1 = (c1 + c0) % 255
+			}
+			if c0 != 0 || c1 != 0 {
+				t.Errorf("LSA Fletcher residues: got (%d, %d), want (0, 0)", c0, c1)
+			}
+		})
 	}
 }
 

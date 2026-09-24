@@ -843,8 +843,8 @@ const file_ruckus_sci_sci_message_proto_rawDesc = "" +
 	"\x1aswitchConfigurationMessage\x18\xac\x02 \x01(\v2?.com.ruckuswireless.scg.protobuf.icx.SwitchConfigurationMessageR\x1aswitchConfigurationMessage\x12n\n" +
 	"\x14realtimeSwitchStatus\x18\xad\x02 \x01(\v29.com.ruckuswireless.scg.protobuf.icx.RealtimeSwitchStatusR\x14realtimeSwitchStatus\x12&\n" +
 	"\x06apPeer\x18\xae\x02 \x01(\v2\r.APPeerReportR\x06apPeer\x12k\n" +
-	"\x13switchDetailMessage\x18\xaf\x02 \x01(\v28.com.ruckuswireless.scg.protobuf.icx.SwitchDetailMessageR\x13switchDetailMessage*\x06\b\xe9\a\x10\xb9\x17Bz\n" +
-	"#com.ruckuswireless.scg.protobuf.sciB\x0fSciMessageProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x13switchDetailMessage\x18\xaf\x02 \x01(\v28.com.ruckuswireless.scg.protobuf.icx.SwitchDetailMessageR\x13switchDetailMessage*\x06\b\xe9\a\x10\xb9\x17Bx\n" +
+	"#com.ruckuswireless.scg.protobuf.sciB\x0fSciMessageProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_sci_sci_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_ruckus_sci_sci_message_proto_goTypes = []any{

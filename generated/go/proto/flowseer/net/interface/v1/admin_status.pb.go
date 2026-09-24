@@ -86,8 +86,8 @@ const file_flowseer_net_interface_v1_admin_status_proto_rawDesc = "" +
 	"\x18ADMIN_STATUS_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fADMIN_STATUS_UP\x10\x01\x12\x15\n" +
 	"\x11ADMIN_STATUS_DOWN\x10\x02\x12\x18\n" +
-	"\x14ADMIN_STATUS_TESTING\x10\x03B\x8c\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x10AdminStatusProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\x14ADMIN_STATUS_TESTING\x10\x03B\x8a\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x10AdminStatusProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_admin_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_interface_v1_admin_status_proto_goTypes = []any{

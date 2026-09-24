@@ -1701,8 +1701,8 @@ const file_flowseer_runtime_v1_bus_proto_rawDesc = "" +
 	"\x1cSETTLEMENT_STATE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SETTLEMENT_STATE_RETRY\x10\x01\x12 \n" +
 	"\x1cSETTLEMENT_STATE_ACKNOWLEDGE\x10\x02\x12\x1c\n" +
-	"\x18SETTLEMENT_STATE_DISCARD\x10\x03B\xdb\x01\n" +
-	"\x17com.flowseer.runtime.v1B\bBusProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1;runtimev1\xa2\x02\x03FRX\xaa\x02\x13Flowseer.Runtime.V1\xca\x02\x13Flowseer\\Runtime\\V1\xe2\x02\x1fFlowseer\\Runtime\\V1\\GPBMetadata\xea\x02\x15Flowseer::Runtime::V1b\beditionsp\xe9\a"
+	"\x18SETTLEMENT_STATE_DISCARD\x10\x03B\xd9\x01\n" +
+	"\x17com.flowseer.runtime.v1B\bBusProtoZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1;runtimev1\xa2\x02\x03FRX\xaa\x02\x13Flowseer.Runtime.V1\xca\x02\x13Flowseer\\Runtime\\V1\xe2\x02\x1fFlowseer\\Runtime\\V1\\GPBMetadata\xea\x02\x15Flowseer::Runtime::V1b\beditionsp\xe9\a"
 
 var file_flowseer_runtime_v1_bus_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_runtime_v1_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

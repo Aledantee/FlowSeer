@@ -592,8 +592,8 @@ const file_flowseer_model_inventory_v1_placement_proto_rawDesc = "" +
 	"\x0fPlacementSource\x12 \n" +
 	"\x1cPLACEMENT_SOURCE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PLACEMENT_SOURCE_OPERATOR\x10\x01\x12'\n" +
-	"#PLACEMENT_SOURCE_DERIVED_FROM_SCOPE\x10\x02B\x94\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0ePlacementProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"#PLACEMENT_SOURCE_DERIVED_FROM_SCOPE\x10\x02B\x92\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0ePlacementProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_placement_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_placement_proto_msgTypes = make([]protoimpl.MessageInfo, 4)

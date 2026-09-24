@@ -768,8 +768,8 @@ const file_flowseer_net_filter_v1_filter_proto_rawDesc = "" +
 	"\x0fFilterDirection\x12 \n" +
 	"\x1cFILTER_DIRECTION_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13FILTER_DIRECTION_IN\x10\x01\x12\x18\n" +
-	"\x14FILTER_DIRECTION_OUT\x10\x02B\xf0\x01\n" +
-	"\x1acom.flowseer.net.filter.v1B\vFilterProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1;filterv1\xa2\x02\x03FNF\xaa\x02\x16Flowseer.Net.Filter.V1\xca\x02\x16Flowseer\\Net\\Filter\\V1\xe2\x02\"Flowseer\\Net\\Filter\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Filter::V1b\beditionsp\xe9\a"
+	"\x14FILTER_DIRECTION_OUT\x10\x02B\xee\x01\n" +
+	"\x1acom.flowseer.net.filter.v1B\vFilterProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1;filterv1\xa2\x02\x03FNF\xaa\x02\x16Flowseer.Net.Filter.V1\xca\x02\x16Flowseer\\Net\\Filter\\V1\xe2\x02\"Flowseer\\Net\\Filter\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Filter::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_filter_v1_filter_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_net_filter_v1_filter_proto_msgTypes = make([]protoimpl.MessageInfo, 4)

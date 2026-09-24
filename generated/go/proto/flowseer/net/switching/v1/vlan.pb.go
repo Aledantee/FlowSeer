@@ -177,8 +177,8 @@ const file_flowseer_net_switching_v1_vlan_proto_rawDesc = "" +
 	"\x04Vlan\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12O\n" +
-	"\fregistration\x18\x03 \x01(\x0e2+.flowseer.net.switching.v1.VlanRegistrationR\fregistrationB\x83\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\tVlanProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\fregistration\x18\x03 \x01(\x0e2+.flowseer.net.switching.v1.VlanRegistrationR\fregistrationB\x81\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\tVlanProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_vlan_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_switching_v1_vlan_proto_goTypes = []any{

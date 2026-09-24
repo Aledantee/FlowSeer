@@ -1158,8 +1158,8 @@ const file_ruckus_sci_sci_alarm_proto_rawDesc = "" +
 	"\aCLEARED\x10\x01\";\n" +
 	"\x11AlarmMessageEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05valueBx\n" +
-	"#com.ruckuswireless.scg.protobuf.sciB\rSciAlarmProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x05value\x18\x02 \x01(\tR\x05valueBv\n" +
+	"#com.ruckuswireless.scg.protobuf.sciB\rSciAlarmProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_sci_sci_alarm_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_ruckus_sci_sci_alarm_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

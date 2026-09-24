@@ -595,8 +595,8 @@ const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\x15AGENT_LOG_LEVEL_DEBUG\x10\x01\x12\x18\n" +
 	"\x14AGENT_LOG_LEVEL_INFO\x10\x02\x12\x18\n" +
 	"\x14AGENT_LOG_LEVEL_WARN\x10\x03\x12\x19\n" +
-	"\x15AGENT_LOG_LEVEL_ERROR\x10\x04B\xfa\x01\n" +
-	"\x1bcom.flowseer.store.agent.v1B\x10AgentConfigProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1;agentv1\xa2\x02\x03FSA\xaa\x02\x17Flowseer.Store.Agent.V1\xca\x02\x17Flowseer\\Store\\Agent\\V1\xe2\x02#Flowseer\\Store\\Agent\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Store::Agent::V1b\beditionsp\xe9\a"
+	"\x15AGENT_LOG_LEVEL_ERROR\x10\x04B\xf8\x01\n" +
+	"\x1bcom.flowseer.store.agent.v1B\x10AgentConfigProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1;agentv1\xa2\x02\x03FSA\xaa\x02\x17Flowseer.Store.Agent.V1\xca\x02\x17Flowseer\\Store\\Agent\\V1\xe2\x02#Flowseer\\Store\\Agent\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Store::Agent::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_agent_v1_agent_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_store_agent_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)

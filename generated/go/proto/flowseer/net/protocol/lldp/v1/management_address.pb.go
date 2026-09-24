@@ -209,8 +209,8 @@ const file_flowseer_net_protocol_lldp_v1_management_address_proto_rawDesc = "" +
 	"\x11ManagementAddress\x121\n" +
 	"\x02ip\x18\x01 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressH\x00R\x02ip\x12M\n" +
 	"\x05other\x18\x02 \x01(\v25.flowseer.net.protocol.lldp.v1.OtherManagementAddressH\x00R\x05otherB\x10\n" +
-	"\aaddress\x12\x05\xbaH\x02\b\x01B\xa5\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x16ManagementAddressProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\aaddress\x12\x05\xbaH\x02\b\x01B\xa3\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x16ManagementAddressProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_management_address_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_management_address_proto_goTypes = []any{

@@ -513,8 +513,8 @@ const file_flowseer_edge_capture_v1_capture_edge_service_proto_rawDesc = "" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession2\xa7\x02\n" +
 	"\x12CaptureEdgeService\x12\x9c\x01\n" +
 	"\x1bSubscribeCaptureAssignments\x12<.flowseer.edge.capture.v1.SubscribeCaptureAssignmentsRequest\x1a=.flowseer.edge.capture.v1.SubscribeCaptureAssignmentsResponse0\x01\x12r\n" +
-	"\rUploadCapture\x12..flowseer.edge.capture.v1.UploadCaptureRequest\x1a/.flowseer.edge.capture.v1.UploadCaptureResponse(\x01B\x89\x02\n" +
-	"\x1ccom.flowseer.edge.capture.v1B\x17CaptureEdgeServiceProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1;capturev1\xa2\x02\x03FEC\xaa\x02\x18Flowseer.Edge.Capture.V1\xca\x02\x18Flowseer\\Edge\\Capture\\V1\xe2\x02$Flowseer\\Edge\\Capture\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Edge::Capture::V1b\beditionsp\xe9\a"
+	"\rUploadCapture\x12..flowseer.edge.capture.v1.UploadCaptureRequest\x1a/.flowseer.edge.capture.v1.UploadCaptureResponse(\x01B\x87\x02\n" +
+	"\x1ccom.flowseer.edge.capture.v1B\x17CaptureEdgeServiceProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1;capturev1\xa2\x02\x03FEC\xaa\x02\x18Flowseer.Edge.Capture.V1\xca\x02\x18Flowseer\\Edge\\Capture\\V1\xe2\x02$Flowseer\\Edge\\Capture\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Edge::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_capture_v1_capture_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_flowseer_edge_capture_v1_capture_edge_service_proto_goTypes = []any{

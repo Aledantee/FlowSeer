@@ -418,8 +418,8 @@ const file_flowseer_net_protocol_lacp_v1_aggregator_state_proto_rawDesc = "" +
 	"\vpartner_key\x18\n" +
 	" \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\n" +
 	"partnerKey\x129\n" +
-	"\x10selected_members\x18\v \x03(\tB\x0e\xbaH\v\x92\x01\b\"\x06r\x04\x10\x01\x18@R\x0fselectedMembersB\xa3\x02\n" +
-	"!com.flowseer.net.protocol.lacp.v1B\x14AggregatorStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
+	"\x10selected_members\x18\v \x03(\tB\x0e\xbaH\v\x92\x01\b\"\x06r\x04\x10\x01\x18@R\x0fselectedMembersB\xa1\x02\n" +
+	"!com.flowseer.net.protocol.lacp.v1B\x14AggregatorStateProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lacp_v1_aggregator_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lacp_v1_aggregator_state_proto_goTypes = []any{

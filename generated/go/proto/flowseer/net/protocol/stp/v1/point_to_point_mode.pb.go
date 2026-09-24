@@ -82,8 +82,8 @@ const file_flowseer_net_protocol_stp_v1_point_to_point_mode_proto_rawDesc = "" +
 	"\x1fPOINT_TO_POINT_MODE_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18POINT_TO_POINT_MODE_AUTO\x10\x01\x12\"\n" +
 	"\x1ePOINT_TO_POINT_MODE_FORCE_TRUE\x10\x02\x12#\n" +
-	"\x1fPOINT_TO_POINT_MODE_FORCE_FALSE\x10\x03B\x9d\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x15PointToPointModeProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\x1fPOINT_TO_POINT_MODE_FORCE_FALSE\x10\x03B\x9b\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x15PointToPointModeProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_point_to_point_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_stp_v1_point_to_point_mode_proto_goTypes = []any{

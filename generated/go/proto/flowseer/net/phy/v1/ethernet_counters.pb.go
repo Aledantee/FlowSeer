@@ -471,8 +471,8 @@ const file_flowseer_net_phy_v1_ethernet_counters_proto_rawDesc = "" +
 	"\x0fframe_too_longs\x18\n" +
 	" \x01(\x04R\rframeTooLongs\x12=\n" +
 	"\x1binternal_mac_receive_errors\x18\v \x01(\x04R\x18internalMacReceiveErrors\x12#\n" +
-	"\rsymbol_errors\x18\f \x01(\x04R\fsymbolErrorsB\xe5\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x15EthernetCountersProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\rsymbol_errors\x18\f \x01(\x04R\fsymbolErrorsB\xe3\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x15EthernetCountersProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_ethernet_counters_proto_goTypes = []any{

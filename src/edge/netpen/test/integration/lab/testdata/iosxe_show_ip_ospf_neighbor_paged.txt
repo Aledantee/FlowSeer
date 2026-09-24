@@ -1,0 +1,7 @@
+LABRT42#show ip ospf neighbor
+
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+10.0.0.1          1   FULL/BDR        00:00:31    10.0.0.1        GigabitEthernet1
+--More--
+10.0.0.99         1   2WAY/DROTHER    00:00:38    10.0.0.99       GigabitEthernet1
+LABRT42#
