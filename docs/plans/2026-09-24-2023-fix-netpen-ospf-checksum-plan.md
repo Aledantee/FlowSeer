@@ -4,12 +4,14 @@ type: fix
 date: 2026-09-24
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 ---
 
 # Fix netpen OSPF Zero Checksum (rejected by real IOS-XE) - Plan
+
+> Implemented. 4 units, 2026-09-24T18:56:44Z.
 
 > Discovered by the first live vendor-truth run of the lab-backed harness
 > ([the lab-validation plan](2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md),
@@ -62,6 +64,10 @@ attack. This is the value the direction record claims for live vendor truth.
 - The checksum excludes the 64-bit authentication field (`[16:24]`) per
   RFC 2328 section D.4. Why: correctness for any future non-zero AuType; with
   AuType 0 today the excluded bytes are zero, so the result is unchanged.
+- The implement stage landed all four units and passed the verifier but left
+  `status: planned`; the user ruled (2026-09-24, via drive) that the drive
+  writes `status: implemented` and the `> Implemented.` marker directly rather
+  than re-running implement, since the code work was complete and verified.
 
 ## Requirements
 
@@ -174,16 +180,6 @@ Waves: U1 | U2 U3 U4
 - Whether to also compound the lesson (synthetic tiers passed a broken attack;
   live vendor truth caught it) as a `docs/solutions/` entry — recommended, via
   the `compound` skill, after this lands.
-- Parked by drive: the implement worker landed all four units (U1–U4 `passed`
-  in the ledger, verifier green, routing tests green, merged into
-  `Aledantee/pompano` at `02c2835b`) but did not write `status: implemented`
-  or the `> Implemented.` marker the implement skill records, so `status` still
-  reads `planned`. Options: (a) drive writes `status: implemented` and the
-  marker here and continues into review | (b) stop and leave the plan `planned`
-  for inspection or a fresh implement run. Recommended: (a), because the code
-  work is complete and verified — only the frontmatter recording step is
-  missing, and re-running implement would redo finished, merged work.
-
 ## Appendix: the proven ospf.go diff
 
 Add the helper (as its own function, after `craftOSPFHello`) and, in each of the
