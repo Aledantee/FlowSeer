@@ -439,3 +439,16 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
+- Parked by drive: U1-U4 are landed; U5 is blocked. Case 13b needs a delivered
+  frame carrying `IssueQueueBufferUnstated`, but `queueBufferUnstatedIssue`
+  (`fabric.go:993`) builds that issue with no `Evidence`, and `ValidateCase`
+  requires every non-Complete issue to cite evidence. The fix is a phase-2
+  fabric change, outside U5's named files. Options: expand U5 to attach an
+  evidence reference to the unstated-buffer issue (the crossing frame's trace
+  step, which `markQueueBufferUnstated` at `fabric.go:1019` already holds) and
+  then implement the load cases | re-plan U5 to resolve the evidence contract
+  and its file scope. Recommended: attach the evidence reference and expand U5's
+  scope, because every non-Complete issue must cite evidence under the analysis
+  trust contract (see the no-invented-facts solution) — the issue is incomplete
+  without it regardless of the corpus, so this completes phase 2 correctly
+  rather than working around the bar.
