@@ -305,3 +305,17 @@ Waves: U1 U2 U3 | U4 | U5
   fixture reliably reaches `2-WAY`/`FULL` against IOS-XE, the implementer may
   tighten the assertion to that state; decided as presence unless the live run
   shows a stable stronger state.
+
+- Parked by drive: U4-U5 (the live `netpen_t2` ospf assertion and its evidence
+  recording) need live-lab prep before they can run — injector `CAP_NET_RAW` on
+  Kali `.21`, the `.42` IOS-XE OSPF baseline in `10.0.0.0/24` area 0, and the
+  data-segment wiring to the injector's attack interface. Options: operator
+  prepares the lab and the drive resumes U4-U5 | land U1-U3 now via `land` and
+  leave U4-U5 for a later drive. Recommended: operator prepares the lab, then
+  resume, because U4-U5 carry the plan's actual vendor evidence and U1-U3 alone
+  leave the matrix rows pending.
+- Parked by drive: the direction record
+  `docs/architecture/2026-09-23-netpen-lab-vendor-validation.md` (U1, landed)
+  awaits acceptance. Options: accept as accepted direction | amend | leave
+  proposed. Recommended: accept, because it records the lab-backed vendor-truth
+  approach this plan and future netpen vendor validation rest on.
