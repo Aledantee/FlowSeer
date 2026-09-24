@@ -43,7 +43,8 @@ func captureRecords(t *testing.T) []pcap.Record {
 }
 
 func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
-	source, err := stream.NewCaptureSource(captureRecords(t))
+	records := captureRecords(t)
+	source, err := stream.NewCaptureSource(records)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +59,7 @@ func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
 	sw2.MAC = netaddr.MAC{2, 0xff, 0, 0, 0, 2}
 	cfg.Switches["sw2"] = sw2
 	h1 := cfg.Hosts["h1"]
-	h1.Address = netaddr.MAC{2, 0, 0, 0, 0, 1}
+	h1.Address = netaddr.MAC{2, 0xaa, 0, 0, 0, 1}
 	cfg.Hosts["h1"] = h1
 	h2 := cfg.Hosts["h2"]
 	h2.Address = netaddr.MAC{2, 0, 0, 0, 0, 2}
@@ -84,9 +85,25 @@ func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
 		if !journey.Injection.At.Equal(wantAt) {
 			t.Errorf("frame %d injection = %s, want %s", i, journey.Injection.At, wantAt)
 		}
-		if journey.Injection.Frame.Src != h1.Address || journey.Injection.Frame.Dst != h2.Address {
+		var wantSrc, wantDst netaddr.MAC
+		copy(wantDst[:], records[i].Data[:6])
+		copy(wantSrc[:], records[i].Data[6:12])
+		if wantSrc == h1.Address {
+			t.Fatalf("frame %d captured source %s equals h1 address; source rewrites would go undetected", i, wantSrc)
+		}
+		if journey.Injection.Frame.Src != wantSrc || journey.Injection.Frame.Dst != wantDst {
 			t.Errorf("frame %d MACs = %s -> %s, want %s -> %s", i,
-				journey.Injection.Frame.Src, journey.Injection.Frame.Dst, h1.Address, h2.Address)
+				journey.Injection.Frame.Src, journey.Injection.Frame.Dst, wantSrc, wantDst)
+		}
+		if len(journey.Deliveries) != 1 {
+			t.Errorf("frame %d deliveries = %d, want 1", i, len(journey.Deliveries))
+			continue
+		}
+		// Injection.Frame is the submitted input; delivery holds the frame h2 received.
+		delivered := journey.Deliveries[0].Frame
+		if delivered.Src != wantSrc || delivered.Dst != wantDst {
+			t.Errorf("frame %d delivered MACs = %s -> %s, want %s -> %s", i,
+				delivered.Src, delivered.Dst, wantSrc, wantDst)
 		}
 	}
 }
