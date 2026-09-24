@@ -3,6 +3,7 @@ package stream_test
 import (
 	"bytes"
 	"net/netip"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -218,6 +219,112 @@ func TestUDPPortVariationPreservesEthernetPadding(t *testing.T) {
 	}
 	if len(encoded) != 60 {
 		t.Errorf("encoded octets = %d, want 60", len(encoded))
+	}
+}
+
+func TestUDPPortVariationRejectsShortUDPDatagram(t *testing.T) {
+	frame := udpFrame(t)
+	ipHeader, datagram, err := ip.Decode(frame.Payload)
+	if err != nil {
+		t.Fatalf("ip.Decode: %v", err)
+	}
+	frame.Payload, err = ipHeader.Encode(append(datagram, 0xa5, 0x5a))
+	if err != nil {
+		t.Fatalf("ip.Encode: %v", err)
+	}
+
+	spec := variationSpec(frame, 2, stream.UDPPortVariation{Dst: true, Step: 1, Count: 2})
+	if source, err := spec.Source(); err == nil || !strings.Contains(err.Error(), "UDP length") {
+		t.Errorf("Source() = (%v, %v), want UDP length refusal", source, err)
+	}
+	got := spec.Variations[0].Apply(1, frame, nil)
+	if !bytes.Equal(got.Payload, frame.Payload) {
+		t.Errorf("Apply() changed a short UDP datagram: got %x, want %x", got.Payload, frame.Payload)
+	}
+}
+
+func TestUDPPortVariationPreservesBytesAfterIPv6Packet(t *testing.T) {
+	ipHeader := ip.Header{
+		Src: netip.MustParseAddr("2001:db8::1"), Dst: netip.MustParseAddr("2001:db8::2"),
+		HopLimit: 64, Protocol: 17, V6: &ip.V6{},
+	}
+	datagram, err := udp.Encode(udp.Header{SrcPort: 5000, DstPort: 1000}, []byte{1, 2, 3}, ipHeader.Src, ipHeader.Dst)
+	if err != nil {
+		t.Fatalf("udp.Encode: %v", err)
+	}
+	packet, err := ipHeader.Encode(datagram)
+	if err != nil {
+		t.Fatalf("ip.Encode: %v", err)
+	}
+	extra := []byte{0xa5, 0x5a}
+	frame := ethernet.Frame{EtherType: ethernet.EtherTypeIPv6, Payload: append(packet, extra...)}
+	source := variationSource(t, variationSpec(frame, 2,
+		stream.UDPPortVariation{Dst: true, Step: 1, Count: 2}))
+	source.Next()
+	_, got, ok := source.Next()
+	if !ok {
+		t.Fatal("Next() exhausted")
+	}
+	if len(got.Payload) < len(packet) {
+		t.Fatalf("IPv6 payload length = %d, want at least %d", len(got.Payload), len(packet))
+	}
+	if len(got.Payload) != len(frame.Payload) || !bytes.Equal(got.Payload[len(packet):], extra) {
+		t.Errorf("IPv6 payload = (%d octets, trailing %x), want (%d octets, %x)",
+			len(got.Payload), got.Payload[len(packet):], len(frame.Payload), extra)
+	}
+	_, gotDatagram, err := ip.Decode(got.Payload)
+	if err != nil {
+		t.Fatalf("ip.Decode: %v", err)
+	}
+	gotUDP, _, err := udp.Decode(gotDatagram)
+	if err != nil {
+		t.Fatalf("udp.Decode: %v", err)
+	}
+	if gotUDP.DstPort != 1001 {
+		t.Errorf("destination port = %d, want 1001", gotUDP.DstPort)
+	}
+}
+
+func TestUDPPortVariationPreservesIPv4Options(t *testing.T) {
+	options := []byte{1, 1, 1, 0}
+	ipHeader := ip.Header{
+		Src: netip.MustParseAddr("192.0.2.1"), Dst: netip.MustParseAddr("192.0.2.2"),
+		HopLimit: 64, Protocol: 17, V4: &ip.V4{Options: options},
+	}
+	datagram, err := udp.Encode(udp.Header{SrcPort: 5000, DstPort: 1000}, []byte{1, 2, 3}, ipHeader.Src, ipHeader.Dst)
+	if err != nil {
+		t.Fatalf("udp.Encode: %v", err)
+	}
+	packet, err := ipHeader.Encode(datagram)
+	if err != nil {
+		t.Fatalf("ip.Encode: %v", err)
+	}
+	frame := ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: packet}
+	source := variationSource(t, variationSpec(frame, 2,
+		stream.UDPPortVariation{Dst: true, Step: 1, Count: 2}))
+	source.Next()
+	_, got, ok := source.Next()
+	if !ok {
+		t.Fatal("Next() exhausted")
+	}
+	if len(got.Payload) != len(packet) {
+		t.Errorf("IPv4 packet length = %d, want %d", len(got.Payload), len(packet))
+	}
+	gotIP, gotDatagram, err := ip.Decode(got.Payload)
+	if err != nil {
+		t.Fatalf("ip.Decode: %v", err)
+	}
+	if !bytes.Equal(gotIP.V4.Options, options) {
+		t.Errorf("IPv4 options = %x, want %x", gotIP.V4.Options, options)
+	}
+	gotUDP, _, err := udp.Decode(gotDatagram)
+	if err != nil {
+		t.Fatalf("udp.Decode: %v", err)
+	}
+	checksumOK := udp.Verify(gotDatagram, gotIP.Src, gotIP.Dst)
+	if gotUDP.DstPort != 1001 || !checksumOK {
+		t.Errorf("UDP destination and checksum = (%d, %t), want (1001, true)",
+			gotUDP.DstPort, checksumOK)
 	}
 }
 

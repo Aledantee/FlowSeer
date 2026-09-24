@@ -45,8 +45,9 @@ spacing cannot use the template's wire size for frames of varying sizes.
 `UDPPortVariation` steps a source or destination port in an IP/UDP template.
 A UDP port change passes through `udp.Encode` and `ip.Header.Encode`
 so both checksums are recomputed; it never patches a byte in place. The
-template must survive IP/UDP decoding and re-encoding before `Source` can be
-constructed. Earlier size variations must leave the whole IP packet intact.
+template must re-encode to an IP packet of the same length, with its UDP length
+covering the full IP payload. Earlier size variations must leave the whole IP
+packet intact.
 It cannot follow a custom variation whose effect on the IP packet is unknown.
 The port variation preserves bytes after the IP packet, including Ethernet
 padding, and refuses fragmented IPv4 templates.

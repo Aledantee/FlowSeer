@@ -75,10 +75,15 @@ func (s Spec) Validate() error {
 			if err != nil {
 				return fmt.Errorf("variation %d: %w", i, err)
 			}
-			if _, err := encodeUDPFrame(s.Frame, ipHeader, udpHeader, payload); err != nil {
+			encoded, err := encodeUDPFrame(s.Frame, ipHeader, udpHeader, payload)
+			if err != nil {
 				return fmt.Errorf("variation %d: %w", i, err)
 			}
-			packetSize := 18 + 4*len(s.Frame.Tags) + ipPacketLength(s.Frame.Payload, ipHeader)
+			packetLen := ipPacketLength(s.Frame.Payload, ipHeader)
+			if encodedLen := ipPacketLength(encoded.Payload, ipHeader); encodedLen != packetLen {
+				return fmt.Errorf("variation %d: UDP variation changes IP packet length from %d to %d", i, packetLen, encodedLen)
+			}
+			packetSize := 18 + 4*len(s.Frame.Tags) + packetLen
 			if minEarlierSize < packetSize {
 				return fmt.Errorf("variation %d: earlier frame size %d truncates the IP packet of %d octets", i, minEarlierSize, packetSize)
 			}

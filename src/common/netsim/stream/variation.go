@@ -187,5 +187,8 @@ func decodeUDPFrame(frame ethernet.Frame) (ip.Header, udp.Header, []byte, error)
 	if err != nil {
 		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("decode UDP for variation: %w", err)
 	}
+	if int(udpHeader.Length) != len(datagram) {
+		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP length %d does not match IP payload length %d", udpHeader.Length, len(datagram))
+	}
 	return ipHeader, udpHeader, payload, nil
 }
