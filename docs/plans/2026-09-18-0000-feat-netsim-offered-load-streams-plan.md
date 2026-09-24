@@ -116,7 +116,7 @@ Landed: `6bcb4d9b..1a6fefc5`
 ### U4. Capture file as a stream source
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase4-plan.md`
 After: U3
-Landed:
+Landed: `5bfe805f..337a1d93`
 
 ### U5. On-wire transmitter and the lab comparison
 Files: `docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-phase5-plan.md`

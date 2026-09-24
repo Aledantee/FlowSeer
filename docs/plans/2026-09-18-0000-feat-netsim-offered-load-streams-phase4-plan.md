@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-18-0000-feat-netsim-offered-load-streams-plan.md
 ---
 
 # Offered-Load Streams Phase 4 - Capture File as a Stream Source - Plan
+
+> Implemented. 2 units, 2026-09-24T18:20:11Z to 2026-09-24T18:29:01Z.
 
 ## Goal
 
@@ -165,9 +167,9 @@ Waves: U1 | U2
 
 ## Definition of done
 
-- [ ] The verifier passes for every changed path, and the package READMEs
+- [x] The verifier passes for every changed path, and the package READMEs
       show the supported formats, replay example, and FCS limit.
-- [ ] This plan's `status` becomes `implemented` with an outcome note below
+- [x] This plan's `status` becomes `implemented` with an outcome note below
       its title after code lands; no plan labels enter code or commit messages.
 
 ## Open questions

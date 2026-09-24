@@ -1,6 +1,9 @@
 package fabric_test
 
 import (
+	"bytes"
+	"io"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -9,11 +12,96 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/pcap"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/stream"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
+
+func captureRecords(t *testing.T) []pcap.Record {
+	t.Helper()
+	wire, err := os.ReadFile("../../net/pcap/testdata/classic_micro_le.pcap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := pcap.NewReader(bytes.NewReader(wire))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var records []pcap.Record
+	for {
+		record, err := r.Next()
+		if err == io.EOF {
+			return records
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		records = append(records, record)
+	}
+}
+
+func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
+	source, err := stream.NewCaptureSource(captureRecords(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
+	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{})
+	cfg := fab.Config()
+	cfg.Start = t0
+	sw1 := cfg.Switches["sw1"]
+	sw1.MAC = netaddr.MAC{2, 0xff, 0, 0, 0, 1}
+	cfg.Switches["sw1"] = sw1
+	sw2 := cfg.Switches["sw2"]
+	sw2.MAC = netaddr.MAC{2, 0xff, 0, 0, 0, 2}
+	cfg.Switches["sw2"] = sw2
+	h1 := cfg.Hosts["h1"]
+	h1.Address = netaddr.MAC{2, 0, 0, 0, 0, 1}
+	cfg.Hosts["h1"] = h1
+	h2 := cfg.Hosts["h2"]
+	h2.Address = netaddr.MAC{2, 0, 0, 0, 0, 2}
+	cfg.Hosts["h2"] = h2
+	fab, err = fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fab.AttachStream(fabric.StreamAttachment{
+		Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: 0, Flow: 1, Retention: fabric.RetainJourney,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if result := fab.Run(1_000); result.Stop != fabric.StopQueueDrained {
+		t.Fatalf("Run stop = %s, want %s", result.Stop, fabric.StopQueueDrained)
+	}
+	journeys := fab.Report()
+	if len(journeys) != 2 {
+		t.Fatalf("reported frames = %d, want 2", len(journeys))
+	}
+	for i, journey := range journeys {
+		wantAt := t0.Add(time.Duration(i) * 250 * time.Microsecond)
+		if !journey.Injection.At.Equal(wantAt) {
+			t.Errorf("frame %d injection = %s, want %s", i, journey.Injection.At, wantAt)
+		}
+		if journey.Injection.Frame.Src != h1.Address || journey.Injection.Frame.Dst != h2.Address {
+			t.Errorf("frame %d MACs = %s -> %s, want %s -> %s", i,
+				journey.Injection.Frame.Src, journey.Injection.Frame.Dst, h1.Address, h2.Address)
+		}
+	}
+}
+
+func TestTruncatedCaptureRejectedBeforeAttachment(t *testing.T) {
+	records := captureRecords(t)
+	records[0].OrigLen = 64
+	source, err := stream.NewCaptureSource(records)
+	if err == nil || !strings.Contains(err.Error(), "original length") {
+		t.Fatalf("NewCaptureSource = %v, %v; want original-length error", source, err)
+	}
+	if source != nil {
+		t.Errorf("NewCaptureSource returned %v with an error, want no attachable source", source)
+	}
+}
 
 func streamSource(t *testing.T, frame ethernet.Frame, count int, fps uint64) stream.Source {
 	t.Helper()
