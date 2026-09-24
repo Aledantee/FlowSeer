@@ -287,14 +287,15 @@ queue still reports its peak. The depth and peak stay out of
 
 The first unstated enqueue beyond one maximum-size encoded frame records an
 `EntryQueueThreshold` before it enters the pending queue. Its `traffic` step
-uses `OpQueue`, the logical port and PCP as its subject, and a
-`QueueThresholdFact` with the depth before enqueue, frame octets, and the
-port-MTU-derived threshold. The entry names the physical endpoint. It carries
-one evidence reference shared with that endpoint's Incomplete
-`queue-buffer-unstated` issue. For example, a tagged 1018-octet frame entering
-behind another on a 1518-octet threshold records `depth_before_octets=1018`
-and `frame_octets=1018`. A second PCP crossing on that endpoint creates no
-second event or issue.
+uses `OpQueue`, the logical port and PCP as its subject (or kind `host` keyed by
+`<node>/<pcp>` on a host egress queue), and a `QueueThresholdFact` with the
+depth before enqueue, frame octets, and the port-MTU-derived threshold. The
+entry names the physical endpoint, and its evidence context names the logical
+port or host node. It carries one evidence reference shared with that
+endpoint's Incomplete `queue-buffer-unstated` issue. For example, a tagged
+1018-octet frame entering behind another on a 1518-octet threshold records
+`depth_before_octets=1018` and `frame_octets=1018`. A second PCP crossing on
+that endpoint creates no second event or issue.
 
 For example, two tagged frames arriving together at `sw1:1/1/2`, PCP 0 first
 and PCP 7 second, are both pending before the trunk dequeue. PCP 7 starts at
@@ -757,11 +758,11 @@ behavior, so `Diff` and `DiffSpecs` report no change for it, while `Equal`
 compares it.
 
 Queue crossings add `fabric.runtime` evidence with origin `egress-queue`.
-Its context names the rule, physical endpoint, logical port, PCP, frame ID,
-instant, and queue fact fields. `Fabric.Metadata().Evidence()` includes this
-runtime catalog so the queue issue's ref resolves; `Spec().Evidence` keeps only
-construction evidence. Earlier metadata snapshots and forks retain their own
-catalog values.
+Its context names the rule, physical endpoint, logical port or host node,
+PCP, frame ID, instant, and queue fact fields. `Fabric.Metadata().Evidence()`
+includes this runtime catalog so the queue issue's ref resolves;
+`Spec().Evidence` keeps only construction evidence. Earlier metadata snapshots
+and forks retain their own catalog values.
 
 A host injection transmits immediately unless a queued arrival precedes its
 requested time or another host injection is already pending before the first
