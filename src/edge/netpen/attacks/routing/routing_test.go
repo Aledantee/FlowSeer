@@ -258,25 +258,12 @@ func TestOSPF_LSAChecksumValid(t *testing.T) {
 			}
 
 			var c0, c1 int
-			for i := 2; i < len(lsa); i++ {
-				octet := int(lsa[i])
-				if i == 16 || i == 17 {
-					octet = 0
-				}
-				c0 = (c0 + octet) % 255
+			for _, octet := range lsa[2:] {
+				c0 = (c0 + int(octet)) % 255
 				c1 = (c1 + c0) % 255
 			}
-			x := ((len(lsa)-17)*c0 - c1) % 255
-			if x <= 0 {
-				x += 255
-			}
-			y := 510 - c0 - x
-			if y > 255 {
-				y -= 255
-			}
-			want := uint16(x)<<8 | uint16(y)
-			if got != want {
-				t.Errorf("LSA checksum: got %#04x, want %#04x", got, want)
+			if c0 != 0 || c1 != 0 {
+				t.Errorf("LSA Fletcher residues: got (%d, %d), want (0, 0)", c0, c1)
 			}
 		})
 	}
