@@ -47,6 +47,13 @@ documented as the model.
   `fabric.Attachment` (`config.go:359`) already names reflector configuration.
   The reflector type is left unchanged; phase 4 references the stream start as
   `StreamAttachment.Start`.
+- U5 evidence prerequisite (owner ruling, 2026-09-24): the unstated-buffer issue
+  must carry an evidence reference. `queueBufferUnstatedIssue` built it with none,
+  which `ValidateCase` refuses and the trust contract forbids for any non-Complete
+  issue. U5's scope is expanded to fix it in `fabric` (capture the crossing
+  trace-step ref in `markQueueBufferUnstated`, store it per endpoint, and cite it
+  in the issue) so a load case that exercises it is admissible. This completes
+  phase 2's issue correctly rather than working around the corpus bar.
 - One wire-octet figure serves both packages. `ethernet.Frame.WireOctets() int`
   is `max(len(Encode()), 60+4*len(Tags)) + 24`, exactly the body of `fabric`'s
   `wireOctets` (`src/common/netsim/fabric/run.go:127-136`). Why: `stream` may
@@ -374,9 +381,22 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 Files: `src/common/netsim/internal/netsimtest/load_cases.go`,
 `src/common/netsim/internal/netsimtest/load_cases_test.go`,
 `src/common/netsim/internal/netsimtest/cases.go`,
-`src/common/netsim/internal/netsimtest/README.md`
+`src/common/netsim/internal/netsimtest/README.md`,
+`src/common/netsim/fabric/fabric.go`,
+`src/common/netsim/fabric/egress_buffer_internal_test.go`
 After: U3, U4
-Change: three `Case` values, each a `fabric.ConstructionSpec` with one switch
+Change (evidence prerequisite): `queueBufferUnstatedIssue` (`fabric.go:993`)
+must attach an evidence reference, because `ValidateCase` refuses a non-Complete
+issue with none and every issue must cite its evidence under the trust contract.
+`markQueueBufferUnstated` (`fabric.go:1019`) holds the crossing frame's journey,
+so it captures that crossing's trace-step ref; `f.unstatedBacked` stores the ref
+per endpoint (a `map[Endpoint][]trace.EvidenceRef`, not a set); `Metadata` passes
+it to `queueBufferUnstatedIssue(ep, evidence)`; and the ref resolves in the
+evidence catalog so `validateEvidence` (`fabric.go:418`) passes, mirroring how
+`IssueOperStatusConflict` cites its derived evidence (`fabric.go:970-975`). A case
+in `egress_buffer_internal_test.go` asserts the issue's `Evidence` is non-empty
+and names the crossing step. Then, three `Case` values, each a
+`fabric.ConstructionSpec` with one switch
 and two hosts, a `stream.Spec`, and a `Fabric.AttachStream` with `RetainJourney`;
 `Execute` selects the decisive journey (the frame with a `queue-full` drop, the
 first frame whose metadata carries `queue-buffer-unstated`, or the frame with a
@@ -439,16 +459,3 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
-- Parked by drive: U1-U4 are landed; U5 is blocked. Case 13b needs a delivered
-  frame carrying `IssueQueueBufferUnstated`, but `queueBufferUnstatedIssue`
-  (`fabric.go:993`) builds that issue with no `Evidence`, and `ValidateCase`
-  requires every non-Complete issue to cite evidence. The fix is a phase-2
-  fabric change, outside U5's named files. Options: expand U5 to attach an
-  evidence reference to the unstated-buffer issue (the crossing frame's trace
-  step, which `markQueueBufferUnstated` at `fabric.go:1019` already holds) and
-  then implement the load cases | re-plan U5 to resolve the evidence contract
-  and its file scope. Recommended: attach the evidence reference and expand U5's
-  scope, because every non-Complete issue must cite evidence under the analysis
-  trust contract (see the no-invented-facts solution) — the issue is incomplete
-  without it regardless of the corpus, so this completes phase 2 correctly
-  rather than working around the bar.
