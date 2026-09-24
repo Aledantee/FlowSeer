@@ -346,7 +346,7 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 	lsaLen := uint16(len(lsaHeader) + len(lsaBody))
 	binary.BigEndian.PutUint16(lsaHeader[18:20], lsaLen)
 
-	lsa := append([]byte(nil), lsaHeader...)
+	lsa := lsaHeader
 	lsa = append(lsa, lsaBody...)
 	binary.BigEndian.PutUint16(lsa[16:18], ospfLSAChecksum(lsa))
 	body = append(body, lsa...)

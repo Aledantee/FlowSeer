@@ -181,7 +181,7 @@ func assertOSPFChecksumValid(t *testing.T, frame []byte) {
 
 	var sum uint32
 	for i := 0; i+1 < len(packet); i += 2 {
-		if i == 12 || (i >= 16 && i < 24) {
+		if i >= 16 && i < 24 {
 			continue
 		}
 		sum += uint32(packet[i])<<8 | uint32(packet[i+1])
@@ -192,9 +192,8 @@ func assertOSPFChecksumValid(t *testing.T, frame []byte) {
 	for sum>>16 != 0 {
 		sum = (sum & 0xffff) + (sum >> 16)
 	}
-	want := ^uint16(sum)
-	if got != want {
-		t.Errorf("OSPF checksum: got %#04x, want %#04x", got, want)
+	if uint16(sum) != 0xffff {
+		t.Errorf("OSPF checksum residue: got %#04x, want 0xffff", uint16(sum))
 	}
 }
 
