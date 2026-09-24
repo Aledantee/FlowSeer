@@ -174,6 +174,15 @@ Waves: U1 | U2 U3 U4
 - Whether to also compound the lesson (synthetic tiers passed a broken attack;
   live vendor truth caught it) as a `docs/solutions/` entry — recommended, via
   the `compound` skill, after this lands.
+- Parked by drive: the implement worker landed all four units (U1–U4 `passed`
+  in the ledger, verifier green, routing tests green, merged into
+  `Aledantee/pompano` at `02c2835b`) but did not write `status: implemented`
+  or the `> Implemented.` marker the implement skill records, so `status` still
+  reads `planned`. Options: (a) drive writes `status: implemented` and the
+  marker here and continues into review | (b) stop and leave the plan `planned`
+  for inspection or a fresh implement run. Recommended: (a), because the code
+  work is complete and verified — only the frontmatter recording step is
+  missing, and re-running implement would redo finished, merged work.
 
 ## Appendix: the proven ospf.go diff
 
