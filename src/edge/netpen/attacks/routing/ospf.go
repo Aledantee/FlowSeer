@@ -183,7 +183,6 @@ func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []u
 	// PacketLength: set after body
 	binary.BigEndian.PutUint32(hdr[4:8], routerID)
 	binary.BigEndian.PutUint32(hdr[8:12], areaID)
-	// The fixture leaves the OSPF checksum zero; the harness does not validate it.
 	// AuType=0, Authentication=0 (no auth) at [14:24].
 
 	// Hello body
@@ -221,7 +220,29 @@ func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []u
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
+	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
 	return craft.Default(eth, ip, gopacket.Payload(payload))
+}
+
+// ospfChecksum computes the OSPFv2 packet checksum (RFC 2328 section D.4): the
+// standard 16-bit ones-complement Internet checksum over the whole packet with
+// the checksum field zero and the 64-bit authentication field ([16:24])
+// excluded.
+func ospfChecksum(p []byte) uint16 {
+	var sum uint32
+	for i := 0; i+1 < len(p); i += 2 {
+		if i == 12 || (i >= 16 && i < 24) {
+			continue // checksum field and 64-bit auth field are excluded
+		}
+		sum += uint32(p[i])<<8 | uint32(p[i+1])
+	}
+	if len(p)%2 == 1 {
+		sum += uint32(p[len(p)-1]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = (sum & 0xffff) + (sum >> 16)
+	}
+	return ^uint16(sum)
 }
 
 // craftDBDesc builds an OSPFv2 Database Description packet.
@@ -257,6 +278,7 @@ func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) 
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
+	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
 	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 
@@ -320,6 +342,7 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
+	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
 	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 
@@ -366,6 +389,7 @@ func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
+	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
 	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 

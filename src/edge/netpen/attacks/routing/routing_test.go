@@ -10,6 +10,7 @@ package routing_test
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"net"
@@ -151,6 +152,64 @@ func TestOSPF_FixturePins(t *testing.T) {
 
 	if f := findFinding(t, recs); f == nil {
 		t.Fatal("no finding emitted")
+	}
+}
+
+func TestOSPF_ChecksumValid(t *testing.T) {
+	leg := testtest.New()
+	defer func() { _ = leg.Close() }()
+
+	_, err := runSingleWithBudget(t, leg, "ospf", "", 1*time.Second)
+	if err != nil {
+		t.Fatalf("run ospf: %v", err)
+	}
+
+	tx := leg.TX()
+	names := []string{"hello", "db-desc", "lsa-update", "flush", "goodbye"}
+	if len(tx) != len(names) {
+		t.Fatalf("TX count: got %d, want %d", len(tx), len(names))
+	}
+
+	for i, name := range names {
+		t.Run(name, func(t *testing.T) {
+			frame := tx[i]
+			if len(frame) < 15 {
+				t.Fatalf("frame length: got %d, want at least 15", len(frame))
+			}
+
+			ospfOffset := 14 + int(frame[14]&0x0f)*4
+			if len(frame) < ospfOffset+24 {
+				t.Fatalf("frame length: got %d, want at least %d", len(frame), ospfOffset+24)
+			}
+
+			packetLength := int(binary.BigEndian.Uint16(frame[ospfOffset+2 : ospfOffset+4]))
+			if packetLength < 24 || len(frame) < ospfOffset+packetLength {
+				t.Fatalf("OSPF packet length: got %d, frame has %d bytes", packetLength, len(frame)-ospfOffset)
+			}
+			packet := frame[ospfOffset : ospfOffset+packetLength]
+			got := binary.BigEndian.Uint16(packet[12:14])
+			if got == 0 {
+				t.Fatal("OSPF checksum is zero")
+			}
+
+			var sum uint32
+			for j := 0; j+1 < len(packet); j += 2 {
+				if j == 12 || (j >= 16 && j < 24) {
+					continue
+				}
+				sum += uint32(packet[j])<<8 | uint32(packet[j+1])
+			}
+			if len(packet)%2 == 1 {
+				sum += uint32(packet[len(packet)-1]) << 8
+			}
+			for sum>>16 != 0 {
+				sum = (sum & 0xffff) + (sum >> 16)
+			}
+			want := ^uint16(sum)
+			if got != want {
+				t.Errorf("OSPF checksum: got %#04x, want %#04x", got, want)
+			}
+		})
 	}
 }
 
