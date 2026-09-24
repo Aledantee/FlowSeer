@@ -1,7 +1,58 @@
 # stream
 
-`stream.Spec` describes finite Ethernet traffic. A source returns frames one at a
-time, so a consumer can use its own clock without expanding the whole stream.
+`stream.Source` returns Ethernet frames one at a time at offsets from its own
+start. A source can replay a capture or generate traffic from a `stream.Spec`.
+
+## Replay a capture
+
+Read the file completely before attaching it. `Source.Next` cannot return a
+read error, so `NewCaptureSource` validates the records and snapshots their
+bytes while errors can still be returned to the caller.
+
+```go
+func attachCapture(fab *fabric.Fabric, path string) error {
+    file, err := os.Open(path)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+    reader, err := pcap.NewReader(file)
+    if err != nil {
+        return err
+    }
+    var records []pcap.Record
+    for {
+        record, err := reader.Next()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return err
+        }
+        records = append(records, record)
+    }
+    source, err := stream.NewCaptureSource(records)
+    if err != nil {
+        return err
+    }
+    return fab.AttachStream(fabric.StreamAttachment{
+        Origin: fabric.Endpoint{Node: "h1"},
+        Source: source,
+        Start: 0,
+        Flow: 1,
+    })
+}
+```
+
+The first record maps to offset zero; later records retain their spacing and
+file order. Source and destination MACs are preserved. A capture with a
+non-Ethernet link type, a truncated frame, or an explicitly declared FCS is
+refused before attachment. Without FCS metadata, the adapter assumes the
+captured bytes exclude the FCS; it cannot infer that from packet bytes. The
+source keeps all records in memory, so memory use scales with capture size.
+
+## Generate traffic from a spec
 
 ```go
 func firstFrame() (time.Duration, ethernet.Frame, error) {
