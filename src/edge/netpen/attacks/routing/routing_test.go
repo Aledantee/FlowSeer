@@ -117,7 +117,9 @@ func fixturePackets(t *testing.T, name string) [][]byte {
 
 // TestOSPF_FixturePins verifies the OSPF attack TX matches the fixture
 // byte-for-byte (hello, db-desc, lsa-update), and the teardown TX matches
-// the restore fixture (flush, goodbye).
+// the restore fixture (flush, goodbye). These fixtures carry protocol-valid
+// checksums instead of the zero checksums in the Python characterization
+// capture, which IOS-XE rejects.
 func TestOSPF_FixturePins(t *testing.T) {
 	leg := testtest.New()
 	defer func() { _ = leg.Close() }()
@@ -155,6 +157,47 @@ func TestOSPF_FixturePins(t *testing.T) {
 	}
 }
 
+func assertOSPFChecksumValid(t *testing.T, frame []byte) {
+	t.Helper()
+
+	if len(frame) < 15 {
+		t.Fatalf("frame length: got %d, want at least 15", len(frame))
+	}
+
+	ospfOffset := 14 + int(frame[14]&0x0f)*4
+	if len(frame) < ospfOffset+24 {
+		t.Fatalf("frame length: got %d, want at least %d", len(frame), ospfOffset+24)
+	}
+
+	packetLength := int(binary.BigEndian.Uint16(frame[ospfOffset+2 : ospfOffset+4]))
+	if packetLength < 24 || len(frame) < ospfOffset+packetLength {
+		t.Fatalf("OSPF packet length: got %d, frame has %d bytes", packetLength, len(frame)-ospfOffset)
+	}
+	packet := frame[ospfOffset : ospfOffset+packetLength]
+	got := binary.BigEndian.Uint16(packet[12:14])
+	if got == 0 {
+		t.Fatal("OSPF checksum is zero")
+	}
+
+	var sum uint32
+	for i := 0; i+1 < len(packet); i += 2 {
+		if i == 12 || (i >= 16 && i < 24) {
+			continue
+		}
+		sum += uint32(packet[i])<<8 | uint32(packet[i+1])
+	}
+	if len(packet)%2 == 1 {
+		sum += uint32(packet[len(packet)-1]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = (sum & 0xffff) + (sum >> 16)
+	}
+	want := ^uint16(sum)
+	if got != want {
+		t.Errorf("OSPF checksum: got %#04x, want %#04x", got, want)
+	}
+}
+
 func TestOSPF_ChecksumValid(t *testing.T) {
 	leg := testtest.New()
 	defer func() { _ = leg.Close() }()
@@ -164,52 +207,25 @@ func TestOSPF_ChecksumValid(t *testing.T) {
 		t.Fatalf("run ospf: %v", err)
 	}
 
-	tx := leg.TX()
 	names := []string{"hello", "db-desc", "lsa-update", "flush", "goodbye"}
-	if len(tx) != len(names) {
-		t.Fatalf("TX count: got %d, want %d", len(tx), len(names))
+	fixtures := append(fixturePackets(t, "ospf.pcap"), fixturePackets(t, "ospf_restore.pcap")...)
+	sources := []struct {
+		name   string
+		frames [][]byte
+	}{
+		{name: "emitted", frames: leg.TX()},
+		{name: "fixture", frames: fixtures},
 	}
 
-	for i, name := range names {
-		t.Run(name, func(t *testing.T) {
-			frame := tx[i]
-			if len(frame) < 15 {
-				t.Fatalf("frame length: got %d, want at least 15", len(frame))
-			}
-
-			ospfOffset := 14 + int(frame[14]&0x0f)*4
-			if len(frame) < ospfOffset+24 {
-				t.Fatalf("frame length: got %d, want at least %d", len(frame), ospfOffset+24)
-			}
-
-			packetLength := int(binary.BigEndian.Uint16(frame[ospfOffset+2 : ospfOffset+4]))
-			if packetLength < 24 || len(frame) < ospfOffset+packetLength {
-				t.Fatalf("OSPF packet length: got %d, frame has %d bytes", packetLength, len(frame)-ospfOffset)
-			}
-			packet := frame[ospfOffset : ospfOffset+packetLength]
-			got := binary.BigEndian.Uint16(packet[12:14])
-			if got == 0 {
-				t.Fatal("OSPF checksum is zero")
-			}
-
-			var sum uint32
-			for j := 0; j+1 < len(packet); j += 2 {
-				if j == 12 || (j >= 16 && j < 24) {
-					continue
-				}
-				sum += uint32(packet[j])<<8 | uint32(packet[j+1])
-			}
-			if len(packet)%2 == 1 {
-				sum += uint32(packet[len(packet)-1]) << 8
-			}
-			for sum>>16 != 0 {
-				sum = (sum & 0xffff) + (sum >> 16)
-			}
-			want := ^uint16(sum)
-			if got != want {
-				t.Errorf("OSPF checksum: got %#04x, want %#04x", got, want)
-			}
-		})
+	for _, source := range sources {
+		if len(source.frames) != len(names) {
+			t.Fatalf("%s frame count: got %d, want %d", source.name, len(source.frames), len(names))
+		}
+		for i, name := range names {
+			t.Run(source.name+"/"+name, func(t *testing.T) {
+				assertOSPFChecksumValid(t, source.frames[i])
+			})
+		}
 	}
 }
 
