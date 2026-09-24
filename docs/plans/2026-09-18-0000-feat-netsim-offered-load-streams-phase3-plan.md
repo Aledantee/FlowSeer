@@ -459,3 +459,17 @@ and it needs the owner's approval per run.
 - The exact canonical fact strings and ordered steps for the three corpus cases
   come from the producers; the implementer records them from a run and pins
   them, per the corpus admission bar.
+- Parked by drive (U5, second): attaching evidence to the unstated-buffer issue
+  is not a scoped fix. `markQueueBufferUnstated` runs at enqueue (`run.go:1010`)
+  before any crossing is recorded, the crossing entry carries no `trace.Step`
+  (`run.go:1311`), and the marker is reached with an empty journey
+  (`egress_buffer_internal_test.go:209`), so no trace step exists to cite. Making
+  the issue cite real evidence needs a new trace event for the queue-crossing —
+  a trace-model design decision this plan does not settle. Options: re-plan U5 to
+  add a queue-crossing trace step so the issue cites it, then implement (the
+  correct fix) | drop corpus case 13b (unstated-buffer) and land 13a (queue-full)
+  and 13c (policer), which already have trace evidence, deferring 13b until the
+  trace work | land phases 1-2 and phase-3 U1-U4 as they are and revisit U5 with
+  the evidence model separately. Recommended: re-plan U5, because the issue is
+  genuinely incomplete without evidence and a queue-crossing trace step is the
+  honest source; this is design work, not another implement pass.
