@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -134,15 +135,15 @@ func TestReaderClassicRefusals(t *testing.T) {
 }
 
 func TestReaderClassicFCSFlags(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		linkWord uint32
-	}{
-		{"length without presence bit", 0x40000001},
-		{"presence bit without length", 0x04000001},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			r, err := pcap.NewReader(bytes.NewReader(classicWire(binary.LittleEndian, false, 0, 60, 60, tc.linkWord)))
+	const (
+		fcsPresentBit  = uint32(1 << 26)
+		fcsLengthShift = 28
+	)
+	for fieldBits := uint32(0); fieldBits < 1<<6; fieldBits++ {
+		linkWord := uint32(1) | fieldBits<<26
+		wantFCS := linkWord&fcsPresentBit != 0 && linkWord>>fcsLengthShift != 0
+		t.Run(fmt.Sprintf("link word %#08x", linkWord), func(t *testing.T) {
+			r, err := pcap.NewReader(bytes.NewReader(classicWire(binary.LittleEndian, false, 0, 60, 60, linkWord)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -150,8 +151,8 @@ func TestReaderClassicFCSFlags(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if rec.HasFCS {
-				t.Errorf("HasFCS = true, want false for link word %#x", tc.linkWord)
+			if rec.HasFCS != wantFCS {
+				t.Errorf("HasFCS = %t, want %t for link word %#x", rec.HasFCS, wantFCS, linkWord)
 			}
 		})
 	}
@@ -366,6 +367,57 @@ func TestReaderPcapngSubNanosecondResolution(t *testing.T) {
 	}
 	if want := time.Unix(0, 17_000_000); !rec.At.Equal(want) {
 		t.Errorf("At = %s, want %s", rec.At, want)
+	}
+}
+
+func TestReaderPcapngTimestampTimeRange(t *testing.T) {
+	const maxUnixSeconds = int64(^uint64(0)>>1) - 62_135_596_800
+	order := binary.LittleEndian
+	for _, tc := range []struct {
+		name   string
+		offset int64
+	}{
+		{"no offset", 0},
+		{"positive offset", 123},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			options := ngOption(order, 9, []byte{0})
+			if tc.offset > 0 {
+				offset := make([]byte, 8)
+				order.PutUint64(offset, uint64(tc.offset))
+				options = append(options, ngOption(order, 14, offset)...)
+			}
+			for _, boundary := range []struct {
+				name    string
+				ticks   uint64
+				wantErr bool
+			}{
+				{"last valid second", uint64(maxUnixSeconds - tc.offset), false},
+				{"first invalid second", uint64(maxUnixSeconds - tc.offset + 1), true},
+			} {
+				t.Run(boundary.name, func(t *testing.T) {
+					wire := append(ngSection(order), ngIDB(order, 1, 0, options)...)
+					wire = append(wire, ngEPB(order, 0, boundary.ticks, testFrame, nil)...)
+					r, err := pcap.NewReader(bytes.NewReader(wire))
+					if err != nil {
+						t.Fatal(err)
+					}
+					rec, err := r.Next()
+					if boundary.wantErr {
+						if err == nil || !strings.Contains(err.Error(), "timestamp overflows time.Time") {
+							t.Fatalf("Next error = %v, want timestamp overflow", err)
+						}
+						return
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					if got := rec.At.Unix(); got != maxUnixSeconds {
+						t.Errorf("At.Unix() = %d, want %d", got, maxUnixSeconds)
+					}
+				})
+			}
+		})
 	}
 }
 
