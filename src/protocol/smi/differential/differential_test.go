@@ -174,9 +174,8 @@ func TestProjectionAgreesWithGosmi(t *testing.T) {
 // several, and not so many that one clause buries the next.
 const unexpectedSamplesPerField = 6
 
-// TestEveryExpectedDivergenceStillOccurs fails on a recorded divergence
-// the corpus no longer produces, so the list cannot rot into a
-// description of a dependency nobody is running any more.
+// TestEveryExpectedDivergenceStillOccurs requires every recorded
+// divergence to appear in the current corpus pass.
 func TestEveryExpectedDivergenceStillOccurs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("a rule can legitimately draw nothing from one file per vendor")

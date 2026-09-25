@@ -30,12 +30,12 @@ func snapshotRestore(ctx context.Context, s snapshotReader, path yang.Path) (gnm
 			continue
 		}
 		if original != nil {
-			return gnmi.SetRequest{}, fmt.Errorf("multiple values returned for original path")
+			return gnmi.SetRequest{}, errors.New("multiple values returned for original path")
 		}
 		original = &updates[i]
 	}
 	if original == nil {
-		return gnmi.SetRequest{}, fmt.Errorf("original path missing from nonempty response")
+		return gnmi.SetRequest{}, errors.New("original path missing from nonempty response")
 	}
 	payloads := 0
 	for _, carried := range []bool{original.JSON != nil, original.Value != nil, original.Values != nil} {

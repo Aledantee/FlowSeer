@@ -113,7 +113,7 @@ func TestV3Session_MinSecurityFloor(t *testing.T) {
 	cfg := USMConfig{Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("auth-passphrase-1234")}
 	_, err := NewSession(context.Background(), "127.0.0.1:16100", V3, WithUSM(cfg), WithMinSecurity(MinSecurityAuthPriv))
 	if !errors.Is(err, ErrSecurityPolicy) {
-		t.Fatalf("expected ErrSecurityPolicy, got %v", err)
+		t.Fatalf("got %v, want ErrSecurityPolicy", err)
 	}
 }
 

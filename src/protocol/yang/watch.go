@@ -163,7 +163,8 @@ type WatchConfig struct {
 	// MaxConsecutiveTickFailures latches the Watcher after this many
 	// failed ticks in a row. Zero means 5.
 	MaxConsecutiveTickFailures int
-	// Buffer sizes the event channel. <= 0 means 256.
+	// Buffer sizes the event channel. Zero means 256; negative values
+	// are rejected.
 	Buffer int
 }
 
@@ -175,7 +176,7 @@ func (c WatchConfig) withDefaults() WatchConfig {
 	if c.MaxConsecutiveTickFailures <= 0 {
 		c.MaxConsecutiveTickFailures = 5
 	}
-	if c.Buffer <= 0 {
+	if c.Buffer == 0 {
 		c.Buffer = 256
 	}
 	return c
@@ -195,14 +196,23 @@ type TickWatcher[Row any, Key comparable] struct {
 	pump  *pump.Pump[WatchEvent[Row, Key]]
 	codec RowCodec[Row, Key]
 
-	mu          sync.Mutex
+	mu          sync.Mutex // guards lastTickErr
 	lastTickErr error
 }
 
 // NewTickWatcher starts the tick loop. decode selects the wire form
 // (the descriptor's DecodeXML or DecodeJSON); fetch is the protocol
-// read.
+// read. A negative [WatchConfig.Buffer] returns a terminal Watcher whose
+// [TickWatcher.Err] reports the invalid configuration.
 func NewTickWatcher[Row any, Key comparable](ctx context.Context, codec RowCodec[Row, Key], fetch FetchFunc, decode func([]byte) ([]Row, error), cfg WatchConfig) *TickWatcher[Row, Key] {
+	if cfg.Buffer < 0 {
+		w := &TickWatcher[Row, Key]{
+			pump: pump.New[WatchEvent[Row, Key]](ctx, 0),
+		}
+		w.pump.Fail(errs.New().Code(ErrCodeWatch).Attr("buffer", cfg.Buffer).
+			Msg("watch buffer must be non-negative"))
+		return w
+	}
 	cfg = cfg.withDefaults()
 	w := &TickWatcher[Row, Key]{
 		pump:  pump.New[WatchEvent[Row, Key]](ctx, cfg.Buffer),

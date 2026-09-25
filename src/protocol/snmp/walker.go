@@ -88,10 +88,10 @@ const defaultRowBuffer = 64
 type Walker struct {
 	pump *pump.Pump[walkerItem]
 
-	// currentMu guards current. Distinct from the wrapped pump's
-	// terminal-error mutex so a Current/Next call cannot block on a
+	// A distinct lock from the wrapped pump's terminal-error mutex keeps
+	// a Current/Next call from blocking on a
 	// concurrent Fail/Err read.
-	currentMu sync.Mutex
+	currentMu sync.Mutex // guards current
 	current   walkerItem // latched by Next for Current
 }
 

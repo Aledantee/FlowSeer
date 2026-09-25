@@ -10,19 +10,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
-// rawwalk.go — the raw varbind fast path consumed by mibgen-generated
-// table walkers. A [RawVarBind] carries the undecoded BER name and
-// value of one response varbind; generated code matches columns by byte
+// RawVarBind carries the undecoded BER name and value of one response
+// varbind. Generated code matches columns by byte
 // prefix and decodes known-Kind values straight to typed Go values,
 // skipping the per-varbind OID materialization and interface boxing of
 // the generic [VarBind] path. Every fused primitive is a guarded fast
 // path: anything unusual — an off-spec wire tag, an out-of-range value,
 // a pre-decoded varbind — declines (ok=false) so the caller falls back
 // to [RawVarBind.Decode] + the generic column decoder, reproducing the
-// tolerant coercion semantics of decode.go exactly.
-
-// RawVarBind is one undecoded response varbind yielded by a
-// [RawWalker].
+// tolerant coercion semantics of decode.go exactly. A [RawWalker]
+// yields these values.
 //
 // OID holds the BER content octets of the name (no tag/length header);
 // Tag and Value hold the value TLV's identifier octet and content.
@@ -235,6 +232,8 @@ func base128Len(b []byte) int {
 // result of [Session.BulkWalkRaw]. It shares the channel-pump state
 // machine; consumers iterate via [RawWalker.Iter] and must check
 // [RawWalker.Err] after the loop, exactly as with [Walker].
+// A RawWalker supports one iterator; its producer, Err, and Close may
+// run concurrently with that iterator.
 type RawWalker struct {
 	pump *pump.Pump[RawVarBind]
 }

@@ -93,18 +93,18 @@ type TrapStream struct {
 	// rate-limiting. Loaded with acquire semantics by [TrapStream.Dropped].
 	dropped atomic.Uint64
 
-	// currentMu guards current. Distinct from the wrapped pump's
-	// terminal-error mutex so a Current/Next call cannot block on a
+	// A distinct lock from the wrapped pump's terminal-error mutex keeps
+	// a Current/Next call from blocking on a
 	// concurrent Fail/Err read.
-	currentMu sync.Mutex
-	current   Trap // latched by Next for Current
+	currentMu sync.Mutex // guards current
+	current   Trap       // latched by Next for Current
 
 	// engineHandler is installed by the Backend (via
 	// installEngineHandler) and delegates
 	// [TrapStream.RegisterEngine] to the running listener's USM table.
 	// A nil handler means the stream is not v3-capable; the call returns
 	// [ErrTrapStreamNotV3Capable].
-	engineMu      sync.Mutex
+	engineMu      sync.Mutex // guards engineHandler
 	engineHandler func(USMConfig) error
 
 	// closer is an optional Backend-side hook invoked synchronously by
@@ -113,7 +113,7 @@ type TrapStream struct {
 	// Close returns only after the underlying socket and pump goroutine
 	// are fully torn down — making the next "re-bind the same port"
 	// safe.
-	closerMu sync.Mutex
+	closerMu sync.Mutex // guards closer
 	closer   func()
 }
 
@@ -351,6 +351,8 @@ func (ts *TrapStream) Close() error {
 // through the accessor methods ([TrapConfig.AllowedSources],
 // [TrapConfig.MaxTrapsPerSecond], [TrapConfig.USMTable],
 // [TrapConfig.BufferSize]).
+// A TrapConfig may be read concurrently after option application; it
+// must not be modified after the listener starts.
 type TrapConfig struct {
 	// allowedSources, when non-empty, restricts accepted traps to
 	// packets whose source IP falls inside one of the supplied

@@ -53,7 +53,7 @@ func reportError(o reportOutcome) error {
 // resync cannot tear one encode's snapshot (the IV-reuse guard pairs a
 // snapshot with the salt allocated inside that same buildOutbound).
 type engineBaseline struct {
-	mu      sync.Mutex
+	mu      sync.Mutex // guards boots, etime, learned, and known
 	boots   int32
 	etime   int32
 	learned time.Time

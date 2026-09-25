@@ -79,8 +79,8 @@ func getReq(oid OID) *message {
 	}
 }
 
-// tcfg bundles the reactor config with the per-call timeout/retries the
-// test wants roundTrip to use (those are no longer reactor fields).
+// tcfg bundles the reactor config with the per-call timeout and retry
+// values roundTrip requires.
 type tcfg struct {
 	timeout     time.Duration
 	retries     int

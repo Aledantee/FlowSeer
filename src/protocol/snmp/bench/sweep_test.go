@@ -135,6 +135,7 @@ func warmOrFatal(tb testing.TB, walk func() error) {
 // sweepDial builds targets warmed walk closures for cl, each against its own
 // responder, and registers their cleanup.
 func sweepDial(tb testing.TB, cl sweepClient, targets int) []func() error {
+	tb.Helper()
 	raiseFDLimit()
 	walks := make([]func() error, targets)
 	closers := make([]func(), targets)

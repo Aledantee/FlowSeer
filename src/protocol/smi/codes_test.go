@@ -78,11 +78,9 @@ func TestGeneratedCodesDriftIsDetected(t *testing.T) {
 	}
 }
 
-// errs.NewCode no longer rejects a malformed or duplicate name itself —
-// errs's own repo-wide scan does, at go test time, over every declaration in
-// the tree. The registry only reflects what a running binary links, so this
-// test proves the smi namespace is fully present in it, not that any code in
-// it was validated.
+// TestEveryCatalogCodeIsRegistered proves the running binary links the
+// complete SMI namespace. The repository-wide errs scan separately
+// validates declaration names and uniqueness across the source tree.
 func TestEveryCatalogCodeIsRegistered(t *testing.T) {
 	registered := errs.Codes()
 

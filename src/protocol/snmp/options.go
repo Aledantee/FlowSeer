@@ -54,6 +54,8 @@ func (v Version) String() string {
 // Each field is set by exactly one
 // exported With* function. Callers should not construct a SessionConfig
 // directly — use [ApplyOptions] or pass options to [NewSession].
+// A SessionConfig may be read concurrently after option application;
+// it must not be modified while a Backend is using it.
 type SessionConfig struct {
 	// Community is the SNMPv1/v2c community string. Ignored for v3.
 	Community secret.Value
@@ -245,8 +247,8 @@ func WithMaxOIDs(n int) Option {
 // WithUSM selects an SNMPv3 USM configuration. The config is validated
 // when this option is constructed; the resulting [Option] records both
 // the config and any validation error against the [SessionConfig]. The
-// [NewSession] surfaces the error before any wire IO, ensuring invalid
-// combinations are caught at construction time.
+// [NewSession] surfaces the error before any wire IO. Invalid
+// combinations are therefore rejected at construction time.
 func WithUSM(cfg USMConfig) Option {
 	err := cfg.Validate()
 	cfgCopy := cfg

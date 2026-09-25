@@ -133,6 +133,7 @@ static long ns_bulkwalk(void *sessp, oid *root, size_t rootLen, int maxrep) {
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"unsafe"
@@ -144,7 +145,7 @@ import (
 // state during setup, so opens are also serialized (see nsOpen).
 var (
 	nsInitOnce sync.Once
-	nsOpenMu   sync.Mutex
+	nsOpenMu   sync.Mutex // guards Net-SNMP session opens
 )
 
 // walkBulkMaxRep is the GETBULK max-repetitions the Net-SNMP arm uses, kept
@@ -189,7 +190,7 @@ func (s nsSession) bulkWalk(root []uint32, maxRep int) (int, error) {
 	}
 	n := C.ns_bulkwalk(s.p, first, C.size_t(len(coid)), C.int(maxRep))
 	if n < 0 {
-		return 0, fmt.Errorf("net-snmp bulkwalk failed")
+		return 0, errors.New("net-snmp bulkwalk failed")
 	}
 	return int(n), nil
 }

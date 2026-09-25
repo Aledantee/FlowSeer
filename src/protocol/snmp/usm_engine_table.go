@@ -30,7 +30,7 @@ var ErrEngineNeedsID = errs.Msg("RegisterEngine requires a non-empty EngineID")
 // ordering), under its own lock so two concurrent valid notifications from
 // one engine advance it monotonically (research I4 TOCTOU).
 type recvBaseline struct {
-	mu         sync.Mutex
+	mu         sync.Mutex // guards boots, latestTime, and known
 	boots      int32
 	latestTime int32
 	known      bool
@@ -69,7 +69,7 @@ func (b *recvBaseline) checkAndUpdate(boots, etime int32) bool {
 // engineTable holds the credentials and replay baselines for every
 // registered authoritative engine, keyed by (engineID, userName).
 type engineTable struct {
-	mu        sync.RWMutex
+	mu        sync.RWMutex // guards creds and baselines
 	creds     map[string]*usmContext
 	baselines map[string]*recvBaseline
 	logCtx    context.Context

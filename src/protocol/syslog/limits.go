@@ -6,7 +6,7 @@ import (
 )
 
 type admission struct {
-	mu                              sync.Mutex
+	mu                              sync.Mutex // guards bytes, frames, changed, and closed
 	bytes, frames, limit, maxFrames int
 	changed                         chan struct{}
 	closed                          bool

@@ -253,7 +253,7 @@ func BenchmarkMacroColdStartV3USM(b *testing.B) {
 // this tier runs two sequential walks against a LIVE agent, so any
 // Counter/Gauge/TimeTicks column legitimately advances between the
 // FlowSeer walk and the gosnmp walk. OID-sequence + type agreement is
-// the robust differential here — it catches walk-shape and decode-type
+// the relevant differential here — it catches walk-shape and decode-type
 // divergences without false-failing on monotonic counters.
 func TestMacroDifferential(t *testing.T) {
 	c := macroEnv(t)

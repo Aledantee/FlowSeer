@@ -183,7 +183,7 @@ func TestReactorV3_DiscoveryAndGet(t *testing.T) {
 		t.Fatalf("v3RoundTrip: %v", err)
 	}
 	if res.isReport || res.scoped == nil {
-		t.Fatalf("expected data reply, got %+v", res)
+		t.Fatalf("got %+v, want data reply", res)
 	}
 	if len(res.scoped.pdu.varbinds) != 1 || res.scoped.pdu.varbinds[0].GetHeader().OID.String() != "1.3.6.1.2.1.1.1.0" {
 		t.Fatalf("unexpected varbinds: %+v", res.scoped.pdu.varbinds)
@@ -237,7 +237,7 @@ func TestReactorV3_NotInTimeWindowResync(t *testing.T) {
 		t.Fatalf("v3RoundTrip after resync: %v", err)
 	}
 	if res.isReport || res.scoped == nil {
-		t.Fatalf("expected data reply after resync, got %+v", res)
+		t.Fatalf("got %+v, want data reply after resync", res)
 	}
 	if seen.Load() < 2 {
 		t.Fatalf("expected a resync retry, saw %d auth requests", seen.Load())
@@ -326,7 +326,7 @@ func TestReactorV3_SingleFlightDiscovery(t *testing.T) {
 		}
 	}
 	if got := probes.Load(); got != 1 {
-		t.Fatalf("expected exactly 1 discovery probe, got %d", got)
+		t.Fatalf("got %d discovery probes, want exactly 1", got)
 	}
 }
 
@@ -361,7 +361,7 @@ func TestReactorV3_ResyncBudget(t *testing.T) {
 
 	_, err := r.v3RoundTrip(context.Background(), getReqPDU(), time.Second, 1)
 	if !errors.Is(err, ErrResyncExhausted) {
-		t.Fatalf("expected ErrResyncExhausted, got %v", err)
+		t.Fatalf("got %v, want ErrResyncExhausted", err)
 	}
 }
 
@@ -396,7 +396,7 @@ func TestReactorV3_RediscoveryAfterEngineRestart(t *testing.T) {
 		t.Fatalf("v3RoundTrip after re-discovery: %v", err)
 	}
 	if res.isReport || res.scoped == nil {
-		t.Fatalf("expected data reply after re-discovery, got %+v", res)
+		t.Fatalf("got %+v, want data reply after re-discovery", res)
 	}
 	if !bytes.Equal(r.usm.currentEngineID(), v3TestEngine) {
 		t.Fatalf("engine not re-localized: got %x", r.usm.currentEngineID())

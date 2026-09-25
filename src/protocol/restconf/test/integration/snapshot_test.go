@@ -2,7 +2,7 @@ package integration
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"testing"
 )
 
@@ -25,7 +25,7 @@ func decodeDescriptionSnapshot(payload []byte) (descriptionSnapshot, error) {
 		return descriptionSnapshot{}, err
 	}
 	if snapshot.Enabled == nil {
-		return descriptionSnapshot{}, fmt.Errorf("interface enabled state is missing")
+		return descriptionSnapshot{}, errors.New("interface enabled state is missing")
 	}
 	return snapshot, nil
 }
@@ -47,7 +47,7 @@ func decodeDescription(payload []byte) (*string, error) {
 		return nil, err
 	}
 	if description == nil {
-		return nil, fmt.Errorf("description payload is null")
+		return nil, errors.New("description payload is null")
 	}
 	return description, nil
 }

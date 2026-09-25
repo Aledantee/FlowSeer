@@ -62,6 +62,23 @@ func serverXML(name string, port int) string {
 	return fmt.Sprintf(`<server><name>%s</name><port>%d</port></server>`, name, port)
 }
 
+func TestNewTickWatcherRejectsNegativeBuffer(t *testing.T) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Errorf("NewTickWatcher panicked for a negative buffer: %v", recovered)
+		}
+	}()
+
+	codec := serverCodec()
+	w := yang.NewTickWatcher(context.Background(), codec, func(context.Context) ([]byte, error) {
+		return nil, nil
+	}, codec.DecodeXML, yang.WatchConfig{Buffer: -1})
+	defer func() { _ = w.Close() }()
+	if w.Err() == nil {
+		t.Error("NewTickWatcher accepted a negative buffer")
+	}
+}
+
 // eventChan pipes the watcher's events without ever breaking the
 // iterator (breaking the range signals Close).
 func eventChan[Row any, Key comparable](w *yang.TickWatcher[Row, Key]) <-chan yang.WatchEvent[Row, Key] {
