@@ -3,7 +3,7 @@ title: netpen OSPF Attacker Router ID - Plan
 type: fix
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: mixed
 amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
@@ -11,12 +11,16 @@ amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 
 # netpen OSPF Attacker Router ID - Plan
 
-> Needs-decisions: the router-id constant is a one-character fix, but correcting
-> it forces the OSPF fixtures to change, and a fresh `go run harvest_routing.go`
-> produces zero checksums on the lsa-update/flush/goodbye frames where the
-> committed fixtures carry valid ones. How the committed fixtures are meant to be
-> regenerated — and whether the Go harvest generator is the canonical source or
-> carries a checksum gap — must be settled (U1) before the fixtures are rewritten.
+> U1 resolved (2026-09-25): the harvest generator builds the OSPF payload as a raw
+> `gopacket.Payload`, so `craft`'s `ComputeChecksums` (which only covers eth/ip)
+> leaves the OSPF header checksum (`hdr[12:14]`) and the LSA Fletcher checksum
+> (`lsaHdr[16:18]`) zero. The runtime `ospf.go` computes both (`ospfChecksum`
+> ospf.go:231, `ospfLSAChecksum` ospf.go:250 — the "zero-checksum bug" fix landed
+> here only). The committed fixtures carry valid checksums (they match the runtime
+> via `TestOSPF_FixturePins`), so `harvest_routing.go` is stale and a fresh run
+> regresses them. Fix: teach the harvest generator to compute the OSPF + LSA
+> checksums (an independent double of the runtime), correct the router-id in both
+> files, regenerate, and the fixtures gain valid checksums plus the right router-id.
 
 ## Goal
 
@@ -103,30 +107,26 @@ bug noted in memory `project_eveng_lab_injection`.
 
 ## Units
 
-### U1. Diagnose fixture generation and the checksum divergence
-Files: none (investigation; any probe reverted).
-After: none
-Change: determine how `attacks/testdata/routing/ospf*.pcap` are meant to be
-regenerated and why a fresh `go run harvest_routing.go` yields zero checksums on
-lsa-update/flush/goodbye where the committed fixtures are valid. Establish:
-whether `harvest_routing.go` is the canonical generator (and carries a
-checksum gap to fix) or the fixtures come from another tool; where the OSPF
-checksum is computed for the runtime (`ospf.go`) versus the generator; and what
-`TestOSPF_TeardownOrder`/`TestOSPF_ChecksumValid` require byte-for-byte. Record
-the finding in this plan's Decisions as the U2/U3 selector.
-Tests: none; the deliverable is the recorded mechanism.
-Verify: n/a (no committed change).
+### U1. Diagnose fixture generation and the checksum divergence — DONE
+Resolved 2026-09-25 (see the note under the title): the harvest generator leaves
+OSPF/LSA checksums zero (raw `gopacket.Payload`, `craft` checksums only eth/ip),
+the runtime `ospf.go` computes them, and the committed fixtures match the runtime,
+so the generator is stale. No committed change.
 
-### U2. Correct the router ID and the generator's checksum handling
+### U2. Correct the router ID and give the generator valid OSPF/LSA checksums
 Files: `src/edge/netpen/attacks/routing/helpers.go`,
-`src/edge/netpen/attacks/routing/harvest_routing.go` (and `ospf.go` only if U1
-shows the runtime checksum path needs it).
-After: U1
-Change: set `attackerRouterID` to `0x0a000063` in both files. Apply the
-generator checksum fix U1 selected so regenerated OSPF frames carry valid,
-non-zero checksums matching the runtime. No `R#`/`U#` labels in code.
-Tests: a unit test asserting `ipToRouterID(attackerRouterID) == "10.0.0.99"`
-and that a generated OSPF frame's checksum is valid.
+`src/edge/netpen/attacks/routing/harvest_routing.go`.
+After: none
+Change: set `attackerRouterID` to `0x0a000063` in both files (fix the comment to
+match: it already reads `10.0.0.99`). In `harvest_routing.go`, compute the OSPF
+header checksum into `hdr[12:14]` (RFC 2328 D.4, ones-complement over the packet
+with the checksum and 64-bit auth field zeroed) and the Router-LSA Fletcher
+checksum into `lsaHdr[16:18]` (RFC 2328 12.1.7) before the frames are crafted, so
+the generator is an independent double that matches the runtime byte-for-byte.
+Port or re-implement `ospfChecksum`/`ospfLSAChecksum` (ospf.go:231,250) in the
+generator; do not import the runtime unexported funcs (`harvest_routing.go` is a
+standalone `//go:build ignore` program). No `R#`/`U#` labels in code.
+Tests: a unit test asserting `ipToRouterID(attackerRouterID) == "10.0.0.99"`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/attacks/routing/helpers.go src/edge/netpen/attacks/routing/harvest_routing.go`
 
 ### U3. Regenerate fixtures and reconcile the routing tests
@@ -156,7 +156,7 @@ Tests: `matrix_test.go` stays green.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpen/test/integration/VALIDATION_MATRIX.md docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md`
 (netpen paths verify tagged, per docs/solutions/conventions/a-package-behind-a-build-tag-fails-untagged-go-vet.md).
 
-Waves: U1 | U2 | U3 | U4
+Waves: U2 | U3 | U4  (U1 done)
 
 ## Verification
 
@@ -177,9 +177,6 @@ Waves: U1 | U2 | U3 | U4
 
 ## Open questions
 
-- Canonical fixture regeneration and the checksum divergence: decided by U1's
-  investigation. This is why the plan is `needs-decisions`; U1 must run before
-  U2/U3 take a single shape.
 - Router ID versus source address identity: the fix aligns the router ID to the
   source address (`10.0.0.99`). If netpen intends a distinct router ID, the tier
   assertion changes instead — but the comment and source address both say
