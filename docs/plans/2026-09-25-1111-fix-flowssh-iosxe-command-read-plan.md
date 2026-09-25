@@ -13,7 +13,17 @@ amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 # flowssh IOS-XE Command Read - Plan
 
 > Implemented. The command reader and IOS-XE builders now use opt-in echo
-> anchoring. U2 live validation and matrix recording remain for the coordinator.
+> anchoring. U2 live validation (2026-09-25) confirmed the fix against the IOS-XE
+> lab target: `Session.Run` reads `show ip ospf` / `show ip ospf neighbor`
+> correctly and netpen's injected OSPF adjacency was observed forming and
+> clearing on the device. `TestT2OSPFLiveLab` does not yet pass end to end, and
+> the matrix `ospf` cells stay `pending live run`, because of a *separate* netpen
+> bug the live run surfaced: netpen advertises OSPF router ID `10.0.0.153`
+> (`attacks/routing/helpers.go` `attackerRouterID = 0x0a000099`, whose value is
+> `.153` though its comment and source address say `.99`), which the assertion's
+> expected `10.0.0.99` does not match. Fixing it entangles the harvest generator's
+> OSPF checksums and byte-offset teardown tests, so it is deferred to its own
+> netpen plan.
 
 > Root cause confirmed by a live diagnostic against LABRT42 (2026-09-25): every
 > `Session.Run` returns the *previous* command's output — a one-command
