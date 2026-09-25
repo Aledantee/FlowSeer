@@ -27,6 +27,7 @@ const (
 	envInjectorUser          = "NETPEN_LAB_INJECTOR_USER"
 	envInjectorPrivateKey    = "NETPEN_LAB_INJECTOR_PRIVATE_KEY"
 	envInjectorHostKeySHA256 = "NETPEN_LAB_INJECTOR_HOST_KEY_SHA256"
+	envInjectorSudoPassword  = "NETPEN_LAB_INJECTOR_SUDO_PASSWORD"
 	envInjectionInterface    = "NETPEN_LAB_INJECTION_INTERFACE"
 	envTargetHost            = "NETPEN_LAB_TARGET_HOST"
 	envTargetUser            = "NETPEN_LAB_TARGET_USER"
@@ -46,6 +47,8 @@ type Config struct {
 	InjectorPrivateKeyPath string
 	// InjectorHostKeySHA256 pins the injector SSH host key.
 	InjectorHostKeySHA256 string
+	// InjectorSudoPassword authorizes the remote netpen command.
+	InjectorSudoPassword secret.Value
 	// InjectionInterface is the injector's data-plane interface.
 	InjectionInterface string
 
@@ -81,6 +84,7 @@ func ConfigFromEnv() (Config, error) {
 		{envInjectorUser, func(value string) { cfg.InjectorUser = value }},
 		{envInjectorPrivateKey, func(value string) { cfg.InjectorPrivateKeyPath = value }},
 		{envInjectorHostKeySHA256, func(value string) { cfg.InjectorHostKeySHA256 = value }},
+		{envInjectorSudoPassword, func(value string) { cfg.InjectorSudoPassword = secret.NewString(value) }},
 		{envInjectionInterface, func(value string) { cfg.InjectionInterface = value }},
 		{envTargetHost, func(value string) { cfg.TargetHost = value }},
 		{envTargetUser, func(value string) { cfg.TargetUser = value }},
@@ -109,7 +113,7 @@ func ConfigFromEnv() (Config, error) {
 // interface.
 func (c Config) InjectCommand(attack string, duration, timeout time.Duration) []string {
 	return []string{
-		"netpen", attack, "-i", c.InjectionInterface, "--json=true",
+		"sudo", "-S", "-p", "", "netpen", attack, "-i", c.InjectionInterface, "--json=true",
 		"--duration", duration.String(), "--timeout", timeout.String(),
 	}
 }
@@ -157,6 +161,7 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	defer func() { _ = session.Close() }()
 
 	var stdout, stderr bytes.Buffer
+	session.Stdin = strings.NewReader(cfg.InjectorSudoPassword.RevealString() + "\n")
 	session.Stdout = &stdout
 	session.Stderr = &stderr
 	if err := session.Start(shellCommand(argv)); err != nil {
