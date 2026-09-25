@@ -139,7 +139,7 @@ func (ec *emitCtx) table(oid string) *smi.Table { return ec.tables[oid] }
 // resolved describes how a node's value should be represented in
 // generated Go: the Go-type code to render, the wire [snmp.Kind] of the
 // VarBind variant the agent emits, and a decoder builder that returns
-// a [jen.Code] producing `func(snmp.VarBind) (T, error)`.
+// a [jen.Code] expression of type `func(snmp.VarBind) (T, error)`.
 type resolved struct {
 	// GoType is the jen.Code for the Go type the field/return value
 	// should have (e.g. `int32`, `string`, `net.HardwareAddr`,
@@ -148,13 +148,12 @@ type resolved struct {
 	// Kind is the jen.Code referring to the [snmp.Kind] constant — for
 	// example `snmp.KindOctetString`.
 	Kind *jen.Statement
-	// DecodeFunc returns a jen.Code that evaluates to the
-	// `func(snmp.VarBind) (T, error)` closure used by [snmp.NewColumn]
-	// or returned to a scalar accessor.
+	// DecodeFunc returns the decoder expression used by [snmp.NewColumn]
+	// or called by a scalar accessor.
 	DecodeFunc func() *jen.Statement
-	// Variant is the snmp.<Variant>Var concrete type the natural
-	// decoder type-asserts against. Empty when DecodeFunc delegates
-	// fully to a TC helper (e.g. snmp.DecodeMacAddress).
+	// Variant is the snmp.<Variant>Var concrete type that selects the
+	// natural decoder. Empty when DecodeFunc delegates fully to a TC
+	// helper (e.g. snmp.DecodeMacAddress).
 	Variant string
 	// ZeroExpr is the Go expression for the zero value of GoType used
 	// when the decoder returns an error.
@@ -176,8 +175,7 @@ type resolved struct {
 //
 // The well-known textual conventions (MacAddress, DateAndTime,
 // TruthValue, RowStatus, DisplayString, PhysAddress, BITS) route
-// through the per-TC helper in `common/snmp/tc.go` so the generated
-// closure is just a thin wrapper.
+// directly through the per-TC helper in `common/snmp/tc.go`.
 //
 // Enum types defined by `INTEGER { name(value), ... }` resolve to the
 // generated Go enum type registered in [emitCtx.enumNames].
@@ -222,7 +220,7 @@ func validateDecoderVariant(variant string) error {
 	if variant == "" {
 		return nil
 	}
-	if _, ok := decoderHelperFor(variant); !ok {
+	if _, _, ok := decoderHelperFor(variant); !ok {
 		return errs.Msgf("no leniency helper registered for wire variant %q", variant)
 	}
 
@@ -357,7 +355,7 @@ func numericResolved(goType *jen.Statement, kindName, variant, rawFuse string) r
 		GoType:     goType.Clone(),
 		Kind:       jen.Qual(snmpImport, kindName),
 		Variant:    variant,
-		DecodeFunc: func() *jen.Statement { return mustDecodeNatural(variant, goType.Clone()) },
+		DecodeFunc: func() *jen.Statement { return mustDecodeNatural(variant) },
 		ZeroExpr:   func() *jen.Statement { return jen.Lit(0) },
 		RawFuse:    rawFuse,
 	}
@@ -423,7 +421,7 @@ func applicationType(base smi.BaseType) (resolved, bool) {
 			GoType:     jen.Qual("net", "IP"),
 			Kind:       jen.Qual(snmpImport, "KindIPAddress"),
 			Variant:    "IPAddressVar",
-			DecodeFunc: func() *jen.Statement { return mustDecodeNatural("IPAddressVar", jen.Qual("net", "IP")) },
+			DecodeFunc: func() *jen.Statement { return mustDecodeNatural("IPAddressVar") },
 			ZeroExpr:   zero,
 		}, true
 	case smi.BaseOpaque:
@@ -432,7 +430,7 @@ func applicationType(base smi.BaseType) (resolved, bool) {
 			GoType:     jen.Index().Byte(),
 			Kind:       jen.Qual(snmpImport, "KindOpaque"),
 			Variant:    "OpaqueVar",
-			DecodeFunc: func() *jen.Statement { return mustDecodeNatural("OpaqueVar", jen.Index().Byte()) },
+			DecodeFunc: func() *jen.Statement { return mustDecodeNatural("OpaqueVar") },
 			ZeroExpr:   zero,
 		}, true
 	}
@@ -600,7 +598,7 @@ func resolveBase(bt baseKind) resolved {
 			GoType:     jen.Qual(snmpImport, "OID"),
 			Kind:       jen.Qual(snmpImport, "KindObjectID"),
 			Variant:    "ObjectIDVar",
-			DecodeFunc: func() *jen.Statement { return mustDecodeNatural("ObjectIDVar", jen.Qual(snmpImport, "OID")) },
+			DecodeFunc: func() *jen.Statement { return mustDecodeNatural("ObjectIDVar") },
 			ZeroExpr:   zero,
 		}
 	}
@@ -622,7 +620,7 @@ func resolvedBytes() resolved {
 		GoType:     jen.Index().Byte(),
 		Kind:       jen.Qual(snmpImport, "KindOctetString"),
 		Variant:    "OctetStringVar",
-		DecodeFunc: func() *jen.Statement { return mustDecodeNatural("OctetStringVar", jen.Index().Byte()) },
+		DecodeFunc: func() *jen.Statement { return mustDecodeNatural("OctetStringVar") },
 		ZeroExpr:   zero,
 	}
 }
@@ -668,25 +666,20 @@ func wellKnownTC(name string) (resolved, bool) {
 	return resolved{}, false
 }
 
-// tcDelegate builds a resolved that calls snmp.<helper> from the
-// emitted closure. The closure body is a single-line call.
+// tcDelegate builds a resolved that delegates to snmp.<helper>.
 func tcDelegate(goType *jen.Statement, helper, variant, kindName string, zero func() *jen.Statement) resolved {
 	return resolved{
-		GoType:  goType.Clone(),
-		Kind:    jen.Qual(snmpImport, kindName),
-		Variant: variant,
-		DecodeFunc: func() *jen.Statement {
-			return jen.Func().Params(jen.Id("vb").Qual(snmpImport, "VarBind")).Params(goType.Clone(), jen.Error()).Block(
-				jen.Return(jen.Qual(snmpImport, helper).Call(jen.Id("vb"))),
-			)
-		},
-		ZeroExpr: zero,
+		GoType:     goType.Clone(),
+		Kind:       jen.Qual(snmpImport, kindName),
+		Variant:    variant,
+		DecodeFunc: func() *jen.Statement { return jen.Qual(snmpImport, helper) },
+		ZeroExpr:   zero,
 	}
 }
 
 // decoderHelperFor maps a wire-variant short name (e.g. "Counter32Var")
-// onto the snmp package leniency helper that decodes any variant in its
-// accept set into the target Go type. The mapping is one-to-one with
+// onto the snmp package leniency helper and the helper's result type.
+// The mapping is one-to-one with
 // the per-SMI-base resolutions emitted above, so the generator picks
 // the right helper at codegen time and the runtime gets a single
 // one-line `snmp.Decode<T>(vb)` call instead of an inlined type-switch.
@@ -695,32 +688,30 @@ func tcDelegate(goType *jen.Statement, helper, variant, kindName string, zero fu
 // natural-resolved variant (nat.Variant) — so an override on a Gauge32
 // column emits snmp.DecodeUint32, not snmp.DecodeInt32, preserving
 // the column's wire semantics regardless of the Go-side override type.
-func decoderHelperFor(variant string) (helper string, ok bool) {
+func decoderHelperFor(variant string) (helper string, result *jen.Statement, ok bool) {
 	switch variant {
 	case "Integer32Var":
-		return "DecodeInt32", true
+		return "DecodeInt32", jen.Int32(), true
 	case "Uinteger32Var", "Counter32Var", "Gauge32Var", "TimeTicksVar":
-		return "DecodeUint32", true
+		return "DecodeUint32", jen.Uint32(), true
 	case "Counter64Var":
-		return "DecodeUint64", true
+		return "DecodeUint64", jen.Uint64(), true
 	case "OctetStringVar", "OpaqueVar":
-		return "DecodeBytes", true
+		return "DecodeBytes", jen.Index().Byte(), true
 	case "ObjectIDVar":
-		return "DecodeOID", true
+		return "DecodeOID", jen.Qual(snmpImport, "OID"), true
 	case "IPAddressVar":
-		return "DecodeIP", true
+		return "DecodeIP", jen.Qual("net", "IP"), true
 	}
-	return "", false
+	return "", nil, false
 }
 
-// mustDecodeNatural builds the generated decoder closure for the simple
-// base types (Integer32, Counter32, …). It delegates to the matching
-// snmp.Decode<T> leniency helper picked by [decoderHelperFor], so the
-// emitted body is a single `return snmp.Decode<T>(vb)` line. The
+// mustDecodeNatural returns the matching snmp.Decode<T> leniency helper
+// for simple base types (Integer32, Counter32, …). The
 // helper enforces the variant's coercion rules at runtime — see
 // common/snmp/decode.go for the policy table.
-func mustDecodeNatural(variant string, goType *jen.Statement) *jen.Statement {
-	helper, ok := decoderHelperFor(variant)
+func mustDecodeNatural(variant string) *jen.Statement {
+	helper, _, ok := decoderHelperFor(variant)
 	if !ok {
 		// Unreachable: [resolveType] runs [validateDecoderVariant] over
 		// every resolved before an emitter reads its DecodeFunc, so a
@@ -730,9 +721,7 @@ func mustDecodeNatural(variant string, goType *jen.Statement) *jen.Statement {
 		// plus TestResolveType_RejectsUnregisteredVariant, not this line.
 		panic("mibgen: no leniency helper registered for variant " + variant)
 	}
-	return jen.Func().Params(jen.Id("vb").Qual(snmpImport, "VarBind")).Params(goType.Clone(), jen.Error()).Block(
-		jen.Return(jen.Qual(snmpImport, helper).Call(jen.Id("vb"))),
-	)
+	return jen.Qual(snmpImport, helper)
 }
 
 // mustDecodeIntCast is mustDecodeNatural specialised for cast-to-target types
@@ -759,11 +748,14 @@ func mustDecodeIntCast(variant string, target *jen.Statement) *jen.Statement {
 // mustDecodeCast is mustDecodeIntCast with the zero value spelled by the
 // caller, for a target whose base is not numeric.
 func mustDecodeCast(variant string, target, zero *jen.Statement) *jen.Statement {
-	helper, ok := decoderHelperFor(variant)
+	helper, result, ok := decoderHelperFor(variant)
 	if !ok {
 		// Unreachable for the same reason as [mustDecodeNatural]: the
 		// variant is cleared by [validateDecoderVariant] at resolve time.
 		panic("mibgen: no leniency helper registered for variant " + variant)
+	}
+	if renderGoType(target) == renderGoType(result) {
+		return jen.Qual(snmpImport, helper)
 	}
 	return jen.Func().Params(jen.Id("vb").Qual(snmpImport, "VarBind")).Params(target.Clone(), jen.Error()).Block(
 		jen.List(jen.Id("v"), jen.Id("err")).Op(":=").Qual(snmpImport, helper).Call(jen.Id("vb")),

@@ -301,9 +301,7 @@ func DDdmNotifyEnableGet(ctx context.Context, sess snmp.Session) (snmp.BitSet, e
 		return snmp.BitSet{}, errs.Msg("empty Get response for dDdmNotifyEnable")
 	}
 
-	return func(vb snmp.VarBind) (snmp.BitSet, error) {
-		return snmp.DecodeBitSet(vb)
-	}(vbs[0])
+	return snmp.DecodeBitSet(vbs[0])
 }
 
 // DDdmNotifyInfoIfIndexGet reads the SMIv2 scalar dDdmNotifyInfoIfIndex.
@@ -409,9 +407,7 @@ func DDdmNotifyInfoThresholdExceedOrRecoverGet(ctx context.Context, sess snmp.Se
 // capability is plugged in a port but the transceiver-monitoring function
 // of the port is disabled, system will not detect the SFP's abnormal
 // status but user still can check the current status via dDdmIfInfoTable.
-var DDdmIfCfgEnabled = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var DDdmIfCfgEnabled = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1, 1, 1), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // DDdmShutdownLevel is the column dDdmShutdownLevel of table dDdmIfCfgTable.
 // This object indicates the abnormal level which causes a port enter into
@@ -626,15 +622,11 @@ func (dDdmIfCfgTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 // txPowerDbm ten-thousandths of DBM -400,000 ~ 81,647 rxPowerMw tenths of
 // a microwatt 0 ~ 65,535 rxPowerDbm ten-thousandths of DBM -400,000 ~
 // 81,647
-var DDdmThresholdCfgValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmThresholdCfgValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmThresholdCfgRowStatus is the column dDdmThresholdCfgRowStatus of table dDdmThresholdCfgTable.
 // The status of this conceptual row.
-var DDdmThresholdCfgRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (snmp.RowStatus, error) {
-	return snmp.DecodeRowStatus(vb)
-})
+var DDdmThresholdCfgRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus)
 
 // DDdmThresholdCfgTableKey is the decoded INDEX of one dDdmThresholdCfgTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -723,7 +715,7 @@ func (tw *DDdmThresholdCfgTableWalker) Iter() iter.Seq2[snmp.OID, DDdmThresholdC
 				switch tw.cols[cell.Column].Key() {
 				case DDdmThresholdCfgValue.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmThresholdCfgValue = int32(v)
+						row.DDdmThresholdCfgValue = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -831,9 +823,7 @@ func (dDdmThresholdCfgTableT) WalkWithOptions(ctx context.Context, sess snmp.Ses
 // DDdmIfInfoCurrentTemperature is the column dDdmIfInfoCurrentTemperature of table dDdmIfInfoTable.
 // This object indicates the current temperature in unit of 'milli-degrees
 // Celsius' on the interface.
-var DDdmIfInfoCurrentTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoTemperatureState is the column dDdmIfInfoTemperatureState of table dDdmIfInfoTable.
 // This object indicates the state of current temperature.
@@ -849,40 +839,30 @@ var DDdmIfInfoTemperatureState = snmp.NewColumn[DlinkThresholdState](snmp.MustOI
 // This object indicates the high alarm threshold, when the operating
 // temperature rises above this value, it indicates an alarm status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoHighAlarmTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnTemperature is the column dDdmIfInfoHighWarnTemperature of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
 // temperature rises above this value, it indicates a warning status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoHighWarnTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnTemperature is the column dDdmIfInfoLowWarnTemperature of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating
 // temperature falls below this value, it indicates a warning status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoLowWarnTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmTemperature is the column dDdmIfInfoLowAlarmTemperature of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating
 // temperature falls below this value, it indicates an alarm status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoLowAlarmTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoCurrentVoltage is the column dDdmIfInfoCurrentVoltage of table dDdmIfInfoTable.
 // This object indicates the current voltage in unit of 'centi-Volt' on the
 // interface.
-var DDdmIfInfoCurrentVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoVoltageState is the column dDdmIfInfoVoltageState of table dDdmIfInfoTable.
 // This object indicates the state of current voltage.
@@ -898,40 +878,30 @@ var DDdmIfInfoVoltageState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1,
 // This object indicates the high alarm threshold, when the operating
 // voltage rises above this value, it indicates an alarm status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoHighAlarmVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnVoltage is the column dDdmIfInfoHighWarnVoltage of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
 // voltage rises above this value, it indicates a warning status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoHighWarnVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnVoltage is the column dDdmIfInfoLowWarnVoltage of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating
 // voltage falls below this value, it indicates a warning status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoLowWarnVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmVoltage is the column dDdmIfInfoLowAlarmVoltage of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating
 // voltage falls below this value, it indicates an alarm status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoLowAlarmVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoCurrentBiasCurrent is the column dDdmIfInfoCurrentBiasCurrent of table dDdmIfInfoTable.
 // This object indicates the current bias current in unit of
 // 'milli-amperes' on the interface.
-var DDdmIfInfoCurrentBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 13), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoBiasCurrentState is the column dDdmIfInfoBiasCurrentState of table dDdmIfInfoTable.
 // This object indicates the state of current BiasCurrent.
@@ -947,40 +917,30 @@ var DDdmIfInfoBiasCurrentState = snmp.NewColumn[DlinkThresholdState](snmp.MustOI
 // This object indicates the high alarm threshold, when the operating bias
 // current rises above this value, it indicates an alarm status. The value
 // is in unit of 'milli-amperes'.
-var DDdmIfInfoHighAlarmBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnBiasCurrent is the column dDdmIfInfoHighWarnBiasCurrent of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
 // bias current rises above this value, it indicates a warning status. The
 // value is in unit of 'milli-amperes'.
-var DDdmIfInfoHighWarnBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnBiasCurrent is the column dDdmIfInfoLowWarnBiasCurrent of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating bias
 // current falls below this value, it indicates a warning status. The value
 // is in unit of 'milli-amperes'.
-var DDdmIfInfoLowWarnBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 17), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmBiasCurrent is the column dDdmIfInfoLowAlarmBiasCurrent of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating bias
 // current falls below this value, it indicates an alarm status. The value
 // is in unit of 'milli-amperes'.
-var DDdmIfInfoLowAlarmBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoCurrentTxPower is the column dDdmIfInfoCurrentTxPower of table dDdmIfInfoTable.
 // This object indicates the current output power in unit of 'tenths of a
 // microwatt' on the interface.
-var DDdmIfInfoCurrentTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 19), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoTxPowerState is the column dDdmIfInfoTxPowerState of table dDdmIfInfoTable.
 // This object indicates the state of current output power.
@@ -996,40 +956,30 @@ var DDdmIfInfoTxPowerState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1,
 // This object indicates the high alarm threshold, when the operating
 // output power rises above this value, it indicates an alarm status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighAlarmTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 21), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnTxPower is the column dDdmIfInfoHighWarnTxPower of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
 // output power rises above this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighWarnTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 22), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnTxPower is the column dDdmIfInfoLowWarnTxPower of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating
 // output power falls below this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowWarnTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 23), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmTxPower is the column dDdmIfInfoLowAlarmTxPower of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating output
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowAlarmTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 24), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoCurrentRxPower is the column dDdmIfInfoCurrentRxPower of table dDdmIfInfoTable.
 // This object indicates the current input power in unit of 'tenths of a
 // microwatt' on the interface.
-var DDdmIfInfoCurrentRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 25), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoRxPowerState is the column dDdmIfInfoRxPowerState of table dDdmIfInfoTable.
 // This object indicates the state of current input power.
@@ -1045,41 +995,31 @@ var DDdmIfInfoRxPowerState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1,
 // This object indicates the high alarm threshold, when the operating input
 // power rises above this value, it indicates an alarm status. The value is
 // in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighAlarmRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 27), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 27), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnRxPower is the column dDdmIfInfoHighWarnRxPower of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
 // input power rises above this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighWarnRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 28), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 28), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnRxPower is the column dDdmIfInfoLowWarnRxPower of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating
 // input power falls below this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowWarnRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 29), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 29), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmRxPower is the column dDdmIfInfoLowAlarmRxPower of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating input
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowAlarmRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 30), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 30), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoCurrentTxPowerdBm is the column dDdmIfInfoCurrentTxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the current output power in unit of 'decibel
 // relative to one milliwatt' on the interface. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoCurrentTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 31), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 31), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighAlarmTxPowerdBm is the column dDdmIfInfoHighAlarmTxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the high alarm threshold, when the operating
@@ -1087,9 +1027,7 @@ var DDdmIfInfoCurrentTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1,
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoHighAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 32), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 32), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnTxPowerdBm is the column dDdmIfInfoHighWarnTxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
@@ -1097,9 +1035,7 @@ var DDdmIfInfoHighAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoHighWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 33), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 33), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnTxPowerdBm is the column dDdmIfInfoLowWarnTxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating
@@ -1107,35 +1043,27 @@ var DDdmIfInfoHighWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoLowWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 34), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 34), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmTxPowerdBm is the column dDdmIfInfoLowAlarmTxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating output
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'decibel relative to one milliwatt'. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoLowAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 35), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 35), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoCurrentRxPowerdBm is the column dDdmIfInfoCurrentRxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the current input power in unit of 'decibel
 // relative to one milliwatt' on the interface. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoCurrentRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 36), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoCurrentRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 36), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighAlarmRxPowerdBm is the column dDdmIfInfoHighAlarmRxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the high alarm threshold, when the operating input
 // power rises above this value, it indicates an alarm status. The value is
 // in unit of 'decibel relative to one milliwatt'. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoHighAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 37), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 37), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoHighWarnRxPowerdBm is the column dDdmIfInfoHighWarnRxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the high warning threshold, when the operating
@@ -1143,9 +1071,7 @@ var DDdmIfInfoHighAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoHighWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 38), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoHighWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 38), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowWarnRxPowerdBm is the column dDdmIfInfoLowWarnRxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the low warning threshold, when the operating
@@ -1153,18 +1079,14 @@ var DDdmIfInfoHighWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoLowWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 39), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 39), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoLowAlarmRxPowerdBm is the column dDdmIfInfoLowAlarmRxPowerdBm of table dDdmIfInfoTable.
 // This object indicates the low alarm threshold, when the operating input
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'decibel relative to one milliwatt'. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoLowAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 40), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DDdmIfInfoLowAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 40), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DDdmIfInfoTableKey is the decoded INDEX of one dDdmIfInfoTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1365,7 +1287,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 				switch tw.cols[cell.Column].Key() {
 				case DDdmIfInfoCurrentTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentTemperature = int32(v)
+						row.DDdmIfInfoCurrentTemperature = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1401,7 +1323,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmTemperature = int32(v)
+						row.DDdmIfInfoHighAlarmTemperature = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1419,7 +1341,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnTemperature = int32(v)
+						row.DDdmIfInfoHighWarnTemperature = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1437,7 +1359,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnTemperature = int32(v)
+						row.DDdmIfInfoLowWarnTemperature = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1455,7 +1377,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmTemperature = int32(v)
+						row.DDdmIfInfoLowAlarmTemperature = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1473,7 +1395,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoCurrentVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentVoltage = int32(v)
+						row.DDdmIfInfoCurrentVoltage = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1509,7 +1431,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmVoltage = int32(v)
+						row.DDdmIfInfoHighAlarmVoltage = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1527,7 +1449,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnVoltage = int32(v)
+						row.DDdmIfInfoHighWarnVoltage = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1545,7 +1467,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnVoltage = int32(v)
+						row.DDdmIfInfoLowWarnVoltage = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1563,7 +1485,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmVoltage = int32(v)
+						row.DDdmIfInfoLowAlarmVoltage = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1581,7 +1503,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoCurrentBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentBiasCurrent = int32(v)
+						row.DDdmIfInfoCurrentBiasCurrent = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1617,7 +1539,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmBiasCurrent = int32(v)
+						row.DDdmIfInfoHighAlarmBiasCurrent = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1635,7 +1557,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnBiasCurrent = int32(v)
+						row.DDdmIfInfoHighWarnBiasCurrent = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1653,7 +1575,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnBiasCurrent = int32(v)
+						row.DDdmIfInfoLowWarnBiasCurrent = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1671,7 +1593,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmBiasCurrent = int32(v)
+						row.DDdmIfInfoLowAlarmBiasCurrent = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1689,7 +1611,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoCurrentTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentTxPower = int32(v)
+						row.DDdmIfInfoCurrentTxPower = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1725,7 +1647,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmTxPower = int32(v)
+						row.DDdmIfInfoHighAlarmTxPower = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1743,7 +1665,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnTxPower = int32(v)
+						row.DDdmIfInfoHighWarnTxPower = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1761,7 +1683,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnTxPower = int32(v)
+						row.DDdmIfInfoLowWarnTxPower = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1779,7 +1701,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmTxPower = int32(v)
+						row.DDdmIfInfoLowAlarmTxPower = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1797,7 +1719,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoCurrentRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentRxPower = int32(v)
+						row.DDdmIfInfoCurrentRxPower = v
 						row.observed[0] |= 1 << 24
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1833,7 +1755,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmRxPower = int32(v)
+						row.DDdmIfInfoHighAlarmRxPower = v
 						row.observed[0] |= 1 << 26
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1851,7 +1773,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnRxPower = int32(v)
+						row.DDdmIfInfoHighWarnRxPower = v
 						row.observed[0] |= 1 << 27
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1869,7 +1791,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnRxPower = int32(v)
+						row.DDdmIfInfoLowWarnRxPower = v
 						row.observed[0] |= 1 << 28
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1887,7 +1809,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmRxPower = int32(v)
+						row.DDdmIfInfoLowAlarmRxPower = v
 						row.observed[0] |= 1 << 29
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1905,7 +1827,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoCurrentTxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentTxPowerdBm = int32(v)
+						row.DDdmIfInfoCurrentTxPowerdBm = v
 						row.observed[0] |= 1 << 30
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1923,7 +1845,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmTxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmTxPowerdBm = int32(v)
+						row.DDdmIfInfoHighAlarmTxPowerdBm = v
 						row.observed[0] |= 1 << 31
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1941,7 +1863,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnTxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnTxPowerdBm = int32(v)
+						row.DDdmIfInfoHighWarnTxPowerdBm = v
 						row.observed[0] |= 1 << 32
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1959,7 +1881,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnTxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnTxPowerdBm = int32(v)
+						row.DDdmIfInfoLowWarnTxPowerdBm = v
 						row.observed[0] |= 1 << 33
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1977,7 +1899,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmTxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmTxPowerdBm = int32(v)
+						row.DDdmIfInfoLowAlarmTxPowerdBm = v
 						row.observed[0] |= 1 << 34
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1995,7 +1917,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoCurrentRxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentRxPowerdBm = int32(v)
+						row.DDdmIfInfoCurrentRxPowerdBm = v
 						row.observed[0] |= 1 << 35
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2013,7 +1935,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighAlarmRxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmRxPowerdBm = int32(v)
+						row.DDdmIfInfoHighAlarmRxPowerdBm = v
 						row.observed[0] |= 1 << 36
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2031,7 +1953,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoHighWarnRxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnRxPowerdBm = int32(v)
+						row.DDdmIfInfoHighWarnRxPowerdBm = v
 						row.observed[0] |= 1 << 37
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2049,7 +1971,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowWarnRxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnRxPowerdBm = int32(v)
+						row.DDdmIfInfoLowWarnRxPowerdBm = v
 						row.observed[0] |= 1 << 38
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2067,7 +1989,7 @@ func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] 
 					}
 				case DDdmIfInfoLowAlarmRxPowerdBm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmRxPowerdBm = int32(v)
+						row.DDdmIfInfoLowAlarmRxPowerdBm = v
 						row.observed[0] |= 1 << 39
 					} else {
 						vb, vbErr := rv.Decode()

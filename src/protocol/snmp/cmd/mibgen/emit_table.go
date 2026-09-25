@@ -88,6 +88,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 		for _, line := range splitDoc(c.Node.Description) {
 			f.Comment(line)
 		}
+		emitDeprecationParagraph(f, c.Node)
 		f.Var().Id(c.GoName).Op("=").Qual(snmpImport, "NewColumn").Types(c.Res.GoType.Clone()).Call(
 			newOIDCall(c.ColumnOID),
 			c.Res.Kind.Clone(),
@@ -160,20 +161,27 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	f.Comment("to Walk, and any column of another table all read false.")
 	f.Func().Params(jen.Id("r").Id(rowTypeName)).Id("Observed").Params(
 		jen.Id("col").Qual(snmpImport, "AnyColumn"),
-	).Bool().Block(
+	).Bool().BlockFunc(func(g *jen.Group) {
 		// Keyed on the column's OID wire key rather than its last
 		// sub-id: sub-ids collide across tables constantly, and a
 		// caller passing another table's column must read false.
-		jen.Switch(jen.Id("col").Dot("Key").Call()).BlockFunc(func(sg *jen.Group) {
-			for _, c := range cols {
-				sg.Case(jen.Id(c.GoName).Dot("Key").Call()).Block(
-					jen.Return(observedTest(jen.Id("r"), c.Bit)),
-				)
-			}
-		}),
-		jen.Line(),
-		jen.Return(jen.False()),
-	)
+		if len(cols) == 1 {
+			c := cols[0]
+			g.If(jen.Id("col").Dot("Key").Call().Op("==").Id(c.GoName).Dot("Key").Call()).Block(
+				jen.Return(observedTest(jen.Id("r"), c.Bit)),
+			)
+		} else {
+			g.Switch(jen.Id("col").Dot("Key").Call()).BlockFunc(func(sg *jen.Group) {
+				for _, c := range cols {
+					sg.Case(jen.Id(c.GoName).Dot("Key").Call()).Block(
+						jen.Return(observedTest(jen.Id("r"), c.Bit)),
+					)
+				}
+			})
+		}
+		g.Line()
+		g.Return(jen.False())
+	})
 
 	f.Comment(walkerTypeName + " streams selected columns of " + table.Name + ".")
 	f.Comment("The zero value is not usable; construct via " + tableName + ".Walk(ctx, sess, cols...).")
@@ -194,6 +202,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	f.Comment(descriptorTypeName + " is the singleton type of " + tableName + ".")
 	f.Type().Id(descriptorTypeName).Struct()
 	f.Comment(tableName + " is the descriptor for the " + table.Name + " table.")
+	emitDeprecationParagraph(f, table)
 	f.Var().Id(tableName).Id(descriptorTypeName)
 
 	f.Comment("Close stops retrieval. It is idempotent and safe during iteration.")
@@ -294,34 +303,52 @@ func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, key rowKey, 
 				rg.For(jen.List(jen.Id("_"), jen.Id("cell")).Op(":=").Range().Id("cells")).BlockFunc(func(lg *jen.Group) {
 					lg.Id("rv").Op(":=").Id("cell").Dot("Value")
 					lg.Var().Id("derr").Error()
-					lg.Switch(jen.Id("tw").Dot("cols").Index(jen.Id("cell").Dot("Column")).Dot("Key").Call()).BlockFunc(func(sg *jen.Group) {
-						for _, c := range sortedCols {
-							sg.Case(jen.Id(c.GoName).Dot("Key").Call()).BlockFunc(func(cg *jen.Group) {
-								genericArm := func(ag *jen.Group) {
-									ag.List(jen.Id("vb"), jen.Id("vbErr")).Op(":=").Id("rv").Dot("Decode").Call()
-									ag.If(jen.Id("vbErr").Op("!=").Nil()).Block(
-										jen.Id("derr").Op("=").Id("vbErr"),
-									).Else().BlockFunc(func(bg *jen.Group) {
-										bg.List(jen.Id("dv"), jen.Id("dErr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
-										bg.If(jen.Id("dErr").Op("!=").Nil()).Block(
-											jen.Id("derr").Op("=").Id("dErr"),
-										).Else().Block(
-											jen.Id("row").Dot(c.FieldName).Op("=").Id("dv"),
-											observedMark(jen.Id("row"), c.Bit),
-										)
-									})
-								}
-								if c.Res.RawFuse != "" {
-									cg.If(jen.List(jen.Id("v"), jen.Id("okRaw")).Op(":=").Qual(snmpImport, c.Res.RawFuse).Call(jen.Id("rv")), jen.Id("okRaw")).Block(
-										jen.Id("row").Dot(c.FieldName).Op("=").Add(c.Res.GoType.Clone()).Call(jen.Id("v")),
-										observedMark(jen.Id("row"), c.Bit),
-									).Else().BlockFunc(genericArm)
-								} else {
-									genericArm(cg)
-								}
+					emitArm := func(cg *jen.Group, c colInfo) {
+						genericArm := func(ag *jen.Group) {
+							ag.List(jen.Id("vb"), jen.Id("vbErr")).Op(":=").Id("rv").Dot("Decode").Call()
+							ag.If(jen.Id("vbErr").Op("!=").Nil()).Block(
+								jen.Id("derr").Op("=").Id("vbErr"),
+							).Else().BlockFunc(func(bg *jen.Group) {
+								bg.List(jen.Id("dv"), jen.Id("dErr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
+								bg.If(jen.Id("dErr").Op("!=").Nil()).Block(
+									jen.Id("derr").Op("=").Id("dErr"),
+								).Else().Block(
+									jen.Id("row").Dot(c.FieldName).Op("=").Id("dv"),
+									observedMark(jen.Id("row"), c.Bit),
+								)
 							})
 						}
-					})
+						if c.Res.RawFuse == "" {
+							genericArm(cg)
+							return
+						}
+
+						rawValue := jen.Id("v")
+						_, result, ok := decoderHelperFor(c.Res.Variant)
+						if !ok || renderGoType(c.Res.GoType) != renderGoType(result) {
+							rawValue = c.Res.GoType.Clone().Call(jen.Id("v"))
+						}
+						cg.If(jen.List(jen.Id("v"), jen.Id("okRaw")).Op(":=").Qual(snmpImport, c.Res.RawFuse).Call(jen.Id("rv")), jen.Id("okRaw")).Block(
+							jen.Id("row").Dot(c.FieldName).Op("=").Add(rawValue),
+							observedMark(jen.Id("row"), c.Bit),
+						).Else().BlockFunc(genericArm)
+					}
+
+					columnKey := jen.Id("tw").Dot("cols").Index(jen.Id("cell").Dot("Column")).Dot("Key").Call()
+					if len(sortedCols) == 1 {
+						c := sortedCols[0]
+						lg.If(columnKey.Op("==").Id(c.GoName).Dot("Key").Call()).BlockFunc(func(cg *jen.Group) {
+							emitArm(cg, c)
+						})
+					} else {
+						lg.Switch(columnKey).BlockFunc(func(sg *jen.Group) {
+							for _, c := range sortedCols {
+								sg.Case(jen.Id(c.GoName).Dot("Key").Call()).BlockFunc(func(cg *jen.Group) {
+									emitArm(cg, c)
+								})
+							}
+						})
+					}
 
 					lg.If(jen.Id("derr").Op("!=").Nil()).Block(
 						jen.Id("tw").Dot("rw").Dot("Fail").Call(jen.Id("derr")), jen.Return(),

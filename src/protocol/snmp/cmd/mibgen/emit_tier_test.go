@@ -213,8 +213,8 @@ func TestDiscoverIndicators_FakeMIB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverIndicators: %v", err)
 	}
-	if len(indicators) != 2 {
-		t.Fatalf("indicators = %v, want 2", indicators)
+	if len(indicators) != 3 {
+		t.Fatalf("indicators = %v, want 3", indicators)
 	}
 
 	byTable := make(map[string]tableIndicator, len(indicators))
@@ -234,6 +234,20 @@ func TestDiscoverIndicators_FakeMIB(t *testing.T) {
 	}
 	if !strings.EqualFold(perRow.IndicatorNode.Name, "fakeLastChange") {
 		t.Errorf("fakeTable indicator = %q, want fakeLastChange", perRow.IndicatorNode.Name)
+	}
+
+	solo, ok := byTable["fakeSoloTable"]
+	if !ok {
+		t.Fatalf("no indicator bound to fakeSoloTable; got %v", byTable)
+	}
+	if solo.Kind != indicatorPerRow {
+		t.Errorf("fakeSoloTable kind = %v, want indicatorPerRow", solo.Kind)
+	}
+	if solo.Source != indicatorFromStructuralPerRow {
+		t.Errorf("fakeSoloTable source = %v, want structural per-row", solo.Source)
+	}
+	if !strings.EqualFold(solo.IndicatorNode.Name, "fakeSoloLastChange") {
+		t.Errorf("fakeSoloTable indicator = %q, want fakeSoloLastChange", solo.IndicatorNode.Name)
 	}
 
 	namePrefix, ok := byTable["fakeStackTable"]

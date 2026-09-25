@@ -223,9 +223,7 @@ const (
 // contains the date and time of local system initialization. If there has
 // been no change since the entity was added to the local system, this
 // object contains the date and time of the insertion.
-var EntStateLastChanged = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (time.Time, error) {
-	return snmp.DecodeDateAndTime(vb)
-})
+var EntStateLastChanged = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 1), snmp.KindOctetString, snmp.DecodeDateAndTime)
 
 // EntStateAdmin is the column entStateAdmin of table entStateTable.
 // The administrative state for this entity. This object refers to an
@@ -304,9 +302,7 @@ var EntStateUsage = snmp.NewColumn[EntityUsageState](snmp.MustOID(1, 3, 6, 1, 2,
 // some of the alarms is not known. If no bits are set, then this entity
 // supports reporting of alarms, but there are currently no active alarms
 // against this entity.
-var EntStateAlarm = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var EntStateAlarm = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // EntStateStandby is the column entStateStandby of table entStateTable.
 // The standby status for this entity. Some entities will exhibit only a

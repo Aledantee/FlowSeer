@@ -312,8 +312,7 @@ const (
 
 // String returns the SMI label, or Dot1qVlanVersionNumberValue(n) for an unrecognized value n.
 func (v Dot1qVlanVersionNumberValue) String() string {
-	switch v {
-	case Dot1qVlanVersionNumberValueVersion1:
+	if v == Dot1qVlanVersionNumberValueVersion1 {
 		return "version1"
 	}
 
@@ -414,9 +413,7 @@ func Dot1qMaxVlanIdGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for dot1qMaxVlanId")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1qMaxSupportedVlansGet reads the SMIv2 scalar dot1qMaxSupportedVlans.
@@ -433,9 +430,7 @@ func Dot1qMaxSupportedVlansGet(ctx context.Context, sess snmp.Session) (uint32, 
 		return 0, errs.Msg("empty Get response for dot1qMaxSupportedVlans")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // Dot1qNumVlansGet reads the SMIv2 scalar dot1qNumVlans.
@@ -453,9 +448,7 @@ func Dot1qNumVlansGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for dot1qNumVlans")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // Dot1qGvrpStatusGet reads the SMIv2 scalar dot1qGvrpStatus.
@@ -504,9 +497,7 @@ func Dot1qVlanNumDeletesGet(ctx context.Context, sess snmp.Session) (uint32, err
 		return 0, errs.Msg("empty Get response for dot1qVlanNumDeletes")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // Dot1qNextFreeLocalVlanIndexGet reads the SMIv2 scalar dot1qNextFreeLocalVlanIndex.
@@ -533,9 +524,7 @@ func Dot1qNextFreeLocalVlanIndexGet(ctx context.Context, sess snmp.Session) (int
 		return 0, errs.Msg("empty Get response for dot1qNextFreeLocalVlanIndex")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1qConstraintSetDefaultGet reads the SMIv2 scalar dot1qConstraintSetDefault.
@@ -555,9 +544,7 @@ func Dot1qConstraintSetDefaultGet(ctx context.Context, sess snmp.Session) (int32
 		return 0, errs.Msg("empty Get response for dot1qConstraintSetDefault")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1qConstraintTypeDefaultGet reads the SMIv2 scalar dot1qConstraintTypeDefault.
@@ -588,9 +575,7 @@ func Dot1qConstraintTypeDefaultGet(ctx context.Context, sess snmp.Session) (Dot1
 
 // Dot1qFdbDynamicCount is the column dot1qFdbDynamicCount of table dot1qFdbTable.
 // The current number of dynamic entries in this Filtering Database.
-var Dot1qFdbDynamicCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1, 1, 2), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qFdbDynamicCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qFdbTableKey is the decoded INDEX of one dot1qFdbTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -641,8 +626,7 @@ func (r Dot1qFdbTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r Dot1qFdbTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qFdbDynamicCount.Key():
+	if col.Key() == Dot1qFdbDynamicCount.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -671,10 +655,9 @@ func (tw *Dot1qFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qFdbTableRow] {
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qFdbDynamicCount.Key():
+				if tw.cols[cell.Column].Key() == Dot1qFdbDynamicCount.Key() {
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qFdbDynamicCount = uint32(v)
+						row.Dot1qFdbDynamicCount = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -775,9 +758,7 @@ func (dot1qFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, op
 // dot1qStaticUnicastTable). Implementors are encouraged to assign the port
 // value to this object whenever it is learned, even for addresses for
 // which the corresponding value of dot1qTpFdbStatus is not learned(3).
-var Dot1qTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1qTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1qTpFdbStatus is the column dot1qTpFdbStatus of table dot1qTpFdbTable.
 // The status of this entry. The meanings of the values are: other(1) -
@@ -891,7 +872,7 @@ func (tw *Dot1qTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpFdbTableRow] 
 				switch tw.cols[cell.Column].Key() {
 				case Dot1qTpFdbPort.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qTpFdbPort = int32(v)
+						row.Dot1qTpFdbPort = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1006,16 +987,12 @@ func (dot1qTpFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 // this Group MAC address are currently being explicitly forwarded. This
 // does not include ports for which this address is only implicitly
 // forwarded, in the dot1qForwardAllPorts list.
-var Dot1qTpGroupEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qTpGroupEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qTpGroupLearnt is the column dot1qTpGroupLearnt of table dot1qTpGroupTable.
 // The subset of ports in dot1qTpGroupEgressPorts that were learned by GMRP
 // or some other dynamic mechanism, in this Filtering database.
-var Dot1qTpGroupLearnt = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qTpGroupLearnt = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qTpGroupTableKey is the decoded INDEX of one dot1qTpGroupTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1211,9 +1188,7 @@ func (dot1qTpGroupTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 // group-addressed frames are to be forwarded. This includes ports for
 // which this need has been determined dynamically by GMRP, or configured
 // statically by management.
-var Dot1qForwardAllPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qForwardAllPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qForwardAllStaticPorts is the column dot1qForwardAllStaticPorts of table dot1qForwardAllTable.
 // The set of ports configured by management in this VLAN to which all
@@ -1228,9 +1203,7 @@ var Dot1qForwardAllPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // filtering services, i.e., forward all multicasts to all ports. The value
 // of this object MUST be retained across reinitializations of the
 // management system.
-var Dot1qForwardAllStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qForwardAllStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qForwardAllForbiddenPorts is the column dot1qForwardAllForbiddenPorts of table dot1qForwardAllTable.
 // The set of ports configured by management in this VLAN for which the
@@ -1241,9 +1214,7 @@ var Dot1qForwardAllStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1,
 // value is a string of zeros of appropriate length. The value of this
 // object MUST be retained across reinitializations of the management
 // system.
-var Dot1qForwardAllForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qForwardAllForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qForwardAllTableKey is the decoded INDEX of one dot1qForwardAllTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1452,9 +1423,7 @@ func (dot1qForwardAllTableT) WalkWithOptions(ctx context.Context, sess snmp.Sess
 // information will be forwarded. This includes ports for which this need
 // has been determined dynamically by GMRP, or configured statically by
 // management.
-var Dot1qForwardUnregisteredPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qForwardUnregisteredPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qForwardUnregisteredStaticPorts is the column dot1qForwardUnregisteredStaticPorts of table dot1qForwardUnregisteredTable.
 // The set of ports configured by management, in this VLAN, to which
@@ -1468,9 +1437,7 @@ var Dot1qForwardUnregisteredPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 // this has no effect with the default value of dot1qForwardAllStaticPorts.
 // The value of this object MUST be retained across reinitializations of
 // the management system.
-var Dot1qForwardUnregisteredStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qForwardUnregisteredStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qForwardUnregisteredForbiddenPorts is the column dot1qForwardUnregisteredForbiddenPorts of table dot1qForwardUnregisteredTable.
 // The set of ports configured by management in this VLAN for which the
@@ -1481,9 +1448,7 @@ var Dot1qForwardUnregisteredStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1,
 // dot1qForwardUnregisteredStaticPorts. The default value is a string of
 // zeros of appropriate length. The value of this object MUST be retained
 // across reinitializations of the management system.
-var Dot1qForwardUnregisteredForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qForwardUnregisteredForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qForwardUnregisteredTableKey is the decoded INDEX of one dot1qForwardUnregisteredTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1697,9 +1662,7 @@ func (dot1qForwardUnregisteredTableT) WalkWithOptions(ctx context.Context, sess 
 // dot1qVlanCurrentEgressPorts. The default value of this object is a
 // string of ones of appropriate length. The value of this object MUST be
 // retained across reinitializations of the management system.
-var Dot1qStaticUnicastAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qStaticUnicastAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qStaticUnicastStatus is the column dot1qStaticUnicastStatus of table dot1qStaticUnicastTable.
 // This object indicates the status of this entry. other(1) - this entry is
@@ -1924,9 +1887,7 @@ func (dot1qStaticUnicastTableT) WalkWithOptions(ctx context.Context, sess snmp.S
 // of this object is a string of ones of appropriate length. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
-var Dot1qStaticMulticastStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qStaticMulticastStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qStaticMulticastForbiddenEgressPorts is the column dot1qStaticMulticastForbiddenEgressPorts of table dot1qStaticMulticastTable.
 // The set of ports to which frames received from a specific port and
@@ -1937,9 +1898,7 @@ var Dot1qStaticMulticastStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(
 // this object is a string of zeros of appropriate length. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
-var Dot1qStaticMulticastForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qStaticMulticastForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qStaticMulticastStatus is the column dot1qStaticMulticastStatus of table dot1qStaticMulticastTable.
 // This object indicates the status of this entry. other(1) - this entry is
@@ -2178,23 +2137,17 @@ func (dot1qStaticMulticastTableT) WalkWithOptions(ctx context.Context, sess snmp
 // by management, in dot1qVlanStaticTable. Allocation of this value follows
 // the learning constraints defined for this VLAN in
 // dot1qLearningConstraintsTable.
-var Dot1qVlanFdbId = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 3), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qVlanFdbId = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // Dot1qVlanCurrentEgressPorts is the column dot1qVlanCurrentEgressPorts of table dot1qVlanCurrentTable.
 // The set of ports that are transmitting traffic for this VLAN as either
 // tagged or untagged frames.
-var Dot1qVlanCurrentEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qVlanCurrentEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qVlanCurrentUntaggedPorts is the column dot1qVlanCurrentUntaggedPorts of table dot1qVlanCurrentTable.
 // The set of ports that are transmitting traffic for this VLAN as untagged
 // frames.
-var Dot1qVlanCurrentUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qVlanCurrentUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qVlanStatus is the column dot1qVlanStatus of table dot1qVlanCurrentTable.
 // This object indicates the status of this entry. other(1) - this entry is
@@ -2217,9 +2170,7 @@ var Dot1qVlanStatus = snmp.NewColumn[Dot1qVlanStatusValue](snmp.MustOID(1, 3, 6,
 
 // Dot1qVlanCreationTime is the column dot1qVlanCreationTime of table dot1qVlanCurrentTable.
 // The value of sysUpTime when this VLAN was created.
-var Dot1qVlanCreationTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 7), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qVlanCreationTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 7), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // Dot1qVlanCurrentTableKey is the decoded INDEX of one dot1qVlanCurrentTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2316,7 +2267,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 				switch tw.cols[cell.Column].Key() {
 				case Dot1qVlanFdbId.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Dot1qVlanFdbId = uint32(v)
+						row.Dot1qVlanFdbId = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2378,7 +2329,7 @@ func (tw *Dot1qVlanCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVlanCurre
 					}
 				case Dot1qVlanCreationTime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.Dot1qVlanCreationTime = uint32(v)
+						row.Dot1qVlanCreationTime = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2473,9 +2424,7 @@ func (dot1qVlanCurrentTableT) WalkWithOptions(ctx context.Context, sess snmp.Ses
 // Dot1qVlanStaticName is the column dot1qVlanStaticName of table dot1qVlanStaticTable.
 // An administratively assigned string, which may be used to identify the
 // VLAN.
-var Dot1qVlanStaticName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qVlanStaticName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qVlanStaticEgressPorts is the column dot1qVlanStaticEgressPorts of table dot1qVlanStaticTable.
 // The set of ports that are permanently assigned to the egress list for
@@ -2485,9 +2434,7 @@ var Dot1qVlanStaticName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // this set if it is already a member of the set of ports in
 // dot1qVlanForbiddenEgressPorts. The default value of this object is a
 // string of zeros of appropriate length, indicating not fixed.
-var Dot1qVlanStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qVlanStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qVlanForbiddenEgressPorts is the column dot1qVlanForbiddenEgressPorts of table dot1qVlanStaticTable.
 // The set of ports that are prohibited by management from being included
@@ -2498,9 +2445,7 @@ var Dot1qVlanStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1,
 // member of the set of ports in dot1qVlanStaticEgressPorts. The default
 // value of this object is a string of zeros of appropriate length,
 // excluding all ports from the forbidden set.
-var Dot1qVlanForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qVlanForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qVlanStaticUntaggedPorts is the column dot1qVlanStaticUntaggedPorts of table dot1qVlanStaticTable.
 // The set of ports that should transmit egress packets for this VLAN as
@@ -2511,15 +2456,11 @@ var Dot1qVlanForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 // operation with an error. For example, a manager might attempt to set
 // more than one VLAN to be untagged on egress where the device does not
 // support this IEEE 802.1Q option.
-var Dot1qVlanStaticUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1qVlanStaticUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1qVlanStaticRowStatus is the column dot1qVlanStaticRowStatus of table dot1qVlanStaticTable.
 // This object indicates the status of this entry.
-var Dot1qVlanStaticRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (snmp.RowStatus, error) {
-	return snmp.DecodeRowStatus(vb)
-})
+var Dot1qVlanStaticRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 5), snmp.KindInteger32, snmp.DecodeRowStatus)
 
 // Dot1qVlanStaticTableKey is the decoded INDEX of one dot1qVlanStaticTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2791,9 +2732,7 @@ var Dot1qPortAcceptableFrameTypes = snmp.NewColumn[Dot1qPortAcceptableFrameTypes
 // VLAN-independent BPDU frames, such as GVRP and STP. It does affect VLAN-
 // dependent BPDU frames, such as GMRP. The value of this object MUST be
 // retained across reinitializations of the management system.
-var Dot1qPortIngressFiltering = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var Dot1qPortIngressFiltering = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // Dot1qPortGvrpStatus is the column dot1qPortGvrpStatus of table dot1qPortVlanTable.
 // The state of GVRP operation on this port. The value enabled(1) indicates
@@ -2817,15 +2756,11 @@ var Dot1qPortGvrpStatus = snmp.NewColumn[pbridgemib.EnabledStatus](snmp.MustOID(
 // Dot1qPortGvrpFailedRegistrations is the column dot1qPortGvrpFailedRegistrations of table dot1qPortVlanTable.
 // The total number of failed GVRP registrations, for any reason, on this
 // port.
-var Dot1qPortGvrpFailedRegistrations = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qPortGvrpFailedRegistrations = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qPortGvrpLastPduOrigin is the column dot1qPortGvrpLastPduOrigin of table dot1qPortVlanTable.
 // The Source MAC Address of the last GVRP message received on this port.
-var Dot1qPortGvrpLastPduOrigin = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var Dot1qPortGvrpLastPduOrigin = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // Dot1qPortRestrictedVlanRegistration is the column dot1qPortRestrictedVlanRegistration of table dot1qPortVlanTable.
 // The state of Restricted VLAN Registration on this port. If the value of
@@ -2834,10 +2769,10 @@ var Dot1qPortGvrpLastPduOrigin = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1
 // concerned, in which the Registrar Administrative Control value for this
 // port is Normal Registration. The value of this object MUST be retained
 // across reinitializations of the management system.
-var Dot1qPortRestrictedVlanRegistration = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
-var dot1qPortVlanTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+var (
+	Dot1qPortRestrictedVlanRegistration = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 7), snmp.KindInteger32, snmp.DecodeTruthValue)
+	dot1qPortVlanTableIndexShapes       = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+)
 
 // decodeDot1qPortVlanTableKey decodes the instance suffix of one dot1qPortVlanTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
@@ -2998,7 +2933,7 @@ func (tw *Dot1qPortVlanTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVlanTabl
 					}
 				case Dot1qPortGvrpFailedRegistrations.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qPortGvrpFailedRegistrations = uint32(v)
+						row.Dot1qPortGvrpFailedRegistrations = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3123,48 +3058,36 @@ func (dot1qPortVlanTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 // being processed by the local forwarding process for this VLAN. This
 // object includes received bridge management frames classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP.
-var Dot1qTpVlanPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 1), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qTpVlanPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 1), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qTpVlanPortOutFrames is the column dot1qTpVlanPortOutFrames of table dot1qPortVlanStatisticsTable.
 // The number of valid frames transmitted by this port to its segment from
 // the local forwarding process for this VLAN. This includes bridge
 // management frames originated by this device that are classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP).
-var Dot1qTpVlanPortOutFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 2), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qTpVlanPortOutFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qTpVlanPortInDiscards is the column dot1qTpVlanPortInDiscards of table dot1qPortVlanStatisticsTable.
 // The number of valid frames received by this port from its segment that
 // were classified as belonging to this VLAN and that were discarded due to
 // VLAN-related reasons. Specifically, the IEEE 802.1Q counters for Discard
 // Inbound and Discard on Ingress Filtering.
-var Dot1qTpVlanPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 3), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qTpVlanPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qTpVlanPortInOverflowFrames is the column dot1qTpVlanPortInOverflowFrames of table dot1qPortVlanStatisticsTable.
 // The number of times the associated dot1qTpVlanPortInFrames counter has
 // overflowed.
-var Dot1qTpVlanPortInOverflowFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qTpVlanPortInOverflowFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qTpVlanPortOutOverflowFrames is the column dot1qTpVlanPortOutOverflowFrames of table dot1qPortVlanStatisticsTable.
 // The number of times the associated dot1qTpVlanPortOutFrames counter has
 // overflowed.
-var Dot1qTpVlanPortOutOverflowFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qTpVlanPortOutOverflowFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qTpVlanPortInOverflowDiscards is the column dot1qTpVlanPortInOverflowDiscards of table dot1qPortVlanStatisticsTable.
 // The number of times the associated dot1qTpVlanPortInDiscards counter has
 // overflowed.
-var Dot1qTpVlanPortInOverflowDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1qTpVlanPortInOverflowDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1qPortVlanStatisticsTableKey is the decoded INDEX of one dot1qPortVlanStatisticsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3264,7 +3187,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 				switch tw.cols[cell.Column].Key() {
 				case Dot1qTpVlanPortInFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVlanPortInFrames = uint32(v)
+						row.Dot1qTpVlanPortInFrames = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3282,7 +3205,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 					}
 				case Dot1qTpVlanPortOutFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVlanPortOutFrames = uint32(v)
+						row.Dot1qTpVlanPortOutFrames = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3300,7 +3223,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 					}
 				case Dot1qTpVlanPortInDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVlanPortInDiscards = uint32(v)
+						row.Dot1qTpVlanPortInDiscards = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3318,7 +3241,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 					}
 				case Dot1qTpVlanPortInOverflowFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVlanPortInOverflowFrames = uint32(v)
+						row.Dot1qTpVlanPortInOverflowFrames = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3336,7 +3259,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 					}
 				case Dot1qTpVlanPortOutOverflowFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVlanPortOutOverflowFrames = uint32(v)
+						row.Dot1qTpVlanPortOutOverflowFrames = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3354,7 +3277,7 @@ func (tw *Dot1qPortVlanStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPo
 					}
 				case Dot1qTpVlanPortInOverflowDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVlanPortInOverflowDiscards = uint32(v)
+						row.Dot1qTpVlanPortInOverflowDiscards = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3453,27 +3376,21 @@ func (dot1qPortVlanStatisticsTableT) WalkWithOptions(ctx context.Context, sess s
 // being processed by the local forwarding process for this VLAN. This
 // object includes received bridge management frames classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP).
-var Dot1qTpVlanPortHCInFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 1), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot1qTpVlanPortHCInFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 1), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot1qTpVlanPortHCOutFrames is the column dot1qTpVlanPortHCOutFrames of table dot1qPortVlanHCStatisticsTable.
 // The number of valid frames transmitted by this port to its segment from
 // the local forwarding process for this VLAN. This includes bridge
 // management frames originated by this device that are classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP).
-var Dot1qTpVlanPortHCOutFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 2), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot1qTpVlanPortHCOutFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 2), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot1qTpVlanPortHCInDiscards is the column dot1qTpVlanPortHCInDiscards of table dot1qPortVlanHCStatisticsTable.
 // The number of valid frames received by this port from its segment that
 // were classified as belonging to this VLAN and that were discarded due to
 // VLAN-related reasons. Specifically, the IEEE 802.1Q counters for Discard
 // Inbound and Discard on Ingress Filtering.
-var Dot1qTpVlanPortHCInDiscards = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 3), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot1qTpVlanPortHCInDiscards = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 3), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot1qPortVlanHCStatisticsTableKey is the decoded INDEX of one dot1qPortVlanHCStatisticsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3564,7 +3481,7 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 				switch tw.cols[cell.Column].Key() {
 				case Dot1qTpVlanPortHCInFrames.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot1qTpVlanPortHCInFrames = uint64(v)
+						row.Dot1qTpVlanPortHCInFrames = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3582,7 +3499,7 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 					}
 				case Dot1qTpVlanPortHCOutFrames.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot1qTpVlanPortHCOutFrames = uint64(v)
+						row.Dot1qTpVlanPortHCOutFrames = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3600,7 +3517,7 @@ func (tw *Dot1qPortVlanHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1q
 					}
 				case Dot1qTpVlanPortHCInDiscards.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot1qTpVlanPortHCInDiscards = uint64(v)
+						row.Dot1qTpVlanPortHCInDiscards = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3708,9 +3625,7 @@ var Dot1qConstraintType = snmp.NewColumn[Dot1qConstraintTypeValue](snmp.MustOID(
 
 // Dot1qConstraintStatus is the column dot1qConstraintStatus of table dot1qLearningConstraintsTable.
 // The status of this entry.
-var Dot1qConstraintStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (snmp.RowStatus, error) {
-	return snmp.DecodeRowStatus(vb)
-})
+var Dot1qConstraintStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus)
 
 // Dot1qLearningConstraintsTableKey is the decoded INDEX of one dot1qLearningConstraintsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3906,15 +3821,11 @@ func (dot1qLearningConstraintsTableT) WalkWithOptions(ctx context.Context, sess 
 // Dot1vProtocolGroupId is the column dot1vProtocolGroupId of table dot1vProtocolGroupTable.
 // Represents a group of protocols that are associated together when
 // assigning a VID to a frame.
-var Dot1vProtocolGroupId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1vProtocolGroupId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1vProtocolGroupRowStatus is the column dot1vProtocolGroupRowStatus of table dot1vProtocolGroupTable.
 // This object indicates the status of this entry.
-var Dot1vProtocolGroupRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (snmp.RowStatus, error) {
-	return snmp.DecodeRowStatus(vb)
-})
+var Dot1vProtocolGroupRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus)
 
 // Dot1vProtocolGroupTableKey is the decoded INDEX of one dot1vProtocolGroupTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4002,7 +3913,7 @@ func (tw *Dot1vProtocolGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtoco
 				switch tw.cols[cell.Column].Key() {
 				case Dot1vProtocolGroupId.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1vProtocolGroupId = int32(v)
+						row.Dot1vProtocolGroupId = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4109,15 +4020,11 @@ func (dot1vProtocolGroupTableT) WalkWithOptions(ctx context.Context, sess snmp.S
 
 // Dot1vProtocolPortGroupVid is the column dot1vProtocolPortGroupVid of table dot1vProtocolPortTable.
 // The VID associated with a group of protocols for each port.
-var Dot1vProtocolPortGroupVid = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1vProtocolPortGroupVid = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1vProtocolPortRowStatus is the column dot1vProtocolPortRowStatus of table dot1vProtocolPortTable.
 // This object indicates the status of this entry.
-var Dot1vProtocolPortRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (snmp.RowStatus, error) {
-	return snmp.DecodeRowStatus(vb)
-})
+var Dot1vProtocolPortRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 3), snmp.KindInteger32, snmp.DecodeRowStatus)
 
 // Dot1vProtocolPortTableKey is the decoded INDEX of one dot1vProtocolPortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4205,7 +4112,7 @@ func (tw *Dot1vProtocolPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtocol
 				switch tw.cols[cell.Column].Key() {
 				case Dot1vProtocolPortGroupVid.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1vProtocolPortGroupVid = int32(v)
+						row.Dot1vProtocolPortGroupVid = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()

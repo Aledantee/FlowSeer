@@ -41,6 +41,7 @@ func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) error {
 	for _, line := range splitDoc(n.Description) {
 		f.Comment(line)
 	}
+	emitDeprecationParagraph(f, n)
 
 	f.Func().Id(goName+"Get").Params(
 		jen.Id("ctx").Qual("context", "Context"),
@@ -64,6 +65,15 @@ func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) error {
 	})
 
 	return nil
+}
+
+func emitDeprecationParagraph(f *jen.File, n *smi.Node) {
+	if n.Status != smi.StatusDeprecated && n.Status != smi.StatusObsolete {
+		return
+	}
+
+	f.Comment("")
+	f.Comment("Deprecated: " + n.Name + " is STATUS " + n.Status.String() + " in " + n.Module + ".")
 }
 
 // splitDoc reflows an SMI DESCRIPTION clause into 1-line comment

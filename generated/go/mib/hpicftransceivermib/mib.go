@@ -672,52 +672,36 @@ const (
 
 // HpicfXcvrPortIndex is the column hpicfXcvrPortIndex of table hpicfXcvrInfoTable.
 // The interface number for this entry.
-var HpicfXcvrPortIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrPortIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrPortDesc is the column hpicfXcvrPortDesc of table hpicfXcvrInfoTable.
 // A textual description of the interface.
-var HpicfXcvrPortDesc = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrPortDesc = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrModel is the column hpicfXcvrModel of table hpicfXcvrInfoTable.
 // A textual description of the transceiver model number.
-var HpicfXcvrModel = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrModel = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrSerial is the column hpicfXcvrSerial of table hpicfXcvrInfoTable.
 // A textual description of the transceiver serial number.
-var HpicfXcvrSerial = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrSerial = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrType is the column hpicfXcvrType of table hpicfXcvrInfoTable.
 // A textual description of the transceiver type.
-var HpicfXcvrType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrConnectorType is the column hpicfXcvrConnectorType of table hpicfXcvrInfoTable.
 // A textual description of the transceiver connector type.
-var HpicfXcvrConnectorType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrConnectorType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrWavelength is the column hpicfXcvrWavelength of table hpicfXcvrInfoTable.
 // A textual description of the central optical wavelength. n/a will be
 // reported for copper transceivers.
-var HpicfXcvrWavelength = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrWavelength = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 7), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrTxDist is the column hpicfXcvrTxDist of table hpicfXcvrInfoTable.
 // A textual description of the link length supported by the transceiver.
-var HpicfXcvrTxDist = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrTxDist = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 8), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrDiagnostics is the column hpicfXcvrDiagnostics of table hpicfXcvrInfoTable.
 // This object indicates transceiver diagnostic support. May be one of
@@ -740,52 +724,40 @@ var HpicfXcvrDiagnostics = snmp.NewColumn[HpicfXcvrDiagnosticsValue](snmp.MustOI
 // reset after the completion of the update. Please note: VCT and other
 // (cable-diagnostics) may cause a loss of link and take a few second to
 // run for each interface.
-var HpicfXcvrDiagnosticsUpdate = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var HpicfXcvrDiagnosticsUpdate = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 10), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // HpicfXcvrTemp is the column hpicfXcvrTemp of table hpicfXcvrInfoTable.
 // This is transceiver internal temperature in thousandths of degrees
 // Celsius. As an example: 49120 is 49.120 degrees Celsius. The value of
 // this object is valid when the value of the hpicfXcvrDiagnostics object
 // is DOM.
-var HpicfXcvrTemp = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrTemp = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrVoltage is the column hpicfXcvrVoltage of table hpicfXcvrInfoTable.
 // This is transceiver supply voltage in hundreds of microvolts. As an
 // example: 32928 is 3.2928 volts. Will be zero if the transceiver does not
 // report this object. The value of this object is valid when the value of
 // the hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 12), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 12), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrBias is the column hpicfXcvrBias of table hpicfXcvrInfoTable.
 // This is Tx bias current in microamps. The value of this object is valid
 // when the value of the hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrBias = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 13), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrBias = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 13), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrTxPower is the column hpicfXcvrTxPower of table hpicfXcvrInfoTable.
 // This is transmit output power in thousandths of dBm. As an example:
 // -5840 is -5.840dBm. -in dBm (0 microwatts) will be reported as
 // -99999999. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 14), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 14), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrRxPower is the column hpicfXcvrRxPower of table hpicfXcvrInfoTable.
 // This is received optical power in thousandths of dBm. As an example:
 // -5840 is -5.840dBm. -in dBm (0 microwatts) will be reported as
 // -99999999. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrAlarms is the column hpicfXcvrAlarms of table hpicfXcvrInfoTable.
 // Bitmask indicating transceiver alarms, Rx power low warning(0) Rx power
@@ -797,9 +769,7 @@ var HpicfXcvrRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 
 // Vcc high alarm(17) Temp low alarm(18) Temp high alarm(19) Unused(20-31)
 // The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrAlarms = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 16), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var HpicfXcvrAlarms = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 16), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // HpicfXcvrErrors is the column hpicfXcvrErrors of table hpicfXcvrInfoTable.
 // Bitmask indicating transceiver errors. Transceiver information I/O
@@ -812,193 +782,151 @@ var HpicfXcvrAlarms = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1,
 // PCS transmit local fault(14) PHY XS Transmit Local Fault(15) RX loss of
 // signal(16) Unused(17-31) The value of this object is valid when the
 // value of the hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 17), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var HpicfXcvrErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 17), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // HpicfXcvrTempHiAlarm is the column hpicfXcvrTempHiAlarm of table hpicfXcvrInfoTable.
 // Transceiver temperature high alarm threshold limit in thousandths of
 // degrees Celsius. As an example: 49120 is 49.120 degrees Celsius. The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is DOM.
-var HpicfXcvrTempHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrTempHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrTempLoAlarm is the column hpicfXcvrTempLoAlarm of table hpicfXcvrInfoTable.
 // Transceiver temperature low alarm threshold limit in thousandths of
 // degrees Celsius. As an example: 49120 is 49.120 degrees Celsius. The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is DOM.
-var HpicfXcvrTempLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 19), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrTempLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrTempHiWarn is the column hpicfXcvrTempHiWarn of table hpicfXcvrInfoTable.
 // Transceiver temperature high warning threshold limit in thousandths of
 // degrees Celsius. As an example: 49120 is 49.120 degrees Celsius. The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is DOM.
-var HpicfXcvrTempHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 20), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrTempHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 20), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrTempLoWarn is the column hpicfXcvrTempLoWarn of table hpicfXcvrInfoTable.
 // Transceiver temperature low warning threshold limit in thousandths of
 // degrees Celsius. As an example: 49120 is 49.120 degrees Celsius. The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is DOM.
-var HpicfXcvrTempLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 21), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrTempLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrVccHiAlarm is the column hpicfXcvrVccHiAlarm of table hpicfXcvrInfoTable.
 // Transceiver VCC high alarm threshold limit in hundreds of microvolts. As
 // an example: 32928 is 3.2928 volts. Returns zero if not supported on the
 // transceiver. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrVccHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 22), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrVccHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 22), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrVccLoAlarm is the column hpicfXcvrVccLoAlarm of table hpicfXcvrInfoTable.
 // Transceiver VCC low alarm threshold limit in hundreds of microvolts. As
 // an example: 32928 is 3.2928 volts. Returns zero if not supported on the
 // transceiver. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrVccLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 23), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrVccLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 23), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrVccHiWarn is the column hpicfXcvrVccHiWarn of table hpicfXcvrInfoTable.
 // Transceiver VCC high warning threshold limit in hundreds of microvolts.
 // As an example: 32928 is 3.2928 volts. Returns zero if not supported on
 // the transceiver. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrVccHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 24), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrVccHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 24), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrVccLoWarn is the column hpicfXcvrVccLoWarn of table hpicfXcvrInfoTable.
 // Transceiver VCC low warning threshold limit in hundreds of microvolts.
 // As an example: 32928 is 3.2928 volts. Returns zero if not supported on
 // the transceiver. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrVccLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 25), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrVccLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 25), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrBiasHiAlarm is the column hpicfXcvrBiasHiAlarm of table hpicfXcvrInfoTable.
 // Transceiver bias high alarm threshold limit in microamps. The value of
 // this object is valid when the value of the hpicfXcvrDiagnostics object
 // is DOM.
-var HpicfXcvrBiasHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 26), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrBiasHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 26), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrBiasLoAlarm is the column hpicfXcvrBiasLoAlarm of table hpicfXcvrInfoTable.
 // Transceiver bias low alarm threshold limit in microamps. The value of
 // this object is valid when the value of the hpicfXcvrDiagnostics object
 // is DOM.
-var HpicfXcvrBiasLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 27), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrBiasLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 27), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrBiasHiWarn is the column hpicfXcvrBiasHiWarn of table hpicfXcvrInfoTable.
 // Transceiver bias high warning threshold limit in microamps. The value of
 // this object is valid when the value of the hpicfXcvrDiagnostics object
 // is DOM.
-var HpicfXcvrBiasHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 28), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrBiasHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 28), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrBiasLoWarn is the column hpicfXcvrBiasLoWarn of table hpicfXcvrInfoTable.
 // Transceiver bias low warning threshold limit in microamps. The value of
 // this object is valid when the value of the hpicfXcvrDiagnostics object
 // is DOM.
-var HpicfXcvrBiasLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 29), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrBiasLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 29), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrPwrOutHiAlarm is the column hpicfXcvrPwrOutHiAlarm of table hpicfXcvrInfoTable.
 // Transceiver transmit power high alarm threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrPwrOutHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 30), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrPwrOutHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 30), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrPwrOutLoAlarm is the column hpicfXcvrPwrOutLoAlarm of table hpicfXcvrInfoTable.
 // Transceiver transmit power low alarm threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrPwrOutLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 31), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrPwrOutLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 31), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrPwrOutHiWarn is the column hpicfXcvrPwrOutHiWarn of table hpicfXcvrInfoTable.
 // Transceiver transmit power high warning threshold limit in tenths of
 // microwatts As an example: 10000 is 1 milliwatt. The value of this object
 // is valid when the value of the hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrPwrOutHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 32), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrPwrOutHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 32), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrPwrOutLoWarn is the column hpicfXcvrPwrOutLoWarn of table hpicfXcvrInfoTable.
 // Transceiver transmit power low warning threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrPwrOutLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 33), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrPwrOutLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 33), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrRcvPwrHiAlarm is the column hpicfXcvrRcvPwrHiAlarm of table hpicfXcvrInfoTable.
 // Transceiver receive power high alarm threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrRcvPwrHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 34), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrRcvPwrHiAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 34), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrRcvPwrLoAlarm is the column hpicfXcvrRcvPwrLoAlarm of table hpicfXcvrInfoTable.
 // Transceiver receive power low alarm threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrRcvPwrLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 35), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrRcvPwrLoAlarm = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 35), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrRcvPwrHiWarn is the column hpicfXcvrRcvPwrHiWarn of table hpicfXcvrInfoTable.
 // Transceiver receive power high warning threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrRcvPwrHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 36), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrRcvPwrHiWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 36), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrRcvPwrLoWarn is the column hpicfXcvrRcvPwrLoWarn of table hpicfXcvrInfoTable.
 // Transceiver receive power low warning threshold limit in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt. The value of this
 // object is valid when the value of the hpicfXcvrDiagnostics object is
 // DOM.
-var HpicfXcvrRcvPwrLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 37), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrRcvPwrLoWarn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 37), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrDiagnosticsTimeStamp is the column hpicfXcvrDiagnosticsTimeStamp of table hpicfXcvrInfoTable.
 // ********* THIS OBJECT IS DEPRECATED ********* A textual description of
 // the diagnostics information updated for the last time in the
 // transceiver. This object has been deprecated. Its functionality has been
 // replaced by hpicfXcvrDiagnosticsTimeticks.
-var HpicfXcvrDiagnosticsTimeStamp = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 38), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+//
+// Deprecated: hpicfXcvrDiagnosticsTimeStamp is STATUS deprecated in HP-ICF-TRANSCEIVER-MIB.
+var HpicfXcvrDiagnosticsTimeStamp = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 38), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrPhyLinkStatus is the column hpicfXcvrPhyLinkStatus of table hpicfXcvrInfoTable.
 // This object indicates the link status as reported by the physical
@@ -1017,9 +945,7 @@ var HpicfXcvrPhyLinkStatus = snmp.NewColumn[HpicfXcvrPhyLinkStatusValue](snmp.Mu
 // entity. Will be zero if speed and duplex are unresolved. The value of
 // this object is valid when the value of the hpicfXcvrDiagnostics object
 // is VCT or other.
-var HpicfXcvrPhySpeed = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 40), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrPhySpeed = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 40), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrPhyDuplex is the column hpicfXcvrPhyDuplex of table hpicfXcvrInfoTable.
 // This object indicates the duplex as reported by the physical entity.
@@ -1058,9 +984,7 @@ var HpicfXcvrMdiPairACableStatus = snmp.NewColumn[HpicfXcvrMdiPairACableStatusVa
 // report this object. Accuracy is +/- 10 meters. The value of this object
 // is valid when the value of the hpicfXcvrDiagnostics object is VCT or
 // other.
-var HpicfXcvrMdiPairACableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 43), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairACableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 43), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairADistanceToFault is the column hpicfXcvrMdiPairADistanceToFault of table hpicfXcvrInfoTable.
 // This object indicates the distance in meters to a fault in the cable
@@ -1068,9 +992,7 @@ var HpicfXcvrMdiPairACableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // the transceiver does not report this object. Accuracy is +/- 2 meters.
 // The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairADistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 44), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairADistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 44), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairAPolaritySwap is the column hpicfXcvrMdiPairAPolaritySwap of table hpicfXcvrInfoTable.
 // This object indicates if the cable pair connected to the phy is inverted
@@ -1091,9 +1013,7 @@ var HpicfXcvrMdiPairAPolaritySwap = snmp.NewColumn[HpicfXcvrMdiPairAPolaritySwap
 // be zero if the lowest of the pairs or if the transceiver does not report
 // this object. Accuracy is +/- 8 ns. The value of this object is valid
 // when the value of the hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairASkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 46), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairASkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 46), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairBCableStatus is the column hpicfXcvrMdiPairBCableStatus of table hpicfXcvrInfoTable.
 // This object indicates the cable diagnostics test status on the cable
@@ -1119,9 +1039,7 @@ var HpicfXcvrMdiPairBCableStatus = snmp.NewColumn[HpicfXcvrMdiPairBCableStatusVa
 // report this object. Accuracy is +/- 10 meters. The value of this object
 // is valid when the value of the hpicfXcvrDiagnostics object is VCT or
 // other.
-var HpicfXcvrMdiPairBCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 48), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairBCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 48), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairBDistanceToFault is the column hpicfXcvrMdiPairBDistanceToFault of table hpicfXcvrInfoTable.
 // This object indicates the distance in meters to a fault in the cable
@@ -1129,9 +1047,7 @@ var HpicfXcvrMdiPairBCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // the transceiver does not report this object. Accuracy is +/- 2 meters.
 // The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairBDistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 49), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairBDistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 49), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairBPolaritySwap is the column hpicfXcvrMdiPairBPolaritySwap of table hpicfXcvrInfoTable.
 // This object indicates if the cable pair connected to the phy were
@@ -1153,9 +1069,7 @@ var HpicfXcvrMdiPairBPolaritySwap = snmp.NewColumn[HpicfXcvrMdiPairBPolaritySwap
 // be zero if the lowest of the pairs or if the transceiver does not report
 // this object. Accuracy is +/- 8 ns. The value of this object is valid
 // when the value of the hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairBSkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 51), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairBSkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 51), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairCCableStatus is the column hpicfXcvrMdiPairCCableStatus of table hpicfXcvrInfoTable.
 // This object indicates the cable diagnostics test status on the cable
@@ -1181,9 +1095,7 @@ var HpicfXcvrMdiPairCCableStatus = snmp.NewColumn[HpicfXcvrMdiPairCCableStatusVa
 // transceiver does not report this object. Accuracy is +/- 10 meters. The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is VCT or other.
-var HpicfXcvrMdiPairCCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 53), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairCCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 53), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairCDistanceToFault is the column hpicfXcvrMdiPairCDistanceToFault of table hpicfXcvrInfoTable.
 // This object indicates the distance in meters to a fault in the cable
@@ -1191,9 +1103,7 @@ var HpicfXcvrMdiPairCCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // fault or the transceiver does not report this object. Accuracy is +/- 2
 // meters. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairCDistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 54), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairCDistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 54), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairCPolaritySwap is the column hpicfXcvrMdiPairCPolaritySwap of table hpicfXcvrInfoTable.
 // This object indicates if the cable pair connected to the phy were
@@ -1215,9 +1125,7 @@ var HpicfXcvrMdiPairCPolaritySwap = snmp.NewColumn[HpicfXcvrMdiPairCPolaritySwap
 // be zero if the lowest of the pairs or if the transceiver does not report
 // this object. Accuracy is +/- 8 ns. The value of this object is valid
 // when the value of the hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairCSkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 56), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairCSkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 56), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairDCableStatus is the column hpicfXcvrMdiPairDCableStatus of table hpicfXcvrInfoTable.
 // This object indicates the cable diagnostics test status on the cable
@@ -1243,9 +1151,7 @@ var HpicfXcvrMdiPairDCableStatus = snmp.NewColumn[HpicfXcvrMdiPairDCableStatusVa
 // transceiver does not report this object. Accuracy is +/- 10 meters. The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is VCT or other.
-var HpicfXcvrMdiPairDCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 58), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairDCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 58), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairDDistanceToFault is the column hpicfXcvrMdiPairDDistanceToFault of table hpicfXcvrInfoTable.
 // This object indicates the distance in meters to a fault in the cable
@@ -1253,9 +1159,7 @@ var HpicfXcvrMdiPairDCableLength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // the transceiver does not report this object. Accuracy is +/- 2 meters.
 // The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairDDistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 59), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairDDistanceToFault = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 59), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairDPolaritySwap is the column hpicfXcvrMdiPairDPolaritySwap of table hpicfXcvrInfoTable.
 // This object indicates if the cable pair connected to the phy were
@@ -1277,9 +1181,7 @@ var HpicfXcvrMdiPairDPolaritySwap = snmp.NewColumn[HpicfXcvrMdiPairDPolaritySwap
 // be zero if the lowest of the pairs or if the transceiver does not report
 // this object. Accuracy is +/- 8 ns. The value of this object is valid
 // when the value of the hpicfXcvrDiagnostics object is VCT or other.
-var HpicfXcvrMdiPairDSkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 61), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrMdiPairDSkew = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 61), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrMdiPairABSwap is the column hpicfXcvrMdiPairABSwap of table hpicfXcvrInfoTable.
 // This object indicates the if the channels are swapped for channels A and
@@ -1315,15 +1217,11 @@ var HpicfXcvrMdiPairCDSwap = snmp.NewColumn[HpicfXcvrMdiPairCDSwapValue](snmp.Mu
 // The value of sysUpTime of when this diagnostic information was last
 // updated. If this diagnostic information was never updated, then this
 // object will contain a zero value.
-var HpicfXcvrDiagnosticsTimeTicks = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 64), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrDiagnosticsTimeTicks = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 64), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // HpicfXcvrManufacDate is the column hpicfXcvrManufacDate of table hpicfXcvrInfoTable.
 // A textual description of the transceiver Manufacturing date.
-var HpicfXcvrManufacDate = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 65), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HpicfXcvrManufacDate = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 1, 1, 65), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HpicfXcvrInfoTableKey is the decoded INDEX of one hpicfXcvrInfoTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1599,7 +1497,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 				switch tw.cols[cell.Column].Key() {
 				case HpicfXcvrPortIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrPortIndex = int32(v)
+						row.HpicfXcvrPortIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1739,7 +1637,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrTemp.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrTemp = int32(v)
+						row.HpicfXcvrTemp = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1757,7 +1655,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrVoltage.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrVoltage = uint32(v)
+						row.HpicfXcvrVoltage = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1775,7 +1673,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrBias.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrBias = uint32(v)
+						row.HpicfXcvrBias = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1793,7 +1691,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrTxPower = int32(v)
+						row.HpicfXcvrTxPower = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1811,7 +1709,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrRxPower = int32(v)
+						row.HpicfXcvrRxPower = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1855,7 +1753,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrTempHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrTempHiAlarm = int32(v)
+						row.HpicfXcvrTempHiAlarm = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1873,7 +1771,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrTempLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrTempLoAlarm = int32(v)
+						row.HpicfXcvrTempLoAlarm = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1891,7 +1789,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrTempHiWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrTempHiWarn = int32(v)
+						row.HpicfXcvrTempHiWarn = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1909,7 +1807,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrTempLoWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrTempLoWarn = int32(v)
+						row.HpicfXcvrTempLoWarn = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1927,7 +1825,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrVccHiAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrVccHiAlarm = uint32(v)
+						row.HpicfXcvrVccHiAlarm = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1945,7 +1843,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrVccLoAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrVccLoAlarm = uint32(v)
+						row.HpicfXcvrVccLoAlarm = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1963,7 +1861,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrVccHiWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrVccHiWarn = uint32(v)
+						row.HpicfXcvrVccHiWarn = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1981,7 +1879,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrVccLoWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrVccLoWarn = uint32(v)
+						row.HpicfXcvrVccLoWarn = v
 						row.observed[0] |= 1 << 24
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1999,7 +1897,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrBiasHiAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrBiasHiAlarm = uint32(v)
+						row.HpicfXcvrBiasHiAlarm = v
 						row.observed[0] |= 1 << 25
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2017,7 +1915,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrBiasLoAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrBiasLoAlarm = uint32(v)
+						row.HpicfXcvrBiasLoAlarm = v
 						row.observed[0] |= 1 << 26
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2035,7 +1933,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrBiasHiWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrBiasHiWarn = uint32(v)
+						row.HpicfXcvrBiasHiWarn = v
 						row.observed[0] |= 1 << 27
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2053,7 +1951,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrBiasLoWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrBiasLoWarn = uint32(v)
+						row.HpicfXcvrBiasLoWarn = v
 						row.observed[0] |= 1 << 28
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2071,7 +1969,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrPwrOutHiAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrPwrOutHiAlarm = uint32(v)
+						row.HpicfXcvrPwrOutHiAlarm = v
 						row.observed[0] |= 1 << 29
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2089,7 +1987,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrPwrOutLoAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrPwrOutLoAlarm = uint32(v)
+						row.HpicfXcvrPwrOutLoAlarm = v
 						row.observed[0] |= 1 << 30
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2107,7 +2005,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrPwrOutHiWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrPwrOutHiWarn = uint32(v)
+						row.HpicfXcvrPwrOutHiWarn = v
 						row.observed[0] |= 1 << 31
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2125,7 +2023,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrPwrOutLoWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrPwrOutLoWarn = uint32(v)
+						row.HpicfXcvrPwrOutLoWarn = v
 						row.observed[0] |= 1 << 32
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2143,7 +2041,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrRcvPwrHiAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrRcvPwrHiAlarm = uint32(v)
+						row.HpicfXcvrRcvPwrHiAlarm = v
 						row.observed[0] |= 1 << 33
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2161,7 +2059,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrRcvPwrLoAlarm.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrRcvPwrLoAlarm = uint32(v)
+						row.HpicfXcvrRcvPwrLoAlarm = v
 						row.observed[0] |= 1 << 34
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2179,7 +2077,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrRcvPwrHiWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrRcvPwrHiWarn = uint32(v)
+						row.HpicfXcvrRcvPwrHiWarn = v
 						row.observed[0] |= 1 << 35
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2197,7 +2095,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrRcvPwrLoWarn.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrRcvPwrLoWarn = uint32(v)
+						row.HpicfXcvrRcvPwrLoWarn = v
 						row.observed[0] |= 1 << 36
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2246,7 +2144,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrPhySpeed.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrPhySpeed = uint32(v)
+						row.HpicfXcvrPhySpeed = v
 						row.observed[0] |= 1 << 39
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2300,7 +2198,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairACableLength.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairACableLength = uint32(v)
+						row.HpicfXcvrMdiPairACableLength = v
 						row.observed[0] |= 1 << 42
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2318,7 +2216,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairADistanceToFault.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairADistanceToFault = uint32(v)
+						row.HpicfXcvrMdiPairADistanceToFault = v
 						row.observed[0] |= 1 << 43
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2354,7 +2252,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairASkew.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairASkew = uint32(v)
+						row.HpicfXcvrMdiPairASkew = v
 						row.observed[0] |= 1 << 45
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2390,7 +2288,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairBCableLength.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairBCableLength = uint32(v)
+						row.HpicfXcvrMdiPairBCableLength = v
 						row.observed[0] |= 1 << 47
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2408,7 +2306,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairBDistanceToFault.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairBDistanceToFault = uint32(v)
+						row.HpicfXcvrMdiPairBDistanceToFault = v
 						row.observed[0] |= 1 << 48
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2444,7 +2342,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairBSkew.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairBSkew = uint32(v)
+						row.HpicfXcvrMdiPairBSkew = v
 						row.observed[0] |= 1 << 50
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2480,7 +2378,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairCCableLength.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairCCableLength = uint32(v)
+						row.HpicfXcvrMdiPairCCableLength = v
 						row.observed[0] |= 1 << 52
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2498,7 +2396,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairCDistanceToFault.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairCDistanceToFault = uint32(v)
+						row.HpicfXcvrMdiPairCDistanceToFault = v
 						row.observed[0] |= 1 << 53
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2534,7 +2432,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairCSkew.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairCSkew = uint32(v)
+						row.HpicfXcvrMdiPairCSkew = v
 						row.observed[0] |= 1 << 55
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2570,7 +2468,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairDCableLength.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairDCableLength = uint32(v)
+						row.HpicfXcvrMdiPairDCableLength = v
 						row.observed[0] |= 1 << 57
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2588,7 +2486,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairDDistanceToFault.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairDDistanceToFault = uint32(v)
+						row.HpicfXcvrMdiPairDDistanceToFault = v
 						row.observed[0] |= 1 << 58
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2624,7 +2522,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrMdiPairDSkew.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrMdiPairDSkew = uint32(v)
+						row.HpicfXcvrMdiPairDSkew = v
 						row.observed[0] |= 1 << 60
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2678,7 +2576,7 @@ func (tw *HpicfXcvrInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrInfoTabl
 					}
 				case HpicfXcvrDiagnosticsTimeTicks.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.HpicfXcvrDiagnosticsTimeTicks = uint32(v)
+						row.HpicfXcvrDiagnosticsTimeTicks = v
 						row.observed[0] |= 1 << 63
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2786,27 +2684,21 @@ func (hpicfXcvrInfoTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 // HpicfXcvrChannelTxBias is the column hpicfXcvrChannelTxBias of table hpicfXcvrChannelInfoTable.
 // Tx bias current in microamps. The value of this object is valid when the
 // value of the hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrChannelTxBias = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 2), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HpicfXcvrChannelTxBias = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // HpicfXcvrChannelTxPower is the column hpicfXcvrChannelTxPower of table hpicfXcvrChannelInfoTable.
 // This is transmit output power in thousandths of dBm. As an example:
 // -5840 is -5.840dBm. Negative infinity dBm (0 microwatts) is reported as
 // -99999999. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrChannelTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrChannelTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrChannelRxPower is the column hpicfXcvrChannelRxPower of table hpicfXcvrChannelInfoTable.
 // Received optical power in thousandths of dBm. As an example: -5840 is
 // -5.840dBm. Negative infinity dBm (0 microwatts) is reported as
 // -99999999. The value of this object is valid when the value of the
 // hpicfXcvrDiagnostics object is DOM.
-var HpicfXcvrChannelRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HpicfXcvrChannelRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HpicfXcvrChannelAlarms is the column hpicfXcvrChannelAlarms of table hpicfXcvrChannelInfoTable.
 // Bitmask indicating transceiver channel alarms, Rx power low warning(0)
@@ -2816,17 +2708,13 @@ var HpicfXcvrChannelRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 
 // alarm(9) Tx bias low alarm(10) Tx bias high alarm(11) Unused(12-31) The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is DOM.
-var HpicfXcvrChannelAlarms = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var HpicfXcvrChannelAlarms = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // HpicfXcvrChannelErrors is the column hpicfXcvrChannelErrors of table hpicfXcvrChannelInfoTable.
 // TX fault(0) TX loss of signal(1) RX loss of signal(2) Unused(3-31) The
 // value of this object is valid when the value of the hpicfXcvrDiagnostics
 // object is DOM.
-var HpicfXcvrChannelErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var HpicfXcvrChannelErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 82, 1, 1, 2, 1, 6), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // HpicfXcvrChannelInfoTableKey is the decoded INDEX of one hpicfXcvrChannelInfoTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2923,7 +2811,7 @@ func (tw *HpicfXcvrChannelInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrC
 				switch tw.cols[cell.Column].Key() {
 				case HpicfXcvrChannelTxBias.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.HpicfXcvrChannelTxBias = uint32(v)
+						row.HpicfXcvrChannelTxBias = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2941,7 +2829,7 @@ func (tw *HpicfXcvrChannelInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrC
 					}
 				case HpicfXcvrChannelTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrChannelTxPower = int32(v)
+						row.HpicfXcvrChannelTxPower = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2959,7 +2847,7 @@ func (tw *HpicfXcvrChannelInfoTableWalker) Iter() iter.Seq2[snmp.OID, HpicfXcvrC
 					}
 				case HpicfXcvrChannelRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HpicfXcvrChannelRxPower = int32(v)
+						row.HpicfXcvrChannelRxPower = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
