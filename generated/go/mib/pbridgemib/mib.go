@@ -79,8 +79,8 @@ const (
 	Dot1dDeviceCapabilitiesBitDot1qHybridCapable snmp.BitPos = 5
 	// Dot1dDeviceCapabilitiesBitDot1qConfigurablePvidTagging is the position of the dot1qConfigurablePvidTagging bit.
 	Dot1dDeviceCapabilitiesBitDot1qConfigurablePvidTagging snmp.BitPos = 6
-	// Dot1dDeviceCapabilitiesBitDot1dLocalVlanCapable is the position of the dot1dLocalVlanCapable bit.
-	Dot1dDeviceCapabilitiesBitDot1dLocalVlanCapable snmp.BitPos = 7
+	// Dot1dDeviceCapabilitiesBitDot1dLocalVLANCapable is the position of the dot1dLocalVlanCapable bit.
+	Dot1dDeviceCapabilitiesBitDot1dLocalVLANCapable snmp.BitPos = 7
 )
 
 // Dot1dPortCapabilitiesBit names the bit positions of the SMI BITS type dot1dPortCapabilities (inline).

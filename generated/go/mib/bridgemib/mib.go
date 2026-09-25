@@ -686,10 +686,10 @@ var Dot1dBasePortCircuit = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 
 // source route bridges.
 var Dot1dBasePortDelayExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
-// Dot1dBasePortMtuExceededDiscards is the column dot1dBasePortMtuExceededDiscards of table dot1dBasePortTable.
+// Dot1dBasePortMTUExceededDiscards is the column dot1dBasePortMtuExceededDiscards of table dot1dBasePortTable.
 // The number of frames discarded by this port due to an excessive size. It
 // is incremented by both transparent and source route bridges.
-var Dot1dBasePortMtuExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1dBasePortMTUExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dBasePortTableKey is the decoded INDEX of one dot1dBasePortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -724,7 +724,7 @@ type Dot1dBasePortTableRow struct {
 	Dot1dBasePortIfIndex               ifmib.InterfaceIndex
 	Dot1dBasePortCircuit               snmp.OID
 	Dot1dBasePortDelayExceededDiscards uint32
-	Dot1dBasePortMtuExceededDiscards   uint32
+	Dot1dBasePortMTUExceededDiscards   uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -753,7 +753,7 @@ func (r Dot1dBasePortTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<2) != 0
 	case Dot1dBasePortDelayExceededDiscards.Key():
 		return r.observed[0]&(1<<3) != 0
-	case Dot1dBasePortMtuExceededDiscards.Key():
+	case Dot1dBasePortMTUExceededDiscards.Key():
 		return r.observed[0]&(1<<4) != 0
 	}
 
@@ -850,20 +850,20 @@ func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTabl
 							}
 						}
 					}
-				case Dot1dBasePortMtuExceededDiscards.Key():
+				case Dot1dBasePortMTUExceededDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dBasePortMtuExceededDiscards = v
+						row.Dot1dBasePortMTUExceededDiscards = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Dot1dBasePortMtuExceededDiscards.Decode(vb)
+							dv, dErr := Dot1dBasePortMTUExceededDiscards.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Dot1dBasePortMtuExceededDiscards = dv
+								row.Dot1dBasePortMTUExceededDiscards = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
@@ -925,7 +925,7 @@ func (dot1dBasePortTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Dot1dBasePort.Key(), Dot1dBasePortIfIndex.Key(), Dot1dBasePortCircuit.Key(), Dot1dBasePortDelayExceededDiscards.Key(), Dot1dBasePortMtuExceededDiscards.Key():
+		case Dot1dBasePort.Key(), Dot1dBasePortIfIndex.Key(), Dot1dBasePortCircuit.Key(), Dot1dBasePortDelayExceededDiscards.Key(), Dot1dBasePortMTUExceededDiscards.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dBasePortTable.Walk: column %s", c.OID()))
@@ -2229,7 +2229,7 @@ var bRIDGEMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 2).WireKey():   Dot1dBasePortIfIndex,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 3).WireKey():   Dot1dBasePortCircuit,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 4).WireKey():   Dot1dBasePortDelayExceededDiscards,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5).WireKey():   Dot1dBasePortMtuExceededDiscards,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5).WireKey():   Dot1dBasePortMTUExceededDiscards,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 1).WireKey():  Dot1dStpPort,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 10).WireKey(): Dot1dStpPortForwardTransitions,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 11).WireKey(): Dot1dStpPortPathCost32,

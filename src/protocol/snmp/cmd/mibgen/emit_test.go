@@ -226,7 +226,7 @@ func TestEmit_FakeMIB_UsesIdiomaticGeneratedShapes(t *testing.T) {
 		}
 	}
 	wantDocs := map[string]string{
-		"FakeLegacyMacGet": "Deprecated: fakeLegacyMac is STATUS obsolete in FAKE-MIB.",
+		"FakeLegacyMACGet": "Deprecated: fakeLegacyMac is STATUS obsolete in FAKE-MIB.",
 		"FakeDeprecated":   "Deprecated: fakeDeprecated is STATUS deprecated in FAKE-MIB.",
 		"FakeSoloTable":    "Deprecated: fakeSoloTable is STATUS deprecated in FAKE-MIB.",
 	}
@@ -235,8 +235,8 @@ func TestEmit_FakeMIB_UsesIdiomaticGeneratedShapes(t *testing.T) {
 			t.Errorf("%s doc = %q, want paragraph %q", name, docs[name], want)
 		}
 	}
-	if strings.Contains(docs["FakeMac"], "Deprecated:") {
-		t.Errorf("FakeMac doc = %q, want no deprecation paragraph", docs["FakeMac"])
+	if strings.Contains(docs["FakeMAC"], "Deprecated:") {
+		t.Errorf("FakeMAC doc = %q, want no deprecation paragraph", docs["FakeMAC"])
 	}
 
 	checkName := func(kind, name string) {
@@ -322,7 +322,7 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"FakeStatusValueDown",
 		"FakeStatusValueTesting",
 		"var FakeName =",
-		"var FakeMac =",
+		"var FakeMAC =",
 		"var FakeOctets =",
 		"var FakeLastChange =",
 		"type FakeTableRow struct",
@@ -376,7 +376,7 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"snmp.NewWatcher[FakeTableRow]",
 		// equal helper uses the type-appropriate comparator
 		// (bytes.Equal for the MacAddress []byte field).
-		"bytes.Equal(a.FakeMac, b.FakeMac)",
+		"bytes.Equal(a.FakeMAC, b.FakeMAC)",
 		// Per-column observation: the row carries one bit per column
 		// and answers by column identity, so a mapper can tell a
 		// reported zero from a column the agent never answered.

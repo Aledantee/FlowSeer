@@ -590,11 +590,11 @@ func MtxrHlSensorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, 
 	return snmp.DecodeInt32(vbs[0])
 }
 
-// MtxrHlCpuTemperatureGet reads the SMIv2 scalar mtxrHlCpuTemperature.
+// MtxrHlCPUTemperatureGet reads the SMIv2 scalar mtxrHlCpuTemperature.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // temperature near cpu
-func MtxrHlCpuTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
+func MtxrHlCPUTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 6, 0)})
 	if err != nil {
 		return 0, err
@@ -836,11 +836,11 @@ func MtxrAlarmSocketStatusGet(ctx context.Context, sess snmp.Session) (MtxrAlarm
 	}(vbs[0])
 }
 
-// MtxrLicSoftwareIdGet reads the SMIv2 scalar mtxrLicSoftwareId.
+// MtxrLicSoftwareIDGet reads the SMIv2 scalar mtxrLicSoftwareId.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // software id
-func MtxrLicSoftwareIdGet(ctx context.Context, sess snmp.Session) (string, error) {
+func MtxrLicSoftwareIDGet(ctx context.Context, sess snmp.Session) (string, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 4, 1, 0)})
 	if err != nil {
 		return "", err
@@ -7108,11 +7108,11 @@ func (mtxrDnStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 	}
 }
 
-// MtxrNeighborIpAddress is the column mtxrNeighborIpAddress of table mtxrNeighborTable.
-var MtxrNeighborIpAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2), snmp.KindIPAddress, snmp.DecodeIP)
+// MtxrNeighborIPAddress is the column mtxrNeighborIpAddress of table mtxrNeighborTable.
+var MtxrNeighborIPAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2), snmp.KindIPAddress, snmp.DecodeIP)
 
-// MtxrNeighborMacAddress is the column mtxrNeighborMacAddress of table mtxrNeighborTable.
-var MtxrNeighborMacAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrNeighborMACAddress is the column mtxrNeighborMacAddress of table mtxrNeighborTable.
+var MtxrNeighborMACAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrNeighborVersion is the column mtxrNeighborVersion of table mtxrNeighborTable.
 var MtxrNeighborVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
@@ -7164,8 +7164,8 @@ func decodeMtxrNeighborTableKey(idx snmp.OID) (MtxrNeighborTableKey, bool) {
 type MtxrNeighborTableRow struct {
 	Key                     MtxrNeighborTableKey
 	keyValid                bool
-	MtxrNeighborIpAddress   net.IP
-	MtxrNeighborMacAddress  net.HardwareAddr
+	MtxrNeighborIPAddress   net.IP
+	MtxrNeighborMACAddress  net.HardwareAddr
 	MtxrNeighborVersion     string
 	MtxrNeighborPlatform    string
 	MtxrNeighborIdentity    string
@@ -7191,9 +7191,9 @@ func (r MtxrNeighborTableRow) KeyValid() bool {
 // to Walk, and any column of another table all read false.
 func (r MtxrNeighborTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case MtxrNeighborIpAddress.Key():
+	case MtxrNeighborIPAddress.Key():
 		return r.observed[0]&(1<<0) != 0
-	case MtxrNeighborMacAddress.Key():
+	case MtxrNeighborMACAddress.Key():
 		return r.observed[0]&(1<<1) != 0
 	case MtxrNeighborVersion.Key():
 		return r.observed[0]&(1<<2) != 0
@@ -7233,29 +7233,29 @@ func (tw *MtxrNeighborTableWalker) Iter() iter.Seq2[snmp.OID, MtxrNeighborTableR
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case MtxrNeighborIpAddress.Key():
+				case MtxrNeighborIPAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrNeighborIpAddress.Decode(vb)
+						dv, dErr := MtxrNeighborIPAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrNeighborIpAddress = dv
+							row.MtxrNeighborIPAddress = dv
 							row.observed[0] |= 1 << 0
 						}
 					}
-				case MtxrNeighborMacAddress.Key():
+				case MtxrNeighborMACAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrNeighborMacAddress.Decode(vb)
+						dv, dErr := MtxrNeighborMACAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrNeighborMacAddress = dv
+							row.MtxrNeighborMACAddress = dv
 							row.observed[0] |= 1 << 1
 						}
 					}
@@ -7386,7 +7386,7 @@ func (mtxrNeighborTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case MtxrNeighborIpAddress.Key(), MtxrNeighborMacAddress.Key(), MtxrNeighborVersion.Key(), MtxrNeighborPlatform.Key(), MtxrNeighborIdentity.Key(), MtxrNeighborSoftwareID.Key(), MtxrNeighborInterfaceID.Key():
+		case MtxrNeighborIPAddress.Key(), MtxrNeighborMACAddress.Key(), MtxrNeighborVersion.Key(), MtxrNeighborPlatform.Key(), MtxrNeighborIdentity.Key(), MtxrNeighborSoftwareID.Key(), MtxrNeighborInterfaceID.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrNeighborTable.Walk: column %s", c.OID()))
@@ -9476,9 +9476,9 @@ var MtxrLTEModemSignalRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1
 // dBm
 var MtxrLTEModemSignalRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
-// MtxrLTEModemCellId is the column mtxrLTEModemCellId of table mtxrLTEModemTable.
+// MtxrLTEModemCellID is the column mtxrLTEModemCellId of table mtxrLTEModemTable.
 // current cell ID
-var MtxrLTEModemCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTEModemCellID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemAccessTechnology is the column mtxrLTEModemAccessTechnology of table mtxrLTEModemTable.
 // as reported by +CREG
@@ -9494,11 +9494,11 @@ var MtxrLTEModemAccessTechnology = snmp.NewColumn[MtxrLTEModemAccessTechnologyVa
 // dB
 var MtxrLTEModemSignalSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
-// MtxrLTEModemEnbId is the column mtxrLTEModemEnbId of table mtxrLTEModemTable.
-var MtxrLTEModemEnbId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemEnbID is the column mtxrLTEModemEnbId of table mtxrLTEModemTable.
+var MtxrLTEModemEnbID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
 
-// MtxrLTEModemSectorId is the column mtxrLTEModemSectorId of table mtxrLTEModemTable.
-var MtxrLTEModemSectorId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemSectorID is the column mtxrLTEModemSectorId of table mtxrLTEModemTable.
+var MtxrLTEModemSectorID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemLac is the column mtxrLTEModemLac of table mtxrLTEModemTable.
 var MtxrLTEModemLac = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
@@ -9580,11 +9580,11 @@ type MtxrLTEModemTableRow struct {
 	MtxrLTEModemSignalRSSI       int32
 	MtxrLTEModemSignalRSRQ       int32
 	MtxrLTEModemSignalRSRP       int32
-	MtxrLTEModemCellId           int32
+	MtxrLTEModemCellID           int32
 	MtxrLTEModemAccessTechnology MtxrLTEModemAccessTechnologyValue
 	MtxrLTEModemSignalSINR       int32
-	MtxrLTEModemEnbId            int32
-	MtxrLTEModemSectorId         int32
+	MtxrLTEModemEnbID            int32
+	MtxrLTEModemSectorID         int32
 	MtxrLTEModemLac              int32
 	MtxrLTEModemIMEI             string
 	MtxrLTEModemIMSI             string
@@ -9627,15 +9627,15 @@ func (r MtxrLTEModemTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<1) != 0
 	case MtxrLTEModemSignalRSRP.Key():
 		return r.observed[0]&(1<<2) != 0
-	case MtxrLTEModemCellId.Key():
+	case MtxrLTEModemCellID.Key():
 		return r.observed[0]&(1<<3) != 0
 	case MtxrLTEModemAccessTechnology.Key():
 		return r.observed[0]&(1<<4) != 0
 	case MtxrLTEModemSignalSINR.Key():
 		return r.observed[0]&(1<<5) != 0
-	case MtxrLTEModemEnbId.Key():
+	case MtxrLTEModemEnbID.Key():
 		return r.observed[0]&(1<<6) != 0
-	case MtxrLTEModemSectorId.Key():
+	case MtxrLTEModemSectorID.Key():
 		return r.observed[0]&(1<<7) != 0
 	case MtxrLTEModemLac.Key():
 		return r.observed[0]&(1<<8) != 0
@@ -9751,20 +9751,20 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 							}
 						}
 					}
-				case MtxrLTEModemCellId.Key():
+				case MtxrLTEModemCellID.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemCellId = v
+						row.MtxrLTEModemCellID = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := MtxrLTEModemCellId.Decode(vb)
+							dv, dErr := MtxrLTEModemCellID.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.MtxrLTEModemCellId = dv
+								row.MtxrLTEModemCellID = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
@@ -9805,38 +9805,38 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 							}
 						}
 					}
-				case MtxrLTEModemEnbId.Key():
+				case MtxrLTEModemEnbID.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemEnbId = v
+						row.MtxrLTEModemEnbID = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := MtxrLTEModemEnbId.Decode(vb)
+							dv, dErr := MtxrLTEModemEnbID.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.MtxrLTEModemEnbId = dv
+								row.MtxrLTEModemEnbID = dv
 								row.observed[0] |= 1 << 6
 							}
 						}
 					}
-				case MtxrLTEModemSectorId.Key():
+				case MtxrLTEModemSectorID.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSectorId = v
+						row.MtxrLTEModemSectorID = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := MtxrLTEModemSectorId.Decode(vb)
+							dv, dErr := MtxrLTEModemSectorID.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.MtxrLTEModemSectorId = dv
+								row.MtxrLTEModemSectorID = dv
 								row.observed[0] |= 1 << 7
 							}
 						}
@@ -10141,7 +10141,7 @@ func (mtxrLTEModemTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case MtxrLTEModemSignalRSSI.Key(), MtxrLTEModemSignalRSRQ.Key(), MtxrLTEModemSignalRSRP.Key(), MtxrLTEModemCellId.Key(), MtxrLTEModemAccessTechnology.Key(), MtxrLTEModemSignalSINR.Key(), MtxrLTEModemEnbId.Key(), MtxrLTEModemSectorId.Key(), MtxrLTEModemLac.Key(), MtxrLTEModemIMEI.Key(), MtxrLTEModemIMSI.Key(), MtxrLTEModemUICC.Key(), MtxrLTEModemRAT.Key(), MtxrLTEModemPrimaryBand.Key(), MtxrLTEModemSessionUptime.Key(), MtxrLTEModemRegStatus.Key(), MtxrLTEModemPinStatus.Key(), MtxrLTEModemModel.Key(), MtxrLTEModemFirmware.Key(), MtxrLTEModemCQI.Key(), MtxrLTEModemNrRSRP.Key(), MtxrLTEModemNrRSRQ.Key(), MtxrLTEModemNrSINR.Key(), MtxrLTEModemSignalRSRQD10.Key():
+		case MtxrLTEModemSignalRSSI.Key(), MtxrLTEModemSignalRSRQ.Key(), MtxrLTEModemSignalRSRP.Key(), MtxrLTEModemCellID.Key(), MtxrLTEModemAccessTechnology.Key(), MtxrLTEModemSignalSINR.Key(), MtxrLTEModemEnbID.Key(), MtxrLTEModemSectorID.Key(), MtxrLTEModemLac.Key(), MtxrLTEModemIMEI.Key(), MtxrLTEModemIMSI.Key(), MtxrLTEModemUICC.Key(), MtxrLTEModemRAT.Key(), MtxrLTEModemPrimaryBand.Key(), MtxrLTEModemSessionUptime.Key(), MtxrLTEModemRegStatus.Key(), MtxrLTEModemPinStatus.Key(), MtxrLTEModemModel.Key(), MtxrLTEModemFirmware.Key(), MtxrLTEModemCQI.Key(), MtxrLTEModemNrRSRP.Key(), MtxrLTEModemNrRSRQ.Key(), MtxrLTEModemNrSINR.Key(), MtxrLTEModemSignalRSRQD10.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrLTEModemTable.Walk: column %s", c.OID()))
@@ -10170,8 +10170,8 @@ var MtxrLTECarrierAggEARFCN = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 
 // MHz
 var MtxrLTECarrierAggBandwidth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
-// MtxrLTECarrierAggPhyCellId is the column mtxrLTECarrierAggPhyCellId of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggPhyCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTECarrierAggPhyCellID is the column mtxrLTECarrierAggPhyCellId of table mtxrLTECarrierAggTable.
+var MtxrLTECarrierAggPhyCellID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggRSSI is the column mtxrLTECarrierAggRSSI of table mtxrLTECarrierAggTable.
 // dBm
@@ -10232,7 +10232,7 @@ type MtxrLTECarrierAggTableRow struct {
 	MtxrLTECarrierAggBand      int32
 	MtxrLTECarrierAggEARFCN    int32
 	MtxrLTECarrierAggBandwidth int32
-	MtxrLTECarrierAggPhyCellId int32
+	MtxrLTECarrierAggPhyCellID int32
 	MtxrLTECarrierAggRSSI      int32
 	MtxrLTECarrierAggRSRP      int32
 	MtxrLTECarrierAggRSRQ      int32
@@ -10266,7 +10266,7 @@ func (r MtxrLTECarrierAggTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<1) != 0
 	case MtxrLTECarrierAggBandwidth.Key():
 		return r.observed[0]&(1<<2) != 0
-	case MtxrLTECarrierAggPhyCellId.Key():
+	case MtxrLTECarrierAggPhyCellID.Key():
 		return r.observed[0]&(1<<3) != 0
 	case MtxrLTECarrierAggRSSI.Key():
 		return r.observed[0]&(1<<4) != 0
@@ -10364,20 +10364,20 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 							}
 						}
 					}
-				case MtxrLTECarrierAggPhyCellId.Key():
+				case MtxrLTECarrierAggPhyCellID.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggPhyCellId = v
+						row.MtxrLTECarrierAggPhyCellID = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := MtxrLTECarrierAggPhyCellId.Decode(vb)
+							dv, dErr := MtxrLTECarrierAggPhyCellID.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.MtxrLTECarrierAggPhyCellId = dv
+								row.MtxrLTECarrierAggPhyCellID = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
@@ -10555,7 +10555,7 @@ func (mtxrLTECarrierAggTableT) WalkWithOptions(ctx context.Context, sess snmp.Se
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case MtxrLTECarrierAggBand.Key(), MtxrLTECarrierAggEARFCN.Key(), MtxrLTECarrierAggBandwidth.Key(), MtxrLTECarrierAggPhyCellId.Key(), MtxrLTECarrierAggRSSI.Key(), MtxrLTECarrierAggRSRP.Key(), MtxrLTECarrierAggRSRQ.Key(), MtxrLTECarrierAggSINR.Key(), MtxrLTECarrierAggSNR.Key(), MtxrLTECarrierAggNR.Key(), MtxrLTECarrierAggUplink.Key():
+		case MtxrLTECarrierAggBand.Key(), MtxrLTECarrierAggEARFCN.Key(), MtxrLTECarrierAggBandwidth.Key(), MtxrLTECarrierAggPhyCellID.Key(), MtxrLTECarrierAggRSSI.Key(), MtxrLTECarrierAggRSRP.Key(), MtxrLTECarrierAggRSRQ.Key(), MtxrLTECarrierAggSINR.Key(), MtxrLTECarrierAggSNR.Key(), MtxrLTECarrierAggNR.Key(), MtxrLTECarrierAggUplink.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrLTECarrierAggTable.Walk: column %s", c.OID()))
@@ -12295,9 +12295,9 @@ var MtxrRemoteCapSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 
 // RouterOS version of the remote CAP.
 var MtxrRemoteCapVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString)
 
-// MtxrRemoteCapBaseMac is the column mtxrRemoteCapBaseMac of table mtxrRemoteCapTable.
+// MtxrRemoteCapBaseMAC is the column mtxrRemoteCapBaseMac of table mtxrRemoteCapTable.
 // Base MAC address of the remote CAP.
-var MtxrRemoteCapBaseMac = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7), snmp.KindOctetString, snmp.DecodeMacAddress)
+var MtxrRemoteCapBaseMAC = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrRemoteCapCommonName is the column mtxrRemoteCapCommonName of table mtxrRemoteCapTable.
 // Certificate common name of the remote CAP.
@@ -12310,7 +12310,7 @@ var MtxrRemoteCapState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 1
 // MtxrRemoteCapTableKey is the decoded INDEX of one mtxrRemoteCapTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
 type MtxrRemoteCapTableKey struct {
-	MtxrRemoteCapId ObjectIndex
+	MtxrRemoteCapID ObjectIndex
 }
 
 var mtxrRemoteCapTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
@@ -12322,7 +12322,7 @@ func decodeMtxrRemoteCapTableKey(idx snmp.OID) (MtxrRemoteCapTableKey, bool) {
 	if !snmp.DecodeIndexInto(parts[:], idx, mtxrRemoteCapTableIndexShapes) {
 		return MtxrRemoteCapTableKey{}, false
 	}
-	return MtxrRemoteCapTableKey{MtxrRemoteCapId: ObjectIndex(parts[0].Integer)}, true
+	return MtxrRemoteCapTableKey{MtxrRemoteCapID: ObjectIndex(parts[0].Integer)}, true
 }
 
 // MtxrRemoteCapTableRow is one row of mtxrRemoteCapTable. Key is the decoded INDEX; a
@@ -12341,7 +12341,7 @@ type MtxrRemoteCapTableRow struct {
 	MtxrRemoteCapBoardName  string
 	MtxrRemoteCapSerial     string
 	MtxrRemoteCapVersion    string
-	MtxrRemoteCapBaseMac    net.HardwareAddr
+	MtxrRemoteCapBaseMAC    net.HardwareAddr
 	MtxrRemoteCapCommonName string
 	MtxrRemoteCapState      string
 
@@ -12374,7 +12374,7 @@ func (r MtxrRemoteCapTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<3) != 0
 	case MtxrRemoteCapVersion.Key():
 		return r.observed[0]&(1<<4) != 0
-	case MtxrRemoteCapBaseMac.Key():
+	case MtxrRemoteCapBaseMAC.Key():
 		return r.observed[0]&(1<<5) != 0
 	case MtxrRemoteCapCommonName.Key():
 		return r.observed[0]&(1<<6) != 0
@@ -12473,16 +12473,16 @@ func (tw *MtxrRemoteCapTableWalker) Iter() iter.Seq2[snmp.OID, MtxrRemoteCapTabl
 							row.observed[0] |= 1 << 4
 						}
 					}
-				case MtxrRemoteCapBaseMac.Key():
+				case MtxrRemoteCapBaseMAC.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrRemoteCapBaseMac.Decode(vb)
+						dv, dErr := MtxrRemoteCapBaseMAC.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrRemoteCapBaseMac = dv
+							row.MtxrRemoteCapBaseMAC = dv
 							row.observed[0] |= 1 << 5
 						}
 					}
@@ -12569,7 +12569,7 @@ func (mtxrRemoteCapTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case MtxrRemoteCapAddress.Key(), MtxrRemoteCapIdentity.Key(), MtxrRemoteCapBoardName.Key(), MtxrRemoteCapSerial.Key(), MtxrRemoteCapVersion.Key(), MtxrRemoteCapBaseMac.Key(), MtxrRemoteCapCommonName.Key(), MtxrRemoteCapState.Key():
+		case MtxrRemoteCapAddress.Key(), MtxrRemoteCapIdentity.Key(), MtxrRemoteCapBoardName.Key(), MtxrRemoteCapSerial.Key(), MtxrRemoteCapVersion.Key(), MtxrRemoteCapBaseMAC.Key(), MtxrRemoteCapCommonName.Key(), MtxrRemoteCapState.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrRemoteCapTable.Walk: column %s", c.OID()))
@@ -12588,9 +12588,9 @@ func (mtxrRemoteCapTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 	}
 }
 
-// MtxrWifiRegistrationMacAddress is the column mtxrWifiRegistrationMacAddress of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationMACAddress is the column mtxrWifiRegistrationMacAddress of table mtxrWifiRegistrationTable.
 // MAC address of the registered device.
-var MtxrWifiRegistrationMacAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
+var MtxrWifiRegistrationMACAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWifiRegistrationSsid is the column mtxrWifiRegistrationSsid of table mtxrWifiRegistrationTable.
 // SSID of the connected access point.
@@ -12648,9 +12648,9 @@ var MtxrWifiRegistrationTxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 
 // Reception rate in bits per second.
 var MtxrWifiRegistrationRxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
 
-// MtxrWifiRegistrationVlanId is the column mtxrWifiRegistrationVlanId of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationVLANID is the column mtxrWifiRegistrationVlanId of table mtxrWifiRegistrationTable.
 // VLAN ID of the registered device.
-var MtxrWifiRegistrationVlanId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWifiRegistrationVLANID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWifiRegistrationAuthorized is the column mtxrWifiRegistrationAuthorized of table mtxrWifiRegistrationTable.
 // Indicates whether the device is authorized.
@@ -12659,7 +12659,7 @@ var MtxrWifiRegistrationAuthorized = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 
 // MtxrWifiRegistrationTableKey is the decoded INDEX of one mtxrWifiRegistrationTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
 type MtxrWifiRegistrationTableKey struct {
-	MtxrWifiRegistrationMacAddress string
+	MtxrWifiRegistrationMACAddress string
 	MtxrWifiRegistrationInterface  ObjectIndex
 }
 
@@ -12675,7 +12675,7 @@ func decodeMtxrWifiRegistrationTableKey(idx snmp.OID) (MtxrWifiRegistrationTable
 	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWifiRegistrationTableIndexShapes) {
 		return MtxrWifiRegistrationTableKey{}, false
 	}
-	return MtxrWifiRegistrationTableKey{MtxrWifiRegistrationMacAddress: string(parts[0].Octets), MtxrWifiRegistrationInterface: ObjectIndex(parts[1].Integer)}, true
+	return MtxrWifiRegistrationTableKey{MtxrWifiRegistrationMACAddress: string(parts[0].Octets), MtxrWifiRegistrationInterface: ObjectIndex(parts[1].Integer)}, true
 }
 
 // MtxrWifiRegistrationTableRow is one row of mtxrWifiRegistrationTable. Key is the decoded INDEX; a
@@ -12689,7 +12689,7 @@ func decodeMtxrWifiRegistrationTableKey(idx snmp.OID) (MtxrWifiRegistrationTable
 type MtxrWifiRegistrationTableRow struct {
 	Key                                 MtxrWifiRegistrationTableKey
 	keyValid                            bool
-	MtxrWifiRegistrationMacAddress      net.HardwareAddr
+	MtxrWifiRegistrationMACAddress      net.HardwareAddr
 	MtxrWifiRegistrationSsid            string
 	MtxrWifiRegistrationUptime          uint32
 	MtxrWifiRegistrationLastActivity    int32
@@ -12704,7 +12704,7 @@ type MtxrWifiRegistrationTableRow struct {
 	MtxrWifiRegistrationRxBytes         uint64
 	MtxrWifiRegistrationTxBitsPerSecond int32
 	MtxrWifiRegistrationRxBitsPerSecond int32
-	MtxrWifiRegistrationVlanId          int32
+	MtxrWifiRegistrationVLANID          int32
 	MtxrWifiRegistrationAuthorized      bool
 
 	// observed carries one bit per column of this table, in
@@ -12726,7 +12726,7 @@ func (r MtxrWifiRegistrationTableRow) KeyValid() bool {
 // to Walk, and any column of another table all read false.
 func (r MtxrWifiRegistrationTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case MtxrWifiRegistrationMacAddress.Key():
+	case MtxrWifiRegistrationMACAddress.Key():
 		return r.observed[0]&(1<<0) != 0
 	case MtxrWifiRegistrationSsid.Key():
 		return r.observed[0]&(1<<1) != 0
@@ -12756,7 +12756,7 @@ func (r MtxrWifiRegistrationTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<13) != 0
 	case MtxrWifiRegistrationRxBitsPerSecond.Key():
 		return r.observed[0]&(1<<14) != 0
-	case MtxrWifiRegistrationVlanId.Key():
+	case MtxrWifiRegistrationVLANID.Key():
 		return r.observed[0]&(1<<15) != 0
 	case MtxrWifiRegistrationAuthorized.Key():
 		return r.observed[0]&(1<<16) != 0
@@ -12788,16 +12788,16 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case MtxrWifiRegistrationMacAddress.Key():
+				case MtxrWifiRegistrationMACAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := MtxrWifiRegistrationMacAddress.Decode(vb)
+						dv, dErr := MtxrWifiRegistrationMACAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.MtxrWifiRegistrationMacAddress = dv
+							row.MtxrWifiRegistrationMACAddress = dv
 							row.observed[0] |= 1 << 0
 						}
 					}
@@ -13038,20 +13038,20 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 							}
 						}
 					}
-				case MtxrWifiRegistrationVlanId.Key():
+				case MtxrWifiRegistrationVLANID.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationVlanId = v
+						row.MtxrWifiRegistrationVLANID = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := MtxrWifiRegistrationVlanId.Decode(vb)
+							dv, dErr := MtxrWifiRegistrationVLANID.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.MtxrWifiRegistrationVlanId = dv
+								row.MtxrWifiRegistrationVLANID = dv
 								row.observed[0] |= 1 << 15
 							}
 						}
@@ -13126,7 +13126,7 @@ func (mtxrWifiRegistrationTableT) WalkWithOptions(ctx context.Context, sess snmp
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case MtxrWifiRegistrationMacAddress.Key(), MtxrWifiRegistrationSsid.Key(), MtxrWifiRegistrationUptime.Key(), MtxrWifiRegistrationLastActivity.Key(), MtxrWifiRegistrationSignal.Key(), MtxrWifiRegistrationAuthType.Key(), MtxrWifiRegistrationBand.Key(), MtxrWifiRegistrationTxRate.Key(), MtxrWifiRegistrationRxRate.Key(), MtxrWifiRegistrationTxPackets.Key(), MtxrWifiRegistrationRxPackets.Key(), MtxrWifiRegistrationTxBytes.Key(), MtxrWifiRegistrationRxBytes.Key(), MtxrWifiRegistrationTxBitsPerSecond.Key(), MtxrWifiRegistrationRxBitsPerSecond.Key(), MtxrWifiRegistrationVlanId.Key(), MtxrWifiRegistrationAuthorized.Key():
+		case MtxrWifiRegistrationMACAddress.Key(), MtxrWifiRegistrationSsid.Key(), MtxrWifiRegistrationUptime.Key(), MtxrWifiRegistrationLastActivity.Key(), MtxrWifiRegistrationSignal.Key(), MtxrWifiRegistrationAuthType.Key(), MtxrWifiRegistrationBand.Key(), MtxrWifiRegistrationTxRate.Key(), MtxrWifiRegistrationRxRate.Key(), MtxrWifiRegistrationTxPackets.Key(), MtxrWifiRegistrationRxPackets.Key(), MtxrWifiRegistrationTxBytes.Key(), MtxrWifiRegistrationRxBytes.Key(), MtxrWifiRegistrationTxBitsPerSecond.Key(), MtxrWifiRegistrationRxBitsPerSecond.Key(), MtxrWifiRegistrationVLANID.Key(), MtxrWifiRegistrationAuthorized.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWifiRegistrationTable.Walk: column %s", c.OID()))
@@ -13165,7 +13165,7 @@ var MtxrWifiInterfacesCurrentChannel = snmp.NewColumn[string](snmp.MustOID(1, 3,
 // MtxrWifiInterfacesKey is the decoded INDEX of one mtxrWifiInterfaces row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
 type MtxrWifiInterfacesKey struct {
-	MtxrWifiInterfacesId ObjectIndex
+	MtxrWifiInterfacesID ObjectIndex
 }
 
 var mtxrWifiInterfacesIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
@@ -13177,7 +13177,7 @@ func decodeMtxrWifiInterfacesKey(idx snmp.OID) (MtxrWifiInterfacesKey, bool) {
 	if !snmp.DecodeIndexInto(parts[:], idx, mtxrWifiInterfacesIndexShapes) {
 		return MtxrWifiInterfacesKey{}, false
 	}
-	return MtxrWifiInterfacesKey{MtxrWifiInterfacesId: ObjectIndex(parts[0].Integer)}, true
+	return MtxrWifiInterfacesKey{MtxrWifiInterfacesID: ObjectIndex(parts[0].Integer)}, true
 }
 
 // MtxrWifiInterfacesRow is one row of mtxrWifiInterfaces. Key is the decoded INDEX; a
@@ -13465,8 +13465,8 @@ var mIKROTIKMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4).WireKey():     MtxrDnStatTxStrength,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5).WireKey():     MtxrDnStatRxStrength,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6).WireKey():     MtxrDnConnected,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2).WireKey():     MtxrNeighborIpAddress,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3).WireKey():     MtxrNeighborMacAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2).WireKey():     MtxrNeighborIPAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3).WireKey():     MtxrNeighborMACAddress,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4).WireKey():     MtxrNeighborVersion,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5).WireKey():     MtxrNeighborPlatform,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6).WireKey():     MtxrNeighborIdentity,
@@ -13564,11 +13564,11 @@ var mIKROTIKMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25).WireKey():    MtxrLTEModemSignalRSRQD10,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3).WireKey():     MtxrLTEModemSignalRSRQ,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4).WireKey():     MtxrLTEModemSignalRSRP,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5).WireKey():     MtxrLTEModemCellId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5).WireKey():     MtxrLTEModemCellID,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 6).WireKey():     MtxrLTEModemAccessTechnology,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7).WireKey():     MtxrLTEModemSignalSINR,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8).WireKey():     MtxrLTEModemEnbId,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9).WireKey():     MtxrLTEModemSectorId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8).WireKey():     MtxrLTEModemEnbID,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9).WireKey():     MtxrLTEModemSectorID,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10).WireKey(): MtxrLTECarrierAggSINR,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11).WireKey(): MtxrLTECarrierAggSNR,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12).WireKey(): MtxrLTECarrierAggNR,
@@ -13576,7 +13576,7 @@ var mIKROTIKMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3).WireKey():  MtxrLTECarrierAggBand,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4).WireKey():  MtxrLTECarrierAggEARFCN,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5).WireKey():  MtxrLTECarrierAggBandwidth,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6).WireKey():  MtxrLTECarrierAggPhyCellId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6).WireKey():  MtxrLTECarrierAggPhyCellID,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7).WireKey():  MtxrLTECarrierAggRSSI,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8).WireKey():  MtxrLTECarrierAggRSRP,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9).WireKey():  MtxrLTECarrierAggRSRQ,
@@ -13652,10 +13652,10 @@ var mIKROTIKMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4).WireKey():     MtxrRemoteCapBoardName,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5).WireKey():     MtxrRemoteCapSerial,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6).WireKey():     MtxrRemoteCapVersion,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7).WireKey():     MtxrRemoteCapBaseMac,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7).WireKey():     MtxrRemoteCapBaseMAC,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8).WireKey():     MtxrRemoteCapCommonName,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9).WireKey():     MtxrRemoteCapState,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1).WireKey():     MtxrWifiRegistrationMacAddress,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1).WireKey():     MtxrWifiRegistrationMACAddress,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10).WireKey():    MtxrWifiRegistrationRxRate,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11).WireKey():    MtxrWifiRegistrationTxPackets,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12).WireKey():    MtxrWifiRegistrationRxPackets,
@@ -13663,7 +13663,7 @@ var mIKROTIKMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14).WireKey():    MtxrWifiRegistrationRxBytes,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15).WireKey():    MtxrWifiRegistrationTxBitsPerSecond,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16).WireKey():    MtxrWifiRegistrationRxBitsPerSecond,
-	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17).WireKey():    MtxrWifiRegistrationVlanId,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17).WireKey():    MtxrWifiRegistrationVLANID,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18).WireKey():    MtxrWifiRegistrationAuthorized,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3).WireKey():     MtxrWifiRegistrationSsid,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4).WireKey():     MtxrWifiRegistrationUptime,

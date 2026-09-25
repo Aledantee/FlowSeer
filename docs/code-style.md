@@ -119,7 +119,9 @@ a comment on every line is the most-cited sign of unreviewed machine output.
 ## Naming
 
 - **MixedCaps**, never underscores. Initialisms keep their case: `ID`, `OID`, `URL`,
-  `SNMP` (`sessionID`, not `sessionId`).
+  `SNMP` (`sessionID`, not `sessionId`). Generated bindings follow the same
+  MixedCaps and initialism rules, with the initialism table in
+  `src/protocol/internal/goname`.
 - **Package names** are short, lowercase, singular, and content-describing: `snmp`,
   not `snmputil` or `common`. No stutter — the caller reads `snmp.Session`, so the
   type is `Session`, not `SNMPSession`.

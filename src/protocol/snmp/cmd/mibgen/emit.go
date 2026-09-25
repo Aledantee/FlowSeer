@@ -152,6 +152,9 @@ func renderModule(
 	if err := checkSourceNames(mod); err != nil {
 		return nil, nil, err
 	}
+	if err := checkGoNameUniqueness(mod, set); err != nil {
+		return nil, nil, err
+	}
 
 	// OID pre-pass: every node's OID must satisfy snmp.NewOID before any
 	// emitter renders a snmp.MustOID call for it. MustOID enforces the
@@ -463,4 +466,73 @@ func checkSourceNames(mod *smi.Module) error {
 
 	return errs.Msgf("module %q: %d source name(s) outside the descriptor character set: %s",
 		mod.Name, len(bad), strings.Join(bad, ", "))
+}
+
+// checkGoNameUniqueness refuses a module in which two SMI names map to
+// the same Go identifier: "fooId" and "fooID" both camel-case to
+// FooID, and one generated package cannot carry two bindings under one
+// name. Generated output is a public API typed by hand, so a silently
+// disambiguated or hash-suffixed name is not an option; the refusal
+// names both SMI names so the clash is resolved deliberately, in the
+// MIB or in the config. It runs beside checkSourceNames over every
+// name the module contributes to its Go package — scalars, columns,
+// tables, and the types that emit a Go declaration (enumerations, key
+// types) — and iterates in declaration order so the report is
+// deterministic. A name the emitter never spells, like the SEQUENCE
+// type behind a table row, cannot collide in the package and is not
+// checked.
+func checkGoNameUniqueness(mod *smi.Module, set *smi.ModuleSet) error {
+	seen := make(map[string]string)
+	reported := make(map[string]bool)
+	var clashes []string
+	visit := func(name string) {
+		goName := camelCase(name)
+		first, ok := seen[goName]
+		if !ok {
+			seen[goName] = name
+			return
+		}
+		if first != name && !reported[goName] {
+			reported[goName] = true
+			clashes = append(clashes, fmt.Sprintf("%q and %q both map to %q", first, name, goName))
+		}
+	}
+
+	for _, n := range mod.Nodes {
+		switch n.Kind {
+		case smi.NodeScalar, smi.NodeTable:
+			visit(n.Name)
+		case smi.NodeColumn:
+			// A not-accessible index column travels in the index
+			// suffix; the emitter never spells its name in the
+			// generated package.
+			if n.Access != smi.AccessNotAccessible {
+				visit(n.Name)
+			}
+		}
+	}
+
+	keyed := keyedConventions(set)
+	for _, ty := range mod.Types {
+		if ty.Name == "" {
+			continue
+		}
+		switch {
+		case ty.Enumerated():
+			if _, wellKnown := wellKnownTC(ty.Name); !wellKnown {
+				visit(ty.Name)
+			}
+		default:
+			if _, ok := keyed[typeKey{Module: mod.Name, Name: ty.Name}]; ok {
+				visit(ty.Name)
+			}
+		}
+	}
+
+	if len(clashes) == 0 {
+		return nil
+	}
+
+	return errs.Msgf("module %q: SMI names %s",
+		mod.Name, strings.Join(clashes, "; "))
 }

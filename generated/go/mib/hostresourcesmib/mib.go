@@ -119,8 +119,8 @@ const (
 	HrDiskStorageMediaValueOpticalDiskWORM HrDiskStorageMediaValue = 6
 	// HrDiskStorageMediaValueOpticalDiskRW represents the SMI value opticalDiskRW.
 	HrDiskStorageMediaValueOpticalDiskRW HrDiskStorageMediaValue = 7
-	// HrDiskStorageMediaValueRamDisk represents the SMI value ramDisk.
-	HrDiskStorageMediaValueRamDisk HrDiskStorageMediaValue = 8
+	// HrDiskStorageMediaValueRAMDisk represents the SMI value ramDisk.
+	HrDiskStorageMediaValueRAMDisk HrDiskStorageMediaValue = 8
 )
 
 // String returns the SMI label, or HrDiskStorageMediaValue(n) for an unrecognized value n.
@@ -140,7 +140,7 @@ func (v HrDiskStorageMediaValue) String() string {
 		return "opticalDiskWORM"
 	case HrDiskStorageMediaValueOpticalDiskRW:
 		return "opticalDiskRW"
-	case HrDiskStorageMediaValueRamDisk:
+	case HrDiskStorageMediaValueRAMDisk:
 		return "ramDisk"
 	}
 

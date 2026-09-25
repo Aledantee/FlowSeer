@@ -8,6 +8,17 @@
 // per-package OID → AnyColumn dispatch map. Well-known SMIv2
 // textual conventions delegate to [snmp.Decode*] helpers.
 //
+// Generated identifiers derive from the SMI names they bind under the
+// shared goname rules (src/protocol/internal/goname): words split at
+// separators and camelCase boundaries, and initialisms take their
+// canonical spelling, so lldpRemChassisId binds as LLDPRemChassisID
+// rather than LldpRemChassisId. The package-private companions of an
+// exported name go through [goname.Unexported], which keeps a leading
+// initialism whole (LLDPPortConfigTable becomes lldpPortConfigTableT).
+// Two SMI names in one module that map to the same Go name are a
+// generation error naming both SMI names; mibgen fails rather than
+// rename one of the pair.
+//
 // Two generated shapes carry more than the MIB's field list:
 //
 //   - Each row type has an Observed(snmp.AnyColumn) bool method. A

@@ -188,8 +188,8 @@ const (
 	IANAifTypeIsdnu IANAifType = 76
 	// IANAifTypeLapd represents the SMI value lapd.
 	IANAifTypeLapd IANAifType = 77
-	// IANAifTypeIpSwitch represents the SMI value ipSwitch.
-	IANAifTypeIpSwitch IANAifType = 78
+	// IANAifTypeIPSwitch represents the SMI value ipSwitch.
+	IANAifTypeIPSwitch IANAifType = 78
 	// IANAifTypeRsrb represents the SMI value rsrb.
 	IANAifTypeRsrb IANAifType = 79
 	// IANAifTypeAtmLogical represents the SMI value atmLogical.
@@ -240,8 +240,8 @@ const (
 	IANAifTypeVoiceFXS IANAifType = 102
 	// IANAifTypeVoiceEncap represents the SMI value voiceEncap.
 	IANAifTypeVoiceEncap IANAifType = 103
-	// IANAifTypeVoiceOverIp represents the SMI value voiceOverIp.
-	IANAifTypeVoiceOverIp IANAifType = 104
+	// IANAifTypeVoiceOverIP represents the SMI value voiceOverIp.
+	IANAifTypeVoiceOverIP IANAifType = 104
 	// IANAifTypeAtmDxi represents the SMI value atmDxi.
 	IANAifTypeAtmDxi IANAifType = 105
 	// IANAifTypeAtmFuni represents the SMI value atmFuni.
@@ -250,18 +250,18 @@ const (
 	IANAifTypeAtmIma IANAifType = 107
 	// IANAifTypePppMultilinkBundle represents the SMI value pppMultilinkBundle.
 	IANAifTypePppMultilinkBundle IANAifType = 108
-	// IANAifTypeIpOverCdlc represents the SMI value ipOverCdlc.
-	IANAifTypeIpOverCdlc IANAifType = 109
-	// IANAifTypeIpOverClaw represents the SMI value ipOverClaw.
-	IANAifTypeIpOverClaw IANAifType = 110
+	// IANAifTypeIPOverCdlc represents the SMI value ipOverCdlc.
+	IANAifTypeIPOverCdlc IANAifType = 109
+	// IANAifTypeIPOverClaw represents the SMI value ipOverClaw.
+	IANAifTypeIPOverClaw IANAifType = 110
 	// IANAifTypeStackToStack represents the SMI value stackToStack.
 	IANAifTypeStackToStack IANAifType = 111
-	// IANAifTypeVirtualIpAddress represents the SMI value virtualIpAddress.
-	IANAifTypeVirtualIpAddress IANAifType = 112
+	// IANAifTypeVirtualIPAddress represents the SMI value virtualIpAddress.
+	IANAifTypeVirtualIPAddress IANAifType = 112
 	// IANAifTypeMpc represents the SMI value mpc.
 	IANAifTypeMpc IANAifType = 113
-	// IANAifTypeIpOverAtm represents the SMI value ipOverAtm.
-	IANAifTypeIpOverAtm IANAifType = 114
+	// IANAifTypeIPOverAtm represents the SMI value ipOverAtm.
+	IANAifTypeIPOverAtm IANAifType = 114
 	// IANAifTypeIso88025Fiber represents the SMI value iso88025Fiber.
 	IANAifTypeIso88025Fiber IANAifType = 115
 	// IANAifTypeTdlc represents the SMI value tdlc.
@@ -284,8 +284,8 @@ const (
 	IANAifTypeInterleave IANAifType = 124
 	// IANAifTypeFast represents the SMI value fast.
 	IANAifTypeFast IANAifType = 125
-	// IANAifTypeIp represents the SMI value ip.
-	IANAifTypeIp IANAifType = 126
+	// IANAifTypeIP represents the SMI value ip.
+	IANAifTypeIP IANAifType = 126
 	// IANAifTypeDocsCableMaclayer represents the SMI value docsCableMaclayer.
 	IANAifTypeDocsCableMaclayer IANAifType = 127
 	// IANAifTypeDocsCableDownstream represents the SMI value docsCableDownstream.
@@ -310,22 +310,22 @@ const (
 	IANAifTypeL3ipxvlan IANAifType = 137
 	// IANAifTypeDigitalPowerline represents the SMI value digitalPowerline.
 	IANAifTypeDigitalPowerline IANAifType = 138
-	// IANAifTypeMediaMailOverIp represents the SMI value mediaMailOverIp.
-	IANAifTypeMediaMailOverIp IANAifType = 139
+	// IANAifTypeMediaMailOverIP represents the SMI value mediaMailOverIp.
+	IANAifTypeMediaMailOverIP IANAifType = 139
 	// IANAifTypeDtm represents the SMI value dtm.
 	IANAifTypeDtm IANAifType = 140
 	// IANAifTypeDcn represents the SMI value dcn.
 	IANAifTypeDcn IANAifType = 141
-	// IANAifTypeIpForward represents the SMI value ipForward.
-	IANAifTypeIpForward IANAifType = 142
+	// IANAifTypeIPForward represents the SMI value ipForward.
+	IANAifTypeIPForward IANAifType = 142
 	// IANAifTypeMsdsl represents the SMI value msdsl.
 	IANAifTypeMsdsl IANAifType = 143
 	// IANAifTypeIeee1394 represents the SMI value ieee1394.
 	IANAifTypeIeee1394 IANAifType = 144
 	// IANAifTypeIfGsn represents the SMI value if-gsn.
 	IANAifTypeIfGsn IANAifType = 145
-	// IANAifTypeDvbRccMacLayer represents the SMI value dvbRccMacLayer.
-	IANAifTypeDvbRccMacLayer IANAifType = 146
+	// IANAifTypeDvbRccMACLayer represents the SMI value dvbRccMacLayer.
+	IANAifTypeDvbRccMACLayer IANAifType = 146
 	// IANAifTypeDvbRccDownstream represents the SMI value dvbRccDownstream.
 	IANAifTypeDvbRccDownstream IANAifType = 147
 	// IANAifTypeDvbRccUpstream represents the SMI value dvbRccUpstream.
@@ -494,10 +494,10 @@ const (
 	IANAifTypeDocsCableMCmtsDownstream IANAifType = 229
 	// IANAifTypeAdsl2 represents the SMI value adsl2.
 	IANAifTypeAdsl2 IANAifType = 230
-	// IANAifTypeMacSecControlledIF represents the SMI value macSecControlledIF.
-	IANAifTypeMacSecControlledIF IANAifType = 231
-	// IANAifTypeMacSecUncontrolledIF represents the SMI value macSecUncontrolledIF.
-	IANAifTypeMacSecUncontrolledIF IANAifType = 232
+	// IANAifTypeMACSecControlledIF represents the SMI value macSecControlledIF.
+	IANAifTypeMACSecControlledIF IANAifType = 231
+	// IANAifTypeMACSecUncontrolledIF represents the SMI value macSecUncontrolledIF.
+	IANAifTypeMACSecUncontrolledIF IANAifType = 232
 	// IANAifTypeAviciOpticalEther represents the SMI value aviciOpticalEther.
 	IANAifTypeAviciOpticalEther IANAifType = 233
 	// IANAifTypeAtmbond represents the SMI value atmbond.
@@ -510,8 +510,8 @@ const (
 	IANAifTypeIeee80216WMAN IANAifType = 237
 	// IANAifTypeAdsl2plus represents the SMI value adsl2plus.
 	IANAifTypeAdsl2plus IANAifType = 238
-	// IANAifTypeDvbRcsMacLayer represents the SMI value dvbRcsMacLayer.
-	IANAifTypeDvbRcsMacLayer IANAifType = 239
+	// IANAifTypeDvbRcsMACLayer represents the SMI value dvbRcsMacLayer.
+	IANAifTypeDvbRcsMACLayer IANAifType = 239
 	// IANAifTypeDvbTdm represents the SMI value dvbTdm.
 	IANAifTypeDvbTdm IANAifType = 240
 	// IANAifTypeDvbRcsTdma represents the SMI value dvbRcsTdma.
@@ -783,7 +783,7 @@ func (v IANAifType) String() string {
 		return "isdnu"
 	case IANAifTypeLapd:
 		return "lapd"
-	case IANAifTypeIpSwitch:
+	case IANAifTypeIPSwitch:
 		return "ipSwitch"
 	case IANAifTypeRsrb:
 		return "rsrb"
@@ -835,7 +835,7 @@ func (v IANAifType) String() string {
 		return "voiceFXS"
 	case IANAifTypeVoiceEncap:
 		return "voiceEncap"
-	case IANAifTypeVoiceOverIp:
+	case IANAifTypeVoiceOverIP:
 		return "voiceOverIp"
 	case IANAifTypeAtmDxi:
 		return "atmDxi"
@@ -845,17 +845,17 @@ func (v IANAifType) String() string {
 		return "atmIma"
 	case IANAifTypePppMultilinkBundle:
 		return "pppMultilinkBundle"
-	case IANAifTypeIpOverCdlc:
+	case IANAifTypeIPOverCdlc:
 		return "ipOverCdlc"
-	case IANAifTypeIpOverClaw:
+	case IANAifTypeIPOverClaw:
 		return "ipOverClaw"
 	case IANAifTypeStackToStack:
 		return "stackToStack"
-	case IANAifTypeVirtualIpAddress:
+	case IANAifTypeVirtualIPAddress:
 		return "virtualIpAddress"
 	case IANAifTypeMpc:
 		return "mpc"
-	case IANAifTypeIpOverAtm:
+	case IANAifTypeIPOverAtm:
 		return "ipOverAtm"
 	case IANAifTypeIso88025Fiber:
 		return "iso88025Fiber"
@@ -879,7 +879,7 @@ func (v IANAifType) String() string {
 		return "interleave"
 	case IANAifTypeFast:
 		return "fast"
-	case IANAifTypeIp:
+	case IANAifTypeIP:
 		return "ip"
 	case IANAifTypeDocsCableMaclayer:
 		return "docsCableMaclayer"
@@ -905,13 +905,13 @@ func (v IANAifType) String() string {
 		return "l3ipxvlan"
 	case IANAifTypeDigitalPowerline:
 		return "digitalPowerline"
-	case IANAifTypeMediaMailOverIp:
+	case IANAifTypeMediaMailOverIP:
 		return "mediaMailOverIp"
 	case IANAifTypeDtm:
 		return "dtm"
 	case IANAifTypeDcn:
 		return "dcn"
-	case IANAifTypeIpForward:
+	case IANAifTypeIPForward:
 		return "ipForward"
 	case IANAifTypeMsdsl:
 		return "msdsl"
@@ -919,7 +919,7 @@ func (v IANAifType) String() string {
 		return "ieee1394"
 	case IANAifTypeIfGsn:
 		return "if-gsn"
-	case IANAifTypeDvbRccMacLayer:
+	case IANAifTypeDvbRccMACLayer:
 		return "dvbRccMacLayer"
 	case IANAifTypeDvbRccDownstream:
 		return "dvbRccDownstream"
@@ -1089,9 +1089,9 @@ func (v IANAifType) String() string {
 		return "docsCableMCmtsDownstream"
 	case IANAifTypeAdsl2:
 		return "adsl2"
-	case IANAifTypeMacSecControlledIF:
+	case IANAifTypeMACSecControlledIF:
 		return "macSecControlledIF"
-	case IANAifTypeMacSecUncontrolledIF:
+	case IANAifTypeMACSecUncontrolledIF:
 		return "macSecUncontrolledIF"
 	case IANAifTypeAviciOpticalEther:
 		return "aviciOpticalEther"
@@ -1105,7 +1105,7 @@ func (v IANAifType) String() string {
 		return "ieee80216WMAN"
 	case IANAifTypeAdsl2plus:
 		return "adsl2plus"
-	case IANAifTypeDvbRcsMacLayer:
+	case IANAifTypeDvbRcsMACLayer:
 		return "dvbRcsMacLayer"
 	case IANAifTypeDvbTdm:
 		return "dvbTdm"
@@ -1265,8 +1265,8 @@ const (
 	IANAtunnelTypePptp IANAtunnelType = 6
 	// IANAtunnelTypeL2f represents the SMI value l2f.
 	IANAtunnelTypeL2f IANAtunnelType = 7
-	// IANAtunnelTypeUdp represents the SMI value udp.
-	IANAtunnelTypeUdp IANAtunnelType = 8
+	// IANAtunnelTypeUDP represents the SMI value udp.
+	IANAtunnelTypeUDP IANAtunnelType = 8
 	// IANAtunnelTypeAtmp represents the SMI value atmp.
 	IANAtunnelTypeAtmp IANAtunnelType = 9
 	// IANAtunnelTypeMsdp represents the SMI value msdp.
@@ -1279,8 +1279,8 @@ const (
 	IANAtunnelTypeIsatap IANAtunnelType = 13
 	// IANAtunnelTypeTeredo represents the SMI value teredo.
 	IANAtunnelTypeTeredo IANAtunnelType = 14
-	// IANAtunnelTypeIpHttps represents the SMI value ipHttps.
-	IANAtunnelTypeIpHttps IANAtunnelType = 15
+	// IANAtunnelTypeIPHTTPS represents the SMI value ipHttps.
+	IANAtunnelTypeIPHTTPS IANAtunnelType = 15
 	// IANAtunnelTypeSoftwireMesh represents the SMI value softwireMesh.
 	IANAtunnelTypeSoftwireMesh IANAtunnelType = 16
 	// IANAtunnelTypeDsLite represents the SMI value dsLite.
@@ -1306,7 +1306,7 @@ func (v IANAtunnelType) String() string {
 		return "pptp"
 	case IANAtunnelTypeL2f:
 		return "l2f"
-	case IANAtunnelTypeUdp:
+	case IANAtunnelTypeUDP:
 		return "udp"
 	case IANAtunnelTypeAtmp:
 		return "atmp"
@@ -1320,7 +1320,7 @@ func (v IANAtunnelType) String() string {
 		return "isatap"
 	case IANAtunnelTypeTeredo:
 		return "teredo"
-	case IANAtunnelTypeIpHttps:
+	case IANAtunnelTypeIPHTTPS:
 		return "ipHttps"
 	case IANAtunnelTypeSoftwireMesh:
 		return "softwireMesh"

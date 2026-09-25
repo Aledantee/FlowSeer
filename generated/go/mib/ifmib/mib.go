@@ -363,12 +363,12 @@ var IfType = snmp.NewColumn[ianaiftype.IANAifType](snmp.MustOID(1, 3, 6, 1, 2, 1
 	return ianaiftype.IANAifType(v), nil
 })
 
-// IfMtu is the column ifMtu of table ifTable.
+// IfMTU is the column ifMtu of table ifTable.
 // The size of the largest packet which can be sent/received on the
 // interface, specified in octets. For interfaces that are used for
 // transmitting network datagrams, this is the size of the largest network
 // datagram that can be sent on the interface.
-var IfMtu = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var IfMTU = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // IfSpeed is the column ifSpeed of table ifTable.
 // An estimate of the interface's current bandwidth in bits per second. For
@@ -589,7 +589,7 @@ type IfTableRow struct {
 	IfIndex           InterfaceIndex
 	IfDescr           string
 	IfType            ianaiftype.IANAifType
-	IfMtu             int32
+	IfMTU             int32
 	IfSpeed           uint32
 	IfPhysAddress     []byte
 	IfAdminStatus     IfAdminStatusValue
@@ -634,7 +634,7 @@ func (r IfTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<1) != 0
 	case IfType.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IfMtu.Key():
+	case IfMTU.Key():
 		return r.observed[0]&(1<<3) != 0
 	case IfSpeed.Key():
 		return r.observed[0]&(1<<4) != 0
@@ -749,20 +749,20 @@ func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 							}
 						}
 					}
-				case IfMtu.Key():
+				case IfMTU.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMtu = v
+						row.IfMTU = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IfMtu.Decode(vb)
+							dv, dErr := IfMTU.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IfMtu = dv
+								row.IfMTU = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
@@ -1139,7 +1139,7 @@ func (ifTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options 
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IfIndex.Key(), IfDescr.Key(), IfType.Key(), IfMtu.Key(), IfSpeed.Key(), IfPhysAddress.Key(), IfAdminStatus.Key(), IfOperStatus.Key(), IfLastChange.Key(), IfInOctets.Key(), IfInUcastPkts.Key(), IfInNUcastPkts.Key(), IfInDiscards.Key(), IfInErrors.Key(), IfInUnknownProtos.Key(), IfOutOctets.Key(), IfOutUcastPkts.Key(), IfOutNUcastPkts.Key(), IfOutDiscards.Key(), IfOutErrors.Key(), IfOutQLen.Key(), IfSpecific.Key():
+		case IfIndex.Key(), IfDescr.Key(), IfType.Key(), IfMTU.Key(), IfSpeed.Key(), IfPhysAddress.Key(), IfAdminStatus.Key(), IfOperStatus.Key(), IfLastChange.Key(), IfInOctets.Key(), IfInUcastPkts.Key(), IfInNUcastPkts.Key(), IfInDiscards.Key(), IfInErrors.Key(), IfInUnknownProtos.Key(), IfOutOctets.Key(), IfOutUcastPkts.Key(), IfOutNUcastPkts.Key(), IfOutDiscards.Key(), IfOutErrors.Key(), IfOutQLen.Key(), IfSpecific.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ifTable.Walk: column %s", c.OID()))
@@ -1199,11 +1199,11 @@ func decodeIfTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfTableRow, error) {
 			row.IfType = dv
 			row.observed[0] |= 1 << 2
 		case 4:
-			dv, derr := IfMtu.Decode(vb)
+			dv, derr := IfMTU.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IfMtu = dv
+			row.IfMTU = dv
 			row.observed[0] |= 1 << 3
 		case 5:
 			dv, derr := IfSpeed.Decode(vb)
@@ -1342,7 +1342,7 @@ func decodeIfTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfTableRow, error) {
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIfTableRow(a IfTableRow, b IfTableRow) bool {
-	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IfIndex == b.IfIndex && a.IfDescr == b.IfDescr && a.IfType == b.IfType && a.IfMtu == b.IfMtu && a.IfSpeed == b.IfSpeed && bytes.Equal(a.IfPhysAddress, b.IfPhysAddress) && a.IfAdminStatus == b.IfAdminStatus && a.IfOperStatus == b.IfOperStatus && a.IfLastChange == b.IfLastChange && a.IfInOctets == b.IfInOctets && a.IfInUcastPkts == b.IfInUcastPkts && a.IfInNUcastPkts == b.IfInNUcastPkts && a.IfInDiscards == b.IfInDiscards && a.IfInErrors == b.IfInErrors && a.IfInUnknownProtos == b.IfInUnknownProtos && a.IfOutOctets == b.IfOutOctets && a.IfOutUcastPkts == b.IfOutUcastPkts && a.IfOutNUcastPkts == b.IfOutNUcastPkts && a.IfOutDiscards == b.IfOutDiscards && a.IfOutErrors == b.IfOutErrors && a.IfOutQLen == b.IfOutQLen && a.IfSpecific.Equal(b.IfSpecific)
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IfIndex == b.IfIndex && a.IfDescr == b.IfDescr && a.IfType == b.IfType && a.IfMTU == b.IfMTU && a.IfSpeed == b.IfSpeed && bytes.Equal(a.IfPhysAddress, b.IfPhysAddress) && a.IfAdminStatus == b.IfAdminStatus && a.IfOperStatus == b.IfOperStatus && a.IfLastChange == b.IfLastChange && a.IfInOctets == b.IfInOctets && a.IfInUcastPkts == b.IfInUcastPkts && a.IfInNUcastPkts == b.IfInNUcastPkts && a.IfInDiscards == b.IfInDiscards && a.IfInErrors == b.IfInErrors && a.IfInUnknownProtos == b.IfInUnknownProtos && a.IfOutOctets == b.IfOutOctets && a.IfOutUcastPkts == b.IfOutUcastPkts && a.IfOutNUcastPkts == b.IfOutNUcastPkts && a.IfOutDiscards == b.IfOutDiscards && a.IfOutErrors == b.IfOutErrors && a.IfOutQLen == b.IfOutQLen && a.IfSpecific.Equal(b.IfSpecific)
 }
 
 // mergeIfTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1383,9 +1383,9 @@ func mergeIfTableRow(dst *IfTableRow, vbs []snmp.VarBind) {
 				dst.observed[0] |= 1 << 2
 			}
 		case 4:
-			dv, derr := IfMtu.Decode(vb)
+			dv, derr := IfMTU.Decode(vb)
 			if derr == nil {
-				dst.IfMtu = dv
+				dst.IfMTU = dv
 				dst.observed[0] |= 1 << 3
 			}
 		case 5:
@@ -2615,11 +2615,11 @@ func (ifStackTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.A
 	return &IfStackTableWatcher{w: w}
 }
 
-// IfTestId is the column ifTestId of table ifTestTable.
+// IfTestID is the column ifTestId of table ifTestTable.
 // This object identifies the current invocation of the interface's test.
 //
 // Deprecated: ifTestId is STATUS deprecated in IF-MIB.
-var IfTestId = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 1), snmp.KindUinteger32, snmp.DecodeUint32)
+var IfTestID = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 1), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // IfTestStatus is the column ifTestStatus of table ifTestTable.
 // This object indicates whether or not some manager currently has the
@@ -2714,7 +2714,7 @@ func decodeIfTestTableKey(idx snmp.OID) (IfTableKey, bool) {
 type IfTestTableRow struct {
 	Key          IfTableKey
 	keyValid     bool
-	IfTestId     uint32
+	IfTestID     uint32
 	IfTestStatus IfTestStatusValue
 	IfTestType   snmp.OID
 	IfTestResult IfTestResultValue
@@ -2740,7 +2740,7 @@ func (r IfTestTableRow) KeyValid() bool {
 // to Walk, and any column of another table all read false.
 func (r IfTestTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IfTestId.Key():
+	case IfTestID.Key():
 		return r.observed[0]&(1<<0) != 0
 	case IfTestStatus.Key():
 		return r.observed[0]&(1<<1) != 0
@@ -2780,20 +2780,20 @@ func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IfTestId.Key():
+				case IfTestID.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IfTestId = v
+						row.IfTestID = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IfTestId.Decode(vb)
+							dv, dErr := IfTestID.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IfTestId = dv
+								row.IfTestID = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
@@ -2932,7 +2932,7 @@ func (ifTestTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opti
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IfTestId.Key(), IfTestStatus.Key(), IfTestType.Key(), IfTestResult.Key(), IfTestCode.Key(), IfTestOwner.Key():
+		case IfTestID.Key(), IfTestStatus.Key(), IfTestType.Key(), IfTestResult.Key(), IfTestCode.Key(), IfTestOwner.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ifTestTable.Walk: column %s", c.OID()))
@@ -3183,7 +3183,7 @@ var iFMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 21).WireKey():     IfOutQLen,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 22).WireKey():     IfSpecific,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 3).WireKey():      IfType,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 4).WireKey():      IfMtu,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 4).WireKey():      IfMTU,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 5).WireKey():      IfSpeed,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 6).WireKey():      IfPhysAddress,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 7).WireKey():      IfAdminStatus,
@@ -3209,7 +3209,7 @@ var iFMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 8).WireKey():  IfHCInMulticastPkts,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 9).WireKey():  IfHCInBroadcastPkts,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2, 1, 3).WireKey():  IfStackStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 1).WireKey():  IfTestId,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 1).WireKey():  IfTestID,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 2).WireKey():  IfTestStatus,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 3).WireKey():  IfTestType,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 4).WireKey():  IfTestResult,

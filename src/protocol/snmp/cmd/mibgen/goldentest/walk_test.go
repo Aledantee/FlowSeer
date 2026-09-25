@@ -172,7 +172,7 @@ func TestWalk_AddressKey(t *testing.T) {
 	if err := w.Err(); err != nil {
 		t.Fatalf("walk: %v", err)
 	}
-	if got := byAddr[fakemib.FakeAddrTableKey{FakeAddrIp: netip.MustParseAddr("10.0.0.1")}]; got != "lan" {
+	if got := byAddr[fakemib.FakeAddrTableKey{FakeAddrIP: netip.MustParseAddr("10.0.0.1")}]; got != "lan" {
 		t.Errorf("label by address = %q, want lan; rows %v", got, byAddr)
 	}
 }
@@ -181,7 +181,7 @@ func TestWalk_AddressKey(t *testing.T) {
 // string key shapes are comparable, and that the augmenting table's row
 // is keyed by the augmented table's struct.
 func TestKeyStructsAreMapKeys(t *testing.T) {
-	byOID := map[fakemib.FakeOidTableKey]int{{FakeOidPath: "1.3.6"}: 1}
+	byOID := map[fakemib.FakeOIDTableKey]int{{FakeOIDPath: "1.3.6"}: 1}
 	byName := map[fakemib.FakeImpliedTableKey]int{{FakeImpliedName: "eth0"}: 1}
 	byAug := map[fakemib.FakeTableKey]fakemib.FakeAugTableRow{}
 	byAug[fakemib.FakeAugTableRow{}.Key] = fakemib.FakeAugTableRow{}
