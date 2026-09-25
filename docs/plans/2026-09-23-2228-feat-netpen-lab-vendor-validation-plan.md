@@ -7,6 +7,7 @@ artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
 execution: mixed
+compound: docs/solutions/conventions/a-package-behind-a-build-tag-fails-untagged-go-vet.md
 amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 ---
 
