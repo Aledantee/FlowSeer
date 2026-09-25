@@ -672,9 +672,9 @@ func IPInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // 0.0.0.0) and addresses of unsupported Classes (e.g., Class E). For
 // entities which are not IPv4 routers, and therefore do not forward
 // datagrams, this counter includes datagrams discarded because the
-// destination address was not a local address. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by ipSystemStatsInAddrErrors.
+// destination address was not a local address. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by ipSystemStatsInAddrErrors.
 //
 // Deprecated: ipInAddrErrors is STATUS deprecated in IP-MIB.
 func IPInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -840,9 +840,9 @@ func IPOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // to transmit them to their destination. Note that this counter includes
 // any packets counted in ipForwDatagrams which meet this `no-route'
 // criterion. Note that this includes any datagrams which a host cannot
-// route because all of its default routers are down. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by ipSystemStatsOutNoRoutes.
+// route because all of its default routers are down. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by ipSystemStatsOutNoRoutes.
 //
 // Deprecated: ipOutNoRoutes is STATUS deprecated in IP-MIB.
 func IPOutNoRoutesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -926,9 +926,9 @@ func IPReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // whatever reason: timed out, errors, etc). Note that this is not
 // necessarily a count of discarded IPv4 fragments since some algorithms
 // (notably the algorithm in RFC 815) can lose track of the number of
-// fragments by combining them as they are received. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by ipSystemStatsReasmFails.
+// fragments by combining them as they are received. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by ipSystemStatsReasmFails.
 //
 // Deprecated: ipReasmFails is STATUS deprecated in IP-MIB.
 func IPReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1282,9 +1282,9 @@ func IcmpInDestUnreachsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 // IcmpInTimeExcdsGet reads the SMIv2 scalar icmpInTimeExcds.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Time Exceeded messages received. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Time Exceeded messages received. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpInTimeExcds is STATUS deprecated in IP-MIB.
 func IcmpInTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1324,9 +1324,9 @@ func IcmpInParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 // IcmpInSrcQuenchsGet reads the SMIv2 scalar icmpInSrcQuenchs.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Source Quench messages received. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Source Quench messages received. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpInSrcQuenchs is STATUS deprecated in IP-MIB.
 func IcmpInSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1345,9 +1345,9 @@ func IcmpInSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 // IcmpInRedirectsGet reads the SMIv2 scalar icmpInRedirects.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Redirect messages received. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Redirect messages received. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpInRedirects is STATUS deprecated in IP-MIB.
 func IcmpInRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1387,9 +1387,9 @@ func IcmpInEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // IcmpInEchoRepsGet reads the SMIv2 scalar icmpInEchoReps.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Echo Reply messages received. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Echo Reply messages received. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpInEchoReps is STATUS deprecated in IP-MIB.
 func IcmpInEchoRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1561,9 +1561,9 @@ func IcmpOutDestUnreachsGet(ctx context.Context, sess snmp.Session) (uint32, err
 // IcmpOutTimeExcdsGet reads the SMIv2 scalar icmpOutTimeExcds.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Time Exceeded messages sent. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Time Exceeded messages sent. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutTimeExcds is STATUS deprecated in IP-MIB.
 func IcmpOutTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1582,9 +1582,9 @@ func IcmpOutTimeExcdsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 // IcmpOutParmProbsGet reads the SMIv2 scalar icmpOutParmProbs.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Parameter Problem messages sent. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Parameter Problem messages sent. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutParmProbs is STATUS deprecated in IP-MIB.
 func IcmpOutParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1603,9 +1603,9 @@ func IcmpOutParmProbsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 // IcmpOutSrcQuenchsGet reads the SMIv2 scalar icmpOutSrcQuenchs.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Source Quench messages sent. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Source Quench messages sent. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutSrcQuenchs is STATUS deprecated in IP-MIB.
 func IcmpOutSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1625,9 +1625,9 @@ func IcmpOutSrcQuenchsGet(ctx context.Context, sess snmp.Session) (uint32, error
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of ICMP Redirect messages sent. For a host, this object will
-// always be zero, since hosts do not send redirects. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// always be zero, since hosts do not send redirects. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutRedirects is STATUS deprecated in IP-MIB.
 func IcmpOutRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1646,9 +1646,9 @@ func IcmpOutRedirectsGet(ctx context.Context, sess snmp.Session) (uint32, error)
 // IcmpOutEchosGet reads the SMIv2 scalar icmpOutEchos.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Echo (request) messages sent. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Echo (request) messages sent. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutEchos is STATUS deprecated in IP-MIB.
 func IcmpOutEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1667,9 +1667,9 @@ func IcmpOutEchosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // IcmpOutEchoRepsGet reads the SMIv2 scalar icmpOutEchoReps.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Echo Reply messages sent. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Echo Reply messages sent. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutEchoReps is STATUS deprecated in IP-MIB.
 func IcmpOutEchoRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
@@ -1709,9 +1709,9 @@ func IcmpOutTimestampsGet(ctx context.Context, sess snmp.Session) (uint32, error
 // IcmpOutTimestampRepsGet reads the SMIv2 scalar icmpOutTimestampReps.
 // It returns the session or decode error, or an error if the response is empty.
 //
-// The number of ICMP Timestamp Reply messages sent. This object has been
-// deprecated, as a new IP version-neutral table has been added. It is
-// loosely replaced by a column in the icmpMsgStatsTable.
+// The number of ICMP Timestamp Reply messages sent. This object has been deprecated,
+// as a new IP version-neutral table has been added. It is loosely replaced
+// by a column in the icmpMsgStatsTable.
 //
 // Deprecated: icmpOutTimestampReps is STATUS deprecated in IP-MIB.
 func IcmpOutTimestampRepsGet(ctx context.Context, sess snmp.Session) (uint32, error) {

@@ -39,7 +39,7 @@ func sampleGenServer() fixturemain.ServersServer {
 
 func TestGeneratedXMLRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchema, in)
+	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX4d76e3, in)
 	if err != nil {
 		t.Fatalf("MarshalXMLStruct: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchema, data, &out); err != nil {
+	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX4d76e3, data, &out); err != nil {
 		t.Fatalf("UnmarshalXMLStruct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -66,7 +66,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 
 func TestGeneratedJSONRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchema, in)
+	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX4d76e3, in)
 	if err != nil {
 		t.Fatalf("MarshalJSON7951Struct: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchema, data, &out); err != nil {
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX4d76e3, data, &out); err != nil {
 		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -190,7 +190,7 @@ func TestGeneratedDescriptorPaths(t *testing.T) {
 func TestGeneratedVisitLeaves(t *testing.T) {
 	v := sampleGenServer()
 	var leaves []string
-	err := yang.VisitStructLeaves(fixturemain.ServersServerSchema, v, func(p yang.Path, val yang.Value) bool {
+	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX4d76e3, v, func(p yang.Path, val yang.Value) bool {
 		canon, cerr := val.Canonical()
 		if cerr != nil {
 			t.Fatal(cerr)

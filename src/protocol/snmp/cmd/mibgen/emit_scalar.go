@@ -80,6 +80,11 @@ func emitDeprecationParagraph(f *jen.File, n *smi.Node) {
 // fragments. The input is whitespace-collapsed first (SMI descriptions preserve
 // newlines and large indents from the source MIB which would otherwise
 // produce noisy comments).
+//
+// A word starting with "deprecat" in any case is never moved to the start
+// of a line; it stays on the line before, past the target width. gocritic's
+// deprecatedComment check reads a comment line opening with that word as a
+// malformed deprecation notice, and the copied prose must not be reworded.
 func splitDoc(s string) []string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -96,7 +101,7 @@ func splitDoc(s string) []string {
 			cur.WriteString(w)
 			continue
 		}
-		if cur.Len()+1+len(w) > target {
+		if cur.Len()+1+len(w) > target && !strings.HasPrefix(strings.ToLower(w), "deprecat") {
 			lines = append(lines, cur.String())
 			cur.Reset()
 			cur.WriteString(w)

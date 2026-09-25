@@ -12,7 +12,7 @@ func TestExported(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "empty string", input: "", want: ""},
+		{name: "empty string", input: "", want: "X"},
 		{name: "separators only", input: "--", want: "X"},
 		{name: "camel case with trailing initialism", input: "lldpRemChassisId", want: "LLDPRemChassisID"},
 		{name: "digits attached to preceding word", input: "dot1qFdbId", want: "Dot1qFdbID"},

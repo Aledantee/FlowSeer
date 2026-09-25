@@ -398,11 +398,10 @@ var Dot3StatsInternalMACReceiveErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3
 // chip which actually gathers the transmit and receive statistics and
 // error indications. This would allow a manager station to correlate the
 // statistics and the chip generating them, giving it the ability to take
-// into account any known anomalies in the chip. This object has been
-// deprecated. Implementation feedback indicates that it is of limited use
-// for debugging network problems in the field, and the administrative
-// overhead involved in maintaining a registry of chipset OIDs is not
-// justified.
+// into account any known anomalies in the chip. This object has been deprecated.
+// Implementation feedback indicates that it is of limited use for
+// debugging network problems in the field, and the administrative overhead
+// involved in maintaining a registry of chipset OIDs is not justified.
 //
 // Deprecated: dot3StatsEtherChipSet is STATUS deprecated in EtherLike-MIB.
 var Dot3StatsEtherChipSet = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 17), snmp.KindObjectID, snmp.DecodeOID)

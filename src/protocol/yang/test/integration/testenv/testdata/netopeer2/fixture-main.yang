@@ -70,6 +70,12 @@ module fixture-main {
         }
       }
     }
+    container server-schema {
+      description "Sibling of server whose joined name equals the server schema var.";
+      leaf note {
+        type string;
+      }
+    }
     container schema {
       description "Child container whose joined name collides with the servers companion schema var.";
       leaf version {

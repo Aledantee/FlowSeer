@@ -452,8 +452,8 @@ var IfInUcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 
 // (sub-)layer, which were addressed to a multicast or broadcast address at
 // this sub-layer. Discontinuities in the value of this counter can occur
 // at re-initialization of the management system, and at other times as
-// indicated by the value of ifCounterDiscontinuityTime. This object is
-// deprecated in favour of ifInMulticastPkts and ifInBroadcastPkts.
+// indicated by the value of ifCounterDiscontinuityTime. This object is deprecated
+// in favour of ifInMulticastPkts and ifInBroadcastPkts.
 //
 // Deprecated: ifInNUcastPkts is STATUS deprecated in IF-MIB.
 var IfInNUcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
@@ -513,8 +513,8 @@ var IfOutUcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2,
 // address at this sub-layer, including those that were discarded or not
 // sent. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
-// indicated by the value of ifCounterDiscontinuityTime. This object is
-// deprecated in favour of ifOutMulticastPkts and ifOutBroadcastPkts.
+// indicated by the value of ifCounterDiscontinuityTime. This object is deprecated
+// in favour of ifOutMulticastPkts and ifOutBroadcastPkts.
 //
 // Deprecated: ifOutNUcastPkts is STATUS deprecated in IF-MIB.
 var IfOutNUcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 18), snmp.KindCounter32, snmp.DecodeUint32)
