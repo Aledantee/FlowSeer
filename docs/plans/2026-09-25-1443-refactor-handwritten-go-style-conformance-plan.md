@@ -545,12 +545,24 @@ Waves: U1 U3 U4 U5 U6 | U2
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh -- <the unit's paths>
-.claude/skills/verify-change/scripts/verify-change.sh --full   # after the last merge
+# after the last merge, over the union of every path the units changed:
+.claude/skills/verify-change/scripts/verify-change.sh -- \
+  src/common/netsim src/common/errs src/common/pump src/common/service \
+  src/common/spawn src/common/net src/protocol src/modules src/services \
+  src/edge test/conformance
 ```
 
-`--full` is required because U1's renames reach every netsim package and U3
-touches two nested modules. Then the greps requirements 1, 2, 4, 5 and 14 name, in
-both comment syntaxes, because the configuration sites use `#`:
+This change is not verified with `--full`. A full run builds, vets and
+race-tests every module, `generated/go/yang` among them, and that tree is large
+enough to exhaust host memory; a run that dies is not a gate. Nothing is lost by
+scoping it: a targeted run already expands to every package importing a changed
+file, which is what U1's renames need, and the script builds and vets the nested
+modules after a root change, which is what U3 needs. Lint coverage is identical
+either way — `verify-change.sh` drops `/generated/` from its lint package list in
+both modes.
+
+Then the greps requirements 1, 2, 4, 5 and 14 name, in both comment syntaxes,
+because the configuration sites use `#`:
 
 ```bash
 rg -n '^\s*//\s*Step [0-9]' src test
@@ -584,8 +596,8 @@ What no test in this plan covers, said plainly rather than left to be discovered
 
 ## Definition of done
 
-- The verifier is green on every changed path and `--full` is green on the merged
-  tree.
+- The verifier is green on every changed path, and green once more on the union
+  of all of them after the last merge. Not `--full`: see Verification.
 - The greps above print their expected output.
 - No README or convention document changes: this plan conforms code to documents
   that already say what it now does.
