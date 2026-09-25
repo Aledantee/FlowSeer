@@ -1,6 +1,7 @@
 ---
 title: An Expect-Style Prompt Scanner Must Reset Its Window Before Each Command, Not Just Strip Matches After
 date: 2026-09-05
+last_verified: 2026-09-25
 category: architecture-patterns
 module: src/protocol/ssh
 problem_type: bug
@@ -28,6 +29,9 @@ applies_when:
     banner) or echo the sent command back as part of its response
   - a bounded ring or ring-like buffer tracks "was anything ever dropped" as
     a single flag rather than one scoped to the current read
+  - the shell reprints its prompt between commands and a live device (not just
+    an in-process test server) shows every command returning the previous
+    command's output — the residual prompt arrives after the pre-command reset
 related_components: [ssh_client, device_access, protocol_client]
 tags: [expect-pattern, ssh, prompt-scanning, ring-buffer, review-finding]
 ---
@@ -97,6 +101,31 @@ regardless of whether that command's own window ever came close to the cap —
 the same class of bug as scanning stale content, just for the truncation
 signal instead of the match signal.
 
+**Reset and prefix-echo-skip are not enough when the shell reprints its prompt
+between commands.** Verified live against Cisco IOS-XE (2026-09-25), not
+reproducible on the in-process test server: after a command's terminating
+prompt, the shell reprints the prompt in response to the *next* command's line
+terminator, and that reprinted prompt lands in the ring *after* `reset()` has
+already run (the drain goroutine is asynchronous). It now precedes the current
+command's echo, so `echoSkipLen`'s `bytes.HasPrefix` returns 0 (the echo is not
+at the buffer's front), the scan runs from position 0, and it matches that
+residual prompt as this command's terminator — returning the previous command's
+tail and leaving this command's real output for the next `Run`, the exact
+one-command shift above. The "safe default" of scanning from 0 when the echo is
+not a prefix is therefore *not* safe against a prompt-reprinting shell.
+
+The fix is opt-in echo anchoring, `Command.AnchorOnEcho`
+(`src/protocol/ssh/command.go`), default false so a non-echoing shell and every
+existing caller keep the position-0 scan byte-for-byte. When true, `echoAnchor`
+finds the command's echo as a *substring* (not just a prefix) and discards
+everything up to and including it before scanning, so a residual prompt ahead of
+the echo cannot match. `echoAnchor` requires the echo be followed by a line
+ending, so a `Line` that is a prefix of another command (`show ip ospf` versus
+`show ip ospf neighbor`) does not anchor on the longer command's residual echo
+and hand back its output. It must be opt-in rather than the default: a shell
+that does not echo non-empty commands (the fastiron test shells, for one) would
+never produce an anchor and every command would run to its deadline.
+
 ## How to apply
 
 Any expect-style loop over a persistent shell needs, in this order, before
@@ -108,13 +137,21 @@ each command:
 2. Detect and exclude the echo from the *scanned* region, not just from the
    assembled result — computed fresh on every partial read, since the echo
    may itself arrive split across multiple reads.
-3. Only then run the prompt/pagination scan against what remains.
+3. For a shell that reprints its prompt between commands, anchor the scan on
+   this command's own echo found as a substring (discard everything up to and
+   including a *terminated* echo), so a residual prompt ahead of the echo
+   cannot terminate the command. Keep it opt-in, since a non-echoing shell
+   offers no anchor.
+4. Only then run the prompt/pagination scan against what remains.
 
 ## Evidence
 
 - `src/protocol/ssh/command.go`: `s.stdout.reset()` / `s.stderr.reset()`
   before the stdin write; `echoSkipLen` and its use inside the `waitFor`
-  match closure.
+  match closure; `Command.AnchorOnEcho` and `echoAnchor` (the substring,
+  line-ending-terminated anchor) for a prompt-reprinting shell, opt-in with the
+  `AnchorOnEcho && Line == ""` guard. `src/edge/netpen/test/integration/lab/iosxe.go`
+  sets `AnchorOnEcho: true` on its IOS-XE command builders.
 - `src/protocol/ssh/buffer.go`: `ring.reset` clearing both `buf` and
   `truncated`.
 - Tests proving each failure mode is fixed:
@@ -131,6 +168,14 @@ equivalent) can still false-match inside genuine device output that happens
 to contain the same text; resetting the window and excluding the echo
 narrows the false-match surface, it does not replace an anchored pattern.
 This also does not cover a shell whose echo is not a byte-for-byte copy of
-the sent line (e.g. one that reformats or delays it) — `echoSkipLen` requires
-an exact prefix match and falls back to scanning from position 0 otherwise,
-which is the safe (if less precise) default for that case.
+the sent line (e.g. one that reformats or delays it) — `echoSkipLen` and
+`echoAnchor` both require an exact match and fall back to scanning from
+position 0 otherwise. That fallback is safe only when nothing prompt-shaped
+precedes the real response; against a shell that reprints its prompt between
+commands it is not, which is what `AnchorOnEcho` exists for (and why anchoring
+needs a real, exactly-echoed `Line`). `AnchorOnEcho` itself does not cover a
+command whose output outruns `Options.StdoutBufferBytes` before its first
+prompt or pagination match: the ring drops the echo with the oldest bytes,
+`echoAnchor` never finds it, and `Run` ends at its deadline with the session
+closed where the default scan would have returned a truncated result. Leave it
+false for such a command.
