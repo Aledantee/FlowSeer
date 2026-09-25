@@ -41,3 +41,23 @@ Suggested change: a fix worker's brief must state that it commits its changes on
 Skill or agent: `.claude/skills/verify-change` (and any coordinator or worker brief that lints `generated/`).
 What happened: While implementing the generated-code-style plan, a full-tree `golangci-lint` run over `generated/go/yang` (~1,200 packages, 208 MB) was still running after over an hour of CPU on this host. The user directed: never run golangci-lint over the full generated/go/yang tree; lint only the three sample packages the plan names (ruckus-icx/openconfigvlan, ruckus-icx/openconfigsystem, aruba-cx/openconfignetworkinstance), and pass the same limit to any briefed worker.
 Suggested change: verify-change and delegate brief-writing rules should state that lint coverage of `generated/go/yang` is capped at named sample packages, never the whole tree.
+
+## 2026-09-25 drive: orca-worker.sh lacks options and commands named in drive skill
+Skill or agent: `.claude/skills/drive/SKILL.md` (steps 1 and 4) and `.claude/skills/delegate/scripts/orca-worker.sh`.
+What happened: `drive/SKILL.md` documents calling `orca-worker.sh start` with `--role`, `--plan`, and `--unit`, and calling `orca-worker.sh grade`, but `orca-worker.sh` does not implement these options or the `grade` subcommand.
+Suggested change: Align `drive/SKILL.md` and `orca-worker.sh` by either adding `--role`, `--plan`, `--unit`, and `grade` handling to `orca-worker.sh` or removing those invocations from `drive/SKILL.md`.
+
+## 2026-09-25 delegate: orca-worker.sh wait reports idle early for claude and agy lanes
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh` (`wait` command).
+What happened: `orca-worker.sh wait` reported `idle` prematurely for claude and agy workers while the agent was still processing its turn.
+Suggested change: Tighten idle detection in `orca-worker.sh wait` for claude and agy lanes by verifying process quiescence or terminal output stability before returning `idle`.
+
+## 2026-09-25 delegate: orca-worker.sh keys truncates inputs longer than ~250 characters
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh` (`keys` command).
+What happened: Text sent to a worker terminal with `orca-worker.sh keys` that exceeded ~250 characters was truncated, with only the tail of the message arriving in the terminal.
+Suggested change: Update `orca-worker.sh keys` to chunk long input strings or inject text via temporary files or bracketed paste rather than raw keystroke bursts.
+
+## 2026-09-25 drive: opencode lanes hang on model stream with Escape ignored
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh` (opencode lane supervision).
+What happened: Two opencode lanes hung on a streaming model response for over an hour, and sending `Escape` failed to interrupt the stream, blocking the lane until manual intervention.
+Suggested change: Add a streaming watchdog timeout to opencode supervision in `orca-worker.sh` to terminate and recover hung worker processes when stream interrupts fail.
