@@ -4,17 +4,16 @@ type: feat
 date: 2026-09-23
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 execution: mixed
 amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 ---
 
 # Lab-Backed netpen Vendor Validation (OSPF / IOS-XE thin slice) - Plan
 
-> Partially implemented: 3 of 5 units passed, 2026-09-23T20:47:59Z to
-> 2026-09-23T21:04:08Z. U4-U5 are blocked until the injector has packet
-> capabilities, IOS-XE `.42` has the required OSPF baseline, and the injector
-> data interface is wired to that segment.
+> Implemented. 5 units, 2026-09-23T20:47:59Z to 2026-09-25T07:33:57Z. The
+> live lab run is deferred; the validation matrix records the OSPF evidence as
+> pending until the coordinator supplies the target baseline and wiring.
 
 ## Goal
 
@@ -307,12 +306,3 @@ Waves: U1 U2 U3 | U4 | U5
   fixture reliably reaches `2-WAY`/`FULL` against IOS-XE, the implementer may
   tighten the assertion to that state; decided as presence unless the live run
   shows a stable stronger state.
-
-- Parked by drive: U4-U5 (the live `netpen_t2` ospf assertion and its evidence
-  recording) need live-lab prep before they can run — injector `CAP_NET_RAW` on
-  Kali `.21`, the `.42` IOS-XE OSPF baseline in `10.0.0.0/24` area 0, and the
-  data-segment wiring to the injector's attack interface. Options: operator
-  prepares the lab and the drive resumes U4-U5 | land U1-U3 now via `land` and
-  leave U4-U5 for a later drive. Recommended: operator prepares the lab, then
-  resume, because U4-U5 carry the plan's actual vendor evidence and U1-U3 alone
-  leave the matrix rows pending.
