@@ -1437,7 +1437,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 		}
 		entries := derived.Entries()
 		if len(entries) != 1 || entries[0].FID != 0 {
-			t.Errorf("got entries with FID 0 %v, want exactly 1", entries)
+			t.Errorf("got entries %v, want exactly 1 with FID 0", entries)
 		}
 	})
 
@@ -5549,7 +5549,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 		t.Errorf("res.Outcome = %s, want Consumed", res.Outcome)
 	}
 	if len(res.Steps) == 0 || res.Steps[0].Layer != port.LayerLAG || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
-		t.Errorf("res.Steps = %+v, want step with LayerLag, OpClassify, rule lag.lacpdu.admit", res.Steps)
+		t.Errorf("res.Steps = %+v, want step with LayerLAG, OpClassify, rule lag.lacpdu.admit", res.Steps)
 	}
 	if !traceHasFactType(res.Steps, "lag.lacp_decision") {
 		t.Errorf("LACP trace has no member decision fact: %+v", res.Steps)

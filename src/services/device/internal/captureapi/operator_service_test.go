@@ -31,7 +31,19 @@ type operatorTestHarness struct {
 	notifyCount atomic.Int64
 	client      capturev1connect.CaptureServiceClient
 	server      *httptest.Server
-	frozenClock time.Time
+	frozenNanos atomic.Int64
+}
+
+// now reads the harness clock. The store and the operator service both read it
+// through this accessor, and setNow writes it, so a test moving the clock while
+// a handler goroutine reads it stays race-free — the concurrency contract
+// NewStore's clock parameter now states.
+func (h *operatorTestHarness) now() time.Time {
+	return time.Unix(0, h.frozenNanos.Load()).UTC()
+}
+
+func (h *operatorTestHarness) setNow(t time.Time) {
+	h.frozenNanos.Store(t.UnixNano())
 }
 
 func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
@@ -41,16 +53,16 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 
 	h := &operatorTestHarness{
 		broadcaster: broadcaster,
-		frozenClock: frozen,
 	}
-	h.store = newTestStoreWithClock(t, func() time.Time { return h.frozenClock })
+	h.setNow(frozen)
+	h.store = newTestStoreWithClock(t, h.now)
 
 	svc := captureapi.NewOperatorService(h.store, broadcaster, captureapi.OperatorServiceConfig{
 		NotifyChange: func() {
 			h.notifyCount.Add(1)
 		},
 		Clock: func() time.Time {
-			return h.frozenClock
+			return h.now()
 		},
 	})
 
@@ -286,7 +298,7 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 	// Transition to RUNNING
 	if _, err := h.store.MutateSession(ctx, "0192e6a0-0000-7000-8000-000000000033", func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
-		rec.GetState().SetStartedAt(timestamppb.New(h.frozenClock))
+		rec.GetState().SetStartedAt(timestamppb.New(h.now()))
 		return nil
 	}); err != nil {
 		t.Fatalf("mutate session to running: %v", err)
@@ -699,7 +711,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		Accepted: proto.Uint64(packetCount),
 	}.Build()
 
-	artifact, err := h.store.FinalizeArtifact(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, h.frozenClock.Add(time.Hour))
+	artifact, err := h.store.FinalizeArtifact(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, h.now().Add(time.Hour))
 	if err != nil {
 		t.Fatalf("finalize artifact: %v", err)
 	}
@@ -762,8 +774,8 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	}
 
 	// Move both clocks past the artifact's expiry and sweep.
-	expired := h.frozenClock.Add(2 * time.Hour)
-	h.frozenClock = expired
+	expired := h.now().Add(2 * time.Hour)
+	h.setNow(expired)
 
 	removed, err := h.store.SweepExpired(ctx)
 	if err != nil {

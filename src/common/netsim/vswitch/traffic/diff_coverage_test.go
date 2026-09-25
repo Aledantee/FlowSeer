@@ -37,9 +37,9 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 }
 
 // TestDiffIgnoresMirrorSelectorOrder verifies traffic.Diff's self-normalization: two
-// configurations whose mirror selectors list the same elements
-// in a different order are not a change, because Diff now normalizes both sides through
-// Config.Normalize before comparing instead of re-normalizing each selector by hand.
+// configurations whose mirror selectors list the same elements in a different
+// order are not a change, because Diff normalizes both sides through
+// Config.Normalize before comparing.
 func TestDiffIgnoresMirrorSelectorOrder(t *testing.T) {
 	a := traffic.Config{
 		Mirrors: []traffic.Mirror{

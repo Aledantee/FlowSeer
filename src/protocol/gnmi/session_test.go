@@ -110,8 +110,8 @@ func TestNegativeBuffersAreRejected(t *testing.T) {
 		if stream != nil {
 			_ = stream.Close()
 		}
-		if err == nil {
-			t.Error("Subscribe accepted a negative buffer")
+		if err == nil || !strings.Contains(err.Error(), "subscribe buffer") {
+			t.Errorf("Subscribe(-1) error = %v, want one naming the subscribe buffer", err)
 		}
 	})
 
@@ -122,8 +122,8 @@ func TestNegativeBuffersAreRejected(t *testing.T) {
 		if w != nil {
 			_ = w.Close()
 		}
-		if err == nil {
-			t.Error("Watch accepted a negative buffer")
+		if err == nil || !strings.Contains(err.Error(), "watch buffer") {
+			t.Errorf("Watch(-1) error = %v, want one naming the watch buffer", err)
 		}
 	})
 }

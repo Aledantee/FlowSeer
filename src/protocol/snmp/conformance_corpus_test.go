@@ -17,7 +17,8 @@ import (
 
 // This file is the durable, re-runnable coverage map and the
 // provenance-citing regression corpus for the native SNMP codec.
-// Every row in CONFORMANCE.md is represented by one [corpusRow] here. The completeness gate
+// Every quirk is one [corpusRow] here, and CONFORMANCE.md is rendered from
+// this catalog, so the two stay in step. The completeness gate
 // ([TestConformanceCorpusIntegrity] + the build-tagged TestConformanceCorpusComplete
 // in conformance_complete_test.go) makes completeness provable rather than asserted.
 //
