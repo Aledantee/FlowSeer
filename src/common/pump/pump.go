@@ -56,8 +56,12 @@ type Pump[T any] struct {
 }
 
 // New constructs a Pump with capacity buf and a cancellable context derived
-// from ctx. A zero buf creates an unbuffered channel; a negative buf panics.
-// Callers choose their own default capacity.
+// from ctx. A zero buf creates an unbuffered channel. buf must be non-negative;
+// a negative value panics. The proven handling answer is enforced by
+// TestNewTickWatcherRejectsNegativeBuffer in src/protocol/yang/watch_test.go and
+// TestNegativeBuffersAreRejected in src/protocol/gnmi/session_test.go, covering
+// yang.NewTickWatcher, gnmi.Watch, and gnmi.Session.Subscribe before they reach
+// New. Callers choose their own default capacity.
 //
 // If ctx is nil, [context.Background] is used.
 //
@@ -128,10 +132,8 @@ func (p *Pump[T]) Send(v T) bool {
 	p.sendMu.RLock()
 	defer p.sendMu.RUnlock()
 
-	// First check stop / ctx without blocking: a closed stop should
-	// short-circuit Send even if the channel still has buffer space.
-	// Go's select picks randomly among ready cases, so without this
-	// pre-check the producer could keep sending values after Close.
+	// Go's select picks randomly among ready cases, so the pre-check prevents
+	// sends after Close while the channel still has buffer space.
 	select {
 	case <-p.stop:
 		return false
@@ -184,7 +186,6 @@ func (p *Pump[T]) TrySendDropOldest(v T) (delivered bool, dropped int) {
 	default:
 	}
 
-	// First non-blocking attempt.
 	select {
 	case p.ch <- v:
 		return true, 0
