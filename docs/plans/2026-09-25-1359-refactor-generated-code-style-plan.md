@@ -7,6 +7,7 @@ artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
 execution: code
+compound: docs/solutions/architecture-patterns/claim-companion-symbols-in-scope-before-child-nodes.md
 ---
 
 # Generated Code Style Conformance - Plan
