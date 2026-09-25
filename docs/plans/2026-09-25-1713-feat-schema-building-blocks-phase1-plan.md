@@ -118,6 +118,17 @@ govern. The ones below are local to this phase.
   and `parent_interface_name` so that the name says what the value is and
   the predicate finds them. Why: the record, rule 3, and a predicate that
   matches by name is complete only when the names follow the rule.
+- Ruled: the diagnostics and lane fields whose message type moves to
+  `net/measure` unchanged in name and meaning (`ModuleDiagnostics.temperature`
+  and `.voltage`; `ModuleLane.tx_power`, `.rx_power`, and `.bias`) keep their
+  names, take the next free number, and reserve the old number only: the old
+  name is not reserved, because a name cannot be both `reserved` and reused,
+  and the name keeps its meaning. The scalar unit/type changes reserve the
+  old number and name together, since those fields are also renamed to their
+  suffixed form. Why: name reservation exists to stop a revival with a new
+  meaning; these names keep theirs. Cost if wrong: a later change re-adds
+  one of these names with a different meaning and must reserve it then; the
+  reserved numbers still stop a wire-level misread.
 - The unit-suffix test works from two lists in the test file: canonical
   suffixes (`_bps`, `_bytes`, `_mhz`, `_nanowatts`, `_millidbm`, `_millidb`,
   `_millidbi`, `_millidegrees_celsius`, `_microvolts`, `_microamperes`,
