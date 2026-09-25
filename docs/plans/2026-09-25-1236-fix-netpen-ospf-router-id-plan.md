@@ -11,9 +11,12 @@ amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 
 # netpen OSPF Attacker Router ID - Plan
 
-> Implemented. 2 units, 2026-09-25T10:46:11Z to 2026-09-25T10:47:42Z.
-> U4 remains for the coordinator: live validation and the validation-matrix
-> updates were not run in this worktree.
+> Implemented. U2–U3 (router-id + generator checksums + fixtures) landed in a
+> worker; U4 (live validation + matrix) run by the coordinator on 2026-09-25:
+> the rebuilt netpen was deployed to the injector and `TestT2OSPFLiveLab` passed
+> against IOS-XE `172.16.0.42` — neighbor `10.0.0.99` accepted and cleared — so
+> the `ospf` VALIDATION_MATRIX cells and the 2026-09-23 plan now carry the dated
+> vendor truth.
 
 > U1 resolved (2026-09-25): the harvest generator builds the OSPF payload as a raw
 > `gopacket.Payload`, so `craft`'s `ComputeChecksums` (which only covers eth/ip)

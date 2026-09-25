@@ -63,7 +63,7 @@ that this integration suite has executed a wire or vendor assertion.
 | mld | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
 | mvrp | base | transient-decay | (c) | N/A | never | MRP timers, minutes |
 | ndpspoof | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| ospf | base | temporary-restored | (a) | pending live run ([plan](../../../../../docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md)) | pending live run ([plan](../../../../../docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md)) | goodbye/flush teardown |
+| ospf | base | temporary-restored | (a) | t2 (b) | 2026-09-25: IOS-XE (172.16.0.42) accepted neighbor 10.0.0.99 and cleared it after teardown; finding:ospf | goodbye/flush teardown |
 | portsteal | base | transient-decay | (a) | N/A | never | CAM aging |
 | portsteal | relay | temporary-restored | (a) | N/A | never | ip_forward restore armed |
 | raflood | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
@@ -92,15 +92,15 @@ router ID `10.0.0.99` appears and later clears. Record that line here only after
 the live run passes. Until then, both OSPF cells cite the implementation plan as
 pending.
 
-A 2026-09-25 live run against the IOS-XE lab target read the observable correctly
-(after the flowssh reader fix that lets `Session.Run` return a command's own
-output against a shell that reprints its prompt) and confirmed netpen's injected
-OSPF adjacency forms on the device. It still does not pass the assertion: netpen
-advertises router ID `10.0.0.153`, not the `10.0.0.99` this tier expects —
-`attacks/routing/helpers.go` sets `attackerRouterID = 0x0a000099`, whose value is
-`10.0.0.153` while its comment and the source address say `10.0.0.99`. Correcting
-it also touches the harvest generator's OSPF checksums and the byte-offset teardown
-tests, so it is a separate netpen change; the cells stay pending until it lands.
+Recorded from a live run on 2026-09-25 against IOS-XE `172.16.0.42`: netpen
+injected the OSPF hello/DB-desc/LSA from the Linux injector, the device accepted
+a spoofed neighbor with router ID `10.0.0.99`, and the neighbor cleared within the
+dead interval after netpen's goodbye/flush teardown; `TestT2OSPFLiveLab` passed.
+Two fixes landed to reach this: the flowssh reader fix (opt-in echo anchoring, so
+`Session.Run` returns a command's own output against a prompt-reprinting shell)
+and the netpen router-id fix (`attacks/routing/helpers.go` `attackerRouterID` was
+`0x0a000099` = `10.0.0.153`, corrected to `0x0a000063` = `10.0.0.99`, with the
+harvest generator taught to compute OSPF/LSA checksums).
 
 The target needs an OSPF interface in `10.0.0.0/24`, area 0, with broadcast
 network type, hello 10, dead 40, and no authentication. The injector interface

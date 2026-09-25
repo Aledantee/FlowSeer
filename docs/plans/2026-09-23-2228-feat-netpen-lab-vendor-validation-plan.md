@@ -13,9 +13,15 @@ amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 
 # Lab-Backed netpen Vendor Validation (OSPF / IOS-XE thin slice) - Plan
 
-> Implemented. 5 units, 2026-09-23T20:47:59Z to 2026-09-25T07:33:57Z. The
-> live lab run is deferred; the validation matrix records the OSPF evidence as
-> pending until the coordinator supplies the target baseline and wiring.
+> Implemented. 5 units, 2026-09-23T20:47:59Z to 2026-09-25T07:33:57Z. The live
+> OSPF vendor validation is now obtained: on 2026-09-25 `TestT2OSPFLiveLab` passed
+> against IOS-XE `172.16.0.42` — netpen's injected neighbor `10.0.0.99` was
+> accepted and cleared after teardown — and the validation matrix records the
+> dated result. Reaching it needed two follow-on fixes beyond this plan: the
+> flowssh command-read fix (docs/plans/2026-09-25-1111-fix-flowssh-iosxe-command-read-plan.md)
+> so `Session.Run` reads the IOS-XE observable, and the netpen router-id fix
+> (docs/plans/2026-09-25-1236-fix-netpen-ospf-router-id-plan.md) so netpen injects
+> router ID `10.0.0.99` as intended.
 
 ## Goal
 
