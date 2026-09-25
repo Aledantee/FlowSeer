@@ -67,12 +67,14 @@ in golden traces and conformance corpora.
 - `captureapi.Store.GetSession` becomes `Store.Session` (requirement 16). Why: a
   store accessor, not a proto-derived RPC handler, so the prefix has no
   exemption. **Unconfirmed.**
-- 140 of the 156 verbless `fmt.Errorf` calls stay out of scope; the 16 the Units
-  name are converted (requirement 15). Why: the durable fix for the rest is
-  `perfsprint`'s `errorf` check in `.golangci.yml`, which needs the guardrail
-  review `AGENTS.md` requires of a policy surface. The 16 are each a bare sentence
-  in a function that already returns plain errors, so converting them costs
-  nothing and leaves no half-applied rule inside a file. **Unconfirmed.**
+- Non-test Go constructs errors only through `src/common/errs`: no `errors.New`
+  and no `fmt.Errorf` outside that package. The user's decision, which replaces
+  this plan's earlier reading that the verbless calls were a linter's job. The
+  migration is its own plan, [errs-only error
+  construction](2026-09-25-1712-refactor-errs-only-error-construction-plan.md),
+  because it re-cuts units per package over 654 sites and amends
+  `docs/code-style.md` Errors; it runs after this plan and sweeps the three sites
+  requirement 15 still names in unlanded units.
 - The panic `make(chan T, buf)` raises on a negative `buf` inside `pump.New` is
   read as outside `code-style.md` Panics' Named clause, which governs where a
   `panic` statement may appear; this one is raised by the runtime. The Documented
@@ -150,10 +152,16 @@ in golden traces and conformance corpora.
     struct. Acceptance: `src/protocol/syslog/receiver.go:71` reads
     `mu sync.Mutex // guards connections and terminal`. 57 sites: `src/common` 3,
     `src/protocol` 16, `src/modules` 22, `src/services` 5, `src/edge` 11.
-15. The 16 verbless `fmt.Errorf` calls the Units name use `errors.New`.
-    Acceptance: `src/common/service/bus.go:200,219` and
-    `src/edge/netpen/layers/hsrp.go:104` call `errors.New` with their strings
-    unchanged.
+15. Superseded by [errs-only error
+    construction](2026-09-25-1712-refactor-errs-only-error-construction-plan.md),
+    on the user's decision that non-test Go constructs errors only through
+    `src/common/errs`. `errors.New` is no more permitted than `fmt.Errorf`, so
+    this requirement's conversions are wrong in the same direction. The sites it
+    named are converted there; the three in unlanded units
+    (`src/common/service/bus.go:200,219`, `src/edge/netpen/layers/hsrp.go:104`)
+    may land as `errors.New` first, since the implement worker reads this plan
+    from a checkout forked before this amendment, and that plan's `src/common`
+    and `src/edge/netpen` units sweep those files anyway.
 16. No `Get` prefix on a plain accessor. Acceptance: `captureapi.Store.Session`
     exists and `Store.GetSession` does not.
 
@@ -161,10 +169,10 @@ in golden traces and conformance corpora.
 
 - The 416 exported types whose values do not cross goroutines. Requirement 6 is
   scoped to the 51 that do.
-- 140 verbless `fmt.Errorf` calls in 29 files (largest:
-  `netsimtest/comparison_cases.go` 42, `service/delivery.go` 13,
-  `netsim/stream/stream.go` 9). Requirement 15 takes the other 16. See Open
-  questions.
+- Every `errors.New` and `fmt.Errorf` in non-test Go. All 654 move to
+  `src/common/errs` under [errs-only error
+  construction](2026-09-25-1712-refactor-errs-only-error-construction-plan.md);
+  test files stay as they are.
 - The ~40 gopacket `LayerType`/`CanDecode`/`NextLayerType` doc comments in
   `src/edge/netpen/layers/`. `revive`'s `exported` rule requires a comment on
   each and the only contract they carry (the single layer type, no sub-layers) is
@@ -633,13 +641,6 @@ What no test in this plan covers, said plainly rather than left to be discovered
   goroutines". Recommended because the rule as written yields 416 sentences that
   restate the type name; the third option is the durable fix and needs the
   document's owner.
-- The 140 verbless `fmt.Errorf` calls left out of scope (Decision, unconfirmed).
-  Options: enable `perfsprint`'s `errorf` check in `.golangci.yml` and fix what it
-  flags in one mechanical change (recommended) | fix them by hand here | leave
-  them. `staticcheck` has no such check — its `S1028` is the inverse. Recommended
-  because a linter keeps the rule true; `AGENTS.md` requires guardrail review for
-  `.golangci.yml` rather than forbidding the change, so this is a proposal, not a
-  boundary.
 - `captureapi.Store`'s clock (Decision, unconfirmed). Options: constructor
   parameter, no `SetClock` (recommended) | guard `s.clock` with `s.mu` | document
   that `SetClock` must precede first use. Recommended because the second puts a
