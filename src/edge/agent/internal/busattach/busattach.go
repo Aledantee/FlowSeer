@@ -52,7 +52,8 @@ type Config struct {
 }
 
 // Attachment is the running bus side: the leaf and the receiver, and the OTLP
-// endpoint the agent's own telemetry is pointed at.
+// endpoint the agent's own telemetry is pointed at. Its fields may be read
+// concurrently after Attach returns; Close must run once after those readers stop.
 type Attachment struct {
 	Leaf     *edgebus.Leaf
 	Receiver *edgebus.Receiver

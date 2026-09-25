@@ -124,7 +124,7 @@ type Entry struct {
 }
 
 var (
-	mu         sync.Mutex
+	mu         sync.Mutex // guards behaviors and registered
 	behaviors  []Behavior
 	registered bool
 )

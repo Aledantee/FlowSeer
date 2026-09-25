@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	agentcapture "go.aledante.io/FlowSeer/src/edge/agent/internal/capture"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
@@ -25,6 +27,39 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/capture"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
+
+func TestCaptureConfigHostCanConstructEveryExportedField(t *testing.T) {
+	t.Parallel()
+
+	cfg := capture.Config{
+		Source: modelcapturev1.CaptureSource_builder{}.Build(),
+		Filter: netcapturev1.CaptureFilter_builder{}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{}.Build(),
+	}
+	fields := []struct {
+		name string
+		typ  reflect.Type
+	}{
+		{name: "Source", typ: reflect.TypeFor[*modelcapturev1.CaptureSource]()},
+		{name: "Filter", typ: reflect.TypeFor[*netcapturev1.CaptureFilter]()},
+		{name: "Budget", typ: reflect.TypeFor[*modelcapturev1.CaptureBudget]()},
+	}
+
+	configType := reflect.TypeOf(cfg)
+	if configType.NumField() != len(fields) {
+		t.Fatalf("got %d capture.Config fields, want %d", configType.NumField(), len(fields))
+	}
+	for _, want := range fields {
+		field, ok := configType.FieldByName(want.name)
+		if !ok {
+			t.Errorf("capture.Config field %q is missing", want.name)
+			continue
+		}
+		if field.Type != want.typ {
+			t.Errorf("got capture.Config.%s type %v, want %v", want.name, field.Type, want.typ)
+		}
+	}
+}
 
 func TestModules_DeclaresLaneAndCapture(t *testing.T) {
 	t.Parallel()

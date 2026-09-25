@@ -90,12 +90,11 @@ type Onboarder struct {
 	cfg OnboardConfig
 	log *slog.Logger
 
-	syncing sync.Mutex
+	syncing sync.Mutex // serializes Sync calls
 
-	mu sync.Mutex
+	mu sync.Mutex // guards held
 	// held is the listing entry each onboarded device was built from,
-	// keyed by device id. Guarded by mu, which is never held across
-	// AddDevice.
+	// keyed by device id. The lock is never held across AddDevice.
 	held map[string]*attachv1.ListedDevice
 }
 

@@ -801,7 +801,7 @@ func TestScanHappyPath(t *testing.T) {
 
 	recs := s.Records()
 	if len(recs) < 2 {
-		t.Fatalf("expected at least 2 records (progress + finding), got %d", len(recs))
+		t.Fatalf("got %d records, want at least 2 (progress + finding)", len(recs))
 	}
 }
 

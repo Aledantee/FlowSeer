@@ -40,20 +40,21 @@ import (
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/fixtureaddr"
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 )
 
 const srcMAC = "00:11:22:33:44:55"
 
 var (
-	ospfMcastMAC            = mustMAC("01:00:5e:00:00:05")
-	eigrpMcastMAC           = mustMAC("01:00:5e:00:00:0a")
-	broadcastMAC            = mustMAC("ff:ff:ff:ff:ff:ff")
+	ospfMcastMAC            = fixtureaddr.MustMAC("01:00:5e:00:00:05")
+	eigrpMcastMAC           = fixtureaddr.MustMAC("01:00:5e:00:00:0a")
+	broadcastMAC            = fixtureaddr.MustMAC("ff:ff:ff:ff:ff:ff")
 	attackerIP              = net.IPv4(10, 0, 0, 99)
 	ospfAllSPFRtrs          = net.IPv4(224, 0, 0, 5)
 	eigrpMcast              = net.IPv4(224, 0, 0, 10)
 	llmnrMcast              = net.IPv4(224, 0, 0, 252)
-	targetMAC               = mustMAC("00:aa:bb:cc:dd:01")
+	targetMAC               = fixtureaddr.MustMAC("00:aa:bb:cc:dd:01")
 	targetRouterID   uint32 = 0x0a000002 // 10.0.0.2
 	attackerRouterID uint32 = 0x0a000063 // 10.0.0.99
 
@@ -63,19 +64,7 @@ var (
 	wpacTTL = 30
 )
 
-// mustMAC parses a compile-time-constant MAC literal. Every argument is a
-// string constant in this file, so a parse failure is a typo caught the first
-// time the script runs — the init-time answer the style guide's Panics section
-// sanctions for a must-prefixed helper.
-func mustMAC(s string) net.HardwareAddr {
-	m, err := net.ParseMAC(s)
-	if err != nil {
-		panic(err)
-	}
-	return m
-}
-
-func srcBytes() net.HardwareAddr { return mustMAC(srcMAC) }
+func srcBytes() net.HardwareAddr { return fixtureaddr.MustMAC(srcMAC) }
 
 // genErr holds the first packet-assembly or write failure. [craft] and
 // [writePcap] record into it instead of panicking, and [run] returns it, so a

@@ -54,7 +54,7 @@ type Handler struct {
 	reassertInterval  time.Duration
 	logger            *slog.Logger
 
-	mu       sync.Mutex
+	mu       sync.Mutex // guards sessions and closed
 	sessions map[string]*activeSession
 	closed   bool
 }

@@ -29,33 +29,23 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
+
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/fixtureaddr"
 )
 
 const srcMAC = "00:11:22:33:44:55"
 
 var (
-	broadcastMAC = mustMAC("ff:ff:ff:ff:ff:ff")
-	vrrpDstMAC   = mustMAC("01:00:5e:00:00:12")
-	hsrpDstMAC   = mustMAC("01:00:5e:00:00:02")
-	glbpDstMAC   = mustMAC("01:00:5e:00:00:66")
-	llmnrDstMAC  = mustMAC("01:00:5e:00:00:fc")
-	lldpDstMAC   = mustMAC("01:80:c2:00:00:0e") // LLDP nearest bridge
-	stpDstMAC    = mustMAC("01:80:c2:00:00:00")
+	broadcastMAC = fixtureaddr.MustMAC("ff:ff:ff:ff:ff:ff")
+	vrrpDstMAC   = fixtureaddr.MustMAC("01:00:5e:00:00:12")
+	hsrpDstMAC   = fixtureaddr.MustMAC("01:00:5e:00:00:02")
+	glbpDstMAC   = fixtureaddr.MustMAC("01:00:5e:00:00:66")
+	llmnrDstMAC  = fixtureaddr.MustMAC("01:00:5e:00:00:fc")
+	lldpDstMAC   = fixtureaddr.MustMAC("01:80:c2:00:00:0e") // LLDP nearest bridge
+	stpDstMAC    = fixtureaddr.MustMAC("01:80:c2:00:00:00")
 )
 
-// mustMAC parses a compile-time-constant MAC literal. Every argument is a
-// string constant in this file, so a parse failure is a typo caught the first
-// time the script runs — the init-time answer the style guide's Panics section
-// sanctions for a must-prefixed helper.
-func mustMAC(s string) net.HardwareAddr {
-	m, err := net.ParseMAC(s)
-	if err != nil {
-		panic(err)
-	}
-	return m
-}
-
-func srcBytes() net.HardwareAddr { return mustMAC(srcMAC) }
+func srcBytes() net.HardwareAddr { return fixtureaddr.MustMAC(srcMAC) }
 
 // genErr holds the first packet-assembly or write failure. The builders and
 // [writePcap] record into it instead of panicking, and [run] returns it, so a
@@ -170,8 +160,8 @@ func run() error {
 }
 
 var (
-	victimMAC = mustMAC("00:aa:bb:cc:dd:01")
-	gwMAC     = mustMAC("00:aa:bb:cc:dd:fe")
+	victimMAC = fixtureaddr.MustMAC("00:aa:bb:cc:dd:01")
+	gwMAC     = fixtureaddr.MustMAC("00:aa:bb:cc:dd:fe")
 	victimIP  = net.IPv4(172, 16, 0, 10)
 	gwIP      = net.IPv4(172, 16, 0, 1)
 )
@@ -435,7 +425,7 @@ func splitLabels(name string) [][]byte {
 }
 
 // ghostSA is the reserved group MAC used as the source in ghost frames.
-var ghostSA = mustMAC("01:80:c2:00:00:01")
+var ghostSA = fixtureaddr.MustMAC("01:80:c2:00:00:01")
 
 // ghostSTPFrame crafts a worst-priority STP BPDU with the ghost SA.
 func ghostSTPFrame() []byte {
@@ -449,7 +439,7 @@ func ghostSTPFrame() []byte {
 		SSAP:    0x42,
 		Control: 3,
 	}
-	rootMac := mustMAC("00:00:00:00:00:01")
+	rootMac := fixtureaddr.MustMAC("00:00:00:00:00:01")
 	payload := buildSTPPayload(0xF000, rootMac)
 	return craft(eth, llc, gopacket.Payload(payload))
 }
@@ -499,7 +489,7 @@ func ghostBUMFrame() []byte {
 func ambientFrame() []byte {
 	eth := &layers.Ethernet{
 		DstMAC:       broadcastMAC,
-		SrcMAC:       mustMAC("00:aa:bb:cc:dd:99"),
+		SrcMAC:       fixtureaddr.MustMAC("00:aa:bb:cc:dd:99"),
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := &layers.IPv4{

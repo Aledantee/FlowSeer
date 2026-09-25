@@ -33,11 +33,10 @@ import (
 // another is guarded, and the comment names which lock, so the field below
 // says it.
 type registry struct {
-	mu sync.Mutex
+	mu sync.Mutex // guards reports
 	// reports is keyed by device and sequence. A nil value means the
 	// operation is in flight and this edge has made no report about it yet,
 	// which is distinct from an absent key: absent means never dispatched.
-	// Guarded by mu.
 	reports map[operationKey]*dispatchv1.ExecuteResult
 }
 

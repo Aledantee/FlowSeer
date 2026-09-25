@@ -31,19 +31,21 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
+
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/fixtureaddr"
 )
 
 const srcMAC = "00:11:22:33:44:55"
 
 var (
-	broadcastMAC = mustMAC("ff:ff:ff:ff:ff:ff")
+	broadcastMAC = fixtureaddr.MustMAC("ff:ff:ff:ff:ff:ff")
 
-	allNodesMAC   = mustMAC("33:33:00:00:00:01")
-	allRoutersMAC = mustMAC("33:33:00:00:00:02")
-	allDHCPv6MAC  = mustMAC("33:33:00:00:01:02")
+	allNodesMAC   = fixtureaddr.MustMAC("33:33:00:00:00:01")
+	allRoutersMAC = fixtureaddr.MustMAC("33:33:00:00:00:02")
+	allDHCPv6MAC  = fixtureaddr.MustMAC("33:33:00:00:01:02")
 
-	victimMAC6 = mustMAC("00:aa:bb:cc:dd:01")
-	serverMAC6 = mustMAC("00:aa:bb:cc:dd:fe")
+	victimMAC6 = fixtureaddr.MustMAC("00:aa:bb:cc:dd:01")
+	serverMAC6 = fixtureaddr.MustMAC("00:aa:bb:cc:dd:fe")
 
 	victimIP6  = net.ParseIP("fd00::10")
 	serverIP6  = net.ParseIP("fd00::1")
@@ -53,8 +55,8 @@ var (
 	clientIP6  = net.ParseIP("fd00::100")
 	allNodesIP = net.ParseIP("ff02::1")
 
-	dhcpClientMAC = mustMAC("00:aa:bb:cc:dd:01")
-	dhcpServerMAC = mustMAC("00:aa:bb:cc:dd:fe")
+	dhcpClientMAC = fixtureaddr.MustMAC("00:aa:bb:cc:dd:01")
+	dhcpServerMAC = fixtureaddr.MustMAC("00:aa:bb:cc:dd:fe")
 	dhcpServerIP  = net.IPv4(172, 16, 0, 1)
 	dhcpClientIP  = net.IPv4(172, 16, 0, 10)
 	dhcpOfferIP   = net.IPv4(172, 16, 0, 100)
@@ -66,19 +68,7 @@ var (
 	dhcpv6Xid        = []byte{0x00, 0x11, 0x22}
 )
 
-// mustMAC parses a compile-time-constant MAC literal. Every argument is a
-// string constant in this file, so a parse failure is a typo caught the first
-// time the script runs — the init-time answer the style guide's Panics section
-// sanctions for a must-prefixed helper.
-func mustMAC(s string) net.HardwareAddr {
-	m, err := net.ParseMAC(s)
-	if err != nil {
-		panic(err)
-	}
-	return m
-}
-
-func srcBytes() net.HardwareAddr { return mustMAC(srcMAC) }
+func srcBytes() net.HardwareAddr { return fixtureaddr.MustMAC(srcMAC) }
 
 // genErr holds the first packet-assembly or write failure. The builders and
 // [writePcap] record into it instead of panicking, and [run] returns it, so a

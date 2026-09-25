@@ -111,7 +111,7 @@ at `10.20.0.101`. The injector runs the deployed netpen binary through sudo, so
 the live environment must include `NETPEN_LAB_INJECTOR_SUDO_PASSWORD` along with
 the SSH credentials and host-key pins documented in [the T2 README](t2/README.md).
 
-## AE6 superset attacks (R4)
+## AE6 superset attacks
 
 AE6 runs each listed command twice inside FRR r1 on `eth0`. A pass requires
 successful command exits and matching record-kind/finding-module sets from

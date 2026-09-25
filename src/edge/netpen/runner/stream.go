@@ -33,12 +33,9 @@ const defaultStreamBuffer = 64
 // # Backpressure
 //
 // The stream uses a bounded channel. When the consumer stalls, the producer
-// (the dispatch loop) blocks on send — respecting the run's context — rather
-// than growing memory unboundedly. This is the boring correct thing: a
-// bounded buffer with producer-side backpressure. The alternative (drop-
-// oldest, used by the snmp TrapStream for realtime traps) is wrong here
-// because findings are not realtime events — a dropped finding is a silent
-// audit gap, which defeats the tool's purpose.
+// blocks on send while respecting the run's context, so memory stays bounded.
+// Drop-oldest suits realtime traps but would silently remove a finding here —
+// an audit gap that defeats the tool's purpose.
 //
 // The zero value is not usable; construct a Stream via [NewRunner].
 //
