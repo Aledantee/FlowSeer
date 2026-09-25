@@ -139,7 +139,7 @@ func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 	if (a.VLAN == nil) != (b.VLAN == nil) {
 		changes = append(changes, trace.Change{
-			Layer:   port.LayerVlan,
+			Layer:   port.LayerVLAN,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "vlan_awareness",
 			From:    BoolFact(a.VLAN != nil),
@@ -173,7 +173,7 @@ func Diff(a, b Config) []trace.Change {
 		bName, exists := bTable[id]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "vlan",
 					Key:  strconv.Itoa(int(id)),
@@ -188,7 +188,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aName != bName {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "vlan",
 					Key:  strconv.Itoa(int(id)),
@@ -210,7 +210,7 @@ func Diff(a, b Config) []trace.Change {
 
 	for _, id := range bIDs {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerVlan,
+			Layer: port.LayerVLAN,
 			Subject: trace.Subject{
 				Kind: "vlan",
 				Key:  strconv.Itoa(int(id)),
@@ -232,7 +232,7 @@ func Diff(a, b Config) []trace.Change {
 		bSw, exists := bPorts[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -260,7 +260,7 @@ func Diff(a, b Config) []trace.Change {
 				toVal = PVIDFact(*bSw.PVID)
 			}
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -273,7 +273,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if !slices.Equal(aSw.Tagged, bSw.Tagged) {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -286,7 +286,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if !slices.Equal(aSw.Untagged, bSw.Untagged) {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -299,7 +299,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aSw.IngressFiltering != bSw.IngressFiltering {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -312,7 +312,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aSw.Admission != bSw.Admission {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -345,7 +345,7 @@ func Diff(a, b Config) []trace.Change {
 				toTunnel = snapshotTunnel(bSw.Tunnel)
 			}
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -358,7 +358,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aSw.PriorityTags != bSw.PriorityTags {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVlan,
+				Layer: port.LayerVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -380,7 +380,7 @@ func Diff(a, b Config) []trace.Change {
 
 	for _, name := range bPortNames {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerVlan,
+			Layer: port.LayerVLAN,
 			Subject: trace.Subject{
 				Kind: "port",
 				Key:  name,

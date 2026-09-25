@@ -167,7 +167,7 @@ type testIfRow struct {
 func testIfDecode(idx OID, vbs []VarBind) (testIfRow, error) {
 	var r testIfRow
 	if idx.Len() != 1 {
-		return r, fmt.Errorf("expected single-component ifIndex, got %s", idx)
+		return r, fmt.Errorf("got ifIndex %s, want one component", idx)
 	}
 	r.IfIndex = idx.At(0)
 	for _, vb := range vbs {
@@ -313,7 +313,7 @@ func TestNewWatcher_RejectsNilDecode(t *testing.T) {
 		WithCadenceBounds(1*time.Second, 30*time.Second),
 	)
 	if err == nil {
-		t.Fatalf("expected err, got nil; w=%v", w)
+		t.Fatalf("got nil error with w=%v, want error", w)
 	}
 	if w == nil || w.Err() == nil {
 		t.Errorf("expected non-nil Watcher with latched Err(); got w=%v err=%v", w, err)
@@ -333,7 +333,7 @@ func TestNewWatcher_RejectsNilEqual(t *testing.T) {
 		WithCadenceBounds(1*time.Second, 30*time.Second),
 	)
 	if err == nil {
-		t.Fatalf("expected err, got nil; w=%v", w)
+		t.Fatalf("got nil error with w=%v, want error", w)
 	}
 	if w == nil || w.Err() == nil {
 		t.Errorf("expected non-nil Watcher with latched Err(); got w=%v err=%v", w, err)
@@ -353,7 +353,7 @@ func TestNewWatcher_RejectsNilMerge(t *testing.T) {
 		WithCadenceBounds(1*time.Second, 30*time.Second),
 	)
 	if err == nil {
-		t.Fatalf("expected err, got nil; w=%v", w)
+		t.Fatalf("got nil error with w=%v, want error", w)
 	}
 	if w == nil || w.Err() == nil {
 		t.Errorf("expected non-nil Watcher with latched Err(); got w=%v err=%v", w, err)
@@ -372,7 +372,7 @@ func TestNewWatcher_RejectsMissingCadenceBounds(t *testing.T) {
 		testIfMerge,
 	)
 	if err == nil {
-		t.Fatalf("expected err, got nil; w=%v", w)
+		t.Fatalf("got nil error with w=%v, want error", w)
 	}
 	if w == nil || w.Err() == nil {
 		t.Errorf("expected non-nil Watcher with latched Err(); got w=%v err=%v", w, err)
@@ -393,7 +393,7 @@ func TestNewWatcher_RejectsInvalidConfig(t *testing.T) {
 		WithCadenceBounds(1*time.Minute, 10*time.Second), // min > max
 	)
 	if err == nil {
-		t.Fatalf("expected err, got nil; w=%v", w)
+		t.Fatalf("got nil error with w=%v, want error", w)
 	}
 	if w == nil || w.Err() == nil {
 		t.Errorf("expected non-nil Watcher with latched Err(); got w=%v err=%v", w, err)

@@ -12,8 +12,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-// TestEveryDiffPackageIsCovered is R9's other half: AssertEveryDiffPackageIsCovered run
-// against the real repository tree, so a package that gains a diff.go with no entry in
+// TestEveryDiffPackageIsCovered runs AssertEveryDiffPackageIsCovered against the real
+// repository tree, so a package that gains a diff.go with no entry in
 // diffCoveredPackages fails here rather than shipping silently uncovered.
 func TestEveryDiffPackageIsCovered(t *testing.T) {
 	AssertEveryDiffPackageIsCovered(t)

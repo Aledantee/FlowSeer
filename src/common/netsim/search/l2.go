@@ -20,7 +20,8 @@ type FrameShape struct {
 	Payload   []byte
 }
 
-// L2TrafficDomainConfig configures a finite layer-2 traffic exploration domain.
+// L2TrafficDomainConfig configures a finite layer-2 traffic exploration domain. Its values
+// are safe for concurrent reads but not for concurrent mutation.
 type L2TrafficDomainConfig struct {
 	Sources      []fabric.Endpoint
 	Destinations []netaddr.MAC

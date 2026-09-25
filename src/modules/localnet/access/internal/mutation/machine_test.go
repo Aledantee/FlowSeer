@@ -754,7 +754,7 @@ func TestAdmittedOnFirmwareEpochMismatchDeliversNoAuditEvent(t *testing.T) {
 	}
 
 	if len(deliverer.events) != 0 {
-		t.Fatalf("expected no audit event from the admission-time check, got %d", len(deliverer.events))
+		t.Fatalf("got %d audit events from the admission-time check, want 0", len(deliverer.events))
 	}
 }
 

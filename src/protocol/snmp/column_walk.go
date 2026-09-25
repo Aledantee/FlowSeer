@@ -31,7 +31,7 @@ type ColumnWalker struct {
 	cancel                    context.CancelFunc
 	requester                 *columnRequester
 	roots                     []OID
-	mu                        sync.Mutex
+	mu                        sync.Mutex // guards err, started, closed, and finished
 	err                       error
 	started, closed, finished bool
 }

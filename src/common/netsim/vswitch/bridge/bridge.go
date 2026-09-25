@@ -440,6 +440,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 }
 
 // Ingress represents an admitted, classified, and learned frame ready for egress forwarding.
+// Ingress values are safe for concurrent reads but not for concurrent mutation.
 type Ingress struct {
 	Port          string
 	FID           vlan.ID
@@ -565,7 +566,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 						res.Reason = ReasonCustomerVLAN
 						res.Steps = append(res.Steps,
 							trace.Step{
-								Layer:   port.LayerVlan,
+								Layer:   port.LayerVLAN,
 								Op:      trace.OpFilter,
 								RuleID:  trace.RuleID("customer-vlan-filter"),
 								Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -573,7 +574,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 								Outputs: []trace.Fact{vlanSnapshot(res.Ingress, outer.VID, outer.PCP, outer.DEI, "customer-rejected")},
 							},
 							trace.Step{
-								Layer:   port.LayerVlan,
+								Layer:   port.LayerVLAN,
 								Op:      trace.OpDrop,
 								RuleID:  trace.RuleID("customer-vlan"),
 								Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -591,7 +592,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 
 			res.FID = classifiedFID
 			res.Steps = append(res.Steps, trace.Step{
-				Layer:   port.LayerVlan,
+				Layer:   port.LayerVLAN,
 				Op:      trace.OpClassify,
 				RuleID:  trace.RuleID("vlan-tunnel-classify"),
 				Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
@@ -602,7 +603,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 			if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
 				res.Reason = ReasonUndefinedVLAN
 				res.Steps = append(res.Steps, trace.Step{
-					Layer:   port.LayerVlan,
+					Layer:   port.LayerVLAN,
 					Op:      trace.OpDrop,
 					RuleID:  trace.RuleID("vlan-undefined"),
 					Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
@@ -642,7 +643,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 					res.Reason = ReasonAdmission
 					res.Steps = append(res.Steps,
 						trace.Step{
-							Layer:   port.LayerVlan,
+							Layer:   port.LayerVLAN,
 							Op:      trace.OpFilter,
 							RuleID:  trace.RuleID("admission-filter"),
 							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -650,7 +651,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 							Outputs: []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, "admission-rejected")},
 						},
 						trace.Step{
-							Layer:   port.LayerVlan,
+							Layer:   port.LayerVLAN,
 							Op:      trace.OpDrop,
 							RuleID:  trace.RuleID("admission"),
 							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -665,7 +666,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 					res.Reason = ReasonAdmission
 					res.Steps = append(res.Steps,
 						trace.Step{
-							Layer:   port.LayerVlan,
+							Layer:   port.LayerVLAN,
 							Op:      trace.OpFilter,
 							RuleID:  trace.RuleID("admission-filter"),
 							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -673,7 +674,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 							Outputs: []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, "admission-rejected")},
 						},
 						trace.Step{
-							Layer:   port.LayerVlan,
+							Layer:   port.LayerVLAN,
 							Op:      trace.OpDrop,
 							RuleID:  trace.RuleID("admission"),
 							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -690,7 +691,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 				if !swOk || sw.PVID == nil {
 					res.Reason = ReasonNoPVID
 					res.Steps = append(res.Steps, trace.Step{
-						Layer:   port.LayerVlan,
+						Layer:   port.LayerVLAN,
 						Op:      trace.OpDrop,
 						RuleID:  trace.RuleID("no-pvid"),
 						Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -705,7 +706,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 
 			res.FID = classifiedFID
 			res.Steps = append(res.Steps, trace.Step{
-				Layer:   port.LayerVlan,
+				Layer:   port.LayerVLAN,
 				Op:      trace.OpClassify,
 				RuleID:  trace.RuleID("vlan-classify"),
 				Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
@@ -719,7 +720,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 					res.Reason = ReasonIngressFilter
 					res.Steps = append(res.Steps,
 						trace.Step{
-							Layer:   port.LayerVlan,
+							Layer:   port.LayerVLAN,
 							Op:      trace.OpFilter,
 							RuleID:  trace.RuleID("ingress-filter"),
 							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -727,7 +728,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 							Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonIngressFilter, false)},
 						},
 						trace.Step{
-							Layer:   port.LayerVlan,
+							Layer:   port.LayerVLAN,
 							Op:      trace.OpDrop,
 							RuleID:  trace.RuleID("ingress-filter"),
 							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
@@ -742,7 +743,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 			if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
 				res.Reason = ReasonUndefinedVLAN
 				res.Steps = append(res.Steps, trace.Step{
-					Layer:   port.LayerVlan,
+					Layer:   port.LayerVLAN,
 					Op:      trace.OpDrop,
 					RuleID:  trace.RuleID("vlan-undefined"),
 					Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
@@ -1052,7 +1053,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 				Dropped: ReasonNotMember,
 			})
 			res.Steps = append(res.Steps, trace.Step{
-				Layer:   port.LayerVlan,
+				Layer:   port.LayerVLAN,
 				Op:      trace.OpDrop,
 				RuleID:  trace.RuleID("not-member"),
 				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
@@ -1147,7 +1148,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 
 		if b.cfg.VLAN != nil {
 			res.Steps = append(res.Steps, trace.Step{
-				Layer:   port.LayerVlan,
+				Layer:   port.LayerVLAN,
 				Op:      trace.OpRewrite,
 				RuleID:  trace.RuleID("vlan-tag-form"),
 				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
@@ -1357,7 +1358,7 @@ func (b *Bridge) replicate(
 
 		if b.cfg.VLAN != nil {
 			res.Steps = append(res.Steps, trace.Step{
-				Layer:   port.LayerVlan,
+				Layer:   port.LayerVLAN,
 				Op:      trace.OpRewrite,
 				RuleID:  trace.RuleID("vlan-tag-form"),
 				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
@@ -1413,7 +1414,7 @@ func (b *Bridge) gateFact(gate Gate, name string, vid vlan.ID, learns, forwards 
 // it names none; a port that is not a LAG has no member and always passes.
 // It commits the selector's choice exactly when in.Commit is true.
 func (b *Bridge) selectMember(res *Result, in Ingress, p port.Port, f ethernet.Frame, pcp vlan.PCP) (string, trace.Fact, bool) {
-	if p.Kind != port.Lag {
+	if p.Kind != port.LAG {
 		return "", nil, true
 	}
 	if p.Forwards() {
@@ -1477,7 +1478,7 @@ func (b *Bridge) consultForwardingPath(res *Result, name string) {
 
 func (b *Bridge) egressDependencies(p port.Port) []port.Port {
 	path := []port.Port{p}
-	if p.Kind != port.Lag || !p.Forwards() {
+	if p.Kind != port.LAG || !p.Forwards() {
 		return path
 	}
 

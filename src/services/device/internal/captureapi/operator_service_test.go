@@ -36,17 +36,16 @@ type operatorTestHarness struct {
 
 func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 	t.Helper()
-	store := newTestStore(t)
 	broadcaster := captureapi.NewBroadcaster()
 	frozen := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
 
 	h := &operatorTestHarness{
-		store:       store,
 		broadcaster: broadcaster,
 		frozenClock: frozen,
 	}
+	h.store = newTestStoreWithClock(t, func() time.Time { return h.frozenClock })
 
-	svc := captureapi.NewOperatorService(store, broadcaster, captureapi.OperatorServiceConfig{
+	svc := captureapi.NewOperatorService(h.store, broadcaster, captureapi.OperatorServiceConfig{
 		NotifyChange: func() {
 			h.notifyCount.Add(1)
 		},
@@ -103,7 +102,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		req.SetEdge(nil)
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for missing edge, got: %v", err)
+			t.Fatalf("got missing-edge error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -113,7 +112,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		req.SetSource(nil)
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for missing source, got: %v", err)
+			t.Fatalf("got missing-source error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -123,7 +122,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		req.SetAuthorization(nil)
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for missing authorization, got: %v", err)
+			t.Fatalf("got missing-authorization error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -132,7 +131,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		req := newTestCreateRequest(0)
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for missing budget, got: %v", err)
+			t.Fatalf("got missing-budget error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -142,7 +141,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		req.SetBudget(&modelcapturev1.CaptureBudget{})
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for empty budget, got: %v", err)
+			t.Fatalf("got empty-budget error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -155,7 +154,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		}.Build())
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for zero bounds, got: %v", err)
+			t.Fatalf("got zero-bounds error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -193,14 +192,14 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 	}
 
 	if session.GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
-		t.Fatalf("expected PENDING lifecycle, got: %v", session.GetState().GetLifecycle())
+		t.Fatalf("got lifecycle %v, want PENDING", session.GetState().GetLifecycle())
 	}
 	if session.GetConfig().GetBudget().GetMaxPackets() != 150 {
-		t.Fatalf("expected max_packets 150, got: %d", session.GetConfig().GetBudget().GetMaxPackets())
+		t.Fatalf("got max_packets %d, want 150", session.GetConfig().GetBudget().GetMaxPackets())
 	}
 
 	// Verify persistence in store
-	stored, _, err := h.store.GetSession(ctx, sessionID)
+	stored, _, err := h.store.Session(ctx, sessionID)
 	if err != nil {
 		t.Fatalf("get session from store: %v", err)
 	}
@@ -226,7 +225,7 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 		req := &operatorcapturev1.StopCaptureSessionRequest{}
 		_, err := h.client.StopCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for missing session ref, got: %v", err)
+			t.Fatalf("got missing-session error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -241,7 +240,7 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 		}.Build()
 		_, err := h.client.StopCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeNotFound {
-			t.Fatalf("expected CodeNotFound for unknown session, got: %v", err)
+			t.Fatalf("got unknown-session error %v, want CodeNotFound", err)
 		}
 	}
 
@@ -261,10 +260,10 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 		t.Fatalf("stop pending session: %v", err)
 	}
 	if stopResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
-		t.Fatalf("expected CANCELED lifecycle, got: %v", stopResp.Msg.GetSession().GetState().GetLifecycle())
+		t.Fatalf("got lifecycle %v, want CANCELED", stopResp.Msg.GetSession().GetState().GetLifecycle())
 	}
 	if stopResp.Msg.GetSession().GetState().GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
-		t.Fatalf("expected CAPTURE_STOP_REASON_OPERATOR, got: %v", stopResp.Msg.GetSession().GetState().GetStopReason())
+		t.Fatalf("got stop reason %v, want CAPTURE_STOP_REASON_OPERATOR", stopResp.Msg.GetSession().GetState().GetStopReason())
 	}
 	if stopResp.Msg.GetSession().GetState().GetEndedAt() == nil {
 		t.Fatal("expected ended_at timestamp to be set on pending stop")
@@ -276,11 +275,11 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 		t.Fatalf("idempotent stop on canceled session: %v", err)
 	}
 	if secondStopResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
-		t.Fatalf("expected CANCELED lifecycle on re-stop, got: %v", secondStopResp.Msg.GetSession().GetState().GetLifecycle())
+		t.Fatalf("got lifecycle %v on re-stop, want CANCELED", secondStopResp.Msg.GetSession().GetState().GetLifecycle())
 	}
 
 	// Stop a RUNNING session
-	runningConfig := newEdgeSessionConfig(testEdge1ID, "0192e6a0-0000-7000-8000-000000000033")
+	runningConfig := newEdgeSessionConfig(t, testEdge1ID, "0192e6a0-0000-7000-8000-000000000033")
 	if _, err := h.store.CreateSession(ctx, runningConfig); err != nil {
 		t.Fatalf("create running session in store: %v", err)
 	}
@@ -302,10 +301,10 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 		t.Fatalf("stop running session: %v", err)
 	}
 	if runningStopResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
-		t.Fatalf("expected CANCELED lifecycle, got: %v", runningStopResp.Msg.GetSession().GetState().GetLifecycle())
+		t.Fatalf("got lifecycle %v, want CANCELED", runningStopResp.Msg.GetSession().GetState().GetLifecycle())
 	}
 	if runningStopResp.Msg.GetSession().GetState().GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
-		t.Fatalf("expected CAPTURE_STOP_REASON_OPERATOR, got: %v", runningStopResp.Msg.GetSession().GetState().GetStopReason())
+		t.Fatalf("got stop reason %v, want CAPTURE_STOP_REASON_OPERATOR", runningStopResp.Msg.GetSession().GetState().GetStopReason())
 	}
 
 	// Stopping COMPLETED session is a no-op
@@ -320,7 +319,7 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 		t.Fatalf("stop on completed session: %v", err)
 	}
 	if completedStopResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
-		t.Fatalf("expected session to remain COMPLETED, got: %v", completedStopResp.Msg.GetSession().GetState().GetLifecycle())
+		t.Fatalf("got session lifecycle %v, want COMPLETED", completedStopResp.Msg.GetSession().GetState().GetLifecycle())
 	}
 }
 
@@ -333,7 +332,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 		req := &operatorcapturev1.GetCaptureSessionRequest{}
 		_, err := h.client.GetCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("expected CodeInvalidArgument for missing session id, got: %v", err)
+			t.Fatalf("got missing-session-id error %v, want CodeInvalidArgument", err)
 		}
 	}
 
@@ -348,7 +347,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 		}.Build()
 		_, err := h.client.GetCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeNotFound {
-			t.Fatalf("expected CodeNotFound for unknown session, got: %v", err)
+			t.Fatalf("got unknown-session error %v, want CodeNotFound", err)
 		}
 	}
 
@@ -413,7 +412,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 	// Subsequent Get must return CodeNotFound
 	_, err = h.client.GetCaptureSession(ctx, connect.NewRequest(getReq))
 	if err == nil || connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("expected CodeNotFound after deletion, got: %v", err)
+		t.Fatalf("got post-deletion error %v, want CodeNotFound", err)
 	}
 }
 
@@ -430,7 +429,7 @@ func TestListCaptureSessions_Pagination(t *testing.T) {
 		"0192e6a0-0000-7000-8000-000000000005",
 	}
 	for _, id := range sessionIDs {
-		cfg := newEdgeSessionConfig(testEdge1ID, id)
+		cfg := newEdgeSessionConfig(t, testEdge1ID, id)
 		if _, err := h.store.CreateSession(ctx, cfg); err != nil {
 			t.Fatalf("create session %s: %v", id, err)
 		}
@@ -445,16 +444,16 @@ func TestListCaptureSessions_Pagination(t *testing.T) {
 		t.Fatalf("list page 1: %v", err)
 	}
 	if len(resp1.Msg.GetSessions()) != 2 {
-		t.Fatalf("expected 2 sessions on page 1, got: %d", len(resp1.Msg.GetSessions()))
+		t.Fatalf("got %d sessions on page 1, want 2", len(resp1.Msg.GetSessions()))
 	}
 	if resp1.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[0] {
-		t.Fatalf("expected session %s, got: %s", sessionIDs[0], resp1.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId())
+		t.Fatalf("got session %s, want %s", resp1.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[0])
 	}
 	if resp1.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[1] {
-		t.Fatalf("expected session %s, got: %s", sessionIDs[1], resp1.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId())
+		t.Fatalf("got session %s, want %s", resp1.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[1])
 	}
 	if resp1.Msg.GetNextPageToken() != sessionIDs[1] {
-		t.Fatalf("expected next_page_token %s, got: %s", sessionIDs[1], resp1.Msg.GetNextPageToken())
+		t.Fatalf("got next_page_token %s, want %s", resp1.Msg.GetNextPageToken(), sessionIDs[1])
 	}
 
 	// Page 2: page_size = 2, page_token = sessionIDs[1]
@@ -467,16 +466,16 @@ func TestListCaptureSessions_Pagination(t *testing.T) {
 		t.Fatalf("list page 2: %v", err)
 	}
 	if len(resp2.Msg.GetSessions()) != 2 {
-		t.Fatalf("expected 2 sessions on page 2, got: %d", len(resp2.Msg.GetSessions()))
+		t.Fatalf("got %d sessions on page 2, want 2", len(resp2.Msg.GetSessions()))
 	}
 	if resp2.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[2] {
-		t.Fatalf("expected session %s, got: %s", sessionIDs[2], resp2.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId())
+		t.Fatalf("got session %s, want %s", resp2.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[2])
 	}
 	if resp2.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[3] {
-		t.Fatalf("expected session %s, got: %s", sessionIDs[3], resp2.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId())
+		t.Fatalf("got session %s, want %s", resp2.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[3])
 	}
 	if resp2.Msg.GetNextPageToken() != sessionIDs[3] {
-		t.Fatalf("expected next_page_token %s, got: %s", sessionIDs[3], resp2.Msg.GetNextPageToken())
+		t.Fatalf("got next_page_token %s, want %s", resp2.Msg.GetNextPageToken(), sessionIDs[3])
 	}
 
 	// Page 3: page_size = 2, page_token = sessionIDs[3] (last remaining session)
@@ -489,13 +488,13 @@ func TestListCaptureSessions_Pagination(t *testing.T) {
 		t.Fatalf("list page 3: %v", err)
 	}
 	if len(resp3.Msg.GetSessions()) != 1 {
-		t.Fatalf("expected 1 session on page 3, got: %d", len(resp3.Msg.GetSessions()))
+		t.Fatalf("got %d sessions on page 3, want 1", len(resp3.Msg.GetSessions()))
 	}
 	if resp3.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[4] {
-		t.Fatalf("expected session %s, got: %s", sessionIDs[4], resp3.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId())
+		t.Fatalf("got session %s, want %s", resp3.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[4])
 	}
 	if resp3.Msg.GetNextPageToken() != "" {
-		t.Fatalf("expected empty next_page_token on last page, got: %s", resp3.Msg.GetNextPageToken())
+		t.Fatalf("got next_page_token %q on last page, want empty", resp3.Msg.GetNextPageToken())
 	}
 }
 
@@ -505,7 +504,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 
 	h := newOperatorTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-000000000044"
-	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
 
 	// Unknown session returns CodeNotFound
 	{
@@ -520,7 +519,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 			t.Fatal("expected no messages for unknown session")
 		}
 		if connect.CodeOf(stream.Err()) != connect.CodeNotFound {
-			t.Fatalf("expected CodeNotFound for unknown session tail, got: %v", stream.Err())
+			t.Fatalf("got unknown-session tail error %v, want CodeNotFound", stream.Err())
 		}
 		_ = stream.Close()
 	}
@@ -593,7 +592,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 		t.Fatalf("expected the attached marker from tail, stream ended: %v", stream.Err())
 	}
 	if !stream.Msg().GetAttached() {
-		t.Fatalf("expected the tail to open with its attached marker, got: %+v", stream.Msg())
+		t.Fatalf("got opening tail message %+v, want attached marker", stream.Msg())
 	}
 
 	if !stream.Receive() {
@@ -627,7 +626,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 		t.Fatal("expected stream to terminate after final chunk")
 	}
 	if stream.Err() != nil {
-		t.Fatalf("expected clean stream termination, got error: %v", stream.Err())
+		t.Fatalf("got stream termination error %v, want nil", stream.Err())
 	}
 }
 
@@ -636,7 +635,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	h := newOperatorTestHarness(t)
 
 	sessID := "0192e6a0-0000-7000-8000-000000000055"
-	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
 
 	// Session not found
 	{
@@ -651,7 +650,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 			t.Fatal("expected no messages for non-existent session download")
 		}
 		if connect.CodeOf(stream.Err()) != connect.CodeNotFound {
-			t.Fatalf("expected CodeNotFound, got: %v", stream.Err())
+			t.Fatalf("got error %v, want CodeNotFound", stream.Err())
 		}
 		_ = stream.Close()
 	}
@@ -675,7 +674,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 			t.Fatal("expected no stream messages when the capture has not finished")
 		}
 		if connect.CodeOf(stream.Err()) != connect.CodeFailedPrecondition {
-			t.Fatalf("expected CodeFailedPrecondition while the capture is unfinished, got: %v", stream.Err())
+			t.Fatalf("got unfinished-capture error %v, want CodeFailedPrecondition", stream.Err())
 		}
 		_ = stream.Close()
 	}
@@ -717,7 +716,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatalf("store artifact on session: %v", err)
 	}
 	if artifact.GetByteSize() <= 2*1024*1024 {
-		t.Fatalf("expected artifact size > 2MB, got: %d", artifact.GetByteSize())
+		t.Fatalf("got artifact size %d, want more than 2 MiB", artifact.GetByteSize())
 	}
 
 	// Download artifact and verify chunking
@@ -753,7 +752,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	}
 
 	if downloadedChunks < 3 {
-		t.Fatalf("expected at least 3 chunks for >2.5MB payload, got: %d", downloadedChunks)
+		t.Fatalf("got %d chunks, want at least 3 for payload larger than 2.5 MiB", downloadedChunks)
 	}
 	if uint64(totalBytes) != artifact.GetByteSize() {
 		t.Fatalf("downloaded bytes mismatch: got %d, want %d", totalBytes, artifact.GetByteSize())
@@ -765,14 +764,13 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	// Move both clocks past the artifact's expiry and sweep.
 	expired := h.frozenClock.Add(2 * time.Hour)
 	h.frozenClock = expired
-	h.store.SetClock(func() time.Time { return expired })
 
 	removed, err := h.store.SweepExpired(ctx)
 	if err != nil {
 		t.Fatalf("sweep expired: %v", err)
 	}
 	if removed != 1 {
-		t.Fatalf("expected one artifact purged, got: %d", removed)
+		t.Fatalf("got %d purged artifacts, want 1", removed)
 	}
 	if h.store.ArtifactExists(sessID) {
 		t.Fatal("expected artifact to be swept from disk")
@@ -780,15 +778,15 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 
 	// What the retention departure keeps: the record, its counters, and the
 	// descriptor of what was captured, now stamped with when it was purged.
-	afterSweep, _, err := h.store.GetSession(ctx, sessID)
+	afterSweep, _, err := h.store.Session(ctx, sessID)
 	if err != nil {
 		t.Fatalf("get session after sweep: %v", err)
 	}
 	if got := afterSweep.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
-		t.Fatalf("expected the session record to survive the sweep as COMPLETED, got: %v", got)
+		t.Fatalf("got session lifecycle %v after sweep, want COMPLETED", got)
 	}
 	if got := afterSweep.GetState().GetCounters().GetAccepted(); got != packetCount {
-		t.Fatalf("expected counters to survive the sweep with %d accepted, got: %d", packetCount, got)
+		t.Fatalf("got accepted count %d after sweep, want %d", got, packetCount)
 	}
 	swept := afterSweep.GetState().GetArtifact()
 	if swept.GetByteSize() != artifact.GetByteSize() || !bytes.Equal(swept.GetDigest(), artifact.GetDigest()) {
@@ -805,7 +803,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatalf("second sweep: %v", err)
 	}
 	if again != 0 {
-		t.Fatalf("expected the second sweep to purge nothing, got: %d", again)
+		t.Fatalf("got %d purged artifacts on second sweep, want 0", again)
 	}
 
 	// Attempting download after sweep returns CodeNotFound
@@ -817,7 +815,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		t.Fatal("expected stream to fail after artifact swept")
 	}
 	if connect.CodeOf(stream2.Err()) != connect.CodeNotFound {
-		t.Fatalf("expected CodeNotFound for swept artifact, got: %v", stream2.Err())
+		t.Fatalf("got swept-artifact error %v, want CodeNotFound", stream2.Err())
 	}
 	_ = stream2.Close()
 }
@@ -830,7 +828,7 @@ func TestTailCaptureSession_ReturnsForASessionThatAlreadyEnded(t *testing.T) {
 	ctx := context.Background()
 
 	sessID := "0192e6a0-0000-7000-8000-000000000066"
-	cfg := newEdgeSessionConfig(testEdge1ID, sessID)
+	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
 	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -859,12 +857,12 @@ func TestTailCaptureSession_ReturnsForASessionThatAlreadyEnded(t *testing.T) {
 		t.Fatal("expected no chunks for a session that already ended")
 	}
 	if stream.Err() != nil {
-		t.Fatalf("expected the tail to end cleanly, got: %v", stream.Err())
+		t.Fatalf("got tail termination error %v, want nil", stream.Err())
 	}
 	if tailCtx.Err() != nil {
 		t.Fatal("the tail blocked until its deadline instead of ending with the session")
 	}
 	if got := h.broadcaster.SubscriberCount(sessID); got != 0 {
-		t.Fatalf("expected the tail's subscription to be released, got %d subscribers", got)
+		t.Fatalf("got %d tail subscribers after completion, want 0", got)
 	}
 }

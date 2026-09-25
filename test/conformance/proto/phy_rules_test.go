@@ -379,10 +379,10 @@ func TestPoeSettingsPowerLimitPresence(t *testing.T) {
 	explicitZero := phyv1.PoeSettings_builder{PowerLimitMilliwatts: proto.Uint32(0)}.Build()
 
 	if absent.HasPowerLimitMilliwatts() {
-		t.Fatal("omitted power limit is present")
+		t.Fatal("got omitted power limit present, want absent")
 	}
 	if !explicitZero.HasPowerLimitMilliwatts() {
-		t.Fatal("explicit zero power limit is absent")
+		t.Fatal("got explicit zero power limit absent, want present")
 	}
 	if got := explicitZero.GetPowerLimitMilliwatts(); got != 0 {
 		t.Fatalf("explicit zero power limit = %d, want 0", got)

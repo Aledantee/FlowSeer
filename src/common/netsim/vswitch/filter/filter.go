@@ -158,6 +158,7 @@ type bindingKey struct {
 }
 
 // Layer evaluates interface filter sets against frames passing through the virtual switch.
+// A Layer is safe for concurrent use.
 type Layer struct {
 	nodeID   string
 	cfg      Config

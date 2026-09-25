@@ -94,7 +94,8 @@ type Config struct {
 
 const defaultReadPoll = 500 * time.Millisecond
 
-// Service implements the DeviceService handler. Safe for concurrent use.
+// Service implements the DeviceService handler. A Service is safe for
+// concurrent use.
 type Service struct {
 	cfg      Config
 	clock    func() time.Time

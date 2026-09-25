@@ -26,7 +26,7 @@ const pollTimeout = 100 * time.Millisecond
 // done also wakes Receive when it is waiting for the consumer to read.
 type linuxLeg struct {
 	tp     packetSocket
-	mu     sync.Mutex
+	mu     sync.Mutex // guards tp and closed
 	closed bool
 	done   chan struct{}
 }

@@ -31,8 +31,8 @@ type RowCodec[Row any, Key comparable] struct {
 	// Watcher's tick diff calls it once per surviving row pair.
 	Equal func(a, b Row) bool
 	// Merge overlays update's populated fields onto base and returns
-	// the result, preserving base's fields the update did not carry —
-	// the partial-state merge for gNMI Subscribe updates.
+	// the partial-state merge used for gNMI Subscribe updates. The
+	// result retains fields update did not carry.
 	Merge func(base, update Row) Row
 	// Key extracts the row's identity: the list's key leaves,
 	// including ancestor keys for flattened nested lists.

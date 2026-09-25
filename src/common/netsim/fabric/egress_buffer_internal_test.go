@@ -66,7 +66,7 @@ func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*Fabric, []E
 	t.Helper()
 
 	builder := port.NewBuilder()
-	builder.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up, MTU: lagMTU})
+	builder.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up, MTU: lagMTU})
 	members := []string{"1/1/1", "1/1/2"}
 	for _, name := range members {
 		builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})

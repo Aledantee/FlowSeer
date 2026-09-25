@@ -24,7 +24,7 @@ func mcastPortTable(t *testing.T) port.Table {
 	t.Helper()
 
 	ports, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, LagParent: "lag1"}).

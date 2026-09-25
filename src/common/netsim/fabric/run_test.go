@@ -791,7 +791,7 @@ func TestHostTagFormHandling(t *testing.T) {
 
 		journeys := fab.Report()
 		if len(journeys) != 1 || len(journeys[0].Deliveries) != 1 {
-			t.Fatalf("expected 1 journey with 1 delivery, got %+v", journeys)
+			t.Fatalf("got journeys %+v, want 1 journey with 1 delivery", journeys)
 		}
 
 		del := journeys[0].Deliveries[0]

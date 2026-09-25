@@ -102,7 +102,7 @@ type vlanState struct {
 
 // Layer holds multicast snooping state. A Layer is safe for concurrent use.
 type Layer struct {
-	mu     sync.RWMutex
+	mu     sync.RWMutex // guards cfg, ports, and byVLAN
 	cfg    Config
 	ports  port.Table
 	byVLAN map[vlan.ID]*vlanState

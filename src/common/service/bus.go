@@ -197,7 +197,7 @@ func privateStateDir() (string, error) {
 	case "linux":
 		if dir := os.Getenv("XDG_STATE_HOME"); dir != "" {
 			if !filepath.IsAbs(dir) {
-				return "", fmt.Errorf("XDG_STATE_HOME is not absolute")
+				return "", errors.New("XDG_STATE_HOME is not absolute")
 			}
 			return dir, nil
 		}
@@ -216,7 +216,7 @@ func privateStateDir() (string, error) {
 		return "", err
 	}
 	if !filepath.IsAbs(dir) {
-		return "", fmt.Errorf("user config directory is not absolute")
+		return "", errors.New("user config directory is not absolute")
 	}
 	return dir, nil
 }

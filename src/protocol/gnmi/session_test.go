@@ -90,6 +90,44 @@ func dialFakeWithOptions(t *testing.T, f *fakeServer, opts gnmi.Options) *gnmi.S
 	return s
 }
 
+func TestNegativeBuffersAreRejected(t *testing.T) {
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_JSON_IETF},
+		subscribe: func(srv gpb.GNMI_SubscribeServer) error {
+			_, err := srv.Recv()
+			return err
+		},
+	}
+	s := dialFake(t, f)
+	path := yang.Path{Segments: []yang.Segment{{Name: "interfaces"}}}
+
+	t.Run("Subscribe", func(t *testing.T) {
+		stream, err := s.Subscribe(context.Background(), gnmi.SubscribeOptions{
+			Mode:   gnmi.ModeStream,
+			Paths:  []yang.Path{path},
+			Buffer: -1,
+		})
+		if stream != nil {
+			_ = stream.Close()
+		}
+		if err == nil {
+			t.Error("Subscribe accepted a negative buffer")
+		}
+	})
+
+	t.Run("Watch", func(t *testing.T) {
+		w, err := gnmi.Watch[struct{}, string](context.Background(), s,
+			yang.ListDescriptor[struct{}, string]{Path: path},
+			gnmi.WatchOptions{Buffer: -1})
+		if w != nil {
+			_ = w.Close()
+		}
+		if err == nil {
+			t.Error("Watch accepted a negative buffer")
+		}
+	})
+}
+
 func ifacePath() yang.Path {
 	return yang.Path{Segments: []yang.Segment{
 		{Module: "openconfig-interfaces", Name: "interfaces"},

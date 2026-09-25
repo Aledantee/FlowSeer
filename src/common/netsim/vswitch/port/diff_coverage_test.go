@@ -7,8 +7,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate, port's variant: every exported port.Port
-// field reaches port.Diff. port has no Config; Diff takes a Table, whose fields are
+// TestDiffCoversEveryConfigField verifies that every exported port.Port field reaches
+// port.Diff. port has no Config; Diff takes a Table, whose fields are
 // unexported and built only through NewBuilder, so this walks port.Port directly and the
 // companion LAG port lets LagParent's toggle-to-"" perturbation still resolve to a real
 // port. Name is exempt: it is the key Diff matches ports across tables by, so renaming
@@ -26,7 +26,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		LagParent:   "lag1",
 	}
 	companions := []port.Port{
-		{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up},
+		{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up},
 	}
 	exemptions := map[string]string{
 		".Name": "Name is the key Diff matches ports across tables by; renaming reads as removing one port and adding another",

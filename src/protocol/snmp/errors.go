@@ -107,6 +107,8 @@ func (s PDUErrorStatus) String() string {
 // Multiple PDUErrors from a multi-OID request are aggregated via
 // [errors.Join]; callers extract individual entries with
 // [errors.AsType] or [errors.As].
+// A PDUError may be read concurrently after construction; callers must
+// not mutate its fields while it is in use.
 type PDUError struct {
 	Status PDUErrorStatus
 	Index  int

@@ -3,6 +3,7 @@ package conformance
 import (
 	"testing"
 
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -132,6 +133,9 @@ func TestInterfaceExplicitZeroMtuKeepsPresence(t *testing.T) {
 		Mtu:      proto.Uint32(0),
 		Loopback: interfacev1.LoopbackInterface_builder{}.Build(),
 	}.Build()
+	if err := protovalidate.Validate(iface); err != nil {
+		t.Fatalf("validate interface fixture: %v", err)
+	}
 
 	wire, err := proto.Marshal(iface)
 	if err != nil {

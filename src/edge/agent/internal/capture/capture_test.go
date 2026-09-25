@@ -286,7 +286,7 @@ func TestHandler_StartAndUploadChunks(t *testing.T) {
 	chunks := fakeServer.Chunks()
 	// Should have initial chunk + data chunk(s)
 	if len(chunks) < 2 {
-		t.Fatalf("expected at least 2 chunks (initial + data), got: %d", len(chunks))
+		t.Fatalf("got %d chunks, want at least 2 (initial + data)", len(chunks))
 	}
 	// Initial chunk has FirstSequence 0 and no packets
 	if chunks[0].GetFirstSequence() != 0 || len(chunks[0].GetPackets()) != 0 {
@@ -344,7 +344,7 @@ func TestHandler_PeriodicMidStreamReAssertion(t *testing.T) {
 	}
 
 	if count := fakeServer.AssertionsCount(); count < 3 {
-		t.Fatalf("expected at least 3 assertions (1 opening + 2 mid-stream), got: %d", count)
+		t.Fatalf("got %d assertions, want at least 3 (1 opening + 2 mid-stream)", count)
 	}
 }
 

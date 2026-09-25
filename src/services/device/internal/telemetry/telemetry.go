@@ -77,6 +77,7 @@ const (
 // View is the instrumentation the host builds once and the service's internal
 // packages emit through. A nil *View is safe to call and emits nothing, which
 // is what a test that does not care about signals passes.
+// A non-nil View is safe for concurrent use.
 type View struct {
 	logger          *slog.Logger
 	driftDetections metric.Int64Counter

@@ -202,7 +202,7 @@ func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult) {
 func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 	catalog := analysis.EvidenceCatalog{}
 	issues := make([]analysis.Issue, 0, 5)
@@ -293,7 +293,7 @@ func TestForwardingMetadataIncludesOnlyConsultedProtocolScope(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "routed", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "bridged", AdminStatus: port.Up, OperStatus: port.Up}))
-	stpScope := analysis.ProtocolScope("sw1", string(port.LayerStp), "0")
+	stpScope := analysis.ProtocolScope("sw1", string(port.LayerSTP), "0")
 	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
 		Kind:    "snapshot",
 		Origin:  "inventory",

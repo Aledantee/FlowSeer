@@ -90,8 +90,8 @@ var importOrder = map[string][]string{
 	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operator API, the execution envelope, and the audit event are
-	// sibling boundary consumers of model/access, and none of the three
-	// imports another. This row is an allowlist and is wider than the tree:
+	// sibling boundary consumers of model/access. Each imports model/access
+	// directly. This row is an allowlist and is wider than the tree:
 	// api/device's files reach model/access and model/inventory, while
 	// model/policy and errs are permitted and unused. The envelope carries no
 	// device or edge ref at all (the transport already names both), and the

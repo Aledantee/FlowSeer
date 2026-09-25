@@ -82,7 +82,7 @@ type Machine struct {
 	// by central's own goroutine releases a mutation parked anywhere.
 	done chan struct{}
 
-	mu              sync.Mutex
+	mu              sync.Mutex // guards phase through cancelWaits
 	phase           accessv1.OperationPhase
 	disposition     accessv1.Disposition
 	blockReason     accessv1.BlockReason

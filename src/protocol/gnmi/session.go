@@ -220,7 +220,7 @@ func (s *Session) unaryCtx(ctx context.Context, op string) (context.Context, fun
 	return s.withCreds(ctx), finish, nil
 }
 
-// mapError translates gRPC failures, keeping caller cancellation
+// mapError translates gRPC failures. Caller cancellation remains
 // unwrapped.
 func (s *Session) mapError(ctx context.Context, op string, err error) error {
 	if ctx.Err() != nil {

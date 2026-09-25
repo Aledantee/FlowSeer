@@ -399,11 +399,10 @@ func (h multiSlogHandler) WithGroup(name string) slog.Handler {
 }
 
 // telemetryDiagnostics rate-limits export warnings independently per signal.
-// mu guards state and calls to now.
 type telemetryDiagnostics struct {
 	logger *slog.Logger
 	now    func() time.Time
-	mu     sync.Mutex
+	mu     sync.Mutex // guards state and calls to now
 	state  map[string]telemetryDiagnosticState
 }
 
@@ -420,7 +419,7 @@ type telemetryDiagnosticState struct {
 // on its own schedule, with no context of the shutdown that must adopt it.
 type exportGuard struct {
 	signal      string
-	mu          sync.Mutex
+	mu          sync.Mutex // guards shutdownCtx, active, nextExport, and finalFailed
 	shutdownCtx context.Context
 	active      map[uint64]context.CancelFunc
 	nextExport  uint64

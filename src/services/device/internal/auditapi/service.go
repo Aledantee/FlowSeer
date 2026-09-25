@@ -48,7 +48,8 @@ type EdgeBinding interface {
 	Hosts(ctx context.Context, edgeID, deviceID string) (bool, error)
 }
 
-// Service implements the AuditService handler.
+// Service implements the AuditService handler. A Service is safe for concurrent
+// use when its Publisher and EdgeBinding are safe for concurrent use.
 type Service struct {
 	stream  Publisher
 	binding EdgeBinding

@@ -48,10 +48,10 @@ func TestCoalescerSharesOneResultAcrossConcurrentCallers(t *testing.T) {
 	wg.Wait()
 
 	if results[0] != "observed" || results[1] != "observed" {
-		t.Fatalf("expected both waiters to see the same result, got %v and %v", results[0], results[1])
+		t.Fatalf("got waiter results %v and %v, want both to equal observed", results[0], results[1])
 	}
 	if errs[0] != nil || errs[1] != nil {
-		t.Fatalf("expected no error, got %v and %v", errs[0], errs[1])
+		t.Fatalf("got waiter errors %v and %v, want nil and nil", errs[0], errs[1])
 	}
 }
 

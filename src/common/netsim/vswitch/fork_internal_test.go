@@ -177,7 +177,7 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 
 	p1 := port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}
 	p2 := port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}
-	lagPort := port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}
+	lagPort := port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}
 	lagM1 := port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}
 	lagM2 := port.Port{Name: "1/1/4", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}
 
@@ -210,7 +210,14 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 					},
 				},
 			},
-			STP: &stp.Config{Priority: 32768, Address: mac},
+			STP: &stp.Config{
+				Priority: 32768,
+				Address:  mac,
+				Ports: map[string]stp.Port{
+					"1/1/1": {AdminEdge: true},
+					"1/1/2": {AdminEdge: true},
+				},
+			},
 			LoopProtect: &loopprotect.Config{
 				Interval: 5 * time.Second,
 				Ports: map[string]loopprotect.Port{
@@ -263,6 +270,8 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
+	sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0)
+	sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0)
 
 	// Populate runtime maps so they are non-empty for the pointer check.
 	sw.portP2P = map[string]PointToPoint{"1/1/1": PointToPointTrue}

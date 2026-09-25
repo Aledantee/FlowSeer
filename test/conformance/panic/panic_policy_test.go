@@ -19,10 +19,8 @@ import (
 	"testing"
 )
 
-// spawnDir is the one package allowed to start a goroutine, compared for
-// equality rather than as a prefix. There is no src/common/spawnpool
-// today, and prefix matching would admit one the day somebody adds it —
-// an allowlist that grows by accident is what this gate exists to stop.
+// spawnDir is compared as a complete path so the goroutine allowlist grants
+// only src/common/spawn.
 const spawnDir = "src/common/spawn"
 
 // TestPanicPolicy is the gate. It walks first-party source under src/ and
@@ -32,9 +30,8 @@ const spawnDir = "src/common/spawn"
 // It parses files by path rather than importing them, so one test in the
 // root module inspects the nested modules too (src/edge/netpen, the bench
 // and differential modules), which a root `go test ./...` never builds.
-// Today the only sanctioned panics down there are netpen's mustMAC
-// helpers and catalog.MustRegister; netpen spawns through spawn.Go, which
-// this gate does not see, and the bench modules hold neither.
+// Nested modules follow the same policy: panic sites remain inside Must- or
+// must-prefixed functions, and goroutines are launched through spawn.Go.
 func TestPanicPolicy(t *testing.T) {
 	root := repoRoot(t)
 	srcRoot := filepath.Join(root, "src")

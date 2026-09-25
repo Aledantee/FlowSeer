@@ -226,7 +226,7 @@ func TestRouteNeighborMiss(t *testing.T) {
 		t.Errorf("interface = %q, want matched target vlan20", res.Interface)
 	}
 	if len(res.Frame.Payload) != 0 {
-		t.Errorf("expected no egress frame, got payload len %d", len(res.Frame.Payload))
+		t.Errorf("got egress payload length %d, want 0", len(res.Frame.Payload))
 	}
 	wantScope := analysis.FieldScope(
 		analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF),
@@ -306,7 +306,7 @@ func TestRouteNeighborLifecycle(t *testing.T) {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborPending)
 		}
 		if len(res.Frame.Payload) != 0 {
-			t.Errorf("expected no egress frame while pending, got payload len %d", len(res.Frame.Payload))
+			t.Errorf("got egress payload length %d while pending, want 0", len(res.Frame.Payload))
 		}
 	})
 
@@ -358,7 +358,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonTTLExpired)
 		}
 		if len(res.Frame.Payload) != 0 {
-			t.Errorf("expected no egress payload, got %d bytes", len(res.Frame.Payload))
+			t.Errorf("got %d egress payload bytes, want 0", len(res.Frame.Payload))
 		}
 		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonTTLExpired) {
 			t.Errorf("last step = %+v, want drop ttl-expired", last)
@@ -921,7 +921,7 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 		},
 	}
 	if err := validExplicitCfg.Validate(ports); err != nil {
-		t.Fatalf("expected valid configuration, got: %v", err)
+		t.Fatalf("got configuration error %v, want valid configuration", err)
 	}
 
 	l := mustNewRoutingWithPorts(t, validExplicitCfg, ports)

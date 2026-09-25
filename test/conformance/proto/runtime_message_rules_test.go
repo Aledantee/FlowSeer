@@ -184,7 +184,7 @@ func TestRuntimeMessageWireContract(t *testing.T) {
 	for name, want := range fields {
 		field := descriptor.Fields().ByName(protoreflect.Name(name))
 		if field == nil {
-			t.Errorf("field %q is missing", name)
+			t.Errorf("got no field %q, want field present", name)
 			continue
 		}
 		if got := field.Number(); got != want {
@@ -202,7 +202,7 @@ func TestRuntimeMessageWireContract(t *testing.T) {
 	for name, want := range values {
 		value := enum.Values().ByName(protoreflect.Name(name))
 		if value == nil {
-			t.Errorf("message kind %q is missing", name)
+			t.Errorf("got no message kind %q, want value present", name)
 			continue
 		}
 		if got := value.Number(); got != want {

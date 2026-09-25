@@ -27,7 +27,8 @@ func effectiveAgingTime(configured time.Duration) time.Duration {
 // DefaultServiceTPID is the standard IEEE 802.1ad Service Tag protocol identifier (0x88A8).
 const DefaultServiceTPID uint16 = 0x88A8
 
-// Tunnel configures 802.1Q tunnel (QinQ) behavior for a switchport.
+// Tunnel configures 802.1Q tunnel (QinQ) behavior for a switchport. Tunnel values are safe
+// for concurrent reads but not for concurrent mutation.
 type Tunnel struct {
 	VID          vlan.ID
 	CustomerVIDs []vlan.ID
@@ -146,7 +147,8 @@ func (s Switchport) Clone() Switchport {
 	return cp
 }
 
-// VLAN holds the bridge VLAN table and per-port switchport configurations.
+// VLAN holds the bridge VLAN table and per-port switchport configurations. VLAN values are
+// safe for concurrent reads but not for concurrent mutation.
 type VLAN struct {
 	Table       map[vlan.ID]string
 	Switchports map[string]Switchport

@@ -23,7 +23,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 	vid10 := vlan.ID(10)
 	buildPorts := func() port.Table {
 		b := port.NewBuilder()
-		b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 		b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -309,7 +309,7 @@ func TestActiveBackupFailover(t *testing.T) {
 
 	j1 := fab.Report()[0]
 	if j1.FrameID != fid1 {
-		t.Fatalf("expected journey for frame 1, got frame %d", j1.FrameID)
+		t.Fatalf("got frame %d, want journey for frame 1", j1.FrameID)
 	}
 	var crossed1 string
 	for _, entry := range j1.Entries {
@@ -891,7 +891,7 @@ func TestPassive(t *testing.T) {
 func TestMemberlessLagIsDown(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	b := port.NewBuilder()
-	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	tbl, err := b.Build()
 	if err != nil {

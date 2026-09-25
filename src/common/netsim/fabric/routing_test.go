@@ -158,14 +158,14 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	}
 
 	wantFloodSteps := []trace.Step{
-		{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
 		{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 		{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-miss", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
 		{Layer: port.LayerRelay, Op: trace.OpReplicate, RuleID: "flood", Subject: trace.Subject{Kind: "vlan", Key: "20"}},
-		{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 	}
 	assertSteps(t, swHop.Result.Steps, wantFloodSteps)
@@ -630,8 +630,8 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 // nothing has been observed for h2's address, an ARP reply injected directly
 // at the switch's port to h2 moves the entry, and the switch releases the
 // held frame without anything else nudging it. The released frame travels as
-// its own injected journey (linking it back to the journey that held it is a
-// later phase's job), so the switch's own release must itself carry the
+// its own injected journey without a link to the journey that held it, so the
+// switch's own release must itself carry the
 // frame all the way to a delivery and must not be marked Protocol: the
 // released frame is h1's ordinary data, not a frame of the switch's own.
 func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
@@ -751,9 +751,8 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
 	}
 
-	// The released frame is a new injected journey at the switch, distinct
-	// from both the held journey and the ARP reply's own: linking it back to
-	// the journey it was held from belongs to a later phase.
+	// The released frame is a new injected journey at the switch, distinct from
+	// both the held journey and the ARP reply's own.
 	var released *fabric.Journey
 	for _, j := range fab.Report() {
 		if j.FrameID == heldID || j.FrameID == replyID {

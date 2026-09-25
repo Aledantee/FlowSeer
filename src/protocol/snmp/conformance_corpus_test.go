@@ -15,12 +15,9 @@ import (
 	"testing"
 )
 
-// Conformance corpus (SNMP test-completeness & conformance hardening).
-//
 // This file is the durable, re-runnable coverage map and the
 // provenance-citing regression corpus for the native SNMP codec.
-// Every cataloged quirk from the hardening plan's Tables 1-3 — plus the
-// planning-discovered rows — is one [corpusRow] here. The completeness gate
+// Every row in CONFORMANCE.md is represented by one [corpusRow] here. The completeness gate
 // ([TestConformanceCorpusIntegrity] + the build-tagged TestConformanceCorpusComplete
 // in conformance_complete_test.go) makes completeness provable rather than asserted.
 //
@@ -66,10 +63,9 @@ type corpusRow struct {
 	Accepted    string       // why-not-covered rationale (required when accepted-risk)
 }
 
-// conformanceCorpus is the master catalog. Rows start "pending" and flip to
-// "covered"/"accepted-risk" as the pin lands, keeping the integrity gate
-// green: the catalog is seeded once and rows flip in place, never added
-// lazily.
+// conformanceCorpus is the master catalog. The integrity gate permits
+// pending rows, while the build-tagged completeness gate requires every
+// row to be covered or accepted risk.
 //
 // Editing rules:
 //   - never delete a row (a removed quirk loses its institutional memory);
@@ -130,8 +126,8 @@ var acceptedRiskAllowlist = map[string]bool{
 
 // kindBaselineTest maps every non-Unknown Kind to a baseline decode/structural
 // test that exercises it. The enumeration guard ([TestConformanceCorpusEnumeration])
-// asserts this map covers the full Kind enum, so a NEW Kind added to kind.go
-// without baseline coverage fails the gate — the coverage-by-omission backstop
+// requires this map to cover the full Kind enum. A Kind without baseline
+// coverage therefore fails the gate — the coverage-by-omission backstop
 // (per the protobuf-structural-invariant-guards learning). Kinds with no quirk
 // row (KindObjectID, KindNsapAddress, KindNull) are reachable here, so the
 // guard needs no fake corpus rows for them.

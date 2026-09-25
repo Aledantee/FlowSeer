@@ -177,7 +177,7 @@ func TestRuntimeBusControlRecordWireContracts(t *testing.T) {
 			for name, want := range tt.fields {
 				field := tt.message.Fields().ByName(name)
 				if field == nil {
-					t.Errorf("field %q is missing", name)
+					t.Errorf("got no field %q, want field present", name)
 					continue
 				}
 				if got := field.Number(); got != want {

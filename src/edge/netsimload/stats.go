@@ -10,6 +10,7 @@ import (
 )
 
 // LatencyStats summarizes nonnegative submission-to-capture latency samples.
+// Its values are safe for concurrent reads; callers must synchronize mutation.
 type LatencyStats struct {
 	Min   time.Duration `json:"min"`
 	Max   time.Duration `json:"max"`
@@ -20,6 +21,7 @@ type LatencyStats struct {
 // FlowObservation reports the receive-side observation domain for one flow.
 // Missing is computed from successful sends and the unique received sequence
 // numbers, so a tail gap is included.
+// Its values are safe for concurrent reads; callers must synchronize mutation.
 type FlowObservation struct {
 	Sent           uint64       `json:"sent"`
 	UniqueReceived uint64       `json:"unique_received"`
@@ -32,6 +34,7 @@ type FlowObservation struct {
 
 // Observation is the complete lab observation, including traffic that did
 // not identify a configured flow and the capture interface-drop counter.
+// Its values are safe for concurrent reads; callers must synchronize mutation.
 type Observation struct {
 	Flows          map[fabric.FlowID]FlowObservation `json:"flows"`
 	Malformed      uint64                            `json:"malformed"`

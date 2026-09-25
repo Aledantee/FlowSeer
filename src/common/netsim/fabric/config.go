@@ -505,7 +505,8 @@ func (u Uncabled) Equal(other Uncabled) bool {
 // and an unspecified cable Medium from Medium; a stated fact is never replaced, and an unspecified Medium or
 // an unreported Ethernet field fills nothing. Ethernet follows a switch port's validation rules and must not
 // carry Observed, since an observation cannot be assumed. The filled values show in [Fabric.Links], and
-// [Fabric.Metadata] carries one assumption per link it filled, naming the facts.
+// [Fabric.Metadata] carries one assumption per link it filled, naming the facts. PhyAssumption values
+// are safe for concurrent reads but not for concurrent mutation.
 type PhyAssumption struct {
 	Medium   Medium
 	Ethernet phy.Ethernet
@@ -767,7 +768,6 @@ func (c Config) Normalize() Config {
 		cloned.PhyAssumption.Ethernet = normalizedEthernet(cloned.PhyAssumption.Ethernet)
 	}
 
-	// Sort cables by endpoint names to ensure stable ordering.
 	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
 		if r := cmp.Compare(i.A.Node, j.A.Node); r != 0 {
 			return r
@@ -1073,7 +1073,7 @@ func (c Config) validateUncabled(portCables map[Endpoint]int) error {
 		if !ok {
 			return failure.Msgf("uncabled entry names port %q, which switch %q does not have", ep.Port, ep.Node)
 		}
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			return failure.Msgf("uncabled entry names LAG %q on switch %q, which takes no cable", ep.Port, ep.Node)
 		}
 		if portCables[ep] > 0 {
@@ -1261,7 +1261,7 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 			Msgf("port %q not found on switch %q", ep.Port, ep.Node)
 	}
 
-	if p.Kind == port.Lag {
+	if p.Kind == port.LAG {
 		return errs.New().
 			Attr("node", ep.Node).
 			Attr("port", ep.Port).

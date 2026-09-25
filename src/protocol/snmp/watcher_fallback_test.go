@@ -323,10 +323,6 @@ func TestWatcher_PerRow_EmptyTableNoFallback(t *testing.T) {
 func TestWatcher_Fallback_IsMonotonic(t *testing.T) {
 	s := newScriptedSession()
 	s.pushTableWalk(nil)
-	s.pushGet(map[string]VarBind{}) // trigger fallback via empty Get response on first probe? Not quite.
-
-	// Easier route: directly call enterFallback on a constructed
-	// Watcher to mimic transition.
 	w, err := NewWatcher[testIfRow](
 		context.Background(),
 		s,

@@ -383,7 +383,7 @@ func TestICX7150Load(t *testing.T) {
 	report := res.Report
 
 	if len(report.Skipped) != 2 {
-		t.Errorf("expected 2 skipped LAG member port states, got %d: %+v", len(report.Skipped), report.Skipped)
+		t.Errorf("got %d skipped LAG member port states (%+v), want 2", len(report.Skipped), report.Skipped)
 	}
 	for _, s := range report.Skipped {
 		if s.What != "stp_port" || (s.Port != "1/3/2" && s.Port != "1/3/4") {
@@ -393,11 +393,11 @@ func TestICX7150Load(t *testing.T) {
 
 	wantCaps := []port.Layer{
 		port.LayerEthernet,
-		port.LayerLag,
-		port.LayerPoe,
+		port.LayerLAG,
+		port.LayerPoE,
 		port.LayerRelay,
-		port.LayerStp,
-		port.LayerVlan,
+		port.LayerSTP,
+		port.LayerVLAN,
 	}
 	if !slices.Equal(report.Capabilities, wantCaps) {
 		t.Errorf("capabilities = %v, want %v", report.Capabilities, wantCaps)

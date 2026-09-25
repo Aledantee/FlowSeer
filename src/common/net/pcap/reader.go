@@ -33,9 +33,10 @@ type Reader struct {
 	interfaces []ngInterface
 }
 
-// NewReader reads the capture header and selects its format. It returns an
-// error for an unknown magic, an unsupported version, or a truncated header.
-// The caller retains ownership of the input and must keep it open until done.
+// NewReader accepts a classic pcap or pcapng stream and consumes its file
+// header. It returns an error for a nil input, unknown magic, unsupported
+// version, or truncated header. The caller retains ownership of input and must
+// keep it open until done.
 func NewReader(input io.Reader) (*Reader, error) {
 	if input == nil {
 		return nil, fmt.Errorf("pcap: nil input")

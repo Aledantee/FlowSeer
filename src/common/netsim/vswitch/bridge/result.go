@@ -59,7 +59,8 @@ type Egress struct {
 	Dropped trace.Reason
 }
 
-// Result embeds [trace.Trace] and includes structured bridge forwarding metadata.
+// Result embeds [trace.Trace] and includes structured bridge forwarding metadata. Result
+// values are safe for concurrent reads but not for concurrent mutation.
 type Result struct {
 	trace.Trace
 	Ingress         string

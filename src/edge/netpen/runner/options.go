@@ -113,8 +113,7 @@ type AttackRef struct {
 //
 // The context is derived from [Runner.Run]'s ctx (zgrab2's per-attack
 // cancellation pattern): a behavior should respect ctx.Done() and return
-// promptly on cancellation. Run returns ctx.Err() unwrapped on cancellation
-// (code-style: context cancellation surfaces as the unwrapped ctx.Err()).
+// promptly on cancellation. Run returns ctx.Err() unwrapped on cancellation.
 type Behavior func(ctx context.Context, deps Deps) error
 
 // Deps supplies a [Behavior] with the resolved catalog entry and execution

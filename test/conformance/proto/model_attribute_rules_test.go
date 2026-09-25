@@ -187,10 +187,8 @@ func TestAttributeRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
-// The enum-key shape is written out twice — on EnumType.values and on the
-// enum_key payload arm — because protovalidate has no shared constants. These
-// cases feed both rules the same boundary inputs so the two literals cannot
-// drift apart without a test failing.
+// TestEnumKeyShapeStaysInSync feeds the same boundary inputs to EnumType.values
+// and the enum_key payload arm because protovalidate has no shared constants.
 func TestEnumKeyShapeStaysInSync(t *testing.T) {
 	longKey := strings.Repeat("k", 65)
 	edgeKey := strings.Repeat("k", 64)

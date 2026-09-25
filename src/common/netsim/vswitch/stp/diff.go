@@ -131,7 +131,7 @@ func Diff(a, b Config) []trace.Change {
 
 	var changes []trace.Change
 
-	layer := port.LayerStp
+	layer := port.LayerSTP
 
 	if a.Address != b.Address {
 		changes = append(changes, trace.Change{

@@ -108,8 +108,8 @@ func nextRequestIDValue() int32 {
 // of only two defenses during the unauthenticated discovery window
 // (usm-msgid-predictability). In-flight uniqueness is guaranteed by registerV3's
 // collision-retry loop, so a (vanishingly rare) repeat is simply redrawn. On a
-// crypto/rand failure it degrades to the seeded counter — uniqueness preserved,
-// only the unpredictability weakened — rather than failing the send.
+// crypto/rand failure it uses the seeded counter. Uniqueness is preserved, but
+// unpredictability is weakened instead of failing the send.
 func nextMsgIDValue() int32 {
 	var b [4]byte
 	if _, err := crand.Read(b[:]); err != nil {
@@ -233,9 +233,9 @@ type reactor struct {
 	// retryable single-flight discovery.
 	usm      *usmContext
 	baseline *engineBaseline
-	discoMu  sync.Mutex
+	discoMu  sync.Mutex // guards lazy discovery through baseline
 
-	mu         sync.Mutex
+	mu         sync.Mutex // guards inflight, v3inflight, and closed
 	inflight   map[int32]*waiter
 	v3inflight map[int32]*v3Waiter
 	closed     bool

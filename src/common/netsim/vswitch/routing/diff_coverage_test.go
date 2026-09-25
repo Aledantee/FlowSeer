@@ -10,8 +10,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported routing.Config field
-// reaches routing.Diff.
+// TestDiffCoversEveryConfigField verifies that every exported routing.Config field reaches
+// routing.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	seed := routing.Config{
 		VRFs: map[string]routing.VRF{

@@ -15,11 +15,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 
-	// Linked for the walks below and for nothing else. Every other FlowSeer
-	// package reaches protoregistry.GlobalFiles because an example-based test
-	// in this directory builds one of its messages; this one has no such test
-	// yet, and TestEveryDeclaredProtoPackageIsLinked fails without the
-	// import rather than letting the package go unwalked in silence.
+	// Linked explicitly because the walks below inspect descriptors through
+	// protoregistry.GlobalFiles. Without an import, the package would be
+	// silently absent from those walks.
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
@@ -37,10 +35,8 @@ import (
 // exists to catch. This constant is the statement that every message
 // spelling an interface name means the same thing by it.
 //
-// It is here because an interface name reaches a device's shell command line
-// at every site, and the sibling description field in the same message
-// already carried a character-class rule for exactly that reason while the
-// name carried only a length.
+// Every caller-supplied interface name reaches a device's shell command line,
+// so each site needs the same character-class restriction.
 const interfaceNamePattern = `^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$`
 
 // interfaceNameReaches says where an interface name ends up, and is quoted
@@ -155,8 +151,8 @@ func (w *classWalk) messages(messages protoreflect.MessageDescriptors) {
 // field applies the class to whichever carrier actually holds the rules for
 // this field's shape.
 //
-// The descent is the whole point. protovalidate hangs a repeated field's item
-// rules under repeated.items and a map's under map.keys and map.values, all
+// Protovalidate hangs a repeated field's item rules under repeated.items and
+// a map's under map.keys and map.values, all
 // of them on the option of the field itself; the synthetic key and value
 // descriptors of a map entry carry no option at all. Reading string rules
 // straight off the field is therefore right for exactly one of the three
@@ -184,18 +180,16 @@ func (w *classWalk) field(field protoreflect.FieldDescriptor) {
 func (w *classWalk) carrier(owner protoreflect.FieldDescriptor, position string, kind protoreflect.Kind, rules *validate.FieldRules) {
 	site := string(owner.ContainingMessage().FullName()) + "." + string(owner.Name())
 
-	// A non-string carrier is not out of scope, it is unexaminable: bytes
-	// named interface_name reaches the same command line and no string rule
-	// can be written against it.
+	// A non-string carrier is unexaminable: bytes named interface_name reaches
+	// the same command line and no string rule can be written against it.
 	if kind != protoreflect.StringKind {
 		w.reportf("%s spells an interface name but its %s is %s, so no string rule can constrain it; %s",
 			site, position, kind, interfaceNameReaches)
 		return
 	}
 
-	// Before the exemption, not inside it. An exemption is from the pattern;
-	// the bound is what stops an arbitrarily long name reaching the shell,
-	// and that argument does not care who supplied the name.
+	// The length bound applies before the pattern exemption. It stops an
+	// arbitrarily long name reaching the shell regardless of who supplied it.
 	if !declaresMaxLen(rules) {
 		w.reportf("%s declares no max_len on its %s; %s", site, position, interfaceNameReaches)
 	}
@@ -212,9 +206,8 @@ func (w *classWalk) carrier(owner protoreflect.FieldDescriptor, position string,
 
 // declaresMaxLen reports whether a carrier's rules bound the string's length.
 //
-// Nil-safe at both levels, which is the whole reason it exists: a carrier
-// with no rules at all is the case the walk has to report rather than crash
-// on.
+// A carrier with no rules has no maximum length. Nil-safe access lets the walk
+// report that case instead of crashing.
 func declaresMaxLen(rules *validate.FieldRules) bool {
 	s := rules.GetString()
 	return s != nil && s.MaxLen != nil
@@ -258,18 +251,20 @@ func TestTheClassWalkReadsEveryCarrierShape(t *testing.T) {
 	}
 
 	for message, fragments := range want {
-		reported := violationsFor(walk.violations, message+".")
-		if len(reported) != len(fragments) {
-			t.Errorf("%s produced %d violations, want %d:\n  %s",
-				message, len(reported), len(fragments), strings.Join(reported, "\n  "))
-			continue
-		}
-		for _, fragment := range fragments {
-			if !slices.ContainsFunc(reported, func(v string) bool { return strings.Contains(v, fragment) }) {
-				t.Errorf("%s reported no violation containing %q; got:\n  %s",
-					message, fragment, strings.Join(reported, "\n  "))
+		t.Run(message, func(t *testing.T) {
+			reported := violationsFor(walk.violations, message+".")
+			if len(reported) != len(fragments) {
+				t.Errorf("got %d violations, want %d:\n  %s",
+					len(reported), len(fragments), strings.Join(reported, "\n  "))
+				return
 			}
-		}
+			for _, fragment := range fragments {
+				if !slices.ContainsFunc(reported, func(v string) bool { return strings.Contains(v, fragment) }) {
+					t.Errorf("got no violation containing %q, want one in:\n  %s",
+						fragment, strings.Join(reported, "\n  "))
+				}
+			}
+		})
 	}
 }
 
@@ -424,9 +419,8 @@ func TestEveryDeclaredProtoPackageIsLinked(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		// Vendored third-party schemas are here as reference material, not as
-		// this system's contracts, and the class rules do not speak about
-		// them.
+		// The class rules cover FlowSeer schemas. Vendored third-party schemas
+		// are reference material.
 		if !strings.HasPrefix(filepath.ToSlash(rel), "flowseer/") {
 			return nil
 		}
@@ -444,9 +438,8 @@ func TestEveryDeclaredProtoPackageIsLinked(t *testing.T) {
 // TestEveryMapDeclaresAnUpperBound is the second class rule: a map with no
 // max_pairs is an unbounded field on a message a peer produces.
 //
-// Every map added to this schema is bounded except one, and the suite tests
-// the upper bound of each map that has one — so it tests declared bounds and
-// is structurally silent on absent ones.
+// The upper bound must be declared before per-map tests can exercise it. Tests
+// of existing bounds are structurally silent on an absent max_pairs rule.
 func TestEveryMapDeclaresAnUpperBound(t *testing.T) {
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		if !strings.HasPrefix(string(fd.Package()), "flowseer.") {

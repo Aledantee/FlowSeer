@@ -4,7 +4,7 @@
 # standalone netpen module (its own go.mod, the one place gopacket is a
 # dependency). The main module never sees these targets.
 #
-# U1 ships basic lint/test shortcuts only; the release task is U13's.
+# The lint and test tasks cover local checks; release builds the static matrix.
 
 version: '3'
 
@@ -44,7 +44,7 @@ tasks:
     cmds:
       - go test -tags=linktest -run TestRealLinkRoundTrip {{.GOFLAGS}} ./...
 
-  # --- U13: lab validation tiers (KTD15) ---
+  # tier-t1 and tier-t2 run the lab validation tiers.
 
   tier-t1:
     desc: 'Tier 1 — FRR targets + netpen-vs-netpen ring in Docker (superset validation)'
@@ -56,7 +56,7 @@ tasks:
     cmds:
       - go test -tags=netpen_t2 -v -count=1 ./test/integration/...
 
-  # --- U13: advisory benchmark suite (KTD14 perf gate shape) ---
+  # bench reports advisory performance; bench-baseline refreshes its reference.
 
   bench:
     desc: 'Advisory decode + flood-craft benchmarks against committed baseline (report-only, never fails)'
@@ -90,13 +90,13 @@ tasks:
       - go test -tags=netpen_bench -bench . -benchmem -run '^$' -count={{.COUNT}} ./bench/... > bench/testdata/baseline.txt
       - 'echo "Baseline written to bench/testdata/baseline.txt — review and commit"'
 
-  # --- U13: static release (KTD16) ---
+  # release builds the static matrix; release-smoke verifies it.
 
   release:
     desc: 'Build the static release matrix: linux/amd64 + linux/arm64 with injected version'
     summary: |
       CGO_ENABLED=0 cross-compile for both release arches with -s -w and
-      -X ldflags injecting the version package fields (KTD16). Output:
+      -X ldflags injecting the version package fields. Output:
       dist/netpen-linux-amd64 and dist/netpen-linux-arm64.
 
       Verify with `task release-smoke` (file shows static, --version shows

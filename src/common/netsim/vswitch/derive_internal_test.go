@@ -414,7 +414,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 
 	t.Run("LAG", func(t *testing.T) {
 		ports, err := port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 			Build()
@@ -449,7 +449,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				name: "member admin status",
 				mutate: func(c *Config) {
 					b := port.NewBuilder()
-					b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+					b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 					b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Down, OperStatus: port.Down})
 					b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
 					c.Ports, _ = b.Build()
@@ -460,7 +460,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				name: "member oper status",
 				mutate: func(c *Config) {
 					b := port.NewBuilder()
-					b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+					b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 					b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Down})
 					b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
 					c.Ports, _ = b.Build()
@@ -1173,7 +1173,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 
 	beforeNeighbors := cur.routing.Neighbors()
 	if len(beforeNeighbors) != 2 {
-		t.Fatalf("expected 2 neighbors on cur before derive, got %d", len(beforeNeighbors))
+		t.Fatalf("got %d neighbors on cur before derive, want 2", len(beforeNeighbors))
 	}
 	if beforeNeighbors[0].HoldDepth != 1 || beforeNeighbors[1].HoldDepth != 1 {
 		t.Fatalf("expected both neighbors to have HoldDepth 1 before derive: %+v", beforeNeighbors)
@@ -1305,7 +1305,7 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		}
 
 		if neighbors := derived.routing.Neighbors(); len(neighbors) != 0 {
-			t.Errorf("expected 0 neighbors after rebuild, got %+v", neighbors)
+			t.Errorf("got neighbors after rebuild %+v, want none", neighbors)
 		}
 
 		failures := derived.DrainNeighborFailures()

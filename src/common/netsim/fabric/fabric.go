@@ -495,7 +495,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 
 		for _, p := range ports {
 			switch {
-			case p.Kind != port.Lag:
+			case p.Kind != port.LAG:
 				ep := Endpoint{Node: name, Port: p.Name}
 				if ref, ok := byEnd[ep]; ok {
 					p.OperStatus = ref.end.Oper
@@ -821,7 +821,7 @@ func (f *Fabric) startLayers(names []string) {
 		sw := f.switches[name]
 		hasLag := false
 		for _, p := range sw.Ports().Ports() {
-			if p.Kind == port.Lag {
+			if p.Kind == port.LAG {
 				hasLag = true
 				break
 			}
@@ -836,7 +836,7 @@ func (f *Fabric) startLayers(names []string) {
 		})
 
 		for _, p := range ports {
-			if p.Kind == port.Lag {
+			if p.Kind == port.LAG {
 				continue
 			}
 
@@ -900,7 +900,7 @@ func (f *Fabric) Unlinked(node string) []LinkEnd {
 	}
 	var unlinked []LinkEnd
 	for _, p := range swCfg.Ports.Ports() {
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			continue
 		}
 		ep := Endpoint{Node: node, Port: p.Name}
@@ -958,7 +958,7 @@ func (f *Fabric) Metadata() analysis.Metadata {
 
 	for _, name := range f.switchNames() {
 		for _, p := range f.cfg.Switches[name].Ports.Ports() {
-			if p.Kind == port.Lag {
+			if p.Kind == port.LAG {
 				continue
 			}
 			ep := Endpoint{Node: name, Port: p.Name}

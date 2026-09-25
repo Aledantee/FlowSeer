@@ -75,7 +75,7 @@ func TestImportsModule(t *testing.T) {
 		`import "go.aledante.io/as/logging"`,
 	} {
 		if !importsModule(source, "go.aledante.io/as") {
-			t.Fatalf("forbidden import was not detected: %s", source)
+			t.Fatalf("got forbidden import undetected for %s, want detected", source)
 		}
 	}
 	if importsModule(`import "go.aledante.io/assert"`, "go.aledante.io/as") {

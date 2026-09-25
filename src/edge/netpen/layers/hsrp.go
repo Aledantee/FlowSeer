@@ -11,6 +11,7 @@
 package layers
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -101,7 +102,7 @@ func (h *HSRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 func (h *HSRP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptions) error {
 	vip := h.VirtualIP.To4()
 	if vip == nil && len(h.VirtualIP) != 0 {
-		return fmt.Errorf("HSRP: virtual IP must be IPv4")
+		return errors.New("HSRP: virtual IP must be IPv4")
 	}
 
 	buf, err := b.PrependBytes(hsrpMinLen)

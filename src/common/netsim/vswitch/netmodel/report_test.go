@@ -166,7 +166,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	portScope1 := analysis.PortScope("sw1", "1/1/1")
 	issues1 := res.Metadata.IssuesFor(portScope1)
 	if len(issues1) == 0 {
-		t.Fatalf("expected issue for port 1/1/1, got 0")
+		t.Fatalf("got 0 issues for port 1/1/1, want at least 1")
 	}
 	if issues1[0].Status != analysis.Incomplete {
 		t.Errorf("issue status = %v, want Incomplete", issues1[0].Status)
@@ -236,7 +236,7 @@ func TestLoad_PartialModel_SkipsAndDefaults(t *testing.T) {
 
 	// Report must contain skipped facets with exact scope, reason, and evidence
 	if len(res.Report.Skipped) == 0 {
-		t.Fatalf("expected skipped entries, got 0")
+		t.Fatalf("got 0 skipped entries, want at least 1")
 	}
 	for _, s := range res.Report.Skipped {
 		if s.Scope.Kind() == analysis.ScopeWhole && s.Port == "" {
@@ -249,7 +249,7 @@ func TestLoad_PartialModel_SkipsAndDefaults(t *testing.T) {
 
 	// Report must contain defaults with exact scope and evidence
 	if len(res.Report.Defaults) == 0 {
-		t.Fatalf("expected defaults, got 0")
+		t.Fatalf("got 0 defaults, want at least 1")
 	}
 	for _, d := range res.Report.Defaults {
 		if len(d.Evidence) == 0 {
@@ -260,7 +260,7 @@ func TestLoad_PartialModel_SkipsAndDefaults(t *testing.T) {
 	// Metadata must contain explicit assumptions for defaults
 	assumptions := res.Metadata.Assumptions()
 	if len(assumptions) == 0 {
-		t.Fatalf("expected metadata assumptions, got 0")
+		t.Fatalf("got 0 metadata assumptions, want at least 1")
 	}
 	for _, a := range assumptions {
 		if len(a.Evidence) == 0 {
@@ -330,7 +330,7 @@ func TestLoad_ConflictingRows(t *testing.T) {
 
 	// Conflicts must be recorded in Report.Conflicts
 	if len(res.Report.Conflicts) == 0 {
-		t.Fatalf("expected conflicts in report, got 0")
+		t.Fatalf("got 0 conflicts in report, want at least 1")
 	}
 
 	// Readiness must be Unstable according to shared status precedence

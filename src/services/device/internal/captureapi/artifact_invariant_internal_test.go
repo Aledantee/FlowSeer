@@ -46,11 +46,9 @@ import (
 // A sequence that violates one is printed in full, because the sequence is
 // the finding.
 func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
-	store, dir := newInvariantStore(t)
-	ctx := context.Background()
-
 	now := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
-	store.SetClock(func() time.Time { return now })
+	store, dir := newInvariantStore(t, func() time.Time { return now })
+	ctx := context.Background()
 
 	// Every operation that can touch a session's file or its record. Each
 	// returns without failing the test: what a step returns is not the
@@ -262,7 +260,7 @@ func digestHex(digest []byte) string {
 	return hex.EncodeToString(digest)
 }
 
-func newInvariantStore(t *testing.T) (*Store, string) {
+func newInvariantStore(t *testing.T, clock func() time.Time) (*Store, string) {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -280,7 +278,7 @@ func newInvariantStore(t *testing.T) (*Store, string) {
 	}
 
 	dir := filepath.Join(t.TempDir(), "captures")
-	store, err := NewStore(kv, dir)
+	store, err := NewStore(kv, dir, clock)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}

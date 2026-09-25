@@ -97,7 +97,7 @@ type Config struct {
 type Full struct {
 	cfg Config
 	recorder
-	verdsMu sync.Mutex
+	verdsMu sync.Mutex // guards verds
 	verds   []verdict
 }
 

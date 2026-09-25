@@ -34,6 +34,7 @@ type AuditClient interface {
 // The cost is that a device operation waits on central, which is the trade
 // this makes deliberately: correctness of the account over latency of the
 // operation.
+// A Deliverer is safe for concurrent use.
 type Deliverer struct {
 	client AuditClient
 	edge   string

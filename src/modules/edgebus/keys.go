@@ -35,7 +35,7 @@ type hubKeys struct {
 	system   nkeys.KeyPair
 	central  nkeys.KeyPair
 
-	mu   sync.Mutex
+	mu   sync.Mutex // guards edge
 	edge map[string]nkeys.KeyPair
 }
 

@@ -23,6 +23,7 @@ var (
 // Both are 0600 and the directory is 0700. The key file is the whole of this
 // edge's identity — central holds only the public half — so an edge that
 // loses it cannot be recovered by anything the edge itself can do.
+// A Store is not safe for concurrent use.
 type Store struct {
 	dir           string
 	syncDirectory func() error

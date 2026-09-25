@@ -29,6 +29,7 @@ type Enroller interface {
 // holding one renders in full through fmt, slog and JSON — ed25519.PrivateKey
 // is a []byte and nothing on the path to it redacts. Reaching it is this
 // package's business; what a caller needs is Signer.
+// An Identity is immutable after Establish returns and safe for concurrent use.
 type Identity struct {
 	key        ed25519.PrivateKey
 	Enrollment *attachv1.EnrollResponse

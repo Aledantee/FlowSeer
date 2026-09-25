@@ -62,8 +62,10 @@ func probeSwitchSTP(t *testing.T) {
 	sw := newTestSwitchForFork(t)
 	fork := sw.Fork()
 
-	// LinkChange on source moves STP state
 	sw.LinkChange(time.Unix(2000, 0), "1/1/1", port.Down, PointToPointFalse, 0)
+	if got := sw.Roles()["1/1/1"].Role; got != stp.RoleDisabled {
+		t.Fatalf("source STP port role = %v, want %v", got, stp.RoleDisabled)
+	}
 	if fork.Roles()["1/1/1"].Role == stp.RoleDisabled {
 		t.Errorf("fork STP port role moved when source changed link")
 	}
@@ -83,7 +85,6 @@ func probeSwitchLoopProtect(t *testing.T) {
 	if sw.loopprotect == nil || fork.loopprotect == nil {
 		t.Fatalf("loopprotect nil")
 	}
-	// Verify pointers to loopprotect layers are distinct
 	if sw.loopprotect == fork.loopprotect {
 		t.Errorf("loopprotect pointer aliased across fork")
 	}
@@ -94,7 +95,6 @@ func probeSwitchLAG(t *testing.T) {
 	fork := sw.Fork()
 
 	now := time.Unix(4000, 0)
-	// Mutate source LAG
 	sw.LinkChange(now, "1/1/3", port.Down, PointToPointTrue, 1_000_000_000)
 	if fork.lag == nil || sw.lag == nil {
 		t.Fatalf("lag nil")
@@ -133,12 +133,14 @@ func probeSwitchMcast(t *testing.T) {
 	}
 
 	sw.Forward(now, "1/1/1", frame)
+	if got := len(sw.Groups(10)); got == 0 {
+		t.Fatal("source group 10 membership count = 0, want at least 1")
+	}
 	if len(fork.Groups(10)) != 0 {
 		t.Errorf("fork learned multicast group from source IGMP forward")
 	}
 
 	fork.Forward(now, "1/1/2", frame)
-	// Assert fork now has the group, but source doesn't have 1/1/2 membership
 	for _, g := range sw.Groups(10) {
 		if g.Port == "1/1/2" {
 			t.Errorf("source learned port 1/1/2 membership from fork")
@@ -151,7 +153,6 @@ func probeSwitchRouting(t *testing.T) {
 	fork := sw.Fork()
 
 	now := time.Unix(6000, 0)
-	// Mutate source routing via ARP reply
 	frame, err := arp.Encode(arp.Message{
 		HardwareType: 1,
 		ProtocolType: 0x0800,
@@ -166,7 +167,6 @@ func probeSwitchRouting(t *testing.T) {
 	}
 
 	sw.Forward(now, "1/1/1", frame)
-	// Fork neighbor table should not see this ARP
 	for _, n := range fork.Neighbors() {
 		if n.Addr == netip.MustParseAddr("10.0.10.99") {
 			t.Errorf("fork saw neighbor learned on source")
@@ -179,11 +179,9 @@ func probeSwitchBuckets(t *testing.T) {
 	fork := sw.Fork()
 
 	now := time.Unix(7000, 0)
-	// Mutate source bucket capacity
 	if !sw.Police(now, "1/1/1", 400) {
 		t.Errorf("police rejected on source")
 	}
-	// Mutating fork
 	if !fork.Police(now, "1/1/1", 400) {
 		t.Errorf("police rejected on fork")
 	}
@@ -201,11 +199,9 @@ func probeSwitchCopies(t *testing.T) {
 	if len(forkCopies) == 0 {
 		t.Errorf("fork had no copies before clear")
 	}
-	// Now source is cleared
 	if len(sw.Copies()) != 0 {
 		t.Errorf("source copies not cleared")
 	}
-	// Mutating fork copies
 	fork.copies = []traffic.Copy{{Port: "1/1/1"}}
 	if len(sw.Copies()) != 0 {
 		t.Errorf("mutating fork copies affected source")
@@ -220,7 +216,6 @@ func probeSwitchEmissions(t *testing.T) {
 	if len(srcDrained) == 0 {
 		t.Errorf("source had no emissions")
 	}
-	// Fork emissions should still be intact
 	forkDrained := fork.Drain()
 	if len(forkDrained) == 0 {
 		t.Errorf("fork emissions drained when source drained")
@@ -315,10 +310,8 @@ func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 	fork := sw.Fork()
 
 	now := time.Unix(9000, 0)
-	// Bring down 1/1/3 on source
 	sw.LinkChange(now, "1/1/3", port.Down, PointToPointTrue, 1_000_000_000)
 
-	// Source LAG has only 1/1/4 forwarding
 	srcMem, ok := sw.ports.Port("1/1/3")
 	if !ok || srcMem.Forwards() {
 		t.Errorf("source 1/1/3 should not be forwarding")

@@ -31,13 +31,19 @@ const (
 
 func newTestStore(t *testing.T) *captureapi.Store {
 	t.Helper()
-	store, _ := newTestStoreDir(t)
+	store, _ := newTestStoreDir(t, time.Now)
+	return store
+}
+
+func newTestStoreWithClock(t *testing.T, clock func() time.Time) *captureapi.Store {
+	t.Helper()
+	store, _ := newTestStoreDir(t, clock)
 	return store
 }
 
 // newTestStoreDir also hands back the directory the artifacts land in, for the
 // tests that have to look at the files themselves.
-func newTestStoreDir(t *testing.T) (*captureapi.Store, string) {
+func newTestStoreDir(t *testing.T, clock func() time.Time) (*captureapi.Store, string) {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -55,7 +61,7 @@ func newTestStoreDir(t *testing.T) (*captureapi.Store, string) {
 	}
 
 	capturesDir := filepath.Join(t.TempDir(), "captures")
-	store, err := captureapi.NewStore(kv, capturesDir)
+	store, err := captureapi.NewStore(kv, capturesDir, clock)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -167,24 +173,24 @@ func TestCreateAndGetSession(t *testing.T) {
 	}
 
 	// Get session.
-	got, rev, err := s.GetSession(ctx, testSessionID)
+	got, rev, err := s.Session(ctx, testSessionID)
 	if err != nil {
-		t.Fatalf("GetSession: %v", err)
+		t.Fatalf("Session: %v", err)
 	}
 	if got == nil {
-		t.Fatal("GetSession returned nil record")
+		t.Fatal("Session returned nil record")
 	}
 	if rev == 0 {
-		t.Error("GetSession returned revision 0 for existing session")
+		t.Error("Session returned revision 0 for existing session")
 	}
 	if got.GetConfig().GetName() != "test-capture" {
 		t.Errorf("got name %q, want %q", got.GetConfig().GetName(), "test-capture")
 	}
 
 	// Unknown session returns nil, 0, nil.
-	unknown, urev, err := s.GetSession(ctx, "0192e6a0-9999-7000-8000-000000000099")
+	unknown, urev, err := s.Session(ctx, "0192e6a0-9999-7000-8000-000000000099")
 	if err != nil {
-		t.Fatalf("GetSession unknown: %v", err)
+		t.Fatalf("Session unknown: %v", err)
 	}
 	if unknown != nil || urev != 0 {
 		t.Errorf("got unknown session %v, rev %d; want nil, 0", unknown, urev)
@@ -365,7 +371,7 @@ func TestReadArtifactChunked(t *testing.T) {
 	}
 
 	if artifact.GetByteSize() <= 1024*1024 {
-		t.Fatalf("expected artifact byte size > 1MB, got %d", artifact.GetByteSize())
+		t.Fatalf("got artifact byte size %d, want more than 1 MiB", artifact.GetByteSize())
 	}
 
 	var chunks []*modelcapturev1.CaptureArtifactChunk
@@ -378,7 +384,7 @@ func TestReadArtifactChunked(t *testing.T) {
 	}
 
 	if len(chunks) < 2 {
-		t.Fatalf("expected at least 2 chunks for >1MB file, got %d", len(chunks))
+		t.Fatalf("got %d chunks, want at least 2 for a file larger than 1 MiB", len(chunks))
 	}
 
 	var totalBytes []byte
@@ -468,9 +474,9 @@ func TestSweepExpired(t *testing.T) {
 	}
 
 	// Session record in KV must remain intact with metadata and counters.
-	rec, _, err := s.GetSession(ctx, testSessionID)
+	rec, _, err := s.Session(ctx, testSessionID)
 	if err != nil {
-		t.Fatalf("GetSession: %v", err)
+		t.Fatalf("Session: %v", err)
 	}
 	if rec == nil {
 		t.Fatal("session record was deleted from KV")
@@ -519,9 +525,9 @@ func TestDeleteSession(t *testing.T) {
 		t.Error("artifact file still exists after delete")
 	}
 
-	rec, _, err := s.GetSession(ctx, testSessionID)
+	rec, _, err := s.Session(ctx, testSessionID)
 	if err != nil {
-		t.Fatalf("GetSession: %v", err)
+		t.Fatalf("Session: %v", err)
 	}
 	if rec != nil {
 		t.Error("session record still exists in KV after delete")
@@ -562,11 +568,9 @@ func TestListSessions(t *testing.T) {
 // test holding only an expired session. The unexpired session is the input only
 // the expiry check rejects.
 func TestSweepExpiredLeavesUnexpiredArtifacts(t *testing.T) {
-	s := newTestStore(t)
-	ctx := context.Background()
-
 	now := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
-	s.SetClock(func() time.Time { return now })
+	s := newTestStoreWithClock(t, func() time.Time { return now })
+	ctx := context.Background()
 
 	const (
 		expiredID   = "0192e6a0-0000-7000-8000-0000000000e1"
@@ -713,7 +717,7 @@ func TestArtifactPathsRefuseANonUUIDSession(t *testing.T) {
 // An empty artifact still ends its download with a final chunk; a stream that
 // simply stops carries no way to tell completion from a reset.
 func TestReadArtifactEmitsAFinalChunkForAnEmptyArtifact(t *testing.T) {
-	s, dir := newTestStoreDir(t)
+	s, dir := newTestStoreDir(t, time.Now)
 	ctx := context.Background()
 
 	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
@@ -742,7 +746,7 @@ func TestReadArtifactEmitsAFinalChunkForAnEmptyArtifact(t *testing.T) {
 // the artifact file on its next chunk. That file would have no record, and the
 // sweep walks records, so its payload could never expire.
 func TestAppendPacketsRefusesADeletedSession(t *testing.T) {
-	s, dir := newTestStoreDir(t)
+	s, dir := newTestStoreDir(t, time.Now)
 	ctx := context.Background()
 
 	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {

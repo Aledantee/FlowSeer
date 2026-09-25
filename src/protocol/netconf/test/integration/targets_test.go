@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -46,7 +47,7 @@ func parseT4Targets(raw string) ([]t4Target, error) {
 		out = append(out, t4Target{Addr: addr, User: user, Password: secret.NewString(pass)})
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no targets parsed")
+		return nil, errors.New("no targets parsed")
 	}
 	return out, nil
 }

@@ -45,7 +45,8 @@ func (r PortRange) Contains(port uint16) bool {
 	return port >= r.Start && port <= r.End
 }
 
-// ICMPMatch constrains an ICMP message by type and optional code.
+// ICMPMatch constrains an ICMP message by type and optional code. ICMPMatch values are safe
+// for concurrent reads but not for concurrent mutation.
 type ICMPMatch struct {
 	Type uint8
 	Code *uint8
@@ -65,7 +66,8 @@ func (m *ICMPMatch) Matches(t uint8, code uint8) bool {
 	return true
 }
 
-// FlagMatch checks TCP control bits against an expected mask and value.
+// FlagMatch checks TCP control bits against an expected mask and value. FlagMatch values are
+// safe for concurrent reads but not for concurrent mutation.
 type FlagMatch struct {
 	Mask  tcp.Flags
 	Value tcp.Flags

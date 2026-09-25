@@ -44,8 +44,8 @@ type SubscribeOptions struct {
 	// Origin sets the gNMI path origin on the subscription prefix
 	// (e.g. "openconfig") for peers that require it.
 	Origin string
-	// Buffer overrides the event channel size; <= 0 uses the
-	// default.
+	// Buffer overrides the event channel size. Zero uses the default;
+	// negative values are rejected.
 	Buffer int
 }
 
@@ -82,6 +82,10 @@ type Stream struct {
 // server ends it (ONCE after sync), the caller closes it, or ctx is
 // canceled.
 func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream, error) {
+	if opts.Buffer < 0 {
+		return nil, errs.New().Code(ErrCodeRPC).Attr("buffer", opts.Buffer).
+			Msg("subscribe buffer must be non-negative")
+	}
 	if s.isClosed() {
 		return nil, ErrSessionClosed
 	}
@@ -90,7 +94,7 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 	}
 
 	buf := opts.Buffer
-	if buf <= 0 {
+	if buf == 0 {
 		buf = defaultEventBuffer
 	}
 	st := &Stream{pump: pump.New[SubscribeEvent](ctx, buf)}

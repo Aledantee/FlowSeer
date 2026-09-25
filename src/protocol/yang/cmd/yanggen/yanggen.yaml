@@ -1,4 +1,4 @@
-# yanggen configuration — the full vendored YANG surface (KD5).
+# yanggen configuration for the full vendored YANG surface.
 #
 # Paths are resolved relative to this file. Each vendor includes every
 # .yang file under its paths; exclusions are explicit skip entries,
@@ -18,17 +18,18 @@ vendors:
           applying every platform's bundle to one tree would distort
           the base schema, and several target nodes goyang cannot
           resolve at the vendored revisions. Bindings model the base
-          tree; device-specific divergence surfaces via R8 revision
-          drift and the conformance corpus.
+          tree; device-specific divergence surfaces through revision
+          drift checks and the conformance corpus.
       - module: Cisco-IOS-XE-sla
         reason: >-
           goyang rejects repeated `augment` statements inside one
           `uses` (RFC 7950 §7.13 uses-augment): "augment: already
-          set". Not on any R11 identity path.
+          set". No identity path depends on this module.
       - module: Cisco-IOS-XE-utd
         reason: >-
           Same goyang uses-augment limitation as Cisco-IOS-XE-sla
-          ("augment: already set"). Not on any R11 identity path.
+          ("augment: already set"). No identity path depends on this
+          module.
       - module: Cisco-IOS-XE-utd-events
         reason: >-
           Imports the skipped Cisco-IOS-XE-utd, so goyang cannot

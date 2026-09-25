@@ -110,7 +110,7 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 	}
 	t.Cleanup(func() { _ = handle.Close() })
 	if got := handle.Grant().GetCredential().GetTypedMaterial().GetShell().GetUsername(); got != "material" {
-		t.Fatalf("expected the grant's credential material to round-trip, got %q", got)
+		t.Fatalf("got grant credential material %q, want %q after round trip", got, "material")
 	}
 
 	// Authority() is a synchronous snapshot the relay goroutine updates as
@@ -259,7 +259,7 @@ func TestConnectAdapterAcquireReadCredentialTranslatesResponse(t *testing.T) {
 		t.Fatalf("AcquireReadCredential: %v", err)
 	}
 	if username := got.GetCredential().GetTypedMaterial().GetShell().GetUsername(); username != "read-material" {
-		t.Fatalf("expected the credential material to round-trip, got %q", username)
+		t.Fatalf("got credential material %q, want %q after round trip", username, "read-material")
 	}
 }
 

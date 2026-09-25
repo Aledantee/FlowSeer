@@ -31,7 +31,8 @@ import (
 //
 // Install returns a stop function that restores the previous signal
 // handlers; a host (main) defers it. A SignalHandler is single-use: one
-// handler per run.
+// handler per run. It is safe for concurrent use after Install returns;
+// Install itself must be called once.
 type SignalHandler struct {
 	r *Runner
 

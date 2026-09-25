@@ -24,7 +24,8 @@ var (
 // Adapter is the typed FastIron 10.0.10g shell adapter over one
 // already-dialed [ssh.Session]. It satisfies the interface capability's
 // ShellAdapter seam structurally; nothing in this package imports it, per
-// the firmware-family split.
+// the firmware-family split. An Adapter is not safe for concurrent use because
+// its methods share one interactive shell command stream.
 type Adapter struct {
 	// Session is the shell this adapter drives. Must be set before any
 	// method is called.
@@ -132,11 +133,8 @@ func (a *Adapter) SetPortName(ctx context.Context, name, text string) error {
 // description change can have reached the device on any path out of here.
 //
 // A caller that returns from here leaves the session in configuration mode,
-// without an "end". Nothing leaks today because a session is opened per
-// operation and closed with it, deliberately — a standing session outlives
-// the credential it was opened with, which is the whole reason the lane does
-// not keep one. Anyone who later pools these sessions has to fix this, and
-// they will be reading this function when they do.
+// without an "end". Each operation owns and closes its session because a
+// standing session would outlive the credential that opened it.
 func (a *Adapter) selectForWrite(ctx context.Context, name string) error {
 	if _, err := a.Session.Run(ctx, ConfigureTerminalCommand()); err != nil {
 		return errs.From(err).Code(interfaces.ErrCodeNotSubmitted).Msg("configure terminal")

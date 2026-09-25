@@ -25,7 +25,7 @@ func mustMAC(t *testing.T, s string) netaddr.MAC {
 func lagPortTable(t *testing.T) port.Table {
 	t.Helper()
 	tbl, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical}).
@@ -214,8 +214,8 @@ func TestDefaults(t *testing.T) {
 	t.Parallel()
 
 	tbl, err := port.NewBuilder().
-		Add(port.Port{Name: "lag2", Kind: port.Lag}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag2", Kind: port.LAG}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
 		Build()
@@ -233,8 +233,7 @@ func TestDefaults(t *testing.T) {
 	if l1.LACP.Key != 1 {
 		t.Errorf("lag1 key = %d, want 1", l1.LACP.Key)
 	}
-	// Normalize no longer invents a Primary: active-backup without one keeps
-	// the last active member instead of failing back to a guessed one.
+	// Normalize leaves Primary unset so active-backup keeps the last active member.
 	if l1.Primary != "" {
 		t.Errorf("lag1 primary = %q, want unset", l1.Primary)
 	}

@@ -80,7 +80,7 @@ func (s *fdSocket) close() error {
 type linuxLocalSource struct {
 	sock packetSocket
 
-	mu     sync.Mutex
+	mu     sync.Mutex // guards sock and closed
 	closed bool
 	done   chan struct{}
 }

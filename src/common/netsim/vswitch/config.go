@@ -73,11 +73,11 @@ func (c Config) Capabilities() []port.Layer {
 	if c.Bridge != nil {
 		caps = append(caps, port.LayerRelay)
 		if c.Bridge.VLAN != nil {
-			caps = append(caps, port.LayerVlan)
+			caps = append(caps, port.LayerVLAN)
 		}
 	}
 	if c.STP != nil {
-		caps = append(caps, port.LayerStp)
+		caps = append(caps, port.LayerSTP)
 	}
 	if c.LoopProtect != nil {
 		caps = append(caps, port.LayerLoopProtect)
@@ -99,20 +99,20 @@ func (c Config) Capabilities() []port.Layer {
 			caps = append(caps, port.LayerEthernet)
 		}
 		if c.Phy.PoE != nil {
-			caps = append(caps, port.LayerPoe)
+			caps = append(caps, port.LayerPoE)
 		}
 	}
 	hasLag := c.LAG != nil
 	if !hasLag {
 		for _, p := range c.Ports.Ports() {
-			if p.Kind == port.Lag {
+			if p.Kind == port.LAG {
 				hasLag = true
 				break
 			}
 		}
 	}
 	if hasLag {
-		caps = append(caps, port.LayerLag)
+		caps = append(caps, port.LayerLAG)
 	}
 
 	slices.Sort(caps)
@@ -521,7 +521,7 @@ func (c Config) Normalize() Config {
 	hasLAG := norm.LAG != nil
 	if !hasLAG {
 		for _, p := range norm.Ports.Ports() {
-			if p.Kind == port.Lag {
+			if p.Kind == port.LAG {
 				hasLAG = true
 				break
 			}

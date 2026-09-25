@@ -433,11 +433,9 @@ func TestEngine_ConsumerStopWithoutContextCancelIsOperator(t *testing.T) {
 	}
 }
 
-// TestEngine_FinalBatchCarriesRecordsWhenSizeAndBudgetCoincide proves the
-// batchMaxRecords-triggered flush no longer fires separately from a budget
-// stop that lands on the very same record: exactly one batch is delivered,
-// marked Final, carrying every accepted record — not a full non-final batch
-// immediately followed by a spurious empty Final one.
+// TestEngine_FinalBatchCarriesRecordsWhenSizeAndBudgetCoincide proves that a
+// record reaching both limits produces one final batch with every accepted
+// record.
 func TestEngine_FinalBatchCarriesRecordsWhenSizeAndBudgetCoincide(t *testing.T) {
 	src := newFakeSource(batchMaxRecords + 1)
 	for i := range batchMaxRecords {

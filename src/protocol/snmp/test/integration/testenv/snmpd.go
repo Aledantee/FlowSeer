@@ -35,8 +35,8 @@ var startSnmpdContainer = testcontainers.GenericContainer
 // Readiness is established in two stages:
 //
 //  1. testcontainers waits for snmpd's startup log line ("NET-SNMP
-//     version") to appear on stdout, guaranteeing the agent has
-//     finished initialization.
+//     version") to appear on stdout. The matching line means the agent
+//     has finished initialization.
 //  2. A polling loop dials via [snmp.NewSession] with
 //     SNMPv2c and runs a Get sysUpTime.0 until it succeeds or the
 //     [snmpdReadyTimeout] elapses. Probing through [snmp.NewSession] rather
