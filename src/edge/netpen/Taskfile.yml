@@ -52,7 +52,7 @@ tasks:
       - go test -tags=netpen_t1 -v -count=1 ./test/integration/...
 
   tier-t2:
-    desc: 'Tier 2 — operator-supplied vIOS-class Cisco image (opt-in, never automated)'
+    desc: 'Tier 2 — SSH live-lab OSPF injection against an IOS-XE target (opt-in, never automated)'
     cmds:
       - go test -tags=netpen_t2 -v -count=1 ./test/integration/...
 

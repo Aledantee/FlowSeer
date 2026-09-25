@@ -35,10 +35,7 @@ func TestT2OSPFLiveLab(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = session.Close() })
 
-	ospf, err := session.Run(t.Context(), flowssh.Command{
-		Line:    "show ip ospf",
-		Prompts: []flowssh.Prompt{lab.IOSXEPrivilegedPrompt()},
-	})
+	ospf, err := session.Run(t.Context(), lab.IOSXEOSPFStatusCommand())
 	if err != nil {
 		t.Fatalf("read target OSPF status: %v", err)
 	}
