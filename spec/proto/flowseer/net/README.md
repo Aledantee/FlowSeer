@@ -28,13 +28,29 @@ imports outside `net/`, and any root may import them.
 
 ## Packages
 
+- `key/v1/`: Predefined rules for device-local keys: interface_name, network_instance_name.
+- `measure/v1/`: Sensor readings, percentages, and path quality.
 - `addr/v1/`: Canonical IP, prefix, range, lifetime, MAC, EUI, and OUI value types.
 - `packet/v1/`: Packet-header registries, exact header values, and small reusable match atoms.
 - `phy/v1/`: Ethernet settings, capabilities, active link facts, MAU types, transport arms, pluggable module, and PoE.
+- `instance/v1/` (planned; schema building blocks record): NetworkInstance row and NetworkInstanceKind.
 - `switching/v1/`: VLAN database rows, exact tag stacks, switchport membership, aggregation attributes, and forwarding entries.
 - `ip/v1/`: Per-interface IPv4 and IPv6 facets, assigned-address rows, and neighbor cache.
-- `capture/v1/`: Ref-free packet capture values, counters, filter clauses, mirror encapsulation, and packet records.
+- `routing/v1/` (planned; schema building blocks record): Route, NextHop, NextHopGroup, RouteSourceProtocol, RIB/FIB discriminator.
+- `filter/v1/`: L2 match terms.
+- `qos/v1/` (planned; schema building blocks record): Trust mode, classifier terms, queues.
+- `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
+- `wlan/v1/` (planned; schema building blocks record): RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
+- `cellular/v1/` (planned; schema building blocks record): Cellular radio facts and signal quality.
+- `endpoint/v1/` (planned; schema building blocks record): Wired and wireless attachment, fingerprint, per-endpoint counters.
+- `portaccess/v1/` (planned; schema building blocks record): Port-access sessions (802.1X, MAC authentication, web authentication).
+- `system/v1/` (planned; schema building blocks record): Resource utilization, software images, licenses.
+- `multicast/v1/` (planned; schema building blocks record): IGMP/MLD snooping group membership.
+- `aaa/v1/` (planned; schema building blocks record): RADIUS and TACACS+ server identity.
+- `flow/v1/` (planned; schema building blocks record): Flow-export settings (sFlow, NetFlow, IPFIX).
+- `log/v1/` (planned; schema building blocks record): Syslog severity and facility (RFC 5424 registries).
 - `interface/v1/`: Normalized interface message with kind-specific oneof arms and routed facet.
+- `capture/v1/`: Ref-free packet capture values, counters, filter clauses, mirror encapsulation, and packet records.
 - `protocol/`: Protocol-specific observation tables and state machines.
 
 ## Standards grounding

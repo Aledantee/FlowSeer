@@ -972,3 +972,15 @@ streams captured packet chunks to central). The assignment stream uses
 `model/capture`; the upload stream adds `model/edge` for the `SignedEdgeAssertion`
 it re-verifies mid-stream. The package's imports and its place in the import
 order are unchanged.
+
+### 2026-09-25 — schema building blocks
+
+The [schema building blocks direction](2026-09-25-schema-building-blocks-direction.md)
+amends this record:
+
+- The Host/Client open question is answered by `model/endpoint/v1.Endpoint`.
+  `net/wlan.WirelessClient` does not exist; per-association facts live in
+  `net/endpoint`'s wireless attachment.
+- Radios are components, carried as a `net/wlan` radio facet on
+  `ComponentState`. The "Radios are not interfaces" finding stands.
+- `net/wlan`'s imports widen to `addr`, `key`, `measure`, and `switching`.

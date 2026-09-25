@@ -181,7 +181,8 @@ Change: `protobuf.md` gains a "Units and keys" section that states the
 record's unit table as the field-author checklist, the counters rule, the
 two interface-name rules, and the facet/row naming rule, each linking the
 record for the reason. `code-style-proto.md` gains the extension-number
-registry table with today's five rows plus the four this phase adds.
+registry table with today's seven rows (correcting a miscount of five:
+three UInt32Rules, four EnumRules) plus the four this phase adds.
 The structure record gains a dated amendment (2026-09-25) that points to
 the new record and lists what it changes: the Host/Client open question
 answered by Endpoint, no `WirelessClient`, the wider `net/wlan` imports,
