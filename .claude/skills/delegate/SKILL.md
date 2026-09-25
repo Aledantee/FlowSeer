@@ -47,6 +47,10 @@ Resolve a role to a lane in this order, once per lane:
    failed (`windows: null`) counts as full headroom until it answers with a
    429.
 
+When steps 1–3 leave no `fit` model, apply them to the role's
+`last_resort` list, when it has one, and take a survivor by step 5; the
+report names the lane as a last resort and the pools that were out.
+
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
 (`claude`, `codex`, `google`, `synthetic`) are paid for whether used or not, so

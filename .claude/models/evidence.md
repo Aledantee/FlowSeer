@@ -47,6 +47,10 @@ One line per claim the registry relies on: model, claim, source, date read.
 
 Review of Sonnet 5's `Merge` (`bench-old-sonnet`, 30c8da74 on bd9e0862; known source-error hang as ground truth), `claude -p --effort high`, 155 s, 13,402 output tokens, $0.75 as the CLI reports it (subscription-covered). `modelUsage` names only `claude-opus-5-5`, so no safeguard fallback fired on this non-sensitive unit. It found the known bug: a source error never stops the merged pump, so the consumer blocks until every sibling closes. It also found four valid extras: the variadic `sources` slice is aliased past return (it reproduced a nil-pointer SIGSEGV); a pre-cancelled context yields a nil error in 1007 of 2000 runs; a `SignalStop` plus `Cancel` close reports `context.Canceled` in 1946 of 2000 runs; and nil or duplicate sources are not rejected. It added a test-coverage note. Graded by the Opus 5.5 session that ran the lane, a same-vendor grader; one run. The brief was written fresh because the 2026-09-09 review brief was not kept, so the comparison with Opus 5's 148 s run is on the same diff, not the same wording.
 
+## Calibration 2026-09-25 — Opus 4.8 execute lane
+
+`Merge` task at base bd9e0862, `claude -p --effort high`: 7/7 acceptance tests on each of three `-race` counts, its own tests pass, verifier green; 426 s, 32,472 output tokens, $1.74 as the CLI reports it (subscription-covered). `modelUsage` names only `claude-opus-4-8`. It is the first Claude lane to pass: Sonnet 5 hung on the source-error path. The task has no security content, so this lane measures execute ability and not the refusal rate on `sensitive_paths`. One run.
+
 ## Harness behaviour found by calibration
 
 - `discover-host.sh` inside the Claude Code sandbox reports `google`, `go`, and `zen` as signed out and exits 1: `opencode` cannot open its log file under `~/.local/share/opencode/log` and `agy models` fails the same way. Unsandboxed the same run reports all five pools signed in. Run it unsandboxed, as `delegate` already says for `orca` — 2026-09-09.
