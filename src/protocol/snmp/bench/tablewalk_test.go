@@ -101,5 +101,5 @@ func scaleColumns(width int) []snmp.AnyColumn {
 	if width == 2 {
 		return []snmp.AnyColumn{ifmib.IfInOctets, ifmib.IfOutOctets}
 	}
-	return []snmp.AnyColumn{ifmib.IfIndex, ifmib.IfDescr, ifmib.IfType, ifmib.IfMtu, ifmib.IfSpeed, ifmib.IfAdminStatus, ifmib.IfOperStatus, ifmib.IfLastChange, ifmib.IfInOctets, ifmib.IfInUcastPkts, ifmib.IfInNUcastPkts, ifmib.IfInDiscards, ifmib.IfInErrors, ifmib.IfInUnknownProtos, ifmib.IfOutOctets, ifmib.IfOutUcastPkts, ifmib.IfOutNUcastPkts, ifmib.IfOutDiscards, ifmib.IfOutErrors, ifmib.IfOutQLen}
+	return []snmp.AnyColumn{ifmib.IfIndex, ifmib.IfDescr, ifmib.IfType, ifmib.IfMtu, ifmib.IfSpeed, ifmib.IfAdminStatus, ifmib.IfOperStatus, ifmib.IfLastChange, ifmib.IfInOctets, ifmib.IfInUcastPkts, ifmib.IfInUcastPkts, ifmib.IfInDiscards, ifmib.IfInErrors, ifmib.IfInUnknownProtos, ifmib.IfOutOctets, ifmib.IfOutUcastPkts, ifmib.IfOutUcastPkts, ifmib.IfOutDiscards, ifmib.IfOutErrors, ifmib.IfSpeed}
 }

@@ -20,133 +20,97 @@ import (
 
 // DPortSfpInfoInterfaceType is the column dPortSfpInfoInterfaceType of table dPortSfpInfoTable.
 // The Interface Type of the Port.
-var DPortSfpInfoInterfaceType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoInterfaceType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 1), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoLaserIdentifier is the column dPortSfpInfoLaserIdentifier of table dPortSfpInfoTable.
 // The Laser Identifier of the module.If there is no module plugged in,this
 // object contains an octet string of zero length.
-var DPortSfpInfoLaserIdentifier = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoLaserIdentifier = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoExtLaserIdentifier is the column dPortSfpInfoExtLaserIdentifier of table dPortSfpInfoTable.
 // The Extended Identifier of QSFP+. If the module type is not QSFP+, this
 // object contains an octet string of zero length.
-var DPortSfpInfoExtLaserIdentifier = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoExtLaserIdentifier = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoConnectType is the column dPortSfpInfoConnectType of table dPortSfpInfoTable.
 // Indicates the external connector of the module.If there is no module
 // plugged in,this object contains an octet string of zero length.
-var DPortSfpInfoConnectType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoConnectType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoEthComplianceCode is the column dPortSfpInfoEthComplianceCode of table dPortSfpInfoTable.
 // The Ethernet Compliance Code of the module.If there is no module plugged
 // in,this object contains an octet string of zero length.
-var DPortSfpInfoEthComplianceCode = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoEthComplianceCode = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoEncoding is the column dPortSfpInfoEncoding of table dPortSfpInfoTable.
 // Encoding value indicates the serial encoding mechanism of the module.If
 // there is no module plugged in,this object contains an octet string of
 // zero length.
-var DPortSfpInfoEncoding = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoEncoding = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoVendorName is the column dPortSfpInfoVendorName of table dPortSfpInfoTable.
 // The vendor name of the module.If there is no module plugged in,this
 // object contains an octet string of zero length.
-var DPortSfpInfoVendorName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoVendorName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoVendorOUI is the column dPortSfpInfoVendorOUI of table dPortSfpInfoTable.
 // The vendor OUI of the module.If there is no module plugged in,this
 // object contains an octet string of zero length.
-var DPortSfpInfoVendorOUI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoVendorOUI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoVendorPN is the column dPortSfpInfoVendorPN of table dPortSfpInfoTable.
 // The vendor PN of the module.If there is no module plugged in,this object
 // contains an octet string of zero length.
-var DPortSfpInfoVendorPN = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 9), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoVendorPN = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 9), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoVendorRev is the column dPortSfpInfoVendorRev of table dPortSfpInfoTable.
 // The vendor Rev of the module.If there is no module plugged in,this
 // object contains an octet string of zero length.
-var DPortSfpInfoVendorRev = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 10), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoVendorRev = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoVendorSN is the column dPortSfpInfoVendorSN of table dPortSfpInfoTable.
 // The vendor SN of the module.If there is no module plugged in,this object
 // contains an octet string of zero length.
-var DPortSfpInfoVendorSN = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 11), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoVendorSN = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoDateCode is the column dPortSfpInfoDateCode of table dPortSfpInfoTable.
 // The date code of the module.If there is no module plugged in,this object
 // contains an octet string of zero length.
-var DPortSfpInfoDateCode = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 12), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoDateCode = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoRecPowerMeasureType is the column dPortSfpInfoRecPowerMeasureType of table dPortSfpInfoTable.
 // The Received power measurement type of the module. If there is no module
 // plugged in,this object contains an octet string of zero length
-var DPortSfpInfoRecPowerMeasureType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 13), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoRecPowerMeasureType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoTransmissionMedia is the column dPortSfpInfoTransmissionMedia of table dPortSfpInfoTable.
 // The transmission media of the module.If there is no module plugged
 // in,this object contains an octet string of zero length.
-var DPortSfpInfoTransmissionMedia = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 16), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var DPortSfpInfoTransmissionMedia = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 16), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // DPortSfpInfoBitRate is the column dPortSfpInfoBitRate of table dPortSfpInfoTable.
 // The nominal bit rate of the module.If there is no module plugged in,this
 // object is zero.The value is in units of MBd.
-var DPortSfpInfoBitRate = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 17), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoBitRate = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoWavelength is the column dPortSfpInfoWavelength of table dPortSfpInfoTable.
 // The wavelength of the module.If there is no module plugged in or the
 // module type is not QSFP+ Fiber, this object is zero.The value is in
 // units of nm.
-var DPortSfpInfoWavelength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoWavelength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoWavelengthTolerance is the column dPortSfpInfoWavelengthTolerance of table dPortSfpInfoTable.
 // The guaranteed +/- range of transmitter output wavelength of QSFP+. If
 // the module type is not QSFP+ , the value is zero. The value is in units
 // of nm.
-var DPortSfpInfoWavelengthTolerance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 21), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoWavelengthTolerance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoSMFTransferDistance is the column dPortSfpInfoSMFTransferDistance of table dPortSfpInfoTable.
 // This value specifies the link length that is supported by the module
 // while operating in compliance with the applicable standards using single
 // mode fiber.If there is no module plugged in,this object is zero. The
 // value is in units of kilometers.
-var DPortSfpInfoSMFTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 22), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoSMFTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoOM1TransferDistance is the column dPortSfpInfoOM1TransferDistance of table dPortSfpInfoTable.
 // This value specifies the link length that is supported by the module
@@ -154,18 +118,14 @@ var DPortSfpInfoSMFTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6
 // MHz*Km (850 nm) and 500MHz*Km (1310 nm) 62.5 micron multi-mode fiber. If
 // there is no module plugged in,this object is zero. The value is in units
 // of meters.
-var DPortSfpInfoOM1TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 23), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoOM1TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoOM2TransferDistance is the column dPortSfpInfoOM2TransferDistance of table dPortSfpInfoTable.
 // This value specifies the link length that is supported by the module
 // while operating in compliance with the applicable standards using 500
 // MHz*Km (850 nm and 1310nm) 50 micron multi-mode fiber. If there is no
 // module plugged in,this object is zero. The value is in units of meters.
-var DPortSfpInfoOM2TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 24), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoOM2TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoOM3TransferDistance is the column dPortSfpInfoOM3TransferDistance of table dPortSfpInfoTable.
 // This value specifies the link length that is supported by the module
@@ -173,17 +133,13 @@ var DPortSfpInfoOM2TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6
 // MHZ*km (850 nm) extended bandwidth 50 micron core multimode fiber. If
 // there is no module plugged in,this object is zero. The value is in units
 // of meters.
-var DPortSfpInfoOM3TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 25), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoOM3TransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoCopperTransferDistance is the column dPortSfpInfoCopperTransferDistance of table dPortSfpInfoTable.
 // This value specifies the link length of the copper Cable of the
 // module.If there is no module plugged in,this object is zero. The value
 // is in units of meters.
-var DPortSfpInfoCopperTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 26), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var DPortSfpInfoCopperTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 14, 184, 1, 1, 1, 26), snmp.KindInteger32, snmp.DecodeInt32)
 
 // DPortSfpInfoTableKey is the decoded INDEX of one dPortSfpInfoTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -512,7 +468,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoBitRate.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoBitRate = int32(v)
+						row.DPortSfpInfoBitRate = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -530,7 +486,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoWavelength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoWavelength = int32(v)
+						row.DPortSfpInfoWavelength = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -548,7 +504,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoWavelengthTolerance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoWavelengthTolerance = int32(v)
+						row.DPortSfpInfoWavelengthTolerance = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -566,7 +522,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoSMFTransferDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoSMFTransferDistance = int32(v)
+						row.DPortSfpInfoSMFTransferDistance = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
@@ -584,7 +540,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoOM1TransferDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoOM1TransferDistance = int32(v)
+						row.DPortSfpInfoOM1TransferDistance = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -602,7 +558,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoOM2TransferDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoOM2TransferDistance = int32(v)
+						row.DPortSfpInfoOM2TransferDistance = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
@@ -620,7 +576,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoOM3TransferDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoOM3TransferDistance = int32(v)
+						row.DPortSfpInfoOM3TransferDistance = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -638,7 +594,7 @@ func (tw *DPortSfpInfoTableWalker) Iter() iter.Seq2[snmp.OID, DPortSfpInfoTableR
 					}
 				case DPortSfpInfoCopperTransferDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DPortSfpInfoCopperTransferDistance = int32(v)
+						row.DPortSfpInfoCopperTransferDistance = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()

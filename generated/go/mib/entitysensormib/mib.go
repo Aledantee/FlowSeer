@@ -258,18 +258,14 @@ var EntPhySensorScale = snmp.NewColumn[EntitySensorDataScale](snmp.MustOID(1, 3,
 // fixed-point type: e.g., 'percentRH(9)', 'rpm(10)', 'cmm(11)', or
 // 'truthvalue(12)'. This object SHOULD be set by the agent during entry
 // creation, and the value SHOULD NOT change during operation.
-var EntPhySensorPrecision = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var EntPhySensorPrecision = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // EntPhySensorValue is the column entPhySensorValue of table entPhySensorTable.
 // The most recent measurement obtained by the agent for this sensor. To
 // correctly interpret the value of this object, the associated
 // entPhySensorType, entPhySensorScale, and entPhySensorPrecision objects
 // must also be examined.
-var EntPhySensorValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var EntPhySensorValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // EntPhySensorOperStatus is the column entPhySensorOperStatus of table entPhySensorTable.
 // The operational status of the sensor.
@@ -284,16 +280,12 @@ var EntPhySensorOperStatus = snmp.NewColumn[EntitySensorStatus](snmp.MustOID(1, 
 // EntPhySensorUnitsDisplay is the column entPhySensorUnitsDisplay of table entPhySensorTable.
 // A textual description of the data units that should be used in the
 // display of entPhySensorValue.
-var EntPhySensorUnitsDisplay = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhySensorUnitsDisplay = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhySensorValueTimeStamp is the column entPhySensorValueTimeStamp of table entPhySensorTable.
 // The value of sysUpTime at the time the status and/or value of this
 // sensor was last obtained by the agent.
-var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // EntPhySensorValueUpdateRate is the column entPhySensorValueUpdateRate of table entPhySensorTable.
 // An indication of the frequency that the agent updates the associated
@@ -302,9 +294,7 @@ var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1,
 // the agent for a get-request), - the sensor value is updated when the
 // sensor value changes (event-driven), - the agent does not know the
 // update rate.
-var EntPhySensorValueUpdateRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 8), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var EntPhySensorValueUpdateRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // EntPhySensorTableKey is the decoded INDEX of one entPhySensorTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -445,7 +435,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 					}
 				case EntPhySensorPrecision.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorPrecision = int32(v)
+						row.EntPhySensorPrecision = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -463,7 +453,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 					}
 				case EntPhySensorValue.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorValue = int32(v)
+						row.EntPhySensorValue = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -512,7 +502,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 					}
 				case EntPhySensorValueTimeStamp.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.EntPhySensorValueTimeStamp = uint32(v)
+						row.EntPhySensorValueTimeStamp = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -530,7 +520,7 @@ func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableR
 					}
 				case EntPhySensorValueUpdateRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.EntPhySensorValueUpdateRate = uint32(v)
+						row.EntPhySensorValueUpdateRate = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()

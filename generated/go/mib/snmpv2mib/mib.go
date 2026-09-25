@@ -66,9 +66,7 @@ func SysDescrGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for sysDescr")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // SysObjectIDGet reads the SMIv2 scalar sysObjectID.
@@ -91,9 +89,7 @@ func SysObjectIDGet(ctx context.Context, sess snmp.Session) (snmp.OID, error) {
 		return snmp.OID{}, errs.Msg("empty Get response for sysObjectID")
 	}
 
-	return func(vb snmp.VarBind) (snmp.OID, error) {
-		return snmp.DecodeOID(vb)
-	}(vbs[0])
+	return snmp.DecodeOID(vbs[0])
 }
 
 // SysUpTimeGet reads the SMIv2 scalar sysUpTime.
@@ -111,9 +107,7 @@ func SysUpTimeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for sysUpTime")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SysContactGet reads the SMIv2 scalar sysContact.
@@ -132,9 +126,7 @@ func SysContactGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for sysContact")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // SysNameGet reads the SMIv2 scalar sysName.
@@ -153,9 +145,7 @@ func SysNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for sysName")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // SysLocationGet reads the SMIv2 scalar sysLocation.
@@ -174,9 +164,7 @@ func SysLocationGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for sysLocation")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // SysServicesGet reads the SMIv2 scalar sysServices.
@@ -205,9 +193,7 @@ func SysServicesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for sysServices")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SysORLastChangeGet reads the SMIv2 scalar sysORLastChange.
@@ -225,9 +211,7 @@ func SysORLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for sysORLastChange")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInPktsGet reads the SMIv2 scalar snmpInPkts.
@@ -245,9 +229,7 @@ func SnmpInPktsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpInPkts")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutPktsGet reads the SMIv2 scalar snmpOutPkts.
@@ -255,6 +237,8 @@ func SnmpInPktsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 //
 // The total number of SNMP Messages which were passed from the SNMP
 // protocol entity to the transport service.
+//
+// Deprecated: snmpOutPkts is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutPktsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 2, 0)})
 	if err != nil {
@@ -265,9 +249,7 @@ func SnmpOutPktsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpOutPkts")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInBadVersionsGet reads the SMIv2 scalar snmpInBadVersions.
@@ -285,9 +267,7 @@ func SnmpInBadVersionsGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, errs.Msg("empty Get response for snmpInBadVersions")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInBadCommunityNamesGet reads the SMIv2 scalar snmpInBadCommunityNames.
@@ -313,9 +293,7 @@ func SnmpInBadCommunityNamesGet(ctx context.Context, sess snmp.Session) (uint32,
 		return 0, errs.Msg("empty Get response for snmpInBadCommunityNames")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInBadCommunityUsesGet reads the SMIv2 scalar snmpInBadCommunityUses.
@@ -340,9 +318,7 @@ func SnmpInBadCommunityUsesGet(ctx context.Context, sess snmp.Session) (uint32, 
 		return 0, errs.Msg("empty Get response for snmpInBadCommunityUses")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInASNParseErrsGet reads the SMIv2 scalar snmpInASNParseErrs.
@@ -360,9 +336,7 @@ func SnmpInASNParseErrsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpInASNParseErrs")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInTooBigsGet reads the SMIv2 scalar snmpInTooBigs.
@@ -370,6 +344,8 @@ func SnmpInASNParseErrsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 //
 // The total number of SNMP PDUs which were delivered to the SNMP protocol
 // entity and for which the value of the error-status field was `tooBig'.
+//
+// Deprecated: snmpInTooBigs is STATUS obsolete in SNMPv2-MIB.
 func SnmpInTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 8, 0)})
 	if err != nil {
@@ -380,9 +356,7 @@ func SnmpInTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpInTooBigs")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInNoSuchNamesGet reads the SMIv2 scalar snmpInNoSuchNames.
@@ -391,6 +365,8 @@ func SnmpInTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // The total number of SNMP PDUs which were delivered to the SNMP protocol
 // entity and for which the value of the error-status field was
 // `noSuchName'.
+//
+// Deprecated: snmpInNoSuchNames is STATUS obsolete in SNMPv2-MIB.
 func SnmpInNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 9, 0)})
 	if err != nil {
@@ -401,9 +377,7 @@ func SnmpInNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, errs.Msg("empty Get response for snmpInNoSuchNames")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInBadValuesGet reads the SMIv2 scalar snmpInBadValues.
@@ -411,6 +385,8 @@ func SnmpInNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, error
 //
 // The total number of SNMP PDUs which were delivered to the SNMP protocol
 // entity and for which the value of the error-status field was `badValue'.
+//
+// Deprecated: snmpInBadValues is STATUS obsolete in SNMPv2-MIB.
 func SnmpInBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 10, 0)})
 	if err != nil {
@@ -421,9 +397,7 @@ func SnmpInBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for snmpInBadValues")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInReadOnlysGet reads the SMIv2 scalar snmpInReadOnlys.
@@ -435,6 +409,8 @@ func SnmpInBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 // an SNMP PDU which contains the value `readOnly' in the error-status
 // field, as such this object is provided as a means of detecting incorrect
 // implementations of the SNMP.
+//
+// Deprecated: snmpInReadOnlys is STATUS obsolete in SNMPv2-MIB.
 func SnmpInReadOnlysGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 11, 0)})
 	if err != nil {
@@ -445,9 +421,7 @@ func SnmpInReadOnlysGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for snmpInReadOnlys")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInGenErrsGet reads the SMIv2 scalar snmpInGenErrs.
@@ -455,6 +429,8 @@ func SnmpInReadOnlysGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 //
 // The total number of SNMP PDUs which were delivered to the SNMP protocol
 // entity and for which the value of the error-status field was `genErr'.
+//
+// Deprecated: snmpInGenErrs is STATUS obsolete in SNMPv2-MIB.
 func SnmpInGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 12, 0)})
 	if err != nil {
@@ -465,9 +441,7 @@ func SnmpInGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpInGenErrs")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInTotalReqVarsGet reads the SMIv2 scalar snmpInTotalReqVars.
@@ -476,6 +450,8 @@ func SnmpInGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // The total number of MIB objects which have been retrieved successfully
 // by the SNMP protocol entity as the result of receiving valid SNMP
 // Get-Request and Get-Next PDUs.
+//
+// Deprecated: snmpInTotalReqVars is STATUS obsolete in SNMPv2-MIB.
 func SnmpInTotalReqVarsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 13, 0)})
 	if err != nil {
@@ -486,9 +462,7 @@ func SnmpInTotalReqVarsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpInTotalReqVars")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInTotalSetVarsGet reads the SMIv2 scalar snmpInTotalSetVars.
@@ -497,6 +471,8 @@ func SnmpInTotalReqVarsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 // The total number of MIB objects which have been altered successfully by
 // the SNMP protocol entity as the result of receiving valid SNMP
 // Set-Request PDUs.
+//
+// Deprecated: snmpInTotalSetVars is STATUS obsolete in SNMPv2-MIB.
 func SnmpInTotalSetVarsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 14, 0)})
 	if err != nil {
@@ -507,9 +483,7 @@ func SnmpInTotalSetVarsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpInTotalSetVars")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInGetRequestsGet reads the SMIv2 scalar snmpInGetRequests.
@@ -517,6 +491,8 @@ func SnmpInTotalSetVarsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 //
 // The total number of SNMP Get-Request PDUs which have been accepted and
 // processed by the SNMP protocol entity.
+//
+// Deprecated: snmpInGetRequests is STATUS obsolete in SNMPv2-MIB.
 func SnmpInGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 15, 0)})
 	if err != nil {
@@ -527,9 +503,7 @@ func SnmpInGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, errs.Msg("empty Get response for snmpInGetRequests")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInGetNextsGet reads the SMIv2 scalar snmpInGetNexts.
@@ -537,6 +511,8 @@ func SnmpInGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error
 //
 // The total number of SNMP Get-Next PDUs which have been accepted and
 // processed by the SNMP protocol entity.
+//
+// Deprecated: snmpInGetNexts is STATUS obsolete in SNMPv2-MIB.
 func SnmpInGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 16, 0)})
 	if err != nil {
@@ -547,9 +523,7 @@ func SnmpInGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpInGetNexts")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInSetRequestsGet reads the SMIv2 scalar snmpInSetRequests.
@@ -557,6 +531,8 @@ func SnmpInGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 //
 // The total number of SNMP Set-Request PDUs which have been accepted and
 // processed by the SNMP protocol entity.
+//
+// Deprecated: snmpInSetRequests is STATUS obsolete in SNMPv2-MIB.
 func SnmpInSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 17, 0)})
 	if err != nil {
@@ -567,9 +543,7 @@ func SnmpInSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, errs.Msg("empty Get response for snmpInSetRequests")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInGetResponsesGet reads the SMIv2 scalar snmpInGetResponses.
@@ -577,6 +551,8 @@ func SnmpInSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error
 //
 // The total number of SNMP Get-Response PDUs which have been accepted and
 // processed by the SNMP protocol entity.
+//
+// Deprecated: snmpInGetResponses is STATUS obsolete in SNMPv2-MIB.
 func SnmpInGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 18, 0)})
 	if err != nil {
@@ -587,9 +563,7 @@ func SnmpInGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpInGetResponses")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpInTrapsGet reads the SMIv2 scalar snmpInTraps.
@@ -597,6 +571,8 @@ func SnmpInGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 //
 // The total number of SNMP Trap PDUs which have been accepted and
 // processed by the SNMP protocol entity.
+//
+// Deprecated: snmpInTraps is STATUS obsolete in SNMPv2-MIB.
 func SnmpInTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 19, 0)})
 	if err != nil {
@@ -607,9 +583,7 @@ func SnmpInTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpInTraps")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutTooBigsGet reads the SMIv2 scalar snmpOutTooBigs.
@@ -617,6 +591,8 @@ func SnmpInTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 //
 // The total number of SNMP PDUs which were generated by the SNMP protocol
 // entity and for which the value of the error-status field was `tooBig.'
+//
+// Deprecated: snmpOutTooBigs is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 20, 0)})
 	if err != nil {
@@ -627,9 +603,7 @@ func SnmpOutTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpOutTooBigs")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutNoSuchNamesGet reads the SMIv2 scalar snmpOutNoSuchNames.
@@ -637,6 +611,8 @@ func SnmpOutTooBigsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 //
 // The total number of SNMP PDUs which were generated by the SNMP protocol
 // entity and for which the value of the error-status was `noSuchName'.
+//
+// Deprecated: snmpOutNoSuchNames is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 21, 0)})
 	if err != nil {
@@ -647,9 +623,7 @@ func SnmpOutNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpOutNoSuchNames")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutBadValuesGet reads the SMIv2 scalar snmpOutBadValues.
@@ -657,6 +631,8 @@ func SnmpOutNoSuchNamesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 //
 // The total number of SNMP PDUs which were generated by the SNMP protocol
 // entity and for which the value of the error-status field was `badValue'.
+//
+// Deprecated: snmpOutBadValues is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 22, 0)})
 	if err != nil {
@@ -667,9 +643,7 @@ func SnmpOutBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, errs.Msg("empty Get response for snmpOutBadValues")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutGenErrsGet reads the SMIv2 scalar snmpOutGenErrs.
@@ -677,6 +651,8 @@ func SnmpOutBadValuesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 //
 // The total number of SNMP PDUs which were generated by the SNMP protocol
 // entity and for which the value of the error-status field was `genErr'.
+//
+// Deprecated: snmpOutGenErrs is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 24, 0)})
 	if err != nil {
@@ -687,9 +663,7 @@ func SnmpOutGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpOutGenErrs")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutGetRequestsGet reads the SMIv2 scalar snmpOutGetRequests.
@@ -697,6 +671,8 @@ func SnmpOutGenErrsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 //
 // The total number of SNMP Get-Request PDUs which have been generated by
 // the SNMP protocol entity.
+//
+// Deprecated: snmpOutGetRequests is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 25, 0)})
 	if err != nil {
@@ -707,9 +683,7 @@ func SnmpOutGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpOutGetRequests")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutGetNextsGet reads the SMIv2 scalar snmpOutGetNexts.
@@ -717,6 +691,8 @@ func SnmpOutGetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 //
 // The total number of SNMP Get-Next PDUs which have been generated by the
 // SNMP protocol entity.
+//
+// Deprecated: snmpOutGetNexts is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 26, 0)})
 	if err != nil {
@@ -727,9 +703,7 @@ func SnmpOutGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for snmpOutGetNexts")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutSetRequestsGet reads the SMIv2 scalar snmpOutSetRequests.
@@ -737,6 +711,8 @@ func SnmpOutGetNextsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 //
 // The total number of SNMP Set-Request PDUs which have been generated by
 // the SNMP protocol entity.
+//
+// Deprecated: snmpOutSetRequests is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 27, 0)})
 	if err != nil {
@@ -747,9 +723,7 @@ func SnmpOutSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for snmpOutSetRequests")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutGetResponsesGet reads the SMIv2 scalar snmpOutGetResponses.
@@ -757,6 +731,8 @@ func SnmpOutSetRequestsGet(ctx context.Context, sess snmp.Session) (uint32, erro
 //
 // The total number of SNMP Get-Response PDUs which have been generated by
 // the SNMP protocol entity.
+//
+// Deprecated: snmpOutGetResponses is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 28, 0)})
 	if err != nil {
@@ -767,9 +743,7 @@ func SnmpOutGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, err
 		return 0, errs.Msg("empty Get response for snmpOutGetResponses")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpOutTrapsGet reads the SMIv2 scalar snmpOutTraps.
@@ -777,6 +751,8 @@ func SnmpOutGetResponsesGet(ctx context.Context, sess snmp.Session) (uint32, err
 //
 // The total number of SNMP Trap PDUs which have been generated by the SNMP
 // protocol entity.
+//
+// Deprecated: snmpOutTraps is STATUS obsolete in SNMPv2-MIB.
 func SnmpOutTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 11, 29, 0)})
 	if err != nil {
@@ -787,9 +763,7 @@ func SnmpOutTrapsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpOutTraps")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpEnableAuthenTrapsGet reads the SMIv2 scalar snmpEnableAuthenTraps.
@@ -841,9 +815,7 @@ func SnmpSilentDropsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for snmpSilentDrops")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpProxyDropsGet reads the SMIv2 scalar snmpProxyDrops.
@@ -865,9 +837,7 @@ func SnmpProxyDropsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for snmpProxyDrops")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SnmpTrapOIDGet reads the SMIv2 scalar snmpTrapOID.
@@ -886,9 +856,7 @@ func SnmpTrapOIDGet(ctx context.Context, sess snmp.Session) (snmp.OID, error) {
 		return snmp.OID{}, errs.Msg("empty Get response for snmpTrapOID")
 	}
 
-	return func(vb snmp.VarBind) (snmp.OID, error) {
-		return snmp.DecodeOID(vb)
-	}(vbs[0])
+	return snmp.DecodeOID(vbs[0])
 }
 
 // SnmpTrapEnterpriseGet reads the SMIv2 scalar snmpTrapEnterprise.
@@ -908,9 +876,7 @@ func SnmpTrapEnterpriseGet(ctx context.Context, sess snmp.Session) (snmp.OID, er
 		return snmp.OID{}, errs.Msg("empty Get response for snmpTrapEnterprise")
 	}
 
-	return func(vb snmp.VarBind) (snmp.OID, error) {
-		return snmp.DecodeOID(vb)
-	}(vbs[0])
+	return snmp.DecodeOID(vbs[0])
 }
 
 // SnmpSetSerialNoGet reads the SMIv2 scalar snmpSetSerialNo.
@@ -931,32 +897,24 @@ func SnmpSetSerialNoGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for snmpSetSerialNo")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // SysORID is the column sysORID of table sysORTable.
 // An authoritative identification of a capabilities statement with respect
 // to various MIB modules supported by the local SNMP application acting as
 // a command responder.
-var SysORID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 2), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var SysORID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
 
 // SysORDescr is the column sysORDescr of table sysORTable.
 // A textual description of the capabilities identified by the
 // corresponding instance of sysORID.
-var SysORDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var SysORDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // SysORUpTime is the column sysORUpTime of table sysORTable.
 // The value of sysUpTime at the time this conceptual row was last
 // instantiated.
-var SysORUpTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 4), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var SysORUpTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 4), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // SysORTableKey is the decoded INDEX of one sysORTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1072,7 +1030,7 @@ func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
 					}
 				case SysORUpTime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.SysORUpTime = uint32(v)
+						row.SysORUpTime = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()

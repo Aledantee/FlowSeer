@@ -162,9 +162,7 @@ func EntLastChangeTimeGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, errs.Msg("empty Get response for entLastChangeTime")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // EntPhysicalDescr is the column entPhysicalDescr of table entPhysicalTable.
@@ -172,9 +170,7 @@ func EntLastChangeTimeGet(ctx context.Context, sess snmp.Session) (uint32, error
 // string that identifies the manufacturer's name for the physical entity
 // and should be set to a distinct value for each version or model of the
 // physical entity.
-var EntPhysicalDescr = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalDescr = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalVendorType is the column entPhysicalVendorType of table entPhysicalTable.
 // An indication of the vendor-specific hardware type of the physical
@@ -185,9 +181,7 @@ var EntPhysicalDescr = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47,
 // the general type of hardware device. If no vendor-specific registration
 // identifier exists for this physical entity, or the value is unknown by
 // this agent, then the value { 0 0 } is returned.
-var EntPhysicalVendorType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 3), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var EntPhysicalVendorType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
 
 // EntPhysicalContainedIn is the column entPhysicalContainedIn of table entPhysicalTable.
 // The value of entPhysicalIndex for the physical entity that 'contains'
@@ -198,9 +192,7 @@ var EntPhysicalVendorType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2,
 // contained by more than one physical entity (e.g., double-wide modules),
 // this object should identify the containing entity with the lowest value
 // of entPhysicalIndex.
-var EntPhysicalContainedIn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var EntPhysicalContainedIn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // EntPhysicalClass is the column entPhysicalClass of table entPhysicalTable.
 // An indication of the general hardware type of the physical entity. An
@@ -210,9 +202,7 @@ var EntPhysicalContainedIn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // standard registration identifier exists for this physical entity, then
 // the value 'other(1)' is returned. If the value is unknown by this agent,
 // then the value 'unknown(2)' is returned.
-var EntPhysicalClass = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var EntPhysicalClass = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // EntPhysicalParentRelPos is the column entPhysicalParentRelPos of table entPhysicalTable.
 // An indication of the relative position of this 'child' component among
@@ -247,9 +237,7 @@ var EntPhysicalClass = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 
 // among siblings of the same parent component. The agent should retain
 // parent-relative position values across reboots, either through
 // algorithmic assignment or use of non-volatile storage.
-var EntPhysicalParentRelPos = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var EntPhysicalParentRelPos = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // EntPhysicalName is the column entPhysicalName of table entPhysicalTable.
 // The textual name of the physical entity. The value of this object should
@@ -263,9 +251,7 @@ var EntPhysicalParentRelPos = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 
 // physical entities will be the same in the event that the console
 // interface does not distinguish between them, e.g., slot-1 and the card
 // in slot-1.
-var EntPhysicalName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 7), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalHardwareRev is the column entPhysicalHardwareRev of table entPhysicalTable.
 // The vendor-specific hardware revision string for the physical entity.
@@ -277,9 +263,7 @@ var EntPhysicalName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 
 // is associated with the physical component, or if this information is
 // unknown to the agent, then this object will contain a zero-length
 // string.
-var EntPhysicalHardwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalHardwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 8), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalFirmwareRev is the column entPhysicalFirmwareRev of table entPhysicalTable.
 // The vendor-specific firmware revision string for the physical entity.
@@ -289,9 +273,7 @@ var EntPhysicalHardwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 
 // If no specific firmware programs are associated with the physical
 // component, or if this information is unknown to the agent, then this
 // object will contain a zero-length string.
-var EntPhysicalFirmwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 9), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalFirmwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 9), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalSoftwareRev is the column entPhysicalSoftwareRev of table entPhysicalTable.
 // The vendor-specific software revision string for the physical entity.
@@ -301,9 +283,7 @@ var EntPhysicalFirmwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 
 // If no specific software programs are associated with the physical
 // component, or if this information is unknown to the agent, then this
 // object will contain a zero-length string.
-var EntPhysicalSoftwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 10), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalSoftwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 10), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalSerialNum is the column entPhysicalSerialNum of table entPhysicalTable.
 // The vendor-specific serial number string for the physical entity. The
@@ -330,9 +310,7 @@ var EntPhysicalSoftwareRev = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 
 // includes instantiations across all re-initializations/reboots of the
 // network management system, including those resulting in a change of the
 // physical entity's entPhysicalIndex value.
-var EntPhysicalSerialNum = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 11), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalSerialNum = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 11), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalMfgName is the column entPhysicalMfgName of table entPhysicalTable.
 // The name of the manufacturer of this physical component. The preferred
@@ -344,9 +322,7 @@ var EntPhysicalSerialNum = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // manufacturer name string associated with the physical component is
 // unknown to the agent, then this object will contain a zero-length
 // string.
-var EntPhysicalMfgName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 12), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalMfgName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 12), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalModelName is the column entPhysicalModelName of table entPhysicalTable.
 // The vendor-specific model name identifier string associated with this
@@ -354,9 +330,7 @@ var EntPhysicalMfgName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4
 // number, which may be printed on the component itself. If the model name
 // string associated with the physical component is unknown to the agent,
 // then this object will contain a zero-length string.
-var EntPhysicalModelName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 13), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalModelName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 13), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalAlias is the column entPhysicalAlias of table entPhysicalTable.
 // This object is an 'alias' name for the physical entity, as specified by
@@ -372,9 +346,7 @@ var EntPhysicalModelName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // instantiations across all re-initializations/reboots of the network
 // management system, including those resulting in a change of the physical
 // entity's entPhysicalIndex value.
-var EntPhysicalAlias = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 14), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalAlias = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 14), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalAssetID is the column entPhysicalAssetID of table entPhysicalTable.
 // This object is a user-assigned asset tracking identifier (as specified
@@ -396,9 +368,7 @@ var EntPhysicalAlias = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47,
 // those resulting in a change of the physical entity's entPhysicalIndex
 // value. If no asset tracking information is associated with the physical
 // component, then this object will contain a zero-length string.
-var EntPhysicalAssetID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 15), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalAssetID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 15), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalIsFRU is the column entPhysicalIsFRU of table entPhysicalTable.
 // This object indicates whether or not this physical entity is considered
@@ -407,18 +377,14 @@ var EntPhysicalAssetID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4
 // replaceable unit. For all entPhysicalEntries that represent components
 // permanently contained within a field replaceable unit, the value
 // 'false(2)' should be returned for this object.
-var EntPhysicalIsFRU = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var EntPhysicalIsFRU = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 16), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // EntPhysicalMfgDate is the column entPhysicalMfgDate of table entPhysicalTable.
 // This object contains the date of manufacturing of the managed entity. If
 // the manufacturing date is unknown or not supported, the object is not
 // instantiated. The special value '0000000000000000'H may also be returned
 // in this case.
-var EntPhysicalMfgDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 17), snmp.KindOctetString, func(vb snmp.VarBind) (time.Time, error) {
-	return snmp.DecodeDateAndTime(vb)
-})
+var EntPhysicalMfgDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 17), snmp.KindOctetString, snmp.DecodeDateAndTime)
 
 // EntPhysicalUris is the column entPhysicalUris of table entPhysicalTable.
 // This object contains identification information about the physical
@@ -428,18 +394,14 @@ var EntPhysicalMfgDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1
 // space characters are ignored. If no URI identification information is
 // known about the physical entity, the object is not instantiated. A
 // zero-length octet string may also be returned in this case.
-var EntPhysicalUris = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 18), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalUris = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 18), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalUUID is the column entPhysicalUUID of table entPhysicalTable.
 // This object contains identification information about the physical
 // entity. The object contains a Universally Unique Identifier, the syntax
 // of this object must conform to RFC 4122, Section 4.1. A zero-length
 // octet string is returned if no UUID information is known.
-var EntPhysicalUUID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 19), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntPhysicalUUID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 19), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntPhysicalTableKey is the decoded INDEX of one entPhysicalTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -600,7 +562,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 					}
 				case EntPhysicalContainedIn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhysicalContainedIn = int32(v)
+						row.EntPhysicalContainedIn = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -618,7 +580,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 					}
 				case EntPhysicalClass.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhysicalClass = int32(v)
+						row.EntPhysicalClass = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -636,7 +598,7 @@ func (tw *EntPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysicalTableRow
 					}
 				case EntPhysicalParentRelPos.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhysicalParentRelPos = int32(v)
+						row.EntPhysicalParentRelPos = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1267,9 +1229,7 @@ func (entPhysicalTableT) Watch(ctx context.Context, sess snmp.Session, cols []sn
 // a string that identifies the manufacturer's name for the logical entity
 // and should be set to a distinct value for each version of the logical
 // entity.
-var EntLogicalDescr = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntLogicalDescr = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntLogicalType is the column entLogicalType of table entLogicalTable.
 // An indication of the type of logical entity. This will typically be the
@@ -1280,9 +1240,7 @@ var EntLogicalDescr = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 
 // dot1dBridge a logical entity of a 802.3 repeater -> snmpDot3RptrMgmt If
 // an appropriate node in the SMI's naming hierarchy cannot be identified,
 // the value 'mib-2' should be used.
-var EntLogicalType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 3), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var EntLogicalType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
 
 // EntLogicalCommunity is the column entLogicalCommunity of table entLogicalTable.
 // An SNMPv1 or SNMPv2c community string, which can be used to access
@@ -1312,9 +1270,9 @@ var EntLogicalType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47,
 // the context associated with each logical entity. SNMPv3 agents may
 // return a zero-length string for this object or may continue to return a
 // community string (e.g., tri-lingual agent support).
-var EntLogicalCommunity = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+//
+// Deprecated: entLogicalCommunity is STATUS deprecated in ENTITY-MIB.
+var EntLogicalCommunity = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntLogicalTAddress is the column entLogicalTAddress of table entLogicalTable.
 // The transport service address by which the logical entity receives
@@ -1323,17 +1281,13 @@ var EntLogicalCommunity = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // long: the initial 4 octets contain the IP-address in network-byte order,
 // and the last 2 contain the UDP port in network-byte order. Consult RFC
 // 3417 for further information on snmpUDPDomain.
-var EntLogicalTAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntLogicalTAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntLogicalTDomain is the column entLogicalTDomain of table entLogicalTable.
 // Indicates the kind of transport service by which the logical entity
 // receives network management traffic. Possible values for this object are
 // presently found in RFC 3417.
-var EntLogicalTDomain = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 6), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var EntLogicalTDomain = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 6), snmp.KindObjectID, snmp.DecodeOID)
 
 // EntLogicalContextEngineID is the column entLogicalContextEngineID of table entLogicalTable.
 // The authoritative contextEngineID that can be used to send an SNMP
@@ -1345,9 +1299,7 @@ var EntLogicalTDomain = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // engines identified by a contextEngineID and contextName pair. If no
 // value has been configured by the agent, a zero-length string is
 // returned, or the agent may choose not to instantiate this object at all.
-var EntLogicalContextEngineID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntLogicalContextEngineID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 7), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntLogicalContextName is the column entLogicalContextName of table entLogicalTable.
 // The contextName that can be used to send an SNMP message concerning
@@ -1359,9 +1311,7 @@ var EntLogicalContextEngineID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 
 // pair. If no value has been configured by the agent, a zero-length string
 // is returned, or the agent may choose not to instantiate this object at
 // all.
-var EntLogicalContextName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var EntLogicalContextName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 2, 1, 1, 8), snmp.KindOctetString, snmp.DecodeBytes)
 
 // EntLogicalTableKey is the decoded INDEX of one entLogicalTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1911,8 +1861,7 @@ func (r EntLPMappingTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r EntLPMappingTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case EntLPPhysicalIndex.Key():
+	if col.Key() == EntLPPhysicalIndex.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -1941,8 +1890,7 @@ func (tw *EntLPMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntLPMappingTableR
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case EntLPPhysicalIndex.Key():
+				if tw.cols[cell.Column].Key() == EntLPPhysicalIndex.Key() {
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
 						row.EntLPPhysicalIndex = PhysicalIndex(v)
 						row.observed[0] |= 1 << 0
@@ -2055,8 +2003,7 @@ func decodeEntLPMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntLPMappingT
 			continue
 		}
 		colID := o.At(entryLen)
-		switch colID {
-		case 1:
+		if colID == 1 {
 			dv, derr := EntLPPhysicalIndex.Decode(vb)
 			if derr != nil {
 				return row, derr
@@ -2095,8 +2042,7 @@ func mergeEntLPMappingTableRow(dst *EntLPMappingTableRow, vbs []snmp.VarBind) {
 			continue
 		}
 		colID := o.At(entryLen)
-		switch colID {
-		case 1:
+		if colID == 1 {
 			dv, derr := EntLPPhysicalIndex.Decode(vb)
 			if derr == nil {
 				dst.EntLPPhysicalIndex = dv
@@ -2197,9 +2143,7 @@ func (entLPMappingTableT) Watch(ctx context.Context, sess snmp.Session, cols []s
 // may be defined in the future, as required. Bridge ports are identified
 // by examining the Bridge MIB and appropriate ifEntries associated with
 // each 'dot1dBasePort' and are thus not represented in this table.
-var EntAliasMappingIdentifier = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2, 1, 2), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var EntAliasMappingIdentifier = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47, 1, 3, 2, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
 
 // EntAliasMappingTableKey is the decoded INDEX of one entAliasMappingTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2251,8 +2195,7 @@ func (r EntAliasMappingTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r EntAliasMappingTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case EntAliasMappingIdentifier.Key():
+	if col.Key() == EntAliasMappingIdentifier.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -2281,8 +2224,7 @@ func (tw *EntAliasMappingTableWalker) Iter() iter.Seq2[snmp.OID, EntAliasMapping
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case EntAliasMappingIdentifier.Key():
+				if tw.cols[cell.Column].Key() == EntAliasMappingIdentifier.Key() {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
@@ -2390,8 +2332,7 @@ func decodeEntAliasMappingTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntAliasMa
 			continue
 		}
 		colID := o.At(entryLen)
-		switch colID {
-		case 2:
+		if colID == 2 {
 			dv, derr := EntAliasMappingIdentifier.Decode(vb)
 			if derr != nil {
 				return row, derr
@@ -2430,8 +2371,7 @@ func mergeEntAliasMappingTableRow(dst *EntAliasMappingTableRow, vbs []snmp.VarBi
 			continue
 		}
 		colID := o.At(entryLen)
-		switch colID {
-		case 2:
+		if colID == 2 {
 			dv, derr := EntAliasMappingIdentifier.Decode(vb)
 			if derr == nil {
 				dst.EntAliasMappingIdentifier = dv
@@ -2575,8 +2515,7 @@ func (r EntPhysicalContainsTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r EntPhysicalContainsTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case EntPhysicalChildIndex.Key():
+	if col.Key() == EntPhysicalChildIndex.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -2605,8 +2544,7 @@ func (tw *EntPhysicalContainsTableWalker) Iter() iter.Seq2[snmp.OID, EntPhysical
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case EntPhysicalChildIndex.Key():
+				if tw.cols[cell.Column].Key() == EntPhysicalChildIndex.Key() {
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
 						row.EntPhysicalChildIndex = PhysicalIndex(v)
 						row.observed[0] |= 1 << 0
@@ -2719,8 +2657,7 @@ func decodeEntPhysicalContainsTableRow(idx snmp.OID, vbs []snmp.VarBind) (EntPhy
 			continue
 		}
 		colID := o.At(entryLen)
-		switch colID {
-		case 1:
+		if colID == 1 {
 			dv, derr := EntPhysicalChildIndex.Decode(vb)
 			if derr != nil {
 				return row, derr
@@ -2759,8 +2696,7 @@ func mergeEntPhysicalContainsTableRow(dst *EntPhysicalContainsTableRow, vbs []sn
 			continue
 		}
 		colID := o.At(entryLen)
-		switch colID {
-		case 1:
+		if colID == 1 {
 			dv, derr := EntPhysicalChildIndex.Decode(vb)
 			if derr == nil {
 				dst.EntPhysicalChildIndex = dv

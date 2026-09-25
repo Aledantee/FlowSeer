@@ -166,13 +166,20 @@ func writeEnumDecl(f *jen.File, goName, mibName, comment string, values []enumMe
 
 	f.Comment("String returns the SMI label, or " + goName + "(n) for an unrecognized value n.")
 	f.Func().Params(jen.Id("v").Id(goName)).Id("String").Params().String().BlockFunc(func(g *jen.Group) {
-		g.Switch(jen.Id("v")).BlockFunc(func(cg *jen.Group) {
-			for _, m := range values {
-				cg.Case(jen.Id(goName + camelCase(m.MIBName))).Block(
-					jen.Return(jen.Lit(m.MIBName)),
-				)
-			}
-		})
+		if len(values) == 1 {
+			m := values[0]
+			g.If(jen.Id("v").Op("==").Id(goName + camelCase(m.MIBName))).Block(
+				jen.Return(jen.Lit(m.MIBName)),
+			)
+		} else {
+			g.Switch(jen.Id("v")).BlockFunc(func(cg *jen.Group) {
+				for _, m := range values {
+					cg.Case(jen.Id(goName + camelCase(m.MIBName))).Block(
+						jen.Return(jen.Lit(m.MIBName)),
+					)
+				}
+			})
+		}
 		g.Line()
 
 		g.Return(jen.Qual("fmt", "Sprintf").Call(jen.Lit(goName+"(%d)"), jen.Id("v")))
