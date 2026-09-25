@@ -163,8 +163,11 @@ generator here to adjust.
   current object when one gives the same measurement. It does not get an
   SA1019 suppression. `src/protocol/snmp/bench/tablewalk_test.go:104`
   walks `IfInNUcastPkts`, `IfOutNUcastPkts`, and `IfOutQLen` to measure a
-  wide ifTable walk. It swaps them for three current ifTable columns of
-  the same wire types, which keeps the table and the column count.
+  wide ifTable walk. Only 18 current ifTable columns exist, so the wide
+  case walks all 18 once, and its sub-benchmark becomes `cols=18`, with
+  `src/protocol/snmp/bench/doc.go` updated to match (user decision,
+  2026-09-25). No gate compares the wide-case numbers; `bench-gate.sh`
+  reads only `baseline-micro.txt`.
   `src/protocol/snmp/test/integration/t4_manual_verify_test.go:137`
   walks the deprecated `ipAddrTable` against lab devices, and it has no
   drop-in replacement: `ipAddressTable` is another table, and the lab
