@@ -210,7 +210,7 @@ case "$tool" in
     # The checkout is the only thing this guard protects. If the command
     # names at least one absolute (or ~-prefixed) path and every such path
     # lies outside the checkout, the write cannot clobber a concurrent
-    # session here (e.g. `sed -i ... ~/.serena/serena_config.yml`).
+    # session here (e.g. `sed -i ... ~/.codex/config.toml`).
     # Commands that use only relative paths keep the deny: those resolve
     # into the checkout. Best-effort token scan, not a parser — a command
     # mixing outside-absolute and bare relative operands can slip through.
