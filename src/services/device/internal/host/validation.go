@@ -13,6 +13,9 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
+
+	// This package validates messages whose fields carry the net/key predefined rules, and the global registry resolves them only when the generated key package is linked (network model structure record, convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 // ErrCodeInvalidRequest is a request that does not satisfy its own schema

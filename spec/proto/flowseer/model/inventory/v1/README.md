@@ -9,7 +9,7 @@ FlowSeer-assigned UUID.
 
 ## Boundaries
 
-Imports: model/edge, model/policy, net/addr, net/phy
+Imports: model/edge, model/policy, net/addr, net/key, net/phy
 
 Imported by: api/device, event/access, model/access, store/device
 

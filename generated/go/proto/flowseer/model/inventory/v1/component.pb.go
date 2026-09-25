@@ -953,7 +953,7 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	" \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x10softwareRevision\x12\x1a\n" +
 	"\bposition\x18\v \x01(\rR\bposition\x12+\n" +
 	"\x11field_replaceable\x18\f \x01(\bR\x10fieldReplaceable\x120\n" +
-	"\x0einterface_name\x18\r \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\rinterfaceName\x12<\n" +
+	"\x0einterface_name\x18\r \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceName\x12<\n" +
 	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module:\x98\x02\xbaH\x94\x02\x1a\x9b\x01\n" +
 	"\x1fcomponent_state.parent_not_self\x12$a component cannot be its own parent\x1aR!has(this.ref) || !has(this.parent) || this.parent.name != this.ref.component.name\x1at\n" +
 	"'component_state.module_only_transceiver\x12#module is set only on a transceiver\x1a$!has(this.module) || this.kind == 13\"\x89\a\n" +

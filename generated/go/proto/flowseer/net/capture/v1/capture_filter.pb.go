@@ -93,8 +93,8 @@ type CaptureFilterClause struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_EtherType   v1.EtherType           `protobuf:"varint,1,opt,name=ether_type,json=etherType,enum=flowseer.net.packet.v1.EtherType"`
 	xxx_hidden_Vlan        *VlanMatch             `protobuf:"bytes,2,opt,name=vlan"`
-	xxx_hidden_SrcMac      *v11.EuiAddress        `protobuf:"bytes,3,opt,name=src_mac,json=srcMac"`
-	xxx_hidden_DstMac      *v11.EuiAddress        `protobuf:"bytes,4,opt,name=dst_mac,json=dstMac"`
+	xxx_hidden_SrcMac      *v11.MacAddress        `protobuf:"bytes,3,opt,name=src_mac,json=srcMac"`
+	xxx_hidden_DstMac      *v11.MacAddress        `protobuf:"bytes,4,opt,name=dst_mac,json=dstMac"`
 	xxx_hidden_SrcPrefix   *v11.IpPrefix          `protobuf:"bytes,5,opt,name=src_prefix,json=srcPrefix"`
 	xxx_hidden_DstPrefix   *v11.IpPrefix          `protobuf:"bytes,6,opt,name=dst_prefix,json=dstPrefix"`
 	xxx_hidden_IpProtocol  v1.IpProtocol          `protobuf:"varint,7,opt,name=ip_protocol,json=ipProtocol,enum=flowseer.net.packet.v1.IpProtocol"`
@@ -150,14 +150,14 @@ func (x *CaptureFilterClause) GetVlan() *VlanMatch {
 	return nil
 }
 
-func (x *CaptureFilterClause) GetSrcMac() *v11.EuiAddress {
+func (x *CaptureFilterClause) GetSrcMac() *v11.MacAddress {
 	if x != nil {
 		return x.xxx_hidden_SrcMac
 	}
 	return nil
 }
 
-func (x *CaptureFilterClause) GetDstMac() *v11.EuiAddress {
+func (x *CaptureFilterClause) GetDstMac() *v11.MacAddress {
 	if x != nil {
 		return x.xxx_hidden_DstMac
 	}
@@ -233,11 +233,11 @@ func (x *CaptureFilterClause) SetVlan(v *VlanMatch) {
 	x.xxx_hidden_Vlan = v
 }
 
-func (x *CaptureFilterClause) SetSrcMac(v *v11.EuiAddress) {
+func (x *CaptureFilterClause) SetSrcMac(v *v11.MacAddress) {
 	x.xxx_hidden_SrcMac = v
 }
 
-func (x *CaptureFilterClause) SetDstMac(v *v11.EuiAddress) {
+func (x *CaptureFilterClause) SetDstMac(v *v11.MacAddress) {
 	x.xxx_hidden_DstMac = v
 }
 
@@ -418,9 +418,9 @@ type CaptureFilterClause_builder struct {
 	// The IEEE 802.1Q tag.
 	Vlan *VlanMatch
 	// The source MAC address.
-	SrcMac *v11.EuiAddress
+	SrcMac *v11.MacAddress
 	// The destination MAC address.
-	DstMac *v11.EuiAddress
+	DstMac *v11.MacAddress
 	// The source network prefix.
 	SrcPrefix *v11.IpPrefix
 	// The destination network prefix.
@@ -591,8 +591,8 @@ const file_flowseer_net_capture_v1_capture_filter_proto_rawDesc = "" +
 	"ether_type\x18\x01 \x01(\x0e2!.flowseer.net.packet.v1.EtherTypeB\n" +
 	"\xbaH\a\x82\x01\x04\x80\xb5\x18\x01R\tetherType\x126\n" +
 	"\x04vlan\x18\x02 \x01(\v2\".flowseer.net.capture.v1.VlanMatchR\x04vlan\x129\n" +
-	"\asrc_mac\x18\x03 \x01(\v2 .flowseer.net.addr.v1.EuiAddressR\x06srcMac\x129\n" +
-	"\adst_mac\x18\x04 \x01(\v2 .flowseer.net.addr.v1.EuiAddressR\x06dstMac\x12=\n" +
+	"\asrc_mac\x18\x03 \x01(\v2 .flowseer.net.addr.v1.MacAddressR\x06srcMac\x129\n" +
+	"\adst_mac\x18\x04 \x01(\v2 .flowseer.net.addr.v1.MacAddressR\x06dstMac\x12=\n" +
 	"\n" +
 	"src_prefix\x18\x05 \x01(\v2\x1e.flowseer.net.addr.v1.IpPrefixR\tsrcPrefix\x12=\n" +
 	"\n" +
@@ -620,7 +620,7 @@ var file_flowseer_net_capture_v1_capture_filter_proto_goTypes = []any{
 	(*CaptureFilterClause)(nil),   // 1: flowseer.net.capture.v1.CaptureFilterClause
 	(*VlanMatch)(nil),             // 2: flowseer.net.capture.v1.VlanMatch
 	(v1.EtherType)(0),             // 3: flowseer.net.packet.v1.EtherType
-	(*v11.EuiAddress)(nil),        // 4: flowseer.net.addr.v1.EuiAddress
+	(*v11.MacAddress)(nil),        // 4: flowseer.net.addr.v1.MacAddress
 	(*v11.IpPrefix)(nil),          // 5: flowseer.net.addr.v1.IpPrefix
 	(v1.IpProtocol)(0),            // 6: flowseer.net.packet.v1.IpProtocol
 	(*v1.TransportPortMatch)(nil), // 7: flowseer.net.packet.v1.TransportPortMatch
@@ -632,8 +632,8 @@ var file_flowseer_net_capture_v1_capture_filter_proto_depIdxs = []int32{
 	1,  // 0: flowseer.net.capture.v1.CaptureFilter.any_of:type_name -> flowseer.net.capture.v1.CaptureFilterClause
 	3,  // 1: flowseer.net.capture.v1.CaptureFilterClause.ether_type:type_name -> flowseer.net.packet.v1.EtherType
 	2,  // 2: flowseer.net.capture.v1.CaptureFilterClause.vlan:type_name -> flowseer.net.capture.v1.VlanMatch
-	4,  // 3: flowseer.net.capture.v1.CaptureFilterClause.src_mac:type_name -> flowseer.net.addr.v1.EuiAddress
-	4,  // 4: flowseer.net.capture.v1.CaptureFilterClause.dst_mac:type_name -> flowseer.net.addr.v1.EuiAddress
+	4,  // 3: flowseer.net.capture.v1.CaptureFilterClause.src_mac:type_name -> flowseer.net.addr.v1.MacAddress
+	4,  // 4: flowseer.net.capture.v1.CaptureFilterClause.dst_mac:type_name -> flowseer.net.addr.v1.MacAddress
 	5,  // 5: flowseer.net.capture.v1.CaptureFilterClause.src_prefix:type_name -> flowseer.net.addr.v1.IpPrefix
 	5,  // 6: flowseer.net.capture.v1.CaptureFilterClause.dst_prefix:type_name -> flowseer.net.addr.v1.IpPrefix
 	6,  // 7: flowseer.net.capture.v1.CaptureFilterClause.ip_protocol:type_name -> flowseer.net.packet.v1.IpProtocol

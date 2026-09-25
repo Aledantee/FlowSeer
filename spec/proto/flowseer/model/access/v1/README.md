@@ -80,7 +80,7 @@ read reaches the edge with no `MutationIntent` to carry one.
 
 ## Boundaries
 
-Imports: model/edge, model/inventory, model/policy, net/interface
+Imports: model/edge, model/inventory, model/policy, net/interface, net/key
 
 Imported by: api/device, edge/dispatch, event/access, store/device
 

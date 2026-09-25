@@ -76,7 +76,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build(),
 	}.Build()
 
@@ -86,7 +86,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 			Switchport: switchingv1.SwitchportFacet_builder{
 				TaggedVlanIds:    []uint32{vid10},
 				FrameAdmission:   &frameAdmAll,
@@ -576,7 +576,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("lag_parent naming non-existent", func(t *testing.T) {
+	t.Run("lag_parent_interface_name naming non-existent", func(t *testing.T) {
 		p1Name := "1/1/1"
 		lagParent := "lag99"
 		p1 := interfacev1.Interface_builder{
@@ -584,7 +584,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagParent,
+				LagParentInterfaceName: &lagParent,
 			}.Build(),
 		}.Build()
 		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -593,7 +593,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("lag_parent naming non-LAG", func(t *testing.T) {
+	t.Run("lag_parent_interface_name naming non-LAG", func(t *testing.T) {
 		p1Name := "1/1/1"
 		p2Name := "1/1/2"
 		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
@@ -602,7 +602,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &p1Name,
+				LagParentInterfaceName: &p1Name,
 			}.Build(),
 		}.Build()
 		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -775,7 +775,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			Switchport: switchingv1.SwitchportFacet_builder{TaggedVlanIds: []uint32{10}}.Build(),
 		}.Build()}.Build(),
 		interfacev1.Interface_builder{Name: name("1/1/1"), AdminStatus: &adminUp, Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build()}.Build(),
 	}
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVlan})

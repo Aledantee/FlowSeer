@@ -261,7 +261,7 @@ func routedVLANInterface(name string, vid uint32, mac []byte) *interfacev1.Inter
 		AdminStatus: &admin,
 		OperStatus:  &oper,
 		Mtu:         &mtu,
-		Mac: addrv1.EuiAddress_builder{
+		Mac: addrv1.MacAddress_builder{
 			Eui48: addrv1.Eui48Address_builder{Octets: mac}.Build(),
 		}.Build(),
 		Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
@@ -290,7 +290,7 @@ func lagInterfaces() []*interfacev1.Interface {
 			AdminStatus: &admin,
 			OperStatus:  &oper,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagName,
+				LagParentInterfaceName: &lagName,
 			}.Build(),
 		}.Build(),
 	}
@@ -883,7 +883,7 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 			ipv1.NeighborEntry_builder{InterfaceName: &routedName, Ip: malformedIP, Mac: protoEUI48([6]byte{0, 1, 2, 3, 4, 6})}.Build(),
 			ipv1.NeighborEntry_builder{
 				InterfaceName: &routedName, Ip: protoIPv4Addr([4]byte{10, 0, 0, 2}),
-				Mac: addrv1.EuiAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build()}.Build(),
+				Mac: addrv1.MacAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build()}.Build(),
 			}.Build(),
 		},
 	}

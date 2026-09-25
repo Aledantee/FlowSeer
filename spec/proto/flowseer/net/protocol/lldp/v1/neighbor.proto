@@ -7,6 +7,7 @@ import "flowseer/net/protocol/lldp/v1/management_address.proto";
 import "flowseer/net/protocol/lldp/v1/port_id.proto";
 import "flowseer/net/protocol/lldp/v1/system_capability.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // One announcement a device holds from a neighboring system, as seen on one
 // of the device's own interfaces. Every field other than the local interface
@@ -16,8 +17,7 @@ message Neighbor {
   // be present and non-empty.
   string local_interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // The chassis identifier the neighbor announced. Must be present; the
   // announcement carries it in a mandatory TLV.

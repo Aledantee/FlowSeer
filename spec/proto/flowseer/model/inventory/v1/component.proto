@@ -13,6 +13,7 @@ package flowseer.model.inventory.v1;
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/net/phy/v1/pluggable_module.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // The local reference to a component within its device.
 message ComponentLocalRef {
@@ -140,10 +141,7 @@ message ComponentState {
   // For a port, the name of the interface it fronts, as the device spells
   // it (the entAliasMappingTable join). Unset means the port fronts no
   // interface the device exposes, or the source did not read the join.
-  string interface_name = 13 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
-  ];
+  string interface_name = 13 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
   // For a transceiver, the module identity and diagnostics read from it.
   // Set only on a transceiver; unset there means the module was not read.
   flowseer.net.phy.v1.PluggableModule module = 20;

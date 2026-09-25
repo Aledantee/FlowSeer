@@ -34,7 +34,7 @@ type Interface struct {
 	xxx_hidden_AdminStatus AdminStatus            `protobuf:"varint,3,opt,name=admin_status,json=adminStatus,enum=flowseer.net.interface.v1.AdminStatus"`
 	xxx_hidden_OperStatus  OperStatus             `protobuf:"varint,4,opt,name=oper_status,json=operStatus,enum=flowseer.net.interface.v1.OperStatus"`
 	xxx_hidden_Mtu         uint32                 `protobuf:"varint,5,opt,name=mtu"`
-	xxx_hidden_Mac         *v1.EuiAddress         `protobuf:"bytes,6,opt,name=mac"`
+	xxx_hidden_Mac         *v1.MacAddress         `protobuf:"bytes,6,opt,name=mac"`
 	xxx_hidden_Description *string                `protobuf:"bytes,7,opt,name=description"`
 	xxx_hidden_Counters    *InterfaceCounters     `protobuf:"bytes,8,opt,name=counters"`
 	xxx_hidden_LastChange  *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_change,json=lastChange"`
@@ -114,7 +114,7 @@ func (x *Interface) GetMtu() uint32 {
 	return 0
 }
 
-func (x *Interface) GetMac() *v1.EuiAddress {
+func (x *Interface) GetMac() *v1.MacAddress {
 	if x != nil {
 		return x.xxx_hidden_Mac
 	}
@@ -256,7 +256,7 @@ func (x *Interface) SetMtu(v uint32) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 12)
 }
 
-func (x *Interface) SetMac(v *v1.EuiAddress) {
+func (x *Interface) SetMac(v *v1.MacAddress) {
 	x.xxx_hidden_Mac = v
 }
 
@@ -653,7 +653,7 @@ type Interface_builder struct {
 	Mtu *uint32
 	// The interface's own hardware address. Absent means the interface has
 	// none or the source did not report one.
-	Mac *v1.EuiAddress
+	Mac *v1.MacAddress
 	// The interface description configured on the device. Absent means
 	// unreported; an empty string means the device reports an empty
 	// description.
@@ -831,16 +831,15 @@ var File_flowseer_net_interface_v1_interface_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_interface_v1_interface_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/net/interface/v1/interface.proto\x12\x19flowseer.net.interface.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a#flowseer/net/filter/v1/filter.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a2flowseer/net/interface/v1/interface_counters.proto\x1a-flowseer/net/interface/v1/lag_interface.proto\x1a2flowseer/net/interface/v1/loopback_interface.proto\x1a4flowseer/net/interface/v1/management_interface.proto\x1a+flowseer/net/interface/v1/oper_status.proto\x1a/flowseer/net/interface/v1/other_interface.proto\x1a2flowseer/net/interface/v1/physical_interface.proto\x1a,flowseer/net/interface/v1/subinterface.proto\x1a0flowseer/net/interface/v1/tunnel_interface.proto\x1a.flowseer/net/interface/v1/vlan_interface.proto\x1a!flowseer/net/ip/v1/ip_facet.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\b\n" +
-	"\tInterface\x12\x1e\n" +
-	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\x04name\x12\x19\n" +
+	")flowseer/net/interface/v1/interface.proto\x12\x19flowseer.net.interface.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a#flowseer/net/filter/v1/filter.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a2flowseer/net/interface/v1/interface_counters.proto\x1a-flowseer/net/interface/v1/lag_interface.proto\x1a2flowseer/net/interface/v1/loopback_interface.proto\x1a4flowseer/net/interface/v1/management_interface.proto\x1a+flowseer/net/interface/v1/oper_status.proto\x1a/flowseer/net/interface/v1/other_interface.proto\x1a2flowseer/net/interface/v1/physical_interface.proto\x1a,flowseer/net/interface/v1/subinterface.proto\x1a0flowseer/net/interface/v1/tunnel_interface.proto\x1a.flowseer/net/interface/v1/vlan_interface.proto\x1a!flowseer/net/ip/v1/ip_facet.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf0\b\n" +
+	"\tInterface\x12 \n" +
+	"\x04name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\x04name\x12\x19\n" +
 	"\bif_index\x18\x02 \x01(\rR\aifIndex\x12I\n" +
 	"\fadmin_status\x18\x03 \x01(\x0e2&.flowseer.net.interface.v1.AdminStatusR\vadminStatus\x12F\n" +
 	"\voper_status\x18\x04 \x01(\x0e2%.flowseer.net.interface.v1.OperStatusR\n" +
 	"operStatus\x12\x10\n" +
 	"\x03mtu\x18\x05 \x01(\rR\x03mtu\x122\n" +
-	"\x03mac\x18\x06 \x01(\v2 .flowseer.net.addr.v1.EuiAddressR\x03mac\x12 \n" +
+	"\x03mac\x18\x06 \x01(\v2 .flowseer.net.addr.v1.MacAddressR\x03mac\x12 \n" +
 	"\vdescription\x18\a \x01(\tR\vdescription\x12H\n" +
 	"\bcounters\x18\b \x01(\v2,.flowseer.net.interface.v1.InterfaceCountersR\bcounters\x12;\n" +
 	"\vlast_change\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\n" +
@@ -866,7 +865,7 @@ var file_flowseer_net_interface_v1_interface_proto_goTypes = []any{
 	(*Interface)(nil),             // 0: flowseer.net.interface.v1.Interface
 	(AdminStatus)(0),              // 1: flowseer.net.interface.v1.AdminStatus
 	(OperStatus)(0),               // 2: flowseer.net.interface.v1.OperStatus
-	(*v1.EuiAddress)(nil),         // 3: flowseer.net.addr.v1.EuiAddress
+	(*v1.MacAddress)(nil),         // 3: flowseer.net.addr.v1.MacAddress
 	(*InterfaceCounters)(nil),     // 4: flowseer.net.interface.v1.InterfaceCounters
 	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
 	(*PhysicalInterface)(nil),     // 6: flowseer.net.interface.v1.PhysicalInterface
@@ -883,7 +882,7 @@ var file_flowseer_net_interface_v1_interface_proto_goTypes = []any{
 var file_flowseer_net_interface_v1_interface_proto_depIdxs = []int32{
 	1,  // 0: flowseer.net.interface.v1.Interface.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
 	2,  // 1: flowseer.net.interface.v1.Interface.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
-	3,  // 2: flowseer.net.interface.v1.Interface.mac:type_name -> flowseer.net.addr.v1.EuiAddress
+	3,  // 2: flowseer.net.interface.v1.Interface.mac:type_name -> flowseer.net.addr.v1.MacAddress
 	4,  // 3: flowseer.net.interface.v1.Interface.counters:type_name -> flowseer.net.interface.v1.InterfaceCounters
 	5,  // 4: flowseer.net.interface.v1.Interface.last_change:type_name -> google.protobuf.Timestamp
 	6,  // 5: flowseer.net.interface.v1.Interface.physical:type_name -> flowseer.net.interface.v1.PhysicalInterface

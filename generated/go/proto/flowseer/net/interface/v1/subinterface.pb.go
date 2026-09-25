@@ -24,13 +24,13 @@ const (
 // A logical interface carved out of another interface by its frame
 // encapsulation.
 type Subinterface struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Parent        *string                `protobuf:"bytes,1,opt,name=parent"`
-	xxx_hidden_Encapsulation *v1.VlanTagStack       `protobuf:"bytes,2,opt,name=encapsulation"`
-	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
-	XXX_presence             [1]uint32
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	state                          protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ParentInterfaceName *string                `protobuf:"bytes,1,opt,name=parent_interface_name,json=parentInterfaceName"`
+	xxx_hidden_Encapsulation       *v1.VlanTagStack       `protobuf:"bytes,2,opt,name=encapsulation"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *Subinterface) Reset() {
@@ -58,10 +58,10 @@ func (x *Subinterface) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Subinterface) GetParent() string {
+func (x *Subinterface) GetParentInterfaceName() string {
 	if x != nil {
-		if x.xxx_hidden_Parent != nil {
-			return *x.xxx_hidden_Parent
+		if x.xxx_hidden_ParentInterfaceName != nil {
+			return *x.xxx_hidden_ParentInterfaceName
 		}
 		return ""
 	}
@@ -75,8 +75,8 @@ func (x *Subinterface) GetEncapsulation() *v1.VlanTagStack {
 	return nil
 }
 
-func (x *Subinterface) SetParent(v string) {
-	x.xxx_hidden_Parent = &v
+func (x *Subinterface) SetParentInterfaceName(v string) {
+	x.xxx_hidden_ParentInterfaceName = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
 }
 
@@ -84,7 +84,7 @@ func (x *Subinterface) SetEncapsulation(v *v1.VlanTagStack) {
 	x.xxx_hidden_Encapsulation = v
 }
 
-func (x *Subinterface) HasParent() bool {
+func (x *Subinterface) HasParentInterfaceName() bool {
 	if x == nil {
 		return false
 	}
@@ -98,9 +98,9 @@ func (x *Subinterface) HasEncapsulation() bool {
 	return x.xxx_hidden_Encapsulation != nil
 }
 
-func (x *Subinterface) ClearParent() {
+func (x *Subinterface) ClearParentInterfaceName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Parent = nil
+	x.xxx_hidden_ParentInterfaceName = nil
 }
 
 func (x *Subinterface) ClearEncapsulation() {
@@ -112,7 +112,7 @@ type Subinterface_builder struct {
 
 	// The device-local name of the interface this one runs over. Must be
 	// present.
-	Parent *string
+	ParentInterfaceName *string
 	// The exact IEEE 802.1Q tags frames on this subinterface carry, outermost
 	// first. Absent means the source reported no encapsulation.
 	Encapsulation *v1.VlanTagStack
@@ -122,9 +122,9 @@ func (b0 Subinterface_builder) Build() *Subinterface {
 	m0 := &Subinterface{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.Parent != nil {
+	if b.ParentInterfaceName != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_Parent = b.Parent
+		x.xxx_hidden_ParentInterfaceName = b.ParentInterfaceName
 	}
 	x.xxx_hidden_Encapsulation = b.Encapsulation
 	return m0
@@ -134,10 +134,9 @@ var File_flowseer_net_interface_v1_subinterface_proto protoreflect.FileDescripto
 
 const file_flowseer_net_interface_v1_subinterface_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/net/interface/v1/subinterface.proto\x12\x19flowseer.net.interface.v1\x1a.flowseer/net/switching/v1/vlan_tag_stack.proto\"\x81\x01\n" +
-	"\fSubinterface\x12\"\n" +
-	"\x06parent\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\x06parent\x12M\n" +
+	",flowseer/net/interface/v1/subinterface.proto\x12\x19flowseer.net.interface.v1\x1a.flowseer/net/switching/v1/vlan_tag_stack.proto\"\x9f\x01\n" +
+	"\fSubinterface\x12@\n" +
+	"\x15parent_interface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\x13parentInterfaceName\x12M\n" +
 	"\rencapsulation\x18\x02 \x01(\v2'.flowseer.net.switching.v1.VlanTagStackR\rencapsulationB\x8b\x02\n" +
 	"\x1dcom.flowseer.net.interface.v1B\x11SubinterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 

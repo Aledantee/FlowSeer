@@ -22,6 +22,9 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/drift"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 var errAudit = errors.New("stream refused the publish")

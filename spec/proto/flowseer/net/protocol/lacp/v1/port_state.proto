@@ -5,6 +5,7 @@ package flowseer.net.protocol.lacp.v1;
 import "flowseer/net/protocol/lacp/v1/lacp_info.proto";
 import "flowseer/net/protocol/lacp/v1/lacp_status.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // Observed Link Aggregation Control Protocol (LACP) state and administrative
 // settings of an aggregation member port. The port's administrative settings
@@ -14,16 +15,12 @@ message PortState {
   // Device-local name of the member interface. Must be present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // Device-local name of the aggregator interface this member belongs to.
   // Absent means unaggregated. Mirrors dot3adAggPortAttachedAggID
   // (IEEE8023-LAG-MIB:1386).
-  string aggregator_interface_name = 2 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
-  ];
+  string aggregator_interface_name = 2 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
   // Administratively assigned priority of this port. Absent means unreported.
   // Mirrors dot3adAggPortActorPortPriority (IEEE8023-LAG-MIB:1413).
   uint32 port_priority = 3 [(buf.validate.field).uint32.lte = 65535];

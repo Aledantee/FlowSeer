@@ -460,8 +460,8 @@ const file_flowseer_net_protocol_lacp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
 	".flowseer/net/protocol/lacp/v1/port_state.proto\x12\x1dflowseer.net.protocol.lacp.v1\x1a-flowseer/net/protocol/lacp/v1/lacp_info.proto\x1a/flowseer/net/protocol/lacp/v1/lacp_status.proto\"\xae\x04\n" +
 	"\tPortState\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12E\n" +
-	"\x19aggregator_interface_name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x17aggregatorInterfaceName\x12.\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12E\n" +
+	"\x19aggregator_interface_name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\x17aggregatorInterfaceName\x12.\n" +
 	"\rport_priority\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\fportPriority\x12\x1b\n" +
 	"\x03key\x18\x04 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x03key\x12=\n" +
 	"\x05actor\x18\x05 \x01(\v2'.flowseer.net.protocol.lacp.v1.LacpInfoR\x05actor\x12A\n" +

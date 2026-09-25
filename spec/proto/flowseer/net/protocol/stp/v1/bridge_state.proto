@@ -6,6 +6,7 @@ import "flowseer/net/protocol/stp/v1/bridge_id.proto";
 import "flowseer/net/protocol/stp/v1/protocol_version.proto";
 import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // Observed spanning tree protocol state of a bridge. The bridge's
 // administrative settings travel in the same message, so this package
@@ -27,10 +28,7 @@ message BridgeState {
   // Device-local name of the port offering the lowest-cost path to the root.
   // Absent means this bridge is the root. Mirrors dot1dStpRootPort
   // (BRIDGE-MIB:405).
-  string root_port_interface_name = 5 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
-  ];
+  string root_port_interface_name = 5 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
   // Maximum age of spanning tree information currently in force. Absent means
   // the bridge has not learned a root yet. Mirrors dot1dStpMaxAge
   // (BRIDGE-MIB:416).

@@ -369,7 +369,7 @@ func TestLoad_ErrorVersusResultSeparation(t *testing.T) {
 	pLagMember := interfacev1.Interface_builder{
 		Name: &parentBogus,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &parentBogus,
+			LagParentInterfaceName: &parentBogus,
 		}.Build(),
 	}.Build()
 	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{pLagMember}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {

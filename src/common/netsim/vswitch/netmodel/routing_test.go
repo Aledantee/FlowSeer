@@ -25,6 +25,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 func protoIPv4Addr(octets [4]byte) *addrv1.IpAddress {
@@ -57,8 +60,8 @@ func protoIPv6Prefix(masked [16]byte, length uint32) *addrv1.IpPrefix {
 	}.Build()
 }
 
-func protoEUI48(octets [6]byte) *addrv1.EuiAddress {
-	return addrv1.EuiAddress_builder{
+func protoEUI48(octets [6]byte) *addrv1.MacAddress {
+	return addrv1.MacAddress_builder{
 		Eui48: addrv1.Eui48Address_builder{Octets: octets[:]}.Build(),
 	}.Build()
 }
@@ -1564,8 +1567,8 @@ func subInterface(name, parent string, tags ...*switchingv1.VlanTag) *interfacev
 		AdminStatus: &admin,
 		OperStatus:  &oper,
 		Sub: interfacev1.Subinterface_builder{
-			Parent:        &parent,
-			Encapsulation: stack,
+			ParentInterfaceName: &parent,
+			Encapsulation:       stack,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
 			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),

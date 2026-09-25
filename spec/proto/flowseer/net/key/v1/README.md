@@ -9,7 +9,7 @@ applies the rule to its own string field.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: nothing
+Imported by: api/device, model/access, model/capture, model/inventory, net/interface, net/ip, net/protocol/lacp, net/protocol/lldp, net/protocol/stp, net/switching
 
 Deliberately absent:
 
@@ -31,6 +31,13 @@ The three rules share the 1-to-255-character bound of SNMPv2-TC
   device, because the adapter interpolates it into a shell command line.
 - `network_instance_name` takes the same bounds as `interface_name`: the
   instance name is device-supplied free text subject to the same size.
+
+A binary that validates a message carrying one of these rules blank-imports
+the generated `flowseer/net/key/v1` package so the registry resolves the
+extension (convention 4 of the
+[network model structure record](../../../../../../docs/architecture/2026-08-20-network-model-structure-direction.md)),
+which is also why a carrier brings the rule into scope with `import option`
+rather than a plain import that would link the package unstated.
 
 ## Sources
 
