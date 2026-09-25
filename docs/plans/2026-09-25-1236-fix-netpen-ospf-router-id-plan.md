@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/a-packet-fixture-generator-must-compute-the-checksums-gopacket-leaves-on-a-raw-payload.md
 execution: mixed
 amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 ---
