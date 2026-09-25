@@ -233,7 +233,7 @@ func (em *moduleEmitter) emitFields(
 		switch {
 		case isDataDir(c):
 			childName := childStructs[c.Name]
-			dict[jen.Id("Child")] = jen.Id(schemaVarName(childName))
+			dict[jen.Id("Child")] = jen.Id(em.schemaVar(childName))
 			var ft *jen.Statement
 			if c.IsList() {
 				dict[jen.Id("List")] = jen.True()
@@ -284,9 +284,10 @@ func (em *moduleEmitter) emitSchema(e *goyang.Entry, structName string, schemaFi
 		schemaDict[jen.Id("Presence")] = jen.True()
 	}
 
+	schemaName := em.schemaVar(structName)
 	em.addCommented(
-		fmt.Sprintf("%s describes %s for the generic codecs.", schemaVarName(structName), e.Path()),
-		jen.Var().Id(schemaVarName(structName)).Op("=").Op("&").Qual(yangPkg, "Schema").Values(schemaDict),
+		fmt.Sprintf("%s describes %s for the generic codecs.", schemaName, e.Path()),
+		jen.Var().Id(schemaName).Op("=").Op("&").Qual(yangPkg, "Schema").Values(schemaDict),
 	)
 }
 
@@ -301,7 +302,7 @@ func (em *moduleEmitter) emitContainerDescriptor(structName string, path []pathS
 		fmt.Sprintf("%s watches the %s subtree as one synthetic row.", descName, structName),
 		jen.Func().Id(descName).Params().Qual(yangPkg, "ListDescriptor").Index(jen.List(jen.Id(structName), jen.Struct())).Block(
 			jen.Return(jen.Qual(yangPkg, "SubtreeDescriptor").Index(jen.Id(structName)).Call(
-				jen.Id(schemaVarName(structName)), em.pathExpr(path))),
+				jen.Id(em.schemaVar(structName)), em.pathExpr(path))),
 		),
 	)
 }
@@ -397,7 +398,7 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 				jen.Return(jen.Qual(yangPkg, "ListDescriptor").Index(jen.List(jen.Id(structName), jen.Id(keyStructName))).Values(jen.Dict{
 					jen.Id("Path"): em.pathExpr(path),
 					jen.Id("Codec"): jen.Qual(yangPkg, "StructRowCodec").Call(
-						jen.Id(schemaVarName(structName)),
+						jen.Id(em.schemaVar(structName)),
 						jen.Func().Params(jen.Id("r").Op("*").Id(structName)).Id(keyStructName).Block(
 							append([]jen.Code{jen.Var().Id("k").Id(keyStructName)},
 								append(ownKeyAssigns(func() *jen.Statement { return jen.Id("r") }),
@@ -425,9 +426,9 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 	chainExpr := func() *jen.Statement {
 		chainElems := make([]jen.Code, 0, len(ancestors)+1)
 		for _, a := range ancestors {
-			chainElems = append(chainElems, jen.Id(schemaVarName(a.structName)))
+			chainElems = append(chainElems, jen.Id(em.schemaVar(a.structName)))
 		}
-		chainElems = append(chainElems, jen.Id(schemaVarName(structName)))
+		chainElems = append(chainElems, jen.Id(em.schemaVar(structName)))
 		return jen.Index().Op("*").Qual(yangPkg, "Schema").Values(chainElems...)
 	}
 
@@ -480,7 +481,7 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 					jen.Id("Equal"):      jen.Qual(yangPkg, "EqualStructs").Types(jen.Id(flatName)),
 					jen.Id("Merge"): jen.Func().Params(jen.Id("base"), jen.Id("update").Id(flatName)).Id(flatName).Block(
 						jen.Id("base").Dot("Entry").Op("=").Qual(yangPkg, "MergeStructs").Call(
-							jen.Id(schemaVarName(structName)), jen.Id("base").Dot("Entry"), jen.Id("update").Dot("Entry")),
+							jen.Id(em.schemaVar(structName)), jen.Id("base").Dot("Entry"), jen.Id("update").Dot("Entry")),
 						jen.Return(jen.Id("base")),
 					),
 					jen.Id("Key"): jen.Func().Params(jen.Id("r").Id(flatName)).Id(keyStructName).Block(keyFnStmts...),
@@ -494,8 +495,11 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 // claimCompanions reserves every Go name yanggen derives from a struct
 // before its children are claimed, so any child whose joined name matches
 // a companion receives a deterministic clash suffix instead of colliding.
+// A sibling's struct name is claimed earlier, in the parent's up-front
+// loop, so there the sibling keeps its name and the companion takes the
+// suffix.
 func (em *moduleEmitter) claimCompanions(e *goyang.Entry, structName string, nodePath []pathSeg, ancestors []ancestorList) {
-	em.scope.claim(schemaVarName(structName), "schema:"+structName)
+	em.schemaVar(structName)
 	if e.IsList() && len(strings.Fields(e.Key)) > 0 {
 		em.scope.claim(structName+"Key", "key:"+structName)
 		em.scope.claim(structName+"Descriptor", "desc:"+structName)
@@ -516,9 +520,12 @@ func (em *moduleEmitter) structName(e *goyang.Entry, parent string) string {
 	return em.scope.claim(want, e.Path())
 }
 
-// schemaVarName derives the schema variable's name from a struct
-// name.
-func schemaVarName(structName string) string { return structName + "Schema" }
+// schemaVar claims the schema variable's name for a struct. Every
+// declaration and reference goes through the claim, so a suffix the
+// scope assigns reaches all of them.
+func (em *moduleEmitter) schemaVar(structName string) string {
+	return em.scope.claim(structName+"Schema", "schema:"+structName)
+}
 
 // segFor builds the descriptor path segment for e.
 func (em *moduleEmitter) segFor(e *goyang.Entry) pathSeg {

@@ -326,9 +326,9 @@ func TestRefuseUnresolved_FailsRatherThanEmittingPartially(t *testing.T) {
 
 // TestValidateDecoderVariant checks the resolve-time guard that replaced the
 // emission-path panic: every wire variant the resolvers emit has a leniency
-// helper, an unregistered variant is rejected with its name, and an empty
-// variant (a TC helper that bypasses the table) passes. This is the clause-2
-// proof that no unregistered variant reaches mustDecodeNatural/mustDecodeCast.
+// helper, and an unregistered or empty variant is rejected with its name. This
+// is what proves no unregistered variant reaches mustDecodeNatural or
+// mustDecodeCast.
 func TestValidateDecoderVariant(t *testing.T) {
 	emitted := []string{
 		"Integer32Var", "Uinteger32Var", "Counter32Var", "Counter64Var",
@@ -341,8 +341,8 @@ func TestValidateDecoderVariant(t *testing.T) {
 		}
 	}
 
-	if err := validateDecoderVariant(""); err != nil {
-		t.Errorf("validateDecoderVariant(empty) = %v, want nil for a TC-helper resolution", err)
+	if err := validateDecoderVariant(""); err == nil {
+		t.Error("validateDecoderVariant(empty) = nil, want an error")
 	}
 
 	err := validateDecoderVariant("BogusVar")

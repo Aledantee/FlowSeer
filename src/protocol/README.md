@@ -25,7 +25,9 @@ A package qualifies when it speaks a wire protocol or reads its schema
 language, and when it depends on nothing in `generated/go/proto`. That second
 half is the load-bearing one: the moment a package here imports a FlowSeer
 protobuf message, it has stopped being a protocol library and become a piece of
-the domain model, and it belongs in `src/modules/` instead.
+the domain model, and it belongs in `src/modules/` instead. `internal/` also
+holds helpers whose importers all live in this tree, such as `goname`, which
+builds identifiers for both generators.
 
 The rule exists because this tree was called `src/common/` and had no admission
 test at all, so anything shared landed in it by default. `src/common/` now holds

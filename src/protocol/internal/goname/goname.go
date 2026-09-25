@@ -97,14 +97,9 @@ func init() {
 // ends one letter early so the last capital begins the next word. Digits
 // stay attached to the preceding word. Words matching the initialism table
 // take their canonical casing, while other words have their first letter
-// capitalized and the remainder preserved. An empty input yields an empty
-// string. If the joined result is empty or begins with a digit, Exported
-// prefixes "X".
+// capitalized and the remainder preserved. If the joined result is empty,
+// including for empty input, or begins with a digit, Exported prefixes "X".
 func Exported(name string) string {
-	if name == "" {
-		return ""
-	}
-
 	words := splitWords(name)
 	if len(words) == 0 {
 		return "X"
