@@ -91,8 +91,7 @@ type Config struct {
 	Logger *slog.Logger
 }
 
-// DefaultInterval is the poll period the plan sizes the record's write budget
-// against.
+// DefaultInterval is the poll period used to size the record's write budget.
 const DefaultInterval = 5 * time.Minute
 
 // Poller compares each managed interface against its expectation and asks for

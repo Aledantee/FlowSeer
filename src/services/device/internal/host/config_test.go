@@ -198,7 +198,7 @@ func TestLogLevelIsConfigurable(t *testing.T) {
 	}
 }
 
-// TestAListenerWithoutAPortIsRefused covers the typo that used to start a
+// TestAListenerWithoutAPortIsRefused covers a typo that starts a
 // healthy-looking service. An address with no port reads as "pick a free
 // one", so the bus would listen somewhere unpredictable while every edge
 // dialed the cluster_urls the same file named — with nothing logging a

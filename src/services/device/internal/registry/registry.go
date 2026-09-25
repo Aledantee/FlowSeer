@@ -1,7 +1,7 @@
 // Package registry is the device service's registry: the devices it serves,
 // the edge and integration that reach them, and the policies their handles
-// resolve to. It is read once from an operator-written prototext file until an
-// inventory service exists, validated against the schema's own rules — every
+// resolve to. It is read once from an operator-written prototext file and
+// validated against the schema's own rules — every
 // device's access policy naming a listed policy version among them — so a
 // malformed registry is refused at load rather than surfacing per request.
 //

@@ -2,6 +2,7 @@ package deviceapi
 
 import (
 	"context"
+	"sync"
 
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -11,6 +12,7 @@ import (
 // KVWatcher wakes a waiting read from the lane bucket's own key watch, so a
 // read closed by a report that landed on another central replica wakes this
 // one. Without it a read still answers, from the poll, just later.
+// A KVWatcher is safe for concurrent use.
 type KVWatcher struct {
 	kv jetstream.KeyValue
 }
@@ -53,9 +55,9 @@ func (w *KVWatcher) Watch(ctx context.Context, deviceID string) (<-chan struct{}
 		}
 	})
 
-	stop := func() {
+	stop := sync.OnceFunc(func() {
 		close(done)
 		_ = watcher.Stop()
-	}
+	})
 	return changed, stop, nil
 }

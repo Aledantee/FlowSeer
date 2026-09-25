@@ -802,7 +802,6 @@ func TestADryRunChecksTheIntentAndTouchesNothing(t *testing.T) {
 		t.Errorf("the dry run left %v holding the lane", after.Msg.GetUnresolved())
 	}
 
-	// Then the real one, and the device's whole command log.
 	d.apply(t, "0192e6a0-0000-7000-8000-0000000aa002", "uplink to core", fingerprint)
 	d.waitUntilResolved(t)
 

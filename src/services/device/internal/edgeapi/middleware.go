@@ -81,7 +81,8 @@ func assertionFromContext(ctx context.Context) (*edgev1.EdgeAssertion, error) {
 	return assertion, nil
 }
 
-// Middleware verifies the assertion on every wrapped call.
+// Middleware verifies the assertion on every wrapped call. A Middleware is safe
+// for concurrent use.
 type Middleware struct {
 	verifier *edge.Verifier
 	maxBody  int64

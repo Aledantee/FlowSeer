@@ -21,13 +21,15 @@ const (
 	maxPageSize     = 500
 )
 
-// OperatorServiceConfig carries configuration options for OperatorService.
+// OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange is a
+// no-op, and nil Clock uses the wall clock.
 type OperatorServiceConfig struct {
 	NotifyChange func()
 	Clock        func() time.Time
 }
 
-// OperatorService implements capturev1connect.CaptureServiceHandler.
+// OperatorService serves operator capture requests. An OperatorService is safe
+// for concurrent use when NotifyChange is safe for concurrent use.
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
@@ -35,10 +37,10 @@ type OperatorService struct {
 	clock        func() time.Time
 }
 
-// Ensure OperatorService satisfies CaptureServiceHandler.
 var _ capturev1connect.CaptureServiceHandler = (*OperatorService)(nil)
 
-// NewOperatorService constructs an OperatorService.
+// NewOperatorService constructs an OperatorService. Store and broadcaster must
+// be non-nil; cfg uses the defaults documented by [OperatorServiceConfig].
 func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServiceConfig) *OperatorService {
 	clock := cfg.Clock
 	if clock == nil {
@@ -56,7 +58,9 @@ func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServ
 	}
 }
 
-// CreateCaptureSession creates and persists a new capture session in PENDING state.
+// CreateCaptureSession persists a bounded, authorized session in the pending
+// state and notifies assignment subscribers. It returns CodeInvalidArgument
+// when the request omits its edge, source, authorization, or positive budget.
 func (s *OperatorService) CreateCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.CreateCaptureSessionRequest],
@@ -158,7 +162,9 @@ func (s *OperatorService) StopCaptureSession(
 	return connect.NewResponse(resp), nil
 }
 
-// GetCaptureSession retrieves a session record.
+// GetCaptureSession returns the requested session. It returns CodeInvalidArgument
+// for an empty session identifier and CodeNotFound when the store holds no such
+// session.
 func (s *OperatorService) GetCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.GetCaptureSessionRequest],
@@ -168,7 +174,7 @@ func (s *OperatorService) GetCaptureSession(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
 	}
 
-	rec, _, err := s.store.GetSession(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, sessionID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -264,7 +270,7 @@ func (s *OperatorService) TailCaptureSession(
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
 	}
 
-	rec, _, err := s.store.GetSession(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -280,7 +286,7 @@ func (s *OperatorService) TailCaptureSession(
 	// A tail that opened after that moment would wait on a channel nobody
 	// will ever send to or close; re-reading under the subscription is what
 	// catches the session that finished in between.
-	rec, _, err = s.store.GetSession(ctx, sessionID)
+	rec, _, err = s.store.Session(ctx, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -328,7 +334,7 @@ func (s *OperatorService) DownloadCaptureSession(
 		return connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
 	}
 
-	rec, _, err := s.store.GetSession(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}

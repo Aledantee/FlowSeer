@@ -26,7 +26,7 @@ const (
 	failStreamTimeout = 10 * time.Second
 
 	// msgUnauthenticated is the whole of what a caller learns from a refused
-	// assertion. Which of the verifier's eleven checks refused it is central's
+	// assertion. Which verification check refused it is central's
 	// business, and this route answers a caller that has not authenticated.
 	msgUnauthenticated = "the call is not authorized as an enrolled edge"
 
@@ -35,20 +35,24 @@ const (
 	defaultRetentionPeriod = 7 * 24 * time.Hour
 )
 
-// Broadcaster manages live packet chunk subscriptions for active capture sessions.
+// Broadcaster manages live packet chunk subscriptions for active capture
+// sessions. A Broadcaster is safe for concurrent use.
 type Broadcaster struct {
-	mu   sync.RWMutex
+	mu   sync.RWMutex // guards subs
 	subs map[string]map[chan *modelcapturev1.CapturePacketChunk]struct{}
 }
 
-// NewBroadcaster constructs an empty Broadcaster.
+// NewBroadcaster returns an empty Broadcaster ready for concurrent use. The
+// zero value is not usable.
 func NewBroadcaster() *Broadcaster {
 	return &Broadcaster{
 		subs: make(map[string]map[chan *modelcapturev1.CapturePacketChunk]struct{}),
 	}
 }
 
-// Subscribe returns a channel receiving chunks for sessionID, and an unsubscribe func.
+// Subscribe registers a 128-chunk live tail for sessionID. The caller must call
+// the returned function to unsubscribe. A slow reader may lose chunks but does
+// not block the upload.
 func (b *Broadcaster) Subscribe(sessionID string) (<-chan *modelcapturev1.CapturePacketChunk, func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -98,7 +102,8 @@ func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CaptureP
 	return dropped
 }
 
-// CloseSession closes subscriber channels for sessionID and clears the subscriber set.
+// CloseSession closes every subscriber channel for sessionID and releases the
+// subscriber set. Repeated calls are safe.
 func (b *Broadcaster) CloseSession(sessionID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -123,7 +128,9 @@ type AssertionVerifier interface {
 	VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAssertion, procedure string, body []byte) (*edgev1.EdgeAssertion, error)
 }
 
-// EdgeServiceConfig carries options for EdgeService.
+// EdgeServiceConfig configures an [EdgeService]. Non-positive durations use
+// package defaults. Nil EdgeID reads the verified edge from the context, nil
+// Clock uses the wall clock, and nil Logger discards records.
 type EdgeServiceConfig struct {
 	AssertionWindow time.Duration
 	ResendInterval  time.Duration
@@ -133,7 +140,8 @@ type EdgeServiceConfig struct {
 	Logger          *slog.Logger
 }
 
-// EdgeService implements capturev1connect.CaptureEdgeServiceHandler.
+// EdgeService serves capture assignments and uploads from authenticated edges.
+// An EdgeService is safe for concurrent use.
 type EdgeService struct {
 	store           *Store
 	verifier        AssertionVerifier
@@ -145,15 +153,15 @@ type EdgeService struct {
 	clock           func() time.Time
 	log             *slog.Logger
 
-	mu       sync.Mutex
+	mu       sync.Mutex // guards watchers and uploads
 	watchers map[chan struct{}]struct{}
 	uploads  map[string]struct{}
 }
 
-// Ensure EdgeService satisfies CaptureEdgeServiceHandler.
 var _ capturev1connect.CaptureEdgeServiceHandler = (*EdgeService)(nil)
 
-// NewEdgeService constructs an EdgeService.
+// NewEdgeService constructs an EdgeService. Store, verifier, and broadcaster
+// must be non-nil; cfg uses the defaults documented by [EdgeServiceConfig].
 func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broadcaster, cfg EdgeServiceConfig) *EdgeService {
 	assertionWindow := cfg.AssertionWindow
 	if assertionWindow <= 0 {
@@ -320,7 +328,9 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 	}
 }
 
-// UploadCapture accepts the stream of packet chunks and mid-stream re-assertions from the edge.
+// UploadCapture accepts one session's packet chunks and fresh assertions from
+// an authenticated edge. Authentication failures reveal only the public
+// unauthenticated message; verification details remain internal.
 func (s *EdgeService) UploadCapture(
 	ctx context.Context,
 	stream *connect.ClientStream[captureedgev1.UploadCaptureRequest],
@@ -338,7 +348,6 @@ func (s *EdgeService) UploadCapture(
 	extendDeadline := s.deadlineExtender(ctx)
 	extendDeadline()
 
-	// The stream must open with a SignedEdgeAssertion.
 	if !stream.Receive() {
 		if err := stream.Err(); err != nil {
 			return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
@@ -349,7 +358,7 @@ func (s *EdgeService) UploadCapture(
 	firstMsg := stream.Msg()
 	firstSigned := firstMsg.GetAssertion()
 	if firstSigned == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("upload stream must open with SignedEdgeAssertion"))
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
 	}
 
 	firstAssertion, err := s.verifier.VerifySigned(ctx, firstSigned, procedure, nil)
@@ -368,12 +377,6 @@ func (s *EdgeService) UploadCapture(
 		snapLen        uint32 = 128
 	)
 
-	// The window is enforced twice because neither check alone covers both
-	// ways an edge can exceed it. The transport deadline closes the read for
-	// an edge that goes silent, which the loop below could never observe;
-	// the arithmetic on lastAssertionAt covers an edge that keeps sending
-	// chunks without ever re-asserting, and is the only check where no
-	// transport supports a deadline.
 	// An upload stream that ends without a final chunk leaves a partial
 	// pcapng, an open descriptor and a claimed session behind; all three are
 	// this handler's to release, because nothing else knows the stream is over.
@@ -424,7 +427,6 @@ func (s *EdgeService) UploadCapture(
 			continue
 		}
 
-		// Enforce edge boundary: chunk session must match calling edge.
 		chunkEdgeID := chunk.GetSession().GetEdge().GetEdge().GetId()
 		if chunkEdgeID != callingEdgeID {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("chunk session edge does not match authenticated edge"))
@@ -440,7 +442,7 @@ func (s *EdgeService) UploadCapture(
 			sessionRef = chunk.GetSession()
 			sessionID = sessionRef.GetCaptureSession().GetId()
 
-			rec, _, err := s.store.GetSession(ctx, sessionID)
+			rec, _, err := s.store.Session(ctx, sessionID)
 			if err != nil {
 				return nil, connectErr(err)
 			}

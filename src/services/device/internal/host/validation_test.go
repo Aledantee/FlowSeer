@@ -98,11 +98,9 @@ func TestTheRefusalNamesTheFieldAndTheRuleAndNoValue(t *testing.T) {
 	if err == nil {
 		t.Fatal("an over-long description was accepted")
 	}
-	// The whole rendered summary, not just that the word appears somewhere:
-	// this used to be the prototext of the FieldPath message
-	// (`elements:{field_name:"description"}`), which contains "description"
-	// and satisfied the old assertion while promising a shape it did not
-	// produce.
+	// The whole rendered summary proves the field path is usable. Checking only
+	// for "description" also accepts the FieldPath prototext
+	// (`elements:{field_name:"description"}`), which is not a field name.
 	const want = "intent.interface_description.description: string.max_len"
 	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("the refusal reads %v, want it to name %q as field: rule", err, want)

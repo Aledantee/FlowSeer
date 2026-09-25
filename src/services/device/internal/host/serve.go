@@ -51,8 +51,7 @@ func panicRecovery() connect.HandlerOption {
 // Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
 // DeviceService and CaptureService cannot be behind that check — putting them
 // there would refuse every operator. None carries an authorization check of
-// its own today; OpenFGA is out of this plan's scope, and the deployment that
-// runs this puts the operator surface behind its own boundary until it lands.
+// its own. The deployment puts the operator surface behind its own boundary.
 // CaptureService is the one that makes that boundary matter most: behind it is
 // other people's traffic, not only an inventory.
 //
@@ -246,9 +245,9 @@ func auditPublisher(hub *edgebus.Hub) auditapi.JetStreamPublisher {
 // It returns -1 when the address names no parsable port, which the hub reads
 // as "pick a free one". That is unreachable from a validated configuration:
 // the schema requires both listener addresses to end in a port, precisely
-// because an address without one used to start a healthy-looking service on
-// an unpredictable port while every edge dialed the cluster_urls the same
-// file named, with nothing logging the mismatch.
+// because an address without one starts a healthy-looking service on an
+// unpredictable port while every edge dials the cluster_urls the same file
+// names, with nothing logging the mismatch.
 func portOf(address string) int {
 	_, port, err := net.SplitHostPort(address)
 	if err != nil {
