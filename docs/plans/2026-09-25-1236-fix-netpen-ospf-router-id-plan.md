@@ -5,6 +5,7 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: mixed
 amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 ---
