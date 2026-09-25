@@ -157,7 +157,7 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 				}.Build(),
 				Fiber: phyv1.FiberFacet_builder{}.Build(),
 			}.Build(),
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build(),
 	}.Build()
 	if err := protovalidate.Validate(p2); err != nil {
@@ -203,7 +203,7 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 				}.Build(),
 				Fiber: phyv1.FiberFacet_builder{}.Build(),
 			}.Build(),
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build(),
 	}.Build()
 	if err := protovalidate.Validate(p4); err != nil {

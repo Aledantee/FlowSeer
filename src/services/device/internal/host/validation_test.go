@@ -11,6 +11,9 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 func validApply() *devicev1.ApplyInterfaceDescriptionRequest {

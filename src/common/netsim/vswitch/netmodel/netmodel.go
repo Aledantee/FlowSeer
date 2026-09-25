@@ -231,7 +231,7 @@ func Load(
 			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 		}
 		if sub := iface.GetSub(); sub != nil {
-			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, sub.GetParent())
+			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, sub.GetParentInterfaceName())
 		}
 		return routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 	}
@@ -428,8 +428,8 @@ func Load(
 		switch {
 		case iface.GetPhysical() != nil:
 			p.Kind = port.Physical
-			if iface.GetPhysical().HasLagParent() {
-				p.LagParent = iface.GetPhysical().GetLagParent()
+			if iface.GetPhysical().HasLagParentInterfaceName() {
+				p.LagParent = iface.GetPhysical().GetLagParentInterfaceName()
 			}
 		case iface.GetLag() != nil:
 			p.Kind = port.Lag
@@ -1055,7 +1055,7 @@ func Load(
 					isMember bool
 				)
 				if iface.GetPhysical() != nil {
-					if iface.GetPhysical().HasLagParent() {
+					if iface.GetPhysical().HasLagParentInterfaceName() {
 						isMember = true
 					}
 					if iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
@@ -1693,7 +1693,7 @@ func Load(
 				sub := iface.GetSub()
 				resolvedPort, resolvedVLAN, accepted := acceptRoutedSubParent(ifaceByName, ports, sub)
 				if !accepted {
-					if _, parentOK := routedSubParentPort(ifaceByName, ports, sub.GetParent()); !parentOK {
+					if _, parentOK := routedSubParentPort(ifaceByName, ports, sub.GetParentInterfaceName()); !parentOK {
 						isSupported = false
 						break
 					}
@@ -2254,7 +2254,7 @@ func routedSubParentPort(ifaceByName map[string]*interfacev1.Interface, ports po
 // encapsulation of exactly one customer 802.1Q tag at a usable VLAN id. It
 // returns the parent's port name and that VLAN id when accepted.
 func acceptRoutedSubParent(ifaceByName map[string]*interfacev1.Interface, ports port.Table, sub *interfacev1.Subinterface) (string, vlan.ID, bool) {
-	parent, ok := routedSubParentPort(ifaceByName, ports, sub.GetParent())
+	parent, ok := routedSubParentPort(ifaceByName, ports, sub.GetParentInterfaceName())
 	if !ok {
 		return "", 0, false
 	}
@@ -2279,11 +2279,11 @@ func routingUsesPort(cfg *routing.Config, portName string) bool {
 	return false
 }
 
-func parseMAC(eui *addrv1.EuiAddress) (netaddr.MAC, bool) {
-	if eui == nil || eui.GetEui48() == nil {
+func parseMAC(mac *addrv1.MacAddress) (netaddr.MAC, bool) {
+	if mac == nil || mac.GetEui48() == nil {
 		return netaddr.MAC{}, false
 	}
-	return parseEUI48(eui.GetEui48())
+	return parseEUI48(mac.GetEui48())
 }
 
 func parseEUI48(eui *addrv1.Eui48Address) (netaddr.MAC, bool) {

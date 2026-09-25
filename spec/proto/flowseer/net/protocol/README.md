@@ -17,7 +17,7 @@ facilities, not an individual control protocol.
 
 ## Boundaries
 
-Imports: net/addr
+Imports: net/addr, net/key
 
 Imported by: nothing
 

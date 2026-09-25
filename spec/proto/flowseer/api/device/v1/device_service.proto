@@ -9,6 +9,7 @@ import "flowseer/model/access/v1/interface.proto";
 import "flowseer/model/access/v1/operation.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 service DeviceService {
   // Reads one interface over the lowest-cost route that can answer
@@ -46,9 +47,7 @@ message ReadInterfaceRequest {
   // present.
   string interface_name = 2 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64,
-    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
+    (buf.validate.field).string.(flowseer.net.key.v1.shell_safe_interface_name) = true
   ];
 }
 

@@ -25,6 +25,9 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 	"go.aledante.io/FlowSeer/src/modules/capture"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 const (

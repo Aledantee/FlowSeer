@@ -5,6 +5,7 @@ package flowseer.net.protocol.lacp.v1;
 import "flowseer/net/addr/v1/eui.proto";
 import "flowseer/net/protocol/lacp/v1/lacp_mode.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // Observed Link Aggregation Control Protocol (LACP) state and administrative
 // settings of an aggregator. The aggregator's administrative settings travel
@@ -14,8 +15,7 @@ message AggregatorState {
   // Device-local name of the aggregator interface. Must be present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // Administrative LACP mode of the aggregator. Absent means unreported.
   LacpMode mode = 2;

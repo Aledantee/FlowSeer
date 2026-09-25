@@ -5,6 +5,7 @@ package flowseer.net.switching.v1;
 import "flowseer/net/switching/v1/bond_mode.proto";
 import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // Protocol-independent attributes of a link aggregation. The attributes are
 // FlowSeer-normalized with no registry behind them; LACP actor, partner,
@@ -30,9 +31,5 @@ message AggregationFacet {
   uint32 hash_basis = 6;
   // Primary member interface name for active-backup mode. Absent means the
   // lowest member.
-  string primary_interface_name = 7 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64,
-    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
-  ];
+  string primary_interface_name = 7 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
 }

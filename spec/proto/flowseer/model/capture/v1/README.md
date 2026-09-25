@@ -30,7 +30,7 @@ Nothing here imports `model/inventory`.
 
 ## Boundaries
 
-Imports: model/edge, net/capture
+Imports: model/edge, net/capture, net/key
 
 Imported by: api/capture, edge/capture
 

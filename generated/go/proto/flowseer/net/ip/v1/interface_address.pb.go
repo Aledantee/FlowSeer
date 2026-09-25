@@ -293,7 +293,7 @@ const file_flowseer_net_ip_v1_interface_address_proto_rawDesc = "" +
 	"\n" +
 	"*flowseer/net/ip/v1/interface_address.proto\x12\x12flowseer.net.ip.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a'flowseer/net/ip/v1/address_origin.proto\x1a'flowseer/net/ip/v1/address_status.proto\"\xdc\x1e\n" +
 	"\x10InterfaceAddress\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12A\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12A\n" +
 	"\aaddress\x18\x02 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12>\n" +
 	"\x06prefix\x18\x03 \x01(\v2\x1e.flowseer.net.addr.v1.IpPrefixB\x06\xbaH\x03\xc8\x01\x01R\x06prefix\x129\n" +
 	"\x06origin\x18\x04 \x01(\x0e2!.flowseer.net.ip.v1.AddressOriginR\x06origin\x129\n" +

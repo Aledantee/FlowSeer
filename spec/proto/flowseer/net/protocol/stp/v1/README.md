@@ -6,7 +6,7 @@ device-scoped rows naming interfaces.
 
 ## Boundaries
 
-Imports: net/addr
+Imports: net/addr, net/key
 
 Imported by: nothing
 

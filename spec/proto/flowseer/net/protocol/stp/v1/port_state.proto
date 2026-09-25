@@ -8,6 +8,7 @@ import "flowseer/net/protocol/stp/v1/point_to_point_mode.proto";
 import "flowseer/net/protocol/stp/v1/port_role.proto";
 import "flowseer/net/protocol/stp/v1/protocol_version.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // Observed spanning tree protocol state and administrative settings of one
 // port. The port's administrative settings travel in the same message, so
@@ -16,8 +17,7 @@ message PortState {
   // Device-local name of the interface. Must be present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // Administrative port priority portion of the port identifier (0..255).
   // Mirrors dot1dStpPortPriority (BRIDGE-MIB:595).

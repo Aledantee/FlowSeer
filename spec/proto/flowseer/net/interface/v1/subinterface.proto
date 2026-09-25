@@ -4,15 +4,16 @@ package flowseer.net.interface.v1;
 
 import "flowseer/net/switching/v1/vlan_tag_stack.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // A logical interface carved out of another interface by its frame
 // encapsulation.
 message Subinterface {
   // The device-local name of the interface this one runs over. Must be
   // present.
-  string parent = 1 [
+  string parent_interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // The exact IEEE 802.1Q tags frames on this subinterface carry, outermost
   // first. Absent means the source reported no encapsulation.

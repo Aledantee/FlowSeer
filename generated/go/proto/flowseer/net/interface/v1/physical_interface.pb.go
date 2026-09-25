@@ -24,14 +24,14 @@ const (
 
 // An interface backed by a physical port.
 type PhysicalInterface struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ethernet    *v1.EthernetFacet      `protobuf:"bytes,1,opt,name=ethernet"`
-	xxx_hidden_Switchport  *v11.SwitchportFacet   `protobuf:"bytes,2,opt,name=switchport"`
-	xxx_hidden_LagParent   *string                `protobuf:"bytes,3,opt,name=lag_parent,json=lagParent"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ethernet               *v1.EthernetFacet      `protobuf:"bytes,1,opt,name=ethernet"`
+	xxx_hidden_Switchport             *v11.SwitchportFacet   `protobuf:"bytes,2,opt,name=switchport"`
+	xxx_hidden_LagParentInterfaceName *string                `protobuf:"bytes,3,opt,name=lag_parent_interface_name,json=lagParentInterfaceName"`
+	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
+	XXX_presence                      [1]uint32
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
 }
 
 func (x *PhysicalInterface) Reset() {
@@ -73,10 +73,10 @@ func (x *PhysicalInterface) GetSwitchport() *v11.SwitchportFacet {
 	return nil
 }
 
-func (x *PhysicalInterface) GetLagParent() string {
+func (x *PhysicalInterface) GetLagParentInterfaceName() string {
 	if x != nil {
-		if x.xxx_hidden_LagParent != nil {
-			return *x.xxx_hidden_LagParent
+		if x.xxx_hidden_LagParentInterfaceName != nil {
+			return *x.xxx_hidden_LagParentInterfaceName
 		}
 		return ""
 	}
@@ -91,8 +91,8 @@ func (x *PhysicalInterface) SetSwitchport(v *v11.SwitchportFacet) {
 	x.xxx_hidden_Switchport = v
 }
 
-func (x *PhysicalInterface) SetLagParent(v string) {
-	x.xxx_hidden_LagParent = &v
+func (x *PhysicalInterface) SetLagParentInterfaceName(v string) {
+	x.xxx_hidden_LagParentInterfaceName = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
@@ -110,7 +110,7 @@ func (x *PhysicalInterface) HasSwitchport() bool {
 	return x.xxx_hidden_Switchport != nil
 }
 
-func (x *PhysicalInterface) HasLagParent() bool {
+func (x *PhysicalInterface) HasLagParentInterfaceName() bool {
 	if x == nil {
 		return false
 	}
@@ -125,9 +125,9 @@ func (x *PhysicalInterface) ClearSwitchport() {
 	x.xxx_hidden_Switchport = nil
 }
 
-func (x *PhysicalInterface) ClearLagParent() {
+func (x *PhysicalInterface) ClearLagParentInterfaceName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_LagParent = nil
+	x.xxx_hidden_LagParentInterfaceName = nil
 }
 
 type PhysicalInterface_builder struct {
@@ -142,7 +142,7 @@ type PhysicalInterface_builder struct {
 	Switchport *v11.SwitchportFacet
 	// The device-local name of the aggregation this port is a member of.
 	// Absent means the port is not a reported member of any aggregation.
-	LagParent *string
+	LagParentInterfaceName *string
 }
 
 func (b0 PhysicalInterface_builder) Build() *PhysicalInterface {
@@ -151,9 +151,9 @@ func (b0 PhysicalInterface_builder) Build() *PhysicalInterface {
 	_, _ = b, x
 	x.xxx_hidden_Ethernet = b.Ethernet
 	x.xxx_hidden_Switchport = b.Switchport
-	if b.LagParent != nil {
+	if b.LagParentInterfaceName != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
-		x.xxx_hidden_LagParent = b.LagParent
+		x.xxx_hidden_LagParentInterfaceName = b.LagParentInterfaceName
 	}
 	return m0
 }
@@ -162,14 +162,13 @@ var File_flowseer_net_interface_v1_physical_interface_proto protoreflect.FileDes
 
 const file_flowseer_net_interface_v1_physical_interface_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/net/interface/v1/physical_interface.proto\x12\x19flowseer.net.interface.v1\x1a(flowseer/net/phy/v1/ethernet_facet.proto\x1a0flowseer/net/switching/v1/switchport_facet.proto\"\xc7\x01\n" +
+	"2flowseer/net/interface/v1/physical_interface.proto\x12\x19flowseer.net.interface.v1\x1a(flowseer/net/phy/v1/ethernet_facet.proto\x1a0flowseer/net/switching/v1/switchport_facet.proto\"\xe5\x01\n" +
 	"\x11PhysicalInterface\x12>\n" +
 	"\bethernet\x18\x01 \x01(\v2\".flowseer.net.phy.v1.EthernetFacetR\bethernet\x12J\n" +
 	"\n" +
 	"switchport\x18\x02 \x01(\v2*.flowseer.net.switching.v1.SwitchportFacetR\n" +
-	"switchport\x12&\n" +
-	"\n" +
-	"lag_parent\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tlagParentB\x90\x02\n" +
+	"switchport\x12D\n" +
+	"\x19lag_parent_interface_name\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\x16lagParentInterfaceNameB\x90\x02\n" +
 	"\x1dcom.flowseer.net.interface.v1B\x16PhysicalInterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_physical_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

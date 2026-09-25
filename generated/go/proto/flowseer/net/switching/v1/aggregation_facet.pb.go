@@ -292,7 +292,7 @@ var File_flowseer_net_switching_v1_aggregation_facet_proto protoreflect.FileDesc
 
 const file_flowseer_net_switching_v1_aggregation_facet_proto_rawDesc = "" +
 	"\n" +
-	"1flowseer/net/switching/v1/aggregation_facet.proto\x12\x19flowseer.net.switching.v1\x1a)flowseer/net/switching/v1/bond_mode.proto\x1a\x1egoogle/protobuf/duration.proto\"\xcd\x03\n" +
+	"1flowseer/net/switching/v1/aggregation_facet.proto\x12\x19flowseer.net.switching.v1\x1a)flowseer/net/switching/v1/bond_mode.proto\x1a\x1egoogle/protobuf/duration.proto\"\xac\x03\n" +
 	"\x10AggregationFacet\x129\n" +
 	"\x14minimum_active_links\x18\x01 \x01(\rB\a\xbaH\x04*\x02 \x00R\x12minimumActiveLinks\x127\n" +
 	"\x13effective_speed_bps\x18\x02 \x01(\x04B\a\xbaH\x042\x02 \x00R\x11effectiveSpeedBps\x12@\n" +
@@ -301,8 +301,8 @@ const file_flowseer_net_switching_v1_aggregation_facet_proto_rawDesc = "" +
 	"\n" +
 	"down_delay\x18\x05 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\tdownDelay\x12\x1d\n" +
 	"\n" +
-	"hash_basis\x18\x06 \x01(\rR\thashBasis\x12`\n" +
-	"\x16primary_interface_name\x18\a \x01(\tB*\xbaH'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x14primaryInterfaceNameB\x8d\x02\n" +
+	"hash_basis\x18\x06 \x01(\rR\thashBasis\x12?\n" +
+	"\x16primary_interface_name\x18\a \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\x14primaryInterfaceNameB\x8d\x02\n" +
 	"\x1dcom.flowseer.net.switching.v1B\x15AggregationFacetProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_aggregation_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

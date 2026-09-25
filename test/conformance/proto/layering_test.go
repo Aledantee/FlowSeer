@@ -99,8 +99,9 @@ var importOrder = map[string][]string{
 	// A capture session's identity, lifecycle, and the chunk frames its two
 	// services share. It takes the owning ref and the assertion its upload
 	// stream re-verifies from model/edge, and holds net/capture's counters,
-	// link type and packet records rather than copies of their fields.
-	"model/capture": {"model/edge", "net/capture"},
+	// link type and packet records rather than copies of their fields. A
+	// local source's interface name takes its rule from net/key.
+	"model/capture": {"model/edge", "net/capture", "net/key"},
 
 	// The two Connect services around a capture session: the one an operator
 	// calls to create, control, and read one back, and the one an edge calls
@@ -131,7 +132,7 @@ var importOrder = map[string][]string{
 	// The operation values every device-access boundary shares. They reach
 	// model/edge for the responsible edge, so a boundary that imports them
 	// reaches model/edge only through here.
-	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
 
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of model/access, and none of the three
@@ -141,7 +142,7 @@ var importOrder = map[string][]string{
 	// device or edge ref at all (the transport already names both), and the
 	// audit event needs model/inventory directly because it is read outside
 	// any live transport context.
-	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
 
 	// The Connect call an edge delivers a DeviceOperationEvent through.
 	"edge/audit": {"event/access"},

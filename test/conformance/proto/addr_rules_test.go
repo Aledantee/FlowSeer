@@ -7,13 +7,13 @@ import (
 )
 
 func TestAddressPrimitiveRules(t *testing.T) {
-	eui48 := func(octets ...byte) *addrv1.EuiAddress {
-		return addrv1.EuiAddress_builder{
+	eui48 := func(octets ...byte) *addrv1.MacAddress {
+		return addrv1.MacAddress_builder{
 			Eui48: addrv1.Eui48Address_builder{Octets: octets}.Build(),
 		}.Build()
 	}
-	eui64 := func(octets ...byte) *addrv1.EuiAddress {
-		return addrv1.EuiAddress_builder{
+	eui64 := func(octets ...byte) *addrv1.MacAddress {
+		return addrv1.MacAddress_builder{
 			Eui64: addrv1.Eui64Address_builder{Octets: octets}.Build(),
 		}.Build()
 	}
@@ -21,7 +21,7 @@ func TestAddressPrimitiveRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name:      "EUI address requires an arm",
-			message:   addrv1.EuiAddress_builder{}.Build(),
+			message:   addrv1.MacAddress_builder{}.Build(),
 			wantValid: false,
 		},
 		{

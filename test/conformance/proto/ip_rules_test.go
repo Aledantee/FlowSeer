@@ -194,7 +194,7 @@ func TestIpPrimitiveRules(t *testing.T) {
 			message: ipv1.NeighborEntry_builder{
 				InterfaceName: proto.String("ethernet1/1"),
 				Ip:            v4Address(192, 0, 2, 2),
-				Mac: addrv1.EuiAddress_builder{
+				Mac: addrv1.MacAddress_builder{
 					Eui48: addrv1.Eui48Address_builder{
 						Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 					}.Build(),
@@ -207,7 +207,7 @@ func TestIpPrimitiveRules(t *testing.T) {
 			message: ipv1.NeighborEntry_builder{
 				InterfaceName: proto.String("ethernet1/1"),
 				Ip:            v4Address(192, 0, 2, 2),
-				Mac: addrv1.EuiAddress_builder{
+				Mac: addrv1.MacAddress_builder{
 					Eui64: addrv1.Eui64Address_builder{
 						Octets: []byte{0x00, 0x11, 0x22, 0xff, 0xfe, 0x33, 0x44, 0x55},
 					}.Build(),
@@ -220,7 +220,7 @@ func TestIpPrimitiveRules(t *testing.T) {
 			message: ipv1.NeighborEntry_builder{
 				InterfaceName: proto.String("ethernet1/1"),
 				Ip:            v4Address(192, 0, 2, 2),
-				Mac:           addrv1.EuiAddress_builder{}.Build(),
+				Mac:           addrv1.MacAddress_builder{}.Build(),
 			}.Build(),
 			wantValid: false,
 		},

@@ -6,7 +6,7 @@ rows; and the device-local ARP and IPv6 Neighbor Discovery cache.
 
 ## Boundaries
 
-Imports: net/addr
+Imports: net/addr, net/key
 
 Imported by: net/interface
 

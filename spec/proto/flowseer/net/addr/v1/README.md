@@ -14,16 +14,16 @@ Deliberately absent:
 
 - Identity, tenant, observation time, and lifecycle. Primitives here are pure values with no entity context.
 - Interface scope and routing domains. Interface-specific address bindings live in `net/ip/v1`.
-- A MAC address message distinct from EUI-48. An Ethernet MAC address is an EUI-48.
+- A MAC address payload distinct from the IEEE formats. A MAC address is an EUI-48 or an EUI-64, and `MacAddress` only tags which.
 
 ## Contents
 
 The package contains:
 
 - IEEE identifiers: `Eui48Address` and `Eui64Address` value types, the tagged
-  `EuiAddress` wrapper whose oneof arm names the width, and Organizationally
-  Unique Identifiers (OUIs). There is no separate MAC address message; an
-  Ethernet MAC address is an EUI-48.
+  `MacAddress` wrapper whose oneof arm names the width, and Organizationally
+  Unique Identifiers (OUIs). The two value types keep the IEEE format names;
+  `MacAddress` is what a field holding a MAC address of either width takes.
 - IP address-family registry values and FlowSeer address classifications.
 - IP classification: FlowSeer's coarse address scopes.
 - IP values: IPv4 and IPv6 addresses, canonical masked network prefixes,

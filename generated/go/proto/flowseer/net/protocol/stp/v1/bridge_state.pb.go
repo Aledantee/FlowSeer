@@ -494,7 +494,7 @@ const file_flowseer_net_protocol_stp_v1_bridge_state_proto_rawDesc = "" +
 	"\tbridge_id\x18\x02 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdB\x06\xbaH\x03\xc8\x01\x01R\bbridgeId\x12O\n" +
 	"\x0fdesignated_root\x18\x03 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdR\x0edesignatedRoot\x12$\n" +
 	"\x0eroot_path_cost\x18\x04 \x01(\rR\frootPathCost\x12B\n" +
-	"\x18root_port_interface_name\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x15rootPortInterfaceName\x122\n" +
+	"\x18root_port_interface_name\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\x15rootPortInterfaceName\x122\n" +
 	"\amax_age\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\x06maxAge\x128\n" +
 	"\n" +
 	"hello_time\x18\a \x01(\v2\x19.google.protobuf.DurationR\thelloTime\x12>\n" +

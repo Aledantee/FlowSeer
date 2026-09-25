@@ -716,7 +716,7 @@ const file_flowseer_net_protocol_stp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
 	"-flowseer/net/protocol/stp/v1/port_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/forwarding_state.proto\x1a6flowseer/net/protocol/stp/v1/point_to_point_mode.proto\x1a,flowseer/net/protocol/stp/v1/port_role.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\"\x8e\b\n" +
 	"\tPortState\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12$\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12$\n" +
 	"\bpriority\x18\x02 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\bpriority\x122\n" +
 	"\x0fadmin_path_cost\x18\x03 \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\x80\x84\xaf_R\radminPathCost\x12)\n" +
