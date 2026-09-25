@@ -2,9 +2,11 @@
 
 This matrix inventories every (behavior, mode) pair's intended ground-truth
 source, per KTD15. No live T1 run is recorded here. The `ospf` live-lab path is
-implemented, but its T1 AE6 and T2 cells remain pending until the deferred lab
-run records the target's observable. Fixture provenance labels do not establish
-that this integration suite has executed a wire or vendor assertion.
+implemented and its T2 cell records the 2026-09-25 vendor result, with the T1
+AE6 cell carrying that same t2 run; every other behavior's cells remain pending
+until a lab run records the target's observable. Fixture provenance labels do
+not establish that this integration suite has executed a wire or vendor
+assertion.
 
 ## Ground-truth sources
 
@@ -88,9 +90,9 @@ that this integration suite has executed a wire or vendor assertion.
 
 The `netpen_t2` lab tier runs netpen on the Linux injector, reads
 `show ip ospf neighbor` from IOS-XE, and emits a matrix-ready evidence line when
-router ID `10.0.0.99` appears and later clears. Record that line here only after
-the live run passes. Until then, both OSPF cells cite the implementation plan as
-pending.
+router ID `10.0.0.99` appears and later clears. That line is recorded only after
+the live run passes; the 2026-09-25 run below supplied it, so both OSPF cells now
+carry the dated result rather than a pending-plan citation.
 
 Recorded from a live run on 2026-09-25 against IOS-XE `172.16.0.42`: netpen
 injected the OSPF hello/DB-desc/LSA from the Linux injector, the device accepted
