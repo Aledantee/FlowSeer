@@ -164,7 +164,12 @@ removes what it created and says why. Its JSON line names the branch,
 which Orca prefixes with the git user. `wait` prints `idle` when the turn
 ended: check the tree, then read the report. A permission dialog also
 reads as idle, which is why the screen follows: answer a dialog the brief
-anticipated with `$s keys <slug> <text>`, otherwise report it. Then merge
+anticipated with `$s keys <slug> <text>`, otherwise report it. A Claude
+worker whose request a safety classifier flagged stops at a prompt to
+switch models or edit the prompt, because `orca-worker.sh` turns automatic
+switching off. Never pick switch: report the flag and dispatch the unit
+again as `execute-sensitive`, or on another vendor's pool when it already
+was. Then merge
 the branch here, run the verifier on the changed paths, and `$s stop
 <slug>`. `stop` refuses a lane that is mid-turn, dirty, or not merged
 here, because removing the worktree deletes its branch.

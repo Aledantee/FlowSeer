@@ -84,8 +84,11 @@ case "$cmd" in
       rm -f "$state_dir/$lane.json"; die "$*"
     }
 
+    # A safety-classifier flag must not silently move a Claude worker to the
+    # fallback model for the rest of its session: with switching off, the
+    # worker stops at the switch-or-edit prompt, which a screen read shows.
     case "$cli" in
-      claude) line="claude --model $model --dangerously-skip-permissions${effort:+ --effort $effort}" ;;
+      claude) line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
       codex)  line="codex -a never --sandbox danger-full-access -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
       agy)    line="agy --model $model --dangerously-skip-permissions" ;;
       opencode) line="opencode --model $model" ;;
