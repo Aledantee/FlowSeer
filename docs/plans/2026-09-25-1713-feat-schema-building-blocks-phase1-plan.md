@@ -189,9 +189,10 @@ answered by Endpoint, no `WirelessClient`, the wider `net/wlan` imports,
 radios as components. The `net/` README lists every package in the
 record's tree; a package that does not exist yet reads
 `(planned; schema building blocks record)`. The protocol README does the
-same for its packages and corrects `Imported by:` to name
-`model/inventory`, `model/access`, `api/device`, and `store/device`, which
-import `protocol/lldp` today. `CONCEPTS.md` gains "Canonical unit" under
+same for its packages. Its `Imported by:` stays `nothing`: the four
+packages this plan originally said import `protocol/lldp` today are only
+permitted to by the layering allowlist; no `.proto` imports a protocol
+package. `CONCEPTS.md` gains "Canonical unit" under
 Network model.
 Tests: none (docs); `TestProtoReadmeCoverage` still passes because no
 package directory is added.
