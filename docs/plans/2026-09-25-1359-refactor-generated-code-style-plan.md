@@ -448,8 +448,8 @@ Waves: U1 U3 | U2 U4
   held to the same rules? It is a policy surface and a separate request.
   Lint time over the 208 MB YANG tree is the cost to weigh.
 - `src/protocol/snmp/test/integration/t4_manual_verify_test.go:137`
-  walks the deprecated `ipAddrTable` on lab switches, so once U3 lands,
-  the verifier fails SA1019 there. Choose one: move the test to
-  `ipAddressTable` (RFC 4293), after confirming the lab switches serve it,
-  which needs the lab powered on; or delete that check. A suppression
-  needs a separate policy request. `implement` asks when it reaches U3.
+  walks the deprecated `ipAddrTable` on lab switches. It builds only under
+  its lab tag, so SA1019 does not fire today. The user decided on
+  2026-09-25 to move it to `ipAddressTable` (RFC 4293). That is follow-up
+  work outside this plan: first confirm the lab switches serve the table,
+  which needs the lab powered on, with advance notice to the user.
