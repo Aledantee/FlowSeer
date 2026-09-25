@@ -86,6 +86,4 @@ human contributors as much as to coding agents. The parts that catch people out:
   ```
 
 Start with the [documentation map](docs/README.md) when you need architecture or
-workflow details. Coding-agent setup notes, including Serena configuration, live
-under [`tools/serena/`](tools/serena/README.md) rather than in this human quick
-start.
+workflow details.
