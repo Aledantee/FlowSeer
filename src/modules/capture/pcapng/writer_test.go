@@ -87,9 +87,9 @@ func TestWriter_StructuralWalk(t *testing.T) {
 		}
 	}
 	counters := &capturev1.CaptureCounters{}
-	counters.SetReceived(numRecords)
-	counters.SetAccepted(numRecords)
-	counters.SetDroppedByInterface(3)
+	counters.SetReceivedPackets(numRecords)
+	counters.SetAcceptedPackets(numRecords)
+	counters.SetDroppedByInterfacePackets(3)
 	if err := w.Close(counters); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestWriter_AbsentCountersOmitted(t *testing.T) {
 		t.Fatalf("NewWriter: %v", err)
 	}
 	counters := &capturev1.CaptureCounters{}
-	counters.SetAccepted(5) // received and dropped_by_interface stay unset.
+	counters.SetAcceptedPackets(5) // received_packets and dropped_by_interface_packets stay unset.
 	if err := w.Close(counters); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -260,10 +260,10 @@ func TestWriter_AbsentCountersOmitted(t *testing.T) {
 	isb := blocks[len(blocks)-1]
 	opts := parseOptions(t, isb.body[12:])
 	if _, ok := opts[4]; ok {
-		t.Errorf("ISB carries isb_ifrecv though received was never set")
+		t.Errorf("ISB carries isb_ifrecv though received_packets was never set")
 	}
 	if _, ok := opts[5]; ok {
-		t.Errorf("ISB carries isb_ifdrop though dropped_by_interface was never set")
+		t.Errorf("ISB carries isb_ifdrop though dropped_by_interface_packets was never set")
 	}
 	if got, ok := opts[6]; !ok || binary.LittleEndian.Uint64(got) != 5 {
 		t.Errorf("ISB isb_filteraccept = %v (ok=%v), want 5", got, ok)

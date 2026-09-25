@@ -10,12 +10,14 @@ import (
 // Counters holds what a device port counted during a run, in the shape of the
 // interfaces group of RFC 2863: octets and frames by class in and out, errors,
 // and discards, with the discards also broken down by the reason the run gave.
+// The fields say bytes where the MIB says octets, following the schema's
+// unit word; the two are the same 8-bit unit on every target.
 // A corrupt arrival is an error, not a discard, as RFC 2863 keeps the two
 // apart; Discards still names bad-frame so the breakdown accounts for it.
 // OutErrors stays zero, since no egress fault exists in this phase.
 type Counters struct {
-	InOctets     uint64
-	OutOctets    uint64
+	InBytes      uint64
+	OutBytes     uint64
 	InUnicast    uint64
 	OutUnicast   uint64
 	InMulticast  uint64
@@ -76,9 +78,9 @@ func (f *Fabric) counter(device, portName string) *Counters {
 	return c
 }
 
-func (f *Fabric) countIngress(device, portName string, inOctets uint64, class frameClass) {
+func (f *Fabric) countIngress(device, portName string, inBytes uint64, class frameClass) {
 	c := f.counter(device, portName)
-	c.InOctets += inOctets
+	c.InBytes += inBytes
 	switch class {
 	case classBroadcast:
 		c.InBroadcast++
@@ -89,9 +91,9 @@ func (f *Fabric) countIngress(device, portName string, inOctets uint64, class fr
 	}
 }
 
-func (f *Fabric) countCorruptIngress(device, portName string, inOctets uint64) {
+func (f *Fabric) countCorruptIngress(device, portName string, inBytes uint64) {
 	c := f.counter(device, portName)
-	c.InOctets += inOctets
+	c.InBytes += inBytes
 	c.InErrors++
 	c.Discards[ReasonBadFrame]++
 }
@@ -102,9 +104,9 @@ func (f *Fabric) countWholeFrameDrop(device, portName string, reason trace.Reaso
 	c.Discards[reason]++
 }
 
-func (f *Fabric) countEgress(device, portName string, outOctets uint64, class frameClass) {
+func (f *Fabric) countEgress(device, portName string, outBytes uint64, class frameClass) {
 	c := f.counter(device, portName)
-	c.OutOctets += outOctets
+	c.OutBytes += outBytes
 	switch class {
 	case classBroadcast:
 		c.OutBroadcast++

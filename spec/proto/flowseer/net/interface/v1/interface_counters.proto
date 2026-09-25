@@ -2,6 +2,8 @@ edition = "2024";
 
 package flowseer.net.interface.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // Cumulative traffic counters for one interface, in the direction the field
 // name states. Each counter is the value the source last reported, and an
 // absent counter means the source does not report it — never a zero. Counters
@@ -11,10 +13,10 @@ package flowseer.net.interface.v1;
 // (https://www.rfc-editor.org/rfc/rfc2863.html); a source with both 32-bit
 // and 64-bit columns reports the 64-bit value here.
 message InterfaceCounters {
-  // Octets received, including framing characters.
-  uint64 in_octets = 1;
-  // Octets transmitted, including framing characters.
-  uint64 out_octets = 2;
+  // Bytes received, including framing characters.
+  uint64 in_bytes = 1;
+  // Bytes transmitted, including framing characters.
+  uint64 out_bytes = 2;
   // Packets delivered to a higher layer that were not addressed to a
   // multicast or broadcast address.
   uint64 in_unicast_packets = 3;
@@ -41,4 +43,7 @@ message InterfaceCounters {
   uint64 in_discards = 11;
   // Outbound packets discarded without an error, such as for buffer space.
   uint64 out_discards = 12;
+  // The time the counters last reset or restarted counting. Absent means the
+  // source does not report one.
+  google.protobuf.Timestamp last_discontinuity = 13;
 }

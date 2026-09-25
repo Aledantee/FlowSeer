@@ -809,7 +809,7 @@ func TestFingerprintTimerInsensitive(t *testing.T) {
 	counters := cloneSnapshot(base)
 	dev := counters.Devices["sw1"]
 	dev.Counters = map[string]Counters{
-		"1/1/1": {InOctets: 100, OutOctets: 200},
+		"1/1/1": {InBytes: 100, OutBytes: 200},
 	}
 	dev.RelayCounters = bridge.Counters{Learned: 50}
 	counters.Devices["sw1"] = dev

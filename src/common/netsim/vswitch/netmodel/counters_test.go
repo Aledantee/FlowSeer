@@ -2,6 +2,7 @@ package netmodel_test
 
 import (
 	"testing"
+	"time"
 
 	"buf.build/go/protovalidate"
 
@@ -11,8 +12,8 @@ import (
 
 func TestInterfaceCountersExportDistinctValues(t *testing.T) {
 	c := fabric.Counters{
-		InOctets:     101,
-		OutOctets:    102,
+		InBytes:      101,
+		OutBytes:     102,
 		InUnicast:    103,
 		OutUnicast:   104,
 		InMulticast:  105,
@@ -25,13 +26,13 @@ func TestInterfaceCountersExportDistinctValues(t *testing.T) {
 		OutDiscards:  112,
 	}
 
-	exported := netmodel.InterfaceCounters(c)
+	exported := netmodel.InterfaceCounters(c, time.Time{})
 
-	if got, want := exported.GetInOctets(), uint64(101); got != want {
-		t.Errorf("GetInOctets() = %d, want %d", got, want)
+	if got, want := exported.GetInBytes(), uint64(101); got != want {
+		t.Errorf("GetInBytes() = %d, want %d", got, want)
 	}
-	if got, want := exported.GetOutOctets(), uint64(102); got != want {
-		t.Errorf("GetOutOctets() = %d, want %d", got, want)
+	if got, want := exported.GetOutBytes(), uint64(102); got != want {
+		t.Errorf("GetOutBytes() = %d, want %d", got, want)
 	}
 	if got, want := exported.GetInUnicastPackets(), uint64(103); got != want {
 		t.Errorf("GetInUnicastPackets() = %d, want %d", got, want)
@@ -72,13 +73,13 @@ func TestInterfaceCountersExportDistinctValues(t *testing.T) {
 func TestInterfaceCountersExportZeroValues(t *testing.T) {
 	c := fabric.Counters{}
 
-	exported := netmodel.InterfaceCounters(c)
+	exported := netmodel.InterfaceCounters(c, time.Time{})
 
-	if !exported.HasInOctets() || exported.GetInOctets() != 0 {
-		t.Errorf("HasInOctets/GetInOctets mismatch: has=%v val=%d", exported.HasInOctets(), exported.GetInOctets())
+	if !exported.HasInBytes() || exported.GetInBytes() != 0 {
+		t.Errorf("HasInBytes/GetInBytes mismatch: has=%v val=%d", exported.HasInBytes(), exported.GetInBytes())
 	}
-	if !exported.HasOutOctets() || exported.GetOutOctets() != 0 {
-		t.Errorf("HasOutOctets/GetOutOctets mismatch: has=%v val=%d", exported.HasOutOctets(), exported.GetOutOctets())
+	if !exported.HasOutBytes() || exported.GetOutBytes() != 0 {
+		t.Errorf("HasOutBytes/GetOutBytes mismatch: has=%v val=%d", exported.HasOutBytes(), exported.GetOutBytes())
 	}
 	if !exported.HasInUnicastPackets() || exported.GetInUnicastPackets() != 0 {
 		t.Errorf("HasInUnicastPackets/GetInUnicastPackets mismatch: has=%v val=%d", exported.HasInUnicastPackets(), exported.GetInUnicastPackets())
@@ -113,5 +114,29 @@ func TestInterfaceCountersExportZeroValues(t *testing.T) {
 
 	if err := protovalidate.Validate(exported); err != nil {
 		t.Errorf("protovalidate.Validate failed: %v", err)
+	}
+}
+
+func TestInterfaceCountersDiscontinuityFromRunStart(t *testing.T) {
+	start := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	exported := netmodel.InterfaceCounters(fabric.Counters{}, start)
+
+	if !exported.HasLastDiscontinuity() {
+		t.Fatal("HasLastDiscontinuity() = false for a non-zero run start")
+	}
+	if got := exported.GetLastDiscontinuity().AsTime(); !got.Equal(start) {
+		t.Errorf("GetLastDiscontinuity() = %v, want %v", got, start)
+	}
+	if err := protovalidate.Validate(exported); err != nil {
+		t.Errorf("protovalidate.Validate failed: %v", err)
+	}
+}
+
+func TestInterfaceCountersZeroStartLeavesDiscontinuityUnset(t *testing.T) {
+	exported := netmodel.InterfaceCounters(fabric.Counters{}, time.Time{})
+
+	if exported.HasLastDiscontinuity() {
+		t.Errorf("HasLastDiscontinuity() = true for a zero run start, got %v", exported.GetLastDiscontinuity().AsTime())
 	}
 }

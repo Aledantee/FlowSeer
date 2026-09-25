@@ -281,8 +281,8 @@ func TestInterfaces_Counters32Bit(t *testing.T) {
 
 	c := mapOne(t, vbs).GetCounters()
 
-	if c.GetInOctets() != 100 {
-		t.Errorf("got inOctets %d, want 100", c.GetInOctets())
+	if c.GetInBytes() != 100 {
+		t.Errorf("got inBytes %d, want 100", c.GetInBytes())
 	}
 
 	if c.GetInUnicastPackets() != 11 {
@@ -293,8 +293,8 @@ func TestInterfaces_Counters32Bit(t *testing.T) {
 		t.Error("got no inDiscards, want the device's reported zero")
 	}
 
-	if c.GetOutOctets() != 160 {
-		t.Errorf("got outOctets %d, want 160", c.GetOutOctets())
+	if c.GetOutBytes() != 160 {
+		t.Errorf("got outBytes %d, want 160", c.GetOutBytes())
 	}
 
 	// AE4: ifOutUcastPkts, ifOutDiscards and ifOutErrors were never
@@ -348,12 +348,12 @@ func TestInterfaces_HighCapacityCountersWin(t *testing.T) {
 
 	c := got.GetCounters()
 
-	if c.GetInOctets() != 1<<40 {
-		t.Errorf("got inOctets %d, want the high-capacity %d", c.GetInOctets(), uint64(1)<<40)
+	if c.GetInBytes() != 1<<40 {
+		t.Errorf("got inBytes %d, want the high-capacity %d", c.GetInBytes(), uint64(1)<<40)
 	}
 
-	if c.GetOutOctets() != 1<<41 {
-		t.Errorf("got outOctets %d, want the high-capacity %d", c.GetOutOctets(), uint64(1)<<41)
+	if c.GetOutBytes() != 1<<41 {
+		t.Errorf("got outBytes %d, want the high-capacity %d", c.GetOutBytes(), uint64(1)<<41)
 	}
 
 	if c.GetInMulticastPackets() != 7 {

@@ -277,8 +277,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 				}.Build(),
 			},
 			Counters: netcapturev1.CaptureCounters_builder{
-				Received: proto.Uint64(1),
-				Accepted: proto.Uint64(1),
+				ReceivedPackets: proto.Uint64(1),
+				AcceptedPackets: proto.Uint64(1),
 			}.Build(),
 			Final: proto.Bool(false),
 		}.Build(),
@@ -312,8 +312,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 				}.Build(),
 			},
 			Counters: netcapturev1.CaptureCounters_builder{
-				Received: proto.Uint64(2),
-				Accepted: proto.Uint64(2),
+				ReceivedPackets: proto.Uint64(2),
+				AcceptedPackets: proto.Uint64(2),
 			}.Build(),
 			Final: proto.Bool(true),
 		}.Build(),
@@ -413,8 +413,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	if artifact.GetByteSize() != uint64(len(downloadedData)) {
 		t.Fatalf("artifact byte size = %d, downloaded %d bytes", artifact.GetByteSize(), len(downloadedData))
 	}
-	if sessionState.GetCounters().GetAccepted() != 2 {
-		t.Fatalf("session counters accepted = %d, want 2", sessionState.GetCounters().GetAccepted())
+	if sessionState.GetCounters().GetAcceptedPackets() != 2 {
+		t.Fatalf("session counters accepted = %d, want 2", sessionState.GetCounters().GetAcceptedPackets())
 	}
 	hasher := sha256.New()
 	hasher.Write(downloadedData)
@@ -493,8 +493,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 	// The retention departure: the payload goes, the record and its counters
 	// stay, and the descriptor says when the bytes were purged.
-	if afterSweep.GetCounters().GetAccepted() != 2 {
-		t.Fatalf("counters did not survive the sweep: accepted = %d, want 2", afterSweep.GetCounters().GetAccepted())
+	if afterSweep.GetCounters().GetAcceptedPackets() != 2 {
+		t.Fatalf("counters did not survive the sweep: accepted = %d, want 2", afterSweep.GetCounters().GetAcceptedPackets())
 	}
 	sweptArtifact := afterSweep.GetArtifact()
 	if sweptArtifact.GetPacketCount() != artifact.GetPacketCount() ||
@@ -571,7 +571,7 @@ func TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval(t *testing.T
 	if err := store.AppendPackets(ctx, sessionID, linkType, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
-	counters := netcapturev1.CaptureCounters_builder{Received: proto.Uint64(1), Accepted: proto.Uint64(1)}.Build()
+	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
 	artifact, err := store.FinalizeArtifact(ctx, sessionID, linkType, 128, counters, time.Now().Add(-time.Hour))
 	if err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
@@ -786,8 +786,8 @@ func TestRemotePacketCapture_EndToEndWithAgent(t *testing.T) {
 	if state.GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT {
 		t.Errorf("stop reason = %v, want PACKET_COUNT", state.GetStopReason())
 	}
-	if state.GetCounters().GetAccepted() != 10 {
-		t.Errorf("accepted packets = %d, want 10", state.GetCounters().GetAccepted())
+	if state.GetCounters().GetAcceptedPackets() != 10 {
+		t.Errorf("accepted packets = %d, want 10", state.GetCounters().GetAcceptedPackets())
 	}
 
 	downloadReq := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{

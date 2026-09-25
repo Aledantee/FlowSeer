@@ -9,6 +9,7 @@ package capturev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -26,16 +27,17 @@ const (
 // lets an operator tell a switch oversubscribing the mirror port from an
 // edge that cannot keep up from an uplink that cannot.
 type CaptureCounters struct {
-	state                         protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Received           uint64                 `protobuf:"varint,1,opt,name=received"`
-	xxx_hidden_Accepted           uint64                 `protobuf:"varint,2,opt,name=accepted"`
-	xxx_hidden_DroppedByInterface uint64                 `protobuf:"varint,3,opt,name=dropped_by_interface,json=droppedByInterface"`
-	xxx_hidden_DroppedByBudget    uint64                 `protobuf:"varint,4,opt,name=dropped_by_budget,json=droppedByBudget"`
-	xxx_hidden_DroppedByTransport uint64                 `protobuf:"varint,5,opt,name=dropped_by_transport,json=droppedByTransport"`
-	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
-	XXX_presence                  [1]uint32
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	state                                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ReceivedPackets           uint64                 `protobuf:"varint,1,opt,name=received_packets,json=receivedPackets"`
+	xxx_hidden_AcceptedPackets           uint64                 `protobuf:"varint,2,opt,name=accepted_packets,json=acceptedPackets"`
+	xxx_hidden_DroppedByInterfacePackets uint64                 `protobuf:"varint,3,opt,name=dropped_by_interface_packets,json=droppedByInterfacePackets"`
+	xxx_hidden_DroppedByBudgetPackets    uint64                 `protobuf:"varint,4,opt,name=dropped_by_budget_packets,json=droppedByBudgetPackets"`
+	xxx_hidden_DroppedByTransportPackets uint64                 `protobuf:"varint,5,opt,name=dropped_by_transport_packets,json=droppedByTransportPackets"`
+	xxx_hidden_LastDiscontinuity         *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_discontinuity,json=lastDiscontinuity"`
+	XXX_raceDetectHookData               protoimpl.RaceDetectHookData
+	XXX_presence                         [1]uint32
+	unknownFields                        protoimpl.UnknownFields
+	sizeCache                            protoimpl.SizeCache
 }
 
 func (x *CaptureCounters) Reset() {
@@ -63,166 +65,192 @@ func (x *CaptureCounters) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *CaptureCounters) GetReceived() uint64 {
+func (x *CaptureCounters) GetReceivedPackets() uint64 {
 	if x != nil {
-		return x.xxx_hidden_Received
+		return x.xxx_hidden_ReceivedPackets
 	}
 	return 0
 }
 
-func (x *CaptureCounters) GetAccepted() uint64 {
+func (x *CaptureCounters) GetAcceptedPackets() uint64 {
 	if x != nil {
-		return x.xxx_hidden_Accepted
+		return x.xxx_hidden_AcceptedPackets
 	}
 	return 0
 }
 
-func (x *CaptureCounters) GetDroppedByInterface() uint64 {
+func (x *CaptureCounters) GetDroppedByInterfacePackets() uint64 {
 	if x != nil {
-		return x.xxx_hidden_DroppedByInterface
+		return x.xxx_hidden_DroppedByInterfacePackets
 	}
 	return 0
 }
 
-func (x *CaptureCounters) GetDroppedByBudget() uint64 {
+func (x *CaptureCounters) GetDroppedByBudgetPackets() uint64 {
 	if x != nil {
-		return x.xxx_hidden_DroppedByBudget
+		return x.xxx_hidden_DroppedByBudgetPackets
 	}
 	return 0
 }
 
-func (x *CaptureCounters) GetDroppedByTransport() uint64 {
+func (x *CaptureCounters) GetDroppedByTransportPackets() uint64 {
 	if x != nil {
-		return x.xxx_hidden_DroppedByTransport
+		return x.xxx_hidden_DroppedByTransportPackets
 	}
 	return 0
 }
 
-func (x *CaptureCounters) SetReceived(v uint64) {
-	x.xxx_hidden_Received = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+func (x *CaptureCounters) GetLastDiscontinuity() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_LastDiscontinuity
+	}
+	return nil
 }
 
-func (x *CaptureCounters) SetAccepted(v uint64) {
-	x.xxx_hidden_Accepted = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+func (x *CaptureCounters) SetReceivedPackets(v uint64) {
+	x.xxx_hidden_ReceivedPackets = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
-func (x *CaptureCounters) SetDroppedByInterface(v uint64) {
-	x.xxx_hidden_DroppedByInterface = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+func (x *CaptureCounters) SetAcceptedPackets(v uint64) {
+	x.xxx_hidden_AcceptedPackets = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
-func (x *CaptureCounters) SetDroppedByBudget(v uint64) {
-	x.xxx_hidden_DroppedByBudget = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+func (x *CaptureCounters) SetDroppedByInterfacePackets(v uint64) {
+	x.xxx_hidden_DroppedByInterfacePackets = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
-func (x *CaptureCounters) SetDroppedByTransport(v uint64) {
-	x.xxx_hidden_DroppedByTransport = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+func (x *CaptureCounters) SetDroppedByBudgetPackets(v uint64) {
+	x.xxx_hidden_DroppedByBudgetPackets = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
-func (x *CaptureCounters) HasReceived() bool {
+func (x *CaptureCounters) SetDroppedByTransportPackets(v uint64) {
+	x.xxx_hidden_DroppedByTransportPackets = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *CaptureCounters) SetLastDiscontinuity(v *timestamppb.Timestamp) {
+	x.xxx_hidden_LastDiscontinuity = v
+}
+
+func (x *CaptureCounters) HasReceivedPackets() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *CaptureCounters) HasAccepted() bool {
+func (x *CaptureCounters) HasAcceptedPackets() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *CaptureCounters) HasDroppedByInterface() bool {
+func (x *CaptureCounters) HasDroppedByInterfacePackets() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *CaptureCounters) HasDroppedByBudget() bool {
+func (x *CaptureCounters) HasDroppedByBudgetPackets() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
-func (x *CaptureCounters) HasDroppedByTransport() bool {
+func (x *CaptureCounters) HasDroppedByTransportPackets() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *CaptureCounters) ClearReceived() {
+func (x *CaptureCounters) HasLastDiscontinuity() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_LastDiscontinuity != nil
+}
+
+func (x *CaptureCounters) ClearReceivedPackets() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Received = 0
+	x.xxx_hidden_ReceivedPackets = 0
 }
 
-func (x *CaptureCounters) ClearAccepted() {
+func (x *CaptureCounters) ClearAcceptedPackets() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Accepted = 0
+	x.xxx_hidden_AcceptedPackets = 0
 }
 
-func (x *CaptureCounters) ClearDroppedByInterface() {
+func (x *CaptureCounters) ClearDroppedByInterfacePackets() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_DroppedByInterface = 0
+	x.xxx_hidden_DroppedByInterfacePackets = 0
 }
 
-func (x *CaptureCounters) ClearDroppedByBudget() {
+func (x *CaptureCounters) ClearDroppedByBudgetPackets() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_DroppedByBudget = 0
+	x.xxx_hidden_DroppedByBudgetPackets = 0
 }
 
-func (x *CaptureCounters) ClearDroppedByTransport() {
+func (x *CaptureCounters) ClearDroppedByTransportPackets() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_DroppedByTransport = 0
+	x.xxx_hidden_DroppedByTransportPackets = 0
+}
+
+func (x *CaptureCounters) ClearLastDiscontinuity() {
+	x.xxx_hidden_LastDiscontinuity = nil
 }
 
 type CaptureCounters_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Packets the interface delivered to the capture engine.
-	Received *uint64
+	ReceivedPackets *uint64
 	// Packets the engine kept after the filter and the budget.
-	Accepted *uint64
+	AcceptedPackets *uint64
 	// Packets the interface could not deliver to the engine, read from the
 	// interface's own drop counter.
-	DroppedByInterface *uint64
+	DroppedByInterfacePackets *uint64
 	// Packets the engine discarded to stay inside the session's budget.
-	DroppedByBudget *uint64
+	DroppedByBudgetPackets *uint64
 	// Packets the delivery transport could not carry onward.
-	DroppedByTransport *uint64
+	DroppedByTransportPackets *uint64
+	// The time the counters last reset or restarted counting. Absent means the
+	// source does not report one.
+	LastDiscontinuity *timestamppb.Timestamp
 }
 
 func (b0 CaptureCounters_builder) Build() *CaptureCounters {
 	m0 := &CaptureCounters{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.Received != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
-		x.xxx_hidden_Received = *b.Received
+	if b.ReceivedPackets != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
+		x.xxx_hidden_ReceivedPackets = *b.ReceivedPackets
 	}
-	if b.Accepted != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
-		x.xxx_hidden_Accepted = *b.Accepted
+	if b.AcceptedPackets != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		x.xxx_hidden_AcceptedPackets = *b.AcceptedPackets
 	}
-	if b.DroppedByInterface != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
-		x.xxx_hidden_DroppedByInterface = *b.DroppedByInterface
+	if b.DroppedByInterfacePackets != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		x.xxx_hidden_DroppedByInterfacePackets = *b.DroppedByInterfacePackets
 	}
-	if b.DroppedByBudget != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
-		x.xxx_hidden_DroppedByBudget = *b.DroppedByBudget
+	if b.DroppedByBudgetPackets != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		x.xxx_hidden_DroppedByBudgetPackets = *b.DroppedByBudgetPackets
 	}
-	if b.DroppedByTransport != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
-		x.xxx_hidden_DroppedByTransport = *b.DroppedByTransport
+	if b.DroppedByTransportPackets != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		x.xxx_hidden_DroppedByTransportPackets = *b.DroppedByTransportPackets
 	}
+	x.xxx_hidden_LastDiscontinuity = b.LastDiscontinuity
 	return m0
 }
 
@@ -230,25 +258,28 @@ var File_flowseer_net_capture_v1_capture_counters_proto protoreflect.FileDescrip
 
 const file_flowseer_net_capture_v1_capture_counters_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/net/capture/v1/capture_counters.proto\x12\x17flowseer.net.capture.v1\"\xd9\x01\n" +
-	"\x0fCaptureCounters\x12\x1a\n" +
-	"\breceived\x18\x01 \x01(\x04R\breceived\x12\x1a\n" +
-	"\baccepted\x18\x02 \x01(\x04R\baccepted\x120\n" +
-	"\x14dropped_by_interface\x18\x03 \x01(\x04R\x12droppedByInterface\x12*\n" +
-	"\x11dropped_by_budget\x18\x04 \x01(\x04R\x0fdroppedByBudget\x120\n" +
-	"\x14dropped_by_transport\x18\x05 \x01(\x04R\x12droppedByTransportB\xfe\x01\n" +
+	".flowseer/net/capture/v1/capture_counters.proto\x12\x17flowseer.net.capture.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xef\x02\n" +
+	"\x0fCaptureCounters\x12)\n" +
+	"\x10received_packets\x18\x01 \x01(\x04R\x0freceivedPackets\x12)\n" +
+	"\x10accepted_packets\x18\x02 \x01(\x04R\x0facceptedPackets\x12?\n" +
+	"\x1cdropped_by_interface_packets\x18\x03 \x01(\x04R\x19droppedByInterfacePackets\x129\n" +
+	"\x19dropped_by_budget_packets\x18\x04 \x01(\x04R\x16droppedByBudgetPackets\x12?\n" +
+	"\x1cdropped_by_transport_packets\x18\x05 \x01(\x04R\x19droppedByTransportPackets\x12I\n" +
+	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\xfe\x01\n" +
 	"\x1bcom.flowseer.net.capture.v1B\x14CaptureCountersProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_capture_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_capture_v1_capture_counters_proto_goTypes = []any{
-	(*CaptureCounters)(nil), // 0: flowseer.net.capture.v1.CaptureCounters
+	(*CaptureCounters)(nil),       // 0: flowseer.net.capture.v1.CaptureCounters
+	(*timestamppb.Timestamp)(nil), // 1: google.protobuf.Timestamp
 }
 var file_flowseer_net_capture_v1_capture_counters_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: flowseer.net.capture.v1.CaptureCounters.last_discontinuity:type_name -> google.protobuf.Timestamp
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_capture_v1_capture_counters_proto_init() }

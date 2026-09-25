@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.ip.v1;
+
+// How the interface identifier of an IPv6 address was generated. The
+// assignment mechanism is AddressOrigin; this value only says how the low
+// bits of the address were chosen.
+enum InterfaceIdentifierMethod {
+  // The method was explicitly reported as unknown. Absence means unreported.
+  INTERFACE_IDENTIFIER_METHOD_UNSPECIFIED = 0;
+  // A method outside the normalized categories.
+  INTERFACE_IDENTIFIER_METHOD_OTHER = 1;
+  // Modified EUI-64 derived from a link-layer address (RFC 4291 Appendix A,
+  // https://www.rfc-editor.org/rfc/rfc4291.html#appendix-A).
+  INTERFACE_IDENTIFIER_METHOD_MODIFIED_EUI64 = 2;
+  // A stable, semantically opaque identifier
+  // (RFC 7217, https://www.rfc-editor.org/rfc/rfc7217.html).
+  INTERFACE_IDENTIFIER_METHOD_STABLE_OPAQUE = 3;
+  // A temporary identifier for privacy extensions
+  // (RFC 8981, https://www.rfc-editor.org/rfc/rfc8981.html).
+  INTERFACE_IDENTIFIER_METHOD_TEMPORARY = 4;
+  // A non-EUI-64 identifier the source did not qualify further, which is
+  // what RFC 8344's random origin reports.
+  INTERFACE_IDENTIFIER_METHOD_RANDOMIZED = 5;
+}
