@@ -382,7 +382,7 @@ func TestSpecPortOperUpWithNoCableBuildsUnresolved(t *testing.T) {
 func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 	t.Run("one member cabled brings LAG oper Up", func(t *testing.T) {
 		b1 := port.NewBuilder()
-		b1.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Down})
+		b1.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Down})
 		b1.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down, LagParent: "lag1"})
 		b1.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down, LagParent: "lag1"})
 
@@ -426,7 +426,7 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 
 	t.Run("cabled member on cut cable leaves LAG oper Down", func(t *testing.T) {
 		b1 := port.NewBuilder()
-		b1.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Down})
+		b1.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Down})
 		b1.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down, LagParent: "lag1"})
 
 		b2 := port.NewBuilder()

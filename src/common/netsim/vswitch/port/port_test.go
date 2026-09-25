@@ -69,7 +69,7 @@ func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {
 
 func TestResolution(t *testing.T) {
 	b := port.NewBuilder()
-	b.Add(port.Port{Name: "lag1", Kind: port.Lag})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG})
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"})
 	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, LagParent: "lag1"})
@@ -87,8 +87,8 @@ func TestResolution(t *testing.T) {
 		if got.Name != "lag1" {
 			t.Errorf("Resolve(\"1/1/2\").Name = %q, want %q", got.Name, "lag1")
 		}
-		if got.Kind != port.Lag {
-			t.Errorf("Resolve(\"1/1/2\").Kind = %q, want %q", got.Kind, port.Lag)
+		if got.Kind != port.LAG {
+			t.Errorf("Resolve(\"1/1/2\").Kind = %q, want %q", got.Kind, port.LAG)
 		}
 	})
 
@@ -208,8 +208,8 @@ func TestBuilderRules(t *testing.T) {
 
 	t.Run("LAG with a parent", func(t *testing.T) {
 		b := port.NewBuilder()
-		b.Add(port.Port{Name: "lag1", Kind: port.Lag})
-		b.Add(port.Port{Name: "lag2", Kind: port.Lag, LagParent: "lag1"})
+		b.Add(port.Port{Name: "lag1", Kind: port.LAG})
+		b.Add(port.Port{Name: "lag2", Kind: port.LAG, LagParent: "lag1"})
 		_, err := b.Build()
 		if err == nil {
 			t.Fatal("LAG with a parent succeeded, want error")
@@ -281,7 +281,7 @@ func TestDiff(t *testing.T) {
 
 	t.Run("removed port, mtu, and lag parent changes", func(t *testing.T) {
 		t1, err := port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.Lag}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG}).
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, MTU: 1500, LagParent: "lag1"}).
 			Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
 			Build()
@@ -290,7 +290,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		t2, err := port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.Lag}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG}).
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, MTU: 9000, LagParent: ""}).
 			Build()
 		if err != nil {
@@ -330,7 +330,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		t2, err := port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{
 				Name:        "1/1/1",
 				IfIndex:     2,
@@ -433,7 +433,7 @@ func TestTableClone(t *testing.T) {
 
 func TestMembersOfANameThatIsNotALag(t *testing.T) {
 	tbl, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Build()
@@ -457,11 +457,11 @@ func TestLayerConstants(t *testing.T) {
 		expected string
 	}{
 		{port.LayerPort, "port"},
-		{port.LayerLag, "lag"},
+		{port.LayerLAG, "lag"},
 		{port.LayerEthernet, "ethernet"},
-		{port.LayerPoe, "poe"},
+		{port.LayerPoE, "poe"},
 		{port.LayerRelay, "relay"},
-		{port.LayerVlan, "vlan"},
+		{port.LayerVLAN, "vlan"},
 	}
 
 	for _, l := range layers {
@@ -563,7 +563,7 @@ func TestNormalize(t *testing.T) {
 	t.Run("sorts ports and LAG members by name", func(t *testing.T) {
 		tbl, err := port.NewBuilder().
 			Add(port.Port{Name: "member-z", LagParent: "lag1"}).
-			Add(port.Port{Name: "lag1", Kind: port.Lag}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG}).
 			Add(port.Port{Name: "member-a", LagParent: "lag1"}).
 			Build()
 		if err != nil {
@@ -664,8 +664,8 @@ func TestPortBehaviorMatrix(t *testing.T) {
 
 func TestTableReceive(t *testing.T) {
 	b := port.NewBuilder()
-	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
-	b.Add(port.Port{Name: "lag-down", Kind: port.Lag, AdminStatus: port.Down, OperStatus: port.Down})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag-down", Kind: port.LAG, AdminStatus: port.Down, OperStatus: port.Down})
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Down})
 	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
@@ -728,8 +728,8 @@ func TestTableReceive(t *testing.T) {
 
 func TestTableTransmit(t *testing.T) {
 	b := port.NewBuilder()
-	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up, MTU: 1500})
-	b.Add(port.Port{Name: "lag-down-mems", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up, MTU: 1500})
+	b.Add(port.Port{Name: "lag-down-mems", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 1500})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Down})
 	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 0})

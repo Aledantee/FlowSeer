@@ -158,7 +158,7 @@ func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
 			t.Run(pipeline.name+"/"+state.name, func(t *testing.T) {
 				ports := mustTable(t, port.NewBuilder().
 					Add(port.Port{Name: "member", LagParent: "lag1", AdminStatus: port.Up, OperStatus: state.memberOper}).
-					Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: state.parentOper}))
+					Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: state.parentOper}))
 				res := mustSwitch(t, pipeline.cfg(ports)).Forward(fixedTime, "member", pipeline.frame)
 				if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 					t.Fatalf("result = %s/%s, want Dropped/port-down", res.Outcome, res.Reason)
@@ -185,7 +185,7 @@ func lagDeriveConfig(t *testing.T, admin, oper port.LinkState) vswitch.Config {
 
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: admin, OperStatus: oper}))
 
 	return vswitch.Config{
@@ -261,7 +261,7 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 			ports := mustTable(t, port.NewBuilder().
 				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 			cfg := vswitch.Config{
@@ -416,7 +416,7 @@ func mirrorOutputConfig(t *testing.T, output string, state port.LinkState) (vswi
 		mirror.OutputVLAN = &vid99
 	case "output VLAN LAG":
 		builder.
-			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: state})
 		bridgeConfig.VLAN.Switchports["lag1"] = bridge.Switchport{Untagged: []vlan.ID{vid99}}
 		mirror.OutputVLAN = &vid99
@@ -444,7 +444,7 @@ func mirrorCopyStep(steps []trace.Step) (trace.Step, bool) {
 
 func TestMirrorSelectorsRejectPhysicalLAGMembersAtSubmittedPaths(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "a-member", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "z-logical", Kind: port.Physical}).
 		Add(port.Port{Name: "output", Kind: port.Physical}))

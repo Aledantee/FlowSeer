@@ -66,7 +66,8 @@ func (c Capability) String() string {
 
 // Setting is the requested link configuration of one port. With
 // AutoNegotiation on, the port negotiates over its supported speeds; with it
-// off, SpeedBPS and Duplex are the requested fixed link.
+// off, SpeedBPS and Duplex are the requested fixed link. Setting values are
+// safe for concurrent reads but not for concurrent mutation.
 type Setting struct {
 	SpeedBPS        uint64
 	Duplex          Duplex
@@ -83,7 +84,8 @@ func (s *Setting) Clone() *Setting {
 	return &cp
 }
 
-// Observed is the active speed and duplex a source reported for a link.
+// Observed is the active speed and duplex a source reported for a link. Observed values
+// are safe for concurrent reads but not for concurrent mutation.
 type Observed struct {
 	SpeedBPS uint64
 	Duplex   Duplex

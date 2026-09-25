@@ -49,7 +49,7 @@ func TestStopReasonTableNoEmptyConstant(t *testing.T) {
 		seen[r] = true
 	}
 	if len(reasons) != 6 {
-		t.Errorf("expected 6 StopReason constants, got %d", len(reasons))
+		t.Errorf("got %d StopReason constants, want 6", len(reasons))
 	}
 }
 

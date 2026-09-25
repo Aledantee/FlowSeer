@@ -9,8 +9,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported bridge.Config field
-// reaches bridge.Diff.
+// TestDiffCoversEveryConfigField verifies that every exported bridge.Config field reaches
+// bridge.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	pvid := vlan.ID(10)
 	seed := bridge.Config{

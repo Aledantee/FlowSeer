@@ -28,7 +28,7 @@ import (
 
 func main() {
 	ports, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Build()

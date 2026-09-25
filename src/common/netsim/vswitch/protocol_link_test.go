@@ -135,7 +135,7 @@ func TestUnknownLAGMemberDowngradesOnlyLAG(t *testing.T) {
 	t.Parallel()
 
 	ports, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -201,7 +201,7 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 	t.Parallel()
 
 	ports, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -240,7 +240,7 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 	frame := ethernet.Frame{Src: macSrc, Dst: macLagDest, EtherType: ethernet.EtherTypeIPv4}
 	resIncomplete := sw.Forward(t0.Add(2*time.Second), "1/1/3", frame)
 	if resIncomplete.Metadata.Status() != analysis.Incomplete {
-		t.Fatalf("expected Incomplete while member is unknown, got %v", resIncomplete.Metadata.Status())
+		t.Fatalf("got status %v while member is unknown, want Incomplete", resIncomplete.Metadata.Status())
 	}
 
 	// Member 1/1/2 receives a known Up report -> clears the issue.

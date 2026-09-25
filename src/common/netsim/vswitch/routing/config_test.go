@@ -20,7 +20,7 @@ func newTestPortTable(t *testing.T) port.Table {
 	tbl, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, LagParent: "lag1"}).
 		Build()
 	if err != nil {
@@ -802,7 +802,7 @@ func TestNormalize(t *testing.T) {
 		{Prefix: netip.MustParsePrefix("10.0.30.0/24"), NextHop: netip.MustParseAddr("10.0.10.252"), Interface: "vlan10", Preference: 5},
 	}
 	if len(vrf.Routes) != len(wantRoutes) {
-		t.Fatalf("expected %d routes, got %d", len(wantRoutes), len(vrf.Routes))
+		t.Fatalf("got %d routes, want %d", len(vrf.Routes), len(wantRoutes))
 	}
 	for i, want := range wantRoutes {
 		if vrf.Routes[i] != want {
@@ -812,7 +812,7 @@ func TestNormalize(t *testing.T) {
 
 	// Check neighbors sorted
 	if len(vrf.Neighbors) != 2 {
-		t.Fatalf("expected 2 neighbors, got %d", len(vrf.Neighbors))
+		t.Fatalf("got %d neighbors, want 2", len(vrf.Neighbors))
 	}
 	if vrf.Neighbors[0].Addr.String() != "10.0.10.7" {
 		t.Errorf("neighbor 0: got %s, want 10.0.10.7", vrf.Neighbors[0].Addr)
@@ -875,7 +875,7 @@ func TestDiff(t *testing.T) {
 
 		changes := routing.Diff(a, b)
 		if len(changes) != 2 {
-			t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
+			t.Fatalf("got %d changes (%+v), want 2", len(changes), changes)
 		}
 		if changes[0].Subject.Kind != "vrf" || changes[0].Subject.Key != "vrf1" || changes[0].To != nil {
 			t.Errorf("change 0 unexpected: %+v", changes[0])
@@ -912,13 +912,13 @@ func TestDiff(t *testing.T) {
 
 		changes := routing.Diff(a, b)
 		if len(changes) != 2 {
-			t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
+			t.Fatalf("got %d changes (%+v), want 2", len(changes), changes)
 		}
 		if changes[0].Field != "vlan" || changes[0].From != routing.VLANFact(10) || changes[0].To != routing.VLANFact(0) {
-			t.Errorf("expected vlan change, got %+v", changes[0])
+			t.Errorf("got first change %+v, want vlan change", changes[0])
 		}
 		if changes[1].Field != "port" || changes[1].From != routing.PortFact("") || changes[1].To != routing.PortFact("1/1/1") {
-			t.Errorf("expected port change, got %+v", changes[1])
+			t.Errorf("got second change %+v, want port change", changes[1])
 		}
 	})
 
@@ -994,7 +994,7 @@ func TestDiff(t *testing.T) {
 			"metric":     "routing.route.metric",
 		}
 		if len(changes) != len(expectedFields) {
-			t.Fatalf("expected %d changes, got %d: %+v", len(expectedFields), len(changes), changes)
+			t.Fatalf("got %d changes (%+v), want %d", len(changes), changes, len(expectedFields))
 		}
 		for i, field := range expectedFields {
 			if changes[i].Field != field {

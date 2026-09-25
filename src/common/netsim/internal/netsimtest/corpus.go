@@ -748,12 +748,14 @@ func expectationsContainFact(steps []StepExpectation, changes []ChangeExpectatio
 	})
 }
 
-// Registry maintains an admitted collection of versioned corpus cases.
+// Registry maintains an admitted collection of versioned corpus cases. A Registry is not
+// safe for concurrent use.
 type Registry struct {
 	cases map[string]Case
 }
 
-// NewRegistry creates a new empty corpus registry.
+// NewRegistry returns an empty Registry that rejects invalid cases and duplicate IDs when
+// they are registered.
 func NewRegistry() *Registry {
 	return &Registry{
 		cases: make(map[string]Case),

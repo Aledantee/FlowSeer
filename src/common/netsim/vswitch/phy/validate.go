@@ -22,7 +22,7 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("port", name).
 				Msgf("ethernet entry names unknown port %q", name)
 		}
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			return errs.New().
 				Attr("field", "ethernet."+name).
 				Attr("port", name).
@@ -101,7 +101,7 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("port", name).
 				Msgf("poe entry names unknown port %q", name)
 		}
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			return errs.New().
 				Attr("field", "poe.ports."+name).
 				Attr("port", name).

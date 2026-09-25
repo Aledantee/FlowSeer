@@ -170,8 +170,8 @@ func TestValidateAcceptsLoopProtectTrunkWithPVID(t *testing.T) {
 }
 
 // TestNewAcceptsBridgelessRouterWithSubInterfaces proves a firewall cabled to a trunk with
-// no bridge at all can load: its port carries only routed sub-interfaces, so R1's constraint
-// against a bridgeless router leaving a port unrouted is satisfied by the sub-interfaces alone.
+// no bridge at all can load: its port carries only routed sub-interfaces, so the
+// sub-interfaces satisfy the requirement that every port on a bridgeless router is routed.
 func TestNewAcceptsBridgelessRouterWithSubInterfaces(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))

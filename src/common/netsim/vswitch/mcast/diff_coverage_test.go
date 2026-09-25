@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported mcast.Config field reaches
+// TestDiffCoversEveryConfigField verifies that every exported mcast.Config field reaches
 // mcast.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	floodUnregistered := true

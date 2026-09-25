@@ -95,9 +95,9 @@ func assertCoverage(t *testing.T, found, covered []string) {
 
 // coverageProblems names every path in found absent from covered, and every path in
 // covered the walk did not find: the walk is what grows, covered is what a person edits
-// deliberately, and either side drifting from the other is the defect this checks for. A
-// pure function, not a *testing.T-driven assertion, so a test can check its result
-// directly instead of through a nested subtest whose failure would fail the outer test.
+// deliberately, and either side drifting from the other is the defect this checks for.
+// The pure return value lets a test check the result directly without a nested subtest
+// whose failure would also fail the outer test.
 func coverageProblems(found, covered []string) []string {
 	var problems []string
 	coveredSet := make(map[string]bool, len(covered))
@@ -355,9 +355,6 @@ func navigateReadOnly(root reflect.Value, path []step) reflect.Value {
 }
 
 // mutateLeaf sets v (settable) to a value of its own type guaranteed different from
-// whatever it held before, or panics naming the type when no strategy covers it: a
-// perturbation the walker cannot compute is a gap in the walker, not a leaf to skip.
-// mutateLeaf sets v (settable) to a value of its own type guaranteed different from
 // whatever it held before, or returns an error naming the type when no strategy covers
 // it: a perturbation the walker cannot compute is a gap in the walker, not a leaf to
 // skip.
@@ -466,9 +463,8 @@ func exemptionProblems(found []coverageLeaf, exemptions map[string]string) []str
 // checkLeaf perturbs a fresh deep copy of seed at l alone, normalizes both sides through
 // normalize, and reports an error unless diff detects the change — or reports a
 // mutation-strategy error first if the perturbation did not actually produce a different
-// value. A pure function, not a *testing.T-driven assertion, so a test can check its
-// result directly instead of through a nested subtest whose failure would fail the outer
-// test.
+// value. The pure return value lets a test check the result directly without a nested
+// subtest whose failure would also fail the outer test.
 func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize func(C) C, diff func(a, b C) []trace.Change) error {
 	perturbedRoot := deepCopyValue(seedVal)
 	leafVal, commit := navigateForMutation(perturbedRoot, l.path)
@@ -564,11 +560,12 @@ func AssertDiffCoversPort(t *testing.T, seed port.Port, companions []port.Port, 
 	}
 }
 
-// mustBuildPortTable builds a Table from p and its fixed companions. Build failing here
-// means a perturbation broke Table.Validate, which the mutation strategies in this file
-// are meant to avoid (toggling an enum toward its zero value, keeping a companion LAG
-// port for lag_parent); it is a bug in this file's fixtures, not a condition a caller can
-// recover from.
+// mustBuildPortTable builds a Table from p and its fixed companions. It panics if a
+// perturbation violates Table.Validate. The mutation strategies preserve that invariant
+// by toggling enums toward zero and retaining a companion LAG port for lag_parent. The
+// panic uses the proven handling answer: TestDiffCoversEveryConfigField in
+// src/common/netsim/vswitch/port/diff_coverage_test.go exercises every mutation on each
+// test run.
 func mustBuildPortTable(p port.Port, companions []port.Port) port.Table {
 	b := port.NewBuilder()
 	b.Add(p)

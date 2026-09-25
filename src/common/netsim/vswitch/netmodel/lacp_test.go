@@ -29,7 +29,7 @@ func newLacpFabric(t *testing.T, start time.Time, macA, macB netaddr.MAC, lagA, 
 	vid10 := vlan.ID(10)
 	buildPorts := func() port.Table {
 		b := port.NewBuilder()
-		b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 		b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -246,7 +246,7 @@ func TestLoad_LagDefaultBondMode(t *testing.T) {
 		}
 	}
 	if !foundDefault {
-		t.Errorf("expected default bond_mode active-backup in report.Defaults, got: %+v", report.Defaults)
+		t.Errorf("got report defaults %+v, want bond_mode active-backup", report.Defaults)
 	}
 }
 
@@ -315,7 +315,7 @@ func TestLacpExport_Converged(t *testing.T) {
 	aggs, portStates := netmodel.Lacp(swA)
 
 	if len(aggs) != 1 {
-		t.Fatalf("expected 1 AggregatorState, got %d", len(aggs))
+		t.Fatalf("got %d AggregatorState rows, want 1", len(aggs))
 	}
 	agg := aggs[0]
 	if err := protovalidate.Validate(agg); err != nil {
@@ -330,7 +330,7 @@ func TestLacpExport_Converged(t *testing.T) {
 	}
 
 	if len(portStates) != 2 {
-		t.Fatalf("expected 2 PortState rows, got %d", len(portStates))
+		t.Fatalf("got %d PortState rows, want 2", len(portStates))
 	}
 	for _, ps := range portStates {
 		if err := protovalidate.Validate(ps); err != nil {

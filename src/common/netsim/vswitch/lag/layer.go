@@ -833,7 +833,7 @@ func (l *Layer) BadLACPDU(member string) {
 func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
 	hasLagPorts := false
 	for _, p := range ports.Ports() {
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			hasLagPorts = true
 			break
 		}

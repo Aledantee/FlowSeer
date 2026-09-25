@@ -86,7 +86,7 @@ func TestForwardingDependenciesMatchConsultedPorts(t *testing.T) {
 			port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 			port.Port{Name: "member-a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"},
 			port.Port{Name: "member-b", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"},
-			port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up},
+			port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up},
 		)
 		br := mustNewBridge(t, bridge.Config{}, ports)
 		br.SetSelector(stubSelector{member: "member-a", ok: true}, analysis.ProtocolScope("sw1", "lag", "0"))

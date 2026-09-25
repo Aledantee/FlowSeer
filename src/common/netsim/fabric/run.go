@@ -886,7 +886,7 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 	if memberName != "" {
 		outPort = memberName
 	} else if sw, ok := f.switches[device]; ok {
-		if p, ok := sw.Ports().Port(portName); ok && p.Kind == port.Lag {
+		if p, ok := sw.Ports().Port(portName); ok && p.Kind == port.LAG {
 			var vid vlan.ID
 			for _, tag := range frame.Tags {
 				if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {

@@ -118,7 +118,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		}
 	}
 	if !foundSkipped {
-		t.Errorf("expected 1/1/6 switchport to be skipped, got: %+v", report.Skipped)
+		t.Errorf("got skips %+v, want 1/1/6 switchport skipped", report.Skipped)
 	}
 
 	sw, err := vswitch.New(cfg)
@@ -208,15 +208,15 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	cfg := res.Spec.Config
 	report := res.Report
 
-	wantCaps := []port.Layer{port.LayerRelay, port.LayerVlan}
+	wantCaps := []port.Layer{port.LayerRelay, port.LayerVLAN}
 	if !slices.Equal(report.Capabilities, wantCaps) {
 		t.Errorf("capabilities = %v, want %v", report.Capabilities, wantCaps)
 	}
 	if report.CapabilitySources[port.LayerRelay] != "always" {
 		t.Errorf("relay source = %q, want always", report.CapabilitySources[port.LayerRelay])
 	}
-	if report.CapabilitySources[port.LayerVlan] != "inferred:switchport" {
-		t.Errorf("vlan source = %q, want inferred:switchport", report.CapabilitySources[port.LayerVlan])
+	if report.CapabilitySources[port.LayerVLAN] != "inferred:switchport" {
+		t.Errorf("vlan source = %q, want inferred:switchport", report.CapabilitySources[port.LayerVLAN])
 	}
 
 	// Verify PVID 30 and admission ALL in config.
@@ -267,7 +267,7 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 		}
 	}
 	if !skippedP1 || !skippedP2 {
-		t.Errorf("expected both switchport facets skipped, got: %+v", reportRelayOnly.Skipped)
+		t.Errorf("got skips %+v, want both switchport facets skipped", reportRelayOnly.Skipped)
 	}
 }
 
@@ -491,7 +491,7 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 		}
 	}
 	if !foundSkipped {
-		t.Errorf("expected invalid FDB entry in Skipped, got %+v", report.Skipped)
+		t.Errorf("got Skipped %+v, want invalid FDB entry", report.Skipped)
 	}
 	if res.Readiness() == analysis.Complete {
 		t.Error("readiness = Complete, want unusable active row reported")
@@ -547,11 +547,11 @@ func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 		}
 	}
 	if !foundSkipped {
-		t.Errorf("expected poe without detail skipped, got %+v", report.Skipped)
+		t.Errorf("got Skipped %+v, want poe without detail skipped", report.Skipped)
 	}
 
 	if cfg.Phy != nil && cfg.Phy.PoE != nil && len(cfg.Phy.PoE.Ports) != 0 {
-		t.Errorf("expected no PoE ports loaded, got %d", len(cfg.Phy.PoE.Ports))
+		t.Errorf("got %d PoE ports loaded, want 0", len(cfg.Phy.PoE.Ports))
 	}
 }
 
@@ -668,7 +668,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 	// MTU 0 treated as unlimited in Port
 	port1, ok := cfg.Ports.Port("1/1/1")
 	if !ok || port1.MTU != 0 {
-		t.Errorf("expected port 1/1/1 MTU = 0, got %d", port1.MTU)
+		t.Errorf("got port 1/1/1 MTU %d, want 0", port1.MTU)
 	}
 
 	// Explicit zero is observed input, not a loader default.
@@ -686,18 +686,18 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		t.Errorf("explicit MTU zero reported as a default: %+v", report.Defaults)
 	}
 	if !hasBudgetDefault {
-		t.Errorf("expected power_milliwatts default reported, got defaults: %+v", report.Defaults)
+		t.Errorf("got defaults %+v, want power_milliwatts reported", report.Defaults)
 	}
 
 	// Switchport with multiple untagged VLANs has no PVID
 	sw2 := cfg.Bridge.VLAN.Switchports["1/1/2"]
 	if sw2.PVID != nil {
-		t.Errorf("expected sw2 PVID nil, got %v", sw2.PVID)
+		t.Errorf("got sw2 PVID %v, want nil", sw2.PVID)
 	}
 
 	// Seed should be marked static
 	if len(seeds) != 1 || seeds[0].Lifetime != bridge.Static {
-		t.Errorf("expected static seed, got: %+v", seeds)
+		t.Errorf("got seeds %+v, want static seed", seeds)
 	}
 
 	// An entry of a bridge without VLAN awareness has no FdbEntry shape, since
@@ -778,7 +778,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			LagParent: &lagParent,
 		}.Build()}.Build(),
 	}
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVlan})
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVLAN})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -790,7 +790,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 	if !slices.Equal(report.Capabilities, cfg.Capabilities()) {
 		t.Errorf("report.Capabilities = %v, cfg.Capabilities() = %v; want them equal", report.Capabilities, cfg.Capabilities())
 	}
-	if report.CapabilitySources[port.LayerRelay] != "implied:vlan" || report.CapabilitySources[port.LayerLag] != "present:lag" {
+	if report.CapabilitySources[port.LayerRelay] != "implied:vlan" || report.CapabilitySources[port.LayerLAG] != "present:lag" {
 		t.Errorf("CapabilitySources = %v", report.CapabilitySources)
 	}
 }
@@ -889,7 +889,7 @@ func TestDot1qTunnelSwitchport(t *testing.T) {
 		}
 	}
 	if !hasQinqDefault {
-		t.Errorf("expected default qinq_ethtype 0x88A8 for 1/1/1, got defaults: %+v", report.Defaults)
+		t.Errorf("got defaults %+v, want qinq_ethtype 0x88A8 for 1/1/1", report.Defaults)
 	}
 
 	if _, ok := cfg.Bridge.VLAN.Table[10]; !ok {
@@ -907,7 +907,7 @@ func TestDot1qTunnelSwitchport(t *testing.T) {
 		}
 	}
 	if !hasSkippedP2 {
-		t.Errorf("expected 1/1/2 switchport to be skipped with 'tunnel without pvid', got skipped: %+v", report.Skipped)
+		t.Errorf("got skipped %+v, want 1/1/2 switchport skipped with 'tunnel without pvid'", report.Skipped)
 	}
 	if _, ok := cfg.Bridge.VLAN.Switchports["1/1/2"]; ok {
 		t.Error("1/1/2 switchport should not be present in config")
@@ -921,7 +921,7 @@ func TestDot1qTunnelSwitchport(t *testing.T) {
 		}
 	}
 	if !hasSkippedUntagged {
-		t.Errorf("expected 1/1/3 untagged_vlan_ids to be skipped with 'tunnel port', got skipped: %+v", report.Skipped)
+		t.Errorf("got skipped %+v, want 1/1/3 untagged_vlan_ids skipped with 'tunnel port'", report.Skipped)
 	}
 }
 
@@ -979,7 +979,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 			ifaces = append(ifaces, iface)
 		}
 
-		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoe})
+		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoE})
 		if err != nil {
 			t.Fatalf("netmodel.Load failed: %v", err)
 		}
@@ -999,7 +999,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		}
 		alloc := phyCfg.Allocate()
 		if alloc.Ports["1/1/1"].State != phy.PowerDelivered {
-			t.Fatalf("expected PowerDelivered, got %v", alloc.Ports["1/1/1"].State)
+			t.Fatalf("got power state %v, want PowerDelivered", alloc.Ports["1/1/1"].State)
 		}
 
 		res := loadExported(t, phyCfg, alloc)
@@ -1033,7 +1033,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		}
 		alloc := phyCfg.Allocate()
 		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonDisabled {
-			t.Fatalf("expected PowerDenied(disabled), got %+v", alloc.Ports["1/1/1"])
+			t.Fatalf("got port allocation %+v, want PowerDenied(disabled)", alloc.Ports["1/1/1"])
 		}
 
 		res := loadExported(t, phyCfg, alloc)
@@ -1067,7 +1067,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		}
 		alloc := phyCfg.Allocate()
 		if alloc.Ports["1/1/1"].State != phy.PowerNoDevice {
-			t.Fatalf("expected PowerNoDevice, got %v", alloc.Ports["1/1/1"].State)
+			t.Fatalf("got power state %v, want PowerNoDevice", alloc.Ports["1/1/1"].State)
 		}
 
 		res := loadExported(t, phyCfg, alloc)
@@ -1110,7 +1110,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		}
 		alloc := phyCfg.Allocate()
 		if alloc.Ports["1/1/1"].State != phy.PowerUnknown {
-			t.Fatalf("expected PowerUnknown, got %v", alloc.Ports["1/1/1"].State)
+			t.Fatalf("got power state %v, want PowerUnknown", alloc.Ports["1/1/1"].State)
 		}
 
 		res := loadExported(t, phyCfg, alloc)
@@ -1144,7 +1144,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		}
 		alloc := phyCfg.Allocate()
 		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonBudget {
-			t.Fatalf("expected PowerDenied(budget), got %+v", alloc.Ports["1/1/1"])
+			t.Fatalf("got port allocation %+v, want PowerDenied(budget)", alloc.Ports["1/1/1"])
 		}
 
 		res := loadExported(t, phyCfg, alloc)

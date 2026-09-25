@@ -151,7 +151,7 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			builder := port.NewBuilder().Add(port.Port{
-				Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up,
+				Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up,
 			})
 			for _, member := range test.members {
 				builder.Add(member)
@@ -167,7 +167,7 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 	}
 
 	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"}))
 	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 	sw.Start(fixedTime)
@@ -185,7 +185,7 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 
 func TestConfigEqualAndDiffNormalizeCompleteConfiguration(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1"}))
 	raw := vswitch.Config{Ports: ports}
 	explicit := raw.Normalize()
@@ -326,8 +326,8 @@ func mustSwitchLearn(t *testing.T, sw *vswitch.Switch, seeds []bridge.Seed) {
 	}
 }
 
-// TestEntriesCarryOriginAndLifetime is R4's acceptance example at the switch level: a seeded
-// entry and a live-learned one for different MACs both appear in Entries() reporting their own
+// TestEntriesCarryOriginAndLifetime verifies at the switch level that a seeded entry and a
+// live-learned one for different MACs both appear in Entries() reporting their own
 // Origin and Lifetime.
 func TestEntriesCarryOriginAndLifetime(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
@@ -456,7 +456,7 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 		tbl := mustTable(t, port.NewBuilder().
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
 			Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
-			Add(port.Port{Name: "lag1", Kind: port.Lag}))
+			Add(port.Port{Name: "lag1", Kind: port.LAG}))
 
 		cfg := vswitch.Config{
 			Ports:   tbl,
@@ -486,11 +486,11 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 
 		want := []port.Layer{
 			port.LayerEthernet,
-			port.LayerLag,
-			port.LayerPoe,
+			port.LayerLAG,
+			port.LayerPoE,
 			port.LayerRelay,
 			port.LayerTraffic,
-			port.LayerVlan,
+			port.LayerVLAN,
 		}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 			t.Errorf("got capabilities %v, want %v", caps, want)
@@ -845,7 +845,7 @@ func TestPeekLeavesPolicerBucketsUntouched(t *testing.T) {
 
 func TestMirrorSelectionUsesLogicalLAGIngress(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -932,7 +932,7 @@ func TestHubWithDownPort(t *testing.T) {
 			t.Errorf("got reason %v, want %v", res.Reason, port.ReasonPortDown)
 		}
 		if len(res.Egress) != 0 {
-			t.Errorf("expected 0 egress entries, got %d", len(res.Egress))
+			t.Errorf("got %d egress entries, want 0", len(res.Egress))
 		}
 	})
 }
@@ -1149,13 +1149,13 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		for _, ch := range changes {
 			if ch.Subject.Kind == "capability" && ch.Subject.Key == "vlan" {
 				foundCap = true
-				if ch.From != nil || trace.CompareFact(ch.To, vswitch.LayerFact(port.LayerVlan)) != 0 {
+				if ch.From != nil || trace.CompareFact(ch.To, vswitch.LayerFact(port.LayerVLAN)) != 0 {
 					t.Errorf("unexpected capability change payload: %+v", ch)
 				}
 			}
 		}
 		if !foundCap {
-			t.Errorf("expected capability change for vlan, got changes: %+v", changes)
+			t.Errorf("got changes %+v, want capability change for vlan", changes)
 		}
 	})
 
@@ -1384,7 +1384,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 
 		// Target has 1/1/1 as a LAG with no members.
 		targetPorts := mustTable(t, port.NewBuilder().
-			Add(port.Port{Name: "1/1/1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 		targetCfg := vswitch.Config{
 			Ports:  targetPorts,
@@ -1396,7 +1396,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			t.Fatalf("unexpected derive error: %v", err)
 		}
 		if len(derived.Entries()) != 0 {
-			t.Errorf("expected entries dropped for LAG without members, got %v", derived.Entries())
+			t.Errorf("got entries %v for LAG without members, want none", derived.Entries())
 		}
 	})
 
@@ -1414,7 +1414,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 		}
 
 		if _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}); err == nil {
-			t.Errorf("expected validation error from Derive, got nil")
+			t.Errorf("got nil validation error from Derive, want non-nil")
 		}
 	})
 
@@ -1437,7 +1437,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 		}
 		entries := derived.Entries()
 		if len(entries) != 1 || entries[0].FID != 0 {
-			t.Errorf("expected 1 entry with FID 0, got %v", entries)
+			t.Errorf("got entries with FID 0 %v, want exactly 1", entries)
 		}
 	})
 
@@ -1472,7 +1472,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if len(derived.Entries()) != 0 {
-			t.Errorf("expected entries dropped when transitioning to non-VLAN, got %v", derived.Entries())
+			t.Errorf("got entries %v after transition to non-VLAN, want none", derived.Entries())
 		}
 	})
 }
@@ -1504,16 +1504,16 @@ func TestSwitchReadableState(t *testing.T) {
 	// Speeds
 	speeds := sw.Speeds()
 	if speeds == nil || len(speeds) != 1 {
-		t.Errorf("expected 1 resolved speed, got %v", speeds)
+		t.Errorf("got resolved speeds %v, want exactly 1", speeds)
 	}
 
 	// Power
 	power := sw.Power()
 	if power.Groups == nil || len(power.Groups) != 1 {
-		t.Errorf("expected 1 group allocation, got %v", power.Groups)
+		t.Errorf("got group allocations %v, want exactly 1", power.Groups)
 	}
 	if issues := power.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "poe-demand-unknown" {
-		t.Errorf("expected 1 poe-demand-unknown issue, got %v", issues)
+		t.Errorf("got poe-demand-unknown issues %v, want exactly 1", issues)
 	}
 
 	// Config clone
@@ -1677,7 +1677,7 @@ func TestCapabilitiesSTP(t *testing.T) {
 		},
 	}
 
-	want := []port.Layer{port.LayerRelay, port.LayerStp}
+	want := []port.Layer{port.LayerRelay, port.LayerSTP}
 	if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 		t.Errorf("got capabilities %v, want %v", caps, want)
 	}
@@ -1751,7 +1751,7 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
-	if len(res.Steps) != 2 || res.Steps[0].Layer != port.LayerStp || res.Steps[0].Op != trace.OpClassify {
+	if len(res.Steps) != 2 || res.Steps[0].Layer != port.LayerSTP || res.Steps[0].Op != trace.OpClassify {
 		t.Errorf("res.Steps = %+v, want spanning-tree classification followed by the mirror decision", res.Steps)
 	}
 	if !traceHasFactType(res.Steps, "stp.bpdu_decision") {
@@ -1774,7 +1774,7 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
@@ -1877,7 +1877,7 @@ func TestDiffSTPPriorityChange(t *testing.T) {
 	changes := vswitch.Diff(cfgA, cfgB)
 	found := false
 	for _, ch := range changes {
-		if ch.Layer == port.LayerStp && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
+		if ch.Layer == port.LayerSTP && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
 			found = true
 			if trace.CompareFact(ch.From, stp.PriorityFact(32768)) != 0 || trace.CompareFact(ch.To, stp.PriorityFact(4096)) != 0 {
 				t.Errorf("priority change = %+v, want 32768 -> 4096", ch)
@@ -2425,7 +2425,7 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 // forever once blocked.
 func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 
@@ -3189,7 +3189,7 @@ func TestCapabilitiesWithRouting(t *testing.T) {
 				},
 			},
 		}
-		want := []port.Layer{port.LayerRelay, port.LayerRouting, port.LayerVlan}
+		want := []port.Layer{port.LayerRelay, port.LayerRouting, port.LayerVLAN}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 			t.Errorf("got capabilities %v, want %v", caps, want)
 		}
@@ -3391,7 +3391,7 @@ func TestCrossLayerValidation(t *testing.T) {
 		lagPorts := mustTable(t, port.NewBuilder().
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
 			Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
-			Add(port.Port{Name: "lag1", Kind: port.Lag}))
+			Add(port.Port{Name: "lag1", Kind: port.LAG}))
 
 		cfg := vswitch.Config{
 			Ports: lagPorts,
@@ -3539,13 +3539,13 @@ func TestVLANToVLANRouting(t *testing.T) {
 	res := sw.Forward(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
-		{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
 		{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 		{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-		{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 	}
 	assertSteps(t, res.Steps, wantSteps)
@@ -3591,14 +3591,14 @@ func TestVLANToVLANRouting(t *testing.T) {
 	swEmpty := buildBaseRoutingSwitch(t)
 	resFlood := swEmpty.Forward(fixedTime, "1/1/1", frame)
 	wantFloodSteps := []trace.Step{
-		{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
 		{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 		{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-miss", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
 		{Layer: port.LayerRelay, Op: trace.OpReplicate, RuleID: "flood", Subject: trace.Subject{Kind: "vlan", Key: "20"}},
-		{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 	}
 	assertSteps(t, resFlood.Steps, wantFloodSteps)
@@ -3659,7 +3659,7 @@ func TestNeighborPendingHolds(t *testing.T) {
 	res := sw.Forward(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
-		{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
@@ -3738,7 +3738,7 @@ func TestNeighborDisabledMisses(t *testing.T) {
 	res := sw.Forward(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
-		{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
@@ -3845,7 +3845,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "ttl-expired", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
@@ -3869,7 +3869,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "local-delivery", Subject: trace.Subject{Kind: "ip", Key: "10.0.10.1"}},
@@ -3891,7 +3891,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "bad-header", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
@@ -3912,7 +3912,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "10.0.30.7"}},
@@ -3998,13 +3998,13 @@ func TestIPv6Routing(t *testing.T) {
 
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "2001:db8:20::/64"}},
 			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 			{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-			{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 			{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
@@ -4034,7 +4034,7 @@ func TestIPv6Routing(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "2001:db8:30::7"}},
@@ -4140,13 +4140,13 @@ func TestVRFIsolation(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/3", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan30"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
 			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan40"}},
 			{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:99"}},
-			{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
+			{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
 			{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
@@ -4185,7 +4185,7 @@ func TestVRFIsolation(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/3", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan30"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "10.0.88.7"}},
@@ -4260,7 +4260,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
 			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.50.0/24"}},
@@ -4307,7 +4307,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
 			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 			{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-			{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 			{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
@@ -4779,7 +4779,7 @@ func TestRoutedFrameIngressLAGResolution(t *testing.T) {
 	p20 := vlan.ID(20)
 
 	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -4830,7 +4830,7 @@ func TestRoutedPortLAGLowestForwardingMember(t *testing.T) {
 
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag2", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag2", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/5b", Kind: port.Physical, LagParent: "lag2", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/5a", Kind: port.Physical, LagParent: "lag2", AdminStatus: port.Up, OperStatus: port.Up}))
 
@@ -5222,8 +5222,8 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 	}
 }
 
-// TestDeriveRebuildsRoutingWhenNeighborPolicyChanges covers R9: a
-// NeighborPolicy field change is not read by [routing.Diff] without its own
+// TestDeriveRebuildsRoutingWhenNeighborPolicyChanges verifies that a NeighborPolicy field
+// change is not read by [routing.Diff] without its own
 // arm, and a missing arm would make Derive silently reuse the old layer.
 // This asserts the neighbor table, not the held-frame queue: derive.go
 // unconditionally discards held frames on the layer it retains, so a
@@ -5484,7 +5484,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/4", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	cfg := vswitch.Config{
 		MAC:   macA,
@@ -5548,7 +5548,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	if res.Outcome != trace.Consumed {
 		t.Errorf("res.Outcome = %s, want Consumed", res.Outcome)
 	}
-	if len(res.Steps) == 0 || res.Steps[0].Layer != port.LayerLag || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
+	if len(res.Steps) == 0 || res.Steps[0].Layer != port.LayerLAG || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
 		t.Errorf("res.Steps = %+v, want step with LayerLag, OpClassify, rule lag.lacpdu.admit", res.Steps)
 	}
 	if !traceHasFactType(res.Steps, "lag.lacp_decision") {
@@ -5612,7 +5612,7 @@ func TestDefaultLAGSelectionLowestMember(t *testing.T) {
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	cfg := vswitch.Config{
 		Ports: ports,
@@ -5659,7 +5659,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	cfg := vswitch.Config{
 		MAC:   macBridge,
@@ -5736,7 +5736,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 // the layer's enablement.
 func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	b := port.NewBuilder()
-	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 	tbl := mustTable(t, b)
 	sw := mustSwitch(t, vswitch.Config{
@@ -6362,7 +6362,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		pvid := vlan.ID(10)
 		cfg := base.Clone()
 		cfg.Ports = mustTable(t, port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}))
 		cfg.Bridge.VLAN.Switchports = map[string]bridge.Switchport{"lag1": {PVID: &pvid, Untagged: []vlan.ID{10}}}
 		cfg.Mcast.VLANs[10] = mcast.VLANSnooping{RouterPorts: []string{"1/1/1"}}
@@ -6482,7 +6482,7 @@ func balancedLAGConfig(t *testing.T, rebalanceInterval *time.Duration) vswitch.C
 
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 
@@ -6567,7 +6567,7 @@ func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 	ten := 10 * time.Second
@@ -6621,7 +6621,7 @@ func TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame(t *testing.
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
 
@@ -7501,7 +7501,7 @@ func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 		if issue.Code != vswitch.IssuePVSTBoundary {
 			continue
 		}
-		want := analysis.ProtocolScope("", string(port.LayerStp), "1/1/1/10")
+		want := analysis.ProtocolScope("", string(port.LayerSTP), "1/1/1/10")
 		if issue.Scope.Compare(want) != 0 {
 			t.Errorf("issue scope = %s, want %s", issue.Scope, want)
 		}
@@ -7839,7 +7839,7 @@ func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
 	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 	vid := vlan.ID(1)
 
-	stpScope := analysis.ProtocolScope("sw1", string(port.LayerStp), "0")
+	stpScope := analysis.ProtocolScope("sw1", string(port.LayerSTP), "0")
 	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 		Config: vswitch.Config{
 			MAC: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
@@ -8214,8 +8214,8 @@ func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 	if !ok {
 		t.Fatalf("no port.status.down step in the trace: %+v", res.Steps)
 	}
-	if step.Layer != port.LayerStp {
-		t.Errorf("step layer = %s, want %s", step.Layer, port.LayerStp)
+	if step.Layer != port.LayerSTP {
+		t.Errorf("step layer = %s, want %s", step.Layer, port.LayerSTP)
 	}
 }
 
@@ -9154,7 +9154,7 @@ func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/5", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	sw := mustSwitch(t, vswitch.Config{
 		Ports: ports,

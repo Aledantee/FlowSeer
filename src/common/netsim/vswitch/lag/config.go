@@ -180,7 +180,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 	lagMembers := make(map[string][]string)
 	var lagNames []string
 	for _, p := range ports.Ports() {
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			lagNames = append(lagNames, p.Name)
 		}
 	}
@@ -262,7 +262,7 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("lag", lagName).
 				Msgf("LAG port %q absent from port table", lagName)
 		}
-		if p.Kind != port.Lag {
+		if p.Kind != port.LAG {
 			return errs.New().
 				Attr("field", "lags."+lagName).
 				Attr("lag", lagName).

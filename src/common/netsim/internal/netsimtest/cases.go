@@ -277,7 +277,6 @@ func CasePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 
-			// Advance clock slightly before fork.
 			fab.Run(5)
 
 			// Fork a candidate simulation mid-run.
@@ -1528,7 +1527,7 @@ func CasePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 		Execute: func() (ExecutionResult, error) {
 			ports, err := port.NewBuilder().
 				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Build()
@@ -1646,7 +1645,7 @@ func CaseTroubleshootingActiveBackupNoFailback() Case {
 		Execute: func() (ExecutionResult, error) {
 			ports, err := port.NewBuilder().
 				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Build()

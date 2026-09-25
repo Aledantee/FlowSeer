@@ -599,8 +599,8 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	}
 }
 
-// TestSnapshotDevicesEntriesCarryOriginAndLifetime is R4's acceptance example through
-// Snapshot().Devices: a seeded entry and one a live frame taught the bridge both appear in
+// TestSnapshotDevicesEntriesCarryOriginAndLifetime verifies through Snapshot().Devices
+// that a seeded entry and one a live frame taught the bridge both appear in
 // Entries reporting their own Origin and Lifetime.
 func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 	gigabit := autoEthernet(1_000_000_000)

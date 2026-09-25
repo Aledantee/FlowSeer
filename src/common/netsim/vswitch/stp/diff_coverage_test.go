@@ -10,7 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported stp.Config field reaches
+// TestDiffCoversEveryConfigField verifies that every exported stp.Config field reaches
 // stp.Diff. MST and PVST are mutually exclusive at construction (Config.Validate), which
 // this fixture never calls; Diff and Normalize take the raw struct, so seeding both
 // together reaches every leaf of each in one pass.

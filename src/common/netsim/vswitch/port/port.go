@@ -19,23 +19,23 @@ const (
 	// LayerPort identifies the base port table layer.
 	LayerPort trace.Layer = "port"
 
-	// LayerLag identifies the link aggregation layer.
-	LayerLag trace.Layer = "lag"
+	// LayerLAG identifies the link aggregation layer.
+	LayerLAG trace.Layer = "lag"
 
 	// LayerEthernet identifies the physical Ethernet speeds and auto-negotiation layer.
 	LayerEthernet trace.Layer = "ethernet"
 
-	// LayerPoe identifies the Power over Ethernet layer.
-	LayerPoe trace.Layer = "poe"
+	// LayerPoE identifies the Power over Ethernet layer.
+	LayerPoE trace.Layer = "poe"
 
 	// LayerRelay identifies the bridge relay forwarding layer.
 	LayerRelay trace.Layer = "relay"
 
-	// LayerVlan identifies the 802.1Q VLAN awareness and filtering layer.
-	LayerVlan trace.Layer = "vlan"
+	// LayerVLAN identifies the 802.1Q VLAN awareness and filtering layer.
+	LayerVLAN trace.Layer = "vlan"
 
-	// LayerStp identifies the Rapid Spanning Tree Protocol layer.
-	LayerStp trace.Layer = "stp"
+	// LayerSTP identifies the Rapid Spanning Tree Protocol layer.
+	LayerSTP trace.Layer = "stp"
 
 	// LayerLoopProtect identifies netsim's own loop-protection layer.
 	LayerLoopProtect trace.Layer = "loopprotect"
@@ -68,8 +68,8 @@ const (
 	// Physical represents a physical network interface.
 	Physical Kind = "Physical"
 
-	// Lag represents a link aggregation group interface.
-	Lag Kind = "Lag"
+	// LAG represents a link aggregation group interface.
+	LAG Kind = "Lag"
 
 	// Other represents any other interface kind, such as loopback or management.
 	Other Kind = "Other"
@@ -80,7 +80,7 @@ func (k Kind) TypeID() string {
 	return "port.kind"
 }
 
-// Canonical returns the string value of the Kind.
+// Canonical returns Kind's stable, case-sensitive token.
 func (k Kind) Canonical() string {
 	return string(k)
 }
@@ -228,7 +228,7 @@ func (t Table) Len() int {
 // If lagName does not name a LAG in the table, or the LAG has no member ports,
 // Members returns nil.
 func (t Table) Members(lagName string) []Port {
-	if lag, ok := t.byName[lagName]; !ok || lag.Kind != Lag {
+	if lag, ok := t.byName[lagName]; !ok || lag.Kind != LAG {
 		return nil
 	}
 	var members []Port
@@ -371,7 +371,7 @@ func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
 		return "", ReasonPortDown
 	}
 
-	if p.Kind == Lag {
+	if p.Kind == LAG {
 		hasFwd := false
 		for _, m := range t.Members(p.Name) {
 			if m.Forwards() {
@@ -415,7 +415,7 @@ func (t Table) Normalize() Table {
 
 // Validate verifies the invariants of the table: all port names must be non-empty
 // and unique, enums must be in their declared domains, MTU must be non-negative,
-// any configured LAG parent must refer to an existing port of kind Lag,
+// any configured LAG parent must refer to an existing port of kind LAG,
 // and no LAG port may have a LAG parent.
 func (t Table) Validate() error {
 	seen := make(map[string]struct{}, len(t.ports))
@@ -429,7 +429,7 @@ func (t Table) Validate() error {
 		seen[p.Name] = struct{}{}
 
 		switch p.Kind {
-		case Physical, Lag, Other, "":
+		case Physical, LAG, Other, "":
 		default:
 			return errs.New().
 				Attr("field", "ports."+p.Name+".kind").
@@ -468,7 +468,7 @@ func (t Table) Validate() error {
 	}
 
 	for _, p := range t.ports {
-		if p.Kind == Lag && p.LagParent != "" {
+		if p.Kind == LAG && p.LagParent != "" {
 			return errs.New().
 				Attr("field", "ports."+p.Name+".lag_parent").
 				Attr("name", p.Name).
@@ -484,7 +484,7 @@ func (t Table) Validate() error {
 					Attr("parent", p.LagParent).
 					Msgf("port %q refers to non-existent LAG parent %q", p.Name, p.LagParent)
 			}
-			if parent.Kind != Lag {
+			if parent.Kind != LAG {
 				return errs.New().
 					Attr("field", "ports."+p.Name+".lag_parent").
 					Attr("name", p.Name).

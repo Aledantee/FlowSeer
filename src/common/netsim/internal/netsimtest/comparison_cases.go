@@ -133,9 +133,7 @@ func ComparisonCorpus() []ComparisonCase {
 		return swA, swB, nil
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 1: vswitch/equivalent-complete
-	// -------------------------------------------------------------------------
 	c1Ports := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
@@ -196,9 +194,7 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 2: vswitch/port-down-different
-	// -------------------------------------------------------------------------
 	c2PortsA := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
@@ -255,9 +251,7 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 3: vswitch/inconclusive-unknown-status
-	// -------------------------------------------------------------------------
 	c3Ports := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
@@ -310,9 +304,7 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Fabric helpers
-	// -------------------------------------------------------------------------
 	gigabit := gigabitAuto()
 	fabScenario := fabric.Scenario{
 		Name: "comparison-scenario",
@@ -406,9 +398,7 @@ func ComparisonCorpus() []ComparisonCase {
 		return fabA, fabB, nil
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 4: fabric/equivalent-complete
-	// -------------------------------------------------------------------------
 	c4FabA, c4FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
 	c4ClockA, c4ClockB := c4FabA.Snapshot().Clock, c4FabB.Snapshot().Clock
@@ -474,9 +464,7 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 5: fabric/cable-cut-different
-	// -------------------------------------------------------------------------
 	cutCableMutation := func(cables []fabric.Cable) []fabric.Cable {
 		res := make([]fabric.Cable, len(cables))
 		copy(res, cables)
@@ -552,9 +540,7 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 6: fabric/medium-path-different
-	// -------------------------------------------------------------------------
 	mediumMutation := func(cables []fabric.Cable) []fabric.Cable {
 		res := make([]fabric.Cable, len(cables))
 		copy(res, cables)
@@ -630,9 +616,7 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 7: fabric/inconclusive-budget-exhausted
-	// -------------------------------------------------------------------------
 	c7FabA, c7FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
 	c7ClockA, c7ClockB := c7FabA.Snapshot().Clock, c7FabB.Snapshot().Clock

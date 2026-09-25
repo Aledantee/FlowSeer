@@ -246,7 +246,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		bg, exists := bGroups[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				From:    ag,
 			})
@@ -255,7 +255,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ag.PowerMilliwatts != bg.PowerMilliwatts {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				Field:   "power_milliwatts",
 				From:    PowerFact(ag.PowerMilliwatts),
@@ -266,7 +266,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 	for _, name := range sortedKeys(bGroups) {
 		if _, exists := aGroups[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				To:      bGroups[name],
 			})
@@ -278,7 +278,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		bp, exists := bPorts[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				From:    snapshotPSEPort(ap),
 			})
@@ -288,7 +288,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 
 		if ap.Group != bp.Group {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "group",
 				From:    StringFact(ap.Group),
@@ -297,7 +297,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.MaxClass != bp.MaxClass {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "max_class",
 				From:    ClassFact(ap.MaxClass),
@@ -306,7 +306,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.Enabled != bp.Enabled {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "enabled",
 				From:    BoolFact(ap.Enabled),
@@ -315,7 +315,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if !equalUint32Ptr(ap.Limit, bp.Limit) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "power_limit_milliwatts",
 				From:    limitFact(ap.Limit),
@@ -324,7 +324,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "priority",
 				From:    ap.Priority,
@@ -333,7 +333,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.PD != bp.PD {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "pd",
 				From:    ap.PD,
@@ -342,7 +342,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if !equalUint8Ptr(ap.PDClass, bp.PDClass) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "pd_class",
 				From:    pdClassFact(ap.PDClass),
@@ -353,7 +353,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 	for _, name := range sortedKeys(bPorts) {
 		if _, exists := aPorts[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoe,
+				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				To:      snapshotPSEPort(bPorts[name]),
 			})

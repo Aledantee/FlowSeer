@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported loopprotect.Config field
+// TestDiffCoversEveryConfigField verifies that every exported loopprotect.Config field
 // reaches loopprotect.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	seed := loopprotect.Config{

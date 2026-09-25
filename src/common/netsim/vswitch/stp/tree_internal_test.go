@@ -38,13 +38,10 @@ func TestTreeForAnswersForEveryVLAN(t *testing.T) {
 	}
 }
 
-// TestLoopGuardIgnoresAnEdgePort is a guard for later code, not evidence for
-// this change: no sequence of Receive, Wake, and LinkChange can currently leave
-// a port both operationally edge and holding received information in a
-// non-designated role, because Receive resets edge from the administrative
-// setting and the auto-edge promotion only fires on a Designated port. The
-// state is built directly here so the exclusion is pinned before a later phase
-// makes it reachable.
+// TestLoopGuardIgnoresAnEdgePort verifies the exclusion directly because Receive resets
+// edge from the administrative setting and auto-edge promotion fires only on a Designated
+// port; no Receive, Wake, and LinkChange sequence can leave a port both operationally edge
+// and holding received information in a non-designated role.
 func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	t.Parallel()
 

@@ -381,10 +381,10 @@ func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
 			result := (loadInput{
 				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
 				bridgeState: state,
-				want:        []port.Layer{port.LayerStp},
+				want:        []port.Layer{port.LayerSTP},
 			}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "stp-version"})
 
-			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, port.LayerStp) {
+			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, port.LayerSTP) {
 				t.Errorf("unsupported STP protocol constructed a layer: config=%+v capabilities=%v", result.Spec.Config.STP, result.Report.Capabilities)
 			}
 			if result.Readiness() != test.status {
@@ -445,12 +445,12 @@ func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
 			input := loadInput{
 				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
 				bridgeState: builder.Build(),
-				want:        []port.Layer{port.LayerStp},
+				want:        []port.Layer{port.LayerSTP},
 			}
 			input.validate(t)
 
 			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-stp-timer"})
-			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, port.LayerStp) {
+			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, port.LayerSTP) {
 				t.Errorf("present zero %s constructed an STP layer: config=%+v capabilities=%v", test.field, result.Spec.Config.STP, result.Report.Capabilities)
 			}
 			if result.Readiness() != analysis.Unsupported {
@@ -464,7 +464,7 @@ func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
 
 			issueIndex := slices.IndexFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
 				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer &&
-					issue.Scope.Compare(analysis.ProtocolScope("sw1", string(port.LayerStp), "0")) == 0
+					issue.Scope.Compare(analysis.ProtocolScope("sw1", string(port.LayerSTP), "0")) == 0
 			})
 			if issueIndex < 0 {
 				t.Fatalf("issues = %+v, want %s scoped to sw1", result.Metadata.Issues(), netmodel.IssueInvalidSTPBridgeTimer)
@@ -711,7 +711,7 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 					switchingv1.Vlan_builder{Id: &vid, Name: ptr("blue")}.Build(),
 					switchingv1.Vlan_builder{Id: &vid, Name: ptr("red")}.Build(),
 				},
-				want: []port.Layer{port.LayerVlan},
+				want: []port.Layer{port.LayerVLAN},
 			},
 			conflictOn: "vlan",
 			omitted: func(result netmodel.Result) bool {
@@ -1011,7 +1011,7 @@ func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
 			nil,
 			stpv1.PortState_builder{InterfaceName: &portB}.Build(),
 		},
-		want: []port.Layer{port.LayerStp},
+		want: []port.Layer{port.LayerSTP},
 	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
 
 	if result.Spec.Config.STP != nil {
@@ -1032,10 +1032,10 @@ func TestLoadRequestedSTPWithoutBridgeStateReportsConstructedCapabilities(t *tes
 		stpPorts: []*stpv1.PortState{
 			stpv1.PortState_builder{InterfaceName: ptr("1/1/1")}.Build(),
 		},
-		want: []port.Layer{port.LayerStp},
+		want: []port.Layer{port.LayerSTP},
 	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-bridge"})
 
-	if slices.Contains(result.Report.Capabilities, port.LayerStp) {
+	if slices.Contains(result.Report.Capabilities, port.LayerSTP) {
 		t.Errorf("reported capabilities = %v, includes unconstructed STP", result.Report.Capabilities)
 	}
 	if result.Spec.Config.STP != nil {
@@ -1068,7 +1068,7 @@ func TestLoadOrphanSTPRowsAreScopedOmissions(t *testing.T) {
 		},
 	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "orphan-stp-row"})
 
-	if slices.Contains(result.Report.Capabilities, port.LayerStp) || result.Spec.Config.STP != nil {
+	if slices.Contains(result.Report.Capabilities, port.LayerSTP) || result.Spec.Config.STP != nil {
 		t.Errorf("orphan row constructed or reported STP: capabilities=%v config=%+v", result.Report.Capabilities, result.Spec.Config.STP)
 	}
 	if result.Readiness() == analysis.Complete {
@@ -1185,7 +1185,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidPoePriority, analysis.PortScope("sw1", name))
+		assertUnsupported(t, result, netmodel.IssueInvalidPoEPriority, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Phy.PoE.Ports[name]; ok {
 			t.Error("unknown PoE priority was coerced into an executable PSE port")
 		}
@@ -1202,7 +1202,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
 		assertUnsupported(t, result, netmodel.IssueInvalidPointToPointMode, analysis.FieldScope(
-			analysis.ProtocolScope("sw1", string(port.LayerStp), "0"), "ports", name,
+			analysis.ProtocolScope("sw1", string(port.LayerSTP), "0"), "ports", name,
 		))
 		if _, ok := result.Spec.Config.STP.Ports[name]; ok {
 			t.Error("unknown point-to-point mode was coerced into an executable STP row")
@@ -1410,7 +1410,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 				budgets: []*phyv1.PseBudget{
 					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
 				},
-				want: []port.Layer{port.LayerPoe},
+				want: []port.Layer{port.LayerPoE},
 			}
 			input.validate(t)
 
@@ -1533,7 +1533,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 				budgets: []*phyv1.PseBudget{
 					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
 				},
-				want: []port.Layer{port.LayerPoe},
+				want: []port.Layer{port.LayerPoE},
 			}
 			input.validate(t)
 

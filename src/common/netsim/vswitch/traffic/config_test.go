@@ -18,7 +18,7 @@ func trafficPortTable(t *testing.T) port.Table {
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/4", Kind: port.Physical}).
 		Add(port.Port{Name: "1/1/24", Kind: port.Physical}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Build()
 	if err != nil {
 		t.Fatalf("build port table: %v", err)

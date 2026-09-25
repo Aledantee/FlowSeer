@@ -28,7 +28,7 @@ func selectOK(l *lag.Layer, now time.Time, lagName string, f ethernet.Frame, vid
 func lagTwoPortTable(t *testing.T) port.Table {
 	t.Helper()
 	tbl, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Build()
@@ -828,7 +828,7 @@ func TestNextWakeNeverBeforeTheLastEvent(t *testing.T) {
 
 func lagNamedPortTable(t *testing.T, memberNames ...string) port.Table {
 	t.Helper()
-	b := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.Lag})
+	b := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG})
 	for _, name := range memberNames {
 		b = b.Add(port.Port{Name: name, Kind: port.Physical, LagParent: "lag1"})
 	}
@@ -999,10 +999,10 @@ func TestFaultInOneLAGLeavesAnotherUnchanged(t *testing.T) {
 	t.Parallel()
 
 	tbl, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
-		Add(port.Port{Name: "lag2", Kind: port.Lag}).
+		Add(port.Port{Name: "lag2", Kind: port.LAG}).
 		Add(port.Port{Name: "2/1/1", Kind: port.Physical, LagParent: "lag2"}).
 		Add(port.Port{Name: "2/1/2", Kind: port.Physical, LagParent: "lag2"}).
 		Build()

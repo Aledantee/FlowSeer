@@ -56,12 +56,17 @@ const (
 // 24-30 ports carrying 2-4 VLANs with one LAG each and a single spanning tree;
 // docs/research/device-inventory/README.md:30, labsw06-ruckus-icx7150.md:125, :127)
 // with each count rounded up to a deliberate power of two.
+// RepresentativeFabric panics if the fixed in-package topology cannot be constructed.
+// The panic uses the proven handling answer: TestRepresentativeFabricEnvelope rebuilds
+// the topology on every test run.
 func RepresentativeFabric() *fabric.Fabric {
 	return RepresentativeFabricAtQueueDepth(RepresentativeScaleQueueDepth)
 }
 
 // RepresentativeFabricAtQueueDepth builds the representative topology primed with
-// the requested number of queued arrivals.
+// the requested number of queued arrivals. It panics if the fixed in-package topology
+// cannot be constructed. The panic uses the proven handling answer:
+// TestRepresentativeFabricEnvelope rebuilds the topology on every test run.
 func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 	tStart := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 
@@ -79,7 +84,7 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		swMAC := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, byte(s), 0x01}
 
 		pb := port.NewBuilder()
-		pb.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+		pb.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 		pb.Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
 		pb.Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
 		for p := 3; p <= RepresentativeScalePortsPerNode; p++ {
@@ -272,6 +277,10 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 	return fab
 }
 
+// mustNil panics if an in-package fixture built from fixed constants violates a
+// construction invariant. The panic uses the proven handling answer:
+// TestRepresentativeFabricEnvelope and TestComparisonCorpusInvariants construct the
+// fixtures on every test run.
 func mustNil(err error) {
 	if err != nil {
 		panic(err)

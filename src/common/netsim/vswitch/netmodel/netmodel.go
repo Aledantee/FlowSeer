@@ -79,9 +79,9 @@ const (
 	IssueInvalidPrefix                  analysis.IssueCode = "netmodel.routing.invalid_prefix"
 	IssueInvalidFDBKind                 analysis.IssueCode = "netmodel.fdb.invalid_kind"
 	IssueInvalidFDBStatus               analysis.IssueCode = "netmodel.fdb.invalid_status"
-	IssueInvalidVlanID                  analysis.IssueCode = "netmodel.vlan.invalid_id"
+	IssueInvalidVLANID                  analysis.IssueCode = "netmodel.vlan.invalid_id"
 	IssueInvalidEthernetDuplex          analysis.IssueCode = "netmodel.ethernet.invalid_duplex"
-	IssueInvalidPoePriority             analysis.IssueCode = "netmodel.poe.invalid_priority"
+	IssueInvalidPoEPriority             analysis.IssueCode = "netmodel.poe.invalid_priority"
 	IssueInvalidSwitchportMode          analysis.IssueCode = "netmodel.switchport.invalid_mode"
 	IssueInvalidFrameAdmission          analysis.IssueCode = "netmodel.switchport.invalid_frame_admission"
 	IssueInvalidPointToPointMode        analysis.IssueCode = "netmodel.stp.invalid_point_to_point_mode"
@@ -96,7 +96,7 @@ const (
 	IssueConflictSTPPort                analysis.IssueCode = "netmodel.stp.conflict"
 	IssueConflictLACP                   analysis.IssueCode = "netmodel.lacp.conflict"
 	IssueConflictBudget                 analysis.IssueCode = "netmodel.poe.conflict"
-	IssueConflictVlan                   analysis.IssueCode = "netmodel.vlan.conflict"
+	IssueConflictVLAN                   analysis.IssueCode = "netmodel.vlan.conflict"
 	IssueConflictAddress                analysis.IssueCode = "netmodel.routing.address_conflict"
 	IssueConflictNeighbor               analysis.IssueCode = "netmodel.routing.conflict"
 	IssueConflictRoutedClaim            analysis.IssueCode = "netmodel.routing.claim_conflict"
@@ -218,7 +218,7 @@ func Load(
 	protocolScope := func(layer port.Layer, instance string) analysis.Scope {
 		return analysis.ProtocolScope(src.DeviceID, string(layer), instance)
 	}
-	stpScope := protocolScope(port.LayerStp, "0")
+	stpScope := protocolScope(port.LayerSTP, "0")
 	routingScope := routing.VRFScope(src.DeviceID, routing.DefaultVRF)
 	stpPortScope := func(portName string) analysis.Scope {
 		return analysis.FieldScope(stpScope, "ports", portName)
@@ -382,8 +382,8 @@ func Load(
 		seen := make(map[port.Layer]struct{}, len(want))
 		for _, layer := range want {
 			switch layer {
-			case port.LayerRelay, port.LayerVlan, port.LayerEthernet, port.LayerPoe,
-				port.LayerLag, port.LayerStp, port.LayerRouting, port.LayerFilter:
+			case port.LayerRelay, port.LayerVLAN, port.LayerEthernet, port.LayerPoE,
+				port.LayerLAG, port.LayerSTP, port.LayerRouting, port.LayerFilter:
 			default:
 				addSkipped(
 					"",
@@ -432,7 +432,7 @@ func Load(
 				p.LagParent = iface.GetPhysical().GetLagParent()
 			}
 		case iface.GetLag() != nil:
-			p.Kind = port.Lag
+			p.Kind = port.LAG
 		default:
 			p.Kind = port.Other
 		}
@@ -614,35 +614,35 @@ func Load(
 		report.CapabilitySources[port.LayerRelay] = "always"
 
 		if hasSwitchportFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerVlan)
-			report.CapabilitySources[port.LayerVlan] = "inferred:switchport"
+			report.Capabilities = append(report.Capabilities, port.LayerVLAN)
+			report.CapabilitySources[port.LayerVLAN] = "inferred:switchport"
 		}
 		if hasEthernetFacet {
 			report.Capabilities = append(report.Capabilities, port.LayerEthernet)
 			report.CapabilitySources[port.LayerEthernet] = "inferred:ethernet"
 		}
 		if hasPoeFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerPoe)
-			report.CapabilitySources[port.LayerPoe] = "inferred:poe"
+			report.Capabilities = append(report.Capabilities, port.LayerPoE)
+			report.CapabilitySources[port.LayerPoE] = "inferred:poe"
 		} else if len(budgets) > 0 {
-			report.Capabilities = append(report.Capabilities, port.LayerPoe)
-			report.CapabilitySources[port.LayerPoe] = "inferred:pse_budget"
+			report.Capabilities = append(report.Capabilities, port.LayerPoE)
+			report.CapabilitySources[port.LayerPoE] = "inferred:pse_budget"
 		}
 		if hasLag {
-			report.Capabilities = append(report.Capabilities, port.LayerLag)
-			report.CapabilitySources[port.LayerLag] = "inferred:lag"
+			report.Capabilities = append(report.Capabilities, port.LayerLAG)
+			report.CapabilitySources[port.LayerLAG] = "inferred:lag"
 		}
 		if bridgeState != nil {
-			report.Capabilities = append(report.Capabilities, port.LayerStp)
-			report.CapabilitySources[port.LayerStp] = "inferred:stp"
+			report.Capabilities = append(report.Capabilities, port.LayerSTP)
+			report.CapabilitySources[port.LayerSTP] = "inferred:stp"
 		}
 		if hasIPFacet {
 			report.Capabilities = append(report.Capabilities, port.LayerRouting)
 			report.CapabilitySources[port.LayerRouting] = "inferred:ip"
 		}
-		if hasRoutedIface && !slices.Contains(report.Capabilities, port.LayerVlan) {
-			report.Capabilities = append(report.Capabilities, port.LayerVlan)
-			report.CapabilitySources[port.LayerVlan] = "implied:routing"
+		if hasRoutedIface && !slices.Contains(report.Capabilities, port.LayerVLAN) {
+			report.Capabilities = append(report.Capabilities, port.LayerVLAN)
+			report.CapabilitySources[port.LayerVLAN] = "implied:routing"
 		}
 		if hasFilterFacet {
 			report.Capabilities = append(report.Capabilities, port.LayerFilter)
@@ -657,17 +657,17 @@ func Load(
 		for _, l := range want {
 			report.CapabilitySources[l] = "wanted"
 		}
-		if slices.Contains(want, port.LayerVlan) && !slices.Contains(want, port.LayerRelay) {
+		if slices.Contains(want, port.LayerVLAN) && !slices.Contains(want, port.LayerRelay) {
 			report.Capabilities = append(report.Capabilities, port.LayerRelay)
 			report.CapabilitySources[port.LayerRelay] = "implied:vlan"
 		}
-		if slices.Contains(want, port.LayerStp) && !slices.Contains(want, port.LayerRelay) && !slices.Contains(report.Capabilities, port.LayerRelay) {
+		if slices.Contains(want, port.LayerSTP) && !slices.Contains(want, port.LayerRelay) && !slices.Contains(report.Capabilities, port.LayerRelay) {
 			report.Capabilities = append(report.Capabilities, port.LayerRelay)
 			report.CapabilitySources[port.LayerRelay] = "implied:stp"
 		}
-		if hasLag && !slices.Contains(want, port.LayerLag) {
-			report.Capabilities = append(report.Capabilities, port.LayerLag)
-			report.CapabilitySources[port.LayerLag] = "present:lag"
+		if hasLag && !slices.Contains(want, port.LayerLAG) {
+			report.Capabilities = append(report.Capabilities, port.LayerLAG)
+			report.CapabilitySources[port.LayerLAG] = "present:lag"
 		}
 		if slices.Contains(want, port.LayerFilter) && hasIPFacet {
 			if !slices.Contains(report.Capabilities, port.LayerRouting) {
@@ -676,9 +676,9 @@ func Load(
 			}
 		}
 		if (slices.Contains(want, port.LayerRouting) || slices.Contains(report.Capabilities, port.LayerRouting)) && hasRoutedIface {
-			if !slices.Contains(report.Capabilities, port.LayerVlan) {
-				report.Capabilities = append(report.Capabilities, port.LayerVlan)
-				report.CapabilitySources[port.LayerVlan] = "implied:routing"
+			if !slices.Contains(report.Capabilities, port.LayerVLAN) {
+				report.Capabilities = append(report.Capabilities, port.LayerVLAN)
+				report.CapabilitySources[port.LayerVLAN] = "implied:routing"
 			}
 			if !slices.Contains(report.Capabilities, port.LayerRelay) {
 				report.Capabilities = append(report.Capabilities, port.LayerRelay)
@@ -691,7 +691,7 @@ func Load(
 		return slices.Contains(report.Capabilities, l)
 	}
 
-	stpRequestedWithoutBridge := isWanted(port.LayerStp) && bridgeState == nil
+	stpRequestedWithoutBridge := isWanted(port.LayerSTP) && bridgeState == nil
 	if bridgeState == nil && (stpRequestedWithoutBridge || len(stpPorts) > 0) {
 		if stpRequestedWithoutBridge {
 			addSkippedAt(stpScope, "", "stp_bridge", "requested STP layer has no bridge state", analysis.Incomplete, IssueMissingSTPBridgeState)
@@ -703,12 +703,12 @@ func Load(
 			addSkippedAt(stpPortScope(ps.GetInterfaceName()), ps.GetInterfaceName(), "stp_port", "bridge state is missing", analysis.Incomplete, IssueMissingSTPBridgeState)
 		}
 		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
-			return layer == port.LayerStp
+			return layer == port.LayerSTP
 		})
-		delete(report.CapabilitySources, port.LayerStp)
+		delete(report.CapabilitySources, port.LayerSTP)
 	}
 
-	if !isWanted(port.LayerVlan) {
+	if !isWanted(port.LayerVLAN) {
 		for _, iface := range ifaces {
 			hasSw := false
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
@@ -734,7 +734,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerPoe) {
+	if !isWanted(port.LayerPoE) {
 		for _, iface := range ifaces {
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasEthernet() && iface.GetPhysical().GetEthernet() != nil {
 				if copper := iface.GetPhysical().GetEthernet().GetCopper(); copper != nil {
@@ -750,7 +750,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerStp) && bridgeState != nil {
+	if !isWanted(port.LayerSTP) && bridgeState != nil {
 		addSkippedAt(stpScope, "", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		for _, ps := range stpPorts {
 			if ps == nil {
@@ -815,7 +815,7 @@ func Load(
 		Ports: ports,
 	}
 
-	if isWanted(port.LayerEthernet) || isWanted(port.LayerPoe) {
+	if isWanted(port.LayerEthernet) || isWanted(port.LayerPoE) {
 		phyCfg := &phy.Config{}
 		if isWanted(port.LayerEthernet) {
 			phyCfg.Ethernet = make(map[string]phy.Ethernet)
@@ -878,7 +878,7 @@ func Load(
 			}
 		}
 
-		if isWanted(port.LayerPoe) {
+		if isWanted(port.LayerPoE) {
 			poe := &phy.PoE{
 				Groups: make(map[string]phy.Group, len(budgets)),
 				Ports:  make(map[string]phy.PsePort),
@@ -958,7 +958,7 @@ func Load(
 						case phyv1.PoePriority_POE_PRIORITY_LOW:
 							psePort.Priority = phy.PriorityLow
 						default:
-							addSkipped(iface.GetName(), "poe_priority", fmt.Sprintf("priority has unrecognized value %d", ps.GetPriority()), analysis.Unsupported, IssueInvalidPoePriority)
+							addSkipped(iface.GetName(), "poe_priority", fmt.Sprintf("priority has unrecognized value %d", ps.GetPriority()), analysis.Unsupported, IssueInvalidPoEPriority)
 							validPriority = false
 						}
 					} else {
@@ -1019,7 +1019,7 @@ func Load(
 		}
 		addDefault("", "aging_time", "300s")
 
-		if isWanted(port.LayerVlan) {
+		if isWanted(port.LayerVLAN) {
 			vlanCfg := &bridge.VLAN{
 				Table:       make(map[vlan.ID]string, len(vlans)),
 				Switchports: make(map[string]bridge.Switchport),
@@ -1030,7 +1030,7 @@ func Load(
 				}
 				vid := vlan.ID(v.GetId())
 				if !vid.Valid() {
-					addSkipped("", "vlan", fmt.Sprintf("invalid vlan id %d", v.GetId()), analysis.Unsupported, IssueInvalidVlanID)
+					addSkipped("", "vlan", fmt.Sprintf("invalid vlan id %d", v.GetId()), analysis.Unsupported, IssueInvalidVLANID)
 					return factKey{}, "", false
 				}
 				value := "name=unreported"
@@ -1041,7 +1041,7 @@ func Load(
 				return factKey{id: key, display: key, scope: rootScope}, value, true
 			})
 			for _, conflict := range vlanConflicts {
-				addConflict(conflict.key.scope, "vlan", conflict.key.display, conflict.detail(), IssueConflictVlan)
+				addConflict(conflict.key.scope, "vlan", conflict.key.display, conflict.detail(), IssueConflictVLAN)
 			}
 			for _, key := range sortedKeys(vlanRows) {
 				v := vlanRows[key]
@@ -1221,7 +1221,7 @@ func Load(
 		cfg.Bridge = bridgeCfg
 	}
 
-	if isWanted(port.LayerStp) && bridgeState != nil {
+	if isWanted(port.LayerSTP) && bridgeState != nil {
 		bridgeAddress := bridgeState.GetBridgeId().GetAddress()
 		mac, validBridgeAddress := parseEUI48(bridgeAddress)
 		prio := bridgeState.GetBridgeId().GetPriority()
@@ -1454,11 +1454,11 @@ func Load(
 			cfg.STP = &stpCfg
 		}
 	}
-	if isWanted(port.LayerStp) && cfg.STP == nil {
+	if isWanted(port.LayerSTP) && cfg.STP == nil {
 		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
-			return layer == port.LayerStp
+			return layer == port.LayerSTP
 		})
-		delete(report.CapabilitySources, port.LayerStp)
+		delete(report.CapabilitySources, port.LayerSTP)
 	}
 
 	aggByPort, aggConflicts := resolveFacts(lacpAggregators, func(agg *lacpv1.AggregatorState) (factKey, string, bool) {
@@ -1471,7 +1471,7 @@ func Load(
 			addSkipped(name, "lacp_port", "absent from port table", analysis.Incomplete, IssueUnknownPort)
 			return factKey{}, "", false
 		}
-		if p.Kind != port.Lag {
+		if p.Kind != port.LAG {
 			addSkipped(name, "lacp_port", "port is not a LAG", analysis.Incomplete, IssueSkippedUnsupportedFacet)
 			return factKey{}, "", false
 		}
@@ -1670,7 +1670,7 @@ func Load(
 			case iface.GetVlan() != nil:
 				vlanID = vlan.ID(iface.GetVlan().GetVlanId())
 				if !vlanID.Valid() {
-					addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", fmt.Sprintf("vlan id %d is not usable", iface.GetVlan().GetVlanId()), analysis.Unsupported, IssueInvalidVlanID)
+					addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", fmt.Sprintf("vlan id %d is not usable", iface.GetVlan().GetVlanId()), analysis.Unsupported, IssueInvalidVLANID)
 					continue
 				}
 				if cfg.Bridge != nil && cfg.Bridge.VLAN != nil {
@@ -2098,7 +2098,7 @@ func Load(
 		}
 		vid := vlan.ID(entry.GetVlanId())
 		if !vid.Valid() || uint64(entry.GetVlanId()) > uint64(vlan.MaxID) {
-			addSkipped(entry.GetInterfaceName(), "fdb_entry", "vlan_id outside 1 through 4094", analysis.Unsupported, IssueInvalidVlanID)
+			addSkipped(entry.GetInterfaceName(), "fdb_entry", "vlan_id outside 1 through 4094", analysis.Unsupported, IssueInvalidVLANID)
 			return factKey{}, "", false
 		}
 

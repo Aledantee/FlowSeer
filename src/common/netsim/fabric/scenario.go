@@ -486,7 +486,7 @@ func (f scenarioWindowFact) TypeID() string    { return "fabric.scenario.window"
 func (f scenarioWindowFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 // DiffScenarios compares two scenarios and returns semantic changes.
-// Both arguments are normalized before comparison, ensuring index assignment does not introduce false diffs.
+// Both arguments are normalized before comparison so index assignment does not introduce false diffs.
 func DiffScenarios(a, b Scenario) ([]trace.Change, error) {
 	normA, err := a.Normalize()
 	if err != nil {
