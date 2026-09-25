@@ -39,6 +39,23 @@ These are the user's rulings, not this plan's proposals.
   permits what the gate rejects would send the next reader the wrong way.
 - The gate lands last, after every conversion. A gate that lands first fails the
   build for as long as the migration runs.
+- E3, the `src/edge/netpen` unit, runs on `gpt-5.6-sol` (the `codex` pool) even
+  though that pool is past `delegate`'s 85% cutoff. The user accepts that it may
+  run dry mid-unit; if it does, park E3 and carry on with the others.
+- No unit that touches `src/edge/netpen` runs on a Claude model. A Claude lane can
+  fall back from its pinned model on a cyber refusal without failing, and the
+  fallback is silent in the lane's own output. It has already happened here:
+  `style-review` was pinned to `claude-opus-5` and switched to
+  `claude-opus-4-8` at 2026-09-25T18:56:13Z, recorded in
+  `docs/agent-observations.md` on the coordinator branch at `5a3114b7`. E6 also
+  avoids Claude: it does not edit netpen files, but the gate it builds parses them
+  on every run, which is the same material in front of the same classifier.
+- Every Claude lane's transcript is read before its work is accepted, at
+  `~/.claude/projects/<worktree path with / replaced by ->/<session>.jsonl`. A
+  `{"type":"system","subtype":"model_refusal_fallback"}` event, or any `model`
+  field other than the pinned one, means the lane's output is not accepted: state
+  it as a blocker and stop. Checking the screen's footer is not enough — it shows
+  the current model, not that a switch happened.
 
 This plan's own decisions:
 
@@ -141,6 +158,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 ### E3. netpen
 Files: `src/edge/netpen/`
 After: none
+Lane: `gpt-5.6-sol` on `codex`, per the user's decision, never a Claude model.
 Change: 213 sites in the nested module — `attacks/` 129, `layers/` 59, `test/` 15
 (non-test files only), `catalog/` 9, one elsewhere. The module already imports
 `errs`, so no `go.mod` changes; if one does, that is a blocker.
@@ -197,6 +215,19 @@ the report, then revert that site.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/code-style.md test/conformance/errs`
 
 Waves: E1 E2 E3 E4 E5 | E6
+
+Lanes, from the Decisions above and `delegate`'s resolution at 2026-09-25T21:5xZ
+(`codex` 85%, `synthetic` 96%, both past the cutoff; `google` 7%; `claude` 56%):
+
+| Unit | Lane | Why |
+| --- | --- | --- |
+| E1, E2 | `gemini-3.8-flash-high` (`google`) | no `sensitive_paths`, and the only prepaid pool with headroom |
+| E3 | `gpt-5.6-sol` (`codex`) | the user's decision; park the unit if the pool runs dry |
+| E4, E5 | `claude-opus-5-5` high | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`) but no netpen, so Claude is permitted; transcript checked before the work is accepted |
+| E6 | `gemini-3.8-flash-high` (`google`) | the gate parses netpen on every run |
+
+With a one-worker budget these run in turn, so the wave grouping only fixes the
+order E6 comes last in.
 
 ## Verification
 
