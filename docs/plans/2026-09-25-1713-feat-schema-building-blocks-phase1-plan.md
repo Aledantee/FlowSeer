@@ -5,6 +5,7 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept
 execution: mixed
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
@@ -434,3 +435,13 @@ source bytes, and no value on the wire to a device changes.
   SNMP sources and says so in the mapper's doc comment. The field is
   declared either way; the implementer picks the smaller change and
   records it in the ledger note.
+
+- Review (accept) flagged an enforcement gap, not a defect: the
+  `namesAnInterface` predicate in `test/conformance/proto/schema_language_test.go`
+  matches `interface_name`, `*_interface_name`, and `managed_interfaces`, but
+  not the bare `Interface.name` field in `net/interface/v1/interface.proto`,
+  which carries `interface_name` correctly today. A future edit dropping that
+  field's key rule would pass `TestKeyFieldsUseKeyRules`. Decide whether the
+  walk should also cover the canonical `name` field (or the field be spelled to
+  match the predicate). Deferred to compound or a follow-up; the landed schema
+  is compliant.
