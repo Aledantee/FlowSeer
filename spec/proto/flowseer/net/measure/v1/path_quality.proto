@@ -1,0 +1,22 @@
+edition = "2024";
+
+package flowseer.net.measure.v1;
+
+import "google/protobuf/duration.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
+import option "buf/validate/validate.proto";
+
+// The performance of the path between two points, as a device or an uplink
+// probe reports it. The three quantities are the ones Meraki's
+// getOrganizationDevicesUplinksLossAndLatency time series reports
+// (https://developer.cisco.com/meraki/api-v1/get-organization-devices-uplinks-loss-and-latency/);
+// its latencyMs is the round-trip time, so latency here is round-trip too.
+// Each field is absent when the source does not report it.
+message PathQuality {
+  // Round-trip latency on the path. Must be non-negative when present.
+  google.protobuf.Duration latency = 1 [(buf.validate.field).duration.gte = {}];
+  // Variation in latency. Must be non-negative when present.
+  google.protobuf.Duration jitter = 2 [(buf.validate.field).duration.gte = {}];
+  // Packet loss on the path, in basis points (10000 is 100 %).
+  uint32 loss_basis_points = 3 [(buf.validate.field).uint32.(basis_points) = true];
+}

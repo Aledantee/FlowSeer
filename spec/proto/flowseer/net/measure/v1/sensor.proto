@@ -1,0 +1,189 @@
+edition = "2024";
+
+package flowseer.net.measure.v1;
+
+import option "flowseer/net/measure/v1/basis_points.proto";
+import option "buf/validate/validate.proto";
+
+// A temperature measurement and its thresholds, in thousandths of a degree
+// Celsius. Each threshold is absent when the source does not report it;
+// present thresholds must be ordered.
+message Temperature {
+  option (buf.validate.message).cel = {
+    id: "temperature.thresholds_ordered"
+    message: "temperature thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_millidegrees_celsius) || !has(this.low_warning_millidegrees_celsius) || "
+      "this.low_alarm_millidegrees_celsius <= this.low_warning_millidegrees_celsius) && "
+      "(!has(this.low_warning_millidegrees_celsius) || !has(this.high_warning_millidegrees_celsius) || "
+      "this.low_warning_millidegrees_celsius <= this.high_warning_millidegrees_celsius) && "
+      "(!has(this.high_warning_millidegrees_celsius) || !has(this.high_alarm_millidegrees_celsius) || "
+      "this.high_warning_millidegrees_celsius <= this.high_alarm_millidegrees_celsius)"
+  };
+
+  // The measured temperature. Absent means unreported.
+  sint32 value_millidegrees_celsius = 1;
+  // Temperature at or above which the source raises a high alarm.
+  sint32 high_alarm_millidegrees_celsius = 2;
+  // Temperature at or above which the source raises a high warning.
+  sint32 high_warning_millidegrees_celsius = 3;
+  // Temperature at or below which the source raises a low warning.
+  sint32 low_warning_millidegrees_celsius = 4;
+  // Temperature at or below which the source raises a low alarm.
+  sint32 low_alarm_millidegrees_celsius = 5;
+}
+
+// A voltage measurement and its thresholds, in microvolts. The value is
+// signed: a source can report a rail referenced to ground the other way,
+// such as the -48 V telecom rail.
+message Voltage {
+  option (buf.validate.message).cel = {
+    id: "voltage.thresholds_ordered"
+    message: "voltage thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_microvolts) || !has(this.low_warning_microvolts) || "
+      "this.low_alarm_microvolts <= this.low_warning_microvolts) && "
+      "(!has(this.low_warning_microvolts) || !has(this.high_warning_microvolts) || "
+      "this.low_warning_microvolts <= this.high_warning_microvolts) && "
+      "(!has(this.high_warning_microvolts) || !has(this.high_alarm_microvolts) || "
+      "this.high_warning_microvolts <= this.high_alarm_microvolts)"
+  };
+
+  // The measured voltage. Absent means unreported.
+  sint32 value_microvolts = 1;
+  // Voltage at or above which the source raises a high alarm.
+  sint32 high_alarm_microvolts = 2;
+  // Voltage at or above which the source raises a high warning.
+  sint32 high_warning_microvolts = 3;
+  // Voltage at or below which the source raises a low warning.
+  sint32 low_warning_microvolts = 4;
+  // Voltage at or below which the source raises a low alarm.
+  sint32 low_alarm_microvolts = 5;
+}
+
+// A current measurement and its thresholds, in microamperes. The value is
+// signed for the same reason as Voltage.
+message Current {
+  option (buf.validate.message).cel = {
+    id: "current.thresholds_ordered"
+    message: "current thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_microamperes) || !has(this.low_warning_microamperes) || "
+      "this.low_alarm_microamperes <= this.low_warning_microamperes) && "
+      "(!has(this.low_warning_microamperes) || !has(this.high_warning_microamperes) || "
+      "this.low_warning_microamperes <= this.high_warning_microamperes) && "
+      "(!has(this.high_warning_microamperes) || !has(this.high_alarm_microamperes) || "
+      "this.high_warning_microamperes <= this.high_alarm_microamperes)"
+  };
+
+  // The measured current. Absent means unreported.
+  sint32 value_microamperes = 1;
+  // Current at or above which the source raises a high alarm.
+  sint32 high_alarm_microamperes = 2;
+  // Current at or above which the source raises a high warning.
+  sint32 high_warning_microamperes = 3;
+  // Current at or below which the source raises a low warning.
+  sint32 low_warning_microamperes = 4;
+  // Current at or below which the source raises a low alarm.
+  sint32 low_alarm_microamperes = 5;
+}
+
+// A linear power measurement and its thresholds, in nanowatts. The unit is
+// linear rather than logarithmic because an optical receiver reports zero
+// sensed power, which has no decibel-milliwatt value (SFF-8472,
+// https://members.snia.org/document/dl/25916).
+message Power {
+  option (buf.validate.message).cel = {
+    id: "power.thresholds_ordered"
+    message: "power thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_nanowatts) || !has(this.low_warning_nanowatts) || "
+      "this.low_alarm_nanowatts <= this.low_warning_nanowatts) && "
+      "(!has(this.low_warning_nanowatts) || !has(this.high_warning_nanowatts) || "
+      "this.low_warning_nanowatts <= this.high_warning_nanowatts) && "
+      "(!has(this.high_warning_nanowatts) || !has(this.high_alarm_nanowatts) || "
+      "this.high_warning_nanowatts <= this.high_alarm_nanowatts)"
+  };
+
+  // The measured power. Absent means unreported.
+  uint64 value_nanowatts = 1;
+  // Power at or above which the source raises a high alarm.
+  uint64 high_alarm_nanowatts = 2;
+  // Power at or above which the source raises a high warning.
+  uint64 high_warning_nanowatts = 3;
+  // Power at or below which the source raises a low warning.
+  uint64 low_warning_nanowatts = 4;
+  // Power at or below which the source raises a low alarm.
+  uint64 low_alarm_nanowatts = 5;
+}
+
+// A fan rotation speed measurement and its thresholds, in whole revolutions
+// per minute.
+message RotationSpeed {
+  option (buf.validate.message).cel = {
+    id: "rotation_speed.thresholds_ordered"
+    message: "rotation speed thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_rpm) || !has(this.low_warning_rpm) || "
+      "this.low_alarm_rpm <= this.low_warning_rpm) && "
+      "(!has(this.low_warning_rpm) || !has(this.high_warning_rpm) || "
+      "this.low_warning_rpm <= this.high_warning_rpm) && "
+      "(!has(this.high_warning_rpm) || !has(this.high_alarm_rpm) || "
+      "this.high_warning_rpm <= this.high_alarm_rpm)"
+  };
+
+  // The measured rotation speed. Absent means unreported.
+  uint32 value_rpm = 1;
+  // Speed at or above which the source raises a high alarm.
+  uint32 high_alarm_rpm = 2;
+  // Speed at or above which the source raises a high warning.
+  uint32 high_warning_rpm = 3;
+  // Speed at or below which the source raises a low warning.
+  uint32 low_warning_rpm = 4;
+  // Speed at or below which the source raises a low alarm.
+  uint32 low_alarm_rpm = 5;
+}
+
+// A relative humidity measurement and its thresholds, in basis points (10000
+// is 100 %; see basis_points.proto).
+message RelativeHumidity {
+  option (buf.validate.message).cel = {
+    id: "relative_humidity.thresholds_ordered"
+    message: "relative humidity thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_basis_points) || !has(this.low_warning_basis_points) || "
+      "this.low_alarm_basis_points <= this.low_warning_basis_points) && "
+      "(!has(this.low_warning_basis_points) || !has(this.high_warning_basis_points) || "
+      "this.low_warning_basis_points <= this.high_warning_basis_points) && "
+      "(!has(this.high_warning_basis_points) || !has(this.high_alarm_basis_points) || "
+      "this.high_warning_basis_points <= this.high_alarm_basis_points)"
+  };
+
+  // The measured relative humidity. Absent means unreported.
+  uint32 value_basis_points = 1 [(buf.validate.field).uint32.(basis_points) = true];
+  // Humidity at or above which the source raises a high alarm.
+  uint32 high_alarm_basis_points = 2 [(buf.validate.field).uint32.(basis_points) = true];
+  // Humidity at or above which the source raises a high warning.
+  uint32 high_warning_basis_points = 3 [(buf.validate.field).uint32.(basis_points) = true];
+  // Humidity at or below which the source raises a low warning.
+  uint32 low_warning_basis_points = 4 [(buf.validate.field).uint32.(basis_points) = true];
+  // Humidity at or below which the source raises a low alarm.
+  uint32 low_alarm_basis_points = 5 [(buf.validate.field).uint32.(basis_points) = true];
+}
+
+// One sensor reading as exactly one of the supported quantities. A source
+// reports the quantities it measures; the arm names the quantity, so a
+// consumer does not infer it from a field name.
+message SensorReading {
+  // The measured quantity. Exactly one arm is set.
+  oneof quantity {
+    option (buf.validate.oneof).required = true;
+
+    Temperature temperature = 1;
+    Voltage voltage = 2;
+    Current current = 3;
+    Power power = 4;
+    RotationSpeed rotation_speed = 5;
+    RelativeHumidity relative_humidity = 6;
+  }
+}

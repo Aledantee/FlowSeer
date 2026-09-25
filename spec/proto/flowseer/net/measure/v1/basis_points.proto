@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.measure.v1;
+
+import "buf/validate/validate.proto";
+
+// The predefined protovalidate rule for a ratio or percentage: basis points,
+// 0 through 10000. The unit carries whole-percent sources exactly and
+// fractional ones (channel utilization, CPU load) to 0.01 %.
+extend buf.validate.UInt32Rules {
+  bool basis_points = 50003 [(buf.validate.predefined).cel = {
+    id: "uint32.basis_points"
+    message: "value must be a basis-point ratio in 0..10000"
+    expression: "!rule || this <= 10000u"
+  }];
+}
