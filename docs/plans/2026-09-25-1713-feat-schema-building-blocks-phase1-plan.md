@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept
+compound: no lesson
 execution: mixed
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
