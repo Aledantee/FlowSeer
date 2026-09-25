@@ -43,7 +43,7 @@ func TestWalkAndWatchOverSession(t *testing.T) {
 	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
-	desc := fixturemain.Servers_ServerDescriptor()
+	desc := fixturemain.ServersServerDescriptor()
 
 	// Walker: bounded traversal yields both rows.
 	walker := netconf.Walk(context.Background(), s, desc)
@@ -62,9 +62,9 @@ func TestWalkAndWatchOverSession(t *testing.T) {
 	w := netconf.Watch(context.Background(), s, desc, yang.WatchConfig{Interval: 20 * time.Millisecond})
 	defer func() { _ = w.Close() }()
 
-	var events []yang.WatchEvent[fixturemain.Servers_Server, fixturemain.Servers_ServerKey]
+	var events []yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey]
 	deadline := time.After(10 * time.Second)
-	ch := make(chan yang.WatchEvent[fixturemain.Servers_Server, fixturemain.Servers_ServerKey], 32)
+	ch := make(chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey], 32)
 	go func() {
 		for ev := range w.Iter() {
 			ch <- ev

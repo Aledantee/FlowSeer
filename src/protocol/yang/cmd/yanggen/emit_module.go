@@ -140,7 +140,7 @@ func (em *moduleEmitter) emitIdentities() {
 	}
 	slices.Sort(sorted)
 	for _, name := range sorted {
-		goName := em.scope.claim("Identity_"+camel(name), "identity:"+name)
+		goName := em.scope.claim("Identity"+camel(name), "identity:"+name)
 		em.addCommented(
 			fmt.Sprintf("%s is the %s identity %q.", goName, em.m.Name, name),
 			jen.Var().Id(goName).Op("=").Qual(yangPkg, "Identity").Values(jen.Dict{
@@ -156,6 +156,8 @@ func (em *moduleEmitter) emitIdentities() {
 func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []pathSeg, ancestors []ancestorList) error {
 	structName := em.structName(e, parentStruct)
 	nodePath := append(append([]pathSeg{}, path...), em.segFor(e))
+
+	em.claimCompanions(e, structName, nodePath, ancestors)
 
 	children := dataChildren(e)
 	fieldScope := newNameScope()
@@ -328,7 +330,7 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 
 	for _, a := range ancestors {
 		for _, k := range a.keys {
-			goName := keyScope.claim(camel(a.entryName)+"_"+camel(k), "anc:"+a.structName+":"+k)
+			goName := keyScope.claim(camel(a.entryName)+camel(k), "anc:"+a.structName+":"+k)
 			ancFields = append(ancFields, ancKeyField{goName: goName, listName: a.entryName, keyName: k})
 		}
 	}
@@ -475,9 +477,7 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 				jen.Id("Codec"): jen.Qual(yangPkg, "RowCodec").Index(jen.List(jen.Id(flatName), jen.Id(keyStructName))).Values(jen.Dict{
 					jen.Id("DecodeXML"):  decodeFn("DecodeXMLNested"),
 					jen.Id("DecodeJSON"): decodeFn("DecodeJSONNested"),
-					jen.Id("Equal"): jen.Func().Params(jen.Id("a"), jen.Id("b").Id(flatName)).Bool().Block(
-						jen.Return(jen.Qual(yangPkg, "EqualStructs").Call(jen.Id("a"), jen.Id("b"))),
-					),
+					jen.Id("Equal"):      jen.Qual(yangPkg, "EqualStructs").Types(jen.Id(flatName)),
 					jen.Id("Merge"): jen.Func().Params(jen.Id("base"), jen.Id("update").Id(flatName)).Id(flatName).Block(
 						jen.Id("base").Dot("Entry").Op("=").Qual(yangPkg, "MergeStructs").Call(
 							jen.Id(schemaVarName(structName)), jen.Id("base").Dot("Entry"), jen.Id("update").Dot("Entry")),
@@ -491,11 +491,27 @@ func (em *moduleEmitter) emitListArtifacts(e *goyang.Entry, structName string, p
 	return nil
 }
 
+// claimCompanions reserves every Go name yanggen derives from a struct
+// before its children are claimed, so any child whose joined name matches
+// a companion receives a deterministic clash suffix instead of colliding.
+func (em *moduleEmitter) claimCompanions(e *goyang.Entry, structName string, nodePath []pathSeg, ancestors []ancestorList) {
+	em.scope.claim(schemaVarName(structName), "schema:"+structName)
+	if e.IsList() && len(strings.Fields(e.Key)) > 0 {
+		em.scope.claim(structName+"Key", "key:"+structName)
+		em.scope.claim(structName+"Descriptor", "desc:"+structName)
+		if len(ancestors) > 0 {
+			em.scope.claim(structName+"FlatRow", "flat:"+structName)
+		}
+	} else if !e.IsList() && len(nodePath) == 1 {
+		em.scope.claim(structName+"Descriptor", "desc:"+structName)
+	}
+}
+
 // structName claims the deterministic struct name for e.
 func (em *moduleEmitter) structName(e *goyang.Entry, parent string) string {
 	want := camel(e.Name)
 	if parent != "" {
-		want = parent + "_" + want
+		want = parent + want
 	}
 	return em.scope.claim(want, e.Path())
 }

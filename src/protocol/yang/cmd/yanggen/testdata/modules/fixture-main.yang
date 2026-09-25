@@ -49,6 +49,12 @@ module fixture-main {
           }
         }
       }
+      container key {
+        description "Child container whose joined name collides with the server companion key struct.";
+        leaf id {
+          type string;
+        }
+      }
       list endpoint {
         key "address port";
         description "Nested list with a compound key; flattened rows
@@ -62,6 +68,12 @@ module fixture-main {
         leaf enabled {
           type boolean;
         }
+      }
+    }
+    container schema {
+      description "Child container whose joined name collides with the servers companion schema var.";
+      leaf version {
+        type string;
       }
     }
   }

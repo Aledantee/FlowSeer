@@ -72,7 +72,7 @@ func TestT4IdentityRead(t *testing.T) {
 			}
 
 			serial, model, version := "", "", ""
-			walker := restconf.Walk(ctx, s, ocplat.Components_ComponentDescriptor())
+			walker := restconf.Walk(ctx, s, ocplat.ComponentsComponentDescriptor())
 			for row := range walker.Iter() {
 				if row.State == nil {
 					continue

@@ -220,7 +220,7 @@ func TestT4InterfaceWalk(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 			defer cancel()
 
-			walker := netconf.Walk(ctx, s, ietfif.Interfaces_InterfaceDescriptor())
+			walker := netconf.Walk(ctx, s, ietfif.InterfacesInterfaceDescriptor())
 			count := 0
 			for row := range walker.Iter() {
 				if row.Name != nil {
