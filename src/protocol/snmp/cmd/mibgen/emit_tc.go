@@ -151,9 +151,10 @@ type resolved struct {
 	// DecodeFunc returns the decoder expression used by [snmp.NewColumn]
 	// or called by a scalar accessor.
 	DecodeFunc func() *jen.Statement
-	// Variant is the snmp.<Variant>Var concrete type that selects the
-	// natural decoder. Empty when DecodeFunc delegates fully to a TC
-	// helper (e.g. snmp.DecodeMacAddress).
+	// Variant is the snmp.<Variant>Var wire variant the agent emits. It
+	// is always set, including when DecodeFunc delegates to a TC helper
+	// (e.g. snmp.DecodeMacAddress); there the helper, not the variant,
+	// picks the decoder.
 	Variant string
 	// ZeroExpr is the Go expression for the zero value of GoType used
 	// when the decoder returns an error.
@@ -213,13 +214,8 @@ func resolveType(ec *emitCtx, n *smi.Node) (resolved, error) {
 // resolved this function has already cleared. A breach is a codegen bug
 // — a base-type resolution that names a variant nobody registered — so
 // generation fails with the offending variant named rather than
-// emitting a decoder that cannot compile. An empty variant names a TC
-// helper that bypasses the variant table (see [tcDelegate]) and needs
-// no entry.
+// emitting a decoder that cannot compile.
 func validateDecoderVariant(variant string) error {
-	if variant == "" {
-		return nil
-	}
 	if _, _, ok := decoderHelperFor(variant); !ok {
 		return errs.Msgf("no leniency helper registered for wire variant %q", variant)
 	}
