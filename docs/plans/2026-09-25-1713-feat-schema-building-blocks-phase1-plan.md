@@ -151,6 +151,28 @@ govern. The ones below are local to this phase.
   `model/inventory`, and this unit is where those imports land. Cost if
   wrong: `TestProtoReadmeImports` or the import-order gate fails and names
   the row.
+- Ruled: requirement 8's unit-suffix walk covers `flowseer.runtime.v1`,
+  where `duplicate_window_seconds = 16` violates rule 1 (a time span is a
+  `google.protobuf.Duration`, not a `_seconds` integer). The counters unit
+  converts it to `google.protobuf.Duration duplicate_window`, reserving 16
+  and the old name, with `required` and `duration.gte = {seconds: 1}`
+  in place of the uint64 bounds, and the unit's Files line gains
+  `spec/proto/flowseer/runtime/v1/bus.proto` and
+  `src/common/service/manifest.go` with its tests. Why: the walk cannot pass
+  over every FlowSeer package otherwise; no Go code reads the field (only
+  `manifest.go`'s desired-manifest construction names it). Cost if wrong:
+  persisted operator manifests carrying the old field fail to parse and are
+  rewritten.
+- Ruled: the `ipAddressOrigin` mapping this phase's counters unit names has
+  no carrier: `snmpmap` has no IP-MIB mapping today (nothing builds
+  `InterfaceAddress` from a live source), and the parent plan scopes new
+  live-source mappers out. The unit therefore ships the schema split
+  (`AddressOrigin`, `InterfaceIdentifierMethod`, `iid_method`) and the
+  conformance cases (requirement 7) and leaves the mapper mapping sentences
+  and the `ifmib_test.go` `ipAddressOrigin` table cases out. Why: the tree
+  wins over the plan about what exists. Cost if wrong: a later phase that
+  lands the IP-MIB walk writes the mapping from the enum comments, which
+  spell it out.
 - The unit-suffix test works from two lists in the test file: canonical
   suffixes (`_bps`, `_bytes`, `_mhz`, `_nanowatts`, `_millidbm`, `_millidb`,
   `_millidbi`, `_millidegrees_celsius`, `_microvolts`, `_microamperes`,
