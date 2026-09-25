@@ -31,3 +31,12 @@ packages.
 - `lacp/v1/`: Link Aggregation Control Protocol aggregator and member port states.
 - `lldp/v1/`: Link Layer Discovery Protocol local-system, port, and neighbor observations.
 - `stp/v1/`: Spanning Tree Protocol bridge and port states and timers.
+- `cdp/v1/` (planned; schema building blocks record): CDP neighbors.
+- `ntp/v1/` (planned; schema building blocks record): NTP associations.
+- `dhcp/v1/` (planned; schema building blocks record): Leases, server pools, snooping bindings.
+- `dns/v1/` (planned; schema building blocks record): Resolver configuration and servers.
+- `bgp/v1/` (planned; schema building blocks record): Peers, address families, communities.
+- `ospf/v1/` (planned; schema building blocks record): Neighbors, areas, interface types (v2 and v3).
+- `isis/v1/` (planned; schema building blocks record): Adjacencies and levels.
+- `vrrp/v1/` (planned; schema building blocks record): VRRP groups (v2 and v3).
+- `bfd/v1/` (planned; schema building blocks record): Sessions and diagnostics.

@@ -1,6 +1,6 @@
 ---
 name: Protobuf Model Conventions
-last_updated: 2026-09-05
+last_updated: 2026-09-25
 ---
 
 # FlowSeer — Protobuf Model Conventions
@@ -19,7 +19,9 @@ Facet oblige a schema author to write, and is the "conventions doc" that
 
 The package tree, the import layering, and the primitive/entity split are fixed
 by [the network model structure
-direction](../architecture/2026-08-20-network-model-structure-direction.md).
+direction](../architecture/2026-08-20-network-model-structure-direction.md),
+as amended by the [schema building blocks
+direction](../architecture/2026-09-25-schema-building-blocks-direction.md).
 
 ## The triad
 
@@ -281,6 +283,48 @@ Reach for the domain's own word before reaching for consistency with a sibling.
 This is not the pattern for a scalar with a range. A VLAN id is one type with
 one rule; it gets a protovalidate predefined rule, not a wrapper message
 (direction convention 4).
+
+## Units and keys
+
+Field-author checklist for quantities, keys, and naming. The
+[schema building blocks direction](../architecture/2026-09-25-schema-building-blocks-direction.md)
+holds the rationale and standards grounding for each rule.
+
+- **Canonical units**: every physical quantity has one canonical unit, named in the
+  field suffix, in integer fixed point ([rule 1](../architecture/2026-09-25-schema-building-blocks-direction.md#1-one-canonical-unit-per-quantity)):
+
+  | Quantity | Wire type | Field suffix |
+  | --- | --- | --- |
+  | Point in time | `google.protobuf.Timestamp` | none |
+  | Time span | `google.protobuf.Duration` | none |
+  | Data rate | `uint64` | `_bps` |
+  | Data size and byte counters | `uint64` | `_bytes` |
+  | Frequency and channel width | `uint32` | `_mhz` |
+  | Linear power | `uint64` | `_nanowatts` |
+  | Power level and gain | `sint32` | `_millidbm`, `_millidb`, `_millidbi` |
+  | Temperature | `sint32` | `_millidegrees_celsius` |
+  | Voltage | `sint32` | `_microvolts` |
+  | Current | `sint32` | `_microamperes` |
+  | Rotation speed | `uint32` | `_rpm` |
+  | Percentage and ratio | `uint32` | `_basis_points` |
+
+  Floating point is reserved for coordinates on `Location` and decimal operator
+  attributes; every other numeric quantity uses integer fixed point. Counters
+  are `uint64`, named for the unit (`in_bytes`, `in_frames`), and live in a
+  `<Domain>Counters` message; every `*Counters` message carries
+  `google.protobuf.Timestamp last_discontinuity` ([rule 2](../architecture/2026-09-25-schema-building-blocks-direction.md#2-counters-and-statistics)).
+- **Interface names**: an interface name is validated by a predefined rule from
+  `net/key/v1/key.proto` ([rule 3](../architecture/2026-09-25-schema-building-blocks-direction.md#3-keys-and-cross-references)).
+  Observed rows use `interface_name` (1 to 255 characters). Values FlowSeer sends
+  back to a device (such as an operation target or capture source) use
+  `shell_safe_interface_name` (`^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$`). A field whose
+  name spells an interface name carries exactly one of them.
+- **Facets, settings, and rows**: per-interface bundles are named `<Name>Facet`,
+  and requested values for that layer are `<Name>Settings`, carried by the
+  facet ([rule 5](../architecture/2026-09-25-schema-building-blocks-direction.md#5-facets-settings-and-table-rows)).
+  Device-scoped table rows are named for the thing they describe (`Vlan`, `Route`,
+  `BgpPeer`); use `<Table>Entry` only when the table name is the natural noun and
+  the row has none of its own (`FdbEntry`, `NeighborEntry`).
 
 ## Field numbering
 
