@@ -119,11 +119,11 @@ func TestEmit_ReferencingModuleUsesQualifiedKeyType(t *testing.T) {
 		"type FakeImpliedTableKey struct {\n\tFakeImpliedName string\n}",
 		"{Kind: snmp.IndexImpliedOctets}",
 		"{Kind: snmp.IndexLengthPrefixedOctets}",
-		"type FakeAddrTableKey struct {\n\tFakeAddrIp netip.Addr\n}",
-		"FakeAddrIp: parts[0].Addr",
+		"type FakeAddrTableKey struct {\n\tFakeAddrIP netip.Addr\n}",
+		"FakeAddrIP: parts[0].Addr",
 		"{Kind: snmp.IndexIPv4}",
-		"type FakeOidTableKey struct {\n\tFakeOidPath string\n}",
-		"FakeOidPath: parts[0].OID.String()",
+		"type FakeOIDTableKey struct {\n\tFakeOIDPath string\n}",
+		"FakeOIDPath: parts[0].OID.String()",
 		"{Kind: snmp.IndexLengthPrefixedOID}",
 		"a.Key == b.Key && a.keyValid == b.keyValid",
 	)
@@ -231,7 +231,7 @@ func TestKeyedConventions_ExcludesWellKnownAndEnumerated(t *testing.T) {
 	rejectFragments(t, src, "type MacAddress ")
 
 	src = renderConfigured(t, "IP-MIB")
-	wantFragments(t, src, "type IpSystemStatsTableKey struct {\n\tIpSystemStatsIPVersion int32\n}")
+	wantFragments(t, src, "type IPSystemStatsTableKey struct {\n\tIPSystemStatsIPVersion int32\n}")
 }
 
 // TestKeyedConventions_HomeTableTiebreak pins the rule for a convention

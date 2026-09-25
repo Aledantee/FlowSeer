@@ -3,11 +3,11 @@ package main
 import (
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/dave/jennifer/jen"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/protocol/internal/goname"
 	"go.aledante.io/FlowSeer/src/protocol/smi"
 )
 
@@ -766,39 +766,13 @@ func mustDecodeCast(variant string, target, zero *jen.Statement) *jen.Statement 
 	)
 }
 
-// camelCase converts an SMI identifier to UpperCamelCase for use as a
-// Go identifier. SMI identifiers are conventionally lowerCamelCase per
-// RFC 2578 §3.1, but real-world MIBs (including the IANA registries)
-// occasionally include hyphens and digits adjacent to letters. We
-// strip hyphens / underscores and up-case the following character so
-// that names like "if-gsn" emerge as "IfGsn". Digits are preserved in
-// place and never start the identifier — if the first rune is a digit
-// the result is prefixed with "_" to remain a valid Go identifier.
+// camelCase converts an SMI identifier to an UpperCamelCase Go
+// identifier under the shared [goname.Exported] rules: words split at
+// separators and camelCase boundaries, and initialisms take their
+// canonical spelling (lldpRemChassisId becomes LLDPRemChassisID). The
+// wrapper stays so every emit pass spells Go names through one helper.
 func camelCase(name string) string {
-	if name == "" {
-		return ""
-	}
-	var out []rune
-	upperNext := true
-	for _, r := range name {
-		switch {
-		case r == '-' || r == '_' || r == ' ':
-			upperNext = true
-			continue
-		case upperNext:
-			out = append(out, unicode.ToUpper(r))
-			upperNext = false
-		default:
-			out = append(out, r)
-		}
-	}
-	if len(out) == 0 {
-		return "_"
-	}
-	if unicode.IsDigit(out[0]) {
-		out = append([]rune{'_'}, out...)
-	}
-	return string(out)
+	return goname.Exported(name)
 }
 
 // enumKey is the de-duplication key used by [emitCtx.enumNames].

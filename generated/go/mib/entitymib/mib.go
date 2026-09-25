@@ -96,8 +96,8 @@ const (
 	PhysicalClassPort PhysicalClass = 10
 	// PhysicalClassStack represents the SMI value stack.
 	PhysicalClassStack PhysicalClass = 11
-	// PhysicalClassCpu represents the SMI value cpu.
-	PhysicalClassCpu PhysicalClass = 12
+	// PhysicalClassCPU represents the SMI value cpu.
+	PhysicalClassCPU PhysicalClass = 12
 )
 
 // String returns the SMI label, or PhysicalClass(n) for an unrecognized value n.
@@ -125,7 +125,7 @@ func (v PhysicalClass) String() string {
 		return "port"
 	case PhysicalClassStack:
 		return "stack"
-	case PhysicalClassCpu:
+	case PhysicalClassCPU:
 		return "cpu"
 	}
 

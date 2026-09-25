@@ -23,7 +23,7 @@ import (
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
-// IpAddressOriginTC is the SMI enum IpAddressOriginTC.
+// IPAddressOriginTC is the SMI enum IpAddressOriginTC.
 // The origin of the address. manual(2) indicates that the address was
 // manually configured to a specified address, e.g., by user configuration.
 // dhcp(4) indicates an address that was assigned to this system by a DHCP
@@ -34,40 +34,40 @@ import (
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpAddressOriginTC int32
+type IPAddressOriginTC int32
 
 const (
-	// IpAddressOriginTCOther represents the SMI value other.
-	IpAddressOriginTCOther IpAddressOriginTC = 1
-	// IpAddressOriginTCManual represents the SMI value manual.
-	IpAddressOriginTCManual IpAddressOriginTC = 2
-	// IpAddressOriginTCDhcp represents the SMI value dhcp.
-	IpAddressOriginTCDhcp IpAddressOriginTC = 4
-	// IpAddressOriginTCLinklayer represents the SMI value linklayer.
-	IpAddressOriginTCLinklayer IpAddressOriginTC = 5
-	// IpAddressOriginTCRandom represents the SMI value random.
-	IpAddressOriginTCRandom IpAddressOriginTC = 6
+	// IPAddressOriginTCOther represents the SMI value other.
+	IPAddressOriginTCOther IPAddressOriginTC = 1
+	// IPAddressOriginTCManual represents the SMI value manual.
+	IPAddressOriginTCManual IPAddressOriginTC = 2
+	// IPAddressOriginTCDhcp represents the SMI value dhcp.
+	IPAddressOriginTCDhcp IPAddressOriginTC = 4
+	// IPAddressOriginTCLinklayer represents the SMI value linklayer.
+	IPAddressOriginTCLinklayer IPAddressOriginTC = 5
+	// IPAddressOriginTCRandom represents the SMI value random.
+	IPAddressOriginTCRandom IPAddressOriginTC = 6
 )
 
-// String returns the SMI label, or IpAddressOriginTC(n) for an unrecognized value n.
-func (v IpAddressOriginTC) String() string {
+// String returns the SMI label, or IPAddressOriginTC(n) for an unrecognized value n.
+func (v IPAddressOriginTC) String() string {
 	switch v {
-	case IpAddressOriginTCOther:
+	case IPAddressOriginTCOther:
 		return "other"
-	case IpAddressOriginTCManual:
+	case IPAddressOriginTCManual:
 		return "manual"
-	case IpAddressOriginTCDhcp:
+	case IPAddressOriginTCDhcp:
 		return "dhcp"
-	case IpAddressOriginTCLinklayer:
+	case IPAddressOriginTCLinklayer:
 		return "linklayer"
-	case IpAddressOriginTCRandom:
+	case IPAddressOriginTCRandom:
 		return "random"
 	}
 
-	return fmt.Sprintf("IpAddressOriginTC(%d)", v)
+	return fmt.Sprintf("IPAddressOriginTC(%d)", v)
 }
 
-// IpAddressPrefixOriginTC is the SMI enum IpAddressPrefixOriginTC.
+// IPAddressPrefixOriginTC is the SMI enum IpAddressPrefixOriginTC.
 // The origin of this prefix. manual(2) indicates a prefix that was
 // manually configured. wellknown(3) indicates a well-known prefix, e.g.,
 // 169.254/16 for IPv4 auto-configuration or fe80::/10 for IPv6 link-local
@@ -81,40 +81,40 @@ func (v IpAddressOriginTC) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpAddressPrefixOriginTC int32
+type IPAddressPrefixOriginTC int32
 
 const (
-	// IpAddressPrefixOriginTCOther represents the SMI value other.
-	IpAddressPrefixOriginTCOther IpAddressPrefixOriginTC = 1
-	// IpAddressPrefixOriginTCManual represents the SMI value manual.
-	IpAddressPrefixOriginTCManual IpAddressPrefixOriginTC = 2
-	// IpAddressPrefixOriginTCWellknown represents the SMI value wellknown.
-	IpAddressPrefixOriginTCWellknown IpAddressPrefixOriginTC = 3
-	// IpAddressPrefixOriginTCDhcp represents the SMI value dhcp.
-	IpAddressPrefixOriginTCDhcp IpAddressPrefixOriginTC = 4
-	// IpAddressPrefixOriginTCRouteradv represents the SMI value routeradv.
-	IpAddressPrefixOriginTCRouteradv IpAddressPrefixOriginTC = 5
+	// IPAddressPrefixOriginTCOther represents the SMI value other.
+	IPAddressPrefixOriginTCOther IPAddressPrefixOriginTC = 1
+	// IPAddressPrefixOriginTCManual represents the SMI value manual.
+	IPAddressPrefixOriginTCManual IPAddressPrefixOriginTC = 2
+	// IPAddressPrefixOriginTCWellknown represents the SMI value wellknown.
+	IPAddressPrefixOriginTCWellknown IPAddressPrefixOriginTC = 3
+	// IPAddressPrefixOriginTCDhcp represents the SMI value dhcp.
+	IPAddressPrefixOriginTCDhcp IPAddressPrefixOriginTC = 4
+	// IPAddressPrefixOriginTCRouteradv represents the SMI value routeradv.
+	IPAddressPrefixOriginTCRouteradv IPAddressPrefixOriginTC = 5
 )
 
-// String returns the SMI label, or IpAddressPrefixOriginTC(n) for an unrecognized value n.
-func (v IpAddressPrefixOriginTC) String() string {
+// String returns the SMI label, or IPAddressPrefixOriginTC(n) for an unrecognized value n.
+func (v IPAddressPrefixOriginTC) String() string {
 	switch v {
-	case IpAddressPrefixOriginTCOther:
+	case IPAddressPrefixOriginTCOther:
 		return "other"
-	case IpAddressPrefixOriginTCManual:
+	case IPAddressPrefixOriginTCManual:
 		return "manual"
-	case IpAddressPrefixOriginTCWellknown:
+	case IPAddressPrefixOriginTCWellknown:
 		return "wellknown"
-	case IpAddressPrefixOriginTCDhcp:
+	case IPAddressPrefixOriginTCDhcp:
 		return "dhcp"
-	case IpAddressPrefixOriginTCRouteradv:
+	case IPAddressPrefixOriginTCRouteradv:
 		return "routeradv"
 	}
 
-	return fmt.Sprintf("IpAddressPrefixOriginTC(%d)", v)
+	return fmt.Sprintf("IPAddressPrefixOriginTC(%d)", v)
 }
 
-// IpAddressStatusTC is the SMI enum IpAddressStatusTC.
+// IPAddressStatusTC is the SMI enum IpAddressStatusTC.
 // The status of an address. Most of the states correspond to states from
 // the IPv6 Stateless Address Autoconfiguration protocol. The preferred(1)
 // state indicates that this is a valid address that can appear as the
@@ -139,83 +139,83 @@ func (v IpAddressPrefixOriginTC) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpAddressStatusTC int32
+type IPAddressStatusTC int32
 
 const (
-	// IpAddressStatusTCPreferred represents the SMI value preferred.
-	IpAddressStatusTCPreferred IpAddressStatusTC = 1
-	// IpAddressStatusTCDeprecated represents the SMI value deprecated.
-	IpAddressStatusTCDeprecated IpAddressStatusTC = 2
-	// IpAddressStatusTCInvalid represents the SMI value invalid.
-	IpAddressStatusTCInvalid IpAddressStatusTC = 3
-	// IpAddressStatusTCInaccessible represents the SMI value inaccessible.
-	IpAddressStatusTCInaccessible IpAddressStatusTC = 4
-	// IpAddressStatusTCUnknown represents the SMI value unknown.
-	IpAddressStatusTCUnknown IpAddressStatusTC = 5
-	// IpAddressStatusTCTentative represents the SMI value tentative.
-	IpAddressStatusTCTentative IpAddressStatusTC = 6
-	// IpAddressStatusTCDuplicate represents the SMI value duplicate.
-	IpAddressStatusTCDuplicate IpAddressStatusTC = 7
-	// IpAddressStatusTCOptimistic represents the SMI value optimistic.
-	IpAddressStatusTCOptimistic IpAddressStatusTC = 8
+	// IPAddressStatusTCPreferred represents the SMI value preferred.
+	IPAddressStatusTCPreferred IPAddressStatusTC = 1
+	// IPAddressStatusTCDeprecated represents the SMI value deprecated.
+	IPAddressStatusTCDeprecated IPAddressStatusTC = 2
+	// IPAddressStatusTCInvalid represents the SMI value invalid.
+	IPAddressStatusTCInvalid IPAddressStatusTC = 3
+	// IPAddressStatusTCInaccessible represents the SMI value inaccessible.
+	IPAddressStatusTCInaccessible IPAddressStatusTC = 4
+	// IPAddressStatusTCUnknown represents the SMI value unknown.
+	IPAddressStatusTCUnknown IPAddressStatusTC = 5
+	// IPAddressStatusTCTentative represents the SMI value tentative.
+	IPAddressStatusTCTentative IPAddressStatusTC = 6
+	// IPAddressStatusTCDuplicate represents the SMI value duplicate.
+	IPAddressStatusTCDuplicate IPAddressStatusTC = 7
+	// IPAddressStatusTCOptimistic represents the SMI value optimistic.
+	IPAddressStatusTCOptimistic IPAddressStatusTC = 8
 )
 
-// String returns the SMI label, or IpAddressStatusTC(n) for an unrecognized value n.
-func (v IpAddressStatusTC) String() string {
+// String returns the SMI label, or IPAddressStatusTC(n) for an unrecognized value n.
+func (v IPAddressStatusTC) String() string {
 	switch v {
-	case IpAddressStatusTCPreferred:
+	case IPAddressStatusTCPreferred:
 		return "preferred"
-	case IpAddressStatusTCDeprecated:
+	case IPAddressStatusTCDeprecated:
 		return "deprecated"
-	case IpAddressStatusTCInvalid:
+	case IPAddressStatusTCInvalid:
 		return "invalid"
-	case IpAddressStatusTCInaccessible:
+	case IPAddressStatusTCInaccessible:
 		return "inaccessible"
-	case IpAddressStatusTCUnknown:
+	case IPAddressStatusTCUnknown:
 		return "unknown"
-	case IpAddressStatusTCTentative:
+	case IPAddressStatusTCTentative:
 		return "tentative"
-	case IpAddressStatusTCDuplicate:
+	case IPAddressStatusTCDuplicate:
 		return "duplicate"
-	case IpAddressStatusTCOptimistic:
+	case IPAddressStatusTCOptimistic:
 		return "optimistic"
 	}
 
-	return fmt.Sprintf("IpAddressStatusTC(%d)", v)
+	return fmt.Sprintf("IPAddressStatusTC(%d)", v)
 }
 
-// IpAddressTypeValue is the SMI enum ipAddressType (inline).
+// IPAddressTypeValue is the SMI enum ipAddressType (inline).
 // The type of address. broadcast(3) is not a valid value for IPv6
 // addresses (RFC 3513).
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpAddressTypeValue int32
+type IPAddressTypeValue int32
 
 const (
-	// IpAddressTypeValueUnicast represents the SMI value unicast.
-	IpAddressTypeValueUnicast IpAddressTypeValue = 1
-	// IpAddressTypeValueAnycast represents the SMI value anycast.
-	IpAddressTypeValueAnycast IpAddressTypeValue = 2
-	// IpAddressTypeValueBroadcast represents the SMI value broadcast.
-	IpAddressTypeValueBroadcast IpAddressTypeValue = 3
+	// IPAddressTypeValueUnicast represents the SMI value unicast.
+	IPAddressTypeValueUnicast IPAddressTypeValue = 1
+	// IPAddressTypeValueAnycast represents the SMI value anycast.
+	IPAddressTypeValueAnycast IPAddressTypeValue = 2
+	// IPAddressTypeValueBroadcast represents the SMI value broadcast.
+	IPAddressTypeValueBroadcast IPAddressTypeValue = 3
 )
 
-// String returns the SMI label, or IpAddressTypeValue(n) for an unrecognized value n.
-func (v IpAddressTypeValue) String() string {
+// String returns the SMI label, or IPAddressTypeValue(n) for an unrecognized value n.
+func (v IPAddressTypeValue) String() string {
 	switch v {
-	case IpAddressTypeValueUnicast:
+	case IPAddressTypeValueUnicast:
 		return "unicast"
-	case IpAddressTypeValueAnycast:
+	case IPAddressTypeValueAnycast:
 		return "anycast"
-	case IpAddressTypeValueBroadcast:
+	case IPAddressTypeValueBroadcast:
 		return "broadcast"
 	}
 
-	return fmt.Sprintf("IpAddressTypeValue(%d)", v)
+	return fmt.Sprintf("IPAddressTypeValue(%d)", v)
 }
 
-// IpDefaultRouterPreferenceValue is the SMI enum ipDefaultRouterPreference (inline).
+// IPDefaultRouterPreferenceValue is the SMI enum ipDefaultRouterPreference (inline).
 // An indication of preference given to this router as a default router as
 // described in he Default Router Preferences document. Treating the value
 // as a 2 bit signed integer allows for simple arithmetic comparisons. For
@@ -224,36 +224,36 @@ func (v IpAddressTypeValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpDefaultRouterPreferenceValue int32
+type IPDefaultRouterPreferenceValue int32
 
 const (
-	// IpDefaultRouterPreferenceValueReserved represents the SMI value reserved.
-	IpDefaultRouterPreferenceValueReserved IpDefaultRouterPreferenceValue = -2
-	// IpDefaultRouterPreferenceValueLow represents the SMI value low.
-	IpDefaultRouterPreferenceValueLow IpDefaultRouterPreferenceValue = -1
-	// IpDefaultRouterPreferenceValueMedium represents the SMI value medium.
-	IpDefaultRouterPreferenceValueMedium IpDefaultRouterPreferenceValue = 0
-	// IpDefaultRouterPreferenceValueHigh represents the SMI value high.
-	IpDefaultRouterPreferenceValueHigh IpDefaultRouterPreferenceValue = 1
+	// IPDefaultRouterPreferenceValueReserved represents the SMI value reserved.
+	IPDefaultRouterPreferenceValueReserved IPDefaultRouterPreferenceValue = -2
+	// IPDefaultRouterPreferenceValueLow represents the SMI value low.
+	IPDefaultRouterPreferenceValueLow IPDefaultRouterPreferenceValue = -1
+	// IPDefaultRouterPreferenceValueMedium represents the SMI value medium.
+	IPDefaultRouterPreferenceValueMedium IPDefaultRouterPreferenceValue = 0
+	// IPDefaultRouterPreferenceValueHigh represents the SMI value high.
+	IPDefaultRouterPreferenceValueHigh IPDefaultRouterPreferenceValue = 1
 )
 
-// String returns the SMI label, or IpDefaultRouterPreferenceValue(n) for an unrecognized value n.
-func (v IpDefaultRouterPreferenceValue) String() string {
+// String returns the SMI label, or IPDefaultRouterPreferenceValue(n) for an unrecognized value n.
+func (v IPDefaultRouterPreferenceValue) String() string {
 	switch v {
-	case IpDefaultRouterPreferenceValueReserved:
+	case IPDefaultRouterPreferenceValueReserved:
 		return "reserved"
-	case IpDefaultRouterPreferenceValueLow:
+	case IPDefaultRouterPreferenceValueLow:
 		return "low"
-	case IpDefaultRouterPreferenceValueMedium:
+	case IPDefaultRouterPreferenceValueMedium:
 		return "medium"
-	case IpDefaultRouterPreferenceValueHigh:
+	case IPDefaultRouterPreferenceValueHigh:
 		return "high"
 	}
 
-	return fmt.Sprintf("IpDefaultRouterPreferenceValue(%d)", v)
+	return fmt.Sprintf("IPDefaultRouterPreferenceValue(%d)", v)
 }
 
-// IpForwardingValue is the SMI enum ipForwarding (inline).
+// IPForwardingValue is the SMI enum ipForwarding (inline).
 // The indication of whether this entity is acting as an IPv4 router in
 // respect to the forwarding of datagrams received by, but not addressed
 // to, this entity. IPv4 routers forward datagrams. IPv4 hosts do not
@@ -265,28 +265,28 @@ func (v IpDefaultRouterPreferenceValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpForwardingValue int32
+type IPForwardingValue int32
 
 const (
-	// IpForwardingValueForwarding represents the SMI value forwarding.
-	IpForwardingValueForwarding IpForwardingValue = 1
-	// IpForwardingValueNotForwarding represents the SMI value notForwarding.
-	IpForwardingValueNotForwarding IpForwardingValue = 2
+	// IPForwardingValueForwarding represents the SMI value forwarding.
+	IPForwardingValueForwarding IPForwardingValue = 1
+	// IPForwardingValueNotForwarding represents the SMI value notForwarding.
+	IPForwardingValueNotForwarding IPForwardingValue = 2
 )
 
-// String returns the SMI label, or IpForwardingValue(n) for an unrecognized value n.
-func (v IpForwardingValue) String() string {
+// String returns the SMI label, or IPForwardingValue(n) for an unrecognized value n.
+func (v IPForwardingValue) String() string {
 	switch v {
-	case IpForwardingValueForwarding:
+	case IPForwardingValueForwarding:
 		return "forwarding"
-	case IpForwardingValueNotForwarding:
+	case IPForwardingValueNotForwarding:
 		return "notForwarding"
 	}
 
-	return fmt.Sprintf("IpForwardingValue(%d)", v)
+	return fmt.Sprintf("IPForwardingValue(%d)", v)
 }
 
-// IpNetToMediaTypeValue is the SMI enum ipNetToMediaType (inline).
+// IPNetToMediaTypeValue is the SMI enum ipNetToMediaType (inline).
 // The type of mapping. Setting this object to the value invalid(2) has the
 // effect of invalidating the corresponding entry in the ipNetToMediaTable.
 // That is, it effectively dis-associates the interface identified with
@@ -303,36 +303,36 @@ func (v IpForwardingValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpNetToMediaTypeValue int32
+type IPNetToMediaTypeValue int32
 
 const (
-	// IpNetToMediaTypeValueOther represents the SMI value other.
-	IpNetToMediaTypeValueOther IpNetToMediaTypeValue = 1
-	// IpNetToMediaTypeValueInvalid represents the SMI value invalid.
-	IpNetToMediaTypeValueInvalid IpNetToMediaTypeValue = 2
-	// IpNetToMediaTypeValueDynamic represents the SMI value dynamic.
-	IpNetToMediaTypeValueDynamic IpNetToMediaTypeValue = 3
-	// IpNetToMediaTypeValueStatic represents the SMI value static.
-	IpNetToMediaTypeValueStatic IpNetToMediaTypeValue = 4
+	// IPNetToMediaTypeValueOther represents the SMI value other.
+	IPNetToMediaTypeValueOther IPNetToMediaTypeValue = 1
+	// IPNetToMediaTypeValueInvalid represents the SMI value invalid.
+	IPNetToMediaTypeValueInvalid IPNetToMediaTypeValue = 2
+	// IPNetToMediaTypeValueDynamic represents the SMI value dynamic.
+	IPNetToMediaTypeValueDynamic IPNetToMediaTypeValue = 3
+	// IPNetToMediaTypeValueStatic represents the SMI value static.
+	IPNetToMediaTypeValueStatic IPNetToMediaTypeValue = 4
 )
 
-// String returns the SMI label, or IpNetToMediaTypeValue(n) for an unrecognized value n.
-func (v IpNetToMediaTypeValue) String() string {
+// String returns the SMI label, or IPNetToMediaTypeValue(n) for an unrecognized value n.
+func (v IPNetToMediaTypeValue) String() string {
 	switch v {
-	case IpNetToMediaTypeValueOther:
+	case IPNetToMediaTypeValueOther:
 		return "other"
-	case IpNetToMediaTypeValueInvalid:
+	case IPNetToMediaTypeValueInvalid:
 		return "invalid"
-	case IpNetToMediaTypeValueDynamic:
+	case IPNetToMediaTypeValueDynamic:
 		return "dynamic"
-	case IpNetToMediaTypeValueStatic:
+	case IPNetToMediaTypeValueStatic:
 		return "static"
 	}
 
-	return fmt.Sprintf("IpNetToMediaTypeValue(%d)", v)
+	return fmt.Sprintf("IPNetToMediaTypeValue(%d)", v)
 }
 
-// IpNetToPhysicalStateValue is the SMI enum ipNetToPhysicalState (inline).
+// IPNetToPhysicalStateValue is the SMI enum ipNetToPhysicalState (inline).
 // The Neighbor Unreachability Detection state for the interface when the
 // address mapping in this entry is used. If Neighbor Unreachability
 // Detection is not in use (e.g. for IPv4), this object is always
@@ -340,48 +340,48 @@ func (v IpNetToMediaTypeValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpNetToPhysicalStateValue int32
+type IPNetToPhysicalStateValue int32
 
 const (
-	// IpNetToPhysicalStateValueReachable represents the SMI value reachable.
-	IpNetToPhysicalStateValueReachable IpNetToPhysicalStateValue = 1
-	// IpNetToPhysicalStateValueStale represents the SMI value stale.
-	IpNetToPhysicalStateValueStale IpNetToPhysicalStateValue = 2
-	// IpNetToPhysicalStateValueDelay represents the SMI value delay.
-	IpNetToPhysicalStateValueDelay IpNetToPhysicalStateValue = 3
-	// IpNetToPhysicalStateValueProbe represents the SMI value probe.
-	IpNetToPhysicalStateValueProbe IpNetToPhysicalStateValue = 4
-	// IpNetToPhysicalStateValueInvalid represents the SMI value invalid.
-	IpNetToPhysicalStateValueInvalid IpNetToPhysicalStateValue = 5
-	// IpNetToPhysicalStateValueUnknown represents the SMI value unknown.
-	IpNetToPhysicalStateValueUnknown IpNetToPhysicalStateValue = 6
-	// IpNetToPhysicalStateValueIncomplete represents the SMI value incomplete.
-	IpNetToPhysicalStateValueIncomplete IpNetToPhysicalStateValue = 7
+	// IPNetToPhysicalStateValueReachable represents the SMI value reachable.
+	IPNetToPhysicalStateValueReachable IPNetToPhysicalStateValue = 1
+	// IPNetToPhysicalStateValueStale represents the SMI value stale.
+	IPNetToPhysicalStateValueStale IPNetToPhysicalStateValue = 2
+	// IPNetToPhysicalStateValueDelay represents the SMI value delay.
+	IPNetToPhysicalStateValueDelay IPNetToPhysicalStateValue = 3
+	// IPNetToPhysicalStateValueProbe represents the SMI value probe.
+	IPNetToPhysicalStateValueProbe IPNetToPhysicalStateValue = 4
+	// IPNetToPhysicalStateValueInvalid represents the SMI value invalid.
+	IPNetToPhysicalStateValueInvalid IPNetToPhysicalStateValue = 5
+	// IPNetToPhysicalStateValueUnknown represents the SMI value unknown.
+	IPNetToPhysicalStateValueUnknown IPNetToPhysicalStateValue = 6
+	// IPNetToPhysicalStateValueIncomplete represents the SMI value incomplete.
+	IPNetToPhysicalStateValueIncomplete IPNetToPhysicalStateValue = 7
 )
 
-// String returns the SMI label, or IpNetToPhysicalStateValue(n) for an unrecognized value n.
-func (v IpNetToPhysicalStateValue) String() string {
+// String returns the SMI label, or IPNetToPhysicalStateValue(n) for an unrecognized value n.
+func (v IPNetToPhysicalStateValue) String() string {
 	switch v {
-	case IpNetToPhysicalStateValueReachable:
+	case IPNetToPhysicalStateValueReachable:
 		return "reachable"
-	case IpNetToPhysicalStateValueStale:
+	case IPNetToPhysicalStateValueStale:
 		return "stale"
-	case IpNetToPhysicalStateValueDelay:
+	case IPNetToPhysicalStateValueDelay:
 		return "delay"
-	case IpNetToPhysicalStateValueProbe:
+	case IPNetToPhysicalStateValueProbe:
 		return "probe"
-	case IpNetToPhysicalStateValueInvalid:
+	case IPNetToPhysicalStateValueInvalid:
 		return "invalid"
-	case IpNetToPhysicalStateValueUnknown:
+	case IPNetToPhysicalStateValueUnknown:
 		return "unknown"
-	case IpNetToPhysicalStateValueIncomplete:
+	case IPNetToPhysicalStateValueIncomplete:
 		return "incomplete"
 	}
 
-	return fmt.Sprintf("IpNetToPhysicalStateValue(%d)", v)
+	return fmt.Sprintf("IPNetToPhysicalStateValue(%d)", v)
 }
 
-// IpNetToPhysicalTypeValue is the SMI enum ipNetToPhysicalType (inline).
+// IPNetToPhysicalTypeValue is the SMI enum ipNetToPhysicalType (inline).
 // The type of mapping. Setting this object to the value invalid(2) has the
 // effect of invalidating the corresponding entry in the
 // ipNetToPhysicalTable. That is, it effectively dis- associates the
@@ -403,40 +403,40 @@ func (v IpNetToPhysicalStateValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type IpNetToPhysicalTypeValue int32
+type IPNetToPhysicalTypeValue int32
 
 const (
-	// IpNetToPhysicalTypeValueOther represents the SMI value other.
-	IpNetToPhysicalTypeValueOther IpNetToPhysicalTypeValue = 1
-	// IpNetToPhysicalTypeValueInvalid represents the SMI value invalid.
-	IpNetToPhysicalTypeValueInvalid IpNetToPhysicalTypeValue = 2
-	// IpNetToPhysicalTypeValueDynamic represents the SMI value dynamic.
-	IpNetToPhysicalTypeValueDynamic IpNetToPhysicalTypeValue = 3
-	// IpNetToPhysicalTypeValueStatic represents the SMI value static.
-	IpNetToPhysicalTypeValueStatic IpNetToPhysicalTypeValue = 4
-	// IpNetToPhysicalTypeValueLocal represents the SMI value local.
-	IpNetToPhysicalTypeValueLocal IpNetToPhysicalTypeValue = 5
+	// IPNetToPhysicalTypeValueOther represents the SMI value other.
+	IPNetToPhysicalTypeValueOther IPNetToPhysicalTypeValue = 1
+	// IPNetToPhysicalTypeValueInvalid represents the SMI value invalid.
+	IPNetToPhysicalTypeValueInvalid IPNetToPhysicalTypeValue = 2
+	// IPNetToPhysicalTypeValueDynamic represents the SMI value dynamic.
+	IPNetToPhysicalTypeValueDynamic IPNetToPhysicalTypeValue = 3
+	// IPNetToPhysicalTypeValueStatic represents the SMI value static.
+	IPNetToPhysicalTypeValueStatic IPNetToPhysicalTypeValue = 4
+	// IPNetToPhysicalTypeValueLocal represents the SMI value local.
+	IPNetToPhysicalTypeValueLocal IPNetToPhysicalTypeValue = 5
 )
 
-// String returns the SMI label, or IpNetToPhysicalTypeValue(n) for an unrecognized value n.
-func (v IpNetToPhysicalTypeValue) String() string {
+// String returns the SMI label, or IPNetToPhysicalTypeValue(n) for an unrecognized value n.
+func (v IPNetToPhysicalTypeValue) String() string {
 	switch v {
-	case IpNetToPhysicalTypeValueOther:
+	case IPNetToPhysicalTypeValueOther:
 		return "other"
-	case IpNetToPhysicalTypeValueInvalid:
+	case IPNetToPhysicalTypeValueInvalid:
 		return "invalid"
-	case IpNetToPhysicalTypeValueDynamic:
+	case IPNetToPhysicalTypeValueDynamic:
 		return "dynamic"
-	case IpNetToPhysicalTypeValueStatic:
+	case IPNetToPhysicalTypeValueStatic:
 		return "static"
-	case IpNetToPhysicalTypeValueLocal:
+	case IPNetToPhysicalTypeValueLocal:
 		return "local"
 	}
 
-	return fmt.Sprintf("IpNetToPhysicalTypeValue(%d)", v)
+	return fmt.Sprintf("IPNetToPhysicalTypeValue(%d)", v)
 }
 
-// Ipv4InterfaceEnableStatusValue is the SMI enum ipv4InterfaceEnableStatus (inline).
+// IPv4InterfaceEnableStatusValue is the SMI enum ipv4InterfaceEnableStatus (inline).
 // The indication of whether IPv4 is enabled (up) or disabled (down) on
 // this interface. This object does not affect the state of the interface
 // itself, only its connection to an IPv4 stack. The IF-MIB should be used
@@ -444,28 +444,60 @@ func (v IpNetToPhysicalTypeValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type Ipv4InterfaceEnableStatusValue int32
+type IPv4InterfaceEnableStatusValue int32
 
 const (
-	// Ipv4InterfaceEnableStatusValueUp represents the SMI value up.
-	Ipv4InterfaceEnableStatusValueUp Ipv4InterfaceEnableStatusValue = 1
-	// Ipv4InterfaceEnableStatusValueDown represents the SMI value down.
-	Ipv4InterfaceEnableStatusValueDown Ipv4InterfaceEnableStatusValue = 2
+	// IPv4InterfaceEnableStatusValueUp represents the SMI value up.
+	IPv4InterfaceEnableStatusValueUp IPv4InterfaceEnableStatusValue = 1
+	// IPv4InterfaceEnableStatusValueDown represents the SMI value down.
+	IPv4InterfaceEnableStatusValueDown IPv4InterfaceEnableStatusValue = 2
 )
 
-// String returns the SMI label, or Ipv4InterfaceEnableStatusValue(n) for an unrecognized value n.
-func (v Ipv4InterfaceEnableStatusValue) String() string {
+// String returns the SMI label, or IPv4InterfaceEnableStatusValue(n) for an unrecognized value n.
+func (v IPv4InterfaceEnableStatusValue) String() string {
 	switch v {
-	case Ipv4InterfaceEnableStatusValueUp:
+	case IPv4InterfaceEnableStatusValueUp:
 		return "up"
-	case Ipv4InterfaceEnableStatusValueDown:
+	case IPv4InterfaceEnableStatusValueDown:
 		return "down"
 	}
 
-	return fmt.Sprintf("Ipv4InterfaceEnableStatusValue(%d)", v)
+	return fmt.Sprintf("IPv4InterfaceEnableStatusValue(%d)", v)
 }
 
-// Ipv6InterfaceEnableStatusValue is the SMI enum ipv6InterfaceEnableStatus (inline).
+// IPv6IPForwardingValue is the SMI enum ipv6IpForwarding (inline).
+// The indication of whether this entity is acting as an IPv6 router on any
+// interface in respect to the forwarding of datagrams received by, but not
+// addressed to, this entity. IPv6 routers forward datagrams. IPv6 hosts do
+// not (except those source-routed via the host). When this object is
+// written, the entity SHOULD save the change to non-volatile storage and
+// restore the object from non-volatile storage upon re-initialization of
+// the system.
+//
+// Values outside the named constants are preserved. Concurrent reads are safe;
+// callers must synchronize writes to a shared value.
+type IPv6IPForwardingValue int32
+
+const (
+	// IPv6IPForwardingValueForwarding represents the SMI value forwarding.
+	IPv6IPForwardingValueForwarding IPv6IPForwardingValue = 1
+	// IPv6IPForwardingValueNotForwarding represents the SMI value notForwarding.
+	IPv6IPForwardingValueNotForwarding IPv6IPForwardingValue = 2
+)
+
+// String returns the SMI label, or IPv6IPForwardingValue(n) for an unrecognized value n.
+func (v IPv6IPForwardingValue) String() string {
+	switch v {
+	case IPv6IPForwardingValueForwarding:
+		return "forwarding"
+	case IPv6IPForwardingValueNotForwarding:
+		return "notForwarding"
+	}
+
+	return fmt.Sprintf("IPv6IPForwardingValue(%d)", v)
+}
+
+// IPv6InterfaceEnableStatusValue is the SMI enum ipv6InterfaceEnableStatus (inline).
 // The indication of whether IPv6 is enabled (up) or disabled (down) on
 // this interface. This object does not affect the state of the interface
 // itself, only its connection to an IPv6 stack. The IF-MIB should be used
@@ -475,28 +507,28 @@ func (v Ipv4InterfaceEnableStatusValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type Ipv6InterfaceEnableStatusValue int32
+type IPv6InterfaceEnableStatusValue int32
 
 const (
-	// Ipv6InterfaceEnableStatusValueUp represents the SMI value up.
-	Ipv6InterfaceEnableStatusValueUp Ipv6InterfaceEnableStatusValue = 1
-	// Ipv6InterfaceEnableStatusValueDown represents the SMI value down.
-	Ipv6InterfaceEnableStatusValueDown Ipv6InterfaceEnableStatusValue = 2
+	// IPv6InterfaceEnableStatusValueUp represents the SMI value up.
+	IPv6InterfaceEnableStatusValueUp IPv6InterfaceEnableStatusValue = 1
+	// IPv6InterfaceEnableStatusValueDown represents the SMI value down.
+	IPv6InterfaceEnableStatusValueDown IPv6InterfaceEnableStatusValue = 2
 )
 
-// String returns the SMI label, or Ipv6InterfaceEnableStatusValue(n) for an unrecognized value n.
-func (v Ipv6InterfaceEnableStatusValue) String() string {
+// String returns the SMI label, or IPv6InterfaceEnableStatusValue(n) for an unrecognized value n.
+func (v IPv6InterfaceEnableStatusValue) String() string {
 	switch v {
-	case Ipv6InterfaceEnableStatusValueUp:
+	case IPv6InterfaceEnableStatusValueUp:
 		return "up"
-	case Ipv6InterfaceEnableStatusValueDown:
+	case IPv6InterfaceEnableStatusValueDown:
 		return "down"
 	}
 
-	return fmt.Sprintf("Ipv6InterfaceEnableStatusValue(%d)", v)
+	return fmt.Sprintf("IPv6InterfaceEnableStatusValue(%d)", v)
 }
 
-// Ipv6InterfaceForwardingValue is the SMI enum ipv6InterfaceForwarding (inline).
+// IPv6InterfaceForwardingValue is the SMI enum ipv6InterfaceForwarding (inline).
 // The indication of whether this entity is acting as an IPv6 router on
 // this interface with respect to the forwarding of datagrams received by,
 // but not addressed to, this entity. IPv6 routers forward datagrams. IPv6
@@ -511,60 +543,28 @@ func (v Ipv6InterfaceEnableStatusValue) String() string {
 //
 // Values outside the named constants are preserved. Concurrent reads are safe;
 // callers must synchronize writes to a shared value.
-type Ipv6InterfaceForwardingValue int32
+type IPv6InterfaceForwardingValue int32
 
 const (
-	// Ipv6InterfaceForwardingValueForwarding represents the SMI value forwarding.
-	Ipv6InterfaceForwardingValueForwarding Ipv6InterfaceForwardingValue = 1
-	// Ipv6InterfaceForwardingValueNotForwarding represents the SMI value notForwarding.
-	Ipv6InterfaceForwardingValueNotForwarding Ipv6InterfaceForwardingValue = 2
+	// IPv6InterfaceForwardingValueForwarding represents the SMI value forwarding.
+	IPv6InterfaceForwardingValueForwarding IPv6InterfaceForwardingValue = 1
+	// IPv6InterfaceForwardingValueNotForwarding represents the SMI value notForwarding.
+	IPv6InterfaceForwardingValueNotForwarding IPv6InterfaceForwardingValue = 2
 )
 
-// String returns the SMI label, or Ipv6InterfaceForwardingValue(n) for an unrecognized value n.
-func (v Ipv6InterfaceForwardingValue) String() string {
+// String returns the SMI label, or IPv6InterfaceForwardingValue(n) for an unrecognized value n.
+func (v IPv6InterfaceForwardingValue) String() string {
 	switch v {
-	case Ipv6InterfaceForwardingValueForwarding:
+	case IPv6InterfaceForwardingValueForwarding:
 		return "forwarding"
-	case Ipv6InterfaceForwardingValueNotForwarding:
+	case IPv6InterfaceForwardingValueNotForwarding:
 		return "notForwarding"
 	}
 
-	return fmt.Sprintf("Ipv6InterfaceForwardingValue(%d)", v)
+	return fmt.Sprintf("IPv6InterfaceForwardingValue(%d)", v)
 }
 
-// Ipv6IpForwardingValue is the SMI enum ipv6IpForwarding (inline).
-// The indication of whether this entity is acting as an IPv6 router on any
-// interface in respect to the forwarding of datagrams received by, but not
-// addressed to, this entity. IPv6 routers forward datagrams. IPv6 hosts do
-// not (except those source-routed via the host). When this object is
-// written, the entity SHOULD save the change to non-volatile storage and
-// restore the object from non-volatile storage upon re-initialization of
-// the system.
-//
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
-type Ipv6IpForwardingValue int32
-
-const (
-	// Ipv6IpForwardingValueForwarding represents the SMI value forwarding.
-	Ipv6IpForwardingValueForwarding Ipv6IpForwardingValue = 1
-	// Ipv6IpForwardingValueNotForwarding represents the SMI value notForwarding.
-	Ipv6IpForwardingValueNotForwarding Ipv6IpForwardingValue = 2
-)
-
-// String returns the SMI label, or Ipv6IpForwardingValue(n) for an unrecognized value n.
-func (v Ipv6IpForwardingValue) String() string {
-	switch v {
-	case Ipv6IpForwardingValueForwarding:
-		return "forwarding"
-	case Ipv6IpForwardingValueNotForwarding:
-		return "notForwarding"
-	}
-
-	return fmt.Sprintf("Ipv6IpForwardingValue(%d)", v)
-}
-
-// IpForwardingGet reads the SMIv2 scalar ipForwarding.
+// IPForwardingGet reads the SMIv2 scalar ipForwarding.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The indication of whether this entity is acting as an IPv4 router in
@@ -575,26 +575,26 @@ func (v Ipv6IpForwardingValue) String() string {
 // the object from non-volatile storage upon re-initialization of the
 // system. Note: a stronger requirement is not used because this object was
 // previously defined.
-func IpForwardingGet(ctx context.Context, sess snmp.Session) (IpForwardingValue, error) {
+func IPForwardingGet(ctx context.Context, sess snmp.Session) (IPForwardingValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 1, 0)})
 	if err != nil {
-		return IpForwardingValue(0), err
+		return IPForwardingValue(0), err
 	}
 
 	if len(vbs) == 0 {
-		return IpForwardingValue(0), errs.Msg("empty Get response for ipForwarding")
+		return IPForwardingValue(0), errs.Msg("empty Get response for ipForwarding")
 	}
 
-	return func(vb snmp.VarBind) (IpForwardingValue, error) {
+	return func(vb snmp.VarBind) (IPForwardingValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
-			return IpForwardingValue(0), err
+			return IPForwardingValue(0), err
 		}
-		return IpForwardingValue(v), nil
+		return IPForwardingValue(v), nil
 	}(vbs[0])
 }
 
-// IpDefaultTTLGet reads the SMIv2 scalar ipDefaultTTL.
+// IPDefaultTTLGet reads the SMIv2 scalar ipDefaultTTL.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The default value inserted into the Time-To-Live field of the IPv4
@@ -604,7 +604,7 @@ func IpForwardingGet(ctx context.Context, sess snmp.Session) (IpForwardingValue,
 // restore the object from non-volatile storage upon re-initialization of
 // the system. Note: a stronger requirement is not used because this object
 // was previously defined.
-func IpDefaultTTLGet(ctx context.Context, sess snmp.Session) (int32, error) {
+func IPDefaultTTLGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 2, 0)})
 	if err != nil {
 		return 0, err
@@ -617,7 +617,7 @@ func IpDefaultTTLGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	return snmp.DecodeInt32(vbs[0])
 }
 
-// IpInReceivesGet reads the SMIv2 scalar ipInReceives.
+// IPInReceivesGet reads the SMIv2 scalar ipInReceives.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The total number of input datagrams received from interfaces, including
@@ -626,7 +626,7 @@ func IpDefaultTTLGet(ctx context.Context, sess snmp.Session) (int32, error) {
 // ipSystemStatsInRecieves.
 //
 // Deprecated: ipInReceives is STATUS deprecated in IP-MIB.
-func IpInReceivesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPInReceivesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 3, 0)})
 	if err != nil {
 		return 0, err
@@ -639,7 +639,7 @@ func IpInReceivesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpInHdrErrorsGet reads the SMIv2 scalar ipInHdrErrors.
+// IPInHdrErrorsGet reads the SMIv2 scalar ipInHdrErrors.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of input datagrams discarded due to errors in their IPv4
@@ -650,7 +650,7 @@ func IpInReceivesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // ipSystemStatsInHdrErrors.
 //
 // Deprecated: ipInHdrErrors is STATUS deprecated in IP-MIB.
-func IpInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 4, 0)})
 	if err != nil {
 		return 0, err
@@ -663,7 +663,7 @@ func IpInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpInAddrErrorsGet reads the SMIv2 scalar ipInAddrErrors.
+// IPInAddrErrorsGet reads the SMIv2 scalar ipInAddrErrors.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of input datagrams discarded because the IPv4 address in
@@ -677,7 +677,7 @@ func IpInHdrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // loosely replaced by ipSystemStatsInAddrErrors.
 //
 // Deprecated: ipInAddrErrors is STATUS deprecated in IP-MIB.
-func IpInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 5, 0)})
 	if err != nil {
 		return 0, err
@@ -690,7 +690,7 @@ func IpInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpForwDatagramsGet reads the SMIv2 scalar ipForwDatagrams.
+// IPForwDatagramsGet reads the SMIv2 scalar ipForwDatagrams.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of input datagrams for which this entity was not their final
@@ -703,7 +703,7 @@ func IpInAddrErrorsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // ipSystemStatsInForwDatagrams.
 //
 // Deprecated: ipForwDatagrams is STATUS deprecated in IP-MIB.
-func IpForwDatagramsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPForwDatagramsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 6, 0)})
 	if err != nil {
 		return 0, err
@@ -716,7 +716,7 @@ func IpForwDatagramsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpInUnknownProtosGet reads the SMIv2 scalar ipInUnknownProtos.
+// IPInUnknownProtosGet reads the SMIv2 scalar ipInUnknownProtos.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of locally-addressed datagrams received successfully but
@@ -725,7 +725,7 @@ func IpForwDatagramsGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 // loosely replaced by ipSystemStatsInUnknownProtos.
 //
 // Deprecated: ipInUnknownProtos is STATUS deprecated in IP-MIB.
-func IpInUnknownProtosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPInUnknownProtosGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 7, 0)})
 	if err != nil {
 		return 0, err
@@ -738,7 +738,7 @@ func IpInUnknownProtosGet(ctx context.Context, sess snmp.Session) (uint32, error
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpInDiscardsGet reads the SMIv2 scalar ipInDiscards.
+// IPInDiscardsGet reads the SMIv2 scalar ipInDiscards.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of input IPv4 datagrams for which no problems were
@@ -749,7 +749,7 @@ func IpInUnknownProtosGet(ctx context.Context, sess snmp.Session) (uint32, error
 // added. It is loosely replaced by ipSystemStatsInDiscards.
 //
 // Deprecated: ipInDiscards is STATUS deprecated in IP-MIB.
-func IpInDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPInDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 8, 0)})
 	if err != nil {
 		return 0, err
@@ -762,7 +762,7 @@ func IpInDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpInDeliversGet reads the SMIv2 scalar ipInDelivers.
+// IPInDeliversGet reads the SMIv2 scalar ipInDelivers.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The total number of input datagrams successfully delivered to IPv4
@@ -771,7 +771,7 @@ func IpInDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // ipSystemStatsIndelivers.
 //
 // Deprecated: ipInDelivers is STATUS deprecated in IP-MIB.
-func IpInDeliversGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPInDeliversGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 9, 0)})
 	if err != nil {
 		return 0, err
@@ -784,7 +784,7 @@ func IpInDeliversGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpOutRequestsGet reads the SMIv2 scalar ipOutRequests.
+// IPOutRequestsGet reads the SMIv2 scalar ipOutRequests.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The total number of IPv4 datagrams which local IPv4 user protocols
@@ -795,7 +795,7 @@ func IpInDeliversGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // ipSystemStatsOutRequests.
 //
 // Deprecated: ipOutRequests is STATUS deprecated in IP-MIB.
-func IpOutRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPOutRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 10, 0)})
 	if err != nil {
 		return 0, err
@@ -808,7 +808,7 @@ func IpOutRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpOutDiscardsGet reads the SMIv2 scalar ipOutDiscards.
+// IPOutDiscardsGet reads the SMIv2 scalar ipOutDiscards.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of output IPv4 datagrams for which no problem was encountered
@@ -820,7 +820,7 @@ func IpOutRequestsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // by ipSystemStatsOutDiscards.
 //
 // Deprecated: ipOutDiscards is STATUS deprecated in IP-MIB.
-func IpOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 11, 0)})
 	if err != nil {
 		return 0, err
@@ -833,7 +833,7 @@ func IpOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpOutNoRoutesGet reads the SMIv2 scalar ipOutNoRoutes.
+// IPOutNoRoutesGet reads the SMIv2 scalar ipOutNoRoutes.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of IPv4 datagrams discarded because no route could be found
@@ -845,7 +845,7 @@ func IpOutDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // loosely replaced by ipSystemStatsOutNoRoutes.
 //
 // Deprecated: ipOutNoRoutes is STATUS deprecated in IP-MIB.
-func IpOutNoRoutesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPOutNoRoutesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 12, 0)})
 	if err != nil {
 		return 0, err
@@ -858,12 +858,12 @@ func IpOutNoRoutesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpReasmTimeoutGet reads the SMIv2 scalar ipReasmTimeout.
+// IPReasmTimeoutGet reads the SMIv2 scalar ipReasmTimeout.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The maximum number of seconds that received fragments are held while
 // they are awaiting reassembly at this entity.
-func IpReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
+func IPReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 13, 0)})
 	if err != nil {
 		return 0, err
@@ -876,7 +876,7 @@ func IpReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	return snmp.DecodeInt32(vbs[0])
 }
 
-// IpReasmReqdsGet reads the SMIv2 scalar ipReasmReqds.
+// IPReasmReqdsGet reads the SMIv2 scalar ipReasmReqds.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of IPv4 fragments received which needed to be reassembled at
@@ -885,7 +885,7 @@ func IpReasmTimeoutGet(ctx context.Context, sess snmp.Session) (int32, error) {
 // ipSystemStatsReasmReqds.
 //
 // Deprecated: ipReasmReqds is STATUS deprecated in IP-MIB.
-func IpReasmReqdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPReasmReqdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 14, 0)})
 	if err != nil {
 		return 0, err
@@ -898,7 +898,7 @@ func IpReasmReqdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpReasmOKsGet reads the SMIv2 scalar ipReasmOKs.
+// IPReasmOKsGet reads the SMIv2 scalar ipReasmOKs.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of IPv4 datagrams successfully re-assembled. This object has
@@ -906,7 +906,7 @@ func IpReasmReqdsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // loosely replaced by ipSystemStatsReasmOKs.
 //
 // Deprecated: ipReasmOKs is STATUS deprecated in IP-MIB.
-func IpReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 15, 0)})
 	if err != nil {
 		return 0, err
@@ -919,7 +919,7 @@ func IpReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpReasmFailsGet reads the SMIv2 scalar ipReasmFails.
+// IPReasmFailsGet reads the SMIv2 scalar ipReasmFails.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of failures detected by the IPv4 re-assembly algorithm (for
@@ -931,7 +931,7 @@ func IpReasmOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // loosely replaced by ipSystemStatsReasmFails.
 //
 // Deprecated: ipReasmFails is STATUS deprecated in IP-MIB.
-func IpReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 16, 0)})
 	if err != nil {
 		return 0, err
@@ -944,7 +944,7 @@ func IpReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpFragOKsGet reads the SMIv2 scalar ipFragOKs.
+// IPFragOKsGet reads the SMIv2 scalar ipFragOKs.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of IPv4 datagrams that have been successfully fragmented at
@@ -953,7 +953,7 @@ func IpReasmFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // ipSystemStatsOutFragOKs.
 //
 // Deprecated: ipFragOKs is STATUS deprecated in IP-MIB.
-func IpFragOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPFragOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 17, 0)})
 	if err != nil {
 		return 0, err
@@ -966,7 +966,7 @@ func IpFragOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpFragFailsGet reads the SMIv2 scalar ipFragFails.
+// IPFragFailsGet reads the SMIv2 scalar ipFragFails.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of IPv4 datagrams that have been discarded because they
@@ -976,7 +976,7 @@ func IpFragOKsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // ipSystemStatsOutFragFails.
 //
 // Deprecated: ipFragFails is STATUS deprecated in IP-MIB.
-func IpFragFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPFragFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 18, 0)})
 	if err != nil {
 		return 0, err
@@ -989,7 +989,7 @@ func IpFragFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpFragCreatesGet reads the SMIv2 scalar ipFragCreates.
+// IPFragCreatesGet reads the SMIv2 scalar ipFragCreates.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of IPv4 datagram fragments that have been generated as a
@@ -998,7 +998,7 @@ func IpFragFailsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // by ipSystemStatsOutFragCreates.
 //
 // Deprecated: ipFragCreates is STATUS deprecated in IP-MIB.
-func IpFragCreatesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPFragCreatesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 19, 0)})
 	if err != nil {
 		return 0, err
@@ -1011,7 +1011,7 @@ func IpFragCreatesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpRoutingDiscardsGet reads the SMIv2 scalar ipRoutingDiscards.
+// IPRoutingDiscardsGet reads the SMIv2 scalar ipRoutingDiscards.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The number of routing entries which were chosen to be discarded even
@@ -1024,7 +1024,7 @@ func IpFragCreatesGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 // been added to the IP-FORWARD-MIB.
 //
 // Deprecated: ipRoutingDiscards is STATUS deprecated in IP-MIB.
-func IpRoutingDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPRoutingDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 23, 0)})
 	if err != nil {
 		return 0, err
@@ -1037,7 +1037,7 @@ func IpRoutingDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// Ipv6IpForwardingGet reads the SMIv2 scalar ipv6IpForwarding.
+// IPv6IPForwardingGet reads the SMIv2 scalar ipv6IpForwarding.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The indication of whether this entity is acting as an IPv6 router on any
@@ -1047,26 +1047,26 @@ func IpRoutingDiscardsGet(ctx context.Context, sess snmp.Session) (uint32, error
 // written, the entity SHOULD save the change to non-volatile storage and
 // restore the object from non-volatile storage upon re-initialization of
 // the system.
-func Ipv6IpForwardingGet(ctx context.Context, sess snmp.Session) (Ipv6IpForwardingValue, error) {
+func IPv6IPForwardingGet(ctx context.Context, sess snmp.Session) (IPv6IPForwardingValue, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 25, 0)})
 	if err != nil {
-		return Ipv6IpForwardingValue(0), err
+		return IPv6IPForwardingValue(0), err
 	}
 
 	if len(vbs) == 0 {
-		return Ipv6IpForwardingValue(0), errs.Msg("empty Get response for ipv6IpForwarding")
+		return IPv6IPForwardingValue(0), errs.Msg("empty Get response for ipv6IpForwarding")
 	}
 
-	return func(vb snmp.VarBind) (Ipv6IpForwardingValue, error) {
+	return func(vb snmp.VarBind) (IPv6IPForwardingValue, error) {
 		v, err := snmp.DecodeInt32(vb)
 		if err != nil {
-			return Ipv6IpForwardingValue(0), err
+			return IPv6IPForwardingValue(0), err
 		}
-		return Ipv6IpForwardingValue(v), nil
+		return IPv6IPForwardingValue(v), nil
 	}(vbs[0])
 }
 
-// Ipv6IpDefaultHopLimitGet reads the SMIv2 scalar ipv6IpDefaultHopLimit.
+// IPv6IPDefaultHopLimitGet reads the SMIv2 scalar ipv6IpDefaultHopLimit.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The default value inserted into the Hop Limit field of the IPv6 header
@@ -1075,7 +1075,7 @@ func Ipv6IpForwardingGet(ctx context.Context, sess snmp.Session) (Ipv6IpForwardi
 // the entity SHOULD save the change to non-volatile storage and restore
 // the object from non-volatile storage upon re-initialization of the
 // system.
-func Ipv6IpDefaultHopLimitGet(ctx context.Context, sess snmp.Session) (int32, error) {
+func IPv6IPDefaultHopLimitGet(ctx context.Context, sess snmp.Session) (int32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 26, 0)})
 	if err != nil {
 		return 0, err
@@ -1088,7 +1088,7 @@ func Ipv6IpDefaultHopLimitGet(ctx context.Context, sess snmp.Session) (int32, er
 	return snmp.DecodeInt32(vbs[0])
 }
 
-// Ipv4InterfaceTableLastChangeGet reads the SMIv2 scalar ipv4InterfaceTableLastChange.
+// IPv4InterfaceTableLastChangeGet reads the SMIv2 scalar ipv4InterfaceTableLastChange.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The value of sysUpTime on the most recent occasion at which a row in the
@@ -1098,7 +1098,7 @@ func Ipv6IpDefaultHopLimitGet(ctx context.Context, sess snmp.Session) (int32, er
 // require the ipv4InterfaceTableLastChange to be updated when they are
 // modified, they must specify that requirement in their description
 // clause.
-func Ipv4InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPv4InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27, 0)})
 	if err != nil {
 		return 0, err
@@ -1111,7 +1111,7 @@ func Ipv4InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// Ipv6InterfaceTableLastChangeGet reads the SMIv2 scalar ipv6InterfaceTableLastChange.
+// IPv6InterfaceTableLastChangeGet reads the SMIv2 scalar ipv6InterfaceTableLastChange.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The value of sysUpTime on the most recent occasion at which a row in the
@@ -1123,7 +1123,7 @@ func Ipv4InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 // require the ipv6InterfaceTableLastChange to be updated when they are
 // modified, they must specify that requirement in their description
 // clause.
-func Ipv6InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPv6InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29, 0)})
 	if err != nil {
 		return 0, err
@@ -1136,7 +1136,7 @@ func Ipv6InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpIfStatsTableLastChangeGet reads the SMIv2 scalar ipIfStatsTableLastChange.
+// IPIfStatsTableLastChangeGet reads the SMIv2 scalar ipIfStatsTableLastChange.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // The value of sysUpTime on the most recent occasion at which a row in the
@@ -1144,7 +1144,7 @@ func Ipv6InterfaceTableLastChangeGet(ctx context.Context, sess snmp.Session) (ui
 // ipIfStatsTable that require the ipIfStatsTableLastChange to be updated
 // when they are modified, they must specify that requirement in their
 // description clause.
-func IpIfStatsTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPIfStatsTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2, 0)})
 	if err != nil {
 		return 0, err
@@ -1157,7 +1157,7 @@ func IpIfStatsTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpAddressSpinLockGet reads the SMIv2 scalar ipAddressSpinLock.
+// IPAddressSpinLockGet reads the SMIv2 scalar ipAddressSpinLock.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // An advisory lock used to allow cooperating SNMP managers to coordinate
@@ -1172,7 +1172,7 @@ func IpIfStatsTableLastChangeGet(ctx context.Context, sess snmp.Session) (uint32
 // ipAddressSpinLock. It is suggested, but not required, that the
 // ipAddressSpinLock be the first var bind for each set of objects
 // representing a 'row' in a PDU.
-func IpAddressSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPAddressSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 33, 0)})
 	if err != nil {
 		return 0, err
@@ -1185,7 +1185,7 @@ func IpAddressSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// Ipv6RouterAdvertSpinLockGet reads the SMIv2 scalar ipv6RouterAdvertSpinLock.
+// IPv6RouterAdvertSpinLockGet reads the SMIv2 scalar ipv6RouterAdvertSpinLock.
 // It returns the session or decode error, or an error if the response is empty.
 //
 // An advisory lock used to allow cooperating SNMP managers to coordinate
@@ -1201,7 +1201,7 @@ func IpAddressSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error
 // It is suggested, but not required, that the ipv6RouterAdvertSpinLock be
 // the first var bind for each set of objects representing a 'row' in a
 // PDU.
-func Ipv6RouterAdvertSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error) {
+func IPv6RouterAdvertSpinLockGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 38, 0)})
 	if err != nil {
 		return 0, err
@@ -1769,30 +1769,30 @@ func IcmpOutAddrMaskRepsGet(ctx context.Context, sess snmp.Session) (uint32, err
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// IpAdEntAddr is the column ipAdEntAddr of table ipAddrTable.
+// IPAdEntAddr is the column ipAdEntAddr of table ipAddrTable.
 // The IPv4 address to which this entry's addressing information pertains.
 //
 // Deprecated: ipAdEntAddr is STATUS deprecated in IP-MIB.
-var IpAdEntAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 1), snmp.KindIPAddress, snmp.DecodeIP)
+var IPAdEntAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 1), snmp.KindIPAddress, snmp.DecodeIP)
 
-// IpAdEntIfIndex is the column ipAdEntIfIndex of table ipAddrTable.
+// IPAdEntIfIndex is the column ipAdEntIfIndex of table ipAddrTable.
 // The index value which uniquely identifies the interface to which this
 // entry is applicable. The interface identified by a particular value of
 // this index is the same interface as identified by the same value of the
 // IF-MIB's ifIndex.
 //
 // Deprecated: ipAdEntIfIndex is STATUS deprecated in IP-MIB.
-var IpAdEntIfIndex = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPAdEntIfIndex = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpAdEntNetMask is the column ipAdEntNetMask of table ipAddrTable.
+// IPAdEntNetMask is the column ipAdEntNetMask of table ipAddrTable.
 // The subnet mask associated with the IPv4 address of this entry. The
 // value of the mask is an IPv4 address with all the network bits set to 1
 // and all the hosts bits set to 0.
 //
 // Deprecated: ipAdEntNetMask is STATUS deprecated in IP-MIB.
-var IpAdEntNetMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 3), snmp.KindIPAddress, snmp.DecodeIP)
+var IPAdEntNetMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 3), snmp.KindIPAddress, snmp.DecodeIP)
 
-// IpAdEntBcastAddr is the column ipAdEntBcastAddr of table ipAddrTable.
+// IPAdEntBcastAddr is the column ipAdEntBcastAddr of table ipAddrTable.
 // The value of the least-significant bit in the IPv4 broadcast address
 // used for sending datagrams on the (logical) interface associated with
 // the IPv4 address of this entry. For example, when the Internet standard
@@ -1801,49 +1801,49 @@ var IpAdEntNetMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20
 // entity on this (logical) interface.
 //
 // Deprecated: ipAdEntBcastAddr is STATUS deprecated in IP-MIB.
-var IpAdEntBcastAddr = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPAdEntBcastAddr = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpAdEntReasmMaxSize is the column ipAdEntReasmMaxSize of table ipAddrTable.
+// IPAdEntReasmMaxSize is the column ipAdEntReasmMaxSize of table ipAddrTable.
 // The size of the largest IPv4 datagram which this entity can re-assemble
 // from incoming IPv4 fragmented datagrams received on this interface.
 //
 // Deprecated: ipAdEntReasmMaxSize is STATUS deprecated in IP-MIB.
-var IpAdEntReasmMaxSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var IPAdEntReasmMaxSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
-// IpAddrTableKey is the decoded INDEX of one ipAddrTable row, one field per
+// IPAddrTableKey is the decoded INDEX of one ipAddrTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpAddrTableKey struct {
-	IpAdEntAddr netip.Addr
+type IPAddrTableKey struct {
+	IPAdEntAddr netip.Addr
 }
 
 var ipAddrTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexIPv4}}
 
-// decodeIpAddrTableKey decodes the instance suffix of one ipAddrTable row. ok is false
+// decodeIPAddrTableKey decodes the instance suffix of one ipAddrTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpAddrTableKey(idx snmp.OID) (IpAddrTableKey, bool) {
+func decodeIPAddrTableKey(idx snmp.OID) (IPAddrTableKey, bool) {
 	var parts [1]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipAddrTableIndexShapes) {
-		return IpAddrTableKey{}, false
+		return IPAddrTableKey{}, false
 	}
-	return IpAddrTableKey{IpAdEntAddr: parts[0].Addr}, true
+	return IPAddrTableKey{IPAdEntAddr: parts[0].Addr}, true
 }
 
-// IpAddrTableRow is one row of ipAddrTable. Key is the decoded INDEX; a
+// IPAddrTableRow is one row of ipAddrTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpAddrTableRow.KeyValid] reports which. The remaining fields are
+// [IPAddrTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpAddrTableRow.Observed] to tell a reported zero from a column the
+// [IPAddrTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpAddrTableRow struct {
-	Key                 IpAddrTableKey
+type IPAddrTableRow struct {
+	Key                 IPAddrTableKey
 	keyValid            bool
-	IpAdEntAddr         net.IP
-	IpAdEntIfIndex      uint32
-	IpAdEntNetMask      net.IP
-	IpAdEntBcastAddr    uint32
-	IpAdEntReasmMaxSize int32
+	IPAdEntAddr         net.IP
+	IPAdEntIfIndex      uint32
+	IPAdEntNetMask      net.IP
+	IPAdEntBcastAddr    uint32
+	IPAdEntReasmMaxSize int32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -1854,7 +1854,7 @@ type IpAddrTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpAddrTableRow) KeyValid() bool {
+func (r IPAddrTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -1862,27 +1862,27 @@ func (r IpAddrTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpAddrTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPAddrTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpAdEntAddr.Key():
+	case IPAdEntAddr.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpAdEntIfIndex.Key():
+	case IPAdEntIfIndex.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpAdEntNetMask.Key():
+	case IPAdEntNetMask.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpAdEntBcastAddr.Key():
+	case IPAdEntBcastAddr.Key():
 		return r.observed[0]&(1<<3) != 0
-	case IpAdEntReasmMaxSize.Key():
+	case IPAdEntReasmMaxSize.Key():
 		return r.observed[0]&(1<<4) != 0
 	}
 
 	return false
 }
 
-// IpAddrTableWalker streams selected columns of ipAddrTable.
-// The zero value is not usable; construct via IpAddrTable.Walk(ctx, sess, cols...).
+// IPAddrTableWalker streams selected columns of ipAddrTable.
+// The zero value is not usable; construct via IPAddrTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpAddrTableWalker struct {
+type IPAddrTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -1893,91 +1893,91 @@ type IpAddrTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
-	return func(yield func(snmp.OID, IpAddrTableRow) bool) {
+func (tw *IPAddrTableWalker) Iter() iter.Seq2[snmp.OID, IPAddrTableRow] {
+	return func(yield func(snmp.OID, IPAddrTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpAddrTableRow
-			row.Key, row.keyValid = decodeIpAddrTableKey(idx)
+			var row IPAddrTableRow
+			row.Key, row.keyValid = decodeIPAddrTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpAdEntAddr.Key():
+				case IPAdEntAddr.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAdEntAddr.Decode(vb)
+						dv, dErr := IPAdEntAddr.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAdEntAddr = dv
+							row.IPAdEntAddr = dv
 							row.observed[0] |= 1 << 0
 						}
 					}
-				case IpAdEntIfIndex.Key():
+				case IPAdEntIfIndex.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpAdEntIfIndex = v
+						row.IPAdEntIfIndex = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAdEntIfIndex.Decode(vb)
+							dv, dErr := IPAdEntIfIndex.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAdEntIfIndex = dv
+								row.IPAdEntIfIndex = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case IpAdEntNetMask.Key():
+				case IPAdEntNetMask.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAdEntNetMask.Decode(vb)
+						dv, dErr := IPAdEntNetMask.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAdEntNetMask = dv
+							row.IPAdEntNetMask = dv
 							row.observed[0] |= 1 << 2
 						}
 					}
-				case IpAdEntBcastAddr.Key():
+				case IPAdEntBcastAddr.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpAdEntBcastAddr = v
+						row.IPAdEntBcastAddr = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAdEntBcastAddr.Decode(vb)
+							dv, dErr := IPAdEntBcastAddr.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAdEntBcastAddr = dv
+								row.IPAdEntBcastAddr = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case IpAdEntReasmMaxSize.Key():
+				case IPAdEntReasmMaxSize.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAdEntReasmMaxSize = v
+						row.IPAdEntReasmMaxSize = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAdEntReasmMaxSize.Decode(vb)
+							dv, dErr := IPAdEntReasmMaxSize.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAdEntReasmMaxSize = dv
+								row.IPAdEntReasmMaxSize = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
@@ -1997,20 +1997,20 @@ func (tw *IpAddrTableWalker) Iter() iter.Seq2[snmp.OID, IpAddrTableRow] {
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpAddrTableWalker) Err() error {
+func (tw *IPAddrTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipAddrTableT is the singleton type of IpAddrTable.
+// ipAddrTableT is the singleton type of IPAddrTable.
 type ipAddrTableT struct{}
 
-// IpAddrTable is the descriptor for the ipAddrTable table.
+// IPAddrTable is the descriptor for the ipAddrTable table.
 //
 // Deprecated: ipAddrTable is STATUS deprecated in IP-MIB.
-var IpAddrTable ipAddrTableT
+var IPAddrTable ipAddrTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpAddrTableWalker) Close() {
+func (tw *IPAddrTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -2018,7 +2018,7 @@ func (tw *IpAddrTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddrTableWalker {
+func (t ipAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPAddrTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -2028,24 +2028,24 @@ func (t ipAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.
 // for the table or declare it as a dependency.
 func (ipAddrTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "IpAddrTableKey",
+		KeyType: "IPAddrTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpAddrTableWalker {
+func (ipAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPAddrTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpAdEntAddr.Key(), IpAdEntIfIndex.Key(), IpAdEntNetMask.Key(), IpAdEntBcastAddr.Key(), IpAdEntReasmMaxSize.Key():
+		case IPAdEntAddr.Key(), IPAdEntIfIndex.Key(), IPAdEntNetMask.Key(), IPAdEntBcastAddr.Key(), IPAdEntReasmMaxSize.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipAddrTable.Walk: column %s", c.OID()))
-			return &IpAddrTableWalker{rw: w}
+			return &IPAddrTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -2054,13 +2054,13 @@ func (ipAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opti
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpAddrTableWalker{
+	return &IPAddrTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// IpNetToMediaIfIndex is the column ipNetToMediaIfIndex of table ipNetToMediaTable.
+// IPNetToMediaIfIndex is the column ipNetToMediaIfIndex of table ipNetToMediaTable.
 // The interface on which this entry's equivalence is effective. The
 // interface identified by a particular value of this index is the same
 // interface as identified by the same value of the IF-MIB's ifIndex. This
@@ -2068,9 +2068,9 @@ func (ipAddrTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opti
 // 'not-accessible' and so continues to use a value of 'read-create'.
 //
 // Deprecated: ipNetToMediaIfIndex is STATUS deprecated in IP-MIB.
-var IpNetToMediaIfIndex = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 1), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPNetToMediaIfIndex = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 1), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpNetToMediaPhysAddress is the column ipNetToMediaPhysAddress of table ipNetToMediaTable.
+// IPNetToMediaPhysAddress is the column ipNetToMediaPhysAddress of table ipNetToMediaTable.
 // The media-dependent `physical' address. This object should return 0 when
 // this entry is in the 'incomplete' state. As the entries in this table
 // are typically not persistent when this object is written the entity
@@ -2078,18 +2078,18 @@ var IpNetToMediaIfIndex = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // requirement is not used because this object was previously defined.
 //
 // Deprecated: ipNetToMediaPhysAddress is STATUS deprecated in IP-MIB.
-var IpNetToMediaPhysAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 2), snmp.KindOctetString, snmp.DecodePhysAddress)
+var IPNetToMediaPhysAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 2), snmp.KindOctetString, snmp.DecodePhysAddress)
 
-// IpNetToMediaNetAddress is the column ipNetToMediaNetAddress of table ipNetToMediaTable.
+// IPNetToMediaNetAddress is the column ipNetToMediaNetAddress of table ipNetToMediaTable.
 // The IpAddress corresponding to the media-dependent `physical' address.
 // This object predates the rule limiting index objects to a max access
 // value of 'not-accessible' and so continues to use a value of
 // 'read-create'.
 //
 // Deprecated: ipNetToMediaNetAddress is STATUS deprecated in IP-MIB.
-var IpNetToMediaNetAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 3), snmp.KindIPAddress, snmp.DecodeIP)
+var IPNetToMediaNetAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 3), snmp.KindIPAddress, snmp.DecodeIP)
 
-// IpNetToMediaType is the column ipNetToMediaType of table ipNetToMediaTable.
+// IPNetToMediaType is the column ipNetToMediaType of table ipNetToMediaTable.
 // The type of mapping. Setting this object to the value invalid(2) has the
 // effect of invalidating the corresponding entry in the ipNetToMediaTable.
 // That is, it effectively dis-associates the interface identified with
@@ -2105,48 +2105,48 @@ var IpNetToMediaNetAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 2, 
 // previously defined.
 //
 // Deprecated: ipNetToMediaType is STATUS deprecated in IP-MIB.
-var IpNetToMediaType = snmp.NewColumn[IpNetToMediaTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IpNetToMediaTypeValue, error) {
+var IPNetToMediaType = snmp.NewColumn[IPNetToMediaTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IPNetToMediaTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpNetToMediaTypeValue(0), err
+		return IPNetToMediaTypeValue(0), err
 	}
-	return IpNetToMediaTypeValue(v), nil
+	return IPNetToMediaTypeValue(v), nil
 })
 
-// IpNetToMediaTableKey is the decoded INDEX of one ipNetToMediaTable row, one field per
+// IPNetToMediaTableKey is the decoded INDEX of one ipNetToMediaTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpNetToMediaTableKey struct {
-	IpNetToMediaIfIndex    uint32
-	IpNetToMediaNetAddress netip.Addr
+type IPNetToMediaTableKey struct {
+	IPNetToMediaIfIndex    uint32
+	IPNetToMediaNetAddress netip.Addr
 }
 
 var ipNetToMediaTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexIPv4}}
 
-// decodeIpNetToMediaTableKey decodes the instance suffix of one ipNetToMediaTable row. ok is false
+// decodeIPNetToMediaTableKey decodes the instance suffix of one ipNetToMediaTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpNetToMediaTableKey(idx snmp.OID) (IpNetToMediaTableKey, bool) {
+func decodeIPNetToMediaTableKey(idx snmp.OID) (IPNetToMediaTableKey, bool) {
 	var parts [2]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipNetToMediaTableIndexShapes) {
-		return IpNetToMediaTableKey{}, false
+		return IPNetToMediaTableKey{}, false
 	}
-	return IpNetToMediaTableKey{IpNetToMediaIfIndex: parts[0].Integer, IpNetToMediaNetAddress: parts[1].Addr}, true
+	return IPNetToMediaTableKey{IPNetToMediaIfIndex: parts[0].Integer, IPNetToMediaNetAddress: parts[1].Addr}, true
 }
 
-// IpNetToMediaTableRow is one row of ipNetToMediaTable. Key is the decoded INDEX; a
+// IPNetToMediaTableRow is one row of ipNetToMediaTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpNetToMediaTableRow.KeyValid] reports which. The remaining fields are
+// [IPNetToMediaTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpNetToMediaTableRow.Observed] to tell a reported zero from a column the
+// [IPNetToMediaTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpNetToMediaTableRow struct {
-	Key                     IpNetToMediaTableKey
+type IPNetToMediaTableRow struct {
+	Key                     IPNetToMediaTableKey
 	keyValid                bool
-	IpNetToMediaIfIndex     uint32
-	IpNetToMediaPhysAddress []byte
-	IpNetToMediaNetAddress  net.IP
-	IpNetToMediaType        IpNetToMediaTypeValue
+	IPNetToMediaIfIndex     uint32
+	IPNetToMediaPhysAddress []byte
+	IPNetToMediaNetAddress  net.IP
+	IPNetToMediaType        IPNetToMediaTypeValue
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -2157,7 +2157,7 @@ type IpNetToMediaTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpNetToMediaTableRow) KeyValid() bool {
+func (r IPNetToMediaTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -2165,25 +2165,25 @@ func (r IpNetToMediaTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpNetToMediaTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPNetToMediaTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpNetToMediaIfIndex.Key():
+	case IPNetToMediaIfIndex.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpNetToMediaPhysAddress.Key():
+	case IPNetToMediaPhysAddress.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpNetToMediaNetAddress.Key():
+	case IPNetToMediaNetAddress.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpNetToMediaType.Key():
+	case IPNetToMediaType.Key():
 		return r.observed[0]&(1<<3) != 0
 	}
 
 	return false
 }
 
-// IpNetToMediaTableWalker streams selected columns of ipNetToMediaTable.
-// The zero value is not usable; construct via IpNetToMediaTable.Walk(ctx, sess, cols...).
+// IPNetToMediaTableWalker streams selected columns of ipNetToMediaTable.
+// The zero value is not usable; construct via IPNetToMediaTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpNetToMediaTableWalker struct {
+type IPNetToMediaTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -2194,73 +2194,73 @@ type IpNetToMediaTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableRow] {
-	return func(yield func(snmp.OID, IpNetToMediaTableRow) bool) {
+func (tw *IPNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IPNetToMediaTableRow] {
+	return func(yield func(snmp.OID, IPNetToMediaTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpNetToMediaTableRow
-			row.Key, row.keyValid = decodeIpNetToMediaTableKey(idx)
+			var row IPNetToMediaTableRow
+			row.Key, row.keyValid = decodeIPNetToMediaTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpNetToMediaIfIndex.Key():
+				case IPNetToMediaIfIndex.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpNetToMediaIfIndex = v
+						row.IPNetToMediaIfIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpNetToMediaIfIndex.Decode(vb)
+							dv, dErr := IPNetToMediaIfIndex.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpNetToMediaIfIndex = dv
+								row.IPNetToMediaIfIndex = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case IpNetToMediaPhysAddress.Key():
+				case IPNetToMediaPhysAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToMediaPhysAddress.Decode(vb)
+						dv, dErr := IPNetToMediaPhysAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToMediaPhysAddress = dv
+							row.IPNetToMediaPhysAddress = dv
 							row.observed[0] |= 1 << 1
 						}
 					}
-				case IpNetToMediaNetAddress.Key():
+				case IPNetToMediaNetAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToMediaNetAddress.Decode(vb)
+						dv, dErr := IPNetToMediaNetAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToMediaNetAddress = dv
+							row.IPNetToMediaNetAddress = dv
 							row.observed[0] |= 1 << 2
 						}
 					}
-				case IpNetToMediaType.Key():
+				case IPNetToMediaType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpNetToMediaType = IpNetToMediaTypeValue(v)
+						row.IPNetToMediaType = IPNetToMediaTypeValue(v)
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpNetToMediaType.Decode(vb)
+							dv, dErr := IPNetToMediaType.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpNetToMediaType = dv
+								row.IPNetToMediaType = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
@@ -2280,20 +2280,20 @@ func (tw *IpNetToMediaTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToMediaTableR
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpNetToMediaTableWalker) Err() error {
+func (tw *IPNetToMediaTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipNetToMediaTableT is the singleton type of IpNetToMediaTable.
+// ipNetToMediaTableT is the singleton type of IPNetToMediaTable.
 type ipNetToMediaTableT struct{}
 
-// IpNetToMediaTable is the descriptor for the ipNetToMediaTable table.
+// IPNetToMediaTable is the descriptor for the ipNetToMediaTable table.
 //
 // Deprecated: ipNetToMediaTable is STATUS deprecated in IP-MIB.
-var IpNetToMediaTable ipNetToMediaTableT
+var IPNetToMediaTable ipNetToMediaTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpNetToMediaTableWalker) Close() {
+func (tw *IPNetToMediaTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -2301,7 +2301,7 @@ func (tw *IpNetToMediaTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipNetToMediaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToMediaTableWalker {
+func (t ipNetToMediaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPNetToMediaTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -2311,24 +2311,24 @@ func (t ipNetToMediaTableT) Walk(ctx context.Context, sess snmp.Session, cols ..
 // for the table or declare it as a dependency.
 func (ipNetToMediaTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "IpNetToMediaTableKey",
+		KeyType: "IPNetToMediaTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipNetToMediaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpNetToMediaTableWalker {
+func (ipNetToMediaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPNetToMediaTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpNetToMediaIfIndex.Key(), IpNetToMediaPhysAddress.Key(), IpNetToMediaNetAddress.Key(), IpNetToMediaType.Key():
+		case IPNetToMediaIfIndex.Key(), IPNetToMediaPhysAddress.Key(), IPNetToMediaNetAddress.Key(), IPNetToMediaType.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipNetToMediaTable.Walk: column %s", c.OID()))
-			return &IpNetToMediaTableWalker{rw: w}
+			return &IPNetToMediaTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -2337,67 +2337,67 @@ func (ipNetToMediaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpNetToMediaTableWalker{
+	return &IPNetToMediaTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// Ipv4InterfaceReasmMaxSize is the column ipv4InterfaceReasmMaxSize of table ipv4InterfaceTable.
+// IPv4InterfaceReasmMaxSize is the column ipv4InterfaceReasmMaxSize of table ipv4InterfaceTable.
 // The size of the largest IPv4 datagram that this entity can re-assemble
 // from incoming IPv4 fragmented datagrams received on this interface.
-var Ipv4InterfaceReasmMaxSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var IPv4InterfaceReasmMaxSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
-// Ipv4InterfaceEnableStatus is the column ipv4InterfaceEnableStatus of table ipv4InterfaceTable.
+// IPv4InterfaceEnableStatus is the column ipv4InterfaceEnableStatus of table ipv4InterfaceTable.
 // The indication of whether IPv4 is enabled (up) or disabled (down) on
 // this interface. This object does not affect the state of the interface
 // itself, only its connection to an IPv4 stack. The IF-MIB should be used
 // to control the state of the interface.
-var Ipv4InterfaceEnableStatus = snmp.NewColumn[Ipv4InterfaceEnableStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Ipv4InterfaceEnableStatusValue, error) {
+var IPv4InterfaceEnableStatus = snmp.NewColumn[IPv4InterfaceEnableStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (IPv4InterfaceEnableStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return Ipv4InterfaceEnableStatusValue(0), err
+		return IPv4InterfaceEnableStatusValue(0), err
 	}
-	return Ipv4InterfaceEnableStatusValue(v), nil
+	return IPv4InterfaceEnableStatusValue(v), nil
 })
 
-// Ipv4InterfaceRetransmitTime is the column ipv4InterfaceRetransmitTime of table ipv4InterfaceTable.
+// IPv4InterfaceRetransmitTime is the column ipv4InterfaceRetransmitTime of table ipv4InterfaceTable.
 // The time between retransmissions of ARP requests to a neighbor when
 // resolving the address or when probing the reachability of a neighbor.
-var Ipv4InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv4InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv4InterfaceTableKey is the decoded INDEX of one ipv4InterfaceTable row, one field per
+// IPv4InterfaceTableKey is the decoded INDEX of one ipv4InterfaceTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type Ipv4InterfaceTableKey struct {
-	Ipv4InterfaceIfIndex ifmib.InterfaceIndex
+type IPv4InterfaceTableKey struct {
+	IPv4InterfaceIfIndex ifmib.InterfaceIndex
 }
 
 var ipv4InterfaceTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// decodeIpv4InterfaceTableKey decodes the instance suffix of one ipv4InterfaceTable row. ok is false
+// decodeIPv4InterfaceTableKey decodes the instance suffix of one ipv4InterfaceTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpv4InterfaceTableKey(idx snmp.OID) (Ipv4InterfaceTableKey, bool) {
+func decodeIPv4InterfaceTableKey(idx snmp.OID) (IPv4InterfaceTableKey, bool) {
 	var parts [1]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipv4InterfaceTableIndexShapes) {
-		return Ipv4InterfaceTableKey{}, false
+		return IPv4InterfaceTableKey{}, false
 	}
-	return Ipv4InterfaceTableKey{Ipv4InterfaceIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+	return IPv4InterfaceTableKey{IPv4InterfaceIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
 }
 
-// Ipv4InterfaceTableRow is one row of ipv4InterfaceTable. Key is the decoded INDEX; a
+// IPv4InterfaceTableRow is one row of ipv4InterfaceTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [Ipv4InterfaceTableRow.KeyValid] reports which. The remaining fields are
+// [IPv4InterfaceTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [Ipv4InterfaceTableRow.Observed] to tell a reported zero from a column the
+// [IPv4InterfaceTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type Ipv4InterfaceTableRow struct {
-	Key                         Ipv4InterfaceTableKey
+type IPv4InterfaceTableRow struct {
+	Key                         IPv4InterfaceTableKey
 	keyValid                    bool
-	Ipv4InterfaceReasmMaxSize   int32
-	Ipv4InterfaceEnableStatus   Ipv4InterfaceEnableStatusValue
-	Ipv4InterfaceRetransmitTime uint32
+	IPv4InterfaceReasmMaxSize   int32
+	IPv4InterfaceEnableStatus   IPv4InterfaceEnableStatusValue
+	IPv4InterfaceRetransmitTime uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -2408,7 +2408,7 @@ type Ipv4InterfaceTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r Ipv4InterfaceTableRow) KeyValid() bool {
+func (r IPv4InterfaceTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -2416,23 +2416,23 @@ func (r Ipv4InterfaceTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r Ipv4InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPv4InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case Ipv4InterfaceReasmMaxSize.Key():
+	case IPv4InterfaceReasmMaxSize.Key():
 		return r.observed[0]&(1<<0) != 0
-	case Ipv4InterfaceEnableStatus.Key():
+	case IPv4InterfaceEnableStatus.Key():
 		return r.observed[0]&(1<<1) != 0
-	case Ipv4InterfaceRetransmitTime.Key():
+	case IPv4InterfaceRetransmitTime.Key():
 		return r.observed[0]&(1<<2) != 0
 	}
 
 	return false
 }
 
-// Ipv4InterfaceTableWalker streams selected columns of ipv4InterfaceTable.
-// The zero value is not usable; construct via Ipv4InterfaceTable.Walk(ctx, sess, cols...).
+// IPv4InterfaceTableWalker streams selected columns of ipv4InterfaceTable.
+// The zero value is not usable; construct via IPv4InterfaceTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type Ipv4InterfaceTableWalker struct {
+type IPv4InterfaceTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -2443,65 +2443,65 @@ type Ipv4InterfaceTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTableRow] {
-	return func(yield func(snmp.OID, Ipv4InterfaceTableRow) bool) {
+func (tw *IPv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, IPv4InterfaceTableRow] {
+	return func(yield func(snmp.OID, IPv4InterfaceTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row Ipv4InterfaceTableRow
-			row.Key, row.keyValid = decodeIpv4InterfaceTableKey(idx)
+			var row IPv4InterfaceTableRow
+			row.Key, row.keyValid = decodeIPv4InterfaceTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case Ipv4InterfaceReasmMaxSize.Key():
+				case IPv4InterfaceReasmMaxSize.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Ipv4InterfaceReasmMaxSize = v
+						row.IPv4InterfaceReasmMaxSize = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv4InterfaceReasmMaxSize.Decode(vb)
+							dv, dErr := IPv4InterfaceReasmMaxSize.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv4InterfaceReasmMaxSize = dv
+								row.IPv4InterfaceReasmMaxSize = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case Ipv4InterfaceEnableStatus.Key():
+				case IPv4InterfaceEnableStatus.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Ipv4InterfaceEnableStatus = Ipv4InterfaceEnableStatusValue(v)
+						row.IPv4InterfaceEnableStatus = IPv4InterfaceEnableStatusValue(v)
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv4InterfaceEnableStatus.Decode(vb)
+							dv, dErr := IPv4InterfaceEnableStatus.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv4InterfaceEnableStatus = dv
+								row.IPv4InterfaceEnableStatus = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case Ipv4InterfaceRetransmitTime.Key():
+				case IPv4InterfaceRetransmitTime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv4InterfaceRetransmitTime = v
+						row.IPv4InterfaceRetransmitTime = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv4InterfaceRetransmitTime.Decode(vb)
+							dv, dErr := IPv4InterfaceRetransmitTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv4InterfaceRetransmitTime = dv
+								row.IPv4InterfaceRetransmitTime = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
@@ -2521,18 +2521,18 @@ func (tw *Ipv4InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv4InterfaceTabl
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *Ipv4InterfaceTableWalker) Err() error {
+func (tw *IPv4InterfaceTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipv4InterfaceTableT is the singleton type of Ipv4InterfaceTable.
+// ipv4InterfaceTableT is the singleton type of IPv4InterfaceTable.
 type ipv4InterfaceTableT struct{}
 
-// Ipv4InterfaceTable is the descriptor for the ipv4InterfaceTable table.
-var Ipv4InterfaceTable ipv4InterfaceTableT
+// IPv4InterfaceTable is the descriptor for the ipv4InterfaceTable table.
+var IPv4InterfaceTable ipv4InterfaceTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Ipv4InterfaceTableWalker) Close() {
+func (tw *IPv4InterfaceTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -2540,7 +2540,7 @@ func (tw *Ipv4InterfaceTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv4InterfaceTableWalker {
+func (t ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPv4InterfaceTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -2550,25 +2550,25 @@ func (t ipv4InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols .
 // for the table or declare it as a dependency.
 func (ipv4InterfaceTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		Indicator: Ipv4InterfaceTableIndicator,
-		KeyType:   "Ipv4InterfaceTableKey",
+		Indicator: IPv4InterfaceTableIndicator,
+		KeyType:   "IPv4InterfaceTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipv4InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv4InterfaceTableWalker {
+func (ipv4InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPv4InterfaceTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Ipv4InterfaceReasmMaxSize.Key(), Ipv4InterfaceEnableStatus.Key(), Ipv4InterfaceRetransmitTime.Key():
+		case IPv4InterfaceReasmMaxSize.Key(), IPv4InterfaceEnableStatus.Key(), IPv4InterfaceRetransmitTime.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv4InterfaceTable.Walk: column %s", c.OID()))
-			return &Ipv4InterfaceTableWalker{rw: w}
+			return &IPv4InterfaceTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -2577,19 +2577,19 @@ func (ipv4InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &Ipv4InterfaceTableWalker{
+	return &IPv4InterfaceTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// decodeIpv4InterfaceTableRow decodes one row of Ipv4InterfaceTable from the supplied
+// decodeIPv4InterfaceTableRow decodes one row of IPv4InterfaceTable from the supplied
 // VarBinds. Each VarBind's OID determines which row field it populates
 // (via the column's last sub-id). VarBinds with unknown column-ids are
 // ignored. Absent columns leave their field at its zero value.
-func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4InterfaceTableRow, error) {
-	var row Ipv4InterfaceTableRow
-	row.Key, row.keyValid = decodeIpv4InterfaceTableKey(idx)
+func decodeIPv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (IPv4InterfaceTableRow, error) {
+	var row IPv4InterfaceTableRow
+	row.Key, row.keyValid = decodeIPv4InterfaceTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -2603,25 +2603,25 @@ func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4Interfac
 		colID := o.At(entryLen)
 		switch colID {
 		case 2:
-			dv, derr := Ipv4InterfaceReasmMaxSize.Decode(vb)
+			dv, derr := IPv4InterfaceReasmMaxSize.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv4InterfaceReasmMaxSize = dv
+			row.IPv4InterfaceReasmMaxSize = dv
 			row.observed[0] |= 1 << 0
 		case 3:
-			dv, derr := Ipv4InterfaceEnableStatus.Decode(vb)
+			dv, derr := IPv4InterfaceEnableStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv4InterfaceEnableStatus = dv
+			row.IPv4InterfaceEnableStatus = dv
 			row.observed[0] |= 1 << 1
 		case 4:
-			dv, derr := Ipv4InterfaceRetransmitTime.Decode(vb)
+			dv, derr := IPv4InterfaceRetransmitTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv4InterfaceRetransmitTime = dv
+			row.IPv4InterfaceRetransmitTime = dv
 			row.observed[0] |= 1 << 2
 		}
 	}
@@ -2629,22 +2629,22 @@ func decodeIpv4InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv4Interfac
 	return row, nil
 }
 
-// equalIpv4InterfaceTableRow compares two Ipv4InterfaceTableRow values for equality.
+// equalIPv4InterfaceTableRow compares two IPv4InterfaceTableRow values for equality.
 // Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
-func equalIpv4InterfaceTableRow(a Ipv4InterfaceTableRow, b Ipv4InterfaceTableRow) bool {
-	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.Ipv4InterfaceReasmMaxSize == b.Ipv4InterfaceReasmMaxSize && a.Ipv4InterfaceEnableStatus == b.Ipv4InterfaceEnableStatus && a.Ipv4InterfaceRetransmitTime == b.Ipv4InterfaceRetransmitTime
+func equalIPv4InterfaceTableRow(a IPv4InterfaceTableRow, b IPv4InterfaceTableRow) bool {
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IPv4InterfaceReasmMaxSize == b.IPv4InterfaceReasmMaxSize && a.IPv4InterfaceEnableStatus == b.IPv4InterfaceEnableStatus && a.IPv4InterfaceRetransmitTime == b.IPv4InterfaceRetransmitTime
 }
 
-// mergeIpv4InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
+// mergeIPv4InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
 // whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
 // to maintain per-row state under partial-column fetches (Counter-tier,
 // Static-tier). Best-effort: individual VarBind decode failures are
 // silently skipped rather than propagated, because partial-fetch ticks
 // surface transient errors through [snmp.Watcher.LastTickErr] at the
 // call-site granularity rather than per-VarBind.
-func mergeIpv4InterfaceTableRow(dst *Ipv4InterfaceTableRow, vbs []snmp.VarBind) {
+func mergeIPv4InterfaceTableRow(dst *IPv4InterfaceTableRow, vbs []snmp.VarBind) {
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
 		if o.Len() == 0 {
@@ -2657,70 +2657,70 @@ func mergeIpv4InterfaceTableRow(dst *Ipv4InterfaceTableRow, vbs []snmp.VarBind) 
 		colID := o.At(entryLen)
 		switch colID {
 		case 2:
-			dv, derr := Ipv4InterfaceReasmMaxSize.Decode(vb)
+			dv, derr := IPv4InterfaceReasmMaxSize.Decode(vb)
 			if derr == nil {
-				dst.Ipv4InterfaceReasmMaxSize = dv
+				dst.IPv4InterfaceReasmMaxSize = dv
 				dst.observed[0] |= 1 << 0
 			}
 		case 3:
-			dv, derr := Ipv4InterfaceEnableStatus.Decode(vb)
+			dv, derr := IPv4InterfaceEnableStatus.Decode(vb)
 			if derr == nil {
-				dst.Ipv4InterfaceEnableStatus = dv
+				dst.IPv4InterfaceEnableStatus = dv
 				dst.observed[0] |= 1 << 1
 			}
 		case 4:
-			dv, derr := Ipv4InterfaceRetransmitTime.Decode(vb)
+			dv, derr := IPv4InterfaceRetransmitTime.Decode(vb)
 			if derr == nil {
-				dst.Ipv4InterfaceRetransmitTime = dv
+				dst.IPv4InterfaceRetransmitTime = dv
 				dst.observed[0] |= 1 << 2
 			}
 		}
 	}
 }
 
-// Ipv4InterfaceTableWatcher is a table-aware Watcher over Ipv4InterfaceTable.
-// The zero value is not usable; construct via Ipv4InterfaceTable.Watch(ctx, sess, cols, opts...).
+// IPv4InterfaceTableWatcher is a table-aware Watcher over IPv4InterfaceTable.
+// The zero value is not usable; construct via IPv4InterfaceTable.Watch(ctx, sess, cols, opts...).
 // Use a single iterator. The other methods may be called concurrently.
-type Ipv4InterfaceTableWatcher struct {
-	w *snmp.Watcher[Ipv4InterfaceTableRow]
+type IPv4InterfaceTableWatcher struct {
+	w *snmp.Watcher[IPv4InterfaceTableRow]
 }
 
 // Iter returns the range-over-func view of the Watcher's event stream.
 // See [snmp.Watcher.Iter] for the contract.
-func (tw *Ipv4InterfaceTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[Ipv4InterfaceTableRow]] {
+func (tw *IPv4InterfaceTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IPv4InterfaceTableRow]] {
 	return tw.w.Iter()
 }
 
 // Err returns the underlying Watcher's terminal error, or nil if it
 // completed naturally. See [snmp.Watcher.Err].
-func (tw *Ipv4InterfaceTableWatcher) Err() error {
+func (tw *IPv4InterfaceTableWatcher) Err() error {
 	return tw.w.Err()
 }
 
 // Close signals the Watcher's tick goroutine to terminate. Idempotent.
 // See [snmp.Watcher.Close].
-func (tw *Ipv4InterfaceTableWatcher) Close() error {
+func (tw *IPv4InterfaceTableWatcher) Close() error {
 	return tw.w.Close()
 }
 
 // Fallback reports whether the Watcher has transitioned to fallback
 // mode. See [snmp.Watcher.Fallback].
-func (tw *Ipv4InterfaceTableWatcher) Fallback() bool {
+func (tw *IPv4InterfaceTableWatcher) Fallback() bool {
 	return tw.w.Fallback()
 }
 
 // LastTickErr returns the most-recent transient per-tick error.
 // See [snmp.Watcher.LastTickErr].
-func (tw *Ipv4InterfaceTableWatcher) LastTickErr() error {
+func (tw *IPv4InterfaceTableWatcher) LastTickErr() error {
 	return tw.w.LastTickErr()
 }
 
 // TableRoot returns the OID of the table this Watcher operates over.
-func (tw *Ipv4InterfaceTableWatcher) TableRoot() snmp.OID {
+func (tw *IPv4InterfaceTableWatcher) TableRoot() snmp.OID {
 	return tw.w.TableRoot()
 }
 
-// Watch opens a long-lived watch on Ipv4InterfaceTable.
+// Watch opens a long-lived watch on IPv4InterfaceTable.
 //
 // cols selects the columns whose values are reported on every emitted
 // event. opts override cadence bounds, per-column tier classifications,
@@ -2745,54 +2745,54 @@ func (tw *Ipv4InterfaceTableWatcher) TableRoot() snmp.OID {
 // indicator column, etc.) Watch returns a Watcher whose Err() returns
 // the cause immediately; range loops exit without emitting events and
 // Close is a no-op.
-func (ipv4InterfaceTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *Ipv4InterfaceTableWatcher {
+func (ipv4InterfaceTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IPv4InterfaceTableWatcher {
 	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
-	w, _ := snmp.NewWatcher[Ipv4InterfaceTableRow](ctx, sess, Ipv4InterfaceTableIndicator, cols, decodeIpv4InterfaceTableRow, equalIpv4InterfaceTableRow, mergeIpv4InterfaceTableRow, allOpts...)
+	w, _ := snmp.NewWatcher[IPv4InterfaceTableRow](ctx, sess, IPv4InterfaceTableIndicator, cols, decodeIPv4InterfaceTableRow, equalIPv4InterfaceTableRow, mergeIPv4InterfaceTableRow, allOpts...)
 
-	return &Ipv4InterfaceTableWatcher{w: w}
+	return &IPv4InterfaceTableWatcher{w: w}
 }
 
-// Ipv6InterfaceReasmMaxSize is the column ipv6InterfaceReasmMaxSize of table ipv6InterfaceTable.
+// IPv6InterfaceReasmMaxSize is the column ipv6InterfaceReasmMaxSize of table ipv6InterfaceTable.
 // The size of the largest IPv6 datagram that this entity can re-assemble
 // from incoming IPv6 fragmented datagrams received on this interface.
-var Ipv6InterfaceReasmMaxSize = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6InterfaceReasmMaxSize = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6InterfaceIdentifier is the column ipv6InterfaceIdentifier of table ipv6InterfaceTable.
+// IPv6InterfaceIdentifier is the column ipv6InterfaceIdentifier of table ipv6InterfaceTable.
 // The Interface Identifier for this interface. The Interface Identifier is
 // combined with an address prefix to form an interface address. By
 // default, the Interface Identifier is auto-configured according to the
 // rules of the link type to which this interface is attached. A zero
 // length identifier may be used where appropriate. One possible example is
 // a loopback interface.
-var Ipv6InterfaceIdentifier = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var IPv6InterfaceIdentifier = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
-// Ipv6InterfaceEnableStatus is the column ipv6InterfaceEnableStatus of table ipv6InterfaceTable.
+// IPv6InterfaceEnableStatus is the column ipv6InterfaceEnableStatus of table ipv6InterfaceTable.
 // The indication of whether IPv6 is enabled (up) or disabled (down) on
 // this interface. This object does not affect the state of the interface
 // itself, only its connection to an IPv6 stack. The IF-MIB should be used
 // to control the state of the interface. When this object is written, the
 // entity SHOULD save the change to non-volatile storage and restore the
 // object from non-volatile storage upon re-initialization of the system.
-var Ipv6InterfaceEnableStatus = snmp.NewColumn[Ipv6InterfaceEnableStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (Ipv6InterfaceEnableStatusValue, error) {
+var IPv6InterfaceEnableStatus = snmp.NewColumn[IPv6InterfaceEnableStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (IPv6InterfaceEnableStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return Ipv6InterfaceEnableStatusValue(0), err
+		return IPv6InterfaceEnableStatusValue(0), err
 	}
-	return Ipv6InterfaceEnableStatusValue(v), nil
+	return IPv6InterfaceEnableStatusValue(v), nil
 })
 
-// Ipv6InterfaceReachableTime is the column ipv6InterfaceReachableTime of table ipv6InterfaceTable.
+// IPv6InterfaceReachableTime is the column ipv6InterfaceReachableTime of table ipv6InterfaceTable.
 // The time a neighbor is considered reachable after receiving a
 // reachability confirmation.
-var Ipv6InterfaceReachableTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 6), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6InterfaceReachableTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 6), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6InterfaceRetransmitTime is the column ipv6InterfaceRetransmitTime of table ipv6InterfaceTable.
+// IPv6InterfaceRetransmitTime is the column ipv6InterfaceRetransmitTime of table ipv6InterfaceTable.
 // The time between retransmissions of Neighbor Solicitation messages to a
 // neighbor when resolving the address or when probing the reachability of
 // a neighbor.
-var Ipv6InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 7), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 7), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6InterfaceForwarding is the column ipv6InterfaceForwarding of table ipv6InterfaceTable.
+// IPv6InterfaceForwarding is the column ipv6InterfaceForwarding of table ipv6InterfaceTable.
 // The indication of whether this entity is acting as an IPv6 router on
 // this interface with respect to the forwarding of datagrams received by,
 // but not addressed to, this entity. IPv6 routers forward datagrams. IPv6
@@ -2804,49 +2804,49 @@ var Ipv6InterfaceRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // forwarding capability. When this object is written, the entity SHOULD
 // save the change to non-volatile storage and restore the object from
 // non-volatile storage upon re-initialization of the system.
-var Ipv6InterfaceForwarding = snmp.NewColumn[Ipv6InterfaceForwardingValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (Ipv6InterfaceForwardingValue, error) {
+var IPv6InterfaceForwarding = snmp.NewColumn[IPv6InterfaceForwardingValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (IPv6InterfaceForwardingValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return Ipv6InterfaceForwardingValue(0), err
+		return IPv6InterfaceForwardingValue(0), err
 	}
-	return Ipv6InterfaceForwardingValue(v), nil
+	return IPv6InterfaceForwardingValue(v), nil
 })
 
-// Ipv6InterfaceTableKey is the decoded INDEX of one ipv6InterfaceTable row, one field per
+// IPv6InterfaceTableKey is the decoded INDEX of one ipv6InterfaceTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type Ipv6InterfaceTableKey struct {
-	Ipv6InterfaceIfIndex ifmib.InterfaceIndex
+type IPv6InterfaceTableKey struct {
+	IPv6InterfaceIfIndex ifmib.InterfaceIndex
 }
 
 var ipv6InterfaceTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// decodeIpv6InterfaceTableKey decodes the instance suffix of one ipv6InterfaceTable row. ok is false
+// decodeIPv6InterfaceTableKey decodes the instance suffix of one ipv6InterfaceTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpv6InterfaceTableKey(idx snmp.OID) (Ipv6InterfaceTableKey, bool) {
+func decodeIPv6InterfaceTableKey(idx snmp.OID) (IPv6InterfaceTableKey, bool) {
 	var parts [1]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipv6InterfaceTableIndexShapes) {
-		return Ipv6InterfaceTableKey{}, false
+		return IPv6InterfaceTableKey{}, false
 	}
-	return Ipv6InterfaceTableKey{Ipv6InterfaceIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+	return IPv6InterfaceTableKey{IPv6InterfaceIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
 }
 
-// Ipv6InterfaceTableRow is one row of ipv6InterfaceTable. Key is the decoded INDEX; a
+// IPv6InterfaceTableRow is one row of ipv6InterfaceTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [Ipv6InterfaceTableRow.KeyValid] reports which. The remaining fields are
+// [IPv6InterfaceTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [Ipv6InterfaceTableRow.Observed] to tell a reported zero from a column the
+// [IPv6InterfaceTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type Ipv6InterfaceTableRow struct {
-	Key                         Ipv6InterfaceTableKey
+type IPv6InterfaceTableRow struct {
+	Key                         IPv6InterfaceTableKey
 	keyValid                    bool
-	Ipv6InterfaceReasmMaxSize   uint32
-	Ipv6InterfaceIdentifier     []byte
-	Ipv6InterfaceEnableStatus   Ipv6InterfaceEnableStatusValue
-	Ipv6InterfaceReachableTime  uint32
-	Ipv6InterfaceRetransmitTime uint32
-	Ipv6InterfaceForwarding     Ipv6InterfaceForwardingValue
+	IPv6InterfaceReasmMaxSize   uint32
+	IPv6InterfaceIdentifier     []byte
+	IPv6InterfaceEnableStatus   IPv6InterfaceEnableStatusValue
+	IPv6InterfaceReachableTime  uint32
+	IPv6InterfaceRetransmitTime uint32
+	IPv6InterfaceForwarding     IPv6InterfaceForwardingValue
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -2857,7 +2857,7 @@ type Ipv6InterfaceTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r Ipv6InterfaceTableRow) KeyValid() bool {
+func (r IPv6InterfaceTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -2865,29 +2865,29 @@ func (r Ipv6InterfaceTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r Ipv6InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPv6InterfaceTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case Ipv6InterfaceReasmMaxSize.Key():
+	case IPv6InterfaceReasmMaxSize.Key():
 		return r.observed[0]&(1<<0) != 0
-	case Ipv6InterfaceIdentifier.Key():
+	case IPv6InterfaceIdentifier.Key():
 		return r.observed[0]&(1<<1) != 0
-	case Ipv6InterfaceEnableStatus.Key():
+	case IPv6InterfaceEnableStatus.Key():
 		return r.observed[0]&(1<<2) != 0
-	case Ipv6InterfaceReachableTime.Key():
+	case IPv6InterfaceReachableTime.Key():
 		return r.observed[0]&(1<<3) != 0
-	case Ipv6InterfaceRetransmitTime.Key():
+	case IPv6InterfaceRetransmitTime.Key():
 		return r.observed[0]&(1<<4) != 0
-	case Ipv6InterfaceForwarding.Key():
+	case IPv6InterfaceForwarding.Key():
 		return r.observed[0]&(1<<5) != 0
 	}
 
 	return false
 }
 
-// Ipv6InterfaceTableWalker streams selected columns of ipv6InterfaceTable.
-// The zero value is not usable; construct via Ipv6InterfaceTable.Walk(ctx, sess, cols...).
+// IPv6InterfaceTableWalker streams selected columns of ipv6InterfaceTable.
+// The zero value is not usable; construct via IPv6InterfaceTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type Ipv6InterfaceTableWalker struct {
+type IPv6InterfaceTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -2898,114 +2898,114 @@ type Ipv6InterfaceTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTableRow] {
-	return func(yield func(snmp.OID, Ipv6InterfaceTableRow) bool) {
+func (tw *IPv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, IPv6InterfaceTableRow] {
+	return func(yield func(snmp.OID, IPv6InterfaceTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row Ipv6InterfaceTableRow
-			row.Key, row.keyValid = decodeIpv6InterfaceTableKey(idx)
+			var row IPv6InterfaceTableRow
+			row.Key, row.keyValid = decodeIPv6InterfaceTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case Ipv6InterfaceReasmMaxSize.Key():
+				case IPv6InterfaceReasmMaxSize.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6InterfaceReasmMaxSize = v
+						row.IPv6InterfaceReasmMaxSize = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+							dv, dErr := IPv6InterfaceReasmMaxSize.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6InterfaceReasmMaxSize = dv
+								row.IPv6InterfaceReasmMaxSize = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case Ipv6InterfaceIdentifier.Key():
+				case IPv6InterfaceIdentifier.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6InterfaceIdentifier.Decode(vb)
+						dv, dErr := IPv6InterfaceIdentifier.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6InterfaceIdentifier = dv
+							row.IPv6InterfaceIdentifier = dv
 							row.observed[0] |= 1 << 1
 						}
 					}
-				case Ipv6InterfaceEnableStatus.Key():
+				case IPv6InterfaceEnableStatus.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Ipv6InterfaceEnableStatus = Ipv6InterfaceEnableStatusValue(v)
+						row.IPv6InterfaceEnableStatus = IPv6InterfaceEnableStatusValue(v)
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6InterfaceEnableStatus.Decode(vb)
+							dv, dErr := IPv6InterfaceEnableStatus.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6InterfaceEnableStatus = dv
+								row.IPv6InterfaceEnableStatus = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
-				case Ipv6InterfaceReachableTime.Key():
+				case IPv6InterfaceReachableTime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6InterfaceReachableTime = v
+						row.IPv6InterfaceReachableTime = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6InterfaceReachableTime.Decode(vb)
+							dv, dErr := IPv6InterfaceReachableTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6InterfaceReachableTime = dv
+								row.IPv6InterfaceReachableTime = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case Ipv6InterfaceRetransmitTime.Key():
+				case IPv6InterfaceRetransmitTime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6InterfaceRetransmitTime = v
+						row.IPv6InterfaceRetransmitTime = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6InterfaceRetransmitTime.Decode(vb)
+							dv, dErr := IPv6InterfaceRetransmitTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6InterfaceRetransmitTime = dv
+								row.IPv6InterfaceRetransmitTime = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
 					}
-				case Ipv6InterfaceForwarding.Key():
+				case IPv6InterfaceForwarding.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Ipv6InterfaceForwarding = Ipv6InterfaceForwardingValue(v)
+						row.IPv6InterfaceForwarding = IPv6InterfaceForwardingValue(v)
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6InterfaceForwarding.Decode(vb)
+							dv, dErr := IPv6InterfaceForwarding.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6InterfaceForwarding = dv
+								row.IPv6InterfaceForwarding = dv
 								row.observed[0] |= 1 << 5
 							}
 						}
@@ -3025,18 +3025,18 @@ func (tw *Ipv6InterfaceTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6InterfaceTabl
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *Ipv6InterfaceTableWalker) Err() error {
+func (tw *IPv6InterfaceTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipv6InterfaceTableT is the singleton type of Ipv6InterfaceTable.
+// ipv6InterfaceTableT is the singleton type of IPv6InterfaceTable.
 type ipv6InterfaceTableT struct{}
 
-// Ipv6InterfaceTable is the descriptor for the ipv6InterfaceTable table.
-var Ipv6InterfaceTable ipv6InterfaceTableT
+// IPv6InterfaceTable is the descriptor for the ipv6InterfaceTable table.
+var IPv6InterfaceTable ipv6InterfaceTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Ipv6InterfaceTableWalker) Close() {
+func (tw *IPv6InterfaceTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -3044,7 +3044,7 @@ func (tw *Ipv6InterfaceTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6InterfaceTableWalker {
+func (t ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPv6InterfaceTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -3054,25 +3054,25 @@ func (t ipv6InterfaceTableT) Walk(ctx context.Context, sess snmp.Session, cols .
 // for the table or declare it as a dependency.
 func (ipv6InterfaceTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		Indicator: Ipv6InterfaceTableIndicator,
-		KeyType:   "Ipv6InterfaceTableKey",
+		Indicator: IPv6InterfaceTableIndicator,
+		KeyType:   "IPv6InterfaceTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipv6InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv6InterfaceTableWalker {
+func (ipv6InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPv6InterfaceTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Ipv6InterfaceReasmMaxSize.Key(), Ipv6InterfaceIdentifier.Key(), Ipv6InterfaceEnableStatus.Key(), Ipv6InterfaceReachableTime.Key(), Ipv6InterfaceRetransmitTime.Key(), Ipv6InterfaceForwarding.Key():
+		case IPv6InterfaceReasmMaxSize.Key(), IPv6InterfaceIdentifier.Key(), IPv6InterfaceEnableStatus.Key(), IPv6InterfaceReachableTime.Key(), IPv6InterfaceRetransmitTime.Key(), IPv6InterfaceForwarding.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv6InterfaceTable.Walk: column %s", c.OID()))
-			return &Ipv6InterfaceTableWalker{rw: w}
+			return &IPv6InterfaceTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -3081,19 +3081,19 @@ func (ipv6InterfaceTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &Ipv6InterfaceTableWalker{
+	return &IPv6InterfaceTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// decodeIpv6InterfaceTableRow decodes one row of Ipv6InterfaceTable from the supplied
+// decodeIPv6InterfaceTableRow decodes one row of IPv6InterfaceTable from the supplied
 // VarBinds. Each VarBind's OID determines which row field it populates
 // (via the column's last sub-id). VarBinds with unknown column-ids are
 // ignored. Absent columns leave their field at its zero value.
-func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6InterfaceTableRow, error) {
-	var row Ipv6InterfaceTableRow
-	row.Key, row.keyValid = decodeIpv6InterfaceTableKey(idx)
+func decodeIPv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (IPv6InterfaceTableRow, error) {
+	var row IPv6InterfaceTableRow
+	row.Key, row.keyValid = decodeIPv6InterfaceTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -3107,46 +3107,46 @@ func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6Interfac
 		colID := o.At(entryLen)
 		switch colID {
 		case 2:
-			dv, derr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+			dv, derr := IPv6InterfaceReasmMaxSize.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv6InterfaceReasmMaxSize = dv
+			row.IPv6InterfaceReasmMaxSize = dv
 			row.observed[0] |= 1 << 0
 		case 3:
-			dv, derr := Ipv6InterfaceIdentifier.Decode(vb)
+			dv, derr := IPv6InterfaceIdentifier.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv6InterfaceIdentifier = dv
+			row.IPv6InterfaceIdentifier = dv
 			row.observed[0] |= 1 << 1
 		case 5:
-			dv, derr := Ipv6InterfaceEnableStatus.Decode(vb)
+			dv, derr := IPv6InterfaceEnableStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv6InterfaceEnableStatus = dv
+			row.IPv6InterfaceEnableStatus = dv
 			row.observed[0] |= 1 << 2
 		case 6:
-			dv, derr := Ipv6InterfaceReachableTime.Decode(vb)
+			dv, derr := IPv6InterfaceReachableTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv6InterfaceReachableTime = dv
+			row.IPv6InterfaceReachableTime = dv
 			row.observed[0] |= 1 << 3
 		case 7:
-			dv, derr := Ipv6InterfaceRetransmitTime.Decode(vb)
+			dv, derr := IPv6InterfaceRetransmitTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv6InterfaceRetransmitTime = dv
+			row.IPv6InterfaceRetransmitTime = dv
 			row.observed[0] |= 1 << 4
 		case 8:
-			dv, derr := Ipv6InterfaceForwarding.Decode(vb)
+			dv, derr := IPv6InterfaceForwarding.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.Ipv6InterfaceForwarding = dv
+			row.IPv6InterfaceForwarding = dv
 			row.observed[0] |= 1 << 5
 		}
 	}
@@ -3154,22 +3154,22 @@ func decodeIpv6InterfaceTableRow(idx snmp.OID, vbs []snmp.VarBind) (Ipv6Interfac
 	return row, nil
 }
 
-// equalIpv6InterfaceTableRow compares two Ipv6InterfaceTableRow values for equality.
+// equalIPv6InterfaceTableRow compares two IPv6InterfaceTableRow values for equality.
 // Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
-func equalIpv6InterfaceTableRow(a Ipv6InterfaceTableRow, b Ipv6InterfaceTableRow) bool {
-	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.Ipv6InterfaceReasmMaxSize == b.Ipv6InterfaceReasmMaxSize && bytes.Equal(a.Ipv6InterfaceIdentifier, b.Ipv6InterfaceIdentifier) && a.Ipv6InterfaceEnableStatus == b.Ipv6InterfaceEnableStatus && a.Ipv6InterfaceReachableTime == b.Ipv6InterfaceReachableTime && a.Ipv6InterfaceRetransmitTime == b.Ipv6InterfaceRetransmitTime && a.Ipv6InterfaceForwarding == b.Ipv6InterfaceForwarding
+func equalIPv6InterfaceTableRow(a IPv6InterfaceTableRow, b IPv6InterfaceTableRow) bool {
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IPv6InterfaceReasmMaxSize == b.IPv6InterfaceReasmMaxSize && bytes.Equal(a.IPv6InterfaceIdentifier, b.IPv6InterfaceIdentifier) && a.IPv6InterfaceEnableStatus == b.IPv6InterfaceEnableStatus && a.IPv6InterfaceReachableTime == b.IPv6InterfaceReachableTime && a.IPv6InterfaceRetransmitTime == b.IPv6InterfaceRetransmitTime && a.IPv6InterfaceForwarding == b.IPv6InterfaceForwarding
 }
 
-// mergeIpv6InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
+// mergeIPv6InterfaceTableRow merges the values decoded from vbs into dst, leaving fields
 // whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
 // to maintain per-row state under partial-column fetches (Counter-tier,
 // Static-tier). Best-effort: individual VarBind decode failures are
 // silently skipped rather than propagated, because partial-fetch ticks
 // surface transient errors through [snmp.Watcher.LastTickErr] at the
 // call-site granularity rather than per-VarBind.
-func mergeIpv6InterfaceTableRow(dst *Ipv6InterfaceTableRow, vbs []snmp.VarBind) {
+func mergeIPv6InterfaceTableRow(dst *IPv6InterfaceTableRow, vbs []snmp.VarBind) {
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
 		if o.Len() == 0 {
@@ -3182,88 +3182,88 @@ func mergeIpv6InterfaceTableRow(dst *Ipv6InterfaceTableRow, vbs []snmp.VarBind) 
 		colID := o.At(entryLen)
 		switch colID {
 		case 2:
-			dv, derr := Ipv6InterfaceReasmMaxSize.Decode(vb)
+			dv, derr := IPv6InterfaceReasmMaxSize.Decode(vb)
 			if derr == nil {
-				dst.Ipv6InterfaceReasmMaxSize = dv
+				dst.IPv6InterfaceReasmMaxSize = dv
 				dst.observed[0] |= 1 << 0
 			}
 		case 3:
-			dv, derr := Ipv6InterfaceIdentifier.Decode(vb)
+			dv, derr := IPv6InterfaceIdentifier.Decode(vb)
 			if derr == nil {
-				dst.Ipv6InterfaceIdentifier = dv
+				dst.IPv6InterfaceIdentifier = dv
 				dst.observed[0] |= 1 << 1
 			}
 		case 5:
-			dv, derr := Ipv6InterfaceEnableStatus.Decode(vb)
+			dv, derr := IPv6InterfaceEnableStatus.Decode(vb)
 			if derr == nil {
-				dst.Ipv6InterfaceEnableStatus = dv
+				dst.IPv6InterfaceEnableStatus = dv
 				dst.observed[0] |= 1 << 2
 			}
 		case 6:
-			dv, derr := Ipv6InterfaceReachableTime.Decode(vb)
+			dv, derr := IPv6InterfaceReachableTime.Decode(vb)
 			if derr == nil {
-				dst.Ipv6InterfaceReachableTime = dv
+				dst.IPv6InterfaceReachableTime = dv
 				dst.observed[0] |= 1 << 3
 			}
 		case 7:
-			dv, derr := Ipv6InterfaceRetransmitTime.Decode(vb)
+			dv, derr := IPv6InterfaceRetransmitTime.Decode(vb)
 			if derr == nil {
-				dst.Ipv6InterfaceRetransmitTime = dv
+				dst.IPv6InterfaceRetransmitTime = dv
 				dst.observed[0] |= 1 << 4
 			}
 		case 8:
-			dv, derr := Ipv6InterfaceForwarding.Decode(vb)
+			dv, derr := IPv6InterfaceForwarding.Decode(vb)
 			if derr == nil {
-				dst.Ipv6InterfaceForwarding = dv
+				dst.IPv6InterfaceForwarding = dv
 				dst.observed[0] |= 1 << 5
 			}
 		}
 	}
 }
 
-// Ipv6InterfaceTableWatcher is a table-aware Watcher over Ipv6InterfaceTable.
-// The zero value is not usable; construct via Ipv6InterfaceTable.Watch(ctx, sess, cols, opts...).
+// IPv6InterfaceTableWatcher is a table-aware Watcher over IPv6InterfaceTable.
+// The zero value is not usable; construct via IPv6InterfaceTable.Watch(ctx, sess, cols, opts...).
 // Use a single iterator. The other methods may be called concurrently.
-type Ipv6InterfaceTableWatcher struct {
-	w *snmp.Watcher[Ipv6InterfaceTableRow]
+type IPv6InterfaceTableWatcher struct {
+	w *snmp.Watcher[IPv6InterfaceTableRow]
 }
 
 // Iter returns the range-over-func view of the Watcher's event stream.
 // See [snmp.Watcher.Iter] for the contract.
-func (tw *Ipv6InterfaceTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[Ipv6InterfaceTableRow]] {
+func (tw *IPv6InterfaceTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IPv6InterfaceTableRow]] {
 	return tw.w.Iter()
 }
 
 // Err returns the underlying Watcher's terminal error, or nil if it
 // completed naturally. See [snmp.Watcher.Err].
-func (tw *Ipv6InterfaceTableWatcher) Err() error {
+func (tw *IPv6InterfaceTableWatcher) Err() error {
 	return tw.w.Err()
 }
 
 // Close signals the Watcher's tick goroutine to terminate. Idempotent.
 // See [snmp.Watcher.Close].
-func (tw *Ipv6InterfaceTableWatcher) Close() error {
+func (tw *IPv6InterfaceTableWatcher) Close() error {
 	return tw.w.Close()
 }
 
 // Fallback reports whether the Watcher has transitioned to fallback
 // mode. See [snmp.Watcher.Fallback].
-func (tw *Ipv6InterfaceTableWatcher) Fallback() bool {
+func (tw *IPv6InterfaceTableWatcher) Fallback() bool {
 	return tw.w.Fallback()
 }
 
 // LastTickErr returns the most-recent transient per-tick error.
 // See [snmp.Watcher.LastTickErr].
-func (tw *Ipv6InterfaceTableWatcher) LastTickErr() error {
+func (tw *IPv6InterfaceTableWatcher) LastTickErr() error {
 	return tw.w.LastTickErr()
 }
 
 // TableRoot returns the OID of the table this Watcher operates over.
-func (tw *Ipv6InterfaceTableWatcher) TableRoot() snmp.OID {
+func (tw *IPv6InterfaceTableWatcher) TableRoot() snmp.OID {
 	return tw.w.TableRoot()
 }
 
-// Watch opens a long-lived watch on Ipv6InterfaceTable.
+// Watch opens a long-lived watch on IPv6InterfaceTable.
 //
 // cols selects the columns whose values are reported on every emitted
 // event. opts override cadence bounds, per-column tier classifications,
@@ -3288,65 +3288,65 @@ func (tw *Ipv6InterfaceTableWatcher) TableRoot() snmp.OID {
 // indicator column, etc.) Watch returns a Watcher whose Err() returns
 // the cause immediately; range loops exit without emitting events and
 // Close is a no-op.
-func (ipv6InterfaceTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *Ipv6InterfaceTableWatcher {
+func (ipv6InterfaceTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IPv6InterfaceTableWatcher {
 	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
-	w, _ := snmp.NewWatcher[Ipv6InterfaceTableRow](ctx, sess, Ipv6InterfaceTableIndicator, cols, decodeIpv6InterfaceTableRow, equalIpv6InterfaceTableRow, mergeIpv6InterfaceTableRow, allOpts...)
+	w, _ := snmp.NewWatcher[IPv6InterfaceTableRow](ctx, sess, IPv6InterfaceTableIndicator, cols, decodeIPv6InterfaceTableRow, equalIPv6InterfaceTableRow, mergeIPv6InterfaceTableRow, allOpts...)
 
-	return &Ipv6InterfaceTableWatcher{w: w}
+	return &IPv6InterfaceTableWatcher{w: w}
 }
 
-// IpSystemStatsInReceives is the column ipSystemStatsInReceives of table ipSystemStatsTable.
+// IPSystemStatsInReceives is the column ipSystemStatsInReceives of table ipSystemStatsTable.
 // The total number of input IP datagrams received, including those
 // received in error. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInReceives = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInReceives = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInReceives is the column ipSystemStatsHCInReceives of table ipSystemStatsTable.
+// IPSystemStatsHCInReceives is the column ipSystemStatsHCInReceives of table ipSystemStatsTable.
 // The total number of input IP datagrams received, including those
 // received in error. This object counts the same datagrams as
 // ipSystemStatsInReceives, but allows for larger values. Discontinuities
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInReceives = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 4), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInReceives = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 4), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsInOctets is the column ipSystemStatsInOctets of table ipSystemStatsTable.
+// IPSystemStatsInOctets is the column ipSystemStatsInOctets of table ipSystemStatsTable.
 // The total number of octets received in input IP datagrams, including
 // those received in error. Octets from datagrams counted in
 // ipSystemStatsInReceives MUST be counted here. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInOctets is the column ipSystemStatsHCInOctets of table ipSystemStatsTable.
+// IPSystemStatsHCInOctets is the column ipSystemStatsHCInOctets of table ipSystemStatsTable.
 // The total number of octets received in input IP datagrams, including
 // those received in error. This object counts the same octets as
 // ipSystemStatsInOctets, but allows for larger values. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 6), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 6), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsInHdrErrors is the column ipSystemStatsInHdrErrors of table ipSystemStatsTable.
+// IPSystemStatsInHdrErrors is the column ipSystemStatsInHdrErrors of table ipSystemStatsTable.
 // The number of input IP datagrams discarded due to errors in their IP
 // headers, including version number mismatch, other format errors, hop
 // count exceeded, errors discovered in processing their IP options, etc.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInHdrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInHdrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInNoRoutes is the column ipSystemStatsInNoRoutes of table ipSystemStatsTable.
+// IPSystemStatsInNoRoutes is the column ipSystemStatsInNoRoutes of table ipSystemStatsTable.
 // The number of input IP datagrams discarded because no route could be
 // found to transmit them to their destination. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInAddrErrors is the column ipSystemStatsInAddrErrors of table ipSystemStatsTable.
+// IPSystemStatsInAddrErrors is the column ipSystemStatsInAddrErrors of table ipSystemStatsTable.
 // The number of input IP datagrams discarded because the IP address in
 // their IP header's destination field was not a valid address to be
 // received at this entity. This count includes invalid addresses (e.g.,
@@ -3356,9 +3356,9 @@ var IpSystemStatsInNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInAddrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInAddrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInUnknownProtos is the column ipSystemStatsInUnknownProtos of table ipSystemStatsTable.
+// IPSystemStatsInUnknownProtos is the column ipSystemStatsInUnknownProtos of table ipSystemStatsTable.
 // The number of locally-addressed IP datagrams received successfully but
 // discarded because of an unknown or unsupported protocol. When tracking
 // interface statistics, the counter of the interface to which these
@@ -3367,16 +3367,16 @@ var IpSystemStatsInAddrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInUnknownProtos = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInUnknownProtos = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInTruncatedPkts is the column ipSystemStatsInTruncatedPkts of table ipSystemStatsTable.
+// IPSystemStatsInTruncatedPkts is the column ipSystemStatsInTruncatedPkts of table ipSystemStatsTable.
 // The number of input IP datagrams discarded because the datagram frame
 // didn't carry enough data. Discontinuities in the value of this counter
 // can occur at re-initialization of the management system, and at other
 // times as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInTruncatedPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInTruncatedPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInForwDatagrams is the column ipSystemStatsInForwDatagrams of table ipSystemStatsTable.
+// IPSystemStatsInForwDatagrams is the column ipSystemStatsInForwDatagrams of table ipSystemStatsTable.
 // The number of input datagrams for which this entity was not their final
 // IP destination and for which this entity attempted to find a route to
 // forward them to that final destination. In entities that do not act as
@@ -3387,9 +3387,9 @@ var IpSystemStatsInTruncatedPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInForwDatagrams is the column ipSystemStatsHCInForwDatagrams of table ipSystemStatsTable.
+// IPSystemStatsHCInForwDatagrams is the column ipSystemStatsHCInForwDatagrams of table ipSystemStatsTable.
 // The number of input datagrams for which this entity was not their final
 // IP destination and for which this entity attempted to find a route to
 // forward them to that final destination. This object counts the same
@@ -3397,9 +3397,9 @@ var IpSystemStatsInForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsReasmReqds is the column ipSystemStatsReasmReqds of table ipSystemStatsTable.
+// IPSystemStatsReasmReqds is the column ipSystemStatsReasmReqds of table ipSystemStatsTable.
 // The number of IP fragments received that needed to be reassembled at
 // this interface. When tracking interface statistics, the counter of the
 // interface to which these fragments were addressed is incremented. This
@@ -3407,9 +3407,9 @@ var IpSystemStatsHCInForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6
 // fragments. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsReasmReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsReasmReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsReasmOKs is the column ipSystemStatsReasmOKs of table ipSystemStatsTable.
+// IPSystemStatsReasmOKs is the column ipSystemStatsReasmOKs of table ipSystemStatsTable.
 // The number of IP datagrams successfully reassembled. When tracking
 // interface statistics, the counter of the interface to which these
 // datagrams were addressed is incremented. This interface might not be the
@@ -3417,9 +3417,9 @@ var IpSystemStatsReasmReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsReasmOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 15), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsReasmOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 15), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsReasmFails is the column ipSystemStatsReasmFails of table ipSystemStatsTable.
+// IPSystemStatsReasmFails is the column ipSystemStatsReasmFails of table ipSystemStatsTable.
 // The number of failures detected by the IP re-assembly algorithm (for
 // whatever reason: timed out, errors, etc.). Note that this is not
 // necessarily a count of discarded IP fragments since some algorithms
@@ -3431,9 +3431,9 @@ var IpSystemStatsReasmOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsReasmFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 16), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsReasmFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 16), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInDiscards is the column ipSystemStatsInDiscards of table ipSystemStatsTable.
+// IPSystemStatsInDiscards is the column ipSystemStatsInDiscards of table ipSystemStatsTable.
 // The number of input IP datagrams for which no problems were encountered
 // to prevent their continued processing, but were discarded (e.g., for
 // lack of buffer space). Note that this counter does not include any
@@ -3441,9 +3441,9 @@ var IpSystemStatsReasmFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 17), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 17), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsInDelivers is the column ipSystemStatsInDelivers of table ipSystemStatsTable.
+// IPSystemStatsInDelivers is the column ipSystemStatsInDelivers of table ipSystemStatsTable.
 // The total number of datagrams successfully delivered to IP
 // user-protocols (including ICMP). When tracking interface statistics, the
 // counter of the interface to which these datagrams were addressed is
@@ -3451,44 +3451,44 @@ var IpSystemStatsInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 // for some of the datagrams. Discontinuities in the value of this counter
 // can occur at re-initialization of the management system, and at other
 // times as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInDelivers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 18), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInDelivers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 18), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInDelivers is the column ipSystemStatsHCInDelivers of table ipSystemStatsTable.
+// IPSystemStatsHCInDelivers is the column ipSystemStatsHCInDelivers of table ipSystemStatsTable.
 // The total number of datagrams successfully delivered to IP
 // user-protocols (including ICMP). This object counts the same packets as
 // ipSystemStatsInDelivers, but allows for larger values. Discontinuities
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInDelivers = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 19), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInDelivers = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 19), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutRequests is the column ipSystemStatsOutRequests of table ipSystemStatsTable.
+// IPSystemStatsOutRequests is the column ipSystemStatsOutRequests of table ipSystemStatsTable.
 // The total number of IP datagrams that local IP user- protocols
 // (including ICMP) supplied to IP in requests for transmission. Note that
 // this counter does not include any datagrams counted in
 // ipSystemStatsOutForwDatagrams. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutRequests = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 20), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutRequests = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 20), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutRequests is the column ipSystemStatsHCOutRequests of table ipSystemStatsTable.
+// IPSystemStatsHCOutRequests is the column ipSystemStatsHCOutRequests of table ipSystemStatsTable.
 // The total number of IP datagrams that local IP user- protocols
 // (including ICMP) supplied to IP in requests for transmission. This
 // object counts the same packets as ipSystemStatsOutRequests, but allows
 // for larger values. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutRequests = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutRequests = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutNoRoutes is the column ipSystemStatsOutNoRoutes of table ipSystemStatsTable.
+// IPSystemStatsOutNoRoutes is the column ipSystemStatsOutNoRoutes of table ipSystemStatsTable.
 // The number of locally generated IP datagrams discarded because no route
 // could be found to transmit them to their destination. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 22), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 22), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsOutForwDatagrams is the column ipSystemStatsOutForwDatagrams of table ipSystemStatsTable.
+// IPSystemStatsOutForwDatagrams is the column ipSystemStatsOutForwDatagrams of table ipSystemStatsTable.
 // The number of datagrams for which this entity was not their final IP
 // destination and for which it was successful in finding a path to their
 // final destination. In entities that do not act as IP routers, this
@@ -3499,9 +3499,9 @@ var IpSystemStatsOutNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 23), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 23), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutForwDatagrams is the column ipSystemStatsHCOutForwDatagrams of table ipSystemStatsTable.
+// IPSystemStatsHCOutForwDatagrams is the column ipSystemStatsHCOutForwDatagrams of table ipSystemStatsTable.
 // The number of datagrams for which this entity was not their final IP
 // destination and for which it was successful in finding a path to their
 // final destination. This object counts the same packets as
@@ -3509,9 +3509,9 @@ var IpSystemStatsOutForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6,
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 24), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 24), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutDiscards is the column ipSystemStatsOutDiscards of table ipSystemStatsTable.
+// IPSystemStatsOutDiscards is the column ipSystemStatsOutDiscards of table ipSystemStatsTable.
 // The number of output IP datagrams for which no problem was encountered
 // to prevent their transmission to their destination, but were discarded
 // (e.g., for lack of buffer space). Note that this counter would include
@@ -3520,27 +3520,27 @@ var IpSystemStatsHCOutForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 
 // of this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 25), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 25), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsOutFragReqds is the column ipSystemStatsOutFragReqds of table ipSystemStatsTable.
+// IPSystemStatsOutFragReqds is the column ipSystemStatsOutFragReqds of table ipSystemStatsTable.
 // The number of IP datagrams that would require fragmentation in order to
 // be transmitted. When tracking interface statistics, the counter of the
 // outgoing interface is incremented for a successfully fragmented
 // datagram. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutFragReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 26), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutFragReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 26), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsOutFragOKs is the column ipSystemStatsOutFragOKs of table ipSystemStatsTable.
+// IPSystemStatsOutFragOKs is the column ipSystemStatsOutFragOKs of table ipSystemStatsTable.
 // The number of IP datagrams that have been successfully fragmented. When
 // tracking interface statistics, the counter of the outgoing interface is
 // incremented for a successfully fragmented datagram. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutFragOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 27), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutFragOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 27), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsOutFragFails is the column ipSystemStatsOutFragFails of table ipSystemStatsTable.
+// IPSystemStatsOutFragFails is the column ipSystemStatsOutFragFails of table ipSystemStatsTable.
 // The number of IP datagrams that have been discarded because they needed
 // to be fragmented but could not be. This includes IPv4 packets that have
 // the DF bit set and IPv6 packets that are being forwarded and exceed the
@@ -3549,231 +3549,231 @@ var IpSystemStatsOutFragOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 // datagram. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutFragFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 28), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutFragFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 28), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsOutFragCreates is the column ipSystemStatsOutFragCreates of table ipSystemStatsTable.
+// IPSystemStatsOutFragCreates is the column ipSystemStatsOutFragCreates of table ipSystemStatsTable.
 // The number of output datagram fragments that have been generated as a
 // result of IP fragmentation. When tracking interface statistics, the
 // counter of the outgoing interface is incremented for a successfully
 // fragmented datagram. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutFragCreates = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 29), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutFragCreates = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 29), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsOutTransmits is the column ipSystemStatsOutTransmits of table ipSystemStatsTable.
+// IPSystemStatsOutTransmits is the column ipSystemStatsOutTransmits of table ipSystemStatsTable.
 // The total number of IP datagrams that this entity supplied to the lower
 // layers for transmission. This includes datagrams generated locally and
 // those forwarded by this entity. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutTransmits = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 30), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutTransmits = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 30), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutTransmits is the column ipSystemStatsHCOutTransmits of table ipSystemStatsTable.
+// IPSystemStatsHCOutTransmits is the column ipSystemStatsHCOutTransmits of table ipSystemStatsTable.
 // The total number of IP datagrams that this entity supplied to the lower
 // layers for transmission. This object counts the same datagrams as
 // ipSystemStatsOutTransmits, but allows for larger values. Discontinuities
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutTransmits = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 31), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutTransmits = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 31), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutOctets is the column ipSystemStatsOutOctets of table ipSystemStatsTable.
+// IPSystemStatsOutOctets is the column ipSystemStatsOutOctets of table ipSystemStatsTable.
 // The total number of octets in IP datagrams delivered to the lower layers
 // for transmission. Octets from datagrams counted in
 // ipSystemStatsOutTransmits MUST be counted here. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 32), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 32), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutOctets is the column ipSystemStatsHCOutOctets of table ipSystemStatsTable.
+// IPSystemStatsHCOutOctets is the column ipSystemStatsHCOutOctets of table ipSystemStatsTable.
 // The total number of octets in IP datagrams delivered to the lower layers
 // for transmission. This objects counts the same octets as
 // ipSystemStatsOutOctets, but allows for larger values. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 33), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 33), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsInMcastPkts is the column ipSystemStatsInMcastPkts of table ipSystemStatsTable.
+// IPSystemStatsInMcastPkts is the column ipSystemStatsInMcastPkts of table ipSystemStatsTable.
 // The number of IP multicast datagrams received. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 34), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 34), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInMcastPkts is the column ipSystemStatsHCInMcastPkts of table ipSystemStatsTable.
+// IPSystemStatsHCInMcastPkts is the column ipSystemStatsHCInMcastPkts of table ipSystemStatsTable.
 // The number of IP multicast datagrams received. This object counts the
 // same datagrams as ipSystemStatsInMcastPkts but allows for larger values.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 35), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 35), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsInMcastOctets is the column ipSystemStatsInMcastOctets of table ipSystemStatsTable.
+// IPSystemStatsInMcastOctets is the column ipSystemStatsInMcastOctets of table ipSystemStatsTable.
 // The total number of octets received in IP multicast datagrams. Octets
 // from datagrams counted in ipSystemStatsInMcastPkts MUST be counted here.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 36), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 36), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInMcastOctets is the column ipSystemStatsHCInMcastOctets of table ipSystemStatsTable.
+// IPSystemStatsHCInMcastOctets is the column ipSystemStatsHCInMcastOctets of table ipSystemStatsTable.
 // The total number of octets received in IP multicast datagrams. This
 // object counts the same octets as ipSystemStatsInMcastOctets, but allows
 // for larger values. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 37), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 37), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutMcastPkts is the column ipSystemStatsOutMcastPkts of table ipSystemStatsTable.
+// IPSystemStatsOutMcastPkts is the column ipSystemStatsOutMcastPkts of table ipSystemStatsTable.
 // The number of IP multicast datagrams transmitted. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 38), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 38), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutMcastPkts is the column ipSystemStatsHCOutMcastPkts of table ipSystemStatsTable.
+// IPSystemStatsHCOutMcastPkts is the column ipSystemStatsHCOutMcastPkts of table ipSystemStatsTable.
 // The number of IP multicast datagrams transmitted. This object counts the
 // same datagrams as ipSystemStatsOutMcastPkts, but allows for larger
 // values. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 39), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 39), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutMcastOctets is the column ipSystemStatsOutMcastOctets of table ipSystemStatsTable.
+// IPSystemStatsOutMcastOctets is the column ipSystemStatsOutMcastOctets of table ipSystemStatsTable.
 // The total number of octets transmitted in IP multicast datagrams. Octets
 // from datagrams counted in ipSystemStatsOutMcastPkts MUST be counted
 // here. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 40), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 40), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutMcastOctets is the column ipSystemStatsHCOutMcastOctets of table ipSystemStatsTable.
+// IPSystemStatsHCOutMcastOctets is the column ipSystemStatsHCOutMcastOctets of table ipSystemStatsTable.
 // The total number of octets transmitted in IP multicast datagrams. This
 // object counts the same octets as ipSystemStatsOutMcastOctets, but allows
 // for larger values. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 41), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 41), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsInBcastPkts is the column ipSystemStatsInBcastPkts of table ipSystemStatsTable.
+// IPSystemStatsInBcastPkts is the column ipSystemStatsInBcastPkts of table ipSystemStatsTable.
 // The number of IP broadcast datagrams received. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsInBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 42), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsInBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 42), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCInBcastPkts is the column ipSystemStatsHCInBcastPkts of table ipSystemStatsTable.
+// IPSystemStatsHCInBcastPkts is the column ipSystemStatsHCInBcastPkts of table ipSystemStatsTable.
 // The number of IP broadcast datagrams received. This object counts the
 // same datagrams as ipSystemStatsInBcastPkts but allows for larger values.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCInBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 43), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCInBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 43), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsOutBcastPkts is the column ipSystemStatsOutBcastPkts of table ipSystemStatsTable.
+// IPSystemStatsOutBcastPkts is the column ipSystemStatsOutBcastPkts of table ipSystemStatsTable.
 // The number of IP broadcast datagrams transmitted. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipSystemStatsDiscontinuityTime.
-var IpSystemStatsOutBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 44), snmp.KindCounter32, snmp.DecodeUint32)
+var IPSystemStatsOutBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 44), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpSystemStatsHCOutBcastPkts is the column ipSystemStatsHCOutBcastPkts of table ipSystemStatsTable.
+// IPSystemStatsHCOutBcastPkts is the column ipSystemStatsHCOutBcastPkts of table ipSystemStatsTable.
 // The number of IP broadcast datagrams transmitted. This object counts the
 // same datagrams as ipSystemStatsOutBcastPkts, but allows for larger
 // values. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipSystemStatsDiscontinuityTime.
-var IpSystemStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 45), snmp.KindCounter64, snmp.DecodeUint64)
+var IPSystemStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 45), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpSystemStatsDiscontinuityTime is the column ipSystemStatsDiscontinuityTime of table ipSystemStatsTable.
+// IPSystemStatsDiscontinuityTime is the column ipSystemStatsDiscontinuityTime of table ipSystemStatsTable.
 // The value of sysUpTime on the most recent occasion at which any one or
 // more of this entry's counters suffered a discontinuity. If no such
 // discontinuities have occurred since the last re- initialization of the
 // local management subsystem, then this object contains a zero value.
-var IpSystemStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46), snmp.KindTimeTicks, snmp.DecodeUint32)
+var IPSystemStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46), snmp.KindTimeTicks, snmp.DecodeUint32)
 
-// IpSystemStatsRefreshRate is the column ipSystemStatsRefreshRate of table ipSystemStatsTable.
+// IPSystemStatsRefreshRate is the column ipSystemStatsRefreshRate of table ipSystemStatsTable.
 // The minimum reasonable polling interval for this entry. This object
 // provides an indication of the minimum amount of time required to update
 // the counters in this entry.
-var IpSystemStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 47), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPSystemStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 47), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpSystemStatsTableKey is the decoded INDEX of one ipSystemStatsTable row, one field per
+// IPSystemStatsTableKey is the decoded INDEX of one ipSystemStatsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpSystemStatsTableKey struct {
-	IpSystemStatsIPVersion int32
+type IPSystemStatsTableKey struct {
+	IPSystemStatsIPVersion int32
 }
 
 var ipSystemStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// decodeIpSystemStatsTableKey decodes the instance suffix of one ipSystemStatsTable row. ok is false
+// decodeIPSystemStatsTableKey decodes the instance suffix of one ipSystemStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpSystemStatsTableKey(idx snmp.OID) (IpSystemStatsTableKey, bool) {
+func decodeIPSystemStatsTableKey(idx snmp.OID) (IPSystemStatsTableKey, bool) {
 	var parts [1]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipSystemStatsTableIndexShapes) {
-		return IpSystemStatsTableKey{}, false
+		return IPSystemStatsTableKey{}, false
 	}
-	return IpSystemStatsTableKey{IpSystemStatsIPVersion: int32(parts[0].Integer)}, true
+	return IPSystemStatsTableKey{IPSystemStatsIPVersion: int32(parts[0].Integer)}, true
 }
 
-// IpSystemStatsTableRow is one row of ipSystemStatsTable. Key is the decoded INDEX; a
+// IPSystemStatsTableRow is one row of ipSystemStatsTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpSystemStatsTableRow.KeyValid] reports which. The remaining fields are
+// [IPSystemStatsTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpSystemStatsTableRow.Observed] to tell a reported zero from a column the
+// [IPSystemStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpSystemStatsTableRow struct {
-	Key                             IpSystemStatsTableKey
+type IPSystemStatsTableRow struct {
+	Key                             IPSystemStatsTableKey
 	keyValid                        bool
-	IpSystemStatsInReceives         uint32
-	IpSystemStatsHCInReceives       uint64
-	IpSystemStatsInOctets           uint32
-	IpSystemStatsHCInOctets         uint64
-	IpSystemStatsInHdrErrors        uint32
-	IpSystemStatsInNoRoutes         uint32
-	IpSystemStatsInAddrErrors       uint32
-	IpSystemStatsInUnknownProtos    uint32
-	IpSystemStatsInTruncatedPkts    uint32
-	IpSystemStatsInForwDatagrams    uint32
-	IpSystemStatsHCInForwDatagrams  uint64
-	IpSystemStatsReasmReqds         uint32
-	IpSystemStatsReasmOKs           uint32
-	IpSystemStatsReasmFails         uint32
-	IpSystemStatsInDiscards         uint32
-	IpSystemStatsInDelivers         uint32
-	IpSystemStatsHCInDelivers       uint64
-	IpSystemStatsOutRequests        uint32
-	IpSystemStatsHCOutRequests      uint64
-	IpSystemStatsOutNoRoutes        uint32
-	IpSystemStatsOutForwDatagrams   uint32
-	IpSystemStatsHCOutForwDatagrams uint64
-	IpSystemStatsOutDiscards        uint32
-	IpSystemStatsOutFragReqds       uint32
-	IpSystemStatsOutFragOKs         uint32
-	IpSystemStatsOutFragFails       uint32
-	IpSystemStatsOutFragCreates     uint32
-	IpSystemStatsOutTransmits       uint32
-	IpSystemStatsHCOutTransmits     uint64
-	IpSystemStatsOutOctets          uint32
-	IpSystemStatsHCOutOctets        uint64
-	IpSystemStatsInMcastPkts        uint32
-	IpSystemStatsHCInMcastPkts      uint64
-	IpSystemStatsInMcastOctets      uint32
-	IpSystemStatsHCInMcastOctets    uint64
-	IpSystemStatsOutMcastPkts       uint32
-	IpSystemStatsHCOutMcastPkts     uint64
-	IpSystemStatsOutMcastOctets     uint32
-	IpSystemStatsHCOutMcastOctets   uint64
-	IpSystemStatsInBcastPkts        uint32
-	IpSystemStatsHCInBcastPkts      uint64
-	IpSystemStatsOutBcastPkts       uint32
-	IpSystemStatsHCOutBcastPkts     uint64
-	IpSystemStatsDiscontinuityTime  uint32
-	IpSystemStatsRefreshRate        uint32
+	IPSystemStatsInReceives         uint32
+	IPSystemStatsHCInReceives       uint64
+	IPSystemStatsInOctets           uint32
+	IPSystemStatsHCInOctets         uint64
+	IPSystemStatsInHdrErrors        uint32
+	IPSystemStatsInNoRoutes         uint32
+	IPSystemStatsInAddrErrors       uint32
+	IPSystemStatsInUnknownProtos    uint32
+	IPSystemStatsInTruncatedPkts    uint32
+	IPSystemStatsInForwDatagrams    uint32
+	IPSystemStatsHCInForwDatagrams  uint64
+	IPSystemStatsReasmReqds         uint32
+	IPSystemStatsReasmOKs           uint32
+	IPSystemStatsReasmFails         uint32
+	IPSystemStatsInDiscards         uint32
+	IPSystemStatsInDelivers         uint32
+	IPSystemStatsHCInDelivers       uint64
+	IPSystemStatsOutRequests        uint32
+	IPSystemStatsHCOutRequests      uint64
+	IPSystemStatsOutNoRoutes        uint32
+	IPSystemStatsOutForwDatagrams   uint32
+	IPSystemStatsHCOutForwDatagrams uint64
+	IPSystemStatsOutDiscards        uint32
+	IPSystemStatsOutFragReqds       uint32
+	IPSystemStatsOutFragOKs         uint32
+	IPSystemStatsOutFragFails       uint32
+	IPSystemStatsOutFragCreates     uint32
+	IPSystemStatsOutTransmits       uint32
+	IPSystemStatsHCOutTransmits     uint64
+	IPSystemStatsOutOctets          uint32
+	IPSystemStatsHCOutOctets        uint64
+	IPSystemStatsInMcastPkts        uint32
+	IPSystemStatsHCInMcastPkts      uint64
+	IPSystemStatsInMcastOctets      uint32
+	IPSystemStatsHCInMcastOctets    uint64
+	IPSystemStatsOutMcastPkts       uint32
+	IPSystemStatsHCOutMcastPkts     uint64
+	IPSystemStatsOutMcastOctets     uint32
+	IPSystemStatsHCOutMcastOctets   uint64
+	IPSystemStatsInBcastPkts        uint32
+	IPSystemStatsHCInBcastPkts      uint64
+	IPSystemStatsOutBcastPkts       uint32
+	IPSystemStatsHCOutBcastPkts     uint64
+	IPSystemStatsDiscontinuityTime  uint32
+	IPSystemStatsRefreshRate        uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -3784,7 +3784,7 @@ type IpSystemStatsTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpSystemStatsTableRow) KeyValid() bool {
+func (r IPSystemStatsTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -3792,107 +3792,107 @@ func (r IpSystemStatsTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpSystemStatsTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPSystemStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpSystemStatsInReceives.Key():
+	case IPSystemStatsInReceives.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpSystemStatsHCInReceives.Key():
+	case IPSystemStatsHCInReceives.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpSystemStatsInOctets.Key():
+	case IPSystemStatsInOctets.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpSystemStatsHCInOctets.Key():
+	case IPSystemStatsHCInOctets.Key():
 		return r.observed[0]&(1<<3) != 0
-	case IpSystemStatsInHdrErrors.Key():
+	case IPSystemStatsInHdrErrors.Key():
 		return r.observed[0]&(1<<4) != 0
-	case IpSystemStatsInNoRoutes.Key():
+	case IPSystemStatsInNoRoutes.Key():
 		return r.observed[0]&(1<<5) != 0
-	case IpSystemStatsInAddrErrors.Key():
+	case IPSystemStatsInAddrErrors.Key():
 		return r.observed[0]&(1<<6) != 0
-	case IpSystemStatsInUnknownProtos.Key():
+	case IPSystemStatsInUnknownProtos.Key():
 		return r.observed[0]&(1<<7) != 0
-	case IpSystemStatsInTruncatedPkts.Key():
+	case IPSystemStatsInTruncatedPkts.Key():
 		return r.observed[0]&(1<<8) != 0
-	case IpSystemStatsInForwDatagrams.Key():
+	case IPSystemStatsInForwDatagrams.Key():
 		return r.observed[0]&(1<<9) != 0
-	case IpSystemStatsHCInForwDatagrams.Key():
+	case IPSystemStatsHCInForwDatagrams.Key():
 		return r.observed[0]&(1<<10) != 0
-	case IpSystemStatsReasmReqds.Key():
+	case IPSystemStatsReasmReqds.Key():
 		return r.observed[0]&(1<<11) != 0
-	case IpSystemStatsReasmOKs.Key():
+	case IPSystemStatsReasmOKs.Key():
 		return r.observed[0]&(1<<12) != 0
-	case IpSystemStatsReasmFails.Key():
+	case IPSystemStatsReasmFails.Key():
 		return r.observed[0]&(1<<13) != 0
-	case IpSystemStatsInDiscards.Key():
+	case IPSystemStatsInDiscards.Key():
 		return r.observed[0]&(1<<14) != 0
-	case IpSystemStatsInDelivers.Key():
+	case IPSystemStatsInDelivers.Key():
 		return r.observed[0]&(1<<15) != 0
-	case IpSystemStatsHCInDelivers.Key():
+	case IPSystemStatsHCInDelivers.Key():
 		return r.observed[0]&(1<<16) != 0
-	case IpSystemStatsOutRequests.Key():
+	case IPSystemStatsOutRequests.Key():
 		return r.observed[0]&(1<<17) != 0
-	case IpSystemStatsHCOutRequests.Key():
+	case IPSystemStatsHCOutRequests.Key():
 		return r.observed[0]&(1<<18) != 0
-	case IpSystemStatsOutNoRoutes.Key():
+	case IPSystemStatsOutNoRoutes.Key():
 		return r.observed[0]&(1<<19) != 0
-	case IpSystemStatsOutForwDatagrams.Key():
+	case IPSystemStatsOutForwDatagrams.Key():
 		return r.observed[0]&(1<<20) != 0
-	case IpSystemStatsHCOutForwDatagrams.Key():
+	case IPSystemStatsHCOutForwDatagrams.Key():
 		return r.observed[0]&(1<<21) != 0
-	case IpSystemStatsOutDiscards.Key():
+	case IPSystemStatsOutDiscards.Key():
 		return r.observed[0]&(1<<22) != 0
-	case IpSystemStatsOutFragReqds.Key():
+	case IPSystemStatsOutFragReqds.Key():
 		return r.observed[0]&(1<<23) != 0
-	case IpSystemStatsOutFragOKs.Key():
+	case IPSystemStatsOutFragOKs.Key():
 		return r.observed[0]&(1<<24) != 0
-	case IpSystemStatsOutFragFails.Key():
+	case IPSystemStatsOutFragFails.Key():
 		return r.observed[0]&(1<<25) != 0
-	case IpSystemStatsOutFragCreates.Key():
+	case IPSystemStatsOutFragCreates.Key():
 		return r.observed[0]&(1<<26) != 0
-	case IpSystemStatsOutTransmits.Key():
+	case IPSystemStatsOutTransmits.Key():
 		return r.observed[0]&(1<<27) != 0
-	case IpSystemStatsHCOutTransmits.Key():
+	case IPSystemStatsHCOutTransmits.Key():
 		return r.observed[0]&(1<<28) != 0
-	case IpSystemStatsOutOctets.Key():
+	case IPSystemStatsOutOctets.Key():
 		return r.observed[0]&(1<<29) != 0
-	case IpSystemStatsHCOutOctets.Key():
+	case IPSystemStatsHCOutOctets.Key():
 		return r.observed[0]&(1<<30) != 0
-	case IpSystemStatsInMcastPkts.Key():
+	case IPSystemStatsInMcastPkts.Key():
 		return r.observed[0]&(1<<31) != 0
-	case IpSystemStatsHCInMcastPkts.Key():
+	case IPSystemStatsHCInMcastPkts.Key():
 		return r.observed[0]&(1<<32) != 0
-	case IpSystemStatsInMcastOctets.Key():
+	case IPSystemStatsInMcastOctets.Key():
 		return r.observed[0]&(1<<33) != 0
-	case IpSystemStatsHCInMcastOctets.Key():
+	case IPSystemStatsHCInMcastOctets.Key():
 		return r.observed[0]&(1<<34) != 0
-	case IpSystemStatsOutMcastPkts.Key():
+	case IPSystemStatsOutMcastPkts.Key():
 		return r.observed[0]&(1<<35) != 0
-	case IpSystemStatsHCOutMcastPkts.Key():
+	case IPSystemStatsHCOutMcastPkts.Key():
 		return r.observed[0]&(1<<36) != 0
-	case IpSystemStatsOutMcastOctets.Key():
+	case IPSystemStatsOutMcastOctets.Key():
 		return r.observed[0]&(1<<37) != 0
-	case IpSystemStatsHCOutMcastOctets.Key():
+	case IPSystemStatsHCOutMcastOctets.Key():
 		return r.observed[0]&(1<<38) != 0
-	case IpSystemStatsInBcastPkts.Key():
+	case IPSystemStatsInBcastPkts.Key():
 		return r.observed[0]&(1<<39) != 0
-	case IpSystemStatsHCInBcastPkts.Key():
+	case IPSystemStatsHCInBcastPkts.Key():
 		return r.observed[0]&(1<<40) != 0
-	case IpSystemStatsOutBcastPkts.Key():
+	case IPSystemStatsOutBcastPkts.Key():
 		return r.observed[0]&(1<<41) != 0
-	case IpSystemStatsHCOutBcastPkts.Key():
+	case IPSystemStatsHCOutBcastPkts.Key():
 		return r.observed[0]&(1<<42) != 0
-	case IpSystemStatsDiscontinuityTime.Key():
+	case IPSystemStatsDiscontinuityTime.Key():
 		return r.observed[0]&(1<<43) != 0
-	case IpSystemStatsRefreshRate.Key():
+	case IPSystemStatsRefreshRate.Key():
 		return r.observed[0]&(1<<44) != 0
 	}
 
 	return false
 }
 
-// IpSystemStatsTableWalker streams selected columns of ipSystemStatsTable.
-// The zero value is not usable; construct via IpSystemStatsTable.Walk(ctx, sess, cols...).
+// IPSystemStatsTableWalker streams selected columns of ipSystemStatsTable.
+// The zero value is not usable; construct via IPSystemStatsTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpSystemStatsTableWalker struct {
+type IPSystemStatsTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -3903,821 +3903,821 @@ type IpSystemStatsTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTableRow] {
-	return func(yield func(snmp.OID, IpSystemStatsTableRow) bool) {
+func (tw *IPSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IPSystemStatsTableRow] {
+	return func(yield func(snmp.OID, IPSystemStatsTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpSystemStatsTableRow
-			row.Key, row.keyValid = decodeIpSystemStatsTableKey(idx)
+			var row IPSystemStatsTableRow
+			row.Key, row.keyValid = decodeIPSystemStatsTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpSystemStatsInReceives.Key():
+				case IPSystemStatsInReceives.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInReceives = v
+						row.IPSystemStatsInReceives = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInReceives.Decode(vb)
+							dv, dErr := IPSystemStatsInReceives.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInReceives = dv
+								row.IPSystemStatsInReceives = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case IpSystemStatsHCInReceives.Key():
+				case IPSystemStatsHCInReceives.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInReceives = v
+						row.IPSystemStatsHCInReceives = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInReceives.Decode(vb)
+							dv, dErr := IPSystemStatsHCInReceives.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInReceives = dv
+								row.IPSystemStatsHCInReceives = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case IpSystemStatsInOctets.Key():
+				case IPSystemStatsInOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInOctets = v
+						row.IPSystemStatsInOctets = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInOctets.Decode(vb)
+							dv, dErr := IPSystemStatsInOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInOctets = dv
+								row.IPSystemStatsInOctets = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
-				case IpSystemStatsHCInOctets.Key():
+				case IPSystemStatsHCInOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInOctets = v
+						row.IPSystemStatsHCInOctets = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInOctets.Decode(vb)
+							dv, dErr := IPSystemStatsHCInOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInOctets = dv
+								row.IPSystemStatsHCInOctets = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case IpSystemStatsInHdrErrors.Key():
+				case IPSystemStatsInHdrErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInHdrErrors = v
+						row.IPSystemStatsInHdrErrors = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInHdrErrors.Decode(vb)
+							dv, dErr := IPSystemStatsInHdrErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInHdrErrors = dv
+								row.IPSystemStatsInHdrErrors = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
 					}
-				case IpSystemStatsInNoRoutes.Key():
+				case IPSystemStatsInNoRoutes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInNoRoutes = v
+						row.IPSystemStatsInNoRoutes = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInNoRoutes.Decode(vb)
+							dv, dErr := IPSystemStatsInNoRoutes.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInNoRoutes = dv
+								row.IPSystemStatsInNoRoutes = dv
 								row.observed[0] |= 1 << 5
 							}
 						}
 					}
-				case IpSystemStatsInAddrErrors.Key():
+				case IPSystemStatsInAddrErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInAddrErrors = v
+						row.IPSystemStatsInAddrErrors = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInAddrErrors.Decode(vb)
+							dv, dErr := IPSystemStatsInAddrErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInAddrErrors = dv
+								row.IPSystemStatsInAddrErrors = dv
 								row.observed[0] |= 1 << 6
 							}
 						}
 					}
-				case IpSystemStatsInUnknownProtos.Key():
+				case IPSystemStatsInUnknownProtos.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInUnknownProtos = v
+						row.IPSystemStatsInUnknownProtos = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInUnknownProtos.Decode(vb)
+							dv, dErr := IPSystemStatsInUnknownProtos.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInUnknownProtos = dv
+								row.IPSystemStatsInUnknownProtos = dv
 								row.observed[0] |= 1 << 7
 							}
 						}
 					}
-				case IpSystemStatsInTruncatedPkts.Key():
+				case IPSystemStatsInTruncatedPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInTruncatedPkts = v
+						row.IPSystemStatsInTruncatedPkts = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInTruncatedPkts.Decode(vb)
+							dv, dErr := IPSystemStatsInTruncatedPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInTruncatedPkts = dv
+								row.IPSystemStatsInTruncatedPkts = dv
 								row.observed[0] |= 1 << 8
 							}
 						}
 					}
-				case IpSystemStatsInForwDatagrams.Key():
+				case IPSystemStatsInForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInForwDatagrams = v
+						row.IPSystemStatsInForwDatagrams = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInForwDatagrams.Decode(vb)
+							dv, dErr := IPSystemStatsInForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInForwDatagrams = dv
+								row.IPSystemStatsInForwDatagrams = dv
 								row.observed[0] |= 1 << 9
 							}
 						}
 					}
-				case IpSystemStatsHCInForwDatagrams.Key():
+				case IPSystemStatsHCInForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInForwDatagrams = v
+						row.IPSystemStatsHCInForwDatagrams = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInForwDatagrams.Decode(vb)
+							dv, dErr := IPSystemStatsHCInForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInForwDatagrams = dv
+								row.IPSystemStatsHCInForwDatagrams = dv
 								row.observed[0] |= 1 << 10
 							}
 						}
 					}
-				case IpSystemStatsReasmReqds.Key():
+				case IPSystemStatsReasmReqds.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsReasmReqds = v
+						row.IPSystemStatsReasmReqds = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsReasmReqds.Decode(vb)
+							dv, dErr := IPSystemStatsReasmReqds.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsReasmReqds = dv
+								row.IPSystemStatsReasmReqds = dv
 								row.observed[0] |= 1 << 11
 							}
 						}
 					}
-				case IpSystemStatsReasmOKs.Key():
+				case IPSystemStatsReasmOKs.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsReasmOKs = v
+						row.IPSystemStatsReasmOKs = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsReasmOKs.Decode(vb)
+							dv, dErr := IPSystemStatsReasmOKs.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsReasmOKs = dv
+								row.IPSystemStatsReasmOKs = dv
 								row.observed[0] |= 1 << 12
 							}
 						}
 					}
-				case IpSystemStatsReasmFails.Key():
+				case IPSystemStatsReasmFails.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsReasmFails = v
+						row.IPSystemStatsReasmFails = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsReasmFails.Decode(vb)
+							dv, dErr := IPSystemStatsReasmFails.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsReasmFails = dv
+								row.IPSystemStatsReasmFails = dv
 								row.observed[0] |= 1 << 13
 							}
 						}
 					}
-				case IpSystemStatsInDiscards.Key():
+				case IPSystemStatsInDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInDiscards = v
+						row.IPSystemStatsInDiscards = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInDiscards.Decode(vb)
+							dv, dErr := IPSystemStatsInDiscards.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInDiscards = dv
+								row.IPSystemStatsInDiscards = dv
 								row.observed[0] |= 1 << 14
 							}
 						}
 					}
-				case IpSystemStatsInDelivers.Key():
+				case IPSystemStatsInDelivers.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInDelivers = v
+						row.IPSystemStatsInDelivers = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInDelivers.Decode(vb)
+							dv, dErr := IPSystemStatsInDelivers.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInDelivers = dv
+								row.IPSystemStatsInDelivers = dv
 								row.observed[0] |= 1 << 15
 							}
 						}
 					}
-				case IpSystemStatsHCInDelivers.Key():
+				case IPSystemStatsHCInDelivers.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInDelivers = v
+						row.IPSystemStatsHCInDelivers = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInDelivers.Decode(vb)
+							dv, dErr := IPSystemStatsHCInDelivers.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInDelivers = dv
+								row.IPSystemStatsHCInDelivers = dv
 								row.observed[0] |= 1 << 16
 							}
 						}
 					}
-				case IpSystemStatsOutRequests.Key():
+				case IPSystemStatsOutRequests.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutRequests = v
+						row.IPSystemStatsOutRequests = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutRequests.Decode(vb)
+							dv, dErr := IPSystemStatsOutRequests.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutRequests = dv
+								row.IPSystemStatsOutRequests = dv
 								row.observed[0] |= 1 << 17
 							}
 						}
 					}
-				case IpSystemStatsHCOutRequests.Key():
+				case IPSystemStatsHCOutRequests.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutRequests = v
+						row.IPSystemStatsHCOutRequests = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutRequests.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutRequests.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutRequests = dv
+								row.IPSystemStatsHCOutRequests = dv
 								row.observed[0] |= 1 << 18
 							}
 						}
 					}
-				case IpSystemStatsOutNoRoutes.Key():
+				case IPSystemStatsOutNoRoutes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutNoRoutes = v
+						row.IPSystemStatsOutNoRoutes = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutNoRoutes.Decode(vb)
+							dv, dErr := IPSystemStatsOutNoRoutes.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutNoRoutes = dv
+								row.IPSystemStatsOutNoRoutes = dv
 								row.observed[0] |= 1 << 19
 							}
 						}
 					}
-				case IpSystemStatsOutForwDatagrams.Key():
+				case IPSystemStatsOutForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutForwDatagrams = v
+						row.IPSystemStatsOutForwDatagrams = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutForwDatagrams.Decode(vb)
+							dv, dErr := IPSystemStatsOutForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutForwDatagrams = dv
+								row.IPSystemStatsOutForwDatagrams = dv
 								row.observed[0] |= 1 << 20
 							}
 						}
 					}
-				case IpSystemStatsHCOutForwDatagrams.Key():
+				case IPSystemStatsHCOutForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutForwDatagrams = v
+						row.IPSystemStatsHCOutForwDatagrams = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutForwDatagrams.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutForwDatagrams = dv
+								row.IPSystemStatsHCOutForwDatagrams = dv
 								row.observed[0] |= 1 << 21
 							}
 						}
 					}
-				case IpSystemStatsOutDiscards.Key():
+				case IPSystemStatsOutDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutDiscards = v
+						row.IPSystemStatsOutDiscards = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutDiscards.Decode(vb)
+							dv, dErr := IPSystemStatsOutDiscards.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutDiscards = dv
+								row.IPSystemStatsOutDiscards = dv
 								row.observed[0] |= 1 << 22
 							}
 						}
 					}
-				case IpSystemStatsOutFragReqds.Key():
+				case IPSystemStatsOutFragReqds.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutFragReqds = v
+						row.IPSystemStatsOutFragReqds = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutFragReqds.Decode(vb)
+							dv, dErr := IPSystemStatsOutFragReqds.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutFragReqds = dv
+								row.IPSystemStatsOutFragReqds = dv
 								row.observed[0] |= 1 << 23
 							}
 						}
 					}
-				case IpSystemStatsOutFragOKs.Key():
+				case IPSystemStatsOutFragOKs.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutFragOKs = v
+						row.IPSystemStatsOutFragOKs = v
 						row.observed[0] |= 1 << 24
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutFragOKs.Decode(vb)
+							dv, dErr := IPSystemStatsOutFragOKs.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutFragOKs = dv
+								row.IPSystemStatsOutFragOKs = dv
 								row.observed[0] |= 1 << 24
 							}
 						}
 					}
-				case IpSystemStatsOutFragFails.Key():
+				case IPSystemStatsOutFragFails.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutFragFails = v
+						row.IPSystemStatsOutFragFails = v
 						row.observed[0] |= 1 << 25
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutFragFails.Decode(vb)
+							dv, dErr := IPSystemStatsOutFragFails.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutFragFails = dv
+								row.IPSystemStatsOutFragFails = dv
 								row.observed[0] |= 1 << 25
 							}
 						}
 					}
-				case IpSystemStatsOutFragCreates.Key():
+				case IPSystemStatsOutFragCreates.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutFragCreates = v
+						row.IPSystemStatsOutFragCreates = v
 						row.observed[0] |= 1 << 26
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutFragCreates.Decode(vb)
+							dv, dErr := IPSystemStatsOutFragCreates.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutFragCreates = dv
+								row.IPSystemStatsOutFragCreates = dv
 								row.observed[0] |= 1 << 26
 							}
 						}
 					}
-				case IpSystemStatsOutTransmits.Key():
+				case IPSystemStatsOutTransmits.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutTransmits = v
+						row.IPSystemStatsOutTransmits = v
 						row.observed[0] |= 1 << 27
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutTransmits.Decode(vb)
+							dv, dErr := IPSystemStatsOutTransmits.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutTransmits = dv
+								row.IPSystemStatsOutTransmits = dv
 								row.observed[0] |= 1 << 27
 							}
 						}
 					}
-				case IpSystemStatsHCOutTransmits.Key():
+				case IPSystemStatsHCOutTransmits.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutTransmits = v
+						row.IPSystemStatsHCOutTransmits = v
 						row.observed[0] |= 1 << 28
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutTransmits.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutTransmits.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutTransmits = dv
+								row.IPSystemStatsHCOutTransmits = dv
 								row.observed[0] |= 1 << 28
 							}
 						}
 					}
-				case IpSystemStatsOutOctets.Key():
+				case IPSystemStatsOutOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutOctets = v
+						row.IPSystemStatsOutOctets = v
 						row.observed[0] |= 1 << 29
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutOctets.Decode(vb)
+							dv, dErr := IPSystemStatsOutOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutOctets = dv
+								row.IPSystemStatsOutOctets = dv
 								row.observed[0] |= 1 << 29
 							}
 						}
 					}
-				case IpSystemStatsHCOutOctets.Key():
+				case IPSystemStatsHCOutOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutOctets = v
+						row.IPSystemStatsHCOutOctets = v
 						row.observed[0] |= 1 << 30
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutOctets.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutOctets = dv
+								row.IPSystemStatsHCOutOctets = dv
 								row.observed[0] |= 1 << 30
 							}
 						}
 					}
-				case IpSystemStatsInMcastPkts.Key():
+				case IPSystemStatsInMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInMcastPkts = v
+						row.IPSystemStatsInMcastPkts = v
 						row.observed[0] |= 1 << 31
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInMcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsInMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInMcastPkts = dv
+								row.IPSystemStatsInMcastPkts = dv
 								row.observed[0] |= 1 << 31
 							}
 						}
 					}
-				case IpSystemStatsHCInMcastPkts.Key():
+				case IPSystemStatsHCInMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInMcastPkts = v
+						row.IPSystemStatsHCInMcastPkts = v
 						row.observed[0] |= 1 << 32
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInMcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsHCInMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInMcastPkts = dv
+								row.IPSystemStatsHCInMcastPkts = dv
 								row.observed[0] |= 1 << 32
 							}
 						}
 					}
-				case IpSystemStatsInMcastOctets.Key():
+				case IPSystemStatsInMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInMcastOctets = v
+						row.IPSystemStatsInMcastOctets = v
 						row.observed[0] |= 1 << 33
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInMcastOctets.Decode(vb)
+							dv, dErr := IPSystemStatsInMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInMcastOctets = dv
+								row.IPSystemStatsInMcastOctets = dv
 								row.observed[0] |= 1 << 33
 							}
 						}
 					}
-				case IpSystemStatsHCInMcastOctets.Key():
+				case IPSystemStatsHCInMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInMcastOctets = v
+						row.IPSystemStatsHCInMcastOctets = v
 						row.observed[0] |= 1 << 34
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInMcastOctets.Decode(vb)
+							dv, dErr := IPSystemStatsHCInMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInMcastOctets = dv
+								row.IPSystemStatsHCInMcastOctets = dv
 								row.observed[0] |= 1 << 34
 							}
 						}
 					}
-				case IpSystemStatsOutMcastPkts.Key():
+				case IPSystemStatsOutMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutMcastPkts = v
+						row.IPSystemStatsOutMcastPkts = v
 						row.observed[0] |= 1 << 35
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutMcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsOutMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutMcastPkts = dv
+								row.IPSystemStatsOutMcastPkts = dv
 								row.observed[0] |= 1 << 35
 							}
 						}
 					}
-				case IpSystemStatsHCOutMcastPkts.Key():
+				case IPSystemStatsHCOutMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutMcastPkts = v
+						row.IPSystemStatsHCOutMcastPkts = v
 						row.observed[0] |= 1 << 36
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutMcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutMcastPkts = dv
+								row.IPSystemStatsHCOutMcastPkts = dv
 								row.observed[0] |= 1 << 36
 							}
 						}
 					}
-				case IpSystemStatsOutMcastOctets.Key():
+				case IPSystemStatsOutMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutMcastOctets = v
+						row.IPSystemStatsOutMcastOctets = v
 						row.observed[0] |= 1 << 37
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutMcastOctets.Decode(vb)
+							dv, dErr := IPSystemStatsOutMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutMcastOctets = dv
+								row.IPSystemStatsOutMcastOctets = dv
 								row.observed[0] |= 1 << 37
 							}
 						}
 					}
-				case IpSystemStatsHCOutMcastOctets.Key():
+				case IPSystemStatsHCOutMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutMcastOctets = v
+						row.IPSystemStatsHCOutMcastOctets = v
 						row.observed[0] |= 1 << 38
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutMcastOctets.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutMcastOctets = dv
+								row.IPSystemStatsHCOutMcastOctets = dv
 								row.observed[0] |= 1 << 38
 							}
 						}
 					}
-				case IpSystemStatsInBcastPkts.Key():
+				case IPSystemStatsInBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsInBcastPkts = v
+						row.IPSystemStatsInBcastPkts = v
 						row.observed[0] |= 1 << 39
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsInBcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsInBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsInBcastPkts = dv
+								row.IPSystemStatsInBcastPkts = dv
 								row.observed[0] |= 1 << 39
 							}
 						}
 					}
-				case IpSystemStatsHCInBcastPkts.Key():
+				case IPSystemStatsHCInBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCInBcastPkts = v
+						row.IPSystemStatsHCInBcastPkts = v
 						row.observed[0] |= 1 << 40
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCInBcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsHCInBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCInBcastPkts = dv
+								row.IPSystemStatsHCInBcastPkts = dv
 								row.observed[0] |= 1 << 40
 							}
 						}
 					}
-				case IpSystemStatsOutBcastPkts.Key():
+				case IPSystemStatsOutBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpSystemStatsOutBcastPkts = v
+						row.IPSystemStatsOutBcastPkts = v
 						row.observed[0] |= 1 << 41
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsOutBcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsOutBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsOutBcastPkts = dv
+								row.IPSystemStatsOutBcastPkts = dv
 								row.observed[0] |= 1 << 41
 							}
 						}
 					}
-				case IpSystemStatsHCOutBcastPkts.Key():
+				case IPSystemStatsHCOutBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpSystemStatsHCOutBcastPkts = v
+						row.IPSystemStatsHCOutBcastPkts = v
 						row.observed[0] |= 1 << 42
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsHCOutBcastPkts.Decode(vb)
+							dv, dErr := IPSystemStatsHCOutBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsHCOutBcastPkts = dv
+								row.IPSystemStatsHCOutBcastPkts = dv
 								row.observed[0] |= 1 << 42
 							}
 						}
 					}
-				case IpSystemStatsDiscontinuityTime.Key():
+				case IPSystemStatsDiscontinuityTime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.IpSystemStatsDiscontinuityTime = v
+						row.IPSystemStatsDiscontinuityTime = v
 						row.observed[0] |= 1 << 43
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsDiscontinuityTime.Decode(vb)
+							dv, dErr := IPSystemStatsDiscontinuityTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsDiscontinuityTime = dv
+								row.IPSystemStatsDiscontinuityTime = dv
 								row.observed[0] |= 1 << 43
 							}
 						}
 					}
-				case IpSystemStatsRefreshRate.Key():
+				case IPSystemStatsRefreshRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpSystemStatsRefreshRate = v
+						row.IPSystemStatsRefreshRate = v
 						row.observed[0] |= 1 << 44
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpSystemStatsRefreshRate.Decode(vb)
+							dv, dErr := IPSystemStatsRefreshRate.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpSystemStatsRefreshRate = dv
+								row.IPSystemStatsRefreshRate = dv
 								row.observed[0] |= 1 << 44
 							}
 						}
@@ -4737,18 +4737,18 @@ func (tw *IpSystemStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpSystemStatsTabl
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpSystemStatsTableWalker) Err() error {
+func (tw *IPSystemStatsTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipSystemStatsTableT is the singleton type of IpSystemStatsTable.
+// ipSystemStatsTableT is the singleton type of IPSystemStatsTable.
 type ipSystemStatsTableT struct{}
 
-// IpSystemStatsTable is the descriptor for the ipSystemStatsTable table.
-var IpSystemStatsTable ipSystemStatsTableT
+// IPSystemStatsTable is the descriptor for the ipSystemStatsTable table.
+var IPSystemStatsTable ipSystemStatsTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpSystemStatsTableWalker) Close() {
+func (tw *IPSystemStatsTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -4756,7 +4756,7 @@ func (tw *IpSystemStatsTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipSystemStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpSystemStatsTableWalker {
+func (t ipSystemStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPSystemStatsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -4766,24 +4766,24 @@ func (t ipSystemStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols .
 // for the table or declare it as a dependency.
 func (ipSystemStatsTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "IpSystemStatsTableKey",
+		KeyType: "IPSystemStatsTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipSystemStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpSystemStatsTableWalker {
+func (ipSystemStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPSystemStatsTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpSystemStatsInReceives.Key(), IpSystemStatsHCInReceives.Key(), IpSystemStatsInOctets.Key(), IpSystemStatsHCInOctets.Key(), IpSystemStatsInHdrErrors.Key(), IpSystemStatsInNoRoutes.Key(), IpSystemStatsInAddrErrors.Key(), IpSystemStatsInUnknownProtos.Key(), IpSystemStatsInTruncatedPkts.Key(), IpSystemStatsInForwDatagrams.Key(), IpSystemStatsHCInForwDatagrams.Key(), IpSystemStatsReasmReqds.Key(), IpSystemStatsReasmOKs.Key(), IpSystemStatsReasmFails.Key(), IpSystemStatsInDiscards.Key(), IpSystemStatsInDelivers.Key(), IpSystemStatsHCInDelivers.Key(), IpSystemStatsOutRequests.Key(), IpSystemStatsHCOutRequests.Key(), IpSystemStatsOutNoRoutes.Key(), IpSystemStatsOutForwDatagrams.Key(), IpSystemStatsHCOutForwDatagrams.Key(), IpSystemStatsOutDiscards.Key(), IpSystemStatsOutFragReqds.Key(), IpSystemStatsOutFragOKs.Key(), IpSystemStatsOutFragFails.Key(), IpSystemStatsOutFragCreates.Key(), IpSystemStatsOutTransmits.Key(), IpSystemStatsHCOutTransmits.Key(), IpSystemStatsOutOctets.Key(), IpSystemStatsHCOutOctets.Key(), IpSystemStatsInMcastPkts.Key(), IpSystemStatsHCInMcastPkts.Key(), IpSystemStatsInMcastOctets.Key(), IpSystemStatsHCInMcastOctets.Key(), IpSystemStatsOutMcastPkts.Key(), IpSystemStatsHCOutMcastPkts.Key(), IpSystemStatsOutMcastOctets.Key(), IpSystemStatsHCOutMcastOctets.Key(), IpSystemStatsInBcastPkts.Key(), IpSystemStatsHCInBcastPkts.Key(), IpSystemStatsOutBcastPkts.Key(), IpSystemStatsHCOutBcastPkts.Key(), IpSystemStatsDiscontinuityTime.Key(), IpSystemStatsRefreshRate.Key():
+		case IPSystemStatsInReceives.Key(), IPSystemStatsHCInReceives.Key(), IPSystemStatsInOctets.Key(), IPSystemStatsHCInOctets.Key(), IPSystemStatsInHdrErrors.Key(), IPSystemStatsInNoRoutes.Key(), IPSystemStatsInAddrErrors.Key(), IPSystemStatsInUnknownProtos.Key(), IPSystemStatsInTruncatedPkts.Key(), IPSystemStatsInForwDatagrams.Key(), IPSystemStatsHCInForwDatagrams.Key(), IPSystemStatsReasmReqds.Key(), IPSystemStatsReasmOKs.Key(), IPSystemStatsReasmFails.Key(), IPSystemStatsInDiscards.Key(), IPSystemStatsInDelivers.Key(), IPSystemStatsHCInDelivers.Key(), IPSystemStatsOutRequests.Key(), IPSystemStatsHCOutRequests.Key(), IPSystemStatsOutNoRoutes.Key(), IPSystemStatsOutForwDatagrams.Key(), IPSystemStatsHCOutForwDatagrams.Key(), IPSystemStatsOutDiscards.Key(), IPSystemStatsOutFragReqds.Key(), IPSystemStatsOutFragOKs.Key(), IPSystemStatsOutFragFails.Key(), IPSystemStatsOutFragCreates.Key(), IPSystemStatsOutTransmits.Key(), IPSystemStatsHCOutTransmits.Key(), IPSystemStatsOutOctets.Key(), IPSystemStatsHCOutOctets.Key(), IPSystemStatsInMcastPkts.Key(), IPSystemStatsHCInMcastPkts.Key(), IPSystemStatsInMcastOctets.Key(), IPSystemStatsHCInMcastOctets.Key(), IPSystemStatsOutMcastPkts.Key(), IPSystemStatsHCOutMcastPkts.Key(), IPSystemStatsOutMcastOctets.Key(), IPSystemStatsHCOutMcastOctets.Key(), IPSystemStatsInBcastPkts.Key(), IPSystemStatsHCInBcastPkts.Key(), IPSystemStatsOutBcastPkts.Key(), IPSystemStatsHCOutBcastPkts.Key(), IPSystemStatsDiscontinuityTime.Key(), IPSystemStatsRefreshRate.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipSystemStatsTable.Walk: column %s", c.OID()))
-			return &IpSystemStatsTableWalker{rw: w}
+			return &IPSystemStatsTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -4792,64 +4792,64 @@ func (ipSystemStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpSystemStatsTableWalker{
+	return &IPSystemStatsTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// IpIfStatsInReceives is the column ipIfStatsInReceives of table ipIfStatsTable.
+// IPIfStatsInReceives is the column ipIfStatsInReceives of table ipIfStatsTable.
 // The total number of input IP datagrams received, including those
 // received in error. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsInReceives = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInReceives = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInReceives is the column ipIfStatsHCInReceives of table ipIfStatsTable.
+// IPIfStatsHCInReceives is the column ipIfStatsHCInReceives of table ipIfStatsTable.
 // The total number of input IP datagrams received, including those
 // received in error. This object counts the same datagrams as
 // ipIfStatsInReceives, but allows for larger values. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInReceives = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 4), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInReceives = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 4), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsInOctets is the column ipIfStatsInOctets of table ipIfStatsTable.
+// IPIfStatsInOctets is the column ipIfStatsInOctets of table ipIfStatsTable.
 // The total number of octets received in input IP datagrams, including
 // those received in error. Octets from datagrams counted in
 // ipIfStatsInReceives MUST be counted here. Discontinuities in the value
 // of this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInOctets is the column ipIfStatsHCInOctets of table ipIfStatsTable.
+// IPIfStatsHCInOctets is the column ipIfStatsHCInOctets of table ipIfStatsTable.
 // The total number of octets received in input IP datagrams, including
 // those received in error. This object counts the same octets as
 // ipIfStatsInOctets, but allows for larger values. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 6), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 6), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsInHdrErrors is the column ipIfStatsInHdrErrors of table ipIfStatsTable.
+// IPIfStatsInHdrErrors is the column ipIfStatsInHdrErrors of table ipIfStatsTable.
 // The number of input IP datagrams discarded due to errors in their IP
 // headers, including version number mismatch, other format errors, hop
 // count exceeded, errors discovered in processing their IP options, etc.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsInHdrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInHdrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInNoRoutes is the column ipIfStatsInNoRoutes of table ipIfStatsTable.
+// IPIfStatsInNoRoutes is the column ipIfStatsInNoRoutes of table ipIfStatsTable.
 // The number of input IP datagrams discarded because no route could be
 // found to transmit them to their destination. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInAddrErrors is the column ipIfStatsInAddrErrors of table ipIfStatsTable.
+// IPIfStatsInAddrErrors is the column ipIfStatsInAddrErrors of table ipIfStatsTable.
 // The number of input IP datagrams discarded because the IP address in
 // their IP header's destination field was not a valid address to be
 // received at this entity. This count includes invalid addresses (e.g.,
@@ -4859,9 +4859,9 @@ var IpIfStatsInNoRoutes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInAddrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInAddrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInUnknownProtos is the column ipIfStatsInUnknownProtos of table ipIfStatsTable.
+// IPIfStatsInUnknownProtos is the column ipIfStatsInUnknownProtos of table ipIfStatsTable.
 // The number of locally-addressed IP datagrams received successfully but
 // discarded because of an unknown or unsupported protocol. When tracking
 // interface statistics, the counter of the interface to which these
@@ -4870,16 +4870,16 @@ var IpIfStatsInAddrErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInUnknownProtos = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInUnknownProtos = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInTruncatedPkts is the column ipIfStatsInTruncatedPkts of table ipIfStatsTable.
+// IPIfStatsInTruncatedPkts is the column ipIfStatsInTruncatedPkts of table ipIfStatsTable.
 // The number of input IP datagrams discarded because the datagram frame
 // didn't carry enough data. Discontinuities in the value of this counter
 // can occur at re-initialization of the management system, and at other
 // times as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsInTruncatedPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInTruncatedPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInForwDatagrams is the column ipIfStatsInForwDatagrams of table ipIfStatsTable.
+// IPIfStatsInForwDatagrams is the column ipIfStatsInForwDatagrams of table ipIfStatsTable.
 // The number of input datagrams for which this entity was not their final
 // IP destination and for which this entity attempted to find a route to
 // forward them to that final destination. In entities that do not act as
@@ -4890,9 +4890,9 @@ var IpIfStatsInTruncatedPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInForwDatagrams is the column ipIfStatsHCInForwDatagrams of table ipIfStatsTable.
+// IPIfStatsHCInForwDatagrams is the column ipIfStatsHCInForwDatagrams of table ipIfStatsTable.
 // The number of input datagrams for which this entity was not their final
 // IP destination and for which this entity attempted to find a route to
 // forward them to that final destination. This object counts the same
@@ -4900,9 +4900,9 @@ var IpIfStatsInForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsReasmReqds is the column ipIfStatsReasmReqds of table ipIfStatsTable.
+// IPIfStatsReasmReqds is the column ipIfStatsReasmReqds of table ipIfStatsTable.
 // The number of IP fragments received that needed to be reassembled at
 // this interface. When tracking interface statistics, the counter of the
 // interface to which these fragments were addressed is incremented. This
@@ -4910,9 +4910,9 @@ var IpIfStatsHCInForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1,
 // fragments. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsReasmReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsReasmReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsReasmOKs is the column ipIfStatsReasmOKs of table ipIfStatsTable.
+// IPIfStatsReasmOKs is the column ipIfStatsReasmOKs of table ipIfStatsTable.
 // The number of IP datagrams successfully reassembled. When tracking
 // interface statistics, the counter of the interface to which these
 // datagrams were addressed is incremented. This interface might not be the
@@ -4920,9 +4920,9 @@ var IpIfStatsReasmReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsReasmOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 15), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsReasmOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 15), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsReasmFails is the column ipIfStatsReasmFails of table ipIfStatsTable.
+// IPIfStatsReasmFails is the column ipIfStatsReasmFails of table ipIfStatsTable.
 // The number of failures detected by the IP re-assembly algorithm (for
 // whatever reason: timed out, errors, etc.). Note that this is not
 // necessarily a count of discarded IP fragments since some algorithms
@@ -4934,9 +4934,9 @@ var IpIfStatsReasmOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4,
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsReasmFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 16), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsReasmFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 16), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInDiscards is the column ipIfStatsInDiscards of table ipIfStatsTable.
+// IPIfStatsInDiscards is the column ipIfStatsInDiscards of table ipIfStatsTable.
 // The number of input IP datagrams for which no problems were encountered
 // to prevent their continued processing, but were discarded (e.g., for
 // lack of buffer space). Note that this counter does not include any
@@ -4944,9 +4944,9 @@ var IpIfStatsReasmFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 17), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 17), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsInDelivers is the column ipIfStatsInDelivers of table ipIfStatsTable.
+// IPIfStatsInDelivers is the column ipIfStatsInDelivers of table ipIfStatsTable.
 // The total number of datagrams successfully delivered to IP
 // user-protocols (including ICMP). When tracking interface statistics, the
 // counter of the interface to which these datagrams were addressed is
@@ -4954,36 +4954,36 @@ var IpIfStatsInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // for some of the datagrams. Discontinuities in the value of this counter
 // can occur at re-initialization of the management system, and at other
 // times as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsInDelivers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 18), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInDelivers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 18), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInDelivers is the column ipIfStatsHCInDelivers of table ipIfStatsTable.
+// IPIfStatsHCInDelivers is the column ipIfStatsHCInDelivers of table ipIfStatsTable.
 // The total number of datagrams successfully delivered to IP
 // user-protocols (including ICMP). This object counts the same packets as
 // ipIfStatsInDelivers, but allows for larger values. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInDelivers = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 19), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInDelivers = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 19), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutRequests is the column ipIfStatsOutRequests of table ipIfStatsTable.
+// IPIfStatsOutRequests is the column ipIfStatsOutRequests of table ipIfStatsTable.
 // The total number of IP datagrams that local IP user- protocols
 // (including ICMP) supplied to IP in requests for transmission. Note that
 // this counter does not include any datagrams counted in
 // ipIfStatsOutForwDatagrams. Discontinuities in the value of this counter
 // can occur at re-initialization of the management system, and at other
 // times as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutRequests = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 20), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutRequests = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 20), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutRequests is the column ipIfStatsHCOutRequests of table ipIfStatsTable.
+// IPIfStatsHCOutRequests is the column ipIfStatsHCOutRequests of table ipIfStatsTable.
 // The total number of IP datagrams that local IP user- protocols
 // (including ICMP) supplied to IP in requests for transmission. This
 // object counts the same packets as ipIfStatsOutRequests, but allows for
 // larger values. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutRequests = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutRequests = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutForwDatagrams is the column ipIfStatsOutForwDatagrams of table ipIfStatsTable.
+// IPIfStatsOutForwDatagrams is the column ipIfStatsOutForwDatagrams of table ipIfStatsTable.
 // The number of datagrams for which this entity was not their final IP
 // destination and for which it was successful in finding a path to their
 // final destination. In entities that do not act as IP routers, this
@@ -4994,9 +4994,9 @@ var IpIfStatsHCOutRequests = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsOutForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 23), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 23), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutForwDatagrams is the column ipIfStatsHCOutForwDatagrams of table ipIfStatsTable.
+// IPIfStatsHCOutForwDatagrams is the column ipIfStatsHCOutForwDatagrams of table ipIfStatsTable.
 // The number of datagrams for which this entity was not their final IP
 // destination and for which it was successful in finding a path to their
 // final destination. This object counts the same packets as
@@ -5004,9 +5004,9 @@ var IpIfStatsOutForwDatagrams = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 // in the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 24), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 24), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutDiscards is the column ipIfStatsOutDiscards of table ipIfStatsTable.
+// IPIfStatsOutDiscards is the column ipIfStatsOutDiscards of table ipIfStatsTable.
 // The number of output IP datagrams for which no problem was encountered
 // to prevent their transmission to their destination, but were discarded
 // (e.g., for lack of buffer space). Note that this counter would include
@@ -5015,27 +5015,27 @@ var IpIfStatsHCOutForwDatagrams = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1
 // this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsOutDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 25), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 25), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsOutFragReqds is the column ipIfStatsOutFragReqds of table ipIfStatsTable.
+// IPIfStatsOutFragReqds is the column ipIfStatsOutFragReqds of table ipIfStatsTable.
 // The number of IP datagrams that would require fragmentation in order to
 // be transmitted. When tracking interface statistics, the counter of the
 // outgoing interface is incremented for a successfully fragmented
 // datagram. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutFragReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 26), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutFragReqds = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 26), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsOutFragOKs is the column ipIfStatsOutFragOKs of table ipIfStatsTable.
+// IPIfStatsOutFragOKs is the column ipIfStatsOutFragOKs of table ipIfStatsTable.
 // The number of IP datagrams that have been successfully fragmented. When
 // tracking interface statistics, the counter of the outgoing interface is
 // incremented for a successfully fragmented datagram. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsOutFragOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 27), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutFragOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 27), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsOutFragFails is the column ipIfStatsOutFragFails of table ipIfStatsTable.
+// IPIfStatsOutFragFails is the column ipIfStatsOutFragFails of table ipIfStatsTable.
 // The number of IP datagrams that have been discarded because they needed
 // to be fragmented but could not be. This includes IPv4 packets that have
 // the DF bit set and IPv6 packets that are being forwarded and exceed the
@@ -5044,230 +5044,230 @@ var IpIfStatsOutFragOKs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // datagram. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutFragFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 28), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutFragFails = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 28), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsOutFragCreates is the column ipIfStatsOutFragCreates of table ipIfStatsTable.
+// IPIfStatsOutFragCreates is the column ipIfStatsOutFragCreates of table ipIfStatsTable.
 // The number of output datagram fragments that have been generated as a
 // result of IP fragmentation. When tracking interface statistics, the
 // counter of the outgoing interface is incremented for a successfully
 // fragmented datagram. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutFragCreates = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 29), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutFragCreates = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 29), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsOutTransmits is the column ipIfStatsOutTransmits of table ipIfStatsTable.
+// IPIfStatsOutTransmits is the column ipIfStatsOutTransmits of table ipIfStatsTable.
 // The total number of IP datagrams that this entity supplied to the lower
 // layers for transmission. This includes datagrams generated locally and
 // those forwarded by this entity. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutTransmits = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 30), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutTransmits = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 30), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutTransmits is the column ipIfStatsHCOutTransmits of table ipIfStatsTable.
+// IPIfStatsHCOutTransmits is the column ipIfStatsHCOutTransmits of table ipIfStatsTable.
 // The total number of IP datagrams that this entity supplied to the lower
 // layers for transmission. This object counts the same datagrams as
 // ipIfStatsOutTransmits, but allows for larger values. Discontinuities in
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutTransmits = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 31), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutTransmits = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 31), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutOctets is the column ipIfStatsOutOctets of table ipIfStatsTable.
+// IPIfStatsOutOctets is the column ipIfStatsOutOctets of table ipIfStatsTable.
 // The total number of octets in IP datagrams delivered to the lower layers
 // for transmission. Octets from datagrams counted in ipIfStatsOutTransmits
 // MUST be counted here. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 32), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 32), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutOctets is the column ipIfStatsHCOutOctets of table ipIfStatsTable.
+// IPIfStatsHCOutOctets is the column ipIfStatsHCOutOctets of table ipIfStatsTable.
 // The total number of octets in IP datagrams delivered to the lower layers
 // for transmission. This objects counts the same octets as
 // ipIfStatsOutOctets, but allows for larger values. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 33), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 33), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsInMcastPkts is the column ipIfStatsInMcastPkts of table ipIfStatsTable.
+// IPIfStatsInMcastPkts is the column ipIfStatsInMcastPkts of table ipIfStatsTable.
 // The number of IP multicast datagrams received. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 34), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 34), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInMcastPkts is the column ipIfStatsHCInMcastPkts of table ipIfStatsTable.
+// IPIfStatsHCInMcastPkts is the column ipIfStatsHCInMcastPkts of table ipIfStatsTable.
 // The number of IP multicast datagrams received. This object counts the
 // same datagrams as ipIfStatsInMcastPkts, but allows for larger values.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 35), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 35), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsInMcastOctets is the column ipIfStatsInMcastOctets of table ipIfStatsTable.
+// IPIfStatsInMcastOctets is the column ipIfStatsInMcastOctets of table ipIfStatsTable.
 // The total number of octets received in IP multicast datagrams. Octets
 // from datagrams counted in ipIfStatsInMcastPkts MUST be counted here.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsInMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 36), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 36), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInMcastOctets is the column ipIfStatsHCInMcastOctets of table ipIfStatsTable.
+// IPIfStatsHCInMcastOctets is the column ipIfStatsHCInMcastOctets of table ipIfStatsTable.
 // The total number of octets received in IP multicast datagrams. This
 // object counts the same octets as ipIfStatsInMcastOctets, but allows for
 // larger values. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 37), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 37), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutMcastPkts is the column ipIfStatsOutMcastPkts of table ipIfStatsTable.
+// IPIfStatsOutMcastPkts is the column ipIfStatsOutMcastPkts of table ipIfStatsTable.
 // The number of IP multicast datagrams transmitted. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsOutMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 38), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutMcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 38), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutMcastPkts is the column ipIfStatsHCOutMcastPkts of table ipIfStatsTable.
+// IPIfStatsHCOutMcastPkts is the column ipIfStatsHCOutMcastPkts of table ipIfStatsTable.
 // The number of IP multicast datagrams transmitted. This object counts the
 // same datagrams as ipIfStatsOutMcastPkts, but allows for larger values.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 39), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutMcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 39), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutMcastOctets is the column ipIfStatsOutMcastOctets of table ipIfStatsTable.
+// IPIfStatsOutMcastOctets is the column ipIfStatsOutMcastOctets of table ipIfStatsTable.
 // The total number of octets transmitted in IP multicast datagrams. Octets
 // from datagrams counted in ipIfStatsOutMcastPkts MUST be counted here.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsOutMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 40), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutMcastOctets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 40), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutMcastOctets is the column ipIfStatsHCOutMcastOctets of table ipIfStatsTable.
+// IPIfStatsHCOutMcastOctets is the column ipIfStatsHCOutMcastOctets of table ipIfStatsTable.
 // The total number of octets transmitted in IP multicast datagrams. This
 // object counts the same octets as ipIfStatsOutMcastOctets, but allows for
 // larger values. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 41), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutMcastOctets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 41), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsInBcastPkts is the column ipIfStatsInBcastPkts of table ipIfStatsTable.
+// IPIfStatsInBcastPkts is the column ipIfStatsInBcastPkts of table ipIfStatsTable.
 // The number of IP broadcast datagrams received. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsInBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 42), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsInBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 42), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCInBcastPkts is the column ipIfStatsHCInBcastPkts of table ipIfStatsTable.
+// IPIfStatsHCInBcastPkts is the column ipIfStatsHCInBcastPkts of table ipIfStatsTable.
 // The number of IP broadcast datagrams received. This object counts the
 // same datagrams as ipIfStatsInBcastPkts, but allows for larger values.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCInBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 43), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCInBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 43), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsOutBcastPkts is the column ipIfStatsOutBcastPkts of table ipIfStatsTable.
+// IPIfStatsOutBcastPkts is the column ipIfStatsOutBcastPkts of table ipIfStatsTable.
 // The number of IP broadcast datagrams transmitted. Discontinuities in the
 // value of this counter can occur at re-initialization of the management
 // system, and at other times as indicated by the value of
 // ipIfStatsDiscontinuityTime.
-var IpIfStatsOutBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 44), snmp.KindCounter32, snmp.DecodeUint32)
+var IPIfStatsOutBcastPkts = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 44), snmp.KindCounter32, snmp.DecodeUint32)
 
-// IpIfStatsHCOutBcastPkts is the column ipIfStatsHCOutBcastPkts of table ipIfStatsTable.
+// IPIfStatsHCOutBcastPkts is the column ipIfStatsHCOutBcastPkts of table ipIfStatsTable.
 // The number of IP broadcast datagrams transmitted. This object counts the
 // same datagrams as ipIfStatsOutBcastPkts, but allows for larger values.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ipIfStatsDiscontinuityTime.
-var IpIfStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 45), snmp.KindCounter64, snmp.DecodeUint64)
+var IPIfStatsHCOutBcastPkts = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 45), snmp.KindCounter64, snmp.DecodeUint64)
 
-// IpIfStatsDiscontinuityTime is the column ipIfStatsDiscontinuityTime of table ipIfStatsTable.
+// IPIfStatsDiscontinuityTime is the column ipIfStatsDiscontinuityTime of table ipIfStatsTable.
 // The value of sysUpTime on the most recent occasion at which any one or
 // more of this entry's counters suffered a discontinuity. If no such
 // discontinuities have occurred since the last re- initialization of the
 // local management subsystem, then this object contains a zero value.
-var IpIfStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46), snmp.KindTimeTicks, snmp.DecodeUint32)
+var IPIfStatsDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46), snmp.KindTimeTicks, snmp.DecodeUint32)
 
-// IpIfStatsRefreshRate is the column ipIfStatsRefreshRate of table ipIfStatsTable.
+// IPIfStatsRefreshRate is the column ipIfStatsRefreshRate of table ipIfStatsTable.
 // The minimum reasonable polling interval for this entry. This object
 // provides an indication of the minimum amount of time required to update
 // the counters in this entry.
-var IpIfStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 47), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPIfStatsRefreshRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 47), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpIfStatsTableKey is the decoded INDEX of one ipIfStatsTable row, one field per
+// IPIfStatsTableKey is the decoded INDEX of one ipIfStatsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpIfStatsTableKey struct {
-	IpIfStatsIPVersion int32
-	IpIfStatsIfIndex   ifmib.InterfaceIndex
+type IPIfStatsTableKey struct {
+	IPIfStatsIPVersion int32
+	IPIfStatsIfIndex   ifmib.InterfaceIndex
 }
 
 var ipIfStatsTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
 
-// decodeIpIfStatsTableKey decodes the instance suffix of one ipIfStatsTable row. ok is false
+// decodeIPIfStatsTableKey decodes the instance suffix of one ipIfStatsTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpIfStatsTableKey(idx snmp.OID) (IpIfStatsTableKey, bool) {
+func decodeIPIfStatsTableKey(idx snmp.OID) (IPIfStatsTableKey, bool) {
 	var parts [2]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipIfStatsTableIndexShapes) {
-		return IpIfStatsTableKey{}, false
+		return IPIfStatsTableKey{}, false
 	}
-	return IpIfStatsTableKey{IpIfStatsIPVersion: int32(parts[0].Integer), IpIfStatsIfIndex: ifmib.InterfaceIndex(parts[1].Integer)}, true
+	return IPIfStatsTableKey{IPIfStatsIPVersion: int32(parts[0].Integer), IPIfStatsIfIndex: ifmib.InterfaceIndex(parts[1].Integer)}, true
 }
 
-// IpIfStatsTableRow is one row of ipIfStatsTable. Key is the decoded INDEX; a
+// IPIfStatsTableRow is one row of ipIfStatsTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpIfStatsTableRow.KeyValid] reports which. The remaining fields are
+// [IPIfStatsTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpIfStatsTableRow.Observed] to tell a reported zero from a column the
+// [IPIfStatsTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpIfStatsTableRow struct {
-	Key                         IpIfStatsTableKey
+type IPIfStatsTableRow struct {
+	Key                         IPIfStatsTableKey
 	keyValid                    bool
-	IpIfStatsInReceives         uint32
-	IpIfStatsHCInReceives       uint64
-	IpIfStatsInOctets           uint32
-	IpIfStatsHCInOctets         uint64
-	IpIfStatsInHdrErrors        uint32
-	IpIfStatsInNoRoutes         uint32
-	IpIfStatsInAddrErrors       uint32
-	IpIfStatsInUnknownProtos    uint32
-	IpIfStatsInTruncatedPkts    uint32
-	IpIfStatsInForwDatagrams    uint32
-	IpIfStatsHCInForwDatagrams  uint64
-	IpIfStatsReasmReqds         uint32
-	IpIfStatsReasmOKs           uint32
-	IpIfStatsReasmFails         uint32
-	IpIfStatsInDiscards         uint32
-	IpIfStatsInDelivers         uint32
-	IpIfStatsHCInDelivers       uint64
-	IpIfStatsOutRequests        uint32
-	IpIfStatsHCOutRequests      uint64
-	IpIfStatsOutForwDatagrams   uint32
-	IpIfStatsHCOutForwDatagrams uint64
-	IpIfStatsOutDiscards        uint32
-	IpIfStatsOutFragReqds       uint32
-	IpIfStatsOutFragOKs         uint32
-	IpIfStatsOutFragFails       uint32
-	IpIfStatsOutFragCreates     uint32
-	IpIfStatsOutTransmits       uint32
-	IpIfStatsHCOutTransmits     uint64
-	IpIfStatsOutOctets          uint32
-	IpIfStatsHCOutOctets        uint64
-	IpIfStatsInMcastPkts        uint32
-	IpIfStatsHCInMcastPkts      uint64
-	IpIfStatsInMcastOctets      uint32
-	IpIfStatsHCInMcastOctets    uint64
-	IpIfStatsOutMcastPkts       uint32
-	IpIfStatsHCOutMcastPkts     uint64
-	IpIfStatsOutMcastOctets     uint32
-	IpIfStatsHCOutMcastOctets   uint64
-	IpIfStatsInBcastPkts        uint32
-	IpIfStatsHCInBcastPkts      uint64
-	IpIfStatsOutBcastPkts       uint32
-	IpIfStatsHCOutBcastPkts     uint64
-	IpIfStatsDiscontinuityTime  uint32
-	IpIfStatsRefreshRate        uint32
+	IPIfStatsInReceives         uint32
+	IPIfStatsHCInReceives       uint64
+	IPIfStatsInOctets           uint32
+	IPIfStatsHCInOctets         uint64
+	IPIfStatsInHdrErrors        uint32
+	IPIfStatsInNoRoutes         uint32
+	IPIfStatsInAddrErrors       uint32
+	IPIfStatsInUnknownProtos    uint32
+	IPIfStatsInTruncatedPkts    uint32
+	IPIfStatsInForwDatagrams    uint32
+	IPIfStatsHCInForwDatagrams  uint64
+	IPIfStatsReasmReqds         uint32
+	IPIfStatsReasmOKs           uint32
+	IPIfStatsReasmFails         uint32
+	IPIfStatsInDiscards         uint32
+	IPIfStatsInDelivers         uint32
+	IPIfStatsHCInDelivers       uint64
+	IPIfStatsOutRequests        uint32
+	IPIfStatsHCOutRequests      uint64
+	IPIfStatsOutForwDatagrams   uint32
+	IPIfStatsHCOutForwDatagrams uint64
+	IPIfStatsOutDiscards        uint32
+	IPIfStatsOutFragReqds       uint32
+	IPIfStatsOutFragOKs         uint32
+	IPIfStatsOutFragFails       uint32
+	IPIfStatsOutFragCreates     uint32
+	IPIfStatsOutTransmits       uint32
+	IPIfStatsHCOutTransmits     uint64
+	IPIfStatsOutOctets          uint32
+	IPIfStatsHCOutOctets        uint64
+	IPIfStatsInMcastPkts        uint32
+	IPIfStatsHCInMcastPkts      uint64
+	IPIfStatsInMcastOctets      uint32
+	IPIfStatsHCInMcastOctets    uint64
+	IPIfStatsOutMcastPkts       uint32
+	IPIfStatsHCOutMcastPkts     uint64
+	IPIfStatsOutMcastOctets     uint32
+	IPIfStatsHCOutMcastOctets   uint64
+	IPIfStatsInBcastPkts        uint32
+	IPIfStatsHCInBcastPkts      uint64
+	IPIfStatsOutBcastPkts       uint32
+	IPIfStatsHCOutBcastPkts     uint64
+	IPIfStatsDiscontinuityTime  uint32
+	IPIfStatsRefreshRate        uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -5278,7 +5278,7 @@ type IpIfStatsTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpIfStatsTableRow) KeyValid() bool {
+func (r IPIfStatsTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -5286,105 +5286,105 @@ func (r IpIfStatsTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpIfStatsTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPIfStatsTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpIfStatsInReceives.Key():
+	case IPIfStatsInReceives.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpIfStatsHCInReceives.Key():
+	case IPIfStatsHCInReceives.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpIfStatsInOctets.Key():
+	case IPIfStatsInOctets.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpIfStatsHCInOctets.Key():
+	case IPIfStatsHCInOctets.Key():
 		return r.observed[0]&(1<<3) != 0
-	case IpIfStatsInHdrErrors.Key():
+	case IPIfStatsInHdrErrors.Key():
 		return r.observed[0]&(1<<4) != 0
-	case IpIfStatsInNoRoutes.Key():
+	case IPIfStatsInNoRoutes.Key():
 		return r.observed[0]&(1<<5) != 0
-	case IpIfStatsInAddrErrors.Key():
+	case IPIfStatsInAddrErrors.Key():
 		return r.observed[0]&(1<<6) != 0
-	case IpIfStatsInUnknownProtos.Key():
+	case IPIfStatsInUnknownProtos.Key():
 		return r.observed[0]&(1<<7) != 0
-	case IpIfStatsInTruncatedPkts.Key():
+	case IPIfStatsInTruncatedPkts.Key():
 		return r.observed[0]&(1<<8) != 0
-	case IpIfStatsInForwDatagrams.Key():
+	case IPIfStatsInForwDatagrams.Key():
 		return r.observed[0]&(1<<9) != 0
-	case IpIfStatsHCInForwDatagrams.Key():
+	case IPIfStatsHCInForwDatagrams.Key():
 		return r.observed[0]&(1<<10) != 0
-	case IpIfStatsReasmReqds.Key():
+	case IPIfStatsReasmReqds.Key():
 		return r.observed[0]&(1<<11) != 0
-	case IpIfStatsReasmOKs.Key():
+	case IPIfStatsReasmOKs.Key():
 		return r.observed[0]&(1<<12) != 0
-	case IpIfStatsReasmFails.Key():
+	case IPIfStatsReasmFails.Key():
 		return r.observed[0]&(1<<13) != 0
-	case IpIfStatsInDiscards.Key():
+	case IPIfStatsInDiscards.Key():
 		return r.observed[0]&(1<<14) != 0
-	case IpIfStatsInDelivers.Key():
+	case IPIfStatsInDelivers.Key():
 		return r.observed[0]&(1<<15) != 0
-	case IpIfStatsHCInDelivers.Key():
+	case IPIfStatsHCInDelivers.Key():
 		return r.observed[0]&(1<<16) != 0
-	case IpIfStatsOutRequests.Key():
+	case IPIfStatsOutRequests.Key():
 		return r.observed[0]&(1<<17) != 0
-	case IpIfStatsHCOutRequests.Key():
+	case IPIfStatsHCOutRequests.Key():
 		return r.observed[0]&(1<<18) != 0
-	case IpIfStatsOutForwDatagrams.Key():
+	case IPIfStatsOutForwDatagrams.Key():
 		return r.observed[0]&(1<<19) != 0
-	case IpIfStatsHCOutForwDatagrams.Key():
+	case IPIfStatsHCOutForwDatagrams.Key():
 		return r.observed[0]&(1<<20) != 0
-	case IpIfStatsOutDiscards.Key():
+	case IPIfStatsOutDiscards.Key():
 		return r.observed[0]&(1<<21) != 0
-	case IpIfStatsOutFragReqds.Key():
+	case IPIfStatsOutFragReqds.Key():
 		return r.observed[0]&(1<<22) != 0
-	case IpIfStatsOutFragOKs.Key():
+	case IPIfStatsOutFragOKs.Key():
 		return r.observed[0]&(1<<23) != 0
-	case IpIfStatsOutFragFails.Key():
+	case IPIfStatsOutFragFails.Key():
 		return r.observed[0]&(1<<24) != 0
-	case IpIfStatsOutFragCreates.Key():
+	case IPIfStatsOutFragCreates.Key():
 		return r.observed[0]&(1<<25) != 0
-	case IpIfStatsOutTransmits.Key():
+	case IPIfStatsOutTransmits.Key():
 		return r.observed[0]&(1<<26) != 0
-	case IpIfStatsHCOutTransmits.Key():
+	case IPIfStatsHCOutTransmits.Key():
 		return r.observed[0]&(1<<27) != 0
-	case IpIfStatsOutOctets.Key():
+	case IPIfStatsOutOctets.Key():
 		return r.observed[0]&(1<<28) != 0
-	case IpIfStatsHCOutOctets.Key():
+	case IPIfStatsHCOutOctets.Key():
 		return r.observed[0]&(1<<29) != 0
-	case IpIfStatsInMcastPkts.Key():
+	case IPIfStatsInMcastPkts.Key():
 		return r.observed[0]&(1<<30) != 0
-	case IpIfStatsHCInMcastPkts.Key():
+	case IPIfStatsHCInMcastPkts.Key():
 		return r.observed[0]&(1<<31) != 0
-	case IpIfStatsInMcastOctets.Key():
+	case IPIfStatsInMcastOctets.Key():
 		return r.observed[0]&(1<<32) != 0
-	case IpIfStatsHCInMcastOctets.Key():
+	case IPIfStatsHCInMcastOctets.Key():
 		return r.observed[0]&(1<<33) != 0
-	case IpIfStatsOutMcastPkts.Key():
+	case IPIfStatsOutMcastPkts.Key():
 		return r.observed[0]&(1<<34) != 0
-	case IpIfStatsHCOutMcastPkts.Key():
+	case IPIfStatsHCOutMcastPkts.Key():
 		return r.observed[0]&(1<<35) != 0
-	case IpIfStatsOutMcastOctets.Key():
+	case IPIfStatsOutMcastOctets.Key():
 		return r.observed[0]&(1<<36) != 0
-	case IpIfStatsHCOutMcastOctets.Key():
+	case IPIfStatsHCOutMcastOctets.Key():
 		return r.observed[0]&(1<<37) != 0
-	case IpIfStatsInBcastPkts.Key():
+	case IPIfStatsInBcastPkts.Key():
 		return r.observed[0]&(1<<38) != 0
-	case IpIfStatsHCInBcastPkts.Key():
+	case IPIfStatsHCInBcastPkts.Key():
 		return r.observed[0]&(1<<39) != 0
-	case IpIfStatsOutBcastPkts.Key():
+	case IPIfStatsOutBcastPkts.Key():
 		return r.observed[0]&(1<<40) != 0
-	case IpIfStatsHCOutBcastPkts.Key():
+	case IPIfStatsHCOutBcastPkts.Key():
 		return r.observed[0]&(1<<41) != 0
-	case IpIfStatsDiscontinuityTime.Key():
+	case IPIfStatsDiscontinuityTime.Key():
 		return r.observed[0]&(1<<42) != 0
-	case IpIfStatsRefreshRate.Key():
+	case IPIfStatsRefreshRate.Key():
 		return r.observed[0]&(1<<43) != 0
 	}
 
 	return false
 }
 
-// IpIfStatsTableWalker streams selected columns of ipIfStatsTable.
-// The zero value is not usable; construct via IpIfStatsTable.Walk(ctx, sess, cols...).
+// IPIfStatsTableWalker streams selected columns of ipIfStatsTable.
+// The zero value is not usable; construct via IPIfStatsTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpIfStatsTableWalker struct {
+type IPIfStatsTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -5395,803 +5395,803 @@ type IpIfStatsTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
-	return func(yield func(snmp.OID, IpIfStatsTableRow) bool) {
+func (tw *IPIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IPIfStatsTableRow] {
+	return func(yield func(snmp.OID, IPIfStatsTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpIfStatsTableRow
-			row.Key, row.keyValid = decodeIpIfStatsTableKey(idx)
+			var row IPIfStatsTableRow
+			row.Key, row.keyValid = decodeIPIfStatsTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpIfStatsInReceives.Key():
+				case IPIfStatsInReceives.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInReceives = v
+						row.IPIfStatsInReceives = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInReceives.Decode(vb)
+							dv, dErr := IPIfStatsInReceives.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInReceives = dv
+								row.IPIfStatsInReceives = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case IpIfStatsHCInReceives.Key():
+				case IPIfStatsHCInReceives.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInReceives = v
+						row.IPIfStatsHCInReceives = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInReceives.Decode(vb)
+							dv, dErr := IPIfStatsHCInReceives.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInReceives = dv
+								row.IPIfStatsHCInReceives = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case IpIfStatsInOctets.Key():
+				case IPIfStatsInOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInOctets = v
+						row.IPIfStatsInOctets = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInOctets.Decode(vb)
+							dv, dErr := IPIfStatsInOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInOctets = dv
+								row.IPIfStatsInOctets = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
-				case IpIfStatsHCInOctets.Key():
+				case IPIfStatsHCInOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInOctets = v
+						row.IPIfStatsHCInOctets = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInOctets.Decode(vb)
+							dv, dErr := IPIfStatsHCInOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInOctets = dv
+								row.IPIfStatsHCInOctets = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case IpIfStatsInHdrErrors.Key():
+				case IPIfStatsInHdrErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInHdrErrors = v
+						row.IPIfStatsInHdrErrors = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInHdrErrors.Decode(vb)
+							dv, dErr := IPIfStatsInHdrErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInHdrErrors = dv
+								row.IPIfStatsInHdrErrors = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
 					}
-				case IpIfStatsInNoRoutes.Key():
+				case IPIfStatsInNoRoutes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInNoRoutes = v
+						row.IPIfStatsInNoRoutes = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInNoRoutes.Decode(vb)
+							dv, dErr := IPIfStatsInNoRoutes.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInNoRoutes = dv
+								row.IPIfStatsInNoRoutes = dv
 								row.observed[0] |= 1 << 5
 							}
 						}
 					}
-				case IpIfStatsInAddrErrors.Key():
+				case IPIfStatsInAddrErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInAddrErrors = v
+						row.IPIfStatsInAddrErrors = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInAddrErrors.Decode(vb)
+							dv, dErr := IPIfStatsInAddrErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInAddrErrors = dv
+								row.IPIfStatsInAddrErrors = dv
 								row.observed[0] |= 1 << 6
 							}
 						}
 					}
-				case IpIfStatsInUnknownProtos.Key():
+				case IPIfStatsInUnknownProtos.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInUnknownProtos = v
+						row.IPIfStatsInUnknownProtos = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInUnknownProtos.Decode(vb)
+							dv, dErr := IPIfStatsInUnknownProtos.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInUnknownProtos = dv
+								row.IPIfStatsInUnknownProtos = dv
 								row.observed[0] |= 1 << 7
 							}
 						}
 					}
-				case IpIfStatsInTruncatedPkts.Key():
+				case IPIfStatsInTruncatedPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInTruncatedPkts = v
+						row.IPIfStatsInTruncatedPkts = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInTruncatedPkts.Decode(vb)
+							dv, dErr := IPIfStatsInTruncatedPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInTruncatedPkts = dv
+								row.IPIfStatsInTruncatedPkts = dv
 								row.observed[0] |= 1 << 8
 							}
 						}
 					}
-				case IpIfStatsInForwDatagrams.Key():
+				case IPIfStatsInForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInForwDatagrams = v
+						row.IPIfStatsInForwDatagrams = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInForwDatagrams.Decode(vb)
+							dv, dErr := IPIfStatsInForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInForwDatagrams = dv
+								row.IPIfStatsInForwDatagrams = dv
 								row.observed[0] |= 1 << 9
 							}
 						}
 					}
-				case IpIfStatsHCInForwDatagrams.Key():
+				case IPIfStatsHCInForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInForwDatagrams = v
+						row.IPIfStatsHCInForwDatagrams = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInForwDatagrams.Decode(vb)
+							dv, dErr := IPIfStatsHCInForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInForwDatagrams = dv
+								row.IPIfStatsHCInForwDatagrams = dv
 								row.observed[0] |= 1 << 10
 							}
 						}
 					}
-				case IpIfStatsReasmReqds.Key():
+				case IPIfStatsReasmReqds.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsReasmReqds = v
+						row.IPIfStatsReasmReqds = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsReasmReqds.Decode(vb)
+							dv, dErr := IPIfStatsReasmReqds.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsReasmReqds = dv
+								row.IPIfStatsReasmReqds = dv
 								row.observed[0] |= 1 << 11
 							}
 						}
 					}
-				case IpIfStatsReasmOKs.Key():
+				case IPIfStatsReasmOKs.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsReasmOKs = v
+						row.IPIfStatsReasmOKs = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsReasmOKs.Decode(vb)
+							dv, dErr := IPIfStatsReasmOKs.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsReasmOKs = dv
+								row.IPIfStatsReasmOKs = dv
 								row.observed[0] |= 1 << 12
 							}
 						}
 					}
-				case IpIfStatsReasmFails.Key():
+				case IPIfStatsReasmFails.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsReasmFails = v
+						row.IPIfStatsReasmFails = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsReasmFails.Decode(vb)
+							dv, dErr := IPIfStatsReasmFails.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsReasmFails = dv
+								row.IPIfStatsReasmFails = dv
 								row.observed[0] |= 1 << 13
 							}
 						}
 					}
-				case IpIfStatsInDiscards.Key():
+				case IPIfStatsInDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInDiscards = v
+						row.IPIfStatsInDiscards = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInDiscards.Decode(vb)
+							dv, dErr := IPIfStatsInDiscards.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInDiscards = dv
+								row.IPIfStatsInDiscards = dv
 								row.observed[0] |= 1 << 14
 							}
 						}
 					}
-				case IpIfStatsInDelivers.Key():
+				case IPIfStatsInDelivers.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInDelivers = v
+						row.IPIfStatsInDelivers = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInDelivers.Decode(vb)
+							dv, dErr := IPIfStatsInDelivers.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInDelivers = dv
+								row.IPIfStatsInDelivers = dv
 								row.observed[0] |= 1 << 15
 							}
 						}
 					}
-				case IpIfStatsHCInDelivers.Key():
+				case IPIfStatsHCInDelivers.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInDelivers = v
+						row.IPIfStatsHCInDelivers = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInDelivers.Decode(vb)
+							dv, dErr := IPIfStatsHCInDelivers.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInDelivers = dv
+								row.IPIfStatsHCInDelivers = dv
 								row.observed[0] |= 1 << 16
 							}
 						}
 					}
-				case IpIfStatsOutRequests.Key():
+				case IPIfStatsOutRequests.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutRequests = v
+						row.IPIfStatsOutRequests = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutRequests.Decode(vb)
+							dv, dErr := IPIfStatsOutRequests.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutRequests = dv
+								row.IPIfStatsOutRequests = dv
 								row.observed[0] |= 1 << 17
 							}
 						}
 					}
-				case IpIfStatsHCOutRequests.Key():
+				case IPIfStatsHCOutRequests.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutRequests = v
+						row.IPIfStatsHCOutRequests = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutRequests.Decode(vb)
+							dv, dErr := IPIfStatsHCOutRequests.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutRequests = dv
+								row.IPIfStatsHCOutRequests = dv
 								row.observed[0] |= 1 << 18
 							}
 						}
 					}
-				case IpIfStatsOutForwDatagrams.Key():
+				case IPIfStatsOutForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutForwDatagrams = v
+						row.IPIfStatsOutForwDatagrams = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutForwDatagrams.Decode(vb)
+							dv, dErr := IPIfStatsOutForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutForwDatagrams = dv
+								row.IPIfStatsOutForwDatagrams = dv
 								row.observed[0] |= 1 << 19
 							}
 						}
 					}
-				case IpIfStatsHCOutForwDatagrams.Key():
+				case IPIfStatsHCOutForwDatagrams.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutForwDatagrams = v
+						row.IPIfStatsHCOutForwDatagrams = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutForwDatagrams.Decode(vb)
+							dv, dErr := IPIfStatsHCOutForwDatagrams.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutForwDatagrams = dv
+								row.IPIfStatsHCOutForwDatagrams = dv
 								row.observed[0] |= 1 << 20
 							}
 						}
 					}
-				case IpIfStatsOutDiscards.Key():
+				case IPIfStatsOutDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutDiscards = v
+						row.IPIfStatsOutDiscards = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutDiscards.Decode(vb)
+							dv, dErr := IPIfStatsOutDiscards.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutDiscards = dv
+								row.IPIfStatsOutDiscards = dv
 								row.observed[0] |= 1 << 21
 							}
 						}
 					}
-				case IpIfStatsOutFragReqds.Key():
+				case IPIfStatsOutFragReqds.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutFragReqds = v
+						row.IPIfStatsOutFragReqds = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutFragReqds.Decode(vb)
+							dv, dErr := IPIfStatsOutFragReqds.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutFragReqds = dv
+								row.IPIfStatsOutFragReqds = dv
 								row.observed[0] |= 1 << 22
 							}
 						}
 					}
-				case IpIfStatsOutFragOKs.Key():
+				case IPIfStatsOutFragOKs.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutFragOKs = v
+						row.IPIfStatsOutFragOKs = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutFragOKs.Decode(vb)
+							dv, dErr := IPIfStatsOutFragOKs.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutFragOKs = dv
+								row.IPIfStatsOutFragOKs = dv
 								row.observed[0] |= 1 << 23
 							}
 						}
 					}
-				case IpIfStatsOutFragFails.Key():
+				case IPIfStatsOutFragFails.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutFragFails = v
+						row.IPIfStatsOutFragFails = v
 						row.observed[0] |= 1 << 24
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutFragFails.Decode(vb)
+							dv, dErr := IPIfStatsOutFragFails.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutFragFails = dv
+								row.IPIfStatsOutFragFails = dv
 								row.observed[0] |= 1 << 24
 							}
 						}
 					}
-				case IpIfStatsOutFragCreates.Key():
+				case IPIfStatsOutFragCreates.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutFragCreates = v
+						row.IPIfStatsOutFragCreates = v
 						row.observed[0] |= 1 << 25
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutFragCreates.Decode(vb)
+							dv, dErr := IPIfStatsOutFragCreates.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutFragCreates = dv
+								row.IPIfStatsOutFragCreates = dv
 								row.observed[0] |= 1 << 25
 							}
 						}
 					}
-				case IpIfStatsOutTransmits.Key():
+				case IPIfStatsOutTransmits.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutTransmits = v
+						row.IPIfStatsOutTransmits = v
 						row.observed[0] |= 1 << 26
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutTransmits.Decode(vb)
+							dv, dErr := IPIfStatsOutTransmits.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutTransmits = dv
+								row.IPIfStatsOutTransmits = dv
 								row.observed[0] |= 1 << 26
 							}
 						}
 					}
-				case IpIfStatsHCOutTransmits.Key():
+				case IPIfStatsHCOutTransmits.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutTransmits = v
+						row.IPIfStatsHCOutTransmits = v
 						row.observed[0] |= 1 << 27
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutTransmits.Decode(vb)
+							dv, dErr := IPIfStatsHCOutTransmits.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutTransmits = dv
+								row.IPIfStatsHCOutTransmits = dv
 								row.observed[0] |= 1 << 27
 							}
 						}
 					}
-				case IpIfStatsOutOctets.Key():
+				case IPIfStatsOutOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutOctets = v
+						row.IPIfStatsOutOctets = v
 						row.observed[0] |= 1 << 28
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutOctets.Decode(vb)
+							dv, dErr := IPIfStatsOutOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutOctets = dv
+								row.IPIfStatsOutOctets = dv
 								row.observed[0] |= 1 << 28
 							}
 						}
 					}
-				case IpIfStatsHCOutOctets.Key():
+				case IPIfStatsHCOutOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutOctets = v
+						row.IPIfStatsHCOutOctets = v
 						row.observed[0] |= 1 << 29
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutOctets.Decode(vb)
+							dv, dErr := IPIfStatsHCOutOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutOctets = dv
+								row.IPIfStatsHCOutOctets = dv
 								row.observed[0] |= 1 << 29
 							}
 						}
 					}
-				case IpIfStatsInMcastPkts.Key():
+				case IPIfStatsInMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInMcastPkts = v
+						row.IPIfStatsInMcastPkts = v
 						row.observed[0] |= 1 << 30
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInMcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsInMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInMcastPkts = dv
+								row.IPIfStatsInMcastPkts = dv
 								row.observed[0] |= 1 << 30
 							}
 						}
 					}
-				case IpIfStatsHCInMcastPkts.Key():
+				case IPIfStatsHCInMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInMcastPkts = v
+						row.IPIfStatsHCInMcastPkts = v
 						row.observed[0] |= 1 << 31
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInMcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsHCInMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInMcastPkts = dv
+								row.IPIfStatsHCInMcastPkts = dv
 								row.observed[0] |= 1 << 31
 							}
 						}
 					}
-				case IpIfStatsInMcastOctets.Key():
+				case IPIfStatsInMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInMcastOctets = v
+						row.IPIfStatsInMcastOctets = v
 						row.observed[0] |= 1 << 32
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInMcastOctets.Decode(vb)
+							dv, dErr := IPIfStatsInMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInMcastOctets = dv
+								row.IPIfStatsInMcastOctets = dv
 								row.observed[0] |= 1 << 32
 							}
 						}
 					}
-				case IpIfStatsHCInMcastOctets.Key():
+				case IPIfStatsHCInMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInMcastOctets = v
+						row.IPIfStatsHCInMcastOctets = v
 						row.observed[0] |= 1 << 33
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInMcastOctets.Decode(vb)
+							dv, dErr := IPIfStatsHCInMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInMcastOctets = dv
+								row.IPIfStatsHCInMcastOctets = dv
 								row.observed[0] |= 1 << 33
 							}
 						}
 					}
-				case IpIfStatsOutMcastPkts.Key():
+				case IPIfStatsOutMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutMcastPkts = v
+						row.IPIfStatsOutMcastPkts = v
 						row.observed[0] |= 1 << 34
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutMcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsOutMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutMcastPkts = dv
+								row.IPIfStatsOutMcastPkts = dv
 								row.observed[0] |= 1 << 34
 							}
 						}
 					}
-				case IpIfStatsHCOutMcastPkts.Key():
+				case IPIfStatsHCOutMcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutMcastPkts = v
+						row.IPIfStatsHCOutMcastPkts = v
 						row.observed[0] |= 1 << 35
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutMcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsHCOutMcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutMcastPkts = dv
+								row.IPIfStatsHCOutMcastPkts = dv
 								row.observed[0] |= 1 << 35
 							}
 						}
 					}
-				case IpIfStatsOutMcastOctets.Key():
+				case IPIfStatsOutMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutMcastOctets = v
+						row.IPIfStatsOutMcastOctets = v
 						row.observed[0] |= 1 << 36
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutMcastOctets.Decode(vb)
+							dv, dErr := IPIfStatsOutMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutMcastOctets = dv
+								row.IPIfStatsOutMcastOctets = dv
 								row.observed[0] |= 1 << 36
 							}
 						}
 					}
-				case IpIfStatsHCOutMcastOctets.Key():
+				case IPIfStatsHCOutMcastOctets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutMcastOctets = v
+						row.IPIfStatsHCOutMcastOctets = v
 						row.observed[0] |= 1 << 37
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutMcastOctets.Decode(vb)
+							dv, dErr := IPIfStatsHCOutMcastOctets.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutMcastOctets = dv
+								row.IPIfStatsHCOutMcastOctets = dv
 								row.observed[0] |= 1 << 37
 							}
 						}
 					}
-				case IpIfStatsInBcastPkts.Key():
+				case IPIfStatsInBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsInBcastPkts = v
+						row.IPIfStatsInBcastPkts = v
 						row.observed[0] |= 1 << 38
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsInBcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsInBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsInBcastPkts = dv
+								row.IPIfStatsInBcastPkts = dv
 								row.observed[0] |= 1 << 38
 							}
 						}
 					}
-				case IpIfStatsHCInBcastPkts.Key():
+				case IPIfStatsHCInBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCInBcastPkts = v
+						row.IPIfStatsHCInBcastPkts = v
 						row.observed[0] |= 1 << 39
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCInBcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsHCInBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCInBcastPkts = dv
+								row.IPIfStatsHCInBcastPkts = dv
 								row.observed[0] |= 1 << 39
 							}
 						}
 					}
-				case IpIfStatsOutBcastPkts.Key():
+				case IPIfStatsOutBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IpIfStatsOutBcastPkts = v
+						row.IPIfStatsOutBcastPkts = v
 						row.observed[0] |= 1 << 40
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsOutBcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsOutBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsOutBcastPkts = dv
+								row.IPIfStatsOutBcastPkts = dv
 								row.observed[0] |= 1 << 40
 							}
 						}
 					}
-				case IpIfStatsHCOutBcastPkts.Key():
+				case IPIfStatsHCOutBcastPkts.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IpIfStatsHCOutBcastPkts = v
+						row.IPIfStatsHCOutBcastPkts = v
 						row.observed[0] |= 1 << 41
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsHCOutBcastPkts.Decode(vb)
+							dv, dErr := IPIfStatsHCOutBcastPkts.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsHCOutBcastPkts = dv
+								row.IPIfStatsHCOutBcastPkts = dv
 								row.observed[0] |= 1 << 41
 							}
 						}
 					}
-				case IpIfStatsDiscontinuityTime.Key():
+				case IPIfStatsDiscontinuityTime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.IpIfStatsDiscontinuityTime = v
+						row.IPIfStatsDiscontinuityTime = v
 						row.observed[0] |= 1 << 42
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsDiscontinuityTime.Decode(vb)
+							dv, dErr := IPIfStatsDiscontinuityTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsDiscontinuityTime = dv
+								row.IPIfStatsDiscontinuityTime = dv
 								row.observed[0] |= 1 << 42
 							}
 						}
 					}
-				case IpIfStatsRefreshRate.Key():
+				case IPIfStatsRefreshRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpIfStatsRefreshRate = v
+						row.IPIfStatsRefreshRate = v
 						row.observed[0] |= 1 << 43
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpIfStatsRefreshRate.Decode(vb)
+							dv, dErr := IPIfStatsRefreshRate.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpIfStatsRefreshRate = dv
+								row.IPIfStatsRefreshRate = dv
 								row.observed[0] |= 1 << 43
 							}
 						}
@@ -6211,18 +6211,18 @@ func (tw *IpIfStatsTableWalker) Iter() iter.Seq2[snmp.OID, IpIfStatsTableRow] {
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpIfStatsTableWalker) Err() error {
+func (tw *IPIfStatsTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipIfStatsTableT is the singleton type of IpIfStatsTable.
+// ipIfStatsTableT is the singleton type of IPIfStatsTable.
 type ipIfStatsTableT struct{}
 
-// IpIfStatsTable is the descriptor for the ipIfStatsTable table.
-var IpIfStatsTable ipIfStatsTableT
+// IPIfStatsTable is the descriptor for the ipIfStatsTable table.
+var IPIfStatsTable ipIfStatsTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpIfStatsTableWalker) Close() {
+func (tw *IPIfStatsTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -6230,7 +6230,7 @@ func (tw *IpIfStatsTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpIfStatsTableWalker {
+func (t ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPIfStatsTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -6240,25 +6240,25 @@ func (t ipIfStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 // for the table or declare it as a dependency.
 func (ipIfStatsTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		Indicator: IpIfStatsTableIndicator,
-		KeyType:   "IpIfStatsTableKey",
+		Indicator: IPIfStatsTableIndicator,
+		KeyType:   "IPIfStatsTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipIfStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpIfStatsTableWalker {
+func (ipIfStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPIfStatsTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpIfStatsInReceives.Key(), IpIfStatsHCInReceives.Key(), IpIfStatsInOctets.Key(), IpIfStatsHCInOctets.Key(), IpIfStatsInHdrErrors.Key(), IpIfStatsInNoRoutes.Key(), IpIfStatsInAddrErrors.Key(), IpIfStatsInUnknownProtos.Key(), IpIfStatsInTruncatedPkts.Key(), IpIfStatsInForwDatagrams.Key(), IpIfStatsHCInForwDatagrams.Key(), IpIfStatsReasmReqds.Key(), IpIfStatsReasmOKs.Key(), IpIfStatsReasmFails.Key(), IpIfStatsInDiscards.Key(), IpIfStatsInDelivers.Key(), IpIfStatsHCInDelivers.Key(), IpIfStatsOutRequests.Key(), IpIfStatsHCOutRequests.Key(), IpIfStatsOutForwDatagrams.Key(), IpIfStatsHCOutForwDatagrams.Key(), IpIfStatsOutDiscards.Key(), IpIfStatsOutFragReqds.Key(), IpIfStatsOutFragOKs.Key(), IpIfStatsOutFragFails.Key(), IpIfStatsOutFragCreates.Key(), IpIfStatsOutTransmits.Key(), IpIfStatsHCOutTransmits.Key(), IpIfStatsOutOctets.Key(), IpIfStatsHCOutOctets.Key(), IpIfStatsInMcastPkts.Key(), IpIfStatsHCInMcastPkts.Key(), IpIfStatsInMcastOctets.Key(), IpIfStatsHCInMcastOctets.Key(), IpIfStatsOutMcastPkts.Key(), IpIfStatsHCOutMcastPkts.Key(), IpIfStatsOutMcastOctets.Key(), IpIfStatsHCOutMcastOctets.Key(), IpIfStatsInBcastPkts.Key(), IpIfStatsHCInBcastPkts.Key(), IpIfStatsOutBcastPkts.Key(), IpIfStatsHCOutBcastPkts.Key(), IpIfStatsDiscontinuityTime.Key(), IpIfStatsRefreshRate.Key():
+		case IPIfStatsInReceives.Key(), IPIfStatsHCInReceives.Key(), IPIfStatsInOctets.Key(), IPIfStatsHCInOctets.Key(), IPIfStatsInHdrErrors.Key(), IPIfStatsInNoRoutes.Key(), IPIfStatsInAddrErrors.Key(), IPIfStatsInUnknownProtos.Key(), IPIfStatsInTruncatedPkts.Key(), IPIfStatsInForwDatagrams.Key(), IPIfStatsHCInForwDatagrams.Key(), IPIfStatsReasmReqds.Key(), IPIfStatsReasmOKs.Key(), IPIfStatsReasmFails.Key(), IPIfStatsInDiscards.Key(), IPIfStatsInDelivers.Key(), IPIfStatsHCInDelivers.Key(), IPIfStatsOutRequests.Key(), IPIfStatsHCOutRequests.Key(), IPIfStatsOutForwDatagrams.Key(), IPIfStatsHCOutForwDatagrams.Key(), IPIfStatsOutDiscards.Key(), IPIfStatsOutFragReqds.Key(), IPIfStatsOutFragOKs.Key(), IPIfStatsOutFragFails.Key(), IPIfStatsOutFragCreates.Key(), IPIfStatsOutTransmits.Key(), IPIfStatsHCOutTransmits.Key(), IPIfStatsOutOctets.Key(), IPIfStatsHCOutOctets.Key(), IPIfStatsInMcastPkts.Key(), IPIfStatsHCInMcastPkts.Key(), IPIfStatsInMcastOctets.Key(), IPIfStatsHCInMcastOctets.Key(), IPIfStatsOutMcastPkts.Key(), IPIfStatsHCOutMcastPkts.Key(), IPIfStatsOutMcastOctets.Key(), IPIfStatsHCOutMcastOctets.Key(), IPIfStatsInBcastPkts.Key(), IPIfStatsHCInBcastPkts.Key(), IPIfStatsOutBcastPkts.Key(), IPIfStatsHCOutBcastPkts.Key(), IPIfStatsDiscontinuityTime.Key(), IPIfStatsRefreshRate.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipIfStatsTable.Walk: column %s", c.OID()))
-			return &IpIfStatsTableWalker{rw: w}
+			return &IPIfStatsTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -6267,19 +6267,19 @@ func (ipIfStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpIfStatsTableWalker{
+	return &IPIfStatsTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// decodeIpIfStatsTableRow decodes one row of IpIfStatsTable from the supplied
+// decodeIPIfStatsTableRow decodes one row of IPIfStatsTable from the supplied
 // VarBinds. Each VarBind's OID determines which row field it populates
 // (via the column's last sub-id). VarBinds with unknown column-ids are
 // ignored. Absent columns leave their field at its zero value.
-func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRow, error) {
-	var row IpIfStatsTableRow
-	row.Key, row.keyValid = decodeIpIfStatsTableKey(idx)
+func decodeIPIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IPIfStatsTableRow, error) {
+	var row IPIfStatsTableRow
+	row.Key, row.keyValid = decodeIPIfStatsTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -6293,312 +6293,312 @@ func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRo
 		colID := o.At(entryLen)
 		switch colID {
 		case 3:
-			dv, derr := IpIfStatsInReceives.Decode(vb)
+			dv, derr := IPIfStatsInReceives.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInReceives = dv
+			row.IPIfStatsInReceives = dv
 			row.observed[0] |= 1 << 0
 		case 4:
-			dv, derr := IpIfStatsHCInReceives.Decode(vb)
+			dv, derr := IPIfStatsHCInReceives.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInReceives = dv
+			row.IPIfStatsHCInReceives = dv
 			row.observed[0] |= 1 << 1
 		case 5:
-			dv, derr := IpIfStatsInOctets.Decode(vb)
+			dv, derr := IPIfStatsInOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInOctets = dv
+			row.IPIfStatsInOctets = dv
 			row.observed[0] |= 1 << 2
 		case 6:
-			dv, derr := IpIfStatsHCInOctets.Decode(vb)
+			dv, derr := IPIfStatsHCInOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInOctets = dv
+			row.IPIfStatsHCInOctets = dv
 			row.observed[0] |= 1 << 3
 		case 7:
-			dv, derr := IpIfStatsInHdrErrors.Decode(vb)
+			dv, derr := IPIfStatsInHdrErrors.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInHdrErrors = dv
+			row.IPIfStatsInHdrErrors = dv
 			row.observed[0] |= 1 << 4
 		case 8:
-			dv, derr := IpIfStatsInNoRoutes.Decode(vb)
+			dv, derr := IPIfStatsInNoRoutes.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInNoRoutes = dv
+			row.IPIfStatsInNoRoutes = dv
 			row.observed[0] |= 1 << 5
 		case 9:
-			dv, derr := IpIfStatsInAddrErrors.Decode(vb)
+			dv, derr := IPIfStatsInAddrErrors.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInAddrErrors = dv
+			row.IPIfStatsInAddrErrors = dv
 			row.observed[0] |= 1 << 6
 		case 10:
-			dv, derr := IpIfStatsInUnknownProtos.Decode(vb)
+			dv, derr := IPIfStatsInUnknownProtos.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInUnknownProtos = dv
+			row.IPIfStatsInUnknownProtos = dv
 			row.observed[0] |= 1 << 7
 		case 11:
-			dv, derr := IpIfStatsInTruncatedPkts.Decode(vb)
+			dv, derr := IPIfStatsInTruncatedPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInTruncatedPkts = dv
+			row.IPIfStatsInTruncatedPkts = dv
 			row.observed[0] |= 1 << 8
 		case 12:
-			dv, derr := IpIfStatsInForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsInForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInForwDatagrams = dv
+			row.IPIfStatsInForwDatagrams = dv
 			row.observed[0] |= 1 << 9
 		case 13:
-			dv, derr := IpIfStatsHCInForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsHCInForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInForwDatagrams = dv
+			row.IPIfStatsHCInForwDatagrams = dv
 			row.observed[0] |= 1 << 10
 		case 14:
-			dv, derr := IpIfStatsReasmReqds.Decode(vb)
+			dv, derr := IPIfStatsReasmReqds.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsReasmReqds = dv
+			row.IPIfStatsReasmReqds = dv
 			row.observed[0] |= 1 << 11
 		case 15:
-			dv, derr := IpIfStatsReasmOKs.Decode(vb)
+			dv, derr := IPIfStatsReasmOKs.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsReasmOKs = dv
+			row.IPIfStatsReasmOKs = dv
 			row.observed[0] |= 1 << 12
 		case 16:
-			dv, derr := IpIfStatsReasmFails.Decode(vb)
+			dv, derr := IPIfStatsReasmFails.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsReasmFails = dv
+			row.IPIfStatsReasmFails = dv
 			row.observed[0] |= 1 << 13
 		case 17:
-			dv, derr := IpIfStatsInDiscards.Decode(vb)
+			dv, derr := IPIfStatsInDiscards.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInDiscards = dv
+			row.IPIfStatsInDiscards = dv
 			row.observed[0] |= 1 << 14
 		case 18:
-			dv, derr := IpIfStatsInDelivers.Decode(vb)
+			dv, derr := IPIfStatsInDelivers.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInDelivers = dv
+			row.IPIfStatsInDelivers = dv
 			row.observed[0] |= 1 << 15
 		case 19:
-			dv, derr := IpIfStatsHCInDelivers.Decode(vb)
+			dv, derr := IPIfStatsHCInDelivers.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInDelivers = dv
+			row.IPIfStatsHCInDelivers = dv
 			row.observed[0] |= 1 << 16
 		case 20:
-			dv, derr := IpIfStatsOutRequests.Decode(vb)
+			dv, derr := IPIfStatsOutRequests.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutRequests = dv
+			row.IPIfStatsOutRequests = dv
 			row.observed[0] |= 1 << 17
 		case 21:
-			dv, derr := IpIfStatsHCOutRequests.Decode(vb)
+			dv, derr := IPIfStatsHCOutRequests.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutRequests = dv
+			row.IPIfStatsHCOutRequests = dv
 			row.observed[0] |= 1 << 18
 		case 23:
-			dv, derr := IpIfStatsOutForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsOutForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutForwDatagrams = dv
+			row.IPIfStatsOutForwDatagrams = dv
 			row.observed[0] |= 1 << 19
 		case 24:
-			dv, derr := IpIfStatsHCOutForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsHCOutForwDatagrams.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutForwDatagrams = dv
+			row.IPIfStatsHCOutForwDatagrams = dv
 			row.observed[0] |= 1 << 20
 		case 25:
-			dv, derr := IpIfStatsOutDiscards.Decode(vb)
+			dv, derr := IPIfStatsOutDiscards.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutDiscards = dv
+			row.IPIfStatsOutDiscards = dv
 			row.observed[0] |= 1 << 21
 		case 26:
-			dv, derr := IpIfStatsOutFragReqds.Decode(vb)
+			dv, derr := IPIfStatsOutFragReqds.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutFragReqds = dv
+			row.IPIfStatsOutFragReqds = dv
 			row.observed[0] |= 1 << 22
 		case 27:
-			dv, derr := IpIfStatsOutFragOKs.Decode(vb)
+			dv, derr := IPIfStatsOutFragOKs.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutFragOKs = dv
+			row.IPIfStatsOutFragOKs = dv
 			row.observed[0] |= 1 << 23
 		case 28:
-			dv, derr := IpIfStatsOutFragFails.Decode(vb)
+			dv, derr := IPIfStatsOutFragFails.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutFragFails = dv
+			row.IPIfStatsOutFragFails = dv
 			row.observed[0] |= 1 << 24
 		case 29:
-			dv, derr := IpIfStatsOutFragCreates.Decode(vb)
+			dv, derr := IPIfStatsOutFragCreates.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutFragCreates = dv
+			row.IPIfStatsOutFragCreates = dv
 			row.observed[0] |= 1 << 25
 		case 30:
-			dv, derr := IpIfStatsOutTransmits.Decode(vb)
+			dv, derr := IPIfStatsOutTransmits.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutTransmits = dv
+			row.IPIfStatsOutTransmits = dv
 			row.observed[0] |= 1 << 26
 		case 31:
-			dv, derr := IpIfStatsHCOutTransmits.Decode(vb)
+			dv, derr := IPIfStatsHCOutTransmits.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutTransmits = dv
+			row.IPIfStatsHCOutTransmits = dv
 			row.observed[0] |= 1 << 27
 		case 32:
-			dv, derr := IpIfStatsOutOctets.Decode(vb)
+			dv, derr := IPIfStatsOutOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutOctets = dv
+			row.IPIfStatsOutOctets = dv
 			row.observed[0] |= 1 << 28
 		case 33:
-			dv, derr := IpIfStatsHCOutOctets.Decode(vb)
+			dv, derr := IPIfStatsHCOutOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutOctets = dv
+			row.IPIfStatsHCOutOctets = dv
 			row.observed[0] |= 1 << 29
 		case 34:
-			dv, derr := IpIfStatsInMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsInMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInMcastPkts = dv
+			row.IPIfStatsInMcastPkts = dv
 			row.observed[0] |= 1 << 30
 		case 35:
-			dv, derr := IpIfStatsHCInMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCInMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInMcastPkts = dv
+			row.IPIfStatsHCInMcastPkts = dv
 			row.observed[0] |= 1 << 31
 		case 36:
-			dv, derr := IpIfStatsInMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsInMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInMcastOctets = dv
+			row.IPIfStatsInMcastOctets = dv
 			row.observed[0] |= 1 << 32
 		case 37:
-			dv, derr := IpIfStatsHCInMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsHCInMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInMcastOctets = dv
+			row.IPIfStatsHCInMcastOctets = dv
 			row.observed[0] |= 1 << 33
 		case 38:
-			dv, derr := IpIfStatsOutMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsOutMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutMcastPkts = dv
+			row.IPIfStatsOutMcastPkts = dv
 			row.observed[0] |= 1 << 34
 		case 39:
-			dv, derr := IpIfStatsHCOutMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCOutMcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutMcastPkts = dv
+			row.IPIfStatsHCOutMcastPkts = dv
 			row.observed[0] |= 1 << 35
 		case 40:
-			dv, derr := IpIfStatsOutMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsOutMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutMcastOctets = dv
+			row.IPIfStatsOutMcastOctets = dv
 			row.observed[0] |= 1 << 36
 		case 41:
-			dv, derr := IpIfStatsHCOutMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsHCOutMcastOctets.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutMcastOctets = dv
+			row.IPIfStatsHCOutMcastOctets = dv
 			row.observed[0] |= 1 << 37
 		case 42:
-			dv, derr := IpIfStatsInBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsInBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsInBcastPkts = dv
+			row.IPIfStatsInBcastPkts = dv
 			row.observed[0] |= 1 << 38
 		case 43:
-			dv, derr := IpIfStatsHCInBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCInBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCInBcastPkts = dv
+			row.IPIfStatsHCInBcastPkts = dv
 			row.observed[0] |= 1 << 39
 		case 44:
-			dv, derr := IpIfStatsOutBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsOutBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsOutBcastPkts = dv
+			row.IPIfStatsOutBcastPkts = dv
 			row.observed[0] |= 1 << 40
 		case 45:
-			dv, derr := IpIfStatsHCOutBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCOutBcastPkts.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsHCOutBcastPkts = dv
+			row.IPIfStatsHCOutBcastPkts = dv
 			row.observed[0] |= 1 << 41
 		case 46:
-			dv, derr := IpIfStatsDiscontinuityTime.Decode(vb)
+			dv, derr := IPIfStatsDiscontinuityTime.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsDiscontinuityTime = dv
+			row.IPIfStatsDiscontinuityTime = dv
 			row.observed[0] |= 1 << 42
 		case 47:
-			dv, derr := IpIfStatsRefreshRate.Decode(vb)
+			dv, derr := IPIfStatsRefreshRate.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpIfStatsRefreshRate = dv
+			row.IPIfStatsRefreshRate = dv
 			row.observed[0] |= 1 << 43
 		}
 	}
@@ -6606,22 +6606,22 @@ func decodeIpIfStatsTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpIfStatsTableRo
 	return row, nil
 }
 
-// equalIpIfStatsTableRow compares two IpIfStatsTableRow values for equality.
+// equalIPIfStatsTableRow compares two IPIfStatsTableRow values for equality.
 // Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
-func equalIpIfStatsTableRow(a IpIfStatsTableRow, b IpIfStatsTableRow) bool {
-	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IpIfStatsInReceives == b.IpIfStatsInReceives && a.IpIfStatsHCInReceives == b.IpIfStatsHCInReceives && a.IpIfStatsInOctets == b.IpIfStatsInOctets && a.IpIfStatsHCInOctets == b.IpIfStatsHCInOctets && a.IpIfStatsInHdrErrors == b.IpIfStatsInHdrErrors && a.IpIfStatsInNoRoutes == b.IpIfStatsInNoRoutes && a.IpIfStatsInAddrErrors == b.IpIfStatsInAddrErrors && a.IpIfStatsInUnknownProtos == b.IpIfStatsInUnknownProtos && a.IpIfStatsInTruncatedPkts == b.IpIfStatsInTruncatedPkts && a.IpIfStatsInForwDatagrams == b.IpIfStatsInForwDatagrams && a.IpIfStatsHCInForwDatagrams == b.IpIfStatsHCInForwDatagrams && a.IpIfStatsReasmReqds == b.IpIfStatsReasmReqds && a.IpIfStatsReasmOKs == b.IpIfStatsReasmOKs && a.IpIfStatsReasmFails == b.IpIfStatsReasmFails && a.IpIfStatsInDiscards == b.IpIfStatsInDiscards && a.IpIfStatsInDelivers == b.IpIfStatsInDelivers && a.IpIfStatsHCInDelivers == b.IpIfStatsHCInDelivers && a.IpIfStatsOutRequests == b.IpIfStatsOutRequests && a.IpIfStatsHCOutRequests == b.IpIfStatsHCOutRequests && a.IpIfStatsOutForwDatagrams == b.IpIfStatsOutForwDatagrams && a.IpIfStatsHCOutForwDatagrams == b.IpIfStatsHCOutForwDatagrams && a.IpIfStatsOutDiscards == b.IpIfStatsOutDiscards && a.IpIfStatsOutFragReqds == b.IpIfStatsOutFragReqds && a.IpIfStatsOutFragOKs == b.IpIfStatsOutFragOKs && a.IpIfStatsOutFragFails == b.IpIfStatsOutFragFails && a.IpIfStatsOutFragCreates == b.IpIfStatsOutFragCreates && a.IpIfStatsOutTransmits == b.IpIfStatsOutTransmits && a.IpIfStatsHCOutTransmits == b.IpIfStatsHCOutTransmits && a.IpIfStatsOutOctets == b.IpIfStatsOutOctets && a.IpIfStatsHCOutOctets == b.IpIfStatsHCOutOctets && a.IpIfStatsInMcastPkts == b.IpIfStatsInMcastPkts && a.IpIfStatsHCInMcastPkts == b.IpIfStatsHCInMcastPkts && a.IpIfStatsInMcastOctets == b.IpIfStatsInMcastOctets && a.IpIfStatsHCInMcastOctets == b.IpIfStatsHCInMcastOctets && a.IpIfStatsOutMcastPkts == b.IpIfStatsOutMcastPkts && a.IpIfStatsHCOutMcastPkts == b.IpIfStatsHCOutMcastPkts && a.IpIfStatsOutMcastOctets == b.IpIfStatsOutMcastOctets && a.IpIfStatsHCOutMcastOctets == b.IpIfStatsHCOutMcastOctets && a.IpIfStatsInBcastPkts == b.IpIfStatsInBcastPkts && a.IpIfStatsHCInBcastPkts == b.IpIfStatsHCInBcastPkts && a.IpIfStatsOutBcastPkts == b.IpIfStatsOutBcastPkts && a.IpIfStatsHCOutBcastPkts == b.IpIfStatsHCOutBcastPkts && a.IpIfStatsDiscontinuityTime == b.IpIfStatsDiscontinuityTime && a.IpIfStatsRefreshRate == b.IpIfStatsRefreshRate
+func equalIPIfStatsTableRow(a IPIfStatsTableRow, b IPIfStatsTableRow) bool {
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IPIfStatsInReceives == b.IPIfStatsInReceives && a.IPIfStatsHCInReceives == b.IPIfStatsHCInReceives && a.IPIfStatsInOctets == b.IPIfStatsInOctets && a.IPIfStatsHCInOctets == b.IPIfStatsHCInOctets && a.IPIfStatsInHdrErrors == b.IPIfStatsInHdrErrors && a.IPIfStatsInNoRoutes == b.IPIfStatsInNoRoutes && a.IPIfStatsInAddrErrors == b.IPIfStatsInAddrErrors && a.IPIfStatsInUnknownProtos == b.IPIfStatsInUnknownProtos && a.IPIfStatsInTruncatedPkts == b.IPIfStatsInTruncatedPkts && a.IPIfStatsInForwDatagrams == b.IPIfStatsInForwDatagrams && a.IPIfStatsHCInForwDatagrams == b.IPIfStatsHCInForwDatagrams && a.IPIfStatsReasmReqds == b.IPIfStatsReasmReqds && a.IPIfStatsReasmOKs == b.IPIfStatsReasmOKs && a.IPIfStatsReasmFails == b.IPIfStatsReasmFails && a.IPIfStatsInDiscards == b.IPIfStatsInDiscards && a.IPIfStatsInDelivers == b.IPIfStatsInDelivers && a.IPIfStatsHCInDelivers == b.IPIfStatsHCInDelivers && a.IPIfStatsOutRequests == b.IPIfStatsOutRequests && a.IPIfStatsHCOutRequests == b.IPIfStatsHCOutRequests && a.IPIfStatsOutForwDatagrams == b.IPIfStatsOutForwDatagrams && a.IPIfStatsHCOutForwDatagrams == b.IPIfStatsHCOutForwDatagrams && a.IPIfStatsOutDiscards == b.IPIfStatsOutDiscards && a.IPIfStatsOutFragReqds == b.IPIfStatsOutFragReqds && a.IPIfStatsOutFragOKs == b.IPIfStatsOutFragOKs && a.IPIfStatsOutFragFails == b.IPIfStatsOutFragFails && a.IPIfStatsOutFragCreates == b.IPIfStatsOutFragCreates && a.IPIfStatsOutTransmits == b.IPIfStatsOutTransmits && a.IPIfStatsHCOutTransmits == b.IPIfStatsHCOutTransmits && a.IPIfStatsOutOctets == b.IPIfStatsOutOctets && a.IPIfStatsHCOutOctets == b.IPIfStatsHCOutOctets && a.IPIfStatsInMcastPkts == b.IPIfStatsInMcastPkts && a.IPIfStatsHCInMcastPkts == b.IPIfStatsHCInMcastPkts && a.IPIfStatsInMcastOctets == b.IPIfStatsInMcastOctets && a.IPIfStatsHCInMcastOctets == b.IPIfStatsHCInMcastOctets && a.IPIfStatsOutMcastPkts == b.IPIfStatsOutMcastPkts && a.IPIfStatsHCOutMcastPkts == b.IPIfStatsHCOutMcastPkts && a.IPIfStatsOutMcastOctets == b.IPIfStatsOutMcastOctets && a.IPIfStatsHCOutMcastOctets == b.IPIfStatsHCOutMcastOctets && a.IPIfStatsInBcastPkts == b.IPIfStatsInBcastPkts && a.IPIfStatsHCInBcastPkts == b.IPIfStatsHCInBcastPkts && a.IPIfStatsOutBcastPkts == b.IPIfStatsOutBcastPkts && a.IPIfStatsHCOutBcastPkts == b.IPIfStatsHCOutBcastPkts && a.IPIfStatsDiscontinuityTime == b.IPIfStatsDiscontinuityTime && a.IPIfStatsRefreshRate == b.IPIfStatsRefreshRate
 }
 
-// mergeIpIfStatsTableRow merges the values decoded from vbs into dst, leaving fields
+// mergeIPIfStatsTableRow merges the values decoded from vbs into dst, leaving fields
 // whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
 // to maintain per-row state under partial-column fetches (Counter-tier,
 // Static-tier). Best-effort: individual VarBind decode failures are
 // silently skipped rather than propagated, because partial-fetch ticks
 // surface transient errors through [snmp.Watcher.LastTickErr] at the
 // call-site granularity rather than per-VarBind.
-func mergeIpIfStatsTableRow(dst *IpIfStatsTableRow, vbs []snmp.VarBind) {
+func mergeIPIfStatsTableRow(dst *IPIfStatsTableRow, vbs []snmp.VarBind) {
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
 		if o.Len() == 0 {
@@ -6634,316 +6634,316 @@ func mergeIpIfStatsTableRow(dst *IpIfStatsTableRow, vbs []snmp.VarBind) {
 		colID := o.At(entryLen)
 		switch colID {
 		case 3:
-			dv, derr := IpIfStatsInReceives.Decode(vb)
+			dv, derr := IPIfStatsInReceives.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInReceives = dv
+				dst.IPIfStatsInReceives = dv
 				dst.observed[0] |= 1 << 0
 			}
 		case 4:
-			dv, derr := IpIfStatsHCInReceives.Decode(vb)
+			dv, derr := IPIfStatsHCInReceives.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInReceives = dv
+				dst.IPIfStatsHCInReceives = dv
 				dst.observed[0] |= 1 << 1
 			}
 		case 5:
-			dv, derr := IpIfStatsInOctets.Decode(vb)
+			dv, derr := IPIfStatsInOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInOctets = dv
+				dst.IPIfStatsInOctets = dv
 				dst.observed[0] |= 1 << 2
 			}
 		case 6:
-			dv, derr := IpIfStatsHCInOctets.Decode(vb)
+			dv, derr := IPIfStatsHCInOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInOctets = dv
+				dst.IPIfStatsHCInOctets = dv
 				dst.observed[0] |= 1 << 3
 			}
 		case 7:
-			dv, derr := IpIfStatsInHdrErrors.Decode(vb)
+			dv, derr := IPIfStatsInHdrErrors.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInHdrErrors = dv
+				dst.IPIfStatsInHdrErrors = dv
 				dst.observed[0] |= 1 << 4
 			}
 		case 8:
-			dv, derr := IpIfStatsInNoRoutes.Decode(vb)
+			dv, derr := IPIfStatsInNoRoutes.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInNoRoutes = dv
+				dst.IPIfStatsInNoRoutes = dv
 				dst.observed[0] |= 1 << 5
 			}
 		case 9:
-			dv, derr := IpIfStatsInAddrErrors.Decode(vb)
+			dv, derr := IPIfStatsInAddrErrors.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInAddrErrors = dv
+				dst.IPIfStatsInAddrErrors = dv
 				dst.observed[0] |= 1 << 6
 			}
 		case 10:
-			dv, derr := IpIfStatsInUnknownProtos.Decode(vb)
+			dv, derr := IPIfStatsInUnknownProtos.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInUnknownProtos = dv
+				dst.IPIfStatsInUnknownProtos = dv
 				dst.observed[0] |= 1 << 7
 			}
 		case 11:
-			dv, derr := IpIfStatsInTruncatedPkts.Decode(vb)
+			dv, derr := IPIfStatsInTruncatedPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInTruncatedPkts = dv
+				dst.IPIfStatsInTruncatedPkts = dv
 				dst.observed[0] |= 1 << 8
 			}
 		case 12:
-			dv, derr := IpIfStatsInForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsInForwDatagrams.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInForwDatagrams = dv
+				dst.IPIfStatsInForwDatagrams = dv
 				dst.observed[0] |= 1 << 9
 			}
 		case 13:
-			dv, derr := IpIfStatsHCInForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsHCInForwDatagrams.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInForwDatagrams = dv
+				dst.IPIfStatsHCInForwDatagrams = dv
 				dst.observed[0] |= 1 << 10
 			}
 		case 14:
-			dv, derr := IpIfStatsReasmReqds.Decode(vb)
+			dv, derr := IPIfStatsReasmReqds.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsReasmReqds = dv
+				dst.IPIfStatsReasmReqds = dv
 				dst.observed[0] |= 1 << 11
 			}
 		case 15:
-			dv, derr := IpIfStatsReasmOKs.Decode(vb)
+			dv, derr := IPIfStatsReasmOKs.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsReasmOKs = dv
+				dst.IPIfStatsReasmOKs = dv
 				dst.observed[0] |= 1 << 12
 			}
 		case 16:
-			dv, derr := IpIfStatsReasmFails.Decode(vb)
+			dv, derr := IPIfStatsReasmFails.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsReasmFails = dv
+				dst.IPIfStatsReasmFails = dv
 				dst.observed[0] |= 1 << 13
 			}
 		case 17:
-			dv, derr := IpIfStatsInDiscards.Decode(vb)
+			dv, derr := IPIfStatsInDiscards.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInDiscards = dv
+				dst.IPIfStatsInDiscards = dv
 				dst.observed[0] |= 1 << 14
 			}
 		case 18:
-			dv, derr := IpIfStatsInDelivers.Decode(vb)
+			dv, derr := IPIfStatsInDelivers.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInDelivers = dv
+				dst.IPIfStatsInDelivers = dv
 				dst.observed[0] |= 1 << 15
 			}
 		case 19:
-			dv, derr := IpIfStatsHCInDelivers.Decode(vb)
+			dv, derr := IPIfStatsHCInDelivers.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInDelivers = dv
+				dst.IPIfStatsHCInDelivers = dv
 				dst.observed[0] |= 1 << 16
 			}
 		case 20:
-			dv, derr := IpIfStatsOutRequests.Decode(vb)
+			dv, derr := IPIfStatsOutRequests.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutRequests = dv
+				dst.IPIfStatsOutRequests = dv
 				dst.observed[0] |= 1 << 17
 			}
 		case 21:
-			dv, derr := IpIfStatsHCOutRequests.Decode(vb)
+			dv, derr := IPIfStatsHCOutRequests.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutRequests = dv
+				dst.IPIfStatsHCOutRequests = dv
 				dst.observed[0] |= 1 << 18
 			}
 		case 23:
-			dv, derr := IpIfStatsOutForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsOutForwDatagrams.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutForwDatagrams = dv
+				dst.IPIfStatsOutForwDatagrams = dv
 				dst.observed[0] |= 1 << 19
 			}
 		case 24:
-			dv, derr := IpIfStatsHCOutForwDatagrams.Decode(vb)
+			dv, derr := IPIfStatsHCOutForwDatagrams.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutForwDatagrams = dv
+				dst.IPIfStatsHCOutForwDatagrams = dv
 				dst.observed[0] |= 1 << 20
 			}
 		case 25:
-			dv, derr := IpIfStatsOutDiscards.Decode(vb)
+			dv, derr := IPIfStatsOutDiscards.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutDiscards = dv
+				dst.IPIfStatsOutDiscards = dv
 				dst.observed[0] |= 1 << 21
 			}
 		case 26:
-			dv, derr := IpIfStatsOutFragReqds.Decode(vb)
+			dv, derr := IPIfStatsOutFragReqds.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutFragReqds = dv
+				dst.IPIfStatsOutFragReqds = dv
 				dst.observed[0] |= 1 << 22
 			}
 		case 27:
-			dv, derr := IpIfStatsOutFragOKs.Decode(vb)
+			dv, derr := IPIfStatsOutFragOKs.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutFragOKs = dv
+				dst.IPIfStatsOutFragOKs = dv
 				dst.observed[0] |= 1 << 23
 			}
 		case 28:
-			dv, derr := IpIfStatsOutFragFails.Decode(vb)
+			dv, derr := IPIfStatsOutFragFails.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutFragFails = dv
+				dst.IPIfStatsOutFragFails = dv
 				dst.observed[0] |= 1 << 24
 			}
 		case 29:
-			dv, derr := IpIfStatsOutFragCreates.Decode(vb)
+			dv, derr := IPIfStatsOutFragCreates.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutFragCreates = dv
+				dst.IPIfStatsOutFragCreates = dv
 				dst.observed[0] |= 1 << 25
 			}
 		case 30:
-			dv, derr := IpIfStatsOutTransmits.Decode(vb)
+			dv, derr := IPIfStatsOutTransmits.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutTransmits = dv
+				dst.IPIfStatsOutTransmits = dv
 				dst.observed[0] |= 1 << 26
 			}
 		case 31:
-			dv, derr := IpIfStatsHCOutTransmits.Decode(vb)
+			dv, derr := IPIfStatsHCOutTransmits.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutTransmits = dv
+				dst.IPIfStatsHCOutTransmits = dv
 				dst.observed[0] |= 1 << 27
 			}
 		case 32:
-			dv, derr := IpIfStatsOutOctets.Decode(vb)
+			dv, derr := IPIfStatsOutOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutOctets = dv
+				dst.IPIfStatsOutOctets = dv
 				dst.observed[0] |= 1 << 28
 			}
 		case 33:
-			dv, derr := IpIfStatsHCOutOctets.Decode(vb)
+			dv, derr := IPIfStatsHCOutOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutOctets = dv
+				dst.IPIfStatsHCOutOctets = dv
 				dst.observed[0] |= 1 << 29
 			}
 		case 34:
-			dv, derr := IpIfStatsInMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsInMcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInMcastPkts = dv
+				dst.IPIfStatsInMcastPkts = dv
 				dst.observed[0] |= 1 << 30
 			}
 		case 35:
-			dv, derr := IpIfStatsHCInMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCInMcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInMcastPkts = dv
+				dst.IPIfStatsHCInMcastPkts = dv
 				dst.observed[0] |= 1 << 31
 			}
 		case 36:
-			dv, derr := IpIfStatsInMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsInMcastOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInMcastOctets = dv
+				dst.IPIfStatsInMcastOctets = dv
 				dst.observed[0] |= 1 << 32
 			}
 		case 37:
-			dv, derr := IpIfStatsHCInMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsHCInMcastOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInMcastOctets = dv
+				dst.IPIfStatsHCInMcastOctets = dv
 				dst.observed[0] |= 1 << 33
 			}
 		case 38:
-			dv, derr := IpIfStatsOutMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsOutMcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutMcastPkts = dv
+				dst.IPIfStatsOutMcastPkts = dv
 				dst.observed[0] |= 1 << 34
 			}
 		case 39:
-			dv, derr := IpIfStatsHCOutMcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCOutMcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutMcastPkts = dv
+				dst.IPIfStatsHCOutMcastPkts = dv
 				dst.observed[0] |= 1 << 35
 			}
 		case 40:
-			dv, derr := IpIfStatsOutMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsOutMcastOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutMcastOctets = dv
+				dst.IPIfStatsOutMcastOctets = dv
 				dst.observed[0] |= 1 << 36
 			}
 		case 41:
-			dv, derr := IpIfStatsHCOutMcastOctets.Decode(vb)
+			dv, derr := IPIfStatsHCOutMcastOctets.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutMcastOctets = dv
+				dst.IPIfStatsHCOutMcastOctets = dv
 				dst.observed[0] |= 1 << 37
 			}
 		case 42:
-			dv, derr := IpIfStatsInBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsInBcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsInBcastPkts = dv
+				dst.IPIfStatsInBcastPkts = dv
 				dst.observed[0] |= 1 << 38
 			}
 		case 43:
-			dv, derr := IpIfStatsHCInBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCInBcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCInBcastPkts = dv
+				dst.IPIfStatsHCInBcastPkts = dv
 				dst.observed[0] |= 1 << 39
 			}
 		case 44:
-			dv, derr := IpIfStatsOutBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsOutBcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsOutBcastPkts = dv
+				dst.IPIfStatsOutBcastPkts = dv
 				dst.observed[0] |= 1 << 40
 			}
 		case 45:
-			dv, derr := IpIfStatsHCOutBcastPkts.Decode(vb)
+			dv, derr := IPIfStatsHCOutBcastPkts.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsHCOutBcastPkts = dv
+				dst.IPIfStatsHCOutBcastPkts = dv
 				dst.observed[0] |= 1 << 41
 			}
 		case 46:
-			dv, derr := IpIfStatsDiscontinuityTime.Decode(vb)
+			dv, derr := IPIfStatsDiscontinuityTime.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsDiscontinuityTime = dv
+				dst.IPIfStatsDiscontinuityTime = dv
 				dst.observed[0] |= 1 << 42
 			}
 		case 47:
-			dv, derr := IpIfStatsRefreshRate.Decode(vb)
+			dv, derr := IPIfStatsRefreshRate.Decode(vb)
 			if derr == nil {
-				dst.IpIfStatsRefreshRate = dv
+				dst.IPIfStatsRefreshRate = dv
 				dst.observed[0] |= 1 << 43
 			}
 		}
 	}
 }
 
-// IpIfStatsTableWatcher is a table-aware Watcher over IpIfStatsTable.
-// The zero value is not usable; construct via IpIfStatsTable.Watch(ctx, sess, cols, opts...).
+// IPIfStatsTableWatcher is a table-aware Watcher over IPIfStatsTable.
+// The zero value is not usable; construct via IPIfStatsTable.Watch(ctx, sess, cols, opts...).
 // Use a single iterator. The other methods may be called concurrently.
-type IpIfStatsTableWatcher struct {
-	w *snmp.Watcher[IpIfStatsTableRow]
+type IPIfStatsTableWatcher struct {
+	w *snmp.Watcher[IPIfStatsTableRow]
 }
 
 // Iter returns the range-over-func view of the Watcher's event stream.
 // See [snmp.Watcher.Iter] for the contract.
-func (tw *IpIfStatsTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IpIfStatsTableRow]] {
+func (tw *IPIfStatsTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IPIfStatsTableRow]] {
 	return tw.w.Iter()
 }
 
 // Err returns the underlying Watcher's terminal error, or nil if it
 // completed naturally. See [snmp.Watcher.Err].
-func (tw *IpIfStatsTableWatcher) Err() error {
+func (tw *IPIfStatsTableWatcher) Err() error {
 	return tw.w.Err()
 }
 
 // Close signals the Watcher's tick goroutine to terminate. Idempotent.
 // See [snmp.Watcher.Close].
-func (tw *IpIfStatsTableWatcher) Close() error {
+func (tw *IPIfStatsTableWatcher) Close() error {
 	return tw.w.Close()
 }
 
 // Fallback reports whether the Watcher has transitioned to fallback
 // mode. See [snmp.Watcher.Fallback].
-func (tw *IpIfStatsTableWatcher) Fallback() bool {
+func (tw *IPIfStatsTableWatcher) Fallback() bool {
 	return tw.w.Fallback()
 }
 
 // LastTickErr returns the most-recent transient per-tick error.
 // See [snmp.Watcher.LastTickErr].
-func (tw *IpIfStatsTableWatcher) LastTickErr() error {
+func (tw *IPIfStatsTableWatcher) LastTickErr() error {
 	return tw.w.LastTickErr()
 }
 
 // TableRoot returns the OID of the table this Watcher operates over.
-func (tw *IpIfStatsTableWatcher) TableRoot() snmp.OID {
+func (tw *IPIfStatsTableWatcher) TableRoot() snmp.OID {
 	return tw.w.TableRoot()
 }
 
-// Watch opens a long-lived watch on IpIfStatsTable.
+// Watch opens a long-lived watch on IPIfStatsTable.
 //
 // cols selects the columns whose values are reported on every emitted
 // event. opts override cadence bounds, per-column tier classifications,
@@ -6968,91 +6968,91 @@ func (tw *IpIfStatsTableWatcher) TableRoot() snmp.OID {
 // indicator column, etc.) Watch returns a Watcher whose Err() returns
 // the cause immediately; range loops exit without emitting events and
 // Close is a no-op.
-func (ipIfStatsTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IpIfStatsTableWatcher {
+func (ipIfStatsTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IPIfStatsTableWatcher {
 	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
-	w, _ := snmp.NewWatcher[IpIfStatsTableRow](ctx, sess, IpIfStatsTableIndicator, cols, decodeIpIfStatsTableRow, equalIpIfStatsTableRow, mergeIpIfStatsTableRow, allOpts...)
+	w, _ := snmp.NewWatcher[IPIfStatsTableRow](ctx, sess, IPIfStatsTableIndicator, cols, decodeIPIfStatsTableRow, equalIPIfStatsTableRow, mergeIPIfStatsTableRow, allOpts...)
 
-	return &IpIfStatsTableWatcher{w: w}
+	return &IPIfStatsTableWatcher{w: w}
 }
 
-// IpAddressPrefixOrigin is the column ipAddressPrefixOrigin of table ipAddressPrefixTable.
+// IPAddressPrefixOrigin is the column ipAddressPrefixOrigin of table ipAddressPrefixTable.
 // The origin of this prefix.
-var IpAddressPrefixOrigin = snmp.NewColumn[IpAddressPrefixOriginTC](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (IpAddressPrefixOriginTC, error) {
+var IPAddressPrefixOrigin = snmp.NewColumn[IPAddressPrefixOriginTC](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (IPAddressPrefixOriginTC, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpAddressPrefixOriginTC(0), err
+		return IPAddressPrefixOriginTC(0), err
 	}
-	return IpAddressPrefixOriginTC(v), nil
+	return IPAddressPrefixOriginTC(v), nil
 })
 
-// IpAddressPrefixOnLinkFlag is the column ipAddressPrefixOnLinkFlag of table ipAddressPrefixTable.
+// IPAddressPrefixOnLinkFlag is the column ipAddressPrefixOnLinkFlag of table ipAddressPrefixTable.
 // This object has the value 'true(1)', if this prefix can be used for
 // on-link determination; otherwise, the value is 'false(2)'. The default
 // for IPv4 prefixes is 'true(1)'.
-var IpAddressPrefixOnLinkFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue)
+var IPAddressPrefixOnLinkFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue)
 
-// IpAddressPrefixAutonomousFlag is the column ipAddressPrefixAutonomousFlag of table ipAddressPrefixTable.
+// IPAddressPrefixAutonomousFlag is the column ipAddressPrefixAutonomousFlag of table ipAddressPrefixTable.
 // Autonomous address configuration flag. When true(1), indicates that this
 // prefix can be used for autonomous address configuration (i.e., can be
 // used to form a local interface address). If false(2), it is not used to
 // auto- configure a local interface address. The default for IPv4 prefixes
 // is 'false(2)'.
-var IpAddressPrefixAutonomousFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 7), snmp.KindInteger32, snmp.DecodeTruthValue)
+var IPAddressPrefixAutonomousFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 7), snmp.KindInteger32, snmp.DecodeTruthValue)
 
-// IpAddressPrefixAdvPreferredLifetime is the column ipAddressPrefixAdvPreferredLifetime of table ipAddressPrefixTable.
+// IPAddressPrefixAdvPreferredLifetime is the column ipAddressPrefixAdvPreferredLifetime of table ipAddressPrefixTable.
 // The remaining length of time, in seconds, that this prefix will continue
 // to be preferred, i.e., time until deprecation. A value of 4,294,967,295
 // represents infinity. The address generated from a deprecated prefix
 // should no longer be used as a source address in new communications, but
 // packets received on such an interface are processed as expected. The
 // default for IPv4 prefixes is 4,294,967,295 (infinity).
-var IpAddressPrefixAdvPreferredLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPAddressPrefixAdvPreferredLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpAddressPrefixAdvValidLifetime is the column ipAddressPrefixAdvValidLifetime of table ipAddressPrefixTable.
+// IPAddressPrefixAdvValidLifetime is the column ipAddressPrefixAdvValidLifetime of table ipAddressPrefixTable.
 // The remaining length of time, in seconds, that this prefix will continue
 // to be valid, i.e., time until invalidation. A value of 4,294,967,295
 // represents infinity. The address generated from an invalidated prefix
 // should not appear as the destination or source address of a packet. The
 // default for IPv4 prefixes is 4,294,967,295 (infinity).
-var IpAddressPrefixAdvValidLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 9), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPAddressPrefixAdvValidLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 9), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpAddressPrefixTableKey is the decoded INDEX of one ipAddressPrefixTable row, one field per
+// IPAddressPrefixTableKey is the decoded INDEX of one ipAddressPrefixTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpAddressPrefixTableKey struct {
-	IpAddressPrefixIfIndex ifmib.InterfaceIndex
-	IpAddressPrefixType    int32
-	IpAddressPrefixPrefix  string
-	IpAddressPrefixLength  uint32
+type IPAddressPrefixTableKey struct {
+	IPAddressPrefixIfIndex ifmib.InterfaceIndex
+	IPAddressPrefixType    int32
+	IPAddressPrefixPrefix  string
+	IPAddressPrefixLength  uint32
 }
 
 var ipAddressPrefixTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}, {Kind: snmp.IndexInteger}}
 
-// decodeIpAddressPrefixTableKey decodes the instance suffix of one ipAddressPrefixTable row. ok is false
+// decodeIPAddressPrefixTableKey decodes the instance suffix of one ipAddressPrefixTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpAddressPrefixTableKey(idx snmp.OID) (IpAddressPrefixTableKey, bool) {
+func decodeIPAddressPrefixTableKey(idx snmp.OID) (IPAddressPrefixTableKey, bool) {
 	var parts [4]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipAddressPrefixTableIndexShapes) {
-		return IpAddressPrefixTableKey{}, false
+		return IPAddressPrefixTableKey{}, false
 	}
-	return IpAddressPrefixTableKey{IpAddressPrefixIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IpAddressPrefixType: int32(parts[1].Integer), IpAddressPrefixPrefix: string(parts[2].Octets), IpAddressPrefixLength: parts[3].Integer}, true
+	return IPAddressPrefixTableKey{IPAddressPrefixIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IPAddressPrefixType: int32(parts[1].Integer), IPAddressPrefixPrefix: string(parts[2].Octets), IPAddressPrefixLength: parts[3].Integer}, true
 }
 
-// IpAddressPrefixTableRow is one row of ipAddressPrefixTable. Key is the decoded INDEX; a
+// IPAddressPrefixTableRow is one row of ipAddressPrefixTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpAddressPrefixTableRow.KeyValid] reports which. The remaining fields are
+// [IPAddressPrefixTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpAddressPrefixTableRow.Observed] to tell a reported zero from a column the
+// [IPAddressPrefixTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpAddressPrefixTableRow struct {
-	Key                                 IpAddressPrefixTableKey
+type IPAddressPrefixTableRow struct {
+	Key                                 IPAddressPrefixTableKey
 	keyValid                            bool
-	IpAddressPrefixOrigin               IpAddressPrefixOriginTC
-	IpAddressPrefixOnLinkFlag           bool
-	IpAddressPrefixAutonomousFlag       bool
-	IpAddressPrefixAdvPreferredLifetime uint32
-	IpAddressPrefixAdvValidLifetime     uint32
+	IPAddressPrefixOrigin               IPAddressPrefixOriginTC
+	IPAddressPrefixOnLinkFlag           bool
+	IPAddressPrefixAutonomousFlag       bool
+	IPAddressPrefixAdvPreferredLifetime uint32
+	IPAddressPrefixAdvValidLifetime     uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -7063,7 +7063,7 @@ type IpAddressPrefixTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpAddressPrefixTableRow) KeyValid() bool {
+func (r IPAddressPrefixTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -7071,27 +7071,27 @@ func (r IpAddressPrefixTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpAddressPrefixTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPAddressPrefixTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpAddressPrefixOrigin.Key():
+	case IPAddressPrefixOrigin.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpAddressPrefixOnLinkFlag.Key():
+	case IPAddressPrefixOnLinkFlag.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpAddressPrefixAutonomousFlag.Key():
+	case IPAddressPrefixAutonomousFlag.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpAddressPrefixAdvPreferredLifetime.Key():
+	case IPAddressPrefixAdvPreferredLifetime.Key():
 		return r.observed[0]&(1<<3) != 0
-	case IpAddressPrefixAdvValidLifetime.Key():
+	case IPAddressPrefixAdvValidLifetime.Key():
 		return r.observed[0]&(1<<4) != 0
 	}
 
 	return false
 }
 
-// IpAddressPrefixTableWalker streams selected columns of ipAddressPrefixTable.
-// The zero value is not usable; construct via IpAddressPrefixTable.Walk(ctx, sess, cols...).
+// IPAddressPrefixTableWalker streams selected columns of ipAddressPrefixTable.
+// The zero value is not usable; construct via IPAddressPrefixTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpAddressPrefixTableWalker struct {
+type IPAddressPrefixTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -7102,91 +7102,91 @@ type IpAddressPrefixTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefixTableRow] {
-	return func(yield func(snmp.OID, IpAddressPrefixTableRow) bool) {
+func (tw *IPAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IPAddressPrefixTableRow] {
+	return func(yield func(snmp.OID, IPAddressPrefixTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpAddressPrefixTableRow
-			row.Key, row.keyValid = decodeIpAddressPrefixTableKey(idx)
+			var row IPAddressPrefixTableRow
+			row.Key, row.keyValid = decodeIPAddressPrefixTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpAddressPrefixOrigin.Key():
+				case IPAddressPrefixOrigin.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAddressPrefixOrigin = IpAddressPrefixOriginTC(v)
+						row.IPAddressPrefixOrigin = IPAddressPrefixOriginTC(v)
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressPrefixOrigin.Decode(vb)
+							dv, dErr := IPAddressPrefixOrigin.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressPrefixOrigin = dv
+								row.IPAddressPrefixOrigin = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case IpAddressPrefixOnLinkFlag.Key():
+				case IPAddressPrefixOnLinkFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressPrefixOnLinkFlag.Decode(vb)
+						dv, dErr := IPAddressPrefixOnLinkFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressPrefixOnLinkFlag = dv
+							row.IPAddressPrefixOnLinkFlag = dv
 							row.observed[0] |= 1 << 1
 						}
 					}
-				case IpAddressPrefixAutonomousFlag.Key():
+				case IPAddressPrefixAutonomousFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressPrefixAutonomousFlag.Decode(vb)
+						dv, dErr := IPAddressPrefixAutonomousFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressPrefixAutonomousFlag = dv
+							row.IPAddressPrefixAutonomousFlag = dv
 							row.observed[0] |= 1 << 2
 						}
 					}
-				case IpAddressPrefixAdvPreferredLifetime.Key():
+				case IPAddressPrefixAdvPreferredLifetime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpAddressPrefixAdvPreferredLifetime = v
+						row.IPAddressPrefixAdvPreferredLifetime = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressPrefixAdvPreferredLifetime.Decode(vb)
+							dv, dErr := IPAddressPrefixAdvPreferredLifetime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressPrefixAdvPreferredLifetime = dv
+								row.IPAddressPrefixAdvPreferredLifetime = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case IpAddressPrefixAdvValidLifetime.Key():
+				case IPAddressPrefixAdvValidLifetime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpAddressPrefixAdvValidLifetime = v
+						row.IPAddressPrefixAdvValidLifetime = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressPrefixAdvValidLifetime.Decode(vb)
+							dv, dErr := IPAddressPrefixAdvValidLifetime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressPrefixAdvValidLifetime = dv
+								row.IPAddressPrefixAdvValidLifetime = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
@@ -7206,18 +7206,18 @@ func (tw *IpAddressPrefixTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressPrefix
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpAddressPrefixTableWalker) Err() error {
+func (tw *IPAddressPrefixTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipAddressPrefixTableT is the singleton type of IpAddressPrefixTable.
+// ipAddressPrefixTableT is the singleton type of IPAddressPrefixTable.
 type ipAddressPrefixTableT struct{}
 
-// IpAddressPrefixTable is the descriptor for the ipAddressPrefixTable table.
-var IpAddressPrefixTable ipAddressPrefixTableT
+// IPAddressPrefixTable is the descriptor for the ipAddressPrefixTable table.
+var IPAddressPrefixTable ipAddressPrefixTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpAddressPrefixTableWalker) Close() {
+func (tw *IPAddressPrefixTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -7225,7 +7225,7 @@ func (tw *IpAddressPrefixTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipAddressPrefixTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressPrefixTableWalker {
+func (t ipAddressPrefixTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPAddressPrefixTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -7235,24 +7235,24 @@ func (t ipAddressPrefixTableT) Walk(ctx context.Context, sess snmp.Session, cols
 // for the table or declare it as a dependency.
 func (ipAddressPrefixTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "IpAddressPrefixTableKey",
+		KeyType: "IPAddressPrefixTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipAddressPrefixTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpAddressPrefixTableWalker {
+func (ipAddressPrefixTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPAddressPrefixTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpAddressPrefixOrigin.Key(), IpAddressPrefixOnLinkFlag.Key(), IpAddressPrefixAutonomousFlag.Key(), IpAddressPrefixAdvPreferredLifetime.Key(), IpAddressPrefixAdvValidLifetime.Key():
+		case IPAddressPrefixOrigin.Key(), IPAddressPrefixOnLinkFlag.Key(), IPAddressPrefixAutonomousFlag.Key(), IPAddressPrefixAdvPreferredLifetime.Key(), IPAddressPrefixAdvValidLifetime.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipAddressPrefixTable.Walk: column %s", c.OID()))
-			return &IpAddressPrefixTableWalker{rw: w}
+			return &IPAddressPrefixTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -7261,18 +7261,18 @@ func (ipAddressPrefixTableT) WalkWithOptions(ctx context.Context, sess snmp.Sess
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpAddressPrefixTableWalker{
+	return &IPAddressPrefixTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// IpAddressIfIndex is the column ipAddressIfIndex of table ipAddressTable.
+// IPAddressIfIndex is the column ipAddressIfIndex of table ipAddressTable.
 // The index value that uniquely identifies the interface to which this
 // entry is applicable. The interface identified by a particular value of
 // this index is the same interface as identified by the same value of the
 // IF-MIB's ifIndex.
-var IpAddressIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
+var IPAddressIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ifmib.InterfaceIndex(0), err
@@ -7280,70 +7280,70 @@ var IpAddressIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6
 	return ifmib.InterfaceIndex(v), nil
 })
 
-// IpAddressType is the column ipAddressType of table ipAddressTable.
+// IPAddressType is the column ipAddressType of table ipAddressTable.
 // The type of address. broadcast(3) is not a valid value for IPv6
 // addresses (RFC 3513).
-var IpAddressType = snmp.NewColumn[IpAddressTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IpAddressTypeValue, error) {
+var IPAddressType = snmp.NewColumn[IPAddressTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IPAddressTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpAddressTypeValue(0), err
+		return IPAddressTypeValue(0), err
 	}
-	return IpAddressTypeValue(v), nil
+	return IPAddressTypeValue(v), nil
 })
 
-// IpAddressPrefix is the column ipAddressPrefix of table ipAddressTable.
+// IPAddressPrefix is the column ipAddressPrefix of table ipAddressTable.
 // A pointer to the row in the prefix table to which this address belongs.
 // May be { 0 0 } if there is no such row.
-var IpAddressPrefix = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 5), snmp.KindObjectID, snmp.DecodeOID)
+var IPAddressPrefix = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 5), snmp.KindObjectID, snmp.DecodeOID)
 
-// IpAddressOrigin is the column ipAddressOrigin of table ipAddressTable.
+// IPAddressOrigin is the column ipAddressOrigin of table ipAddressTable.
 // The origin of the address.
-var IpAddressOrigin = snmp.NewColumn[IpAddressOriginTC](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (IpAddressOriginTC, error) {
+var IPAddressOrigin = snmp.NewColumn[IPAddressOriginTC](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (IPAddressOriginTC, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpAddressOriginTC(0), err
+		return IPAddressOriginTC(0), err
 	}
-	return IpAddressOriginTC(v), nil
+	return IPAddressOriginTC(v), nil
 })
 
-// IpAddressStatus is the column ipAddressStatus of table ipAddressTable.
+// IPAddressStatus is the column ipAddressStatus of table ipAddressTable.
 // The status of the address, describing if the address can be used for
 // communication. In the absence of other information, an IPv4 address is
 // always preferred(1).
-var IpAddressStatus = snmp.NewColumn[IpAddressStatusTC](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (IpAddressStatusTC, error) {
+var IPAddressStatus = snmp.NewColumn[IPAddressStatusTC](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (IPAddressStatusTC, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpAddressStatusTC(0), err
+		return IPAddressStatusTC(0), err
 	}
-	return IpAddressStatusTC(v), nil
+	return IPAddressStatusTC(v), nil
 })
 
-// IpAddressCreated is the column ipAddressCreated of table ipAddressTable.
+// IPAddressCreated is the column ipAddressCreated of table ipAddressTable.
 // The value of sysUpTime at the time this entry was created. If this entry
 // was created prior to the last re- initialization of the local network
 // management subsystem, then this object contains a zero value.
-var IpAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8), snmp.KindTimeTicks, snmp.DecodeUint32)
+var IPAddressCreated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8), snmp.KindTimeTicks, snmp.DecodeUint32)
 
-// IpAddressLastChanged is the column ipAddressLastChanged of table ipAddressTable.
+// IPAddressLastChanged is the column ipAddressLastChanged of table ipAddressTable.
 // The value of sysUpTime at the time this entry was last updated. If this
 // entry was updated prior to the last re- initialization of the local
 // network management subsystem, then this object contains a zero value.
-var IpAddressLastChanged = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9), snmp.KindTimeTicks, snmp.DecodeUint32)
+var IPAddressLastChanged = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9), snmp.KindTimeTicks, snmp.DecodeUint32)
 
-// IpAddressRowStatus is the column ipAddressRowStatus of table ipAddressTable.
+// IPAddressRowStatus is the column ipAddressRowStatus of table ipAddressTable.
 // The status of this conceptual row. The RowStatus TC requires that this
 // DESCRIPTION clause states under which circumstances other objects in
 // this row can be modified. The value of this object has no effect on
 // whether other objects in this conceptual row can be modified. A
 // conceptual row can not be made active until the ipAddressIfIndex has
 // been set to a valid index.
-var IpAddressRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 10), snmp.KindInteger32, snmp.DecodeRowStatus)
+var IPAddressRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 10), snmp.KindInteger32, snmp.DecodeRowStatus)
 
-// IpAddressStorageType is the column ipAddressStorageType of table ipAddressTable.
+// IPAddressStorageType is the column ipAddressStorageType of table ipAddressTable.
 // The storage type for this conceptual row. If this object has a value of
 // 'permanent', then no other objects are required to be able to be
 // modified.
-var IpAddressStorageType = snmp.NewColumn[snmpv2tc.StorageType](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (snmpv2tc.StorageType, error) {
+var IPAddressStorageType = snmp.NewColumn[snmpv2tc.StorageType](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (snmpv2tc.StorageType, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return snmpv2tc.StorageType(0), err
@@ -7351,45 +7351,45 @@ var IpAddressStorageType = snmp.NewColumn[snmpv2tc.StorageType](snmp.MustOID(1, 
 	return snmpv2tc.StorageType(v), nil
 })
 
-// IpAddressTableKey is the decoded INDEX of one ipAddressTable row, one field per
+// IPAddressTableKey is the decoded INDEX of one ipAddressTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpAddressTableKey struct {
-	IpAddressAddrType int32
-	IpAddressAddr     string
+type IPAddressTableKey struct {
+	IPAddressAddrType int32
+	IPAddressAddr     string
 }
 
 var ipAddressTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}}
 
-// decodeIpAddressTableKey decodes the instance suffix of one ipAddressTable row. ok is false
+// decodeIPAddressTableKey decodes the instance suffix of one ipAddressTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpAddressTableKey(idx snmp.OID) (IpAddressTableKey, bool) {
+func decodeIPAddressTableKey(idx snmp.OID) (IPAddressTableKey, bool) {
 	var parts [2]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipAddressTableIndexShapes) {
-		return IpAddressTableKey{}, false
+		return IPAddressTableKey{}, false
 	}
-	return IpAddressTableKey{IpAddressAddrType: int32(parts[0].Integer), IpAddressAddr: string(parts[1].Octets)}, true
+	return IPAddressTableKey{IPAddressAddrType: int32(parts[0].Integer), IPAddressAddr: string(parts[1].Octets)}, true
 }
 
-// IpAddressTableRow is one row of ipAddressTable. Key is the decoded INDEX; a
+// IPAddressTableRow is one row of ipAddressTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpAddressTableRow.KeyValid] reports which. The remaining fields are
+// [IPAddressTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpAddressTableRow.Observed] to tell a reported zero from a column the
+// [IPAddressTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpAddressTableRow struct {
-	Key                  IpAddressTableKey
+type IPAddressTableRow struct {
+	Key                  IPAddressTableKey
 	keyValid             bool
-	IpAddressIfIndex     ifmib.InterfaceIndex
-	IpAddressType        IpAddressTypeValue
-	IpAddressPrefix      snmp.OID
-	IpAddressOrigin      IpAddressOriginTC
-	IpAddressStatus      IpAddressStatusTC
-	IpAddressCreated     uint32
-	IpAddressLastChanged uint32
-	IpAddressRowStatus   snmp.RowStatus
-	IpAddressStorageType snmpv2tc.StorageType
+	IPAddressIfIndex     ifmib.InterfaceIndex
+	IPAddressType        IPAddressTypeValue
+	IPAddressPrefix      snmp.OID
+	IPAddressOrigin      IPAddressOriginTC
+	IPAddressStatus      IPAddressStatusTC
+	IPAddressCreated     uint32
+	IPAddressLastChanged uint32
+	IPAddressRowStatus   snmp.RowStatus
+	IPAddressStorageType snmpv2tc.StorageType
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -7400,7 +7400,7 @@ type IpAddressTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpAddressTableRow) KeyValid() bool {
+func (r IPAddressTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -7408,35 +7408,35 @@ func (r IpAddressTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpAddressTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPAddressTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpAddressIfIndex.Key():
+	case IPAddressIfIndex.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpAddressType.Key():
+	case IPAddressType.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpAddressPrefix.Key():
+	case IPAddressPrefix.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpAddressOrigin.Key():
+	case IPAddressOrigin.Key():
 		return r.observed[0]&(1<<3) != 0
-	case IpAddressStatus.Key():
+	case IPAddressStatus.Key():
 		return r.observed[0]&(1<<4) != 0
-	case IpAddressCreated.Key():
+	case IPAddressCreated.Key():
 		return r.observed[0]&(1<<5) != 0
-	case IpAddressLastChanged.Key():
+	case IPAddressLastChanged.Key():
 		return r.observed[0]&(1<<6) != 0
-	case IpAddressRowStatus.Key():
+	case IPAddressRowStatus.Key():
 		return r.observed[0]&(1<<7) != 0
-	case IpAddressStorageType.Key():
+	case IPAddressStorageType.Key():
 		return r.observed[0]&(1<<8) != 0
 	}
 
 	return false
 }
 
-// IpAddressTableWalker streams selected columns of ipAddressTable.
-// The zero value is not usable; construct via IpAddressTable.Walk(ctx, sess, cols...).
+// IPAddressTableWalker streams selected columns of ipAddressTable.
+// The zero value is not usable; construct via IPAddressTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpAddressTableWalker struct {
+type IPAddressTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -7447,163 +7447,163 @@ type IpAddressTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
-	return func(yield func(snmp.OID, IpAddressTableRow) bool) {
+func (tw *IPAddressTableWalker) Iter() iter.Seq2[snmp.OID, IPAddressTableRow] {
+	return func(yield func(snmp.OID, IPAddressTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpAddressTableRow
-			row.Key, row.keyValid = decodeIpAddressTableKey(idx)
+			var row IPAddressTableRow
+			row.Key, row.keyValid = decodeIPAddressTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpAddressIfIndex.Key():
+				case IPAddressIfIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAddressIfIndex = ifmib.InterfaceIndex(v)
+						row.IPAddressIfIndex = ifmib.InterfaceIndex(v)
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressIfIndex.Decode(vb)
+							dv, dErr := IPAddressIfIndex.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressIfIndex = dv
+								row.IPAddressIfIndex = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case IpAddressType.Key():
+				case IPAddressType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAddressType = IpAddressTypeValue(v)
+						row.IPAddressType = IPAddressTypeValue(v)
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressType.Decode(vb)
+							dv, dErr := IPAddressType.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressType = dv
+								row.IPAddressType = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case IpAddressPrefix.Key():
+				case IPAddressPrefix.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressPrefix.Decode(vb)
+						dv, dErr := IPAddressPrefix.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressPrefix = dv
+							row.IPAddressPrefix = dv
 							row.observed[0] |= 1 << 2
 						}
 					}
-				case IpAddressOrigin.Key():
+				case IPAddressOrigin.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAddressOrigin = IpAddressOriginTC(v)
+						row.IPAddressOrigin = IPAddressOriginTC(v)
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressOrigin.Decode(vb)
+							dv, dErr := IPAddressOrigin.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressOrigin = dv
+								row.IPAddressOrigin = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case IpAddressStatus.Key():
+				case IPAddressStatus.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAddressStatus = IpAddressStatusTC(v)
+						row.IPAddressStatus = IPAddressStatusTC(v)
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressStatus.Decode(vb)
+							dv, dErr := IPAddressStatus.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressStatus = dv
+								row.IPAddressStatus = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
 					}
-				case IpAddressCreated.Key():
+				case IPAddressCreated.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.IpAddressCreated = v
+						row.IPAddressCreated = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressCreated.Decode(vb)
+							dv, dErr := IPAddressCreated.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressCreated = dv
+								row.IPAddressCreated = dv
 								row.observed[0] |= 1 << 5
 							}
 						}
 					}
-				case IpAddressLastChanged.Key():
+				case IPAddressLastChanged.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.IpAddressLastChanged = v
+						row.IPAddressLastChanged = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressLastChanged.Decode(vb)
+							dv, dErr := IPAddressLastChanged.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressLastChanged = dv
+								row.IPAddressLastChanged = dv
 								row.observed[0] |= 1 << 6
 							}
 						}
 					}
-				case IpAddressRowStatus.Key():
+				case IPAddressRowStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpAddressRowStatus.Decode(vb)
+						dv, dErr := IPAddressRowStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpAddressRowStatus = dv
+							row.IPAddressRowStatus = dv
 							row.observed[0] |= 1 << 7
 						}
 					}
-				case IpAddressStorageType.Key():
+				case IPAddressStorageType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpAddressStorageType = snmpv2tc.StorageType(v)
+						row.IPAddressStorageType = snmpv2tc.StorageType(v)
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpAddressStorageType.Decode(vb)
+							dv, dErr := IPAddressStorageType.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpAddressStorageType = dv
+								row.IPAddressStorageType = dv
 								row.observed[0] |= 1 << 8
 							}
 						}
@@ -7623,18 +7623,18 @@ func (tw *IpAddressTableWalker) Iter() iter.Seq2[snmp.OID, IpAddressTableRow] {
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpAddressTableWalker) Err() error {
+func (tw *IPAddressTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipAddressTableT is the singleton type of IpAddressTable.
+// ipAddressTableT is the singleton type of IPAddressTable.
 type ipAddressTableT struct{}
 
-// IpAddressTable is the descriptor for the ipAddressTable table.
-var IpAddressTable ipAddressTableT
+// IPAddressTable is the descriptor for the ipAddressTable table.
+var IPAddressTable ipAddressTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpAddressTableWalker) Close() {
+func (tw *IPAddressTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -7642,7 +7642,7 @@ func (tw *IpAddressTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpAddressTableWalker {
+func (t ipAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPAddressTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -7652,25 +7652,25 @@ func (t ipAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 // for the table or declare it as a dependency.
 func (ipAddressTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		Indicator: IpAddressTableIndicator,
-		KeyType:   "IpAddressTableKey",
+		Indicator: IPAddressTableIndicator,
+		KeyType:   "IPAddressTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipAddressTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpAddressTableWalker {
+func (ipAddressTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPAddressTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpAddressIfIndex.Key(), IpAddressType.Key(), IpAddressPrefix.Key(), IpAddressOrigin.Key(), IpAddressStatus.Key(), IpAddressCreated.Key(), IpAddressLastChanged.Key(), IpAddressRowStatus.Key(), IpAddressStorageType.Key():
+		case IPAddressIfIndex.Key(), IPAddressType.Key(), IPAddressPrefix.Key(), IPAddressOrigin.Key(), IPAddressStatus.Key(), IPAddressCreated.Key(), IPAddressLastChanged.Key(), IPAddressRowStatus.Key(), IPAddressStorageType.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipAddressTable.Walk: column %s", c.OID()))
-			return &IpAddressTableWalker{rw: w}
+			return &IPAddressTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -7679,19 +7679,19 @@ func (ipAddressTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpAddressTableWalker{
+	return &IPAddressTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// decodeIpAddressTableRow decodes one row of IpAddressTable from the supplied
+// decodeIPAddressTableRow decodes one row of IPAddressTable from the supplied
 // VarBinds. Each VarBind's OID determines which row field it populates
 // (via the column's last sub-id). VarBinds with unknown column-ids are
 // ignored. Absent columns leave their field at its zero value.
-func decodeIpAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpAddressTableRow, error) {
-	var row IpAddressTableRow
-	row.Key, row.keyValid = decodeIpAddressTableKey(idx)
+func decodeIPAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IPAddressTableRow, error) {
+	var row IPAddressTableRow
+	row.Key, row.keyValid = decodeIPAddressTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -7705,67 +7705,67 @@ func decodeIpAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpAddressTableRo
 		colID := o.At(entryLen)
 		switch colID {
 		case 3:
-			dv, derr := IpAddressIfIndex.Decode(vb)
+			dv, derr := IPAddressIfIndex.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressIfIndex = dv
+			row.IPAddressIfIndex = dv
 			row.observed[0] |= 1 << 0
 		case 4:
-			dv, derr := IpAddressType.Decode(vb)
+			dv, derr := IPAddressType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressType = dv
+			row.IPAddressType = dv
 			row.observed[0] |= 1 << 1
 		case 5:
-			dv, derr := IpAddressPrefix.Decode(vb)
+			dv, derr := IPAddressPrefix.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressPrefix = dv
+			row.IPAddressPrefix = dv
 			row.observed[0] |= 1 << 2
 		case 6:
-			dv, derr := IpAddressOrigin.Decode(vb)
+			dv, derr := IPAddressOrigin.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressOrigin = dv
+			row.IPAddressOrigin = dv
 			row.observed[0] |= 1 << 3
 		case 7:
-			dv, derr := IpAddressStatus.Decode(vb)
+			dv, derr := IPAddressStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressStatus = dv
+			row.IPAddressStatus = dv
 			row.observed[0] |= 1 << 4
 		case 8:
-			dv, derr := IpAddressCreated.Decode(vb)
+			dv, derr := IPAddressCreated.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressCreated = dv
+			row.IPAddressCreated = dv
 			row.observed[0] |= 1 << 5
 		case 9:
-			dv, derr := IpAddressLastChanged.Decode(vb)
+			dv, derr := IPAddressLastChanged.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressLastChanged = dv
+			row.IPAddressLastChanged = dv
 			row.observed[0] |= 1 << 6
 		case 10:
-			dv, derr := IpAddressRowStatus.Decode(vb)
+			dv, derr := IPAddressRowStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressRowStatus = dv
+			row.IPAddressRowStatus = dv
 			row.observed[0] |= 1 << 7
 		case 11:
-			dv, derr := IpAddressStorageType.Decode(vb)
+			dv, derr := IPAddressStorageType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpAddressStorageType = dv
+			row.IPAddressStorageType = dv
 			row.observed[0] |= 1 << 8
 		}
 	}
@@ -7773,22 +7773,22 @@ func decodeIpAddressTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpAddressTableRo
 	return row, nil
 }
 
-// equalIpAddressTableRow compares two IpAddressTableRow values for equality.
+// equalIPAddressTableRow compares two IPAddressTableRow values for equality.
 // Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
-func equalIpAddressTableRow(a IpAddressTableRow, b IpAddressTableRow) bool {
-	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IpAddressIfIndex == b.IpAddressIfIndex && a.IpAddressType == b.IpAddressType && a.IpAddressPrefix.Equal(b.IpAddressPrefix) && a.IpAddressOrigin == b.IpAddressOrigin && a.IpAddressStatus == b.IpAddressStatus && a.IpAddressCreated == b.IpAddressCreated && a.IpAddressLastChanged == b.IpAddressLastChanged && a.IpAddressRowStatus == b.IpAddressRowStatus && a.IpAddressStorageType == b.IpAddressStorageType
+func equalIPAddressTableRow(a IPAddressTableRow, b IPAddressTableRow) bool {
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IPAddressIfIndex == b.IPAddressIfIndex && a.IPAddressType == b.IPAddressType && a.IPAddressPrefix.Equal(b.IPAddressPrefix) && a.IPAddressOrigin == b.IPAddressOrigin && a.IPAddressStatus == b.IPAddressStatus && a.IPAddressCreated == b.IPAddressCreated && a.IPAddressLastChanged == b.IPAddressLastChanged && a.IPAddressRowStatus == b.IPAddressRowStatus && a.IPAddressStorageType == b.IPAddressStorageType
 }
 
-// mergeIpAddressTableRow merges the values decoded from vbs into dst, leaving fields
+// mergeIPAddressTableRow merges the values decoded from vbs into dst, leaving fields
 // whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
 // to maintain per-row state under partial-column fetches (Counter-tier,
 // Static-tier). Best-effort: individual VarBind decode failures are
 // silently skipped rather than propagated, because partial-fetch ticks
 // surface transient errors through [snmp.Watcher.LastTickErr] at the
 // call-site granularity rather than per-VarBind.
-func mergeIpAddressTableRow(dst *IpAddressTableRow, vbs []snmp.VarBind) {
+func mergeIPAddressTableRow(dst *IPAddressTableRow, vbs []snmp.VarBind) {
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
 		if o.Len() == 0 {
@@ -7801,106 +7801,106 @@ func mergeIpAddressTableRow(dst *IpAddressTableRow, vbs []snmp.VarBind) {
 		colID := o.At(entryLen)
 		switch colID {
 		case 3:
-			dv, derr := IpAddressIfIndex.Decode(vb)
+			dv, derr := IPAddressIfIndex.Decode(vb)
 			if derr == nil {
-				dst.IpAddressIfIndex = dv
+				dst.IPAddressIfIndex = dv
 				dst.observed[0] |= 1 << 0
 			}
 		case 4:
-			dv, derr := IpAddressType.Decode(vb)
+			dv, derr := IPAddressType.Decode(vb)
 			if derr == nil {
-				dst.IpAddressType = dv
+				dst.IPAddressType = dv
 				dst.observed[0] |= 1 << 1
 			}
 		case 5:
-			dv, derr := IpAddressPrefix.Decode(vb)
+			dv, derr := IPAddressPrefix.Decode(vb)
 			if derr == nil {
-				dst.IpAddressPrefix = dv
+				dst.IPAddressPrefix = dv
 				dst.observed[0] |= 1 << 2
 			}
 		case 6:
-			dv, derr := IpAddressOrigin.Decode(vb)
+			dv, derr := IPAddressOrigin.Decode(vb)
 			if derr == nil {
-				dst.IpAddressOrigin = dv
+				dst.IPAddressOrigin = dv
 				dst.observed[0] |= 1 << 3
 			}
 		case 7:
-			dv, derr := IpAddressStatus.Decode(vb)
+			dv, derr := IPAddressStatus.Decode(vb)
 			if derr == nil {
-				dst.IpAddressStatus = dv
+				dst.IPAddressStatus = dv
 				dst.observed[0] |= 1 << 4
 			}
 		case 8:
-			dv, derr := IpAddressCreated.Decode(vb)
+			dv, derr := IPAddressCreated.Decode(vb)
 			if derr == nil {
-				dst.IpAddressCreated = dv
+				dst.IPAddressCreated = dv
 				dst.observed[0] |= 1 << 5
 			}
 		case 9:
-			dv, derr := IpAddressLastChanged.Decode(vb)
+			dv, derr := IPAddressLastChanged.Decode(vb)
 			if derr == nil {
-				dst.IpAddressLastChanged = dv
+				dst.IPAddressLastChanged = dv
 				dst.observed[0] |= 1 << 6
 			}
 		case 10:
-			dv, derr := IpAddressRowStatus.Decode(vb)
+			dv, derr := IPAddressRowStatus.Decode(vb)
 			if derr == nil {
-				dst.IpAddressRowStatus = dv
+				dst.IPAddressRowStatus = dv
 				dst.observed[0] |= 1 << 7
 			}
 		case 11:
-			dv, derr := IpAddressStorageType.Decode(vb)
+			dv, derr := IPAddressStorageType.Decode(vb)
 			if derr == nil {
-				dst.IpAddressStorageType = dv
+				dst.IPAddressStorageType = dv
 				dst.observed[0] |= 1 << 8
 			}
 		}
 	}
 }
 
-// IpAddressTableWatcher is a table-aware Watcher over IpAddressTable.
-// The zero value is not usable; construct via IpAddressTable.Watch(ctx, sess, cols, opts...).
+// IPAddressTableWatcher is a table-aware Watcher over IPAddressTable.
+// The zero value is not usable; construct via IPAddressTable.Watch(ctx, sess, cols, opts...).
 // Use a single iterator. The other methods may be called concurrently.
-type IpAddressTableWatcher struct {
-	w *snmp.Watcher[IpAddressTableRow]
+type IPAddressTableWatcher struct {
+	w *snmp.Watcher[IPAddressTableRow]
 }
 
 // Iter returns the range-over-func view of the Watcher's event stream.
 // See [snmp.Watcher.Iter] for the contract.
-func (tw *IpAddressTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IpAddressTableRow]] {
+func (tw *IPAddressTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IPAddressTableRow]] {
 	return tw.w.Iter()
 }
 
 // Err returns the underlying Watcher's terminal error, or nil if it
 // completed naturally. See [snmp.Watcher.Err].
-func (tw *IpAddressTableWatcher) Err() error {
+func (tw *IPAddressTableWatcher) Err() error {
 	return tw.w.Err()
 }
 
 // Close signals the Watcher's tick goroutine to terminate. Idempotent.
 // See [snmp.Watcher.Close].
-func (tw *IpAddressTableWatcher) Close() error {
+func (tw *IPAddressTableWatcher) Close() error {
 	return tw.w.Close()
 }
 
 // Fallback reports whether the Watcher has transitioned to fallback
 // mode. See [snmp.Watcher.Fallback].
-func (tw *IpAddressTableWatcher) Fallback() bool {
+func (tw *IPAddressTableWatcher) Fallback() bool {
 	return tw.w.Fallback()
 }
 
 // LastTickErr returns the most-recent transient per-tick error.
 // See [snmp.Watcher.LastTickErr].
-func (tw *IpAddressTableWatcher) LastTickErr() error {
+func (tw *IPAddressTableWatcher) LastTickErr() error {
 	return tw.w.LastTickErr()
 }
 
 // TableRoot returns the OID of the table this Watcher operates over.
-func (tw *IpAddressTableWatcher) TableRoot() snmp.OID {
+func (tw *IPAddressTableWatcher) TableRoot() snmp.OID {
 	return tw.w.TableRoot()
 }
 
-// Watch opens a long-lived watch on IpAddressTable.
+// Watch opens a long-lived watch on IPAddressTable.
 //
 // cols selects the columns whose values are reported on every emitted
 // event. opts override cadence bounds, per-column tier classifications,
@@ -7925,26 +7925,26 @@ func (tw *IpAddressTableWatcher) TableRoot() snmp.OID {
 // indicator column, etc.) Watch returns a Watcher whose Err() returns
 // the cause immediately; range loops exit without emitting events and
 // Close is a no-op.
-func (ipAddressTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IpAddressTableWatcher {
+func (ipAddressTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IPAddressTableWatcher {
 	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
-	w, _ := snmp.NewWatcher[IpAddressTableRow](ctx, sess, IpAddressTableIndicator, cols, decodeIpAddressTableRow, equalIpAddressTableRow, mergeIpAddressTableRow, allOpts...)
+	w, _ := snmp.NewWatcher[IPAddressTableRow](ctx, sess, IPAddressTableIndicator, cols, decodeIPAddressTableRow, equalIPAddressTableRow, mergeIPAddressTableRow, allOpts...)
 
-	return &IpAddressTableWatcher{w: w}
+	return &IPAddressTableWatcher{w: w}
 }
 
-// IpNetToPhysicalPhysAddress is the column ipNetToPhysicalPhysAddress of table ipNetToPhysicalTable.
+// IPNetToPhysicalPhysAddress is the column ipNetToPhysicalPhysAddress of table ipNetToPhysicalTable.
 // The media-dependent `physical' address. As the entries in this table are
 // typically not persistent when this object is written the entity SHOULD
 // NOT save the change to non-volatile storage.
-var IpNetToPhysicalPhysAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 4), snmp.KindOctetString, snmp.DecodePhysAddress)
+var IPNetToPhysicalPhysAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 4), snmp.KindOctetString, snmp.DecodePhysAddress)
 
-// IpNetToPhysicalLastUpdated is the column ipNetToPhysicalLastUpdated of table ipNetToPhysicalTable.
+// IPNetToPhysicalLastUpdated is the column ipNetToPhysicalLastUpdated of table ipNetToPhysicalTable.
 // The value of sysUpTime at the time this entry was last updated. If this
 // entry was updated prior to the last re- initialization of the local
 // network management subsystem, then this object contains a zero value.
-var IpNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5), snmp.KindTimeTicks, snmp.DecodeUint32)
+var IPNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5), snmp.KindTimeTicks, snmp.DecodeUint32)
 
-// IpNetToPhysicalType is the column ipNetToPhysicalType of table ipNetToPhysicalTable.
+// IPNetToPhysicalType is the column ipNetToPhysicalType of table ipNetToPhysicalTable.
 // The type of mapping. Setting this object to the value invalid(2) has the
 // effect of invalidating the corresponding entry in the
 // ipNetToPhysicalTable. That is, it effectively dis- associates the
@@ -7963,28 +7963,28 @@ var IpNetToPhysicalLastUpdated = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1,
 // is provided for an entity's own interface address. As the entries in
 // this table are typically not persistent when this object is written the
 // entity SHOULD NOT save the change to non-volatile storage.
-var IpNetToPhysicalType = snmp.NewColumn[IpNetToPhysicalTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (IpNetToPhysicalTypeValue, error) {
+var IPNetToPhysicalType = snmp.NewColumn[IPNetToPhysicalTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (IPNetToPhysicalTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpNetToPhysicalTypeValue(0), err
+		return IPNetToPhysicalTypeValue(0), err
 	}
-	return IpNetToPhysicalTypeValue(v), nil
+	return IPNetToPhysicalTypeValue(v), nil
 })
 
-// IpNetToPhysicalState is the column ipNetToPhysicalState of table ipNetToPhysicalTable.
+// IPNetToPhysicalState is the column ipNetToPhysicalState of table ipNetToPhysicalTable.
 // The Neighbor Unreachability Detection state for the interface when the
 // address mapping in this entry is used. If Neighbor Unreachability
 // Detection is not in use (e.g. for IPv4), this object is always
 // unknown(6).
-var IpNetToPhysicalState = snmp.NewColumn[IpNetToPhysicalStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (IpNetToPhysicalStateValue, error) {
+var IPNetToPhysicalState = snmp.NewColumn[IPNetToPhysicalStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (IPNetToPhysicalStateValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpNetToPhysicalStateValue(0), err
+		return IPNetToPhysicalStateValue(0), err
 	}
-	return IpNetToPhysicalStateValue(v), nil
+	return IPNetToPhysicalStateValue(v), nil
 })
 
-// IpNetToPhysicalRowStatus is the column ipNetToPhysicalRowStatus of table ipNetToPhysicalTable.
+// IPNetToPhysicalRowStatus is the column ipNetToPhysicalRowStatus of table ipNetToPhysicalTable.
 // The status of this conceptual row. The RowStatus TC requires that this
 // DESCRIPTION clause states under which circumstances other objects in
 // this row can be modified. The value of this object has no effect on
@@ -7993,44 +7993,44 @@ var IpNetToPhysicalState = snmp.NewColumn[IpNetToPhysicalStateValue](snmp.MustOI
 // ipNetToPhysicalPhysAddress object has been set. Note that if the
 // ipNetToPhysicalType is set to 'invalid', the managed node may delete the
 // entry independent of the state of this object.
-var IpNetToPhysicalRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 8), snmp.KindInteger32, snmp.DecodeRowStatus)
+var IPNetToPhysicalRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 8), snmp.KindInteger32, snmp.DecodeRowStatus)
 
-// IpNetToPhysicalTableKey is the decoded INDEX of one ipNetToPhysicalTable row, one field per
+// IPNetToPhysicalTableKey is the decoded INDEX of one ipNetToPhysicalTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpNetToPhysicalTableKey struct {
-	IpNetToPhysicalIfIndex        ifmib.InterfaceIndex
-	IpNetToPhysicalNetAddressType int32
-	IpNetToPhysicalNetAddress     string
+type IPNetToPhysicalTableKey struct {
+	IPNetToPhysicalIfIndex        ifmib.InterfaceIndex
+	IPNetToPhysicalNetAddressType int32
+	IPNetToPhysicalNetAddress     string
 }
 
 var ipNetToPhysicalTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}}
 
-// decodeIpNetToPhysicalTableKey decodes the instance suffix of one ipNetToPhysicalTable row. ok is false
+// decodeIPNetToPhysicalTableKey decodes the instance suffix of one ipNetToPhysicalTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpNetToPhysicalTableKey(idx snmp.OID) (IpNetToPhysicalTableKey, bool) {
+func decodeIPNetToPhysicalTableKey(idx snmp.OID) (IPNetToPhysicalTableKey, bool) {
 	var parts [3]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipNetToPhysicalTableIndexShapes) {
-		return IpNetToPhysicalTableKey{}, false
+		return IPNetToPhysicalTableKey{}, false
 	}
-	return IpNetToPhysicalTableKey{IpNetToPhysicalIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IpNetToPhysicalNetAddressType: int32(parts[1].Integer), IpNetToPhysicalNetAddress: string(parts[2].Octets)}, true
+	return IPNetToPhysicalTableKey{IPNetToPhysicalIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IPNetToPhysicalNetAddressType: int32(parts[1].Integer), IPNetToPhysicalNetAddress: string(parts[2].Octets)}, true
 }
 
-// IpNetToPhysicalTableRow is one row of ipNetToPhysicalTable. Key is the decoded INDEX; a
+// IPNetToPhysicalTableRow is one row of ipNetToPhysicalTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpNetToPhysicalTableRow.KeyValid] reports which. The remaining fields are
+// [IPNetToPhysicalTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpNetToPhysicalTableRow.Observed] to tell a reported zero from a column the
+// [IPNetToPhysicalTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpNetToPhysicalTableRow struct {
-	Key                        IpNetToPhysicalTableKey
+type IPNetToPhysicalTableRow struct {
+	Key                        IPNetToPhysicalTableKey
 	keyValid                   bool
-	IpNetToPhysicalPhysAddress []byte
-	IpNetToPhysicalLastUpdated uint32
-	IpNetToPhysicalType        IpNetToPhysicalTypeValue
-	IpNetToPhysicalState       IpNetToPhysicalStateValue
-	IpNetToPhysicalRowStatus   snmp.RowStatus
+	IPNetToPhysicalPhysAddress []byte
+	IPNetToPhysicalLastUpdated uint32
+	IPNetToPhysicalType        IPNetToPhysicalTypeValue
+	IPNetToPhysicalState       IPNetToPhysicalStateValue
+	IPNetToPhysicalRowStatus   snmp.RowStatus
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -8041,7 +8041,7 @@ type IpNetToPhysicalTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpNetToPhysicalTableRow) KeyValid() bool {
+func (r IPNetToPhysicalTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -8049,27 +8049,27 @@ func (r IpNetToPhysicalTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpNetToPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPNetToPhysicalTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpNetToPhysicalPhysAddress.Key():
+	case IPNetToPhysicalPhysAddress.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpNetToPhysicalLastUpdated.Key():
+	case IPNetToPhysicalLastUpdated.Key():
 		return r.observed[0]&(1<<1) != 0
-	case IpNetToPhysicalType.Key():
+	case IPNetToPhysicalType.Key():
 		return r.observed[0]&(1<<2) != 0
-	case IpNetToPhysicalState.Key():
+	case IPNetToPhysicalState.Key():
 		return r.observed[0]&(1<<3) != 0
-	case IpNetToPhysicalRowStatus.Key():
+	case IPNetToPhysicalRowStatus.Key():
 		return r.observed[0]&(1<<4) != 0
 	}
 
 	return false
 }
 
-// IpNetToPhysicalTableWalker streams selected columns of ipNetToPhysicalTable.
-// The zero value is not usable; construct via IpNetToPhysicalTable.Walk(ctx, sess, cols...).
+// IPNetToPhysicalTableWalker streams selected columns of ipNetToPhysicalTable.
+// The zero value is not usable; construct via IPNetToPhysicalTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpNetToPhysicalTableWalker struct {
+type IPNetToPhysicalTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -8080,92 +8080,92 @@ type IpNetToPhysicalTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysicalTableRow] {
-	return func(yield func(snmp.OID, IpNetToPhysicalTableRow) bool) {
+func (tw *IPNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IPNetToPhysicalTableRow] {
+	return func(yield func(snmp.OID, IPNetToPhysicalTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpNetToPhysicalTableRow
-			row.Key, row.keyValid = decodeIpNetToPhysicalTableKey(idx)
+			var row IPNetToPhysicalTableRow
+			row.Key, row.keyValid = decodeIPNetToPhysicalTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpNetToPhysicalPhysAddress.Key():
+				case IPNetToPhysicalPhysAddress.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToPhysicalPhysAddress.Decode(vb)
+						dv, dErr := IPNetToPhysicalPhysAddress.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToPhysicalPhysAddress = dv
+							row.IPNetToPhysicalPhysAddress = dv
 							row.observed[0] |= 1 << 0
 						}
 					}
-				case IpNetToPhysicalLastUpdated.Key():
+				case IPNetToPhysicalLastUpdated.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.IpNetToPhysicalLastUpdated = v
+						row.IPNetToPhysicalLastUpdated = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpNetToPhysicalLastUpdated.Decode(vb)
+							dv, dErr := IPNetToPhysicalLastUpdated.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpNetToPhysicalLastUpdated = dv
+								row.IPNetToPhysicalLastUpdated = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case IpNetToPhysicalType.Key():
+				case IPNetToPhysicalType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpNetToPhysicalType = IpNetToPhysicalTypeValue(v)
+						row.IPNetToPhysicalType = IPNetToPhysicalTypeValue(v)
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpNetToPhysicalType.Decode(vb)
+							dv, dErr := IPNetToPhysicalType.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpNetToPhysicalType = dv
+								row.IPNetToPhysicalType = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
-				case IpNetToPhysicalState.Key():
+				case IPNetToPhysicalState.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpNetToPhysicalState = IpNetToPhysicalStateValue(v)
+						row.IPNetToPhysicalState = IPNetToPhysicalStateValue(v)
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpNetToPhysicalState.Decode(vb)
+							dv, dErr := IPNetToPhysicalState.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpNetToPhysicalState = dv
+								row.IPNetToPhysicalState = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case IpNetToPhysicalRowStatus.Key():
+				case IPNetToPhysicalRowStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := IpNetToPhysicalRowStatus.Decode(vb)
+						dv, dErr := IPNetToPhysicalRowStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.IpNetToPhysicalRowStatus = dv
+							row.IPNetToPhysicalRowStatus = dv
 							row.observed[0] |= 1 << 4
 						}
 					}
@@ -8184,18 +8184,18 @@ func (tw *IpNetToPhysicalTableWalker) Iter() iter.Seq2[snmp.OID, IpNetToPhysical
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpNetToPhysicalTableWalker) Err() error {
+func (tw *IPNetToPhysicalTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipNetToPhysicalTableT is the singleton type of IpNetToPhysicalTable.
+// ipNetToPhysicalTableT is the singleton type of IPNetToPhysicalTable.
 type ipNetToPhysicalTableT struct{}
 
-// IpNetToPhysicalTable is the descriptor for the ipNetToPhysicalTable table.
-var IpNetToPhysicalTable ipNetToPhysicalTableT
+// IPNetToPhysicalTable is the descriptor for the ipNetToPhysicalTable table.
+var IPNetToPhysicalTable ipNetToPhysicalTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpNetToPhysicalTableWalker) Close() {
+func (tw *IPNetToPhysicalTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -8203,7 +8203,7 @@ func (tw *IpNetToPhysicalTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipNetToPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpNetToPhysicalTableWalker {
+func (t ipNetToPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPNetToPhysicalTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -8213,25 +8213,25 @@ func (t ipNetToPhysicalTableT) Walk(ctx context.Context, sess snmp.Session, cols
 // for the table or declare it as a dependency.
 func (ipNetToPhysicalTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		Indicator: IpNetToPhysicalTableIndicator,
-		KeyType:   "IpNetToPhysicalTableKey",
+		Indicator: IPNetToPhysicalTableIndicator,
+		KeyType:   "IPNetToPhysicalTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipNetToPhysicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpNetToPhysicalTableWalker {
+func (ipNetToPhysicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPNetToPhysicalTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpNetToPhysicalPhysAddress.Key(), IpNetToPhysicalLastUpdated.Key(), IpNetToPhysicalType.Key(), IpNetToPhysicalState.Key(), IpNetToPhysicalRowStatus.Key():
+		case IPNetToPhysicalPhysAddress.Key(), IPNetToPhysicalLastUpdated.Key(), IPNetToPhysicalType.Key(), IPNetToPhysicalState.Key(), IPNetToPhysicalRowStatus.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipNetToPhysicalTable.Walk: column %s", c.OID()))
-			return &IpNetToPhysicalTableWalker{rw: w}
+			return &IPNetToPhysicalTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -8240,19 +8240,19 @@ func (ipNetToPhysicalTableT) WalkWithOptions(ctx context.Context, sess snmp.Sess
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpNetToPhysicalTableWalker{
+	return &IPNetToPhysicalTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// decodeIpNetToPhysicalTableRow decodes one row of IpNetToPhysicalTable from the supplied
+// decodeIPNetToPhysicalTableRow decodes one row of IPNetToPhysicalTable from the supplied
 // VarBinds. Each VarBind's OID determines which row field it populates
 // (via the column's last sub-id). VarBinds with unknown column-ids are
 // ignored. Absent columns leave their field at its zero value.
-func decodeIpNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpNetToPhysicalTableRow, error) {
-	var row IpNetToPhysicalTableRow
-	row.Key, row.keyValid = decodeIpNetToPhysicalTableKey(idx)
+func decodeIPNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IPNetToPhysicalTableRow, error) {
+	var row IPNetToPhysicalTableRow
+	row.Key, row.keyValid = decodeIPNetToPhysicalTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -8266,39 +8266,39 @@ func decodeIpNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpNetToPhy
 		colID := o.At(entryLen)
 		switch colID {
 		case 4:
-			dv, derr := IpNetToPhysicalPhysAddress.Decode(vb)
+			dv, derr := IPNetToPhysicalPhysAddress.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpNetToPhysicalPhysAddress = dv
+			row.IPNetToPhysicalPhysAddress = dv
 			row.observed[0] |= 1 << 0
 		case 5:
-			dv, derr := IpNetToPhysicalLastUpdated.Decode(vb)
+			dv, derr := IPNetToPhysicalLastUpdated.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpNetToPhysicalLastUpdated = dv
+			row.IPNetToPhysicalLastUpdated = dv
 			row.observed[0] |= 1 << 1
 		case 6:
-			dv, derr := IpNetToPhysicalType.Decode(vb)
+			dv, derr := IPNetToPhysicalType.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpNetToPhysicalType = dv
+			row.IPNetToPhysicalType = dv
 			row.observed[0] |= 1 << 2
 		case 7:
-			dv, derr := IpNetToPhysicalState.Decode(vb)
+			dv, derr := IPNetToPhysicalState.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpNetToPhysicalState = dv
+			row.IPNetToPhysicalState = dv
 			row.observed[0] |= 1 << 3
 		case 8:
-			dv, derr := IpNetToPhysicalRowStatus.Decode(vb)
+			dv, derr := IPNetToPhysicalRowStatus.Decode(vb)
 			if derr != nil {
 				return row, derr
 			}
-			row.IpNetToPhysicalRowStatus = dv
+			row.IPNetToPhysicalRowStatus = dv
 			row.observed[0] |= 1 << 4
 		}
 	}
@@ -8306,22 +8306,22 @@ func decodeIpNetToPhysicalTableRow(idx snmp.OID, vbs []snmp.VarBind) (IpNetToPhy
 	return row, nil
 }
 
-// equalIpNetToPhysicalTableRow compares two IpNetToPhysicalTableRow values for equality.
+// equalIPNetToPhysicalTableRow compares two IPNetToPhysicalTableRow values for equality.
 // Used by [snmp.Watcher] to compute ChangeKindModified emits. Field-by-
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
-func equalIpNetToPhysicalTableRow(a IpNetToPhysicalTableRow, b IpNetToPhysicalTableRow) bool {
-	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && bytes.Equal(a.IpNetToPhysicalPhysAddress, b.IpNetToPhysicalPhysAddress) && a.IpNetToPhysicalLastUpdated == b.IpNetToPhysicalLastUpdated && a.IpNetToPhysicalType == b.IpNetToPhysicalType && a.IpNetToPhysicalState == b.IpNetToPhysicalState && a.IpNetToPhysicalRowStatus == b.IpNetToPhysicalRowStatus
+func equalIPNetToPhysicalTableRow(a IPNetToPhysicalTableRow, b IPNetToPhysicalTableRow) bool {
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && bytes.Equal(a.IPNetToPhysicalPhysAddress, b.IPNetToPhysicalPhysAddress) && a.IPNetToPhysicalLastUpdated == b.IPNetToPhysicalLastUpdated && a.IPNetToPhysicalType == b.IPNetToPhysicalType && a.IPNetToPhysicalState == b.IPNetToPhysicalState && a.IPNetToPhysicalRowStatus == b.IPNetToPhysicalRowStatus
 }
 
-// mergeIpNetToPhysicalTableRow merges the values decoded from vbs into dst, leaving fields
+// mergeIPNetToPhysicalTableRow merges the values decoded from vbs into dst, leaving fields
 // whose columns are not present in vbs unchanged. Used by [snmp.Watcher]
 // to maintain per-row state under partial-column fetches (Counter-tier,
 // Static-tier). Best-effort: individual VarBind decode failures are
 // silently skipped rather than propagated, because partial-fetch ticks
 // surface transient errors through [snmp.Watcher.LastTickErr] at the
 // call-site granularity rather than per-VarBind.
-func mergeIpNetToPhysicalTableRow(dst *IpNetToPhysicalTableRow, vbs []snmp.VarBind) {
+func mergeIPNetToPhysicalTableRow(dst *IPNetToPhysicalTableRow, vbs []snmp.VarBind) {
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
 		if o.Len() == 0 {
@@ -8334,82 +8334,82 @@ func mergeIpNetToPhysicalTableRow(dst *IpNetToPhysicalTableRow, vbs []snmp.VarBi
 		colID := o.At(entryLen)
 		switch colID {
 		case 4:
-			dv, derr := IpNetToPhysicalPhysAddress.Decode(vb)
+			dv, derr := IPNetToPhysicalPhysAddress.Decode(vb)
 			if derr == nil {
-				dst.IpNetToPhysicalPhysAddress = dv
+				dst.IPNetToPhysicalPhysAddress = dv
 				dst.observed[0] |= 1 << 0
 			}
 		case 5:
-			dv, derr := IpNetToPhysicalLastUpdated.Decode(vb)
+			dv, derr := IPNetToPhysicalLastUpdated.Decode(vb)
 			if derr == nil {
-				dst.IpNetToPhysicalLastUpdated = dv
+				dst.IPNetToPhysicalLastUpdated = dv
 				dst.observed[0] |= 1 << 1
 			}
 		case 6:
-			dv, derr := IpNetToPhysicalType.Decode(vb)
+			dv, derr := IPNetToPhysicalType.Decode(vb)
 			if derr == nil {
-				dst.IpNetToPhysicalType = dv
+				dst.IPNetToPhysicalType = dv
 				dst.observed[0] |= 1 << 2
 			}
 		case 7:
-			dv, derr := IpNetToPhysicalState.Decode(vb)
+			dv, derr := IPNetToPhysicalState.Decode(vb)
 			if derr == nil {
-				dst.IpNetToPhysicalState = dv
+				dst.IPNetToPhysicalState = dv
 				dst.observed[0] |= 1 << 3
 			}
 		case 8:
-			dv, derr := IpNetToPhysicalRowStatus.Decode(vb)
+			dv, derr := IPNetToPhysicalRowStatus.Decode(vb)
 			if derr == nil {
-				dst.IpNetToPhysicalRowStatus = dv
+				dst.IPNetToPhysicalRowStatus = dv
 				dst.observed[0] |= 1 << 4
 			}
 		}
 	}
 }
 
-// IpNetToPhysicalTableWatcher is a table-aware Watcher over IpNetToPhysicalTable.
-// The zero value is not usable; construct via IpNetToPhysicalTable.Watch(ctx, sess, cols, opts...).
+// IPNetToPhysicalTableWatcher is a table-aware Watcher over IPNetToPhysicalTable.
+// The zero value is not usable; construct via IPNetToPhysicalTable.Watch(ctx, sess, cols, opts...).
 // Use a single iterator. The other methods may be called concurrently.
-type IpNetToPhysicalTableWatcher struct {
-	w *snmp.Watcher[IpNetToPhysicalTableRow]
+type IPNetToPhysicalTableWatcher struct {
+	w *snmp.Watcher[IPNetToPhysicalTableRow]
 }
 
 // Iter returns the range-over-func view of the Watcher's event stream.
 // See [snmp.Watcher.Iter] for the contract.
-func (tw *IpNetToPhysicalTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IpNetToPhysicalTableRow]] {
+func (tw *IPNetToPhysicalTableWatcher) Iter() iter.Seq2[snmp.OID, snmp.WatchEvent[IPNetToPhysicalTableRow]] {
 	return tw.w.Iter()
 }
 
 // Err returns the underlying Watcher's terminal error, or nil if it
 // completed naturally. See [snmp.Watcher.Err].
-func (tw *IpNetToPhysicalTableWatcher) Err() error {
+func (tw *IPNetToPhysicalTableWatcher) Err() error {
 	return tw.w.Err()
 }
 
 // Close signals the Watcher's tick goroutine to terminate. Idempotent.
 // See [snmp.Watcher.Close].
-func (tw *IpNetToPhysicalTableWatcher) Close() error {
+func (tw *IPNetToPhysicalTableWatcher) Close() error {
 	return tw.w.Close()
 }
 
 // Fallback reports whether the Watcher has transitioned to fallback
 // mode. See [snmp.Watcher.Fallback].
-func (tw *IpNetToPhysicalTableWatcher) Fallback() bool {
+func (tw *IPNetToPhysicalTableWatcher) Fallback() bool {
 	return tw.w.Fallback()
 }
 
 // LastTickErr returns the most-recent transient per-tick error.
 // See [snmp.Watcher.LastTickErr].
-func (tw *IpNetToPhysicalTableWatcher) LastTickErr() error {
+func (tw *IPNetToPhysicalTableWatcher) LastTickErr() error {
 	return tw.w.LastTickErr()
 }
 
 // TableRoot returns the OID of the table this Watcher operates over.
-func (tw *IpNetToPhysicalTableWatcher) TableRoot() snmp.OID {
+func (tw *IPNetToPhysicalTableWatcher) TableRoot() snmp.OID {
 	return tw.w.TableRoot()
 }
 
-// Watch opens a long-lived watch on IpNetToPhysicalTable.
+// Watch opens a long-lived watch on IPNetToPhysicalTable.
 //
 // cols selects the columns whose values are reported on every emitted
 // event. opts override cadence bounds, per-column tier classifications,
@@ -8434,102 +8434,102 @@ func (tw *IpNetToPhysicalTableWatcher) TableRoot() snmp.OID {
 // indicator column, etc.) Watch returns a Watcher whose Err() returns
 // the cause immediately; range loops exit without emitting events and
 // Close is a no-op.
-func (ipNetToPhysicalTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IpNetToPhysicalTableWatcher {
+func (ipNetToPhysicalTableT) Watch(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn, opts ...snmp.WatchOption) *IPNetToPhysicalTableWatcher {
 	allOpts := append([]snmp.WatchOption{snmp.WithTierLookup(ColumnTier)}, opts...)
-	w, _ := snmp.NewWatcher[IpNetToPhysicalTableRow](ctx, sess, IpNetToPhysicalTableIndicator, cols, decodeIpNetToPhysicalTableRow, equalIpNetToPhysicalTableRow, mergeIpNetToPhysicalTableRow, allOpts...)
+	w, _ := snmp.NewWatcher[IPNetToPhysicalTableRow](ctx, sess, IPNetToPhysicalTableIndicator, cols, decodeIPNetToPhysicalTableRow, equalIPNetToPhysicalTableRow, mergeIPNetToPhysicalTableRow, allOpts...)
 
-	return &IpNetToPhysicalTableWatcher{w: w}
+	return &IPNetToPhysicalTableWatcher{w: w}
 }
 
-// Ipv6ScopeZoneIndexLinkLocal is the column ipv6ScopeZoneIndexLinkLocal of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexLinkLocal is the column ipv6ScopeZoneIndexLinkLocal of table ipv6ScopeZoneIndexTable.
 // The zone index for the link-local scope on this interface.
-var Ipv6ScopeZoneIndexLinkLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexLinkLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 2), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndex3 is the column ipv6ScopeZoneIndex3 of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndex3 is the column ipv6ScopeZoneIndex3 of table ipv6ScopeZoneIndexTable.
 // The zone index for scope 3 on this interface.
-var Ipv6ScopeZoneIndex3 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndex3 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexAdminLocal is the column ipv6ScopeZoneIndexAdminLocal of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexAdminLocal is the column ipv6ScopeZoneIndexAdminLocal of table ipv6ScopeZoneIndexTable.
 // The zone index for the admin-local scope on this interface.
-var Ipv6ScopeZoneIndexAdminLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexAdminLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexSiteLocal is the column ipv6ScopeZoneIndexSiteLocal of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexSiteLocal is the column ipv6ScopeZoneIndexSiteLocal of table ipv6ScopeZoneIndexTable.
 // The zone index for the site-local scope on this interface.
-var Ipv6ScopeZoneIndexSiteLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 5), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexSiteLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 5), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndex6 is the column ipv6ScopeZoneIndex6 of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndex6 is the column ipv6ScopeZoneIndex6 of table ipv6ScopeZoneIndexTable.
 // The zone index for scope 6 on this interface.
-var Ipv6ScopeZoneIndex6 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 6), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndex6 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 6), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndex7 is the column ipv6ScopeZoneIndex7 of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndex7 is the column ipv6ScopeZoneIndex7 of table ipv6ScopeZoneIndexTable.
 // The zone index for scope 7 on this interface.
-var Ipv6ScopeZoneIndex7 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 7), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndex7 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 7), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexOrganizationLocal is the column ipv6ScopeZoneIndexOrganizationLocal of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexOrganizationLocal is the column ipv6ScopeZoneIndexOrganizationLocal of table ipv6ScopeZoneIndexTable.
 // The zone index for the organization-local scope on this interface.
-var Ipv6ScopeZoneIndexOrganizationLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexOrganizationLocal = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndex9 is the column ipv6ScopeZoneIndex9 of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndex9 is the column ipv6ScopeZoneIndex9 of table ipv6ScopeZoneIndexTable.
 // The zone index for scope 9 on this interface.
-var Ipv6ScopeZoneIndex9 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 9), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndex9 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 9), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexA is the column ipv6ScopeZoneIndexA of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexA is the column ipv6ScopeZoneIndexA of table ipv6ScopeZoneIndexTable.
 // The zone index for scope A on this interface.
-var Ipv6ScopeZoneIndexA = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 10), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexA = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 10), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexB is the column ipv6ScopeZoneIndexB of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexB is the column ipv6ScopeZoneIndexB of table ipv6ScopeZoneIndexTable.
 // The zone index for scope B on this interface.
-var Ipv6ScopeZoneIndexB = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 11), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexB = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 11), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexC is the column ipv6ScopeZoneIndexC of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexC is the column ipv6ScopeZoneIndexC of table ipv6ScopeZoneIndexTable.
 // The zone index for scope C on this interface.
-var Ipv6ScopeZoneIndexC = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 12), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexC = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 12), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexD is the column ipv6ScopeZoneIndexD of table ipv6ScopeZoneIndexTable.
+// IPv6ScopeZoneIndexD is the column ipv6ScopeZoneIndexD of table ipv6ScopeZoneIndexTable.
 // The zone index for scope D on this interface.
-var Ipv6ScopeZoneIndexD = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 13), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6ScopeZoneIndexD = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 13), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6ScopeZoneIndexTableKey is the decoded INDEX of one ipv6ScopeZoneIndexTable row, one field per
+// IPv6ScopeZoneIndexTableKey is the decoded INDEX of one ipv6ScopeZoneIndexTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type Ipv6ScopeZoneIndexTableKey struct {
-	Ipv6ScopeZoneIndexIfIndex ifmib.InterfaceIndex
+type IPv6ScopeZoneIndexTableKey struct {
+	IPv6ScopeZoneIndexIfIndex ifmib.InterfaceIndex
 }
 
 var ipv6ScopeZoneIndexTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// decodeIpv6ScopeZoneIndexTableKey decodes the instance suffix of one ipv6ScopeZoneIndexTable row. ok is false
+// decodeIPv6ScopeZoneIndexTableKey decodes the instance suffix of one ipv6ScopeZoneIndexTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpv6ScopeZoneIndexTableKey(idx snmp.OID) (Ipv6ScopeZoneIndexTableKey, bool) {
+func decodeIPv6ScopeZoneIndexTableKey(idx snmp.OID) (IPv6ScopeZoneIndexTableKey, bool) {
 	var parts [1]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipv6ScopeZoneIndexTableIndexShapes) {
-		return Ipv6ScopeZoneIndexTableKey{}, false
+		return IPv6ScopeZoneIndexTableKey{}, false
 	}
-	return Ipv6ScopeZoneIndexTableKey{Ipv6ScopeZoneIndexIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+	return IPv6ScopeZoneIndexTableKey{IPv6ScopeZoneIndexIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
 }
 
-// Ipv6ScopeZoneIndexTableRow is one row of ipv6ScopeZoneIndexTable. Key is the decoded INDEX; a
+// IPv6ScopeZoneIndexTableRow is one row of ipv6ScopeZoneIndexTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [Ipv6ScopeZoneIndexTableRow.KeyValid] reports which. The remaining fields are
+// [IPv6ScopeZoneIndexTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [Ipv6ScopeZoneIndexTableRow.Observed] to tell a reported zero from a column the
+// [IPv6ScopeZoneIndexTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type Ipv6ScopeZoneIndexTableRow struct {
-	Key                                 Ipv6ScopeZoneIndexTableKey
+type IPv6ScopeZoneIndexTableRow struct {
+	Key                                 IPv6ScopeZoneIndexTableKey
 	keyValid                            bool
-	Ipv6ScopeZoneIndexLinkLocal         uint32
-	Ipv6ScopeZoneIndex3                 uint32
-	Ipv6ScopeZoneIndexAdminLocal        uint32
-	Ipv6ScopeZoneIndexSiteLocal         uint32
-	Ipv6ScopeZoneIndex6                 uint32
-	Ipv6ScopeZoneIndex7                 uint32
-	Ipv6ScopeZoneIndexOrganizationLocal uint32
-	Ipv6ScopeZoneIndex9                 uint32
-	Ipv6ScopeZoneIndexA                 uint32
-	Ipv6ScopeZoneIndexB                 uint32
-	Ipv6ScopeZoneIndexC                 uint32
-	Ipv6ScopeZoneIndexD                 uint32
+	IPv6ScopeZoneIndexLinkLocal         uint32
+	IPv6ScopeZoneIndex3                 uint32
+	IPv6ScopeZoneIndexAdminLocal        uint32
+	IPv6ScopeZoneIndexSiteLocal         uint32
+	IPv6ScopeZoneIndex6                 uint32
+	IPv6ScopeZoneIndex7                 uint32
+	IPv6ScopeZoneIndexOrganizationLocal uint32
+	IPv6ScopeZoneIndex9                 uint32
+	IPv6ScopeZoneIndexA                 uint32
+	IPv6ScopeZoneIndexB                 uint32
+	IPv6ScopeZoneIndexC                 uint32
+	IPv6ScopeZoneIndexD                 uint32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -8540,7 +8540,7 @@ type Ipv6ScopeZoneIndexTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r Ipv6ScopeZoneIndexTableRow) KeyValid() bool {
+func (r IPv6ScopeZoneIndexTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -8548,41 +8548,41 @@ func (r Ipv6ScopeZoneIndexTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r Ipv6ScopeZoneIndexTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPv6ScopeZoneIndexTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case Ipv6ScopeZoneIndexLinkLocal.Key():
+	case IPv6ScopeZoneIndexLinkLocal.Key():
 		return r.observed[0]&(1<<0) != 0
-	case Ipv6ScopeZoneIndex3.Key():
+	case IPv6ScopeZoneIndex3.Key():
 		return r.observed[0]&(1<<1) != 0
-	case Ipv6ScopeZoneIndexAdminLocal.Key():
+	case IPv6ScopeZoneIndexAdminLocal.Key():
 		return r.observed[0]&(1<<2) != 0
-	case Ipv6ScopeZoneIndexSiteLocal.Key():
+	case IPv6ScopeZoneIndexSiteLocal.Key():
 		return r.observed[0]&(1<<3) != 0
-	case Ipv6ScopeZoneIndex6.Key():
+	case IPv6ScopeZoneIndex6.Key():
 		return r.observed[0]&(1<<4) != 0
-	case Ipv6ScopeZoneIndex7.Key():
+	case IPv6ScopeZoneIndex7.Key():
 		return r.observed[0]&(1<<5) != 0
-	case Ipv6ScopeZoneIndexOrganizationLocal.Key():
+	case IPv6ScopeZoneIndexOrganizationLocal.Key():
 		return r.observed[0]&(1<<6) != 0
-	case Ipv6ScopeZoneIndex9.Key():
+	case IPv6ScopeZoneIndex9.Key():
 		return r.observed[0]&(1<<7) != 0
-	case Ipv6ScopeZoneIndexA.Key():
+	case IPv6ScopeZoneIndexA.Key():
 		return r.observed[0]&(1<<8) != 0
-	case Ipv6ScopeZoneIndexB.Key():
+	case IPv6ScopeZoneIndexB.Key():
 		return r.observed[0]&(1<<9) != 0
-	case Ipv6ScopeZoneIndexC.Key():
+	case IPv6ScopeZoneIndexC.Key():
 		return r.observed[0]&(1<<10) != 0
-	case Ipv6ScopeZoneIndexD.Key():
+	case IPv6ScopeZoneIndexD.Key():
 		return r.observed[0]&(1<<11) != 0
 	}
 
 	return false
 }
 
-// Ipv6ScopeZoneIndexTableWalker streams selected columns of ipv6ScopeZoneIndexTable.
-// The zero value is not usable; construct via Ipv6ScopeZoneIndexTable.Walk(ctx, sess, cols...).
+// IPv6ScopeZoneIndexTableWalker streams selected columns of ipv6ScopeZoneIndexTable.
+// The zero value is not usable; construct via IPv6ScopeZoneIndexTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type Ipv6ScopeZoneIndexTableWalker struct {
+type IPv6ScopeZoneIndexTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -8593,227 +8593,227 @@ type Ipv6ScopeZoneIndexTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZoneIndexTableRow] {
-	return func(yield func(snmp.OID, Ipv6ScopeZoneIndexTableRow) bool) {
+func (tw *IPv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, IPv6ScopeZoneIndexTableRow] {
+	return func(yield func(snmp.OID, IPv6ScopeZoneIndexTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row Ipv6ScopeZoneIndexTableRow
-			row.Key, row.keyValid = decodeIpv6ScopeZoneIndexTableKey(idx)
+			var row IPv6ScopeZoneIndexTableRow
+			row.Key, row.keyValid = decodeIPv6ScopeZoneIndexTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case Ipv6ScopeZoneIndexLinkLocal.Key():
+				case IPv6ScopeZoneIndexLinkLocal.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexLinkLocal = v
+						row.IPv6ScopeZoneIndexLinkLocal = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexLinkLocal.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexLinkLocal.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexLinkLocal = dv
+								row.IPv6ScopeZoneIndexLinkLocal = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndex3.Key():
+				case IPv6ScopeZoneIndex3.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndex3 = v
+						row.IPv6ScopeZoneIndex3 = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndex3.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndex3.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndex3 = dv
+								row.IPv6ScopeZoneIndex3 = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexAdminLocal.Key():
+				case IPv6ScopeZoneIndexAdminLocal.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexAdminLocal = v
+						row.IPv6ScopeZoneIndexAdminLocal = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexAdminLocal.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexAdminLocal.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexAdminLocal = dv
+								row.IPv6ScopeZoneIndexAdminLocal = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexSiteLocal.Key():
+				case IPv6ScopeZoneIndexSiteLocal.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexSiteLocal = v
+						row.IPv6ScopeZoneIndexSiteLocal = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexSiteLocal.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexSiteLocal.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexSiteLocal = dv
+								row.IPv6ScopeZoneIndexSiteLocal = dv
 								row.observed[0] |= 1 << 3
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndex6.Key():
+				case IPv6ScopeZoneIndex6.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndex6 = v
+						row.IPv6ScopeZoneIndex6 = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndex6.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndex6.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndex6 = dv
+								row.IPv6ScopeZoneIndex6 = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndex7.Key():
+				case IPv6ScopeZoneIndex7.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndex7 = v
+						row.IPv6ScopeZoneIndex7 = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndex7.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndex7.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndex7 = dv
+								row.IPv6ScopeZoneIndex7 = dv
 								row.observed[0] |= 1 << 5
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexOrganizationLocal.Key():
+				case IPv6ScopeZoneIndexOrganizationLocal.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexOrganizationLocal = v
+						row.IPv6ScopeZoneIndexOrganizationLocal = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexOrganizationLocal.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexOrganizationLocal.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexOrganizationLocal = dv
+								row.IPv6ScopeZoneIndexOrganizationLocal = dv
 								row.observed[0] |= 1 << 6
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndex9.Key():
+				case IPv6ScopeZoneIndex9.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndex9 = v
+						row.IPv6ScopeZoneIndex9 = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndex9.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndex9.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndex9 = dv
+								row.IPv6ScopeZoneIndex9 = dv
 								row.observed[0] |= 1 << 7
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexA.Key():
+				case IPv6ScopeZoneIndexA.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexA = v
+						row.IPv6ScopeZoneIndexA = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexA.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexA.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexA = dv
+								row.IPv6ScopeZoneIndexA = dv
 								row.observed[0] |= 1 << 8
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexB.Key():
+				case IPv6ScopeZoneIndexB.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexB = v
+						row.IPv6ScopeZoneIndexB = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexB.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexB.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexB = dv
+								row.IPv6ScopeZoneIndexB = dv
 								row.observed[0] |= 1 << 9
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexC.Key():
+				case IPv6ScopeZoneIndexC.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexC = v
+						row.IPv6ScopeZoneIndexC = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexC.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexC.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexC = dv
+								row.IPv6ScopeZoneIndexC = dv
 								row.observed[0] |= 1 << 10
 							}
 						}
 					}
-				case Ipv6ScopeZoneIndexD.Key():
+				case IPv6ScopeZoneIndexD.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6ScopeZoneIndexD = v
+						row.IPv6ScopeZoneIndexD = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6ScopeZoneIndexD.Decode(vb)
+							dv, dErr := IPv6ScopeZoneIndexD.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6ScopeZoneIndexD = dv
+								row.IPv6ScopeZoneIndexD = dv
 								row.observed[0] |= 1 << 11
 							}
 						}
@@ -8833,18 +8833,18 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6ScopeZon
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *Ipv6ScopeZoneIndexTableWalker) Err() error {
+func (tw *IPv6ScopeZoneIndexTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipv6ScopeZoneIndexTableT is the singleton type of Ipv6ScopeZoneIndexTable.
+// ipv6ScopeZoneIndexTableT is the singleton type of IPv6ScopeZoneIndexTable.
 type ipv6ScopeZoneIndexTableT struct{}
 
-// Ipv6ScopeZoneIndexTable is the descriptor for the ipv6ScopeZoneIndexTable table.
-var Ipv6ScopeZoneIndexTable ipv6ScopeZoneIndexTableT
+// IPv6ScopeZoneIndexTable is the descriptor for the ipv6ScopeZoneIndexTable table.
+var IPv6ScopeZoneIndexTable ipv6ScopeZoneIndexTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Ipv6ScopeZoneIndexTableWalker) Close() {
+func (tw *IPv6ScopeZoneIndexTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -8852,7 +8852,7 @@ func (tw *Ipv6ScopeZoneIndexTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipv6ScopeZoneIndexTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6ScopeZoneIndexTableWalker {
+func (t ipv6ScopeZoneIndexTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPv6ScopeZoneIndexTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -8862,24 +8862,24 @@ func (t ipv6ScopeZoneIndexTableT) Walk(ctx context.Context, sess snmp.Session, c
 // for the table or declare it as a dependency.
 func (ipv6ScopeZoneIndexTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "Ipv6ScopeZoneIndexTableKey",
+		KeyType: "IPv6ScopeZoneIndexTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipv6ScopeZoneIndexTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv6ScopeZoneIndexTableWalker {
+func (ipv6ScopeZoneIndexTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPv6ScopeZoneIndexTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Ipv6ScopeZoneIndexLinkLocal.Key(), Ipv6ScopeZoneIndex3.Key(), Ipv6ScopeZoneIndexAdminLocal.Key(), Ipv6ScopeZoneIndexSiteLocal.Key(), Ipv6ScopeZoneIndex6.Key(), Ipv6ScopeZoneIndex7.Key(), Ipv6ScopeZoneIndexOrganizationLocal.Key(), Ipv6ScopeZoneIndex9.Key(), Ipv6ScopeZoneIndexA.Key(), Ipv6ScopeZoneIndexB.Key(), Ipv6ScopeZoneIndexC.Key(), Ipv6ScopeZoneIndexD.Key():
+		case IPv6ScopeZoneIndexLinkLocal.Key(), IPv6ScopeZoneIndex3.Key(), IPv6ScopeZoneIndexAdminLocal.Key(), IPv6ScopeZoneIndexSiteLocal.Key(), IPv6ScopeZoneIndex6.Key(), IPv6ScopeZoneIndex7.Key(), IPv6ScopeZoneIndexOrganizationLocal.Key(), IPv6ScopeZoneIndex9.Key(), IPv6ScopeZoneIndexA.Key(), IPv6ScopeZoneIndexB.Key(), IPv6ScopeZoneIndexC.Key(), IPv6ScopeZoneIndexD.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv6ScopeZoneIndexTable.Walk: column %s", c.OID()))
-			return &Ipv6ScopeZoneIndexTableWalker{rw: w}
+			return &IPv6ScopeZoneIndexTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -8888,68 +8888,68 @@ func (ipv6ScopeZoneIndexTableT) WalkWithOptions(ctx context.Context, sess snmp.S
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &Ipv6ScopeZoneIndexTableWalker{
+	return &IPv6ScopeZoneIndexTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// IpDefaultRouterLifetime is the column ipDefaultRouterLifetime of table ipDefaultRouterTable.
+// IPDefaultRouterLifetime is the column ipDefaultRouterLifetime of table ipDefaultRouterTable.
 // The remaining length of time, in seconds, that this router will continue
 // to be useful as a default router. A value of zero indicates that it is
 // no longer useful as a default router. It is left to the implementer of
 // the MIB as to whether a router with a lifetime of zero is removed from
 // the list. For IPv6, this value should be extracted from the router
 // advertisement messages.
-var IpDefaultRouterLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPDefaultRouterLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// IpDefaultRouterPreference is the column ipDefaultRouterPreference of table ipDefaultRouterTable.
+// IPDefaultRouterPreference is the column ipDefaultRouterPreference of table ipDefaultRouterTable.
 // An indication of preference given to this router as a default router as
 // described in he Default Router Preferences document. Treating the value
 // as a 2 bit signed integer allows for simple arithmetic comparisons. For
 // IPv4 routers or IPv6 routers that are not using the updated router
 // advertisement format, this object is set to medium (0).
-var IpDefaultRouterPreference = snmp.NewColumn[IpDefaultRouterPreferenceValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (IpDefaultRouterPreferenceValue, error) {
+var IPDefaultRouterPreference = snmp.NewColumn[IPDefaultRouterPreferenceValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (IPDefaultRouterPreferenceValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
-		return IpDefaultRouterPreferenceValue(0), err
+		return IPDefaultRouterPreferenceValue(0), err
 	}
-	return IpDefaultRouterPreferenceValue(v), nil
+	return IPDefaultRouterPreferenceValue(v), nil
 })
 
-// IpDefaultRouterTableKey is the decoded INDEX of one ipDefaultRouterTable row, one field per
+// IPDefaultRouterTableKey is the decoded INDEX of one ipDefaultRouterTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type IpDefaultRouterTableKey struct {
-	IpDefaultRouterAddressType int32
-	IpDefaultRouterAddress     string
-	IpDefaultRouterIfIndex     ifmib.InterfaceIndex
+type IPDefaultRouterTableKey struct {
+	IPDefaultRouterAddressType int32
+	IPDefaultRouterAddress     string
+	IPDefaultRouterIfIndex     ifmib.InterfaceIndex
 }
 
 var ipDefaultRouterTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}, {Kind: snmp.IndexInteger}}
 
-// decodeIpDefaultRouterTableKey decodes the instance suffix of one ipDefaultRouterTable row. ok is false
+// decodeIPDefaultRouterTableKey decodes the instance suffix of one ipDefaultRouterTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpDefaultRouterTableKey(idx snmp.OID) (IpDefaultRouterTableKey, bool) {
+func decodeIPDefaultRouterTableKey(idx snmp.OID) (IPDefaultRouterTableKey, bool) {
 	var parts [3]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipDefaultRouterTableIndexShapes) {
-		return IpDefaultRouterTableKey{}, false
+		return IPDefaultRouterTableKey{}, false
 	}
-	return IpDefaultRouterTableKey{IpDefaultRouterAddressType: int32(parts[0].Integer), IpDefaultRouterAddress: string(parts[1].Octets), IpDefaultRouterIfIndex: ifmib.InterfaceIndex(parts[2].Integer)}, true
+	return IPDefaultRouterTableKey{IPDefaultRouterAddressType: int32(parts[0].Integer), IPDefaultRouterAddress: string(parts[1].Octets), IPDefaultRouterIfIndex: ifmib.InterfaceIndex(parts[2].Integer)}, true
 }
 
-// IpDefaultRouterTableRow is one row of ipDefaultRouterTable. Key is the decoded INDEX; a
+// IPDefaultRouterTableRow is one row of ipDefaultRouterTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [IpDefaultRouterTableRow.KeyValid] reports which. The remaining fields are
+// [IPDefaultRouterTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [IpDefaultRouterTableRow.Observed] to tell a reported zero from a column the
+// [IPDefaultRouterTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type IpDefaultRouterTableRow struct {
-	Key                       IpDefaultRouterTableKey
+type IPDefaultRouterTableRow struct {
+	Key                       IPDefaultRouterTableKey
 	keyValid                  bool
-	IpDefaultRouterLifetime   uint32
-	IpDefaultRouterPreference IpDefaultRouterPreferenceValue
+	IPDefaultRouterLifetime   uint32
+	IPDefaultRouterPreference IPDefaultRouterPreferenceValue
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -8960,7 +8960,7 @@ type IpDefaultRouterTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r IpDefaultRouterTableRow) KeyValid() bool {
+func (r IPDefaultRouterTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -8968,21 +8968,21 @@ func (r IpDefaultRouterTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r IpDefaultRouterTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPDefaultRouterTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case IpDefaultRouterLifetime.Key():
+	case IPDefaultRouterLifetime.Key():
 		return r.observed[0]&(1<<0) != 0
-	case IpDefaultRouterPreference.Key():
+	case IPDefaultRouterPreference.Key():
 		return r.observed[0]&(1<<1) != 0
 	}
 
 	return false
 }
 
-// IpDefaultRouterTableWalker streams selected columns of ipDefaultRouterTable.
-// The zero value is not usable; construct via IpDefaultRouterTable.Walk(ctx, sess, cols...).
+// IPDefaultRouterTableWalker streams selected columns of ipDefaultRouterTable.
+// The zero value is not usable; construct via IPDefaultRouterTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type IpDefaultRouterTableWalker struct {
+type IPDefaultRouterTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -8993,47 +8993,47 @@ type IpDefaultRouterTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouterTableRow] {
-	return func(yield func(snmp.OID, IpDefaultRouterTableRow) bool) {
+func (tw *IPDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IPDefaultRouterTableRow] {
+	return func(yield func(snmp.OID, IPDefaultRouterTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row IpDefaultRouterTableRow
-			row.Key, row.keyValid = decodeIpDefaultRouterTableKey(idx)
+			var row IPDefaultRouterTableRow
+			row.Key, row.keyValid = decodeIPDefaultRouterTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case IpDefaultRouterLifetime.Key():
+				case IPDefaultRouterLifetime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.IpDefaultRouterLifetime = v
+						row.IPDefaultRouterLifetime = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpDefaultRouterLifetime.Decode(vb)
+							dv, dErr := IPDefaultRouterLifetime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpDefaultRouterLifetime = dv
+								row.IPDefaultRouterLifetime = dv
 								row.observed[0] |= 1 << 0
 							}
 						}
 					}
-				case IpDefaultRouterPreference.Key():
+				case IPDefaultRouterPreference.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IpDefaultRouterPreference = IpDefaultRouterPreferenceValue(v)
+						row.IPDefaultRouterPreference = IPDefaultRouterPreferenceValue(v)
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := IpDefaultRouterPreference.Decode(vb)
+							dv, dErr := IPDefaultRouterPreference.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.IpDefaultRouterPreference = dv
+								row.IPDefaultRouterPreference = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
@@ -9053,18 +9053,18 @@ func (tw *IpDefaultRouterTableWalker) Iter() iter.Seq2[snmp.OID, IpDefaultRouter
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *IpDefaultRouterTableWalker) Err() error {
+func (tw *IPDefaultRouterTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipDefaultRouterTableT is the singleton type of IpDefaultRouterTable.
+// ipDefaultRouterTableT is the singleton type of IPDefaultRouterTable.
 type ipDefaultRouterTableT struct{}
 
-// IpDefaultRouterTable is the descriptor for the ipDefaultRouterTable table.
-var IpDefaultRouterTable ipDefaultRouterTableT
+// IPDefaultRouterTable is the descriptor for the ipDefaultRouterTable table.
+var IPDefaultRouterTable ipDefaultRouterTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IpDefaultRouterTableWalker) Close() {
+func (tw *IPDefaultRouterTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -9072,7 +9072,7 @@ func (tw *IpDefaultRouterTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipDefaultRouterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IpDefaultRouterTableWalker {
+func (t ipDefaultRouterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPDefaultRouterTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -9082,24 +9082,24 @@ func (t ipDefaultRouterTableT) Walk(ctx context.Context, sess snmp.Session, cols
 // for the table or declare it as a dependency.
 func (ipDefaultRouterTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "IpDefaultRouterTableKey",
+		KeyType: "IPDefaultRouterTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipDefaultRouterTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IpDefaultRouterTableWalker {
+func (ipDefaultRouterTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPDefaultRouterTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case IpDefaultRouterLifetime.Key(), IpDefaultRouterPreference.Key():
+		case IPDefaultRouterLifetime.Key(), IPDefaultRouterPreference.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipDefaultRouterTable.Walk: column %s", c.OID()))
-			return &IpDefaultRouterTableWalker{rw: w}
+			return &IPDefaultRouterTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -9108,127 +9108,127 @@ func (ipDefaultRouterTableT) WalkWithOptions(ctx context.Context, sess snmp.Sess
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &IpDefaultRouterTableWalker{
+	return &IPDefaultRouterTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
-// Ipv6RouterAdvertSendAdverts is the column ipv6RouterAdvertSendAdverts of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertSendAdverts is the column ipv6RouterAdvertSendAdverts of table ipv6RouterAdvertTable.
 // A flag indicating whether the router sends periodic router
 // advertisements and responds to router solicitations on this interface.
-var Ipv6RouterAdvertSendAdverts = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 2), snmp.KindInteger32, snmp.DecodeTruthValue)
+var IPv6RouterAdvertSendAdverts = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 2), snmp.KindInteger32, snmp.DecodeTruthValue)
 
-// Ipv6RouterAdvertMaxInterval is the column ipv6RouterAdvertMaxInterval of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertMaxInterval is the column ipv6RouterAdvertMaxInterval of table ipv6RouterAdvertTable.
 // The maximum time allowed between sending unsolicited router
 // advertisements from this interface.
-var Ipv6RouterAdvertMaxInterval = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertMaxInterval = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertMinInterval is the column ipv6RouterAdvertMinInterval of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertMinInterval is the column ipv6RouterAdvertMinInterval of table ipv6RouterAdvertTable.
 // The minimum time allowed between sending unsolicited router
 // advertisements from this interface. The default is 0.33 *
 // ipv6RouterAdvertMaxInterval, however, in the case of a low value for
 // ipv6RouterAdvertMaxInterval, the minimum value for this object is
 // restricted to 3.
-var Ipv6RouterAdvertMinInterval = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertMinInterval = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 4), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertManagedFlag is the column ipv6RouterAdvertManagedFlag of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertManagedFlag is the column ipv6RouterAdvertManagedFlag of table ipv6RouterAdvertTable.
 // The true/false value to be placed into the 'managed address
 // configuration' flag field in router advertisements sent from this
 // interface.
-var Ipv6RouterAdvertManagedFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 5), snmp.KindInteger32, snmp.DecodeTruthValue)
+var IPv6RouterAdvertManagedFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 5), snmp.KindInteger32, snmp.DecodeTruthValue)
 
-// Ipv6RouterAdvertOtherConfigFlag is the column ipv6RouterAdvertOtherConfigFlag of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertOtherConfigFlag is the column ipv6RouterAdvertOtherConfigFlag of table ipv6RouterAdvertTable.
 // The true/false value to be placed into the 'other stateful
 // configuration' flag field in router advertisements sent from this
 // interface.
-var Ipv6RouterAdvertOtherConfigFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue)
+var IPv6RouterAdvertOtherConfigFlag = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue)
 
-// Ipv6RouterAdvertLinkMTU is the column ipv6RouterAdvertLinkMTU of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertLinkMTU is the column ipv6RouterAdvertLinkMTU of table ipv6RouterAdvertTable.
 // The value to be placed in MTU options sent by the router on this
 // interface. A value of zero indicates that no MTU options are sent.
-var Ipv6RouterAdvertLinkMTU = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 7), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertLinkMTU = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 7), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertReachableTime is the column ipv6RouterAdvertReachableTime of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertReachableTime is the column ipv6RouterAdvertReachableTime of table ipv6RouterAdvertTable.
 // The value to be placed in the reachable time field in router
 // advertisement messages sent from this interface. A value of zero in the
 // router advertisement indicates that the advertisement isn't specifying a
 // value for reachable time.
-var Ipv6RouterAdvertReachableTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertReachableTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertRetransmitTime is the column ipv6RouterAdvertRetransmitTime of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertRetransmitTime is the column ipv6RouterAdvertRetransmitTime of table ipv6RouterAdvertTable.
 // The value to be placed in the retransmit timer field in router
 // advertisements sent from this interface. A value of zero in the router
 // advertisement indicates that the advertisement isn't specifying a value
 // for retrans time.
-var Ipv6RouterAdvertRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 9), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertRetransmitTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 9), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertCurHopLimit is the column ipv6RouterAdvertCurHopLimit of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertCurHopLimit is the column ipv6RouterAdvertCurHopLimit of table ipv6RouterAdvertTable.
 // The default value to be placed in the current hop limit field in router
 // advertisements sent from this interface. The value should be set to the
 // current diameter of the Internet. A value of zero in the router
 // advertisement indicates that the advertisement isn't specifying a value
 // for curHopLimit. The default should be set to the value specified in the
 // IANA web pages (www.iana.org) at the time of implementation.
-var Ipv6RouterAdvertCurHopLimit = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 10), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertCurHopLimit = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 10), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertDefaultLifetime is the column ipv6RouterAdvertDefaultLifetime of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertDefaultLifetime is the column ipv6RouterAdvertDefaultLifetime of table ipv6RouterAdvertTable.
 // The value to be placed in the router lifetime field of router
 // advertisements sent from this interface. This value MUST be either 0 or
 // between ipv6RouterAdvertMaxInterval and 9000 seconds. A value of zero
 // indicates that the router is not to be used as a default router. The
 // default is 3 * ipv6RouterAdvertMaxInterval.
-var Ipv6RouterAdvertDefaultLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 11), snmp.KindUinteger32, snmp.DecodeUint32)
+var IPv6RouterAdvertDefaultLifetime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 11), snmp.KindUinteger32, snmp.DecodeUint32)
 
-// Ipv6RouterAdvertRowStatus is the column ipv6RouterAdvertRowStatus of table ipv6RouterAdvertTable.
+// IPv6RouterAdvertRowStatus is the column ipv6RouterAdvertRowStatus of table ipv6RouterAdvertTable.
 // The status of this conceptual row. As all objects in this conceptual row
 // have default values, a row can be created and made active by setting
 // this object appropriately. The RowStatus TC requires that this
 // DESCRIPTION clause states under which circumstances other objects in
 // this row can be modified. The value of this object has no effect on
 // whether other objects in this conceptual row can be modified.
-var Ipv6RouterAdvertRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 12), snmp.KindInteger32, snmp.DecodeRowStatus)
+var IPv6RouterAdvertRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 12), snmp.KindInteger32, snmp.DecodeRowStatus)
 
-// Ipv6RouterAdvertTableKey is the decoded INDEX of one ipv6RouterAdvertTable row, one field per
+// IPv6RouterAdvertTableKey is the decoded INDEX of one ipv6RouterAdvertTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
-type Ipv6RouterAdvertTableKey struct {
-	Ipv6RouterAdvertIfIndex ifmib.InterfaceIndex
+type IPv6RouterAdvertTableKey struct {
+	IPv6RouterAdvertIfIndex ifmib.InterfaceIndex
 }
 
 var ipv6RouterAdvertTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// decodeIpv6RouterAdvertTableKey decodes the instance suffix of one ipv6RouterAdvertTable row. ok is false
+// decodeIPv6RouterAdvertTableKey decodes the instance suffix of one ipv6RouterAdvertTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
-func decodeIpv6RouterAdvertTableKey(idx snmp.OID) (Ipv6RouterAdvertTableKey, bool) {
+func decodeIPv6RouterAdvertTableKey(idx snmp.OID) (IPv6RouterAdvertTableKey, bool) {
 	var parts [1]snmp.IndexValue
 	if !snmp.DecodeIndexInto(parts[:], idx, ipv6RouterAdvertTableIndexShapes) {
-		return Ipv6RouterAdvertTableKey{}, false
+		return IPv6RouterAdvertTableKey{}, false
 	}
-	return Ipv6RouterAdvertTableKey{Ipv6RouterAdvertIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
+	return IPv6RouterAdvertTableKey{IPv6RouterAdvertIfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
 }
 
-// Ipv6RouterAdvertTableRow is one row of ipv6RouterAdvertTable. Key is the decoded INDEX; a
+// IPv6RouterAdvertTableRow is one row of ipv6RouterAdvertTable. Key is the decoded INDEX; a
 // suffix that does not match the declared INDEX leaves it zero, and
-// [Ipv6RouterAdvertTableRow.KeyValid] reports which. The remaining fields are
+// [IPv6RouterAdvertTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
-// [Ipv6RouterAdvertTableRow.Observed] to tell a reported zero from a column the
+// [IPv6RouterAdvertTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
-type Ipv6RouterAdvertTableRow struct {
-	Key                             Ipv6RouterAdvertTableKey
+type IPv6RouterAdvertTableRow struct {
+	Key                             IPv6RouterAdvertTableKey
 	keyValid                        bool
-	Ipv6RouterAdvertSendAdverts     bool
-	Ipv6RouterAdvertMaxInterval     uint32
-	Ipv6RouterAdvertMinInterval     uint32
-	Ipv6RouterAdvertManagedFlag     bool
-	Ipv6RouterAdvertOtherConfigFlag bool
-	Ipv6RouterAdvertLinkMTU         uint32
-	Ipv6RouterAdvertReachableTime   uint32
-	Ipv6RouterAdvertRetransmitTime  uint32
-	Ipv6RouterAdvertCurHopLimit     uint32
-	Ipv6RouterAdvertDefaultLifetime uint32
-	Ipv6RouterAdvertRowStatus       snmp.RowStatus
+	IPv6RouterAdvertSendAdverts     bool
+	IPv6RouterAdvertMaxInterval     uint32
+	IPv6RouterAdvertMinInterval     uint32
+	IPv6RouterAdvertManagedFlag     bool
+	IPv6RouterAdvertOtherConfigFlag bool
+	IPv6RouterAdvertLinkMTU         uint32
+	IPv6RouterAdvertReachableTime   uint32
+	IPv6RouterAdvertRetransmitTime  uint32
+	IPv6RouterAdvertCurHopLimit     uint32
+	IPv6RouterAdvertDefaultLifetime uint32
+	IPv6RouterAdvertRowStatus       snmp.RowStatus
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
@@ -9239,7 +9239,7 @@ type Ipv6RouterAdvertTableRow struct {
 // KeyValid reports whether the row's instance suffix decoded as the declared
 // INDEX. A false result means Key is zero and the agent's suffix did not
 // have the declared shape; the row's columns are still populated.
-func (r Ipv6RouterAdvertTableRow) KeyValid() bool {
+func (r IPv6RouterAdvertTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
@@ -9247,39 +9247,39 @@ func (r Ipv6RouterAdvertTableRow) KeyValid() bool {
 // the agent answered reads true even when the answer was zero or empty;
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
-func (r Ipv6RouterAdvertTableRow) Observed(col snmp.AnyColumn) bool {
+func (r IPv6RouterAdvertTableRow) Observed(col snmp.AnyColumn) bool {
 	switch col.Key() {
-	case Ipv6RouterAdvertSendAdverts.Key():
+	case IPv6RouterAdvertSendAdverts.Key():
 		return r.observed[0]&(1<<0) != 0
-	case Ipv6RouterAdvertMaxInterval.Key():
+	case IPv6RouterAdvertMaxInterval.Key():
 		return r.observed[0]&(1<<1) != 0
-	case Ipv6RouterAdvertMinInterval.Key():
+	case IPv6RouterAdvertMinInterval.Key():
 		return r.observed[0]&(1<<2) != 0
-	case Ipv6RouterAdvertManagedFlag.Key():
+	case IPv6RouterAdvertManagedFlag.Key():
 		return r.observed[0]&(1<<3) != 0
-	case Ipv6RouterAdvertOtherConfigFlag.Key():
+	case IPv6RouterAdvertOtherConfigFlag.Key():
 		return r.observed[0]&(1<<4) != 0
-	case Ipv6RouterAdvertLinkMTU.Key():
+	case IPv6RouterAdvertLinkMTU.Key():
 		return r.observed[0]&(1<<5) != 0
-	case Ipv6RouterAdvertReachableTime.Key():
+	case IPv6RouterAdvertReachableTime.Key():
 		return r.observed[0]&(1<<6) != 0
-	case Ipv6RouterAdvertRetransmitTime.Key():
+	case IPv6RouterAdvertRetransmitTime.Key():
 		return r.observed[0]&(1<<7) != 0
-	case Ipv6RouterAdvertCurHopLimit.Key():
+	case IPv6RouterAdvertCurHopLimit.Key():
 		return r.observed[0]&(1<<8) != 0
-	case Ipv6RouterAdvertDefaultLifetime.Key():
+	case IPv6RouterAdvertDefaultLifetime.Key():
 		return r.observed[0]&(1<<9) != 0
-	case Ipv6RouterAdvertRowStatus.Key():
+	case IPv6RouterAdvertRowStatus.Key():
 		return r.observed[0]&(1<<10) != 0
 	}
 
 	return false
 }
 
-// Ipv6RouterAdvertTableWalker streams selected columns of ipv6RouterAdvertTable.
-// The zero value is not usable; construct via Ipv6RouterAdvertTable.Walk(ctx, sess, cols...).
+// IPv6RouterAdvertTableWalker streams selected columns of ipv6RouterAdvertTable.
+// The zero value is not usable; construct via IPv6RouterAdvertTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
-type Ipv6RouterAdvertTableWalker struct {
+type IPv6RouterAdvertTableWalker struct {
 	rw   *snmp.ColumnWalker
 	cols []snmp.AnyColumn
 }
@@ -9290,190 +9290,190 @@ type Ipv6RouterAdvertTableWalker struct {
 // failing row and later rows; already delivered rows remain valid. Check Err.
 // A row whose suffix does not decode as the declared INDEX is still yielded,
 // with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdvertTableRow] {
-	return func(yield func(snmp.OID, Ipv6RouterAdvertTableRow) bool) {
+func (tw *IPv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, IPv6RouterAdvertTableRow] {
+	return func(yield func(snmp.OID, IPv6RouterAdvertTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			var row Ipv6RouterAdvertTableRow
-			row.Key, row.keyValid = decodeIpv6RouterAdvertTableKey(idx)
+			var row IPv6RouterAdvertTableRow
+			row.Key, row.keyValid = decodeIPv6RouterAdvertTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
-				case Ipv6RouterAdvertSendAdverts.Key():
+				case IPv6RouterAdvertSendAdverts.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertSendAdverts.Decode(vb)
+						dv, dErr := IPv6RouterAdvertSendAdverts.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertSendAdverts = dv
+							row.IPv6RouterAdvertSendAdverts = dv
 							row.observed[0] |= 1 << 0
 						}
 					}
-				case Ipv6RouterAdvertMaxInterval.Key():
+				case IPv6RouterAdvertMaxInterval.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertMaxInterval = v
+						row.IPv6RouterAdvertMaxInterval = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertMaxInterval.Decode(vb)
+							dv, dErr := IPv6RouterAdvertMaxInterval.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertMaxInterval = dv
+								row.IPv6RouterAdvertMaxInterval = dv
 								row.observed[0] |= 1 << 1
 							}
 						}
 					}
-				case Ipv6RouterAdvertMinInterval.Key():
+				case IPv6RouterAdvertMinInterval.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertMinInterval = v
+						row.IPv6RouterAdvertMinInterval = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertMinInterval.Decode(vb)
+							dv, dErr := IPv6RouterAdvertMinInterval.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertMinInterval = dv
+								row.IPv6RouterAdvertMinInterval = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
-				case Ipv6RouterAdvertManagedFlag.Key():
+				case IPv6RouterAdvertManagedFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertManagedFlag.Decode(vb)
+						dv, dErr := IPv6RouterAdvertManagedFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertManagedFlag = dv
+							row.IPv6RouterAdvertManagedFlag = dv
 							row.observed[0] |= 1 << 3
 						}
 					}
-				case Ipv6RouterAdvertOtherConfigFlag.Key():
+				case IPv6RouterAdvertOtherConfigFlag.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertOtherConfigFlag.Decode(vb)
+						dv, dErr := IPv6RouterAdvertOtherConfigFlag.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertOtherConfigFlag = dv
+							row.IPv6RouterAdvertOtherConfigFlag = dv
 							row.observed[0] |= 1 << 4
 						}
 					}
-				case Ipv6RouterAdvertLinkMTU.Key():
+				case IPv6RouterAdvertLinkMTU.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertLinkMTU = v
+						row.IPv6RouterAdvertLinkMTU = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertLinkMTU.Decode(vb)
+							dv, dErr := IPv6RouterAdvertLinkMTU.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertLinkMTU = dv
+								row.IPv6RouterAdvertLinkMTU = dv
 								row.observed[0] |= 1 << 5
 							}
 						}
 					}
-				case Ipv6RouterAdvertReachableTime.Key():
+				case IPv6RouterAdvertReachableTime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertReachableTime = v
+						row.IPv6RouterAdvertReachableTime = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertReachableTime.Decode(vb)
+							dv, dErr := IPv6RouterAdvertReachableTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertReachableTime = dv
+								row.IPv6RouterAdvertReachableTime = dv
 								row.observed[0] |= 1 << 6
 							}
 						}
 					}
-				case Ipv6RouterAdvertRetransmitTime.Key():
+				case IPv6RouterAdvertRetransmitTime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertRetransmitTime = v
+						row.IPv6RouterAdvertRetransmitTime = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertRetransmitTime.Decode(vb)
+							dv, dErr := IPv6RouterAdvertRetransmitTime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertRetransmitTime = dv
+								row.IPv6RouterAdvertRetransmitTime = dv
 								row.observed[0] |= 1 << 7
 							}
 						}
 					}
-				case Ipv6RouterAdvertCurHopLimit.Key():
+				case IPv6RouterAdvertCurHopLimit.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertCurHopLimit = v
+						row.IPv6RouterAdvertCurHopLimit = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertCurHopLimit.Decode(vb)
+							dv, dErr := IPv6RouterAdvertCurHopLimit.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertCurHopLimit = dv
+								row.IPv6RouterAdvertCurHopLimit = dv
 								row.observed[0] |= 1 << 8
 							}
 						}
 					}
-				case Ipv6RouterAdvertDefaultLifetime.Key():
+				case IPv6RouterAdvertDefaultLifetime.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Ipv6RouterAdvertDefaultLifetime = v
+						row.IPv6RouterAdvertDefaultLifetime = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Ipv6RouterAdvertDefaultLifetime.Decode(vb)
+							dv, dErr := IPv6RouterAdvertDefaultLifetime.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Ipv6RouterAdvertDefaultLifetime = dv
+								row.IPv6RouterAdvertDefaultLifetime = dv
 								row.observed[0] |= 1 << 9
 							}
 						}
 					}
-				case Ipv6RouterAdvertRowStatus.Key():
+				case IPv6RouterAdvertRowStatus.Key():
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
 					} else {
-						dv, dErr := Ipv6RouterAdvertRowStatus.Decode(vb)
+						dv, dErr := IPv6RouterAdvertRowStatus.Decode(vb)
 						if dErr != nil {
 							derr = dErr
 						} else {
-							row.Ipv6RouterAdvertRowStatus = dv
+							row.IPv6RouterAdvertRowStatus = dv
 							row.observed[0] |= 1 << 10
 						}
 					}
@@ -9492,18 +9492,18 @@ func (tw *Ipv6RouterAdvertTableWalker) Iter() iter.Seq2[snmp.OID, Ipv6RouterAdve
 
 // Err returns the underlying walker's terminal error, or nil if
 // the walk completed naturally.
-func (tw *Ipv6RouterAdvertTableWalker) Err() error {
+func (tw *IPv6RouterAdvertTableWalker) Err() error {
 	return tw.rw.Err()
 }
 
-// ipv6RouterAdvertTableT is the singleton type of Ipv6RouterAdvertTable.
+// ipv6RouterAdvertTableT is the singleton type of IPv6RouterAdvertTable.
 type ipv6RouterAdvertTableT struct{}
 
-// Ipv6RouterAdvertTable is the descriptor for the ipv6RouterAdvertTable table.
-var Ipv6RouterAdvertTable ipv6RouterAdvertTableT
+// IPv6RouterAdvertTable is the descriptor for the ipv6RouterAdvertTable table.
+var IPv6RouterAdvertTable ipv6RouterAdvertTableT
 
 // Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Ipv6RouterAdvertTableWalker) Close() {
+func (tw *IPv6RouterAdvertTableWalker) Close() {
 	tw.rw.Close()
 }
 
@@ -9511,7 +9511,7 @@ func (tw *Ipv6RouterAdvertTableWalker) Close() {
 // Rows are the union of selected values in numeric OID index order.
 // No columns means no rows or requests. Duplicate selections are ignored.
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ipv6RouterAdvertTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Ipv6RouterAdvertTableWalker {
+func (t ipv6RouterAdvertTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IPv6RouterAdvertTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
@@ -9521,24 +9521,24 @@ func (t ipv6RouterAdvertTableT) Walk(ctx context.Context, sess snmp.Session, col
 // for the table or declare it as a dependency.
 func (ipv6RouterAdvertTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
-		KeyType: "Ipv6RouterAdvertTableKey",
+		KeyType: "IPv6RouterAdvertTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39),
 	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ipv6RouterAdvertTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Ipv6RouterAdvertTableWalker {
+func (ipv6RouterAdvertTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IPv6RouterAdvertTableWalker {
 	seen := make(map[string]bool)
 	var selected []snmp.AnyColumn
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Ipv6RouterAdvertSendAdverts.Key(), Ipv6RouterAdvertMaxInterval.Key(), Ipv6RouterAdvertMinInterval.Key(), Ipv6RouterAdvertManagedFlag.Key(), Ipv6RouterAdvertOtherConfigFlag.Key(), Ipv6RouterAdvertLinkMTU.Key(), Ipv6RouterAdvertReachableTime.Key(), Ipv6RouterAdvertRetransmitTime.Key(), Ipv6RouterAdvertCurHopLimit.Key(), Ipv6RouterAdvertDefaultLifetime.Key(), Ipv6RouterAdvertRowStatus.Key():
+		case IPv6RouterAdvertSendAdverts.Key(), IPv6RouterAdvertMaxInterval.Key(), IPv6RouterAdvertMinInterval.Key(), IPv6RouterAdvertManagedFlag.Key(), IPv6RouterAdvertOtherConfigFlag.Key(), IPv6RouterAdvertLinkMTU.Key(), IPv6RouterAdvertReachableTime.Key(), IPv6RouterAdvertRetransmitTime.Key(), IPv6RouterAdvertCurHopLimit.Key(), IPv6RouterAdvertDefaultLifetime.Key(), IPv6RouterAdvertRowStatus.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ipv6RouterAdvertTable.Walk: column %s", c.OID()))
-			return &Ipv6RouterAdvertTableWalker{rw: w}
+			return &IPv6RouterAdvertTableWalker{rw: w}
 		}
 		if seen[c.Key()] {
 			continue
@@ -9547,7 +9547,7 @@ func (ipv6RouterAdvertTableT) WalkWithOptions(ctx context.Context, sess snmp.Ses
 		selected = append(selected, c)
 		roots = append(roots, c.OID())
 	}
-	return &Ipv6RouterAdvertTableWalker{
+	return &IPv6RouterAdvertTableWalker{
 		cols: selected,
 		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
@@ -10018,162 +10018,162 @@ func (icmpMsgStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 	}
 }
 
-// iPMIBOIDDispatch maps column wire keys ([snmp.OID.WireKey]) to their
+// ipMIBOIDDispatch maps column wire keys ([snmp.OID.WireKey]) to their
 // typed AnyColumn for fast
 // lookup during table-walk decoding. Per-MIB-module — no global
 // registry; cross-package callers should consult OIDDispatch().
-var iPMIBOIDDispatch = map[string]snmp.AnyColumn{
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 1).WireKey():     IpAdEntAddr,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 2).WireKey():     IpAdEntIfIndex,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 3).WireKey():     IpAdEntNetMask,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 4).WireKey():     IpAdEntBcastAddr,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 5).WireKey():     IpAdEntReasmMaxSize,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 1).WireKey():     IpNetToMediaIfIndex,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 2).WireKey():     IpNetToMediaPhysAddress,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 3).WireKey():     IpNetToMediaNetAddress,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 4).WireKey():     IpNetToMediaType,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 2).WireKey():     Ipv4InterfaceReasmMaxSize,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 3).WireKey():     Ipv4InterfaceEnableStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 4).WireKey():     Ipv4InterfaceRetransmitTime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 2).WireKey():     Ipv6InterfaceReasmMaxSize,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 3).WireKey():     Ipv6InterfaceIdentifier,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 5).WireKey():     Ipv6InterfaceEnableStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 6).WireKey():     Ipv6InterfaceReachableTime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 7).WireKey():     Ipv6InterfaceRetransmitTime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 8).WireKey():     Ipv6InterfaceForwarding,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 10).WireKey(): IpSystemStatsInUnknownProtos,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 11).WireKey(): IpSystemStatsInTruncatedPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 12).WireKey(): IpSystemStatsInForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 13).WireKey(): IpSystemStatsHCInForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 14).WireKey(): IpSystemStatsReasmReqds,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 15).WireKey(): IpSystemStatsReasmOKs,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 16).WireKey(): IpSystemStatsReasmFails,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 17).WireKey(): IpSystemStatsInDiscards,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 18).WireKey(): IpSystemStatsInDelivers,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 19).WireKey(): IpSystemStatsHCInDelivers,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 20).WireKey(): IpSystemStatsOutRequests,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 21).WireKey(): IpSystemStatsHCOutRequests,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 22).WireKey(): IpSystemStatsOutNoRoutes,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 23).WireKey(): IpSystemStatsOutForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 24).WireKey(): IpSystemStatsHCOutForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 25).WireKey(): IpSystemStatsOutDiscards,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 26).WireKey(): IpSystemStatsOutFragReqds,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 27).WireKey(): IpSystemStatsOutFragOKs,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 28).WireKey(): IpSystemStatsOutFragFails,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 29).WireKey(): IpSystemStatsOutFragCreates,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 3).WireKey():  IpSystemStatsInReceives,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 30).WireKey(): IpSystemStatsOutTransmits,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 31).WireKey(): IpSystemStatsHCOutTransmits,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 32).WireKey(): IpSystemStatsOutOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 33).WireKey(): IpSystemStatsHCOutOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 34).WireKey(): IpSystemStatsInMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 35).WireKey(): IpSystemStatsHCInMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 36).WireKey(): IpSystemStatsInMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 37).WireKey(): IpSystemStatsHCInMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 38).WireKey(): IpSystemStatsOutMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 39).WireKey(): IpSystemStatsHCOutMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 4).WireKey():  IpSystemStatsHCInReceives,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 40).WireKey(): IpSystemStatsOutMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 41).WireKey(): IpSystemStatsHCOutMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 42).WireKey(): IpSystemStatsInBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 43).WireKey(): IpSystemStatsHCInBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 44).WireKey(): IpSystemStatsOutBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 45).WireKey(): IpSystemStatsHCOutBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46).WireKey(): IpSystemStatsDiscontinuityTime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 47).WireKey(): IpSystemStatsRefreshRate,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 5).WireKey():  IpSystemStatsInOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 6).WireKey():  IpSystemStatsHCInOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 7).WireKey():  IpSystemStatsInHdrErrors,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 8).WireKey():  IpSystemStatsInNoRoutes,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 9).WireKey():  IpSystemStatsInAddrErrors,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 10).WireKey(): IpIfStatsInUnknownProtos,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 11).WireKey(): IpIfStatsInTruncatedPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 12).WireKey(): IpIfStatsInForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 13).WireKey(): IpIfStatsHCInForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 14).WireKey(): IpIfStatsReasmReqds,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 15).WireKey(): IpIfStatsReasmOKs,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 16).WireKey(): IpIfStatsReasmFails,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 17).WireKey(): IpIfStatsInDiscards,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 18).WireKey(): IpIfStatsInDelivers,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 19).WireKey(): IpIfStatsHCInDelivers,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 20).WireKey(): IpIfStatsOutRequests,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 21).WireKey(): IpIfStatsHCOutRequests,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 23).WireKey(): IpIfStatsOutForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 24).WireKey(): IpIfStatsHCOutForwDatagrams,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 25).WireKey(): IpIfStatsOutDiscards,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 26).WireKey(): IpIfStatsOutFragReqds,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 27).WireKey(): IpIfStatsOutFragOKs,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 28).WireKey(): IpIfStatsOutFragFails,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 29).WireKey(): IpIfStatsOutFragCreates,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 3).WireKey():  IpIfStatsInReceives,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 30).WireKey(): IpIfStatsOutTransmits,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 31).WireKey(): IpIfStatsHCOutTransmits,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 32).WireKey(): IpIfStatsOutOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 33).WireKey(): IpIfStatsHCOutOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 34).WireKey(): IpIfStatsInMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 35).WireKey(): IpIfStatsHCInMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 36).WireKey(): IpIfStatsInMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 37).WireKey(): IpIfStatsHCInMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 38).WireKey(): IpIfStatsOutMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 39).WireKey(): IpIfStatsHCOutMcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 4).WireKey():  IpIfStatsHCInReceives,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 40).WireKey(): IpIfStatsOutMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 41).WireKey(): IpIfStatsHCOutMcastOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 42).WireKey(): IpIfStatsInBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 43).WireKey(): IpIfStatsHCInBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 44).WireKey(): IpIfStatsOutBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 45).WireKey(): IpIfStatsHCOutBcastPkts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46).WireKey(): IpIfStatsDiscontinuityTime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 47).WireKey(): IpIfStatsRefreshRate,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 5).WireKey():  IpIfStatsInOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 6).WireKey():  IpIfStatsHCInOctets,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 7).WireKey():  IpIfStatsInHdrErrors,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 8).WireKey():  IpIfStatsInNoRoutes,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 9).WireKey():  IpIfStatsInAddrErrors,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 5).WireKey():     IpAddressPrefixOrigin,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 6).WireKey():     IpAddressPrefixOnLinkFlag,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 7).WireKey():     IpAddressPrefixAutonomousFlag,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 8).WireKey():     IpAddressPrefixAdvPreferredLifetime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 9).WireKey():     IpAddressPrefixAdvValidLifetime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 10).WireKey():    IpAddressRowStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 11).WireKey():    IpAddressStorageType,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 3).WireKey():     IpAddressIfIndex,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 4).WireKey():     IpAddressType,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 5).WireKey():     IpAddressPrefix,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 6).WireKey():     IpAddressOrigin,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 7).WireKey():     IpAddressStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8).WireKey():     IpAddressCreated,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9).WireKey():     IpAddressLastChanged,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 4).WireKey():     IpNetToPhysicalPhysAddress,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5).WireKey():     IpNetToPhysicalLastUpdated,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 6).WireKey():     IpNetToPhysicalType,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 7).WireKey():     IpNetToPhysicalState,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 8).WireKey():     IpNetToPhysicalRowStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 10).WireKey():    Ipv6ScopeZoneIndexA,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 11).WireKey():    Ipv6ScopeZoneIndexB,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 12).WireKey():    Ipv6ScopeZoneIndexC,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 13).WireKey():    Ipv6ScopeZoneIndexD,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 2).WireKey():     Ipv6ScopeZoneIndexLinkLocal,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 3).WireKey():     Ipv6ScopeZoneIndex3,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 4).WireKey():     Ipv6ScopeZoneIndexAdminLocal,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 5).WireKey():     Ipv6ScopeZoneIndexSiteLocal,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 6).WireKey():     Ipv6ScopeZoneIndex6,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 7).WireKey():     Ipv6ScopeZoneIndex7,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 8).WireKey():     Ipv6ScopeZoneIndexOrganizationLocal,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 9).WireKey():     Ipv6ScopeZoneIndex9,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 4).WireKey():     IpDefaultRouterLifetime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 5).WireKey():     IpDefaultRouterPreference,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 10).WireKey():    Ipv6RouterAdvertCurHopLimit,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 11).WireKey():    Ipv6RouterAdvertDefaultLifetime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 12).WireKey():    Ipv6RouterAdvertRowStatus,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 2).WireKey():     Ipv6RouterAdvertSendAdverts,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 3).WireKey():     Ipv6RouterAdvertMaxInterval,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 4).WireKey():     Ipv6RouterAdvertMinInterval,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 5).WireKey():     Ipv6RouterAdvertManagedFlag,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 6).WireKey():     Ipv6RouterAdvertOtherConfigFlag,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 7).WireKey():     Ipv6RouterAdvertLinkMTU,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 8).WireKey():     Ipv6RouterAdvertReachableTime,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 9).WireKey():     Ipv6RouterAdvertRetransmitTime,
+var ipMIBOIDDispatch = map[string]snmp.AnyColumn{
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 1).WireKey():     IPAdEntAddr,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 2).WireKey():     IPAdEntIfIndex,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 3).WireKey():     IPAdEntNetMask,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 4).WireKey():     IPAdEntBcastAddr,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 5).WireKey():     IPAdEntReasmMaxSize,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 1).WireKey():     IPNetToMediaIfIndex,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 2).WireKey():     IPNetToMediaPhysAddress,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 3).WireKey():     IPNetToMediaNetAddress,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 22, 1, 4).WireKey():     IPNetToMediaType,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 2).WireKey():     IPv4InterfaceReasmMaxSize,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 3).WireKey():     IPv4InterfaceEnableStatus,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28, 1, 4).WireKey():     IPv4InterfaceRetransmitTime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 2).WireKey():     IPv6InterfaceReasmMaxSize,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 3).WireKey():     IPv6InterfaceIdentifier,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 5).WireKey():     IPv6InterfaceEnableStatus,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 6).WireKey():     IPv6InterfaceReachableTime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 7).WireKey():     IPv6InterfaceRetransmitTime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30, 1, 8).WireKey():     IPv6InterfaceForwarding,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 10).WireKey(): IPSystemStatsInUnknownProtos,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 11).WireKey(): IPSystemStatsInTruncatedPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 12).WireKey(): IPSystemStatsInForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 13).WireKey(): IPSystemStatsHCInForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 14).WireKey(): IPSystemStatsReasmReqds,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 15).WireKey(): IPSystemStatsReasmOKs,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 16).WireKey(): IPSystemStatsReasmFails,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 17).WireKey(): IPSystemStatsInDiscards,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 18).WireKey(): IPSystemStatsInDelivers,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 19).WireKey(): IPSystemStatsHCInDelivers,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 20).WireKey(): IPSystemStatsOutRequests,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 21).WireKey(): IPSystemStatsHCOutRequests,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 22).WireKey(): IPSystemStatsOutNoRoutes,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 23).WireKey(): IPSystemStatsOutForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 24).WireKey(): IPSystemStatsHCOutForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 25).WireKey(): IPSystemStatsOutDiscards,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 26).WireKey(): IPSystemStatsOutFragReqds,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 27).WireKey(): IPSystemStatsOutFragOKs,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 28).WireKey(): IPSystemStatsOutFragFails,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 29).WireKey(): IPSystemStatsOutFragCreates,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 3).WireKey():  IPSystemStatsInReceives,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 30).WireKey(): IPSystemStatsOutTransmits,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 31).WireKey(): IPSystemStatsHCOutTransmits,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 32).WireKey(): IPSystemStatsOutOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 33).WireKey(): IPSystemStatsHCOutOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 34).WireKey(): IPSystemStatsInMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 35).WireKey(): IPSystemStatsHCInMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 36).WireKey(): IPSystemStatsInMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 37).WireKey(): IPSystemStatsHCInMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 38).WireKey(): IPSystemStatsOutMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 39).WireKey(): IPSystemStatsHCOutMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 4).WireKey():  IPSystemStatsHCInReceives,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 40).WireKey(): IPSystemStatsOutMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 41).WireKey(): IPSystemStatsHCOutMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 42).WireKey(): IPSystemStatsInBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 43).WireKey(): IPSystemStatsHCInBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 44).WireKey(): IPSystemStatsOutBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 45).WireKey(): IPSystemStatsHCOutBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 46).WireKey(): IPSystemStatsDiscontinuityTime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 47).WireKey(): IPSystemStatsRefreshRate,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 5).WireKey():  IPSystemStatsInOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 6).WireKey():  IPSystemStatsHCInOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 7).WireKey():  IPSystemStatsInHdrErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 8).WireKey():  IPSystemStatsInNoRoutes,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 1, 1, 9).WireKey():  IPSystemStatsInAddrErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 10).WireKey(): IPIfStatsInUnknownProtos,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 11).WireKey(): IPIfStatsInTruncatedPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 12).WireKey(): IPIfStatsInForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 13).WireKey(): IPIfStatsHCInForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 14).WireKey(): IPIfStatsReasmReqds,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 15).WireKey(): IPIfStatsReasmOKs,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 16).WireKey(): IPIfStatsReasmFails,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 17).WireKey(): IPIfStatsInDiscards,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 18).WireKey(): IPIfStatsInDelivers,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 19).WireKey(): IPIfStatsHCInDelivers,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 20).WireKey(): IPIfStatsOutRequests,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 21).WireKey(): IPIfStatsHCOutRequests,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 23).WireKey(): IPIfStatsOutForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 24).WireKey(): IPIfStatsHCOutForwDatagrams,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 25).WireKey(): IPIfStatsOutDiscards,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 26).WireKey(): IPIfStatsOutFragReqds,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 27).WireKey(): IPIfStatsOutFragOKs,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 28).WireKey(): IPIfStatsOutFragFails,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 29).WireKey(): IPIfStatsOutFragCreates,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 3).WireKey():  IPIfStatsInReceives,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 30).WireKey(): IPIfStatsOutTransmits,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 31).WireKey(): IPIfStatsHCOutTransmits,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 32).WireKey(): IPIfStatsOutOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 33).WireKey(): IPIfStatsHCOutOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 34).WireKey(): IPIfStatsInMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 35).WireKey(): IPIfStatsHCInMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 36).WireKey(): IPIfStatsInMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 37).WireKey(): IPIfStatsHCInMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 38).WireKey(): IPIfStatsOutMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 39).WireKey(): IPIfStatsHCOutMcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 4).WireKey():  IPIfStatsHCInReceives,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 40).WireKey(): IPIfStatsOutMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 41).WireKey(): IPIfStatsHCOutMcastOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 42).WireKey(): IPIfStatsInBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 43).WireKey(): IPIfStatsHCInBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 44).WireKey(): IPIfStatsOutBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 45).WireKey(): IPIfStatsHCOutBcastPkts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 46).WireKey(): IPIfStatsDiscontinuityTime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 47).WireKey(): IPIfStatsRefreshRate,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 5).WireKey():  IPIfStatsInOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 6).WireKey():  IPIfStatsHCInOctets,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 7).WireKey():  IPIfStatsInHdrErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 8).WireKey():  IPIfStatsInNoRoutes,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3, 1, 9).WireKey():  IPIfStatsInAddrErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 5).WireKey():     IPAddressPrefixOrigin,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 6).WireKey():     IPAddressPrefixOnLinkFlag,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 7).WireKey():     IPAddressPrefixAutonomousFlag,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 8).WireKey():     IPAddressPrefixAdvPreferredLifetime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 32, 1, 9).WireKey():     IPAddressPrefixAdvValidLifetime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 10).WireKey():    IPAddressRowStatus,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 11).WireKey():    IPAddressStorageType,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 3).WireKey():     IPAddressIfIndex,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 4).WireKey():     IPAddressType,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 5).WireKey():     IPAddressPrefix,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 6).WireKey():     IPAddressOrigin,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 7).WireKey():     IPAddressStatus,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 8).WireKey():     IPAddressCreated,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34, 1, 9).WireKey():     IPAddressLastChanged,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 4).WireKey():     IPNetToPhysicalPhysAddress,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 5).WireKey():     IPNetToPhysicalLastUpdated,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 6).WireKey():     IPNetToPhysicalType,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 7).WireKey():     IPNetToPhysicalState,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35, 1, 8).WireKey():     IPNetToPhysicalRowStatus,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 10).WireKey():    IPv6ScopeZoneIndexA,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 11).WireKey():    IPv6ScopeZoneIndexB,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 12).WireKey():    IPv6ScopeZoneIndexC,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 13).WireKey():    IPv6ScopeZoneIndexD,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 2).WireKey():     IPv6ScopeZoneIndexLinkLocal,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 3).WireKey():     IPv6ScopeZoneIndex3,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 4).WireKey():     IPv6ScopeZoneIndexAdminLocal,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 5).WireKey():     IPv6ScopeZoneIndexSiteLocal,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 6).WireKey():     IPv6ScopeZoneIndex6,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 7).WireKey():     IPv6ScopeZoneIndex7,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 8).WireKey():     IPv6ScopeZoneIndexOrganizationLocal,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 36, 1, 9).WireKey():     IPv6ScopeZoneIndex9,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 4).WireKey():     IPDefaultRouterLifetime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 37, 1, 5).WireKey():     IPDefaultRouterPreference,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 10).WireKey():    IPv6RouterAdvertCurHopLimit,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 11).WireKey():    IPv6RouterAdvertDefaultLifetime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 12).WireKey():    IPv6RouterAdvertRowStatus,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 2).WireKey():     IPv6RouterAdvertSendAdverts,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 3).WireKey():     IPv6RouterAdvertMaxInterval,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 4).WireKey():     IPv6RouterAdvertMinInterval,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 5).WireKey():     IPv6RouterAdvertManagedFlag,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 6).WireKey():     IPv6RouterAdvertOtherConfigFlag,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 7).WireKey():     IPv6RouterAdvertLinkMTU,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 8).WireKey():     IPv6RouterAdvertReachableTime,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 39, 1, 9).WireKey():     IPv6RouterAdvertRetransmitTime,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29, 1, 2).WireKey():     IcmpStatsInMsgs,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29, 1, 3).WireKey():     IcmpStatsInErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 5, 29, 1, 4).WireKey():     IcmpStatsOutMsgs,
@@ -10186,20 +10186,20 @@ var iPMIBOIDDispatch = map[string]snmp.AnyColumn{
 // AnyColumn map. The copy isolates callers from accidental mutation
 // of the package-internal map.
 func OIDDispatch() map[string]snmp.AnyColumn {
-	out := make(map[string]snmp.AnyColumn, len(iPMIBOIDDispatch))
-	for k, v := range iPMIBOIDDispatch {
+	out := make(map[string]snmp.AnyColumn, len(ipMIBOIDDispatch))
+	for k, v := range ipMIBOIDDispatch {
 		out[k] = v
 	}
 	return out
 }
 
-// iPMIBColumnTiers maps column wire keys ([snmp.OID.WireKey]) to their
+// ipMIBColumnTiers maps column wire keys ([snmp.OID.WireKey]) to their
 // snmp.Tier classification.
 // Tier classification drives the Watcher's scheduler — counters fire
 // on their own cadence, state columns refresh on indicator advance,
 // and indicator columns drive the change-detection probe itself.
 // See snmp.Tier and snmp.Watcher for the consumption contract.
-var iPMIBColumnTiers = map[string]snmp.Tier{
+var ipMIBColumnTiers = map[string]snmp.Tier{
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 1).WireKey():     snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 2).WireKey():     snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 20, 1, 3).WireKey():     snmp.TierState,
@@ -10369,46 +10369,46 @@ func ColumnTier(col snmp.AnyColumn) snmp.Tier {
 	if col == nil {
 		return snmp.TierUnknown
 	}
-	t, ok := iPMIBColumnTiers[col.Key()]
+	t, ok := ipMIBColumnTiers[col.Key()]
 	if !ok {
 		return snmp.TierUnknown
 	}
 	return t
 }
 
-// Ipv4InterfaceTableIndicator is the scalar change indicator for ipv4InterfaceTable.
+// IPv4InterfaceTableIndicator is the scalar change indicator for ipv4InterfaceTable.
 // The Watcher Gets ipv4InterfaceTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var Ipv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
+var IPv4InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 27), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 28)}))
 
-// Ipv6InterfaceTableIndicator is the scalar change indicator for ipv6InterfaceTable.
+// IPv6InterfaceTableIndicator is the scalar change indicator for ipv6InterfaceTable.
 // The Watcher Gets ipv6InterfaceTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var Ipv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
+var IPv6InterfaceTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 29), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 30)}))
 
-// IpIfStatsTableIndicator is the scalar change indicator for ipIfStatsTable.
+// IPIfStatsTableIndicator is the scalar change indicator for ipIfStatsTable.
 // The Watcher Gets ipIfStatsTableLastChange on each tick; when the value
 // advances the full table is walked and diffed against the snapshot.
 // See [snmp.NewScalarIndicator] and [snmp.Watcher] for the contract.
 // Discovered by mibgen structural rule: scalar named after the table plus an indicator suffix.
-var IpIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
+var IPIfStatsTableIndicator = snmp.MustChangeIndicator(snmp.NewScalarIndicator(snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 2), snmp.KindTimeTicks, []snmp.OID{snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 31, 3)}))
 
-// IpAddressTableIndicator is the per-row change indicator for ipAddressTable.
+// IPAddressTableIndicator is the per-row change indicator for ipAddressTable.
 // The Watcher probes the indicator column on each tick and only
 // re-fetches a row's other state-tier columns when the row's
 // indicator value advances. See [snmp.NewPerRowIndicator] and
 // [snmp.Watcher] for the consumption contract.
 // Discovered by mibgen structural rule: per-row column name matches indicator-suffix heuristic.
-var IpAddressTableIndicator = snmp.MustChangeIndicator(snmp.NewPerRowIndicator(IpAddressLastChanged, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34)))
+var IPAddressTableIndicator = snmp.MustChangeIndicator(snmp.NewPerRowIndicator(IPAddressLastChanged, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 34)))
 
-// IpNetToPhysicalTableIndicator is the per-row change indicator for ipNetToPhysicalTable.
+// IPNetToPhysicalTableIndicator is the per-row change indicator for ipNetToPhysicalTable.
 // The Watcher probes the indicator column on each tick and only
 // re-fetches a row's other state-tier columns when the row's
 // indicator value advances. See [snmp.NewPerRowIndicator] and
 // [snmp.Watcher] for the consumption contract.
 // Discovered by mibgen structural rule: per-row column name matches indicator-suffix heuristic.
-var IpNetToPhysicalTableIndicator = snmp.MustChangeIndicator(snmp.NewPerRowIndicator(IpNetToPhysicalLastUpdated, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35)))
+var IPNetToPhysicalTableIndicator = snmp.MustChangeIndicator(snmp.NewPerRowIndicator(IPNetToPhysicalLastUpdated, snmp.MustOID(1, 3, 6, 1, 2, 1, 4, 35)))

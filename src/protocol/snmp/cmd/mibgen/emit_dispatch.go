@@ -4,6 +4,8 @@ import (
 	"sort"
 
 	"github.com/dave/jennifer/jen"
+
+	"go.aledante.io/FlowSeer/src/protocol/internal/goname"
 )
 
 // emitDispatch writes the per-package wire-OID → AnyColumn map. The map keys are column wire keys
@@ -74,28 +76,15 @@ func dispatchMapName(modName string) string {
 }
 
 // moduleScopedName derives a package-private Go identifier for a
-// per-module generated symbol: the module's CamelCase name with its
-// first rune lower-cased, followed by suffix. A module name that
+// per-module generated symbol: the module's CamelCase name lower-cased
+// via [goname.Unexported], followed by suffix. A module name that
 // camel-cases to nothing yields fallback, which the caller spells
 // itself because the unprefixed identifier is not always the suffix
-// with its first rune lowered.
+// in its unexported form.
 func moduleScopedName(modName, suffix, fallback string) string {
 	upper := camelCase(modName)
 	if upper == "" {
 		return fallback
 	}
-	// Lower-case the first rune to make the identifier package-private.
-	runes := []rune(upper)
-	runes[0] = lowerFirst(runes[0])
-	return string(runes) + suffix
-}
-
-// lowerFirst lower-cases an ASCII rune; non-ASCII is returned
-// unchanged because the camelCase helper has already validated the
-// identifier's leading rune.
-func lowerFirst(r rune) rune {
-	if r >= 'A' && r <= 'Z' {
-		return r + ('a' - 'A')
-	}
-	return r
+	return goname.Unexported(upper) + suffix
 }
