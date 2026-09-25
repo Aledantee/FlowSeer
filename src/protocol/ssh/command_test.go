@@ -114,7 +114,9 @@ func TestRunAnchorOnEchoIgnoresResidualPrompt(t *testing.T) {
 	const line = "show clock"
 	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
 		readCommandLine(ch)
-		_, _ = ch.Write([]byte("LABRT42#\r\n" + line + "\r\n12:34:56 UTC\r\nLABRT42#"))
+		_, _ = ch.Write([]byte("LABRT42#\r\n"))
+		time.Sleep(20 * time.Millisecond)
+		_, _ = ch.Write([]byte(line + "\r\n12:34:56 UTC\r\nLABRT42#"))
 	})
 	s := dialSession(t, fs, nil)
 
@@ -135,6 +137,75 @@ func TestRunAnchorOnEchoIgnoresResidualPrompt(t *testing.T) {
 	want := []byte("12:34:56 UTC\r\n")
 	if !bytes.Equal(res.Output, want) {
 		t.Errorf("Output = %q, want %q", res.Output, want)
+	}
+}
+
+func TestRunAnchorOnEchoIgnoresPrefixSiblingResidual(t *testing.T) {
+	t.Parallel()
+	const (
+		line        = "show ip ospf"
+		siblingEcho = "show ip ospf neighbor"
+	)
+	prompt := ssh.Prompt{
+		Name:    "privileged",
+		Pattern: regexp.MustCompile(`(?m)^LABRT42#\s*$`),
+	}
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		// Residual from a previous command on the same session.
+		_, _ = ch.Write([]byte(siblingEcho + "\r\n10.0.0.1 1 FULL/DR 00:00:35 10.0.0.1 Gi2.999\r\nLABRT42#"))
+		time.Sleep(20 * time.Millisecond)
+		_, _ = ch.Write([]byte(line + "\r\nRouting Process \"ospf 1\"\r\nLABRT42#"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{
+		Line:         line,
+		AnchorOnEcho: true,
+		Prompts:      []ssh.Prompt{prompt},
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+
+	want := []byte("Routing Process \"ospf 1\"\r\n")
+	if !bytes.Equal(res.Output, want) {
+		t.Errorf("Output = %q, want %q", res.Output, want)
+	}
+}
+
+func TestRunAnchorOnEchoDeadlineExceededWhenEchoNeverArrives(t *testing.T) {
+	t.Parallel()
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_, _ = ch.Write([]byte("LABRT42#\r\n"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	_, err := s.Run(ctx, ssh.Command{
+		Line:         "show clock",
+		AnchorOnEcho: true,
+		Prompts: []ssh.Prompt{{
+			Name:    "privileged",
+			Pattern: regexp.MustCompile(`(?m)^LABRT42#\s*$`),
+		}},
+		Deadline: 300 * time.Millisecond,
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Run() error = %v, want context.DeadlineExceeded", err)
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Fatalf("Run() took too long: %s", time.Since(start))
+	}
+
+	_, err = s.Run(ctx, ssh.Command{Line: "show clock", Prompts: []ssh.Prompt{privPrompt}})
+	if !errors.Is(err, ssh.ErrSessionClosed) {
+		t.Fatalf("second Run() error = %v, want ErrSessionClosed (deadline closes the session)", err)
 	}
 }
 
@@ -677,5 +748,36 @@ func TestRunUnderACanceledContextSendsNothingAndSaysSo(t *testing.T) {
 	}
 	if len(res.Evidence.Sent) != 0 {
 		t.Errorf("Evidence.Sent = %q, want empty: nothing was written", res.Evidence.Sent)
+	}
+}
+
+func TestRunRefusesEmptyLineWhenAnchorOnEcho(t *testing.T) {
+	t.Parallel()
+	var seen atomic.Int64
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		buf := make([]byte, 256)
+		for {
+			n, err := ch.Read(buf)
+			if n > 0 {
+				seen.Add(int64(n))
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	session := dialSession(t, fs, nil)
+
+	_, err := session.Run(context.Background(), ssh.Command{
+		Line:         "",
+		AnchorOnEcho: true,
+		Prompts:      []ssh.Prompt{privPrompt},
+		Deadline:     200 * time.Millisecond,
+	})
+	if err == nil {
+		t.Fatal("Run accepted an empty Line when AnchorOnEcho is set")
+	}
+	if got := seen.Load(); got != 0 {
+		t.Errorf("the device received %d bytes; nothing may be written", got)
 	}
 }
