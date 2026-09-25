@@ -150,10 +150,14 @@ in golden traces and conformance corpora.
     ", ensuring index assignment does not introduce false diffs", and
     `src/protocol/snmp/reactor.go:107-112` — the one paragraph in scope with three
     em-dashes — keeps one.
-14. Every `sync.Mutex`/`RWMutex` field says which fields it guards, on the
-    struct. Acceptance: `src/protocol/syslog/receiver.go:71` reads
-    `mu sync.Mutex // guards connections and terminal`. 57 sites: `src/common` 3,
-    `src/protocol` 16, `src/modules` 22, `src/services` 5, `src/edge` 11.
+14. Every `sync.Mutex`/`RWMutex` field in non-test code says which fields it
+    guards, on the struct, in either form the repository already uses: a trailing
+    comment (`src/protocol/syslog/receiver.go:71` reads
+    `mu sync.Mutex // guards connections and terminal`) or a preceding one
+    (`src/common/service/admission.go:12` reads
+    `// mu serializes writers that derive and publish a new immutable
+    revision.`). 57 sites: `src/common` 3, `src/protocol` 16, `src/modules` 22,
+    `src/services` 5, `src/edge` 11. No grep decides this — see Verification.
 15. Superseded by [errs-only error
     construction](2026-09-25-1712-refactor-errs-only-error-construction-plan.md),
     on the user's decision that non-test Go constructs errors only through
@@ -184,11 +188,13 @@ in golden traces and conformance corpora.
   habit, and that judgement is the owner's.
 - `.golangci.yml`, `AGENTS.md`, `tools/hooks/`, `generated/`, `buf.lock`.
 - `src/protocol/snmp/CONFORMANCE.md:47,51`, which carry real planning labels
-  (`(R25, X.690 §8.19)` in a heading and "the pre-R25 path" in a row). They are
-  prose in a markdown document that no code reads, so they fall outside this
-  plan's scope — `VALIDATION_MATRIX.md` is in U6 only because
-  `matrix_test.go:49` cuts on its heading. They are why the planning-label grep
-  still prints that file.
+  (`(R25, X.690 §8.19)` in a heading and "the pre-R25 path" in a row), and the
+  corpus row that mirrors the second at
+  `src/protocol/snmp/conformance_corpus_test.go:109`. The document and the corpus
+  row are generated from each other and must say the same thing, so they move
+  together or not at all; this plan leaves both. `VALIDATION_MATRIX.md` is in U6
+  only because `matrix_test.go:49` cuts on its heading. These three are why the
+  planning-label grep still prints two files.
 - Files another session is editing, which this plan does not touch:
   `src/protocol/snmp/cmd/mibgen/**`, `src/protocol/yang/cmd/yanggen/*.go`,
   `src/protocol/internal/goname/**`,
@@ -567,12 +573,34 @@ Waves: U1 U3 U4 U5 U6 | U2
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh -- <the unit's paths>
-# after the last merge, over the union of every path the units changed:
-.claude/skills/verify-change/scripts/verify-change.sh -- \
-  src/common/netsim src/common/errs src/common/pump src/common/service \
-  src/common/spawn src/common/net src/protocol src/modules src/services \
-  src/edge test/conformance
+# after the last merge, over the files the units changed — not their directories:
+git diff --name-only <base>..HEAD -- src test > /tmp/changed.txt
+.claude/skills/verify-change/scripts/verify-change.sh -- $(cat /tmp/changed.txt)
 ```
+
+Export the environment the Docker-backed tier needs before the run, or its eight
+`TestManagedTelemetry*` cases fail at `0.00s` with
+`get provider: rootless Docker not found` — a Collector that never started, not an
+assertion that disagreed:
+
+```bash
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+export TESTCONTAINERS_RYUK_DISABLED=true
+export TMPDIR="$HOME/tmp"   # must exist
+```
+
+Pass files, not directory names. A directory expands to everything it holds, and
+three directories this change touches hold packages untagged `go vet` cannot
+build: `src/edge/netpen/test/integration/lab` (`//go:build netpen_t2`),
+`src/common/service/test/integration/testenv`
+(`//go:build service_otel_integration`), and `src/common/errs/testdata/scan`,
+which carries `package aliased` and `package dotimport` in one directory on
+purpose, as fixtures for the alias and dot-import cases in the `NewCode` scan.
+Each makes the run fail on a condition the change did not cause;
+[`a-package-behind-a-build-tag-fails-untagged-go-vet.md`](../solutions/conventions/a-package-behind-a-build-tag-fails-untagged-go-vet.md)
+describes the first. Run the script as the last command of a background
+invocation, too: a trailing `echo` or `tail` reports its own exit code as the
+gate's.
 
 This change is not verified with `--full`. A full run builds, vets and
 race-tests every module, `generated/go/yang` among them, and that tree is large
@@ -589,18 +617,32 @@ because the configuration sites use `#`:
 ```bash
 rg -n '^\s*//\s*Step [0-9]' src test
 rg -n '(//|#).*\b(R[0-9]{1,2}|U[0-9]{1,2}|KD[0-9]+|KTD[0-9]*|DR[0-9]+)\b' src test
-rg -n '^\s*(//|#)\s*[=*_-]{4,}' src test
-rg -n 't\.(Errorf|Fatalf)\("(expected|want) [^"]*, got' src test
-rg -n '^\s+\w+\s+sync\.(RW)?Mutex\s*$' src
+# Go and the three configuration files this plan governs. Unscoped, the divider
+# pattern also matches the vendored l2l3-audit baseline tool (34) and
+# layers/harvest.py (11), which are neither Go nor named by any unit.
+rg -n '^\s*(//|#)\s*[=*_-]{4,}' src test -g '*.go' \
+  -g 'Taskfile.yml' -g 'bench-gate.sh' -g 'yanggen.yaml'
+# \b before t. matters: without it the pattern also matches fmt.Errorf.
+rg -n '\bt\.(Errorf|Fatalf)\("(expected|want) [^"]*, got' src test
 rg -n '\b(LayerVlan|LayerStp|LayerLag|LayerPoe|IssueInvalidVlanID|IssueConflictVlan|IssueInvalidPoePriority)\b' src
 grep -n 'R4' src/edge/netpen/test/integration/VALIDATION_MATRIX.md
 ```
 
-Expected output: the planning-label grep prints exactly three lines —
+Expected output: the planning-label grep prints exactly five lines —
 `src/common/netsim/fabric/stp_test.go:1456` (region names `R1` and `R2`, which U1
-keeps) and `src/protocol/snmp/CONFORMANCE.md:47,51` (Out of scope). Every other
-grep prints no line. The `usm-*` and `enc-*` conformance row ids do not match the
-planning-label pattern; CONFORMANCE.md appears because of its own `R25` labels.
+keeps), `src/protocol/snmp/CONFORMANCE.md:47,51` and
+`src/protocol/snmp/conformance_corpus_test.go:109` (Out of scope), and
+`src/modules/localnet/snmpmap/lldp_test.go:152` (an excluded file). Every other
+grep prints no line, except the got/want grep, which prints three lines in
+`src/protocol/snmp/cmd/mibgen/config_test.go` — an excluded file. The `usm-*` and
+`enc-*` conformance row ids do not match the planning-label pattern;
+CONFORMANCE.md appears because of its own `R25` labels.
+
+Requirement 14 has no grep. A bare `sync.Mutex` declaration is not a violation:
+the guard comment sits on the line above it as often as beside it, and a pattern
+that demands the trailing form rejects ten correct sites in `service/`,
+`pump/`, `localnet/access/` and `netpen/runner/`. The reviewer reading the diff
+is the check, as it is for requirements 6, 11 and 13.
 
 What no test in this plan covers, said plainly rather than left to be discovered:
 
