@@ -329,8 +329,8 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 }
 
 // UploadCapture accepts one session's packet chunks and fresh assertions from
-// an authenticated edge. Authentication failures reveal only the public
-// unauthenticated message; verification details remain internal.
+// an authenticated edge. A refused assertion reveals only the public
+// unauthenticated message; which verification check refused it stays internal.
 func (s *EdgeService) UploadCapture(
 	ctx context.Context,
 	stream *connect.ClientStream[captureedgev1.UploadCaptureRequest],

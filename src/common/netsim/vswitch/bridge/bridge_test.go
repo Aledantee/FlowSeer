@@ -2955,7 +2955,7 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 		}
 		ch := changes[0]
 		if ch.Field != "tunnel" || ch.Layer != port.LayerVLAN {
-			t.Errorf("change = %+v, want field tunnel at LayerVlan", ch)
+			t.Errorf("change = %+v, want field tunnel at LayerVLAN", ch)
 		}
 		if ch.From != nil {
 			t.Errorf("From = %v, want nil", ch.From)
