@@ -1176,8 +1176,8 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 }
 
 func TestLoad_PoeLimitInNanowatts(t *testing.T) {
-	// PoeSettings carries its limit in milliwatts; the loaded port holds
-	// it in nanowatts like every other phy power value.
+	// The requested limit reaches the loaded port in nanowatts, the unit
+	// every phy power value shares.
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 	mtu0 := uint32(0)
@@ -1193,7 +1193,7 @@ func TestLoad_PoeLimitInNanowatts(t *testing.T) {
 		Physical: interfacev1.PhysicalInterface_builder{
 			Ethernet: phyv1.EthernetFacet_builder{
 				Copper: phyv1.CopperFacet_builder{
-					PoeSettings: phyv1.PoeSettings_builder{PowerLimitMilliwatts: ptr(uint32(15_400))}.Build(),
+					PoeSettings: phyv1.PoeSettings_builder{PowerLimitNanowatts: ptr(uint64(15_400_000_000))}.Build(),
 					PoeDetail:   phyv1.PoePortDetail_builder{PseGroup: &grp, PsePort: ptr(uint32(1))}.Build(),
 				}.Build(),
 			}.Build(),

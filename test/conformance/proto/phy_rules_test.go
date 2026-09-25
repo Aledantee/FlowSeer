@@ -75,7 +75,7 @@ func TestPhysicalPrimitiveRules(t *testing.T) {
 		{
 			name: "PoE settings accept an explicit zero power limit",
 			message: phyv1.PoeSettings_builder{
-				PowerLimitMilliwatts: proto.Uint32(0),
+				PowerLimitNanowatts: proto.Uint64(0),
 			}.Build(),
 			wantValid: true,
 		},
@@ -447,15 +447,15 @@ func TestPluggableModuleRules(t *testing.T) {
 
 func TestPoeSettingsPowerLimitPresence(t *testing.T) {
 	absent := phyv1.PoeSettings_builder{}.Build()
-	explicitZero := phyv1.PoeSettings_builder{PowerLimitMilliwatts: proto.Uint32(0)}.Build()
+	explicitZero := phyv1.PoeSettings_builder{PowerLimitNanowatts: proto.Uint64(0)}.Build()
 
-	if absent.HasPowerLimitMilliwatts() {
+	if absent.HasPowerLimitNanowatts() {
 		t.Fatal("omitted power limit is present")
 	}
-	if !explicitZero.HasPowerLimitMilliwatts() {
+	if !explicitZero.HasPowerLimitNanowatts() {
 		t.Fatal("explicit zero power limit is absent")
 	}
-	if got := explicitZero.GetPowerLimitMilliwatts(); got != 0 {
+	if got := explicitZero.GetPowerLimitNanowatts(); got != 0 {
 		t.Fatalf("explicit zero power limit = %d, want 0", got)
 	}
 }

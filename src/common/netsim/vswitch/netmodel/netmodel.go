@@ -943,8 +943,8 @@ func Load(
 					if ps.HasEnabled() {
 						psePort.Enabled = ps.GetEnabled()
 					}
-					if ps.HasPowerLimitMilliwatts() {
-						lim := uint64(ps.GetPowerLimitMilliwatts()) * 1_000_000
+					if ps.HasPowerLimitNanowatts() {
+						lim := ps.GetPowerLimitNanowatts()
 						psePort.Limit = &lim
 					}
 					if ps.HasPriority() {
