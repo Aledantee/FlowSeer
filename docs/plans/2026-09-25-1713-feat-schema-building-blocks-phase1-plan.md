@@ -129,6 +129,28 @@ govern. The ones below are local to this phase.
   meaning; these names keep theirs. Cost if wrong: a later change re-adds
   one of these names with a different meaning and must reserve it then; the
   reserved numbers still stop a wire-level misread.
+- Ruled: a repeated interface-name field carries its class the way
+  structure-record convention 4 prescribes for a predefined rule on a
+  repeated field: the `items` aggregate restates the class rule's bounds
+  (`min_len 1`, `max_len 255`, plus the character class for
+  `shell_safe_interface_name`), and the 64-character bound goes away.
+  `store/device/v1/registry.proto`'s `managed_interfaces` is the live case
+  and takes the shell-safe class: its names are operator-supplied and drive
+  drift checks against the device. Why: aggregates cannot name an extension
+  inside `items`, so restating is the only form a repeated field can take.
+  Cost if wrong: a later repeated carrier restates other bounds and the
+  key-rule walk flags it.
+- Ruled: the key-rule walk covers every FlowSeer package, which pulls in two
+  carrier files the key-rules unit's parenthetical omits:
+  `api/device/v1/device_service.proto` (`ReadInterfaceRequest.interface_name`
+  is sent to the device to read it, so it takes
+  `shell_safe_interface_name`) and `store/device/v1/registry.proto` (the
+  repeated case above). The layering table gains `net/key` on the
+  `model/access`, `model/capture`, and `api/device` rows: the leaf-table
+  unit listed no consumer of `net/key` outside `net/` and
+  `model/inventory`, and this unit is where those imports land. Cost if
+  wrong: `TestProtoReadmeImports` or the import-order gate fails and names
+  the row.
 - The unit-suffix test works from two lists in the test file: canonical
   suffixes (`_bps`, `_bytes`, `_mhz`, `_nanowatts`, `_millidbm`, `_millidb`,
   `_millidbi`, `_millidegrees_celsius`, `_microvolts`, `_microamperes`,
