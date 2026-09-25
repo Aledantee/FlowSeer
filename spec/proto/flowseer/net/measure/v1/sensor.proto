@@ -2,8 +2,8 @@ edition = "2024";
 
 package flowseer.net.measure.v1;
 
-import option "flowseer/net/measure/v1/basis_points.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
 
 // A temperature measurement and its thresholds, in thousandths of a degree
 // Celsius. Each threshold is absent when the source does not report it;
