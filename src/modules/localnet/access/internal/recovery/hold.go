@@ -13,9 +13,10 @@ import "sync"
 // a re-sent resolution for an older sequence is ordinary rather than
 // exceptional. Cleared on the strength of its own sequence, a stale one would
 // lift the hold a later abandonment engaged and admit a mutation over a
-// device state nobody resolved — the one thing the hold exists to prevent.
+// device state nobody resolved — the one thing the hold exists to prevent. A
+// Hold is safe for concurrent use.
 type Hold struct {
-	mu       sync.Mutex
+	mu       sync.Mutex // guards active and sequence
 	active   bool
 	sequence uint64
 }

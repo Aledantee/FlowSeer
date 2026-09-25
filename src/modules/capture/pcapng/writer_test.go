@@ -221,7 +221,7 @@ func TestWriter_StickyError(t *testing.T) {
 	rec := newRecord(t, 0, []byte{1, 2, 3})
 	err1 := w.WriteRecord(rec)
 	if err1 == nil {
-		t.Fatalf("WriteRecord: want an error from the third write, got nil")
+		t.Fatalf("WriteRecord: got nil error, want an error from the third write")
 	}
 	callsAfterFirstError := fw.calls
 

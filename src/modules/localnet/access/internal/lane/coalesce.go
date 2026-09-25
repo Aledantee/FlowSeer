@@ -52,7 +52,7 @@ func (t *Ticket) Wait(ctx context.Context) (any, error) {
 // concurrent use: Start may be called from multiple goroutines, and so may
 // any terminator it returned.
 type Coalescer struct {
-	mu       sync.Mutex
+	mu       sync.Mutex // guards inflight
 	inflight map[CoalesceKey]*Ticket
 }
 

@@ -36,7 +36,7 @@ const (
 // non-protobuf body. An agent host therefore pins Protocol http/protobuf
 // and leaves compression off rather than letting OTEL_EXPORTER_OTLP_*
 // environment variables choose gzip or grpc, which would make every export
-// fail against this receiver.
+// fail against this receiver. A Receiver is safe for concurrent use.
 type Receiver struct {
 	leaf     *Leaf
 	server   *http.Server

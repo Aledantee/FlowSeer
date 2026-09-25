@@ -34,9 +34,8 @@ var ErrCodeNotSubmitted = errs.NewCode("interfaces/not-submitted")
 
 // ShellAdapter is the seam a firmware-specific shell mapping implements.
 // fastiron.Adapter satisfies it structurally; this package never imports a
-// firmware package (the firmware-family split), so ShellAdapter,
-// not a concrete adapter type, is what Read and VerifyDescriptionChange
-// take.
+// firmware package. The firmware-family split keeps Read and
+// VerifyDescriptionChange dependent on this interface.
 type ShellAdapter interface {
 	// ReadInterface reads one interface's description, admin status, and
 	// oper status. A successful call is complete: every compared field is
@@ -225,10 +224,9 @@ func (d VerificationDisposition) String() string {
 	}
 }
 
-// VerifyDescriptionChange implements the verification rule: a
-// mutation is verified only by an observation of the affected state, never
-// by the mutation's own command succeeding. It calls [Read] exactly once —
-// this function does not retry — and reports one of three dispositions: a
+// VerifyDescriptionChange implements the verification rule: only an
+// observation of the affected state verifies a mutation. It calls [Read]
+// exactly once and reports one of three dispositions: a
 // caller polling it across the delayed-effect horizon sees
 // VerificationNotYetVerified become either VerificationVerified or
 // VerificationFailed as later calls land — which is how ambiguity stays

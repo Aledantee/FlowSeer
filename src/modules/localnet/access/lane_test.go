@@ -1055,7 +1055,7 @@ func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 		}
 	}
 	if successes != 1 {
-		t.Errorf("expected exactly one of %d concurrent HandleCheckpoint deliveries to succeed, got %d", attempts, successes)
+		t.Errorf("got %d successful concurrent HandleCheckpoint deliveries, want exactly one of %d", successes, attempts)
 	}
 	if blocked != 0 {
 		t.Errorf("%d HandleCheckpoint call(s) blocked instead of returning an error", blocked)

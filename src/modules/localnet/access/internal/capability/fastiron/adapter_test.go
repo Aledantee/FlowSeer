@@ -18,10 +18,6 @@ import (
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
 
-// var _ interfaces.ShellAdapter = (*fastiron.Adapter)(nil) proves Adapter
-// satisfies the capability handler's seam at compile time, so a signature
-// drift between the two packages is caught here rather than where a
-// future host wires them together.
 var _ interfaces.ShellAdapter = (*fastiron.Adapter)(nil)
 
 // transcriptRecorder captures every line the adapter sends over one

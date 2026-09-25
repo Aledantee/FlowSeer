@@ -21,7 +21,9 @@ var ErrCodeStream = errs.NewCode("credential/stream")
 // ConnectAdapter satisfies [ReadCredentialSource] and
 // [SubmissionCredentialSource] against a real
 // attachv1connect.EdgeServiceClient. Production wiring constructs one;
-// tests construct a fake of the two interfaces directly instead.
+// tests construct a fake of the two interfaces directly instead. A
+// ConnectAdapter is safe for concurrent use after Client is set; callers must
+// not replace Client while methods are running.
 type ConnectAdapter struct {
 	Client attachv1connect.EdgeServiceClient
 }
@@ -102,7 +104,7 @@ type submissionStream interface {
 type submissionHandle struct {
 	grant *attachv1.SubmissionGrant
 
-	mu        sync.Mutex
+	mu        sync.Mutex // guards authority and err
 	authority attachv1.SubmissionAuthority
 	err       error
 	stream    submissionStream

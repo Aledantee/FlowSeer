@@ -92,7 +92,7 @@ func TestProbeFingerprintNeverExceedsSchemaBound(t *testing.T) {
 		t.Fatalf("Probe: %v", err)
 	}
 	if len(fp) > schemaMaxLen {
-		t.Fatalf("expected fingerprint to stay within the schema's %d-char bound, got %d chars: %q", schemaMaxLen, len(fp), fp)
+		t.Fatalf("got %d-character fingerprint %q, want at most %d characters", len(fp), fp, schemaMaxLen)
 	}
 }
 
@@ -138,7 +138,7 @@ func TestProbeRejectsWrongShape(t *testing.T) {
 		t.Fatal("expected an error for a malformed identity response")
 	}
 	if code, _ := errs.CodeOf(err); code != epoch.ErrCodeProbe {
-		t.Fatalf("expected ErrCodeProbe, got %v", err)
+		t.Fatalf("got error %v, want ErrCodeProbe", err)
 	}
 }
 

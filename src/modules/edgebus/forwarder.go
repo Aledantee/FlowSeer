@@ -72,7 +72,8 @@ type ForwarderConfig struct {
 // unchanged, acknowledging only after the collector accepted it. The edge a
 // record belongs to is the stream it sits in, never the subject it carries:
 // a record whose subject lies outside that edge's subtree is dropped, so no
-// permission change can let one edge speak as another.
+// permission change can let one edge speak as another. A Forwarder is safe for
+// concurrent use.
 type Forwarder struct {
 	cfg     ForwarderConfig
 	hub     *Hub
@@ -81,7 +82,7 @@ type Forwarder struct {
 	cancel  context.CancelFunc
 	done    chan struct{}
 
-	mu         sync.Mutex
+	mu         sync.Mutex // guards consumers, dropped, and lastLogged
 	consumers  map[string]jetstream.ConsumeContext
 	dropped    int
 	lastLogged map[string]time.Time

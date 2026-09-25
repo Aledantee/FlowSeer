@@ -21,7 +21,7 @@ const scopeName = "go.aledante.io/FlowSeer/src/modules/localnet/access"
 
 // View bundles the instrumentation a caller supplies once and every other
 // internal package reads from thereafter. The zero value is not usable;
-// construct with [NewView].
+// construct with [NewView]. A View is safe for concurrent use.
 type View struct {
 	tracer     trace.Tracer
 	propagator propagation.TextMapPropagator

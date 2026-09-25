@@ -254,11 +254,11 @@ type linuxMirrorSource struct {
 	candidates []capturev1.MirrorEncapsulation
 	vm         *bpf.VM
 
-	statsMu          sync.Mutex
+	statsMu          sync.Mutex // guards received and reportedReceived as a pair
 	received         atomic.Uint64
 	reportedReceived atomic.Uint64
 
-	mu     sync.Mutex
+	mu     sync.Mutex // guards rawV4, rawV6, udp, and closed
 	closed bool
 	done   chan struct{}
 }

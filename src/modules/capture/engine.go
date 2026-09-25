@@ -51,13 +51,16 @@ type Engine struct {
 	snapLength            uint32
 	reportsInterfaceDrops bool
 
-	mu      sync.Mutex
+	mu      sync.Mutex // guards started and state
 	started bool
 	state   State
 }
 
 // New validates cfg, compiles its filter once, and opens the source cfg.Source
-// names.
+// names. The returned Engine owns the source and closes it when [Engine.Run]
+// ends; the caller starts it with one Run call. New preserves
+// [rawsocket.ErrUnsupportedPlatform] and errors carrying
+// [rawsocket.ErrCodeSourceOpen] for callers that branch on source-open failures.
 func New(cfg Config) (*Engine, error) {
 	if cfg.Source == nil {
 		return nil, fmt.Errorf("capture: Source is required")
@@ -107,35 +110,19 @@ func New(cfg Config) (*Engine, error) {
 }
 
 // NewWithSource builds an Engine around an already-open source, for a caller
-// that opens its own.
-//
-// It is not New with the socket step swapped out: New's work before the
-// socket — validating the budget, rejecting a snap length over 65535, and
-// compiling cfg.Filter into the cBPF program it attaches — has nowhere to
-// happen here, because the engine has no userspace filter stage and this
-// source is already open. A caller that reaches for this constructor owns
-// both: the session's filter is its to apply when it opens the source, and a
-// budget bounding nothing gives an engine that never stops on its own.
+// that opens its own. The Engine takes ownership and closes the source when Run
+// ends. The caller owns the validation and filter setup that New performs before
+// opening a source, and must provide a budget that eventually stops the capture.
 //
 // reportsInterfaceDrops distinguishes a local-interface source, whose Stats
 // reports a real kernel drop count, from a mirror receiver, whose Stats
 // always returns zero for droppedByInterface because no such counter exists
 // at that layer: per capture_counters.proto, an absent counter means the
-// stage does not report one, so a mirror-sourced run never sets
-// dropped_by_interface rather than reporting a misleading zero. A source that
-// counts nothing passes false for the same reason.
+// stage does not report one. A false value leaves dropped_by_interface unset.
 func NewWithSource(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	return newEngine(src, budget, reportsInterfaceDrops)
 }
 
-// newEngine builds an Engine around an already-open source, so a test
-// supplies a fake Source without going through New's real socket-opening
-// path. reportsInterfaceDrops distinguishes a local-interface source, whose
-// Stats reports a real kernel drop count, from a mirror receiver, whose
-// Stats always returns zero for droppedByInterface because no such counter
-// exists at that layer: per capture_counters.proto, an absent counter means
-// the stage does not report one, so a mirror-sourced run never sets
-// dropped_by_interface rather than reporting a misleading zero.
 func newEngine(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	snapLength := budget.GetSnapLength()
 	if snapLength == 0 {
