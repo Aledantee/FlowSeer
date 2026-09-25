@@ -39,10 +39,22 @@ type Command struct {
 	// partial transcript indistinguishable from a complete one. At least
 	// one is required.
 	Prompts []Prompt
-	// AnchorOnEcho makes Run wait for Line to appear in the shell output before
-	// scanning for a prompt. It discards preceding bytes, the echo, and its
-	// following line ending. False scans the whole buffer for shells that do not
-	// echo commands.
+	// AnchorOnEcho makes Run discard everything up to and including the
+	// shell's echo of Line, and the line ending after it, before scanning
+	// for a prompt, instead of scanning from the first byte. Set it for a
+	// shell that reprints its prompt between commands: that residual
+	// prompt arrives ahead of this command's echo and otherwise ends the
+	// command before its own output does, returning the previous
+	// command's transcript.
+	//
+	// Only an echo followed by a line ending anchors, so a Line that is a
+	// prefix of another command's cannot anchor on that command's
+	// residual echo. Nothing matches until such an echo appears: against
+	// a shell that does not echo, or one whose output outruns
+	// Options.StdoutBufferBytes before the first prompt or pagination
+	// match — the ring drops the echo with the oldest bytes — Run ends at
+	// its deadline with the Session closed, where the default scan ends
+	// at a truncated result. Leave it false for those.
 	AnchorOnEcho bool
 
 	// MorePattern, when non-nil, detects a pagination marker (e.g. a
@@ -128,6 +140,10 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 	}
 	if len(cmd.Prompts) == 0 {
 		return Result{}, errs.New().Code(ErrCodeShell).Msg("command: at least one prompt is required")
+	}
+	if cmd.AnchorOnEcho && cmd.Line == "" {
+		return Result{}, errs.New().Code(ErrCodeShell).
+			Msg("command: AnchorOnEcho needs a non-empty Line to anchor on")
 	}
 	if cmd.MorePattern != nil && len(cmd.MoreKeystroke) == 0 {
 		return Result{}, errs.New().Code(ErrCodeShell).Msg("command: MoreKeystroke is required when MorePattern is set")
@@ -219,7 +235,7 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 			skip = 0
 			switch {
 			case awaitEcho:
-				echoStart := bytes.Index(buf, echo)
+				echoStart := echoAnchor(buf, echo)
 				if echoStart < 0 {
 					return 0, false
 				}
@@ -288,6 +304,27 @@ func echoSkipLen(buf, echo []byte) int {
 	default:
 		return len(echo)
 	}
+}
+
+// echoAnchor reports where the shell's echo of echo begins in buf, or -1 while
+// no complete echo has arrived. The echo must be followed by a line ending: a
+// Line that is a prefix of another command's ("show ip ospf" of "show ip ospf
+// neighbor") would otherwise anchor on a residual echo of the longer one and
+// hand the caller that command's output.
+func echoAnchor(buf, echo []byte) int {
+	for from := 0; from+len(echo) <= len(buf); {
+		i := bytes.Index(buf[from:], echo)
+		if i < 0 {
+			return -1
+		}
+		start := from + i
+		switch rest := buf[start+len(echo):]; {
+		case bytes.HasPrefix(rest, []byte("\r\n")), bytes.HasPrefix(rest, []byte("\n")):
+			return start
+		}
+		from = start + 1
+	}
+	return -1
 }
 
 // connectionLostErr wraps a stdin write failure.
