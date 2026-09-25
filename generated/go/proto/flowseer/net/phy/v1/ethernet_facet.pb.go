@@ -37,6 +37,7 @@ type EthernetFacet struct {
 	xxx_hidden_AdvertisedLinkModes    []MauLinkMode             `protobuf:"varint,30,rep,packed,name=advertised_link_modes,json=advertisedLinkModes,enum=flowseer.net.phy.v1.MauLinkMode"`
 	xxx_hidden_ReceivedLinkModes      []MauLinkMode             `protobuf:"varint,31,rep,packed,name=received_link_modes,json=receivedLinkModes,enum=flowseer.net.phy.v1.MauLinkMode"`
 	xxx_hidden_Counters               *EthernetCounters         `protobuf:"bytes,32,opt,name=counters"`
+	xxx_hidden_Settings               *EthernetSettings         `protobuf:"bytes,33,opt,name=settings"`
 	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
 	XXX_presence                      [1]uint32
 	unknownFields                     protoimpl.UnknownFields
@@ -178,9 +179,16 @@ func (x *EthernetFacet) GetCounters() *EthernetCounters {
 	return nil
 }
 
+func (x *EthernetFacet) GetSettings() *EthernetSettings {
+	if x != nil {
+		return x.xxx_hidden_Settings
+	}
+	return nil
+}
+
 func (x *EthernetFacet) SetFecMode(v EthernetFecMode) {
 	x.xxx_hidden_FecMode = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
 }
 
 func (x *EthernetFacet) SetCapabilities(v *EthernetCapabilities) {
@@ -189,12 +197,12 @@ func (x *EthernetFacet) SetCapabilities(v *EthernetCapabilities) {
 
 func (x *EthernetFacet) SetActiveSpeedBps(v uint64) {
 	x.xxx_hidden_ActiveSpeedBps = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 12)
 }
 
 func (x *EthernetFacet) SetActiveDuplex(v EthernetDuplex) {
 	x.xxx_hidden_ActiveDuplex = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 11)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 12)
 }
 
 func (x *EthernetFacet) SetAppliedAutoNegotiation(v *AutoNegotiationFacet) {
@@ -251,6 +259,10 @@ func (x *EthernetFacet) SetReceivedLinkModes(v []MauLinkMode) {
 
 func (x *EthernetFacet) SetCounters(v *EthernetCounters) {
 	x.xxx_hidden_Counters = v
+}
+
+func (x *EthernetFacet) SetSettings(v *EthernetSettings) {
+	x.xxx_hidden_Settings = v
 }
 
 func (x *EthernetFacet) HasFecMode() bool {
@@ -348,6 +360,13 @@ func (x *EthernetFacet) HasCounters() bool {
 	return x.xxx_hidden_Counters != nil
 }
 
+func (x *EthernetFacet) HasSettings() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Settings != nil
+}
+
 func (x *EthernetFacet) ClearFecMode() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_FecMode = EthernetFecMode_ETHERNET_FEC_MODE_UNSPECIFIED
@@ -409,6 +428,10 @@ func (x *EthernetFacet) ClearModule() {
 
 func (x *EthernetFacet) ClearCounters() {
 	x.xxx_hidden_Counters = nil
+}
+
+func (x *EthernetFacet) ClearSettings() {
+	x.xxx_hidden_Settings = nil
 }
 
 const EthernetFacet_Transport_not_set_case case_EthernetFacet_Transport = 0
@@ -489,6 +512,10 @@ type EthernetFacet_builder struct {
 	// Ethernet-specific error counters. Absent means the source reported no
 	// Ethernet counters at all; individual counters carry their own presence.
 	Counters *EthernetCounters
+	// Requested physical-link settings the caller set, kept apart from the
+	// applied and negotiated facts above. Absent means no requested settings
+	// were reported.
+	Settings *EthernetSettings
 }
 
 func (b0 EthernetFacet_builder) Build() *EthernetFacet {
@@ -496,16 +523,16 @@ func (b0 EthernetFacet_builder) Build() *EthernetFacet {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.FecMode != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
 		x.xxx_hidden_FecMode = *b.FecMode
 	}
 	x.xxx_hidden_Capabilities = b.Capabilities
 	if b.ActiveSpeedBps != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 12)
 		x.xxx_hidden_ActiveSpeedBps = *b.ActiveSpeedBps
 	}
 	if b.ActiveDuplex != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 11)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 12)
 		x.xxx_hidden_ActiveDuplex = *b.ActiveDuplex
 	}
 	x.xxx_hidden_AppliedAutoNegotiation = b.AppliedAutoNegotiation
@@ -526,6 +553,7 @@ func (b0 EthernetFacet_builder) Build() *EthernetFacet {
 	x.xxx_hidden_AdvertisedLinkModes = b.AdvertisedLinkModes
 	x.xxx_hidden_ReceivedLinkModes = b.ReceivedLinkModes
 	x.xxx_hidden_Counters = b.Counters
+	x.xxx_hidden_Settings = b.Settings
 	return m0
 }
 
@@ -575,7 +603,7 @@ var File_flowseer_net_phy_v1_ethernet_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a)flowseer/net/phy/v1/backplane_facet.proto\x1a&flowseer/net/phy/v1/copper_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a+flowseer/net/phy/v1/ethernet_counters.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a%flowseer/net/phy/v1/fiber_facet.proto\x1a'flowseer/net/phy/v1/mau_link_mode.proto\x1a\"flowseer/net/phy/v1/mau_type.proto\x1a)flowseer/net/phy/v1/other_transport.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\"\xb3\v\n" +
+	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a)flowseer/net/phy/v1/backplane_facet.proto\x1a&flowseer/net/phy/v1/copper_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a+flowseer/net/phy/v1/ethernet_counters.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a+flowseer/net/phy/v1/ethernet_settings.proto\x1a%flowseer/net/phy/v1/fiber_facet.proto\x1a'flowseer/net/phy/v1/mau_link_mode.proto\x1a\"flowseer/net/phy/v1/mau_type.proto\x1a)flowseer/net/phy/v1/other_transport.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\"\xf6\v\n" +
 	"\rEthernetFacet\x12?\n" +
 	"\bfec_mode\x18\x04 \x01(\x0e2$.flowseer.net.phy.v1.EthernetFecModeR\afecMode\x12M\n" +
 	"\fcapabilities\x18\x05 \x01(\v2).flowseer.net.phy.v1.EthernetCapabilitiesR\fcapabilities\x121\n" +
@@ -591,7 +619,8 @@ const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module\x12^\n" +
 	"\x15advertised_link_modes\x18\x1e \x03(\x0e2 .flowseer.net.phy.v1.MauLinkModeB\b\xbaH\x05\x92\x01\x02\x18\x01R\x13advertisedLinkModes\x12Z\n" +
 	"\x13received_link_modes\x18\x1f \x03(\x0e2 .flowseer.net.phy.v1.MauLinkModeB\b\xbaH\x05\x92\x01\x02\x18\x01R\x11receivedLinkModes\x12A\n" +
-	"\bcounters\x18  \x01(\v2%.flowseer.net.phy.v1.EthernetCountersR\bcounters:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
+	"\bcounters\x18  \x01(\v2%.flowseer.net.phy.v1.EthernetCountersR\bcounters\x12A\n" +
+	"\bsettings\x18! \x01(\v2%.flowseer.net.phy.v1.EthernetSettingsR\bsettings:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
 	"0ethernet_facet.auto_negotiation_requires_support\x12Nauto-negotiation cannot be enabled when capability support is explicitly false\x1a\xfd\x01!has(this.capabilities) || !has(this.capabilities.auto_negotiation_supported) || this.capabilities.auto_negotiation_supported || !has(this.applied_auto_negotiation) || !has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabledB\v\n" +
 	"\ttransportJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x06mediumR\x03poeR\vtransceiverB\xe0\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x12EthernetFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
@@ -611,6 +640,7 @@ var file_flowseer_net_phy_v1_ethernet_facet_proto_goTypes = []any{
 	(*PluggableModule)(nil),      // 10: flowseer.net.phy.v1.PluggableModule
 	(MauLinkMode)(0),             // 11: flowseer.net.phy.v1.MauLinkMode
 	(*EthernetCounters)(nil),     // 12: flowseer.net.phy.v1.EthernetCounters
+	(*EthernetSettings)(nil),     // 13: flowseer.net.phy.v1.EthernetSettings
 }
 var file_flowseer_net_phy_v1_ethernet_facet_proto_depIdxs = []int32{
 	1,  // 0: flowseer.net.phy.v1.EthernetFacet.fec_mode:type_name -> flowseer.net.phy.v1.EthernetFecMode
@@ -626,11 +656,12 @@ var file_flowseer_net_phy_v1_ethernet_facet_proto_depIdxs = []int32{
 	11, // 10: flowseer.net.phy.v1.EthernetFacet.advertised_link_modes:type_name -> flowseer.net.phy.v1.MauLinkMode
 	11, // 11: flowseer.net.phy.v1.EthernetFacet.received_link_modes:type_name -> flowseer.net.phy.v1.MauLinkMode
 	12, // 12: flowseer.net.phy.v1.EthernetFacet.counters:type_name -> flowseer.net.phy.v1.EthernetCounters
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	13, // 13: flowseer.net.phy.v1.EthernetFacet.settings:type_name -> flowseer.net.phy.v1.EthernetSettings
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_phy_v1_ethernet_facet_proto_init() }
@@ -645,6 +676,7 @@ func file_flowseer_net_phy_v1_ethernet_facet_proto_init() {
 	file_flowseer_net_phy_v1_ethernet_counters_proto_init()
 	file_flowseer_net_phy_v1_ethernet_duplex_proto_init()
 	file_flowseer_net_phy_v1_ethernet_fec_mode_proto_init()
+	file_flowseer_net_phy_v1_ethernet_settings_proto_init()
 	file_flowseer_net_phy_v1_fiber_facet_proto_init()
 	file_flowseer_net_phy_v1_mau_link_mode_proto_init()
 	file_flowseer_net_phy_v1_mau_type_proto_init()

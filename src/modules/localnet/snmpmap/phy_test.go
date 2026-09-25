@@ -379,16 +379,46 @@ func TestPhysical_PseBudgets(t *testing.T) {
 		t.Error("two groups share a key")
 	}
 
-	if first.GetPowerMilliwatts() != 370_000 || first.GetOperStatus() != phyv1.PseOperStatus_PSE_OPER_STATUS_ON {
+	if first.GetPowerNanowatts() != 370_000_000_000 || first.GetOperStatus() != phyv1.PseOperStatus_PSE_OPER_STATUS_ON {
 		t.Errorf("group 1 = %v, want 370 W on", first)
 	}
 
-	if !first.HasConsumptionMilliwatts() || first.GetConsumptionMilliwatts() != 0 {
+	if !first.HasConsumptionNanowatts() || first.GetConsumptionNanowatts() != 0 {
 		t.Error("explicit zero consumption is absent")
 	}
 
-	if second.HasUsageThresholdPercent() {
+	if second.HasUsageThresholdBasisPoints() {
 		t.Error("an out-of-range threshold was kept")
+	}
+}
+
+func TestPhysical_PseBudgetCanonicalUnits(t *testing.T) {
+	// POWER-ETHERNET-MIB reports whole watts and whole percent; the
+	// budget carries nanowatts and basis points.
+	vbs := []vbFixture{
+		gauge32At(powerethernetmib.PethMainPsePower, 30, 1),
+		gauge32At(powerethernetmib.PethMainPseConsumptionPower, 30, 1),
+		integerAt(powerethernetmib.PethMainPseUsageThreshold, 80, 1),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	if len(facts.Budgets) != 1 {
+		t.Fatalf("Budgets = %d, want 1", len(facts.Budgets))
+	}
+
+	budget := facts.Budgets[0]
+	mustValid(t, budget)
+
+	if budget.GetPowerNanowatts() != 30_000_000_000 || budget.GetConsumptionNanowatts() != 30_000_000_000 {
+		t.Errorf("budget = %v, want 30 W nominal and consumed as 30000000000 nanowatts", budget)
+	}
+
+	if got := budget.GetUsageThresholdBasisPoints(); got != 8000 {
+		t.Errorf("usage threshold = %d basis points, want 8000", got)
 	}
 }
 

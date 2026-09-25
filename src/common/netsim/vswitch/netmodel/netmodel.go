@@ -888,9 +888,9 @@ func Load(
 					return factKey{}, "", false
 				}
 				groupStr := strconv.FormatUint(uint64(b.GetPseGroup()), 10)
-				value := "power_milliwatts=unreported"
-				if b.HasPowerMilliwatts() {
-					value = "power_milliwatts=" + strconv.FormatUint(uint64(b.GetPowerMilliwatts()), 10)
+				value := "power_nanowatts=unreported"
+				if b.HasPowerNanowatts() {
+					value = "power_nanowatts=" + strconv.FormatUint(b.GetPowerNanowatts(), 10)
 				}
 				return factKey{id: groupStr, display: groupStr, scope: rootScope}, value, true
 			})
@@ -899,14 +899,14 @@ func Load(
 			}
 			for _, groupStr := range sortedKeys(budgetRows) {
 				b := budgetRows[groupStr]
-				var power uint32
-				if b.HasPowerMilliwatts() {
-					power = b.GetPowerMilliwatts()
+				var power uint64
+				if b.HasPowerNanowatts() {
+					power = b.GetPowerNanowatts()
 				} else {
-					addDefault(groupStr, "power_milliwatts", "0")
+					addDefault(groupStr, "power_nanowatts", "0")
 				}
 				poe.Groups[groupStr] = phy.Group{
-					PowerMilliwatts: power,
+					PowerNanowatts: power,
 				}
 			}
 
@@ -943,8 +943,8 @@ func Load(
 					if ps.HasEnabled() {
 						psePort.Enabled = ps.GetEnabled()
 					}
-					if ps.HasPowerLimitMilliwatts() {
-						lim := ps.GetPowerLimitMilliwatts()
+					if ps.HasPowerLimitNanowatts() {
+						lim := ps.GetPowerLimitNanowatts()
 						psePort.Limit = &lim
 					}
 					if ps.HasPriority() {

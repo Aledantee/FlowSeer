@@ -245,7 +245,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U3. `net/phy` on the canonical units
 
-Files: spec/proto/flowseer/net/phy/v1/{module_diagnostics,module_lane,poe_facet,pse_budget,pluggable_module,ethernet_facet}.proto,
+Files: spec/proto/flowseer/net/phy/v1/{module_diagnostics,module_lane,poe_facet,poe_settings,pse_budget,pluggable_module,ethernet_facet}.proto,
 deletes spec/proto/flowseer/net/phy/v1/{module_temperature,supply_voltage,bias_current,optical_power}.proto,
 spec/proto/flowseer/net/phy/v1/README.md, test/conformance/proto/phy_rules_test.go,
 src/modules/localnet/snmpmap/{phy.go,phy_ddm.go,phy_test.go,phy_ddm_test.go},

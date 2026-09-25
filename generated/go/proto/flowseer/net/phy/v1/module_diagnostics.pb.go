@@ -7,6 +7,7 @@
 package phyv1
 
 import (
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -26,8 +27,8 @@ const (
 // on the module's lanes.
 type ModuleDiagnostics struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Temperature *ModuleTemperature     `protobuf:"bytes,1,opt,name=temperature"`
-	xxx_hidden_Voltage     *SupplyVoltage         `protobuf:"bytes,2,opt,name=voltage"`
+	xxx_hidden_Temperature *v1.Temperature        `protobuf:"bytes,3,opt,name=temperature"`
+	xxx_hidden_Voltage     *v1.Voltage            `protobuf:"bytes,4,opt,name=voltage"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -57,25 +58,25 @@ func (x *ModuleDiagnostics) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *ModuleDiagnostics) GetTemperature() *ModuleTemperature {
+func (x *ModuleDiagnostics) GetTemperature() *v1.Temperature {
 	if x != nil {
 		return x.xxx_hidden_Temperature
 	}
 	return nil
 }
 
-func (x *ModuleDiagnostics) GetVoltage() *SupplyVoltage {
+func (x *ModuleDiagnostics) GetVoltage() *v1.Voltage {
 	if x != nil {
 		return x.xxx_hidden_Voltage
 	}
 	return nil
 }
 
-func (x *ModuleDiagnostics) SetTemperature(v *ModuleTemperature) {
+func (x *ModuleDiagnostics) SetTemperature(v *v1.Temperature) {
 	x.xxx_hidden_Temperature = v
 }
 
-func (x *ModuleDiagnostics) SetVoltage(v *SupplyVoltage) {
+func (x *ModuleDiagnostics) SetVoltage(v *v1.Voltage) {
 	x.xxx_hidden_Voltage = v
 }
 
@@ -104,10 +105,14 @@ func (x *ModuleDiagnostics) ClearVoltage() {
 type ModuleDiagnostics_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Internal module temperature. Absent means unreported.
-	Temperature *ModuleTemperature
-	// Module supply voltage. Absent means unreported.
-	Voltage *SupplyVoltage
+	// Internal module temperature. SFF-8472 reports it in 1/256 degree steps,
+	// which the millidegree unit carries to within four thousandths of a
+	// degree. Absent means unreported.
+	Temperature *v1.Temperature
+	// Module supply voltage. SFF-8472 reports it in steps of one hundred
+	// microvolts, which the microvolt unit carries without loss. Absent means
+	// unreported.
+	Voltage *v1.Voltage
 }
 
 func (b0 ModuleDiagnostics_builder) Build() *ModuleDiagnostics {
@@ -123,21 +128,21 @@ var File_flowseer_net_phy_v1_module_diagnostics_proto protoreflect.FileDescripto
 
 const file_flowseer_net_phy_v1_module_diagnostics_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/net/phy/v1/module_diagnostics.proto\x12\x13flowseer.net.phy.v1\x1a,flowseer/net/phy/v1/module_temperature.proto\x1a(flowseer/net/phy/v1/supply_voltage.proto\"\x9b\x01\n" +
-	"\x11ModuleDiagnostics\x12H\n" +
-	"\vtemperature\x18\x01 \x01(\v2&.flowseer.net.phy.v1.ModuleTemperatureR\vtemperature\x12<\n" +
-	"\avoltage\x18\x02 \x01(\v2\".flowseer.net.phy.v1.SupplyVoltageR\avoltageB\xe4\x01\n" +
+	",flowseer/net/phy/v1/module_diagnostics.proto\x12\x13flowseer.net.phy.v1\x1a$flowseer/net/measure/v1/sensor.proto\"\xa3\x01\n" +
+	"\x11ModuleDiagnostics\x12F\n" +
+	"\vtemperature\x18\x03 \x01(\v2$.flowseer.net.measure.v1.TemperatureR\vtemperature\x12:\n" +
+	"\avoltage\x18\x04 \x01(\v2 .flowseer.net.measure.v1.VoltageR\avoltageJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03B\xe4\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x16ModuleDiagnosticsProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_module_diagnostics_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_module_diagnostics_proto_goTypes = []any{
 	(*ModuleDiagnostics)(nil), // 0: flowseer.net.phy.v1.ModuleDiagnostics
-	(*ModuleTemperature)(nil), // 1: flowseer.net.phy.v1.ModuleTemperature
-	(*SupplyVoltage)(nil),     // 2: flowseer.net.phy.v1.SupplyVoltage
+	(*v1.Temperature)(nil),    // 1: flowseer.net.measure.v1.Temperature
+	(*v1.Voltage)(nil),        // 2: flowseer.net.measure.v1.Voltage
 }
 var file_flowseer_net_phy_v1_module_diagnostics_proto_depIdxs = []int32{
-	1, // 0: flowseer.net.phy.v1.ModuleDiagnostics.temperature:type_name -> flowseer.net.phy.v1.ModuleTemperature
-	2, // 1: flowseer.net.phy.v1.ModuleDiagnostics.voltage:type_name -> flowseer.net.phy.v1.SupplyVoltage
+	1, // 0: flowseer.net.phy.v1.ModuleDiagnostics.temperature:type_name -> flowseer.net.measure.v1.Temperature
+	2, // 1: flowseer.net.phy.v1.ModuleDiagnostics.voltage:type_name -> flowseer.net.measure.v1.Voltage
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -150,8 +155,6 @@ func file_flowseer_net_phy_v1_module_diagnostics_proto_init() {
 	if File_flowseer_net_phy_v1_module_diagnostics_proto != nil {
 		return
 	}
-	file_flowseer_net_phy_v1_module_temperature_proto_init()
-	file_flowseer_net_phy_v1_supply_voltage_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

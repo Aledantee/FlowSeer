@@ -3,7 +3,6 @@ package snmpmap
 import (
 	"context"
 	"errors"
-	"math"
 
 	"go.aledante.io/FlowSeer/generated/go/mib/etherlikemib"
 	"go.aledante.io/FlowSeer/generated/go/mib/maumib"
@@ -855,14 +854,10 @@ func walkPseBudgets(snap *collect.Snapshot) ([]*phyv1.PseBudget, error) {
 	return budgets, nil
 }
 
-// wattsToMilliwatts converts the MIB's whole watts to the schema's
-// milliwatts, saturating rather than wrapping on a value past the field.
-func wattsToMilliwatts(watts uint32) uint32 {
-	if watts > math.MaxUint32/1000 {
-		return math.MaxUint32
-	}
-
-	return watts * 1000
+// wattsToNanowatts converts the MIB's whole watts to the schema's
+// nanowatts; the largest Gauge32 fits a uint64 with room to spare.
+func wattsToNanowatts(watts uint32) uint64 {
+	return uint64(watts) * 1_000_000_000
 }
 
 // mapPseBudget maps one pethMainPseTable row. The MIB reports power in
@@ -874,7 +869,7 @@ func mapPseBudget(group uint32, r powerethernetmib.PethMainPseTableRow) *phyv1.P
 	budget.SetPseGroup(group)
 
 	if r.Observed(powerethernetmib.PethMainPsePower) && r.PethMainPsePower > 0 {
-		budget.SetPowerMilliwatts(wattsToMilliwatts(r.PethMainPsePower))
+		budget.SetPowerNanowatts(wattsToNanowatts(r.PethMainPsePower))
 	}
 
 	if r.Observed(powerethernetmib.PethMainPseOperStatus) {
@@ -884,11 +879,11 @@ func mapPseBudget(group uint32, r powerethernetmib.PethMainPseTableRow) *phyv1.P
 	}
 
 	if r.Observed(powerethernetmib.PethMainPseConsumptionPower) {
-		budget.SetConsumptionMilliwatts(wattsToMilliwatts(r.PethMainPseConsumptionPower))
+		budget.SetConsumptionNanowatts(wattsToNanowatts(r.PethMainPseConsumptionPower))
 	}
 
 	if r.Observed(powerethernetmib.PethMainPseUsageThreshold) && r.PethMainPseUsageThreshold >= 1 && r.PethMainPseUsageThreshold <= 99 {
-		budget.SetUsageThresholdPercent(uint32(r.PethMainPseUsageThreshold))
+		budget.SetUsageThresholdBasisPoints(uint32(r.PethMainPseUsageThreshold) * 100)
 	}
 
 	return budget

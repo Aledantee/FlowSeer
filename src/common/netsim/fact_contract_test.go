@@ -60,7 +60,7 @@ func TestFactConstructorsSnapshotCallerSlices(t *testing.T) {
 func TestDiffReturnsImmutableFactImplementations(t *testing.T) {
 	t.Parallel()
 
-	limit := uint32(15_400)
+	limit := uint64(15_400_000_000)
 	flood := true
 	tests := []struct {
 		name      string

@@ -7,7 +7,7 @@ values, so callers do not have to infer which meaning a source supplied.
 
 ## Boundaries
 
-Imports: nothing FlowSeer-owned
+Imports: net/measure
 
 Imported by: model/inventory, net/interface
 
@@ -29,11 +29,12 @@ The pluggable module sits beside the transport oneof rather than inside the
 fiber arm, because a direct-attach cable or a copper SFP module carries the
 same SFF-8472 identity as an optical one. `PluggableModule` states whether the
 cage is empty and, when it is not, the module's identity, module-level
-temperature and voltage, and per-lane optical power and bias current. Every
-measurement carries its own alarm and warning thresholds in one linear unit
-(nanowatts, microamperes, microvolts, millidegrees), so producers convert once
-and consumers derive decibel-milliwatts when they display. A future component
-entity embeds the same messages; nothing here references it.
+temperature and voltage, and per-lane optical power and bias current. The
+diagnostics are the `net/measure` quantity messages (`Temperature`, `Voltage`,
+`Power`, `Current`), each with its own alarm and warning thresholds in one
+linear unit, so producers convert once and consumers derive decibel-milliwatts
+when they display. A future component entity embeds the same messages; nothing
+here references it.
 
 PoE rows keep the Power Ethernet MIB's own PSE group and port numbering as
 their key, so a row can be carried before a source supplies the join to an
