@@ -119,8 +119,14 @@ in golden traces and conformance corpora.
    `src/services/device/internal/captureapi/store.go` begins `package
    captureapi`; only `doc.go` carries the comment.
 9. Exported netsim identifiers keep their initialisms cased with unchanged
-   values. Acceptance: `port.LayerVLAN == "vlan"`, `port.LAG == "Lag"`,
-   `netmodel.IssueInvalidVLANID == "netmodel.vlan.invalid_id"`.
+   values, and no comment or failure message names an old spelling. Acceptance:
+   `port.LayerVLAN == "vlan"`, `port.LAG == "Lag"`,
+   `netmodel.IssueInvalidVLANID == "netmodel.vlan.invalid_id"`, and the
+   old-spelling grep under Verification prints no line. The compiler catches an
+   identifier it misses; a string literal it does not, which is how
+   `vswitch/switch_test.go:5552` ("want step with LayerLag") and
+   `vswitch/bridge/bridge_test.go:2958` ("want field tunnel at LayerVlan")
+   survived the rename.
 10. A stop function a caller may call twice is idempotent. Acceptance:
     `deviceapi.KVWatcher.Watch`'s second return is `sync.OnceFunc`-wrapped, and a
     test calls it twice and reaches the next statement. That test panics with
@@ -167,6 +173,12 @@ in golden traces and conformance corpora.
   across `src/services`. Both are the repository's own voice; the rule bites on a
   habit, and that judgement is the owner's.
 - `.golangci.yml`, `AGENTS.md`, `tools/hooks/`, `generated/`, `buf.lock`.
+- `src/protocol/snmp/CONFORMANCE.md:47,51`, which carry real planning labels
+  (`(R25, X.690 §8.19)` in a heading and "the pre-R25 path" in a row). They are
+  prose in a markdown document that no code reads, so they fall outside this
+  plan's scope — `VALIDATION_MATRIX.md` is in U6 only because
+  `matrix_test.go:49` cuts on its heading. They are why the planning-label grep
+  still prints that file.
 - Files another session is editing, which this plan does not touch:
   `src/protocol/snmp/cmd/mibgen/**`, `src/protocol/yang/cmd/yanggen/*.go`,
   `src/protocol/internal/goname/**`,
@@ -570,14 +582,15 @@ rg -n '(//|#).*\b(R[0-9]{1,2}|U[0-9]{1,2}|KD[0-9]+|KTD[0-9]*|DR[0-9]+)\b' src te
 rg -n '^\s*(//|#)\s*[=*_-]{4,}' src test
 rg -n 't\.(Errorf|Fatalf)\("(expected|want) [^"]*, got' src test
 rg -n '^\s+\w+\s+sync\.(RW)?Mutex\s*$' src
+rg -n '\b(LayerVlan|LayerStp|LayerLag|LayerPoe|IssueInvalidVlanID|IssueConflictVlan|IssueInvalidPoePriority)\b' src
 grep -n 'R4' src/edge/netpen/test/integration/VALIDATION_MATRIX.md
 ```
 
-Expected output: the second grep prints
+Expected output: the planning-label grep prints exactly three lines —
 `src/common/netsim/fabric/stp_test.go:1456` (region names `R1` and `R2`, which U1
-keeps) and the `usm-*` and `enc-*` row ids in `src/protocol/snmp/CONFORMANCE.md`
-if that file is in the path list; the last grep prints nothing; the other four
-print no line.
+keeps) and `src/protocol/snmp/CONFORMANCE.md:47,51` (Out of scope). Every other
+grep prints no line. The `usm-*` and `enc-*` conformance row ids do not match the
+planning-label pattern; CONFORMANCE.md appears because of its own `R25` labels.
 
 What no test in this plan covers, said plainly rather than left to be discovered:
 
