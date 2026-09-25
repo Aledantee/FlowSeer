@@ -11,9 +11,6 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-
-	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
-	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 func validApply() *devicev1.ApplyInterfaceDescriptionRequest {
@@ -130,4 +127,49 @@ func TestAValidRequestReachesTheHandler(t *testing.T) {
 	if !handler.entered {
 		t.Fatal("a valid request did not reach the handler")
 	}
+}
+
+// The interface name an intent targets is interpolated into the command line
+// the adapter runs on the device, so the schema holds it to the shell-safe
+// interface-name rule from net/key. That rule is a predefined extension, which
+// protovalidate resolves only when the key package is linked into the binary:
+// without it every request carrying the name is refused, valid or not. A
+// normal name has to reach the handler and a name with a shell
+// metacharacter has to be refused before it.
+func TestTheInterfaceNameIsHeldToTheShellSafeRule(t *testing.T) {
+	t.Run("a normal interface name reaches the handler", func(t *testing.T) {
+		handler := &failing{}
+		client := serve(t, handler, nil)
+
+		msg := validApply()
+		msg.GetIntent().GetInterfaceDescription().SetInterfaceName("GigabitEthernet1/0/1")
+
+		_, err := client.ApplyInterfaceDescription(context.Background(), connect.NewRequest(msg))
+		if got := connect.CodeOf(err); got == connect.CodeInvalidArgument {
+			t.Fatalf("a well-formed interface name was refused: %v", err)
+		}
+		if !handler.entered {
+			t.Fatal("a well-formed interface name did not reach the handler")
+		}
+	})
+
+	t.Run("a shell metacharacter is refused", func(t *testing.T) {
+		handler := &failing{}
+		client := serve(t, handler, nil)
+
+		msg := validApply()
+		msg.GetIntent().GetInterfaceDescription().SetInterfaceName("ethernet 1/1/1;reload")
+
+		_, err := client.ApplyInterfaceDescription(context.Background(), connect.NewRequest(msg))
+		if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+			t.Fatalf("code = %v, want invalid_argument (%v)", got, err)
+		}
+		const want = "intent.interface_description.interface_name: string.shell_safe_interface_name"
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("the refusal reads %v, want it to name %q", err, want)
+		}
+		if handler.entered {
+			t.Fatal("the handler ran on an interface name carrying a shell metacharacter")
+		}
+	})
 }
