@@ -86,7 +86,7 @@ func TestInterfaceRules(t *testing.T) {
 		{
 			name: "subinterface parent empty",
 			message: interfacev1.Subinterface_builder{
-				Parent: proto.String(""),
+				ParentInterfaceName: proto.String(""),
 			}.Build(),
 			wantValid: false,
 		},
@@ -168,7 +168,7 @@ func TestSubinterfaceKeepsTagOrder(t *testing.T) {
 	iface := interfacev1.Interface_builder{
 		Name: proto.String("GigabitEthernet1/0/1.100"),
 		Sub: interfacev1.Subinterface_builder{
-			Parent: proto.String("GigabitEthernet1/0/1"),
+			ParentInterfaceName: proto.String("GigabitEthernet1/0/1"),
 			Encapsulation: switchingv1.VlanTagStack_builder{
 				Tags: []*switchingv1.VlanTag{outer, inner},
 			}.Build(),

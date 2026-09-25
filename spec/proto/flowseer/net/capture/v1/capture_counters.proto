@@ -2,6 +2,8 @@ edition = "2024";
 
 package flowseer.net.capture.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // Packet counts along a capture's pipeline, from the interface to delivery.
 // Each counter is cumulative for the session, and an absent counter means
 // the stage does not report one — never a zero. The split by stage is what
@@ -9,14 +11,17 @@ package flowseer.net.capture.v1;
 // edge that cannot keep up from an uplink that cannot.
 message CaptureCounters {
   // Packets the interface delivered to the capture engine.
-  uint64 received = 1;
+  uint64 received_packets = 1;
   // Packets the engine kept after the filter and the budget.
-  uint64 accepted = 2;
+  uint64 accepted_packets = 2;
   // Packets the interface could not deliver to the engine, read from the
   // interface's own drop counter.
-  uint64 dropped_by_interface = 3;
+  uint64 dropped_by_interface_packets = 3;
   // Packets the engine discarded to stay inside the session's budget.
-  uint64 dropped_by_budget = 4;
+  uint64 dropped_by_budget_packets = 4;
   // Packets the delivery transport could not carry onward.
-  uint64 dropped_by_transport = 5;
+  uint64 dropped_by_transport_packets = 5;
+  // The time the counters last reset or restarted counting. Absent means the
+  // source does not report one.
+  google.protobuf.Timestamp last_discontinuity = 6;
 }

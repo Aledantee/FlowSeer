@@ -1614,10 +1614,10 @@ var File_flowseer_api_device_v1_device_service_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\"\xba\x01\n" +
+	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\"\x99\x01\n" +
 	"\x14ReadInterfaceRequest\x12L\n" +
-	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12T\n" +
-	"\x0einterface_name\x18\x02 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\x91\x02\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x123\n" +
+	"\x0einterface_name\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x88\xb5\x18\x01R\rinterfaceName\"\x91\x02\n" +
 	"\x15ReadInterfaceResponse\x12T\n" +
 	"\tinterface\x18\x01 \x01(\v2..flowseer.model.access.v1.InterfaceObservationB\x06\xbaH\x03\xc8\x01\x01R\tinterface:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
 	"-read_interface_response.interface_is_complete\x12/a read never answers with a partial observation\x1a8!has(this.interface) || this.interface.completeness == 1\"\xcc\x02\n" +

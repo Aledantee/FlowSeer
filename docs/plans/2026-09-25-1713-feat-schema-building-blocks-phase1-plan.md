@@ -4,13 +4,27 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Schema Building Blocks Phase 1, Shared Leaves and the Schema Language - Plan
+
+> Implemented. 5 units, 2026-09-25T17:48Z to 2026-09-25T20:26Z. The
+> Verification and Definition-of-done lines naming `--full` are replaced by
+> one targeted verifier run over the union of paths changed in this phase
+> (`spec/proto/flowseer`, `test/conformance/proto`, `src/common/netsim`,
+> `src/modules/localnet`, `src/modules/capture`, `src/services/device`, and
+> `src/common/service/manifest.go`), because `--full` builds and race-tests
+> `generated/` and exhausts host memory; that targeted run ended `FlowSeer
+> verification passed.` Two rulings were made at implementation time and
+> are in Decisions: same-name fields moving to `net/measure` reserve only
+> their old number, and the registry-row count, repeated interface-name
+> carriers, the two carriers outside the key-rules parenthetical, the
+> `duplicate_window` Duration, and the missing `ipAddressOrigin` mapper
+> carrier are all recorded there.
 
 ## Goal
 
@@ -118,6 +132,61 @@ govern. The ones below are local to this phase.
   and `parent_interface_name` so that the name says what the value is and
   the predicate finds them. Why: the record, rule 3, and a predicate that
   matches by name is complete only when the names follow the rule.
+- Ruled: the diagnostics and lane fields whose message type moves to
+  `net/measure` unchanged in name and meaning (`ModuleDiagnostics.temperature`
+  and `.voltage`; `ModuleLane.tx_power`, `.rx_power`, and `.bias`) keep their
+  names, take the next free number, and reserve the old number only: the old
+  name is not reserved, because a name cannot be both `reserved` and reused,
+  and the name keeps its meaning. The scalar unit/type changes reserve the
+  old number and name together, since those fields are also renamed to their
+  suffixed form. Why: name reservation exists to stop a revival with a new
+  meaning; these names keep theirs. Cost if wrong: a later change re-adds
+  one of these names with a different meaning and must reserve it then; the
+  reserved numbers still stop a wire-level misread.
+- Ruled: a repeated interface-name field carries its class the way
+  structure-record convention 4 prescribes for a predefined rule on a
+  repeated field: the `items` aggregate restates the class rule's bounds
+  (`min_len 1`, `max_len 255`, plus the character class for
+  `shell_safe_interface_name`), and the 64-character bound goes away.
+  `store/device/v1/registry.proto`'s `managed_interfaces` is the live case
+  and takes the shell-safe class: its names are operator-supplied and drive
+  drift checks against the device. Why: aggregates cannot name an extension
+  inside `items`, so restating is the only form a repeated field can take.
+  Cost if wrong: a later repeated carrier restates other bounds and the
+  key-rule walk flags it.
+- Ruled: the key-rule walk covers every FlowSeer package, which pulls in two
+  carrier files the key-rules unit's parenthetical omits:
+  `api/device/v1/device_service.proto` (`ReadInterfaceRequest.interface_name`
+  is sent to the device to read it, so it takes
+  `shell_safe_interface_name`) and `store/device/v1/registry.proto` (the
+  repeated case above). The layering table gains `net/key` on the
+  `model/access`, `model/capture`, and `api/device` rows: the leaf-table
+  unit listed no consumer of `net/key` outside `net/` and
+  `model/inventory`, and this unit is where those imports land. Cost if
+  wrong: `TestProtoReadmeImports` or the import-order gate fails and names
+  the row.
+- Ruled: requirement 8's unit-suffix walk covers `flowseer.runtime.v1`,
+  where `duplicate_window_seconds = 16` violates rule 1 (a time span is a
+  `google.protobuf.Duration`, not a `_seconds` integer). The counters unit
+  converts it to `google.protobuf.Duration duplicate_window`, reserving 16
+  and the old name, with `required` and `duration.gte = {seconds: 1}`
+  in place of the uint64 bounds, and the unit's Files line gains
+  `spec/proto/flowseer/runtime/v1/bus.proto` and
+  `src/common/service/manifest.go` with its tests. Why: the walk cannot pass
+  over every FlowSeer package otherwise; no Go code reads the field (only
+  `manifest.go`'s desired-manifest construction names it). Cost if wrong:
+  persisted operator manifests carrying the old field fail to parse and are
+  rewritten.
+- Ruled: the `ipAddressOrigin` mapping this phase's counters unit names has
+  no carrier: `snmpmap` has no IP-MIB mapping today (nothing builds
+  `InterfaceAddress` from a live source), and the parent plan scopes new
+  live-source mappers out. The unit therefore ships the schema split
+  (`AddressOrigin`, `InterfaceIdentifierMethod`, `iid_method`) and the
+  conformance cases (requirement 7) and leaves the mapper mapping sentences
+  and the `ifmib_test.go` `ipAddressOrigin` table cases out. Why: the tree
+  wins over the plan about what exists. Cost if wrong: a later phase that
+  lands the IP-MIB walk writes the mapping from the enum comments, which
+  spell it out.
 - The unit-suffix test works from two lists in the test file: canonical
   suffixes (`_bps`, `_bytes`, `_mhz`, `_nanowatts`, `_millidbm`, `_millidb`,
   `_millidbi`, `_millidegrees_celsius`, `_microvolts`, `_microamperes`,
@@ -181,16 +250,18 @@ Change: `protobuf.md` gains a "Units and keys" section that states the
 record's unit table as the field-author checklist, the counters rule, the
 two interface-name rules, and the facet/row naming rule, each linking the
 record for the reason. `code-style-proto.md` gains the extension-number
-registry table with today's five rows plus the four this phase adds.
+registry table with today's seven rows (correcting a miscount of five:
+three UInt32Rules, four EnumRules) plus the four this phase adds.
 The structure record gains a dated amendment (2026-09-25) that points to
 the new record and lists what it changes: the Host/Client open question
 answered by Endpoint, no `WirelessClient`, the wider `net/wlan` imports,
 radios as components. The `net/` README lists every package in the
 record's tree; a package that does not exist yet reads
 `(planned; schema building blocks record)`. The protocol README does the
-same for its packages and corrects `Imported by:` to name
-`model/inventory`, `model/access`, `api/device`, and `store/device`, which
-import `protocol/lldp` today. `CONCEPTS.md` gains "Canonical unit" under
+same for its packages. Its `Imported by:` stays `nothing`: the four
+packages this plan originally said import `protocol/lldp` today are only
+permitted to by the layering allowlist; no `.proto` imports a protocol
+package. `CONCEPTS.md` gains "Canonical unit" under
 Network model.
 Tests: none (docs); `TestProtoReadmeCoverage` still passes because no
 package directory is added.
@@ -232,7 +303,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U3. `net/phy` on the canonical units
 
-Files: spec/proto/flowseer/net/phy/v1/{module_diagnostics,module_lane,poe_facet,pse_budget,pluggable_module,ethernet_facet}.proto,
+Files: spec/proto/flowseer/net/phy/v1/{module_diagnostics,module_lane,poe_facet,poe_settings,pse_budget,pluggable_module,ethernet_facet}.proto,
 deletes spec/proto/flowseer/net/phy/v1/{module_temperature,supply_voltage,bias_current,optical_power}.proto,
 spec/proto/flowseer/net/phy/v1/README.md, test/conformance/proto/phy_rules_test.go,
 src/modules/localnet/snmpmap/{phy.go,phy_ddm.go,phy_test.go,phy_ddm_test.go},

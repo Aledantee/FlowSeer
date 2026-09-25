@@ -26,6 +26,9 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 const (

@@ -1,0 +1,32 @@
+edition = "2024";
+
+package flowseer.net.key.v1;
+
+import "buf/validate/validate.proto";
+
+// Predefined protovalidate rules (https://protovalidate.com/) for the
+// device-local names that key a device's tables. The bound is the SNMPv2-TC
+// DisplayString SIZE (0..255 characters), which IF-MIB ifName uses
+// (spec/mib/ietf/SNMPv2-TC, spec/mib/ietf/IF-MIB). An interface name has two
+// rules because it has two uses: interface_name accepts what a device
+// reports, and shell_safe_interface_name adds the character class of names
+// FlowSeer interpolates into a command line the adapter runs on the device.
+extend buf.validate.StringRules {
+  bool interface_name = 50000 [(buf.validate.predefined).cel = {
+    id: "string.interface_name"
+    message: "value must be an interface name of 1 to 255 characters"
+    expression: "!rule || (this.size() >= 1 && this.size() <= 255)"
+  }];
+  bool shell_safe_interface_name = 50001 [(buf.validate.predefined).cel = {
+    id: "string.shell_safe_interface_name"
+    message: "value must be 1 to 255 characters from the shell-safe interface-name character set"
+    expression:
+      "!rule || (this.size() >= 1 && this.size() <= 255 && "
+      "this.matches('^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$'))"
+  }];
+  bool network_instance_name = 50002 [(buf.validate.predefined).cel = {
+    id: "string.network_instance_name"
+    message: "value must be a network instance name of 1 to 255 characters"
+    expression: "!rule || (this.size() >= 1 && this.size() <= 255)"
+  }];
+}

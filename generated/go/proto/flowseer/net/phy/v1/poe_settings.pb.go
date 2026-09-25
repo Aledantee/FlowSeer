@@ -23,14 +23,14 @@ const (
 // Requested Power over Ethernet settings. Capability and delivery facts are
 // represented separately by PoeFacet.
 type PoeSettings struct {
-	state                           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Enabled              bool                   `protobuf:"varint,1,opt,name=enabled"`
-	xxx_hidden_PowerLimitMilliwatts uint32                 `protobuf:"varint,2,opt,name=power_limit_milliwatts,json=powerLimitMilliwatts"`
-	xxx_hidden_Priority             PoePriority            `protobuf:"varint,3,opt,name=priority,enum=flowseer.net.phy.v1.PoePriority"`
-	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
-	XXX_presence                    [1]uint32
-	unknownFields                   protoimpl.UnknownFields
-	sizeCache                       protoimpl.SizeCache
+	state                          protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Enabled             bool                   `protobuf:"varint,1,opt,name=enabled"`
+	xxx_hidden_PowerLimitNanowatts uint64                 `protobuf:"varint,4,opt,name=power_limit_nanowatts,json=powerLimitNanowatts"`
+	xxx_hidden_Priority            PoePriority            `protobuf:"varint,3,opt,name=priority,enum=flowseer.net.phy.v1.PoePriority"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *PoeSettings) Reset() {
@@ -65,9 +65,9 @@ func (x *PoeSettings) GetEnabled() bool {
 	return false
 }
 
-func (x *PoeSettings) GetPowerLimitMilliwatts() uint32 {
+func (x *PoeSettings) GetPowerLimitNanowatts() uint64 {
 	if x != nil {
-		return x.xxx_hidden_PowerLimitMilliwatts
+		return x.xxx_hidden_PowerLimitNanowatts
 	}
 	return 0
 }
@@ -86,8 +86,8 @@ func (x *PoeSettings) SetEnabled(v bool) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
-func (x *PoeSettings) SetPowerLimitMilliwatts(v uint32) {
-	x.xxx_hidden_PowerLimitMilliwatts = v
+func (x *PoeSettings) SetPowerLimitNanowatts(v uint64) {
+	x.xxx_hidden_PowerLimitNanowatts = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
@@ -103,7 +103,7 @@ func (x *PoeSettings) HasEnabled() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *PoeSettings) HasPowerLimitMilliwatts() bool {
+func (x *PoeSettings) HasPowerLimitNanowatts() bool {
 	if x == nil {
 		return false
 	}
@@ -122,9 +122,9 @@ func (x *PoeSettings) ClearEnabled() {
 	x.xxx_hidden_Enabled = false
 }
 
-func (x *PoeSettings) ClearPowerLimitMilliwatts() {
+func (x *PoeSettings) ClearPowerLimitNanowatts() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_PowerLimitMilliwatts = 0
+	x.xxx_hidden_PowerLimitNanowatts = 0
 }
 
 func (x *PoeSettings) ClearPriority() {
@@ -138,9 +138,9 @@ type PoeSettings_builder struct {
 	// Whether power delivery should be enabled. Absent leaves the existing or
 	// source-default setting unchanged.
 	Enabled *bool
-	// Requested power ceiling in milliwatts. Absent leaves it unspecified; zero
+	// Requested power ceiling in nanowatts. Absent leaves it unspecified; zero
 	// is an explicit zero-power ceiling.
-	PowerLimitMilliwatts *uint32
+	PowerLimitNanowatts *uint64
 	// Requested oversubscription priority. Absent leaves it unspecified; an
 	// explicitly unspecified sentinel is invalid in intended settings.
 	Priority *PoePriority
@@ -154,9 +154,9 @@ func (b0 PoeSettings_builder) Build() *PoeSettings {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_Enabled = *b.Enabled
 	}
-	if b.PowerLimitMilliwatts != nil {
+	if b.PowerLimitNanowatts != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
-		x.xxx_hidden_PowerLimitMilliwatts = *b.PowerLimitMilliwatts
+		x.xxx_hidden_PowerLimitNanowatts = *b.PowerLimitNanowatts
 	}
 	if b.Priority != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
@@ -169,11 +169,11 @@ var File_flowseer_net_phy_v1_poe_settings_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_poe_settings_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/net/phy/v1/poe_settings.proto\x12\x13flowseer.net.phy.v1\x1a&flowseer/net/phy/v1/poe_priority.proto\"\xa5\x01\n" +
+	"&flowseer/net/phy/v1/poe_settings.proto\x12\x13flowseer.net.phy.v1\x1a&flowseer/net/phy/v1/poe_priority.proto\"\xc1\x01\n" +
 	"\vPoeSettings\x12\x18\n" +
-	"\aenabled\x18\x01 \x01(\bR\aenabled\x124\n" +
-	"\x16power_limit_milliwatts\x18\x02 \x01(\rR\x14powerLimitMilliwatts\x12F\n" +
-	"\bpriority\x18\x03 \x01(\x0e2 .flowseer.net.phy.v1.PoePriorityB\b\xbaH\x05\x82\x01\x02 \x00R\bpriorityB\xde\x01\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x122\n" +
+	"\x15power_limit_nanowatts\x18\x04 \x01(\x04R\x13powerLimitNanowatts\x12F\n" +
+	"\bpriority\x18\x03 \x01(\x0e2 .flowseer.net.phy.v1.PoePriorityB\b\xbaH\x05\x82\x01\x02 \x00R\bpriorityJ\x04\b\x02\x10\x03R\x16power_limit_milliwattsB\xde\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x10PoeSettingsProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

@@ -2,8 +2,10 @@ package conformance
 
 import (
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	lldpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1"
@@ -23,8 +25,42 @@ func portID() *lldpv1.PortId {
 	}.Build()
 }
 
+func neighborWithTimeToLive(ttl *durationpb.Duration) *lldpv1.Neighbor {
+	return lldpv1.Neighbor_builder{
+		LocalInterfaceName: proto.String("GigabitEthernet1/0/1"),
+		ChassisId:          chassisID(),
+		PortId:             portID(),
+		TimeToLive:         ttl,
+	}.Build()
+}
+
 func TestLldpNeighborRules(t *testing.T) {
 	tests := []validationCase{
+		{
+			name:      "neighbor with the default 120 second time to live",
+			message:   neighborWithTimeToLive(durationpb.New(120 * time.Second)),
+			wantValid: true,
+		},
+		{
+			name:      "neighbor asking for its information to be discarded",
+			message:   neighborWithTimeToLive(durationpb.New(0)),
+			wantValid: true,
+		},
+		{
+			name:      "neighbor time to live at the 16-bit maximum",
+			message:   neighborWithTimeToLive(durationpb.New(65535 * time.Second)),
+			wantValid: true,
+		},
+		{
+			name:      "neighbor time to live beyond 16 bits",
+			message:   neighborWithTimeToLive(durationpb.New(65536 * time.Second)),
+			wantValid: false,
+		},
+		{
+			name:      "neighbor with a negative time to live",
+			message:   neighborWithTimeToLive(durationpb.New(-time.Second)),
+			wantValid: false,
+		},
 		{
 			name: "complete neighbor row",
 			message: lldpv1.Neighbor_builder{

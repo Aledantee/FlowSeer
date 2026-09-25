@@ -14,6 +14,9 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 // mustValid holds a message to its own schema rules — the capability may

@@ -118,6 +118,10 @@ A bundle of per-layer attributes for one interface — switchport membership, IP
 
 Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
+### Canonical unit
+
+Every physical quantity has one canonical unit, named in the field suffix, in integer fixed point. A mapper converts from a source's native unit at the edge of the system so consumers compare values without having to know which unit each source reported. The unit table is rule 1 of the [schema building blocks direction](docs/architecture/2026-09-25-schema-building-blocks-direction.md).
+
 ### Virtual Device
 
 A device the simulator under `src/common/netsim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.

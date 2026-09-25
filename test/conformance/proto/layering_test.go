@@ -12,32 +12,69 @@ import (
 	"testing"
 )
 
+// protocolRows is the one import set every net/protocol/<x> row carries: all
+// of net/ except the protocols themselves. A protocol reads any functional
+// layer below it and never peers, so the rows vary only in their key.
+var protocolRows = []string{
+	"net/addr", "net/packet", "net/phy", "net/key", "net/measure",
+	"net/instance", "net/switching", "net/ip", "net/routing", "net/filter",
+	"net/qos", "net/nat", "net/wlan", "net/cellular", "net/endpoint",
+	"net/portaccess", "net/system", "net/multicast", "net/aaa", "net/flow",
+	"net/log", "net/interface", "net/capture",
+}
+
 // importOrder declares, for every schema-bearing package under the roots in
 // orderedRoots, the packages it may import. A package imports itself freely;
 // anything else it imports must be listed here. Adding a package to the tree
 // is one line in this table — leaving it out fails
 // TestImportOrderCoversEveryPackage rather than silently escaping the order.
+// A row names a package before its schemas land, so the whole record's tree
+// is declared at once and later packages do not edit this table again.
 //
 // A package that declares a service is a sink: importing one is always
 // rejected, so it never appears as a value in this table. layeringViolation
 // enforces that independently of any row here, and TestModelDeclaresNoService
 // keeps every package under model/ from declaring one.
 var importOrder = map[string][]string{
-	"net/addr":   nil,
-	"net/packet": nil,
-	"net/phy":    nil,
+	"net/addr":    nil,
+	"net/packet":  nil,
+	"net/phy":     {"net/measure"},
+	"net/key":     nil,
+	"net/measure": nil,
+	"net/log":     nil,
 
-	"net/switching": {"net/addr", "net/packet"},
-	"net/filter":    {"net/addr", "net/packet"},
-	"net/ip":        {"net/addr"},
-	"net/capture":   {"net/addr", "net/packet", "net/switching"},
+	"net/instance":   {"net/key"},
+	"net/switching":  {"net/addr", "net/packet", "net/key"},
+	"net/ip":         {"net/addr", "net/key"},
+	"net/routing":    {"net/addr", "net/key"},
+	"net/filter":     {"net/addr", "net/packet", "net/key"},
+	"net/qos":        {"net/addr", "net/packet", "net/filter", "net/key", "net/measure"},
+	"net/nat":        {"net/addr", "net/packet", "net/key"},
+	"net/wlan":       {"net/addr", "net/key", "net/measure", "net/switching"},
+	"net/cellular":   {"net/key", "net/measure"},
+	"net/endpoint":   {"net/addr", "net/key", "net/measure", "net/switching", "net/wlan"},
+	"net/portaccess": {"net/addr", "net/key", "net/switching"},
+	"net/system":     {"net/measure"},
+	"net/multicast":  {"net/addr", "net/key", "net/switching"},
+	"net/aaa":        {"net/addr"},
+	"net/flow":       {"net/addr", "net/packet"},
+	"net/capture":    {"net/addr", "net/packet", "net/switching"},
 
-	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/filter"},
+	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/filter", "net/key"},
 
 	// A protocol may import any layer below it, and never another protocol.
-	"net/protocol/lldp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
-	"net/protocol/lacp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
-	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
+	"net/protocol/lldp": protocolRows,
+	"net/protocol/lacp": protocolRows,
+	"net/protocol/stp":  protocolRows,
+	"net/protocol/cdp":  protocolRows,
+	"net/protocol/ntp":  protocolRows,
+	"net/protocol/dhcp": protocolRows,
+	"net/protocol/dns":  protocolRows,
+	"net/protocol/bgp":  protocolRows,
+	"net/protocol/ospf": protocolRows,
+	"net/protocol/isis": protocolRows,
+	"net/protocol/vrrp": protocolRows,
+	"net/protocol/bfd":  protocolRows,
 
 	// The operator-facing service that creates, provisions, and retires an
 	// edge. It hands back EdgeRecord and takes EdgeGlobalRef, and needs
@@ -62,8 +99,9 @@ var importOrder = map[string][]string{
 	// A capture session's identity, lifecycle, and the chunk frames its two
 	// services share. It takes the owning ref and the assertion its upload
 	// stream re-verifies from model/edge, and holds net/capture's counters,
-	// link type and packet records rather than copies of their fields.
-	"model/capture": {"model/edge", "net/capture"},
+	// link type and packet records rather than copies of their fields. A
+	// local source's interface name takes its rule from net/key.
+	"model/capture": {"model/edge", "net/capture", "net/key"},
 
 	// The two Connect services around a capture session: the one an operator
 	// calls to create, control, and read one back, and the one an edge calls
@@ -82,12 +120,19 @@ var importOrder = map[string][]string{
 	// back.
 	"edge/dispatch": {"model/access", "errs"},
 
-	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key", "net/measure", "net/wlan", "net/system"},
+
+	// Entities above inventory that read its network primitives directly.
+	// None of the three is imported by a boundary yet; when one is, its row
+	// is what that boundary first cites.
+	"model/wireless": {"model/inventory", "net/addr", "net/key", "net/switching", "net/wlan"},
+	"model/endpoint": {"model/inventory", "net/addr", "net/key", "net/measure", "net/switching", "net/wlan", "net/endpoint"},
+	"model/alarm":    {"model/inventory", "net/log"},
 
 	// The operation values every device-access boundary shares. They reach
 	// model/edge for the responsible edge, so a boundary that imports them
 	// reaches model/edge only through here.
-	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"model/access": {"model/edge", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
 
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of model/access, and none of the three
@@ -97,7 +142,7 @@ var importOrder = map[string][]string{
 	// device or edge ref at all (the transport already names both), and the
 	// audit event needs model/inventory directly because it is read outside
 	// any live transport context.
-	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
 
 	// The Connect call an edge delivers a DeviceOperationEvent through.
 	"edge/audit": {"event/access"},
@@ -106,6 +151,10 @@ var importOrder = map[string][]string{
 	// outside any live transport context, so it names the device and its
 	// operation vocabulary directly instead of relying on the transport.
 	"event/access": {"model/inventory", "model/access", "errs"},
+
+	// The durable syslog record: a stream record read outside any live
+	// context, so it names the device and the log taxonomy directly.
+	"event/log": {"model/inventory", "net/addr", "net/log"},
 
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
@@ -302,7 +351,9 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "layer imports a protocol", importer: "net/interface", imported: "net/protocol/lldp"},
 		{name: "protocol imports a layer", importer: "net/protocol/lldp", imported: "net/interface", want: true},
 		{name: "protocol imports another protocol", importer: "net/protocol/lldp", imported: "net/protocol/stp"},
-		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
+		{name: "wireless imports the measurement leaf", importer: "net/wlan", imported: "net/measure", want: true},
+		{name: "the key leaf imports nothing", importer: "net/key", imported: "net/addr"},
+		{name: "package outside the table", importer: "net/dsl", imported: "net/addr"},
 		{name: "primitive imports a boundary", importer: "net/interface", imported: "model/inventory"},
 		{name: "inventory imports a leaf boundary", importer: "model/inventory", imported: "model/policy", want: true},
 		{name: "edge attachment imports its credential handles", importer: "edge/attach", imported: "model/policy", want: true},
@@ -442,8 +493,8 @@ func TestScanServices(t *testing.T) {
 }
 
 func TestUndeclaredPackages(t *testing.T) {
-	got := undeclaredPackages([]string{"net/addr", "net/routing", "net/interface", "net/wlan"})
-	want := []string{"net/routing", "net/wlan"}
+	got := undeclaredPackages([]string{"net/addr", "net/dsl", "net/interface", "net/mpls"})
+	want := []string{"net/dsl", "net/mpls"}
 
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)

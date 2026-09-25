@@ -20,12 +20,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// How an address was assigned or generated on an interface. The mutually
-// exclusive taxonomy follows the ip-address-origin categories of RFC 8344
-// (https://www.rfc-editor.org/rfc/rfc8344.html): other, static, dhcp,
-// link-layer, and random. There is deliberately no dedicated SLAAC value;
-// SLAAC-generated addresses report the mechanism-specific LINK_LAYER or
-// RANDOM origin instead.
+// The mechanism that assigned an address to an interface. The categories
+// follow the ip-address-origin values of RFC 8344
+// (https://www.rfc-editor.org/rfc/rfc8344.html) except for two: RFC 8344's
+// link-layer and random are both stateless autoconfiguration and differ only
+// in how the interface identifier was generated, which InterfaceAddress
+// carries in iid_method. A mapper from RFC 8344 writes link-layer as SLAAC
+// with INTERFACE_IDENTIFIER_METHOD_MODIFIED_EUI64 and random as SLAAC with
+// INTERFACE_IDENTIFIER_METHOD_RANDOMIZED.
 type AddressOrigin int32
 
 const (
@@ -37,10 +39,13 @@ const (
 	AddressOrigin_ADDRESS_ORIGIN_STATIC AddressOrigin = 2
 	// DHCPv4 or DHCPv6 assignment.
 	AddressOrigin_ADDRESS_ORIGIN_DHCP AddressOrigin = 3
-	// Generation from a link-layer address.
-	AddressOrigin_ADDRESS_ORIGIN_LINK_LAYER AddressOrigin = 4
-	// Random or semantically opaque generation, including privacy addresses.
-	AddressOrigin_ADDRESS_ORIGIN_RANDOM AddressOrigin = 5
+	// IPv6 stateless address autoconfiguration from a router-advertised prefix
+	// (RFC 4862, https://www.rfc-editor.org/rfc/rfc4862.html).
+	AddressOrigin_ADDRESS_ORIGIN_SLAAC AddressOrigin = 6
+	// Link-local self-configuration: an IPv6 link-local address (RFC 4862
+	// section 5.3) or an IPv4 link-local address
+	// (RFC 3927, https://www.rfc-editor.org/rfc/rfc3927.html).
+	AddressOrigin_ADDRESS_ORIGIN_LINK_LOCAL AddressOrigin = 7
 )
 
 // Enum value maps for AddressOrigin.
@@ -50,16 +55,16 @@ var (
 		1: "ADDRESS_ORIGIN_OTHER",
 		2: "ADDRESS_ORIGIN_STATIC",
 		3: "ADDRESS_ORIGIN_DHCP",
-		4: "ADDRESS_ORIGIN_LINK_LAYER",
-		5: "ADDRESS_ORIGIN_RANDOM",
+		6: "ADDRESS_ORIGIN_SLAAC",
+		7: "ADDRESS_ORIGIN_LINK_LOCAL",
 	}
 	AddressOrigin_value = map[string]int32{
 		"ADDRESS_ORIGIN_UNSPECIFIED": 0,
 		"ADDRESS_ORIGIN_OTHER":       1,
 		"ADDRESS_ORIGIN_STATIC":      2,
 		"ADDRESS_ORIGIN_DHCP":        3,
-		"ADDRESS_ORIGIN_LINK_LAYER":  4,
-		"ADDRESS_ORIGIN_RANDOM":      5,
+		"ADDRESS_ORIGIN_SLAAC":       6,
+		"ADDRESS_ORIGIN_LINK_LOCAL":  7,
 	}
 )
 
@@ -89,14 +94,14 @@ var File_flowseer_net_ip_v1_address_origin_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_ip_v1_address_origin_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/net/ip/v1/address_origin.proto\x12\x12flowseer.net.ip.v1*\xb7\x01\n" +
+	"'flowseer/net/ip/v1/address_origin.proto\x12\x12flowseer.net.ip.v1*\xf4\x01\n" +
 	"\rAddressOrigin\x12\x1e\n" +
 	"\x1aADDRESS_ORIGIN_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14ADDRESS_ORIGIN_OTHER\x10\x01\x12\x19\n" +
 	"\x15ADDRESS_ORIGIN_STATIC\x10\x02\x12\x17\n" +
-	"\x13ADDRESS_ORIGIN_DHCP\x10\x03\x12\x1d\n" +
-	"\x19ADDRESS_ORIGIN_LINK_LAYER\x10\x04\x12\x19\n" +
-	"\x15ADDRESS_ORIGIN_RANDOM\x10\x05B\xd9\x01\n" +
+	"\x13ADDRESS_ORIGIN_DHCP\x10\x03\x12\x18\n" +
+	"\x14ADDRESS_ORIGIN_SLAAC\x10\x06\x12\x1d\n" +
+	"\x19ADDRESS_ORIGIN_LINK_LOCAL\x10\a\"\x04\b\x04\x10\x04\"\x04\b\x05\x10\x05*\x19ADDRESS_ORIGIN_LINK_LAYER*\x15ADDRESS_ORIGIN_RANDOMB\xd9\x01\n" +
 	"\x16com.flowseer.net.ip.v1B\x12AddressOriginProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_address_origin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)

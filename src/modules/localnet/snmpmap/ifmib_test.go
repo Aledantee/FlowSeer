@@ -12,6 +12,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/snmpmap"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 // ifRow builds the common ifTable columns of one row: ifIndex, ifDescr,
@@ -278,8 +281,8 @@ func TestInterfaces_Counters32Bit(t *testing.T) {
 
 	c := mapOne(t, vbs).GetCounters()
 
-	if c.GetInOctets() != 100 {
-		t.Errorf("got inOctets %d, want 100", c.GetInOctets())
+	if c.GetInBytes() != 100 {
+		t.Errorf("got inBytes %d, want 100", c.GetInBytes())
 	}
 
 	if c.GetInUnicastPackets() != 11 {
@@ -290,8 +293,8 @@ func TestInterfaces_Counters32Bit(t *testing.T) {
 		t.Error("got no inDiscards, want the device's reported zero")
 	}
 
-	if c.GetOutOctets() != 160 {
-		t.Errorf("got outOctets %d, want 160", c.GetOutOctets())
+	if c.GetOutBytes() != 160 {
+		t.Errorf("got outBytes %d, want 160", c.GetOutBytes())
 	}
 
 	// AE4: ifOutUcastPkts, ifOutDiscards and ifOutErrors were never
@@ -345,12 +348,12 @@ func TestInterfaces_HighCapacityCountersWin(t *testing.T) {
 
 	c := got.GetCounters()
 
-	if c.GetInOctets() != 1<<40 {
-		t.Errorf("got inOctets %d, want the high-capacity %d", c.GetInOctets(), uint64(1)<<40)
+	if c.GetInBytes() != 1<<40 {
+		t.Errorf("got inBytes %d, want the high-capacity %d", c.GetInBytes(), uint64(1)<<40)
 	}
 
-	if c.GetOutOctets() != 1<<41 {
-		t.Errorf("got outOctets %d, want the high-capacity %d", c.GetOutOctets(), uint64(1)<<41)
+	if c.GetOutBytes() != 1<<41 {
+		t.Errorf("got outBytes %d, want the high-capacity %d", c.GetOutBytes(), uint64(1)<<41)
 	}
 
 	if c.GetInMulticastPackets() != 7 {
@@ -414,7 +417,7 @@ func TestInterfaces_StackRelationships(t *testing.T) {
 		t.Fatalf("got kind %v, want the sub arm", sub.WhichKind())
 	}
 
-	if parent := sub.GetSub().GetParent(); parent != "GigabitEthernet0/1" {
+	if parent := sub.GetSub().GetParentInterfaceName(); parent != "GigabitEthernet0/1" {
 		t.Errorf("got parent %q, want %q", parent, "GigabitEthernet0/1")
 	}
 
@@ -423,13 +426,13 @@ func TestInterfaces_StackRelationships(t *testing.T) {
 		t.Fatalf("got kind %v, want the physical arm", member.WhichKind())
 	}
 
-	if lag := member.GetPhysical().GetLagParent(); lag != "Port-channel1" {
+	if lag := member.GetPhysical().GetLagParentInterfaceName(); lag != "Port-channel1" {
 		t.Errorf("got lagParent %q, want %q", lag, "Port-channel1")
 	}
 
 	standalone := ifaces[0]
-	if standalone.GetPhysical().HasLagParent() {
-		t.Errorf("got lagParent %q on a standalone port, want absent", standalone.GetPhysical().GetLagParent())
+	if standalone.GetPhysical().HasLagParentInterfaceName() {
+		t.Errorf("got lagParent %q on a standalone port, want absent", standalone.GetPhysical().GetLagParentInterfaceName())
 	}
 }
 
@@ -460,7 +463,7 @@ func TestInterfaces_StackRequiresActiveStatus(t *testing.T) {
 			if len(ifaces) != 3 {
 				t.Fatalf("got %d interfaces, want 3", len(ifaces))
 			}
-			if got := ifaces[0].GetPhysical().HasLagParent(); got != tc.active {
+			if got := ifaces[0].GetPhysical().HasLagParentInterfaceName(); got != tc.active {
 				t.Errorf("got LAG parent present %t, want %t", got, tc.active)
 			}
 			if got := ifaces[1].HasSub(); got != tc.active {
@@ -585,13 +588,13 @@ func TestInterfaces_PartialIfStackWalkKeepsItsOwnRows(t *testing.T) {
 		t.Fatalf("got %d interfaces, want all four ifTable rows", len(ifaces))
 	}
 
-	if parent := ifaces[1].GetSub().GetParent(); parent != "GigabitEthernet0/1" {
+	if parent := ifaces[1].GetSub().GetParentInterfaceName(); parent != "GigabitEthernet0/1" {
 		t.Errorf("got parent %q, want the relationship the walk delivered before failing", parent)
 	}
 
-	if ifaces[3].GetPhysical().HasLagParent() {
+	if ifaces[3].GetPhysical().HasLagParentInterfaceName() {
 		t.Errorf("got lagParent %q, want absent: that relationship was never delivered",
-			ifaces[3].GetPhysical().GetLagParent())
+			ifaces[3].GetPhysical().GetLagParentInterfaceName())
 	}
 }
 

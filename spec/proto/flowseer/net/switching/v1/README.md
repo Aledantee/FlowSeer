@@ -7,7 +7,7 @@ unicast forwarding database rows.
 
 ## Boundaries
 
-Imports: net/addr, net/packet
+Imports: net/addr, net/key, net/packet
 
 Imported by: net/capture, net/interface
 

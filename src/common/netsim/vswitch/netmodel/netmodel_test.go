@@ -76,7 +76,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build(),
 	}.Build()
 
@@ -86,7 +86,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 			Switchport: switchingv1.SwitchportFacet_builder{
 				TaggedVlanIds:    []uint32{vid10},
 				FrameAdmission:   &frameAdmAll,
@@ -274,7 +274,7 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 // The FDB and PoE state export as net/switching and net/phy rows: one learned
 // entry becomes one FdbEntry (vlan_id 10, that MAC, interface_name 1/1/1,
 // DYNAMIC, ACTIVE); an allocation becomes a PseBudget per group and a PoeFacet
-// per port with allocated_power_milliwatts; every message passes protovalidate.
+// per port with allocated_power_nanowatts; every message passes protovalidate.
 func TestFdbAndPoeExport(t *testing.T) {
 	// An untagged frame on a port with PVID 10 learns its source under VLAN 10.
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
@@ -372,7 +372,7 @@ func TestFdbAndPoeExport(t *testing.T) {
 	phyCfg := phy.Config{
 		PoE: &phy.PoE{
 			Groups: map[string]phy.Group{
-				"1": {PowerMilliwatts: 60_000},
+				"1": {PowerNanowatts: 60_000_000_000},
 			},
 			Ports: map[string]phy.PsePort{
 				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
@@ -397,8 +397,8 @@ func TestFdbAndPoeExport(t *testing.T) {
 	if b0.GetPseGroup() != 1 {
 		t.Errorf("budget pse_group = %d, want 1", b0.GetPseGroup())
 	}
-	if b0.GetPowerMilliwatts() != 60_000 {
-		t.Errorf("budget power_milliwatts = %d, want 60000", b0.GetPowerMilliwatts())
+	if b0.GetPowerNanowatts() != 60_000_000_000 {
+		t.Errorf("budget power_nanowatts = %d, want 60000000000", b0.GetPowerNanowatts())
 	}
 
 	if len(facets) != 3 {
@@ -412,24 +412,24 @@ func TestFdbAndPoeExport(t *testing.T) {
 	}
 
 	f1 := facets["1/1/1"]
-	if f1.GetAllocatedPowerMilliwatts() != 30_000 {
-		t.Errorf("1/1/1 allocated = %d, want 30000", f1.GetAllocatedPowerMilliwatts())
+	if f1.GetAllocatedPowerNanowatts() != 30_000_000_000 {
+		t.Errorf("1/1/1 allocated = %d, want 30000000000", f1.GetAllocatedPowerNanowatts())
 	}
 	if f1.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
 		t.Errorf("1/1/1 status = %v, want DELIVERING_POWER", f1.GetStatus())
 	}
 
 	f2 := facets["1/1/2"]
-	if f2.GetAllocatedPowerMilliwatts() != 30_000 {
-		t.Errorf("1/1/2 allocated = %d, want 30000", f2.GetAllocatedPowerMilliwatts())
+	if f2.GetAllocatedPowerNanowatts() != 30_000_000_000 {
+		t.Errorf("1/1/2 allocated = %d, want 30000000000", f2.GetAllocatedPowerNanowatts())
 	}
 	if f2.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
 		t.Errorf("1/1/2 status = %v, want DELIVERING_POWER", f2.GetStatus())
 	}
 
 	f3 := facets["1/1/3"]
-	if f3.HasAllocatedPowerMilliwatts() {
-		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerMilliwatts())
+	if f3.HasAllocatedPowerNanowatts() {
+		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerNanowatts())
 	}
 	if f3.HasPowerClass() {
 		t.Errorf("1/1/3 power_class should be unset, got %d", f3.GetPowerClass())
@@ -508,11 +508,11 @@ func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 	poeSup := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group1 := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	budget := phyv1.PseBudget_builder{
-		PseGroup:        &group1,
-		PowerMilliwatts: &power,
+		PseGroup:       &group1,
+		PowerNanowatts: &power,
 	}.Build()
 
 	iface := interfacev1.Interface_builder{
@@ -576,7 +576,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("lag_parent naming non-existent", func(t *testing.T) {
+	t.Run("lag_parent_interface_name naming non-existent", func(t *testing.T) {
 		p1Name := "1/1/1"
 		lagParent := "lag99"
 		p1 := interfacev1.Interface_builder{
@@ -584,7 +584,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagParent,
+				LagParentInterfaceName: &lagParent,
 			}.Build(),
 		}.Build()
 		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -593,7 +593,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("lag_parent naming non-LAG", func(t *testing.T) {
+	t.Run("lag_parent_interface_name naming non-LAG", func(t *testing.T) {
 		p1Name := "1/1/1"
 		p2Name := "1/1/2"
 		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
@@ -602,7 +602,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &p1Name,
+				LagParentInterfaceName: &p1Name,
 			}.Build(),
 		}.Build()
 		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -639,7 +639,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	// 3. PseBudget without power_milliwatts (loads as budget 0)
+	// 3. PseBudget without power_nanowatts (loads as budget 0)
 	grp1 := uint32(1)
 	budgetWithoutPower := phyv1.PseBudget_builder{
 		PseGroup: &grp1,
@@ -678,7 +678,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		if d.Port == "1/1/1" && d.Field == "mtu" && d.Value == "0" {
 			hasMtuDefault = true
 		}
-		if d.Port == "1" && d.Field == "power_milliwatts" && d.Value == "0" {
+		if d.Port == "1" && d.Field == "power_nanowatts" && d.Value == "0" {
 			hasBudgetDefault = true
 		}
 	}
@@ -686,7 +686,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		t.Errorf("explicit MTU zero reported as a default: %+v", report.Defaults)
 	}
 	if !hasBudgetDefault {
-		t.Errorf("expected power_milliwatts default reported, got defaults: %+v", report.Defaults)
+		t.Errorf("expected power_nanowatts default reported, got defaults: %+v", report.Defaults)
 	}
 
 	// Switchport with multiple untagged VLANs has no PVID
@@ -718,7 +718,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 
 func TestPoeExportRefusesANonNumericGroup(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
-		Groups: map[string]phy.Group{"g1": {PowerMilliwatts: 60_000}},
+		Groups: map[string]phy.Group{"g1": {PowerNanowatts: 60_000_000_000}},
 		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "g1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
 	}}
 	if _, _, err := netmodel.Poe(cfg, cfg.Allocate()); err == nil {
@@ -728,7 +728,7 @@ func TestPoeExportRefusesANonNumericGroup(t *testing.T) {
 
 func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
-		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 30_000}},
+		Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
 		Ports: map[string]phy.PsePort{
 			"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, PD: phy.PDAttached, PDClass: phy.Class(4)},
 			"1/1/2": {Group: "1", MaxClass: 3, Enabled: true, PD: phy.PDAttached, PDClass: phy.Class(4)},
@@ -775,7 +775,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			Switchport: switchingv1.SwitchportFacet_builder{TaggedVlanIds: []uint32{10}}.Build(),
 		}.Build()}.Build(),
 		interfacev1.Interface_builder{Name: name("1/1/1"), AdminStatus: &adminUp, Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build()}.Build(),
 	}
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVlan})
@@ -990,7 +990,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
@@ -1024,7 +1024,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
@@ -1058,7 +1058,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAbsent},
@@ -1101,7 +1101,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDUnknown},
@@ -1135,7 +1135,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 10_000},
+					"1": {PowerNanowatts: 10_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
@@ -1173,6 +1173,51 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
 		}
 	})
+}
+
+func TestLoad_PoeLimitInNanowatts(t *testing.T) {
+	// The requested limit reaches the loaded port in nanowatts, the unit
+	// every phy power value shares.
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+	power := uint64(100_000_000_000)
+	name := "1/1/1"
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Mtu:         &mtu0,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{
+					PoeSettings: phyv1.PoeSettings_builder{PowerLimitNanowatts: ptr(uint64(15_400_000_000))}.Build(),
+					PoeDetail:   phyv1.PoePortDetail_builder{PseGroup: &grp, PsePort: ptr(uint32(1))}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+	budget := phyv1.PseBudget_builder{PseGroup: &grp, PowerNanowatts: &power}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoe})
+	if err != nil {
+		t.Fatalf("netmodel.Load: %v", err)
+	}
+
+	p, ok := res.Spec.Config.Phy.PoE.Ports[name]
+	if !ok {
+		t.Fatalf("port %s missing from loaded config", name)
+	}
+
+	if p.Limit == nil {
+		t.Fatal("Limit is absent, want 15400000000 nanowatts")
+	}
+
+	if *p.Limit != 15_400_000_000 {
+		t.Errorf("Limit = %d, want 15400000000 nanowatts", *p.Limit)
+	}
 }
 
 func TestLoad_FilterFacetWithIPFacet(t *testing.T) {

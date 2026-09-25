@@ -41,9 +41,9 @@ message CaptureFilterClause {
   // The IEEE 802.1Q tag.
   VlanMatch vlan = 2;
   // The source MAC address.
-  flowseer.net.addr.v1.EuiAddress src_mac = 3;
+  flowseer.net.addr.v1.MacAddress src_mac = 3;
   // The destination MAC address.
-  flowseer.net.addr.v1.EuiAddress dst_mac = 4;
+  flowseer.net.addr.v1.MacAddress dst_mac = 4;
   // The source network prefix.
   flowseer.net.addr.v1.IpPrefix src_prefix = 5;
   // The destination network prefix.

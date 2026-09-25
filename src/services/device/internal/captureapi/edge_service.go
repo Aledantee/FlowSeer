@@ -674,7 +674,7 @@ func deriveStopReason(budget *modelcapturev1.CaptureBudget, counters *netcapture
 	if budget == nil {
 		return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
 	}
-	if budget.HasMaxPackets() && counters != nil && counters.GetAccepted() >= budget.GetMaxPackets() {
+	if budget.HasMaxPackets() && counters != nil && counters.GetAcceptedPackets() >= budget.GetMaxPackets() {
 		return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
 	}
 	if budget.HasMaxDuration() {

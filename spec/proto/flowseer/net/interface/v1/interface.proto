@@ -18,6 +18,7 @@ import "flowseer/net/interface/v1/vlan_interface.proto";
 import "flowseer/net/ip/v1/ip_facet.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // One interface of a device, in the device's own naming. Attributes that
 // depend on what the interface is live in the kind arm; the IP facet applies
@@ -27,7 +28,7 @@ message Interface {
   // present and non-empty.
   string name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // The SNMP ifIndex of the interface. Absent means the source exposes no
   // index or did not report one; the index is not stable across restarts.
@@ -45,7 +46,7 @@ message Interface {
   uint32 mtu = 5;
   // The interface's own hardware address. Absent means the interface has
   // none or the source did not report one.
-  flowseer.net.addr.v1.EuiAddress mac = 6;
+  flowseer.net.addr.v1.MacAddress mac = 6;
   // The interface description configured on the device. Absent means
   // unreported; an empty string means the device reports an empty
   // description.

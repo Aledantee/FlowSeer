@@ -6,7 +6,7 @@ its ports runs the protocol, and what its neighbors announced back.
 
 ## Boundaries
 
-Imports: net/addr
+Imports: net/addr, net/key
 
 Imported by: nothing
 

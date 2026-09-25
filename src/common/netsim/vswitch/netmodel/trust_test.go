@@ -261,7 +261,7 @@ func routedVLANInterface(name string, vid uint32, mac []byte) *interfacev1.Inter
 		AdminStatus: &admin,
 		OperStatus:  &oper,
 		Mtu:         &mtu,
-		Mac: addrv1.EuiAddress_builder{
+		Mac: addrv1.MacAddress_builder{
 			Eui48: addrv1.Eui48Address_builder{Octets: mac}.Build(),
 		}.Build(),
 		Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
@@ -290,7 +290,7 @@ func lagInterfaces() []*interfacev1.Interface {
 			AdminStatus: &admin,
 			OperStatus:  &oper,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagName,
+				LagParentInterfaceName: &lagName,
 			}.Build(),
 		}.Build(),
 	}
@@ -724,8 +724,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerMilliwatts: ptr(uint32(100_000))}.Build(),
-					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerMilliwatts: ptr(uint32(200_000))}.Build(),
+					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(100_000_000_000))}.Build(),
+					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(200_000_000_000))}.Build(),
 				},
 			},
 			conflictOn: "pse_budget",
@@ -883,7 +883,7 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 			ipv1.NeighborEntry_builder{InterfaceName: &routedName, Ip: malformedIP, Mac: protoEUI48([6]byte{0, 1, 2, 3, 4, 6})}.Build(),
 			ipv1.NeighborEntry_builder{
 				InterfaceName: &routedName, Ip: protoIPv4Addr([4]byte{10, 0, 0, 2}),
-				Mac: addrv1.EuiAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build()}.Build(),
+				Mac: addrv1.MacAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build()}.Build(),
 			}.Build(),
 		},
 	}
@@ -1166,7 +1166,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		oper := interfacev1.OperStatus_OPER_STATUS_UP
 		unknown := phyv1.PoePriority(99)
 		group := uint32(1)
-		power := uint32(100_000)
+		power := uint64(100_000_000_000)
 		result := (loadInput{
 			ifaces: []*interfacev1.Interface{
 				interfacev1.Interface_builder{
@@ -1182,7 +1182,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				}.Build(),
 			},
 			budgets: []*phyv1.PseBudget{
-				phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+				phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
 		assertUnsupported(t, result, netmodel.IssueInvalidPoePriority, analysis.PortScope("sw1", name))
@@ -1301,7 +1301,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 	supported := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	delivering := phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER
 	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
@@ -1408,7 +1408,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 			input := loadInput{
 				ifaces: []*interfacev1.Interface{iface},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
 				want: []port.Layer{port.LayerPoe},
 			}
@@ -1470,7 +1470,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 	supported := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
 	disabled := phyv1.PoeStatus_POE_STATUS_DISABLED
@@ -1531,7 +1531,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 			input := loadInput{
 				ifaces: []*interfacev1.Interface{iface},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
 				want: []port.Layer{port.LayerPoe},
 			}

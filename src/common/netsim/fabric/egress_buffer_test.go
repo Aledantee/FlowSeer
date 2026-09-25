@@ -177,8 +177,8 @@ func TestEgressStatedBufferTailDrop(t *testing.T) {
 	if counters.OutUnicast != delivered {
 		t.Errorf("OutUnicast = %d, want the delivered frame count %d", counters.OutUnicast, delivered)
 	}
-	if counters.OutOctets != delivered*1014 {
-		t.Errorf("OutOctets = %d, want %d encoded octets for %d delivered frames", counters.OutOctets, delivered*1014, delivered)
+	if counters.OutBytes != delivered*1014 {
+		t.Errorf("OutBytes = %d, want %d encoded octets for %d delivered frames", counters.OutBytes, delivered*1014, delivered)
 	}
 
 	peak := fab.Snapshot().EgressDepths[fabric.Endpoint{Node: "sw1", Port: "1/1/3"}][0].Peak

@@ -16,7 +16,7 @@ calls on its own behalf; an operator never calls it.
 
 ## Boundaries
 
-Imports: model/access, model/capture, model/edge, model/inventory, net/capture
+Imports: model/access, model/capture, model/edge, model/inventory, net/capture, net/key
 
 Imported by: nothing
 

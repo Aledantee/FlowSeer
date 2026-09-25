@@ -17,7 +17,7 @@ services; services live in service roots (`api/`, `edge/`).
 
 ## Boundaries
 
-Imports: net/addr, net/capture, net/interface, net/phy
+Imports: net/addr, net/capture, net/interface, net/key, net/phy
 
 Imported by: api/capture, api/device, api/edge, edge/attach, edge/capture, edge/dispatch, event/access, store/device
 

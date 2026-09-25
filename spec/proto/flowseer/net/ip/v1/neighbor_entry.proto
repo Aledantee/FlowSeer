@@ -7,6 +7,7 @@ import "flowseer/net/addr/v1/ip.proto";
 import "flowseer/net/ip/v1/neighbor_origin.proto";
 import "flowseer/net/ip/v1/neighbor_reachability.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // A device neighbor-cache row keyed by interface name and IP address. It
 // represents both IPv4 ARP and IPv6 Neighbor Discovery without carrying a
@@ -22,8 +23,7 @@ message NeighborEntry {
   // present and non-empty; omit the containing entry when it is unavailable.
   string interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // The neighbor's network-layer address. Must be present; omit the
   // containing entry when no neighbor address was observed.
@@ -34,7 +34,7 @@ message NeighborEntry {
   // EUI-64 — so the tagged wrapper keeps the variant
   // explicit instead of inferred from a byte count. Absent means it is not
   // known, as is expected for incomplete or failed resolution.
-  flowseer.net.addr.v1.EuiAddress mac = 3;
+  flowseer.net.addr.v1.MacAddress mac = 3;
   // How the mapping was created. Absent means the source did not report an
   // origin.
   NeighborOrigin origin = 4;

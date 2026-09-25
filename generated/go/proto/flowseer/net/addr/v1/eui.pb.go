@@ -186,31 +186,31 @@ func (b0 Eui64Address_builder) Build() *Eui64Address {
 	return m0
 }
 
-// An IEEE Extended Unique Identifier of either width
+// A MAC address of either width: an IEEE EUI-48 or EUI-64
 // (https://standards.ieee.org/products-programs/regauth/). The arm is the
 // width: consumers switch on it rather than inferring it from a payload
 // length, and each arm carries its own size rule.
-type EuiAddress struct {
+type MacAddress struct {
 	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Kind isEuiAddress_Kind      `protobuf_oneof:"kind"`
+	xxx_hidden_Kind isMacAddress_Kind      `protobuf_oneof:"kind"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
-func (x *EuiAddress) Reset() {
-	*x = EuiAddress{}
+func (x *MacAddress) Reset() {
+	*x = MacAddress{}
 	mi := &file_flowseer_net_addr_v1_eui_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *EuiAddress) String() string {
+func (x *MacAddress) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*EuiAddress) ProtoMessage() {}
+func (*MacAddress) ProtoMessage() {}
 
-func (x *EuiAddress) ProtoReflect() protoreflect.Message {
+func (x *MacAddress) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_net_addr_v1_eui_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -222,98 +222,98 @@ func (x *EuiAddress) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *EuiAddress) GetEui48() *Eui48Address {
+func (x *MacAddress) GetEui48() *Eui48Address {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Kind.(*euiAddress_Eui48); ok {
+		if x, ok := x.xxx_hidden_Kind.(*macAddress_Eui48); ok {
 			return x.Eui48
 		}
 	}
 	return nil
 }
 
-func (x *EuiAddress) GetEui64() *Eui64Address {
+func (x *MacAddress) GetEui64() *Eui64Address {
 	if x != nil {
-		if x, ok := x.xxx_hidden_Kind.(*euiAddress_Eui64); ok {
+		if x, ok := x.xxx_hidden_Kind.(*macAddress_Eui64); ok {
 			return x.Eui64
 		}
 	}
 	return nil
 }
 
-func (x *EuiAddress) SetEui48(v *Eui48Address) {
+func (x *MacAddress) SetEui48(v *Eui48Address) {
 	if v == nil {
 		x.xxx_hidden_Kind = nil
 		return
 	}
-	x.xxx_hidden_Kind = &euiAddress_Eui48{v}
+	x.xxx_hidden_Kind = &macAddress_Eui48{v}
 }
 
-func (x *EuiAddress) SetEui64(v *Eui64Address) {
+func (x *MacAddress) SetEui64(v *Eui64Address) {
 	if v == nil {
 		x.xxx_hidden_Kind = nil
 		return
 	}
-	x.xxx_hidden_Kind = &euiAddress_Eui64{v}
+	x.xxx_hidden_Kind = &macAddress_Eui64{v}
 }
 
-func (x *EuiAddress) HasKind() bool {
+func (x *MacAddress) HasKind() bool {
 	if x == nil {
 		return false
 	}
 	return x.xxx_hidden_Kind != nil
 }
 
-func (x *EuiAddress) HasEui48() bool {
+func (x *MacAddress) HasEui48() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Kind.(*euiAddress_Eui48)
+	_, ok := x.xxx_hidden_Kind.(*macAddress_Eui48)
 	return ok
 }
 
-func (x *EuiAddress) HasEui64() bool {
+func (x *MacAddress) HasEui64() bool {
 	if x == nil {
 		return false
 	}
-	_, ok := x.xxx_hidden_Kind.(*euiAddress_Eui64)
+	_, ok := x.xxx_hidden_Kind.(*macAddress_Eui64)
 	return ok
 }
 
-func (x *EuiAddress) ClearKind() {
+func (x *MacAddress) ClearKind() {
 	x.xxx_hidden_Kind = nil
 }
 
-func (x *EuiAddress) ClearEui48() {
-	if _, ok := x.xxx_hidden_Kind.(*euiAddress_Eui48); ok {
+func (x *MacAddress) ClearEui48() {
+	if _, ok := x.xxx_hidden_Kind.(*macAddress_Eui48); ok {
 		x.xxx_hidden_Kind = nil
 	}
 }
 
-func (x *EuiAddress) ClearEui64() {
-	if _, ok := x.xxx_hidden_Kind.(*euiAddress_Eui64); ok {
+func (x *MacAddress) ClearEui64() {
+	if _, ok := x.xxx_hidden_Kind.(*macAddress_Eui64); ok {
 		x.xxx_hidden_Kind = nil
 	}
 }
 
-const EuiAddress_Kind_not_set_case case_EuiAddress_Kind = 0
-const EuiAddress_Eui48_case case_EuiAddress_Kind = 1
-const EuiAddress_Eui64_case case_EuiAddress_Kind = 2
+const MacAddress_Kind_not_set_case case_MacAddress_Kind = 0
+const MacAddress_Eui48_case case_MacAddress_Kind = 1
+const MacAddress_Eui64_case case_MacAddress_Kind = 2
 
-func (x *EuiAddress) WhichKind() case_EuiAddress_Kind {
+func (x *MacAddress) WhichKind() case_MacAddress_Kind {
 	if x == nil {
-		return EuiAddress_Kind_not_set_case
+		return MacAddress_Kind_not_set_case
 	}
 	switch x.xxx_hidden_Kind.(type) {
-	case *euiAddress_Eui48:
-		return EuiAddress_Eui48_case
-	case *euiAddress_Eui64:
-		return EuiAddress_Eui64_case
+	case *macAddress_Eui48:
+		return MacAddress_Eui48_case
+	case *macAddress_Eui64:
+		return MacAddress_Eui64_case
 	default:
-		return EuiAddress_Kind_not_set_case
+		return MacAddress_Kind_not_set_case
 	}
 }
 
-type EuiAddress_builder struct {
+type MacAddress_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Fields of oneof xxx_hidden_Kind:
@@ -324,22 +324,22 @@ type EuiAddress_builder struct {
 	// -- end of xxx_hidden_Kind
 }
 
-func (b0 EuiAddress_builder) Build() *EuiAddress {
-	m0 := &EuiAddress{}
+func (b0 MacAddress_builder) Build() *MacAddress {
+	m0 := &MacAddress{}
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Eui48 != nil {
-		x.xxx_hidden_Kind = &euiAddress_Eui48{b.Eui48}
+		x.xxx_hidden_Kind = &macAddress_Eui48{b.Eui48}
 	}
 	if b.Eui64 != nil {
-		x.xxx_hidden_Kind = &euiAddress_Eui64{b.Eui64}
+		x.xxx_hidden_Kind = &macAddress_Eui64{b.Eui64}
 	}
 	return m0
 }
 
-type case_EuiAddress_Kind protoreflect.FieldNumber
+type case_MacAddress_Kind protoreflect.FieldNumber
 
-func (x case_EuiAddress_Kind) String() string {
+func (x case_MacAddress_Kind) String() string {
 	md := file_flowseer_net_addr_v1_eui_proto_msgTypes[2].Descriptor()
 	if x == 0 {
 		return "not set"
@@ -347,23 +347,23 @@ func (x case_EuiAddress_Kind) String() string {
 	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
 }
 
-type isEuiAddress_Kind interface {
-	isEuiAddress_Kind()
+type isMacAddress_Kind interface {
+	isMacAddress_Kind()
 }
 
-type euiAddress_Eui48 struct {
+type macAddress_Eui48 struct {
 	// A 48-bit address.
 	Eui48 *Eui48Address `protobuf:"bytes,1,opt,name=eui48,oneof"`
 }
 
-type euiAddress_Eui64 struct {
+type macAddress_Eui64 struct {
 	// A 64-bit address.
 	Eui64 *Eui64Address `protobuf:"bytes,2,opt,name=eui64,oneof"`
 }
 
-func (*euiAddress_Eui48) isEuiAddress_Kind() {}
+func (*macAddress_Eui48) isMacAddress_Kind() {}
 
-func (*euiAddress_Eui64) isEuiAddress_Kind() {}
+func (*macAddress_Eui64) isMacAddress_Kind() {}
 
 var File_flowseer_net_addr_v1_eui_proto protoreflect.FileDescriptor
 
@@ -377,7 +377,7 @@ const file_flowseer_net_addr_v1_eui_proto_rawDesc = "" +
 	"\x06octets\x18\x01 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h\bR\x06octets\"\x93\x01\n" +
 	"\n" +
-	"EuiAddress\x12:\n" +
+	"MacAddress\x12:\n" +
 	"\x05eui48\x18\x01 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressH\x00R\x05eui48\x12:\n" +
 	"\x05eui64\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui64AddressH\x00R\x05eui64B\r\n" +
 	"\x04kind\x12\x05\xbaH\x02\b\x01B\xdd\x01\n" +
@@ -387,11 +387,11 @@ var file_flowseer_net_addr_v1_eui_proto_msgTypes = make([]protoimpl.MessageInfo,
 var file_flowseer_net_addr_v1_eui_proto_goTypes = []any{
 	(*Eui48Address)(nil), // 0: flowseer.net.addr.v1.Eui48Address
 	(*Eui64Address)(nil), // 1: flowseer.net.addr.v1.Eui64Address
-	(*EuiAddress)(nil),   // 2: flowseer.net.addr.v1.EuiAddress
+	(*MacAddress)(nil),   // 2: flowseer.net.addr.v1.MacAddress
 }
 var file_flowseer_net_addr_v1_eui_proto_depIdxs = []int32{
-	0, // 0: flowseer.net.addr.v1.EuiAddress.eui48:type_name -> flowseer.net.addr.v1.Eui48Address
-	1, // 1: flowseer.net.addr.v1.EuiAddress.eui64:type_name -> flowseer.net.addr.v1.Eui64Address
+	0, // 0: flowseer.net.addr.v1.MacAddress.eui48:type_name -> flowseer.net.addr.v1.Eui48Address
+	1, // 1: flowseer.net.addr.v1.MacAddress.eui64:type_name -> flowseer.net.addr.v1.Eui64Address
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -405,8 +405,8 @@ func file_flowseer_net_addr_v1_eui_proto_init() {
 		return
 	}
 	file_flowseer_net_addr_v1_eui_proto_msgTypes[2].OneofWrappers = []any{
-		(*euiAddress_Eui48)(nil),
-		(*euiAddress_Eui64)(nil),
+		(*macAddress_Eui48)(nil),
+		(*macAddress_Eui64)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

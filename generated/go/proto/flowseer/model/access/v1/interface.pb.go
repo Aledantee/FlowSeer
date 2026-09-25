@@ -688,12 +688,12 @@ var File_flowseer_model_access_v1_interface_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_access_v1_interface_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/model/access/v1/interface.proto\x12\x18flowseer.model.access.v1\x1a,flowseer/model/inventory/v1/provenance.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\xaa\x01\n" +
-	"\x1aInterfaceDescriptionChange\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x126\n" +
-	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\x8f\b\n" +
-	"\x14InterfaceObservation\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x123\n" +
+	"(flowseer/model/access/v1/interface.proto\x12\x18flowseer.model.access.v1\x1a,flowseer/model/inventory/v1/provenance.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\x89\x01\n" +
+	"\x1aInterfaceDescriptionChange\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x88\xb5\x18\x01R\rinterfaceName\x126\n" +
+	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\xee\a\n" +
+	"\x14InterfaceObservation\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x88\xb5\x18\x01R\rinterfaceName\x123\n" +
 	"\vdescription\x18\x02 \x01(\tB\x11\xbaH\x0er\f\x18@2\b^[ -~]*$R\vdescription\x12U\n" +
 	"\fadmin_status\x18\x03 \x01(\x0e2&.flowseer.net.interface.v1.AdminStatusB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vadminStatus\x12R\n" +
@@ -706,9 +706,9 @@ const file_flowseer_model_access_v1_interface_proto_rawDesc = "" +
 	"\fcompleteness\x18\x06 \x01(\x0e2&.flowseer.model.access.v1.CompletenessB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x9c\x04\xbaH\x98\x04\x1a\x86\x02\n" +
 	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\x1a\x8c\x02\n" +
-	"8interface_observation.complete_sets_every_compared_field\x12Ra complete observation sets description, admin_status, oper_status, and provenance\x1a|this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))\"k\n" +
-	"\x13InterfaceReadIntent\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\xc4\x01\n" +
+	"8interface_observation.complete_sets_every_compared_field\x12Ra complete observation sets description, admin_status, oper_status, and provenance\x1a|this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))\"J\n" +
+	"\x13InterfaceReadIntent\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x88\xb5\x18\x01R\rinterfaceName\"\xc4\x01\n" +
 	"\tTypedRead\x12Y\n" +
 	"\raccess_policy\x18\x01 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12M\n" +
 	"\tinterface\x18\n" +

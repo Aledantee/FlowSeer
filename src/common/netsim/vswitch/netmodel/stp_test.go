@@ -366,7 +366,7 @@ func TestStpLoad_LagMemberSkipped(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagParent,
+				LagParentInterfaceName: &lagParent,
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{

@@ -76,7 +76,7 @@ func FdbEntries(entries []bridge.Entry) ([]*switchingv1.FdbEntry, error) {
 //
 // Each exported facet indicates supported PSE role and delivery status.
 // A port granted power carries [phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER], its
-// power class, and its allocated milliwatts. A port denied power due to administrative
+// power class, and its allocated nanowatts. A port denied power due to administrative
 // disablement carries [phyv1.PoeStatus_POE_STATUS_DISABLED]. A port with no attached
 // powered device, or denied power for budget, limit, or unsupported class, carries
 // [phyv1.PoeStatus_POE_STATUS_SEARCHING] without a power class. An uncertain power
@@ -101,15 +101,15 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 		b := phyv1.PseBudget_builder{
 			PseGroup: &pseGroup,
 		}
-		if g.PowerMilliwatts > 0 {
-			pmw := g.PowerMilliwatts
-			b.PowerMilliwatts = &pmw
+		if g.PowerNanowatts > 0 {
+			power := g.PowerNanowatts
+			b.PowerNanowatts = &power
 		}
 		if allocGroup, ok := alloc.Groups[groupKey]; ok {
-			consumption := allocGroup.AllocatedMilliwatts
-			b.ConsumptionMilliwatts = &consumption
+			consumption := allocGroup.AllocatedNanowatts
+			b.ConsumptionNanowatts = &consumption
 			operStatus := phyv1.PseOperStatus_PSE_OPER_STATUS_ON
-			if allocGroup.AllocatedMilliwatts == 0 {
+			if allocGroup.AllocatedNanowatts == 0 {
 				operStatus = phyv1.PseOperStatus_PSE_OPER_STATUS_OFF
 			}
 			b.OperStatus = &operStatus
@@ -149,8 +149,8 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 				powerClass := uint32(*p.PDClass)
 				fb.PowerClass = &powerClass
 			}
-			allocMW := pa.MaxMilliwatts
-			fb.AllocatedPowerMilliwatts = &allocMW
+			allocated := pa.MaxNanowatts
+			fb.AllocatedPowerNanowatts = &allocated
 		}
 		facets[portName] = fb.Build()
 	}

@@ -82,8 +82,77 @@ func TestPhysical_DlinkDacOnCopperArm(t *testing.T) {
 		t.Errorf("connector = %v, want COPPER_PIGTAIL", module.GetConnector())
 	}
 
-	if module.GetNominalBitRateMbps() != 10300 || len(module.GetLanes()) != 0 {
-		t.Errorf("module = %v, want a 10300 Mb/s rate and no lane from a zero wavelength", module)
+	if module.GetNominalBitRateBps() != 10_300_000_000 || len(module.GetLanes()) != 0 {
+		t.Errorf("module = %v, want a 10.3 Gb/s rate and no lane from a zero wavelength", module)
+	}
+}
+
+func TestPhysical_DlinkBitRateInBitsPerSecond(t *testing.T) {
+	// dPortSfpInfoBitRate is in megabaud, which the schema carries in
+	// bits per second.
+	vbs := []vbFixture{
+		stringAt(dlinkswsfpinfomib.DPortSfpInfoLaserIdentifier, []byte("SFP+"), 11),
+		integerAt(dlinkswsfpinfomib.DPortSfpInfoBitRate, 10300, 11),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[11]
+	mustValid(t, facet)
+
+	if got := facet.GetModule().GetNominalBitRateBps(); got != 10_300_000_000 {
+		t.Errorf("nominal bit rate = %d bps, want 10300000000", got)
+	}
+}
+
+func TestPhysical_DlinkRxPowerInNanowatts(t *testing.T) {
+	vbs := []vbFixture{
+		stringAt(dlinkswsfpinfomib.DPortSfpInfoLaserIdentifier, []byte("SFP"), 12),
+		// tenths of a microwatt
+		integerAt(dlinkswddmmib.DDdmIfInfoCurrentRxPower, 4660, 12),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[12]
+	mustValid(t, facet)
+
+	lanes := facet.GetModule().GetLanes()
+	if len(lanes) != 1 {
+		t.Fatalf("lanes = %v, want the single channel", lanes)
+	}
+
+	if got := lanes[0].GetRxPower().GetValueNanowatts(); got != 466_000 {
+		t.Errorf("rx power = %d nanowatts, want 466000", got)
+	}
+}
+
+func TestPhysical_DlinkVoltageBelowZero(t *testing.T) {
+	// A negative supply reading is a measurement the signed microvolt
+	// field carries, not an out-of-range value to drop.
+	vbs := []vbFixture{
+		stringAt(dlinkswsfpinfomib.DPortSfpInfoLaserIdentifier, []byte("SFP"), 13),
+		// centi-Volt
+		integerAt(dlinkswddmmib.DDdmIfInfoCurrentVoltage, -5, 13),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[13]
+	mustValid(t, facet)
+
+	voltage := facet.GetModule().GetDiagnostics().GetVoltage()
+	if !voltage.HasValueMicrovolts() || voltage.GetValueMicrovolts() != -50_000 {
+		t.Errorf("voltage = %v, want -50000 microvolts", voltage)
 	}
 }
 
@@ -122,7 +191,7 @@ func TestPhysical_DlinkDdmUnits(t *testing.T) {
 	module := facet.GetModule()
 
 	temp := module.GetDiagnostics().GetTemperature()
-	if temp.GetValueMillidegrees() != 36_500 || temp.GetLowAlarmMillidegrees() != -10_000 {
+	if temp.GetValueMillidegreesCelsius() != 36_500 || temp.GetLowAlarmMillidegreesCelsius() != -10_000 {
 		t.Errorf("temperature = %v, want 36.5 degrees with a -10 degree low alarm", temp)
 	}
 
@@ -195,7 +264,7 @@ func TestPhysical_HpDbmConversion(t *testing.T) {
 		t.Errorf("module = %v, want J9150A with an LC connector", module)
 	}
 
-	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegrees(); got != 49_120 {
+	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegreesCelsius(); got != 49_120 {
 		t.Errorf("temperature = %d, want 49120 millidegrees", got)
 	}
 
@@ -205,7 +274,7 @@ func TestPhysical_HpDbmConversion(t *testing.T) {
 
 	lane := module.GetLanes()[0]
 
-	want := uint32(math.Round(math.Pow(10, -0.584) * 1e6))
+	want := uint64(math.Round(math.Pow(10, -0.584) * 1e6))
 	if got := lane.GetTxPower().GetValueNanowatts(); got < want-1 || got > want+1 {
 		t.Errorf("tx power = %d nanowatts, want within one of %d", got, want)
 	}
@@ -259,7 +328,7 @@ func TestPhysical_Hh3cChannelsOutOfOrder(t *testing.T) {
 		t.Errorf("form factor = %v, want QSFP28", module.GetFormFactor())
 	}
 
-	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegrees(); got != 41_000 {
+	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegreesCelsius(); got != 41_000 {
 		t.Errorf("temperature = %d, want 41000 millidegrees", got)
 	}
 
@@ -355,7 +424,7 @@ func TestPhysical_HpUnreportedVoltageLeavesNoBareLane(t *testing.T) {
 		t.Errorf("voltage = %v, want none from a zero reading", module.GetDiagnostics().GetVoltage())
 	}
 
-	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegrees(); got != 41_000 {
+	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegreesCelsius(); got != 41_000 {
 		t.Errorf("temperature = %d, want 41000 millidegrees", got)
 	}
 
@@ -384,7 +453,7 @@ func TestPhysical_HpThresholdsWithoutReadingAreKept(t *testing.T) {
 	mustValid(t, facet)
 
 	temp := facet.GetModule().GetDiagnostics().GetTemperature()
-	if temp.HasValueMillidegrees() || temp.GetHighAlarmMillidegrees() != 90_000 || temp.GetLowAlarmMillidegrees() != -10_000 {
+	if temp.HasValueMillidegreesCelsius() || temp.GetHighAlarmMillidegreesCelsius() != 90_000 || temp.GetLowAlarmMillidegreesCelsius() != -10_000 {
 		t.Errorf("temperature = %v, want alarms without a reading", temp)
 	}
 }

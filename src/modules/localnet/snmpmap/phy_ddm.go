@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/mib/dlinkswsfpinfomib"
 	"go.aledante.io/FlowSeer/generated/go/mib/hh3ctransceiverinfomib"
 	"go.aledante.io/FlowSeer/generated/go/mib/hpicftransceivermib"
+	measurev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
@@ -333,7 +334,7 @@ func mapDlinkSfp(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r dlink
 	// The MIB reports the rate in megabaud, which is megabits per second
 	// for the NRZ signaling every module in its range uses.
 	if r.Observed(dlinkswsfpinfomib.DPortSfpInfoBitRate) && r.DPortSfpInfoBitRate > 0 {
-		module.SetNominalBitRateMbps(uint32(r.DPortSfpInfoBitRate))
+		module.SetNominalBitRateBps(uint64(r.DPortSfpInfoBitRate) * 1_000_000)
 	}
 
 	if r.Observed(dlinkswsfpinfomib.DPortSfpInfoWavelength) && r.DPortSfpInfoWavelength > 0 {
@@ -353,23 +354,23 @@ func mapDlinkDdm(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r dlink
 		return
 	}
 
-	temp := &phyv1.ModuleTemperature{}
-	setSigned(temp.SetValueMillidegrees, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentTemperature), r.DDdmIfInfoCurrentTemperature, 1)
-	setSigned(temp.SetHighAlarmMillidegrees, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmTemperature), r.DDdmIfInfoHighAlarmTemperature, 1)
-	setSigned(temp.SetHighWarningMillidegrees, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnTemperature), r.DDdmIfInfoHighWarnTemperature, 1)
-	setSigned(temp.SetLowWarningMillidegrees, r.Observed(dlinkswddmmib.DDdmIfInfoLowWarnTemperature), r.DDdmIfInfoLowWarnTemperature, 1)
-	setSigned(temp.SetLowAlarmMillidegrees, r.Observed(dlinkswddmmib.DDdmIfInfoLowAlarmTemperature), r.DDdmIfInfoLowAlarmTemperature, 1)
+	temp := &measurev1.Temperature{}
+	setSigned(temp.SetValueMillidegreesCelsius, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentTemperature), int64(r.DDdmIfInfoCurrentTemperature), 1)
+	setSigned(temp.SetHighAlarmMillidegreesCelsius, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmTemperature), int64(r.DDdmIfInfoHighAlarmTemperature), 1)
+	setSigned(temp.SetHighWarningMillidegreesCelsius, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnTemperature), int64(r.DDdmIfInfoHighWarnTemperature), 1)
+	setSigned(temp.SetLowWarningMillidegreesCelsius, r.Observed(dlinkswddmmib.DDdmIfInfoLowWarnTemperature), int64(r.DDdmIfInfoLowWarnTemperature), 1)
+	setSigned(temp.SetLowAlarmMillidegreesCelsius, r.Observed(dlinkswddmmib.DDdmIfInfoLowAlarmTemperature), int64(r.DDdmIfInfoLowAlarmTemperature), 1)
 
 	if populated(temp) {
 		diagnosticsAt(module).SetTemperature(temp)
 	}
 
-	volt := &phyv1.SupplyVoltage{}
-	setUnsigned(volt.SetValueMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentVoltage), int64(r.DDdmIfInfoCurrentVoltage), 10_000)
-	setUnsigned(volt.SetHighAlarmMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmVoltage), int64(r.DDdmIfInfoHighAlarmVoltage), 10_000)
-	setUnsigned(volt.SetHighWarningMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnVoltage), int64(r.DDdmIfInfoHighWarnVoltage), 10_000)
-	setUnsigned(volt.SetLowWarningMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoLowWarnVoltage), int64(r.DDdmIfInfoLowWarnVoltage), 10_000)
-	setUnsigned(volt.SetLowAlarmMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoLowAlarmVoltage), int64(r.DDdmIfInfoLowAlarmVoltage), 10_000)
+	volt := &measurev1.Voltage{}
+	setSigned(volt.SetValueMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentVoltage), int64(r.DDdmIfInfoCurrentVoltage), 10_000)
+	setSigned(volt.SetHighAlarmMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmVoltage), int64(r.DDdmIfInfoHighAlarmVoltage), 10_000)
+	setSigned(volt.SetHighWarningMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnVoltage), int64(r.DDdmIfInfoHighWarnVoltage), 10_000)
+	setSigned(volt.SetLowWarningMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoLowWarnVoltage), int64(r.DDdmIfInfoLowWarnVoltage), 10_000)
+	setSigned(volt.SetLowAlarmMicrovolts, r.Observed(dlinkswddmmib.DDdmIfInfoLowAlarmVoltage), int64(r.DDdmIfInfoLowAlarmVoltage), 10_000)
 
 	if populated(volt) {
 		diagnosticsAt(module).SetVoltage(volt)
@@ -377,18 +378,18 @@ func mapDlinkDdm(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r dlink
 
 	lane := laneAt(module, 1)
 
-	bias := &phyv1.BiasCurrent{}
-	setUnsigned(bias.SetValueMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentBiasCurrent), int64(r.DDdmIfInfoCurrentBiasCurrent), 1_000)
-	setUnsigned(bias.SetHighAlarmMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmBiasCurrent), int64(r.DDdmIfInfoHighAlarmBiasCurrent), 1_000)
-	setUnsigned(bias.SetHighWarningMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnBiasCurrent), int64(r.DDdmIfInfoHighWarnBiasCurrent), 1_000)
-	setUnsigned(bias.SetLowWarningMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoLowWarnBiasCurrent), int64(r.DDdmIfInfoLowWarnBiasCurrent), 1_000)
-	setUnsigned(bias.SetLowAlarmMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoLowAlarmBiasCurrent), int64(r.DDdmIfInfoLowAlarmBiasCurrent), 1_000)
+	bias := &measurev1.Current{}
+	setSigned(bias.SetValueMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentBiasCurrent), int64(r.DDdmIfInfoCurrentBiasCurrent), 1_000)
+	setSigned(bias.SetHighAlarmMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmBiasCurrent), int64(r.DDdmIfInfoHighAlarmBiasCurrent), 1_000)
+	setSigned(bias.SetHighWarningMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnBiasCurrent), int64(r.DDdmIfInfoHighWarnBiasCurrent), 1_000)
+	setSigned(bias.SetLowWarningMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoLowWarnBiasCurrent), int64(r.DDdmIfInfoLowWarnBiasCurrent), 1_000)
+	setSigned(bias.SetLowAlarmMicroamperes, r.Observed(dlinkswddmmib.DDdmIfInfoLowAlarmBiasCurrent), int64(r.DDdmIfInfoLowAlarmBiasCurrent), 1_000)
 
 	if populated(bias) {
 		lane.SetBias(bias)
 	}
 
-	tx := &phyv1.OpticalPower{}
+	tx := &measurev1.Power{}
 	setUnsigned(tx.SetValueNanowatts, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentTxPower), int64(r.DDdmIfInfoCurrentTxPower), 100)
 	setUnsigned(tx.SetHighAlarmNanowatts, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmTxPower), int64(r.DDdmIfInfoHighAlarmTxPower), 100)
 	setUnsigned(tx.SetHighWarningNanowatts, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnTxPower), int64(r.DDdmIfInfoHighWarnTxPower), 100)
@@ -399,7 +400,7 @@ func mapDlinkDdm(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r dlink
 		lane.SetTxPower(tx)
 	}
 
-	rx := &phyv1.OpticalPower{}
+	rx := &measurev1.Power{}
 	setUnsigned(rx.SetValueNanowatts, r.Observed(dlinkswddmmib.DDdmIfInfoCurrentRxPower), int64(r.DDdmIfInfoCurrentRxPower), 100)
 	setUnsigned(rx.SetHighAlarmNanowatts, r.Observed(dlinkswddmmib.DDdmIfInfoHighAlarmRxPower), int64(r.DDdmIfInfoHighAlarmRxPower), 100)
 	setUnsigned(rx.SetHighWarningNanowatts, r.Observed(dlinkswddmmib.DDdmIfInfoHighWarnRxPower), int64(r.DDdmIfInfoHighWarnRxPower), 100)
@@ -484,12 +485,12 @@ func mapHpXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hpicftr
 		return
 	}
 
-	temp := &phyv1.ModuleTemperature{}
-	setSigned(temp.SetValueMillidegrees, r.Observed(hpicftransceivermib.HpicfXcvrTemp), r.HpicfXcvrTemp, 1)
-	setSigned(temp.SetHighAlarmMillidegrees, r.Observed(hpicftransceivermib.HpicfXcvrTempHiAlarm), r.HpicfXcvrTempHiAlarm, 1)
-	setSigned(temp.SetHighWarningMillidegrees, r.Observed(hpicftransceivermib.HpicfXcvrTempHiWarn), r.HpicfXcvrTempHiWarn, 1)
-	setSigned(temp.SetLowWarningMillidegrees, r.Observed(hpicftransceivermib.HpicfXcvrTempLoWarn), r.HpicfXcvrTempLoWarn, 1)
-	setSigned(temp.SetLowAlarmMillidegrees, r.Observed(hpicftransceivermib.HpicfXcvrTempLoAlarm), r.HpicfXcvrTempLoAlarm, 1)
+	temp := &measurev1.Temperature{}
+	setSigned(temp.SetValueMillidegreesCelsius, r.Observed(hpicftransceivermib.HpicfXcvrTemp), int64(r.HpicfXcvrTemp), 1)
+	setSigned(temp.SetHighAlarmMillidegreesCelsius, r.Observed(hpicftransceivermib.HpicfXcvrTempHiAlarm), int64(r.HpicfXcvrTempHiAlarm), 1)
+	setSigned(temp.SetHighWarningMillidegreesCelsius, r.Observed(hpicftransceivermib.HpicfXcvrTempHiWarn), int64(r.HpicfXcvrTempHiWarn), 1)
+	setSigned(temp.SetLowWarningMillidegreesCelsius, r.Observed(hpicftransceivermib.HpicfXcvrTempLoWarn), int64(r.HpicfXcvrTempLoWarn), 1)
+	setSigned(temp.SetLowAlarmMillidegreesCelsius, r.Observed(hpicftransceivermib.HpicfXcvrTempLoAlarm), int64(r.HpicfXcvrTempLoAlarm), 1)
 
 	if populated(temp) {
 		diagnosticsAt(module).SetTemperature(temp)
@@ -497,7 +498,7 @@ func mapHpXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hpicftr
 
 	// HP reports a zero supply voltage for a module that has none to
 	// report, the same way its thresholds do.
-	volt := &phyv1.SupplyVoltage{}
+	volt := &measurev1.Voltage{}
 	setNonzero(volt.SetValueMicrovolts, r.Observed(hpicftransceivermib.HpicfXcvrVoltage), int64(r.HpicfXcvrVoltage), 100)
 	setNonzero(volt.SetHighAlarmMicrovolts, r.Observed(hpicftransceivermib.HpicfXcvrVccHiAlarm), int64(r.HpicfXcvrVccHiAlarm), 100)
 	setNonzero(volt.SetHighWarningMicrovolts, r.Observed(hpicftransceivermib.HpicfXcvrVccHiWarn), int64(r.HpicfXcvrVccHiWarn), 100)
@@ -510,8 +511,8 @@ func mapHpXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hpicftr
 
 	lane := laneAt(module, 1)
 
-	bias := &phyv1.BiasCurrent{}
-	setUnsigned(bias.SetValueMicroamperes, r.Observed(hpicftransceivermib.HpicfXcvrBias), int64(r.HpicfXcvrBias), 1)
+	bias := &measurev1.Current{}
+	setSigned(bias.SetValueMicroamperes, r.Observed(hpicftransceivermib.HpicfXcvrBias), int64(r.HpicfXcvrBias), 1)
 	setNonzero(bias.SetHighAlarmMicroamperes, r.Observed(hpicftransceivermib.HpicfXcvrBiasHiAlarm), int64(r.HpicfXcvrBiasHiAlarm), 1)
 	setNonzero(bias.SetHighWarningMicroamperes, r.Observed(hpicftransceivermib.HpicfXcvrBiasHiWarn), int64(r.HpicfXcvrBiasHiWarn), 1)
 	setNonzero(bias.SetLowWarningMicroamperes, r.Observed(hpicftransceivermib.HpicfXcvrBiasLoWarn), int64(r.HpicfXcvrBiasLoWarn), 1)
@@ -521,7 +522,7 @@ func mapHpXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hpicftr
 		lane.SetBias(bias)
 	}
 
-	tx := &phyv1.OpticalPower{}
+	tx := &measurev1.Power{}
 
 	setHpDbm(tx.SetValueNanowatts, r.Observed(hpicftransceivermib.HpicfXcvrTxPower), r.HpicfXcvrTxPower)
 
@@ -534,7 +535,7 @@ func mapHpXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hpicftr
 		lane.SetTxPower(tx)
 	}
 
-	rx := &phyv1.OpticalPower{}
+	rx := &measurev1.Power{}
 
 	setHpDbm(rx.SetValueNanowatts, r.Observed(hpicftransceivermib.HpicfXcvrRxPower), r.HpicfXcvrRxPower)
 
@@ -636,19 +637,19 @@ func mapHh3cXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hh3ct
 		return
 	}
 
-	temp := &phyv1.ModuleTemperature{}
-	setSigned(temp.SetValueMillidegrees, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTemperature), r.Hh3cTransceiverTemperature, 1000)
-	setSigned(temp.SetHighAlarmMillidegrees, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempHiAlarm), r.Hh3cTransceiverTempHiAlarm, 1)
-	setSigned(temp.SetHighWarningMillidegrees, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempHiWarn), r.Hh3cTransceiverTempHiWarn, 1)
-	setSigned(temp.SetLowWarningMillidegrees, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempLoWarn), r.Hh3cTransceiverTempLoWarn, 1)
-	setSigned(temp.SetLowAlarmMillidegrees, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempLoAlarm), r.Hh3cTransceiverTempLoAlarm, 1)
+	temp := &measurev1.Temperature{}
+	setSigned(temp.SetValueMillidegreesCelsius, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTemperature), int64(r.Hh3cTransceiverTemperature), 1000)
+	setSigned(temp.SetHighAlarmMillidegreesCelsius, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempHiAlarm), int64(r.Hh3cTransceiverTempHiAlarm), 1)
+	setSigned(temp.SetHighWarningMillidegreesCelsius, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempHiWarn), int64(r.Hh3cTransceiverTempHiWarn), 1)
+	setSigned(temp.SetLowWarningMillidegreesCelsius, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempLoWarn), int64(r.Hh3cTransceiverTempLoWarn), 1)
+	setSigned(temp.SetLowAlarmMillidegreesCelsius, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverTempLoAlarm), int64(r.Hh3cTransceiverTempLoAlarm), 1)
 
 	if populated(temp) {
 		diagnosticsAt(module).SetTemperature(temp)
 	}
 
-	volt := &phyv1.SupplyVoltage{}
-	setUnsigned(volt.SetValueMicrovolts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverVoltage), int64(r.Hh3cTransceiverVoltage), 10_000)
+	volt := &measurev1.Voltage{}
+	setSigned(volt.SetValueMicrovolts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverVoltage), int64(r.Hh3cTransceiverVoltage), 10_000)
 	setNonzero(volt.SetHighAlarmMicrovolts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverVccHiAlarm), int64(r.Hh3cTransceiverVccHiAlarm), 100)
 	setNonzero(volt.SetHighWarningMicrovolts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverVccHiWarn), int64(r.Hh3cTransceiverVccHiWarn), 100)
 	setNonzero(volt.SetLowWarningMicrovolts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverVccLoWarn), int64(r.Hh3cTransceiverVccLoWarn), 100)
@@ -660,8 +661,8 @@ func mapHh3cXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hh3ct
 
 	lane := laneAt(module, 1)
 
-	bias := &phyv1.BiasCurrent{}
-	setUnsigned(bias.SetValueMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverBiasCurrent), int64(r.Hh3cTransceiverBiasCurrent), 10)
+	bias := &measurev1.Current{}
+	setSigned(bias.SetValueMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverBiasCurrent), int64(r.Hh3cTransceiverBiasCurrent), 10)
 	setNonzero(bias.SetHighAlarmMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverBiasHiAlarm), int64(r.Hh3cTransceiverBiasHiAlarm), 1)
 	setNonzero(bias.SetHighWarningMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverBiasHiWarn), int64(r.Hh3cTransceiverBiasHiWarn), 1)
 	setNonzero(bias.SetLowWarningMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverBiasLoWarn), int64(r.Hh3cTransceiverBiasLoWarn), 1)
@@ -671,7 +672,7 @@ func mapHh3cXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hh3ct
 		lane.SetBias(bias)
 	}
 
-	tx := &phyv1.OpticalPower{}
+	tx := &measurev1.Power{}
 
 	setDbm(tx.SetValueNanowatts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverCurTXPower), r.Hh3cTransceiverCurTXPower, 100)
 
@@ -684,7 +685,7 @@ func mapHh3cXcvr(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r hh3ct
 		lane.SetTxPower(tx)
 	}
 
-	rx := &phyv1.OpticalPower{}
+	rx := &measurev1.Power{}
 
 	setDbm(rx.SetValueNanowatts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverCurRXPower), r.Hh3cTransceiverCurRXPower, 100)
 
@@ -712,8 +713,8 @@ func mapHh3cChannel(facets map[uint32]*phyv1.EthernetFacet, ifIndex, channel uin
 
 	lane := laneAt(module, channel)
 
-	bias := &phyv1.BiasCurrent{}
-	setUnsigned(bias.SetValueMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasCurrent), int64(r.Hh3cTransceiverChannelBiasCurrent), 10)
+	bias := &measurev1.Current{}
+	setSigned(bias.SetValueMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasCurrent), int64(r.Hh3cTransceiverChannelBiasCurrent), 10)
 	setNonzero(bias.SetHighAlarmMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasHiAm), int64(r.Hh3cTransceiverChannelBiasHiAm), 1)
 	setNonzero(bias.SetLowAlarmMicroamperes, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasLoAm), int64(r.Hh3cTransceiverChannelBiasLoAm), 1)
 
@@ -721,7 +722,7 @@ func mapHh3cChannel(facets map[uint32]*phyv1.EthernetFacet, ifIndex, channel uin
 		lane.SetBias(bias)
 	}
 
-	tx := &phyv1.OpticalPower{}
+	tx := &measurev1.Power{}
 	setDbm(tx.SetValueNanowatts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelCurTXPower), r.Hh3cTransceiverChannelCurTXPower, 100)
 	setNonzero(tx.SetHighAlarmNanowatts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelTXPwrHiAm), int64(r.Hh3cTransceiverChannelTXPwrHiAm), 100)
 	setNonzero(tx.SetLowAlarmNanowatts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelTXPwrLoAm), int64(r.Hh3cTransceiverChannelTXPwrLoAm), 100)
@@ -732,7 +733,7 @@ func mapHh3cChannel(facets map[uint32]*phyv1.EthernetFacet, ifIndex, channel uin
 
 	rx := lane.GetRxPower()
 	if rx == nil {
-		rx = &phyv1.OpticalPower{}
+		rx = &measurev1.Power{}
 	}
 
 	setDbm(rx.SetValueNanowatts, r.Observed(hh3ctransceiverinfomib.Hh3cTransceiverChannelCurRXPower), r.Hh3cTransceiverChannelCurRXPower, 100)
@@ -744,12 +745,12 @@ func mapHh3cChannel(facets map[uint32]*phyv1.EthernetFacet, ifIndex, channel uin
 
 // setSigned sets a signed schema field from an observed vendor value
 // scaled by factor, saturating on overflow.
-func setSigned(set func(int32), observed bool, value int32, factor int64) {
+func setSigned(set func(int32), observed bool, value, factor int64) {
 	if !observed {
 		return
 	}
 
-	scaled := int64(value) * factor
+	scaled := value * factor
 	if scaled > math.MaxInt32 {
 		scaled = math.MaxInt32
 	} else if scaled < math.MinInt32 {
@@ -762,28 +763,35 @@ func setSigned(set func(int32), observed bool, value int32, factor int64) {
 // setUnsigned sets an unsigned schema field from an observed vendor
 // value scaled by factor. A negative reading is outside every vendor's
 // documented range and reads as unreported; an overflow saturates.
-func setUnsigned(set func(uint32), observed bool, value, factor int64) {
+func setUnsigned(set func(uint64), observed bool, value, factor int64) {
 	if !observed || value < 0 {
 		return
 	}
 
-	scaled := value * factor
-	if scaled > math.MaxUint32 {
-		scaled = math.MaxUint32
+	v, f := uint64(value), uint64(factor)
+	if f != 0 && v > math.MaxUint64/f {
+		set(math.MaxUint64)
+
+		return
 	}
 
-	set(uint32(scaled))
+	set(v * f)
 }
 
-// setNonzero is [setUnsigned] for a vendor value whose zero means the
-// module reports none: every HP and H3C threshold, and HP's supply
-// voltage.
-func setNonzero(set func(uint32), observed bool, value, factor int64) {
+// setNonzero is [setSigned] or [setUnsigned], by the field's type, for a
+// vendor value whose zero means the module reports none: every HP and H3C
+// threshold, and HP's supply voltage.
+func setNonzero[T int32 | uint64](set func(T), observed bool, value, factor int64) {
 	if value == 0 {
 		return
 	}
 
-	setUnsigned(set, observed, value, factor)
+	switch set := any(set).(type) {
+	case func(int32):
+		setSigned(set, observed, value, factor)
+	case func(uint64):
+		setUnsigned(set, observed, value, factor)
+	}
 }
 
 // setDbm sets a nanowatt field from an observed power in dBm scaled by
@@ -792,22 +800,23 @@ func setNonzero(set func(uint32), observed bool, value, factor int64) {
 // range and reads as unreported, which also covers an agent that answers
 // an unmeasurable reading with the largest integer; one too weak to reach
 // a nanowatt reads as zero.
-func setDbm(set func(uint32), observed bool, value int32, perDbm float64) {
+func setDbm(set func(uint64), observed bool, value int32, perDbm float64) {
 	if !observed {
 		return
 	}
 
+	// float64(math.MaxUint64) rounds up to 2^64, which uint64 cannot hold.
 	nw := math.Round(math.Pow(10, float64(value)/perDbm/10) * 1e6)
-	if nw > math.MaxUint32 {
+	if nw >= math.MaxUint64 {
 		return
 	}
 
-	set(uint32(nw))
+	set(uint64(nw))
 }
 
 // setHpDbm is [setDbm] for HP's thousandths of dBm, whose documented
 // sentinel for no light is zero nanowatts.
-func setHpDbm(set func(uint32), observed bool, value int32) {
+func setHpDbm(set func(uint64), observed bool, value int32) {
 	if observed && value == hpNoLightDbm {
 		set(0)
 

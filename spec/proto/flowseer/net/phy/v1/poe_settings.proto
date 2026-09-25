@@ -8,12 +8,15 @@ import option "buf/validate/validate.proto";
 // Requested Power over Ethernet settings. Capability and delivery facts are
 // represented separately by PoeFacet.
 message PoeSettings {
+  reserved 2;
+  reserved power_limit_milliwatts;
+
   // Whether power delivery should be enabled. Absent leaves the existing or
   // source-default setting unchanged.
   bool enabled = 1;
-  // Requested power ceiling in milliwatts. Absent leaves it unspecified; zero
+  // Requested power ceiling in nanowatts. Absent leaves it unspecified; zero
   // is an explicit zero-power ceiling.
-  uint32 power_limit_milliwatts = 2;
+  uint64 power_limit_nanowatts = 4;
   // Requested oversubscription priority. Absent leaves it unspecified; an
   // explicitly unspecified sentinel is invalid in intended settings.
   PoePriority priority = 3 [(buf.validate.field).enum.not_in = 0];
