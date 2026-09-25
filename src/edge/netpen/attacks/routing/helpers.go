@@ -33,7 +33,7 @@ var (
 // Fixture target addresses (matching the harvest script's constants).
 var (
 	// attackerRouterID is the OSPF router ID we inject as.
-	attackerRouterID uint32 = 0x0a000099 // 10.0.0.99
+	attackerRouterID uint32 = 0x0a000063 // 10.0.0.99
 	// attackerIP is the source IP for L3 frames.
 	attackerIP = net.IPv4(10, 0, 0, 99)
 )

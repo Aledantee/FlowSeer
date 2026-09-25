@@ -55,7 +55,7 @@ var (
 	llmnrMcast              = net.IPv4(224, 0, 0, 252)
 	targetMAC               = mustMAC("00:aa:bb:cc:dd:01")
 	targetRouterID   uint32 = 0x0a000002 // 10.0.0.2
-	attackerRouterID uint32 = 0x0a000099 // 10.0.0.99
+	attackerRouterID uint32 = 0x0a000063 // 10.0.0.99
 
 	eigrpFlagInit    uint32 = 0x01
 	eigrpFlagGoodbye uint32 = 0x02
@@ -138,6 +138,49 @@ func ospfHeader(ospfType byte, bodyLen int) []byte {
 	return hdr
 }
 
+// ospfChecksum computes the OSPFv2 packet checksum from RFC 2328 D.4.
+func ospfChecksum(p []byte) uint16 {
+	var sum uint32
+	for i := 0; i+1 < len(p); i += 2 {
+		if i == 12 || (i >= 16 && i < 24) {
+			continue
+		}
+		sum += uint32(p[i])<<8 | uint32(p[i+1])
+	}
+	if len(p)%2 == 1 {
+		sum += uint32(p[len(p)-1]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = (sum & 0xffff) + (sum >> 16)
+	}
+	return ^uint16(sum)
+}
+
+// ospfLSAChecksum computes the Router-LSA checksum from RFC 2328 12.1.7.
+func ospfLSAChecksum(lsa []byte) uint16 {
+	const checksumOffset = 16
+
+	var c0, c1 int
+	for i := 2; i < len(lsa); i++ {
+		octet := int(lsa[i])
+		if i == checksumOffset || i == checksumOffset+1 {
+			octet = 0
+		}
+		c0 = (c0 + octet) % 255
+		c1 = (c1 + c0) % 255
+	}
+
+	x := ((len(lsa)-checksumOffset-1)*c0 - c1) % 255
+	if x <= 0 {
+		x += 255
+	}
+	y := 510 - c0 - x
+	if y > 255 {
+		y -= 255
+	}
+	return uint16(x)<<8 | uint16(y)
+}
+
 func ospfHelloBodyBytes() []byte {
 	body := make([]byte, ospfHelloBody)
 	binary.BigEndian.PutUint32(body[0:4], 0xffffff00) // /24
@@ -153,6 +196,7 @@ func ospfHelloBodyBytes() []byte {
 func ospfFrame(ospfType byte, body []byte) []byte {
 	hdr := ospfHeader(ospfType, len(body))
 	payload := append(hdr, body...)
+	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
 	eth := &layers.Ethernet{
 		SrcMAC:       srcBytes(),
 		DstMAC:       ospfMcastMAC,
@@ -210,8 +254,9 @@ func ospfLSAUpdateFrame() []byte {
 
 	binary.BigEndian.PutUint16(lsaHdr[18:20], uint16(len(lsaHdr)+len(lsaBody)))
 
-	body = append(body, lsaHdr...)
-	body = append(body, lsaBody...)
+	lsa := append(lsaHdr, lsaBody...)
+	binary.BigEndian.PutUint16(lsa[16:18], ospfLSAChecksum(lsa))
+	body = append(body, lsa...)
 	return ospfFrame(byte(layers.OSPFLinkStateUpdate), body)
 }
 
@@ -227,6 +272,7 @@ func ospfLSAFlushFrame() []byte {
 	binary.BigEndian.PutUint32(lsaHdr[8:12], attackerRouterID)
 	binary.BigEndian.PutUint32(lsaHdr[12:16], 0x80000001)
 	binary.BigEndian.PutUint16(lsaHdr[18:20], ospfLSAHdrLen)
+	binary.BigEndian.PutUint16(lsaHdr[16:18], ospfLSAChecksum(lsaHdr))
 
 	body = append(body, lsaHdr...)
 	return ospfFrame(byte(layers.OSPFLinkStateUpdate), body)
@@ -248,6 +294,7 @@ func ospfTargetHelloFrame() []byte {
 	binary.BigEndian.PutUint16(hdr[2:4], uint16(len(hdr)+len(body)))
 
 	payload := append(hdr, body...)
+	binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))
 	eth := &layers.Ethernet{
 		SrcMAC:       targetMAC,
 		DstMAC:       ospfMcastMAC,
