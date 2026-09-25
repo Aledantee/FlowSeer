@@ -151,7 +151,3 @@ authority: `go test -race ./...` enforces the same invariants.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts); relevant when orienting to the codebase or discussing domain terms.
 - `.golangci.yml` — lint & format gate (`golangci-lint run`; gofumpt + goimports).
-- `tools/serena/project.yml` — shared Serena configuration for Go-aware symbol
-  lookup, reference discovery, and diagnostics. Complete the one-time client
-  setup in `tools/serena/README.md`; put machine-local overrides in the ignored
-  `tools/serena/project.local.yml` file.

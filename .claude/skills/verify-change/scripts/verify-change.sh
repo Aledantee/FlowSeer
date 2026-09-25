@@ -200,7 +200,6 @@ proto_deleted=false
 proto=false
 hook_tooling=false
 mib=false
-serena=false
 service_otel_integration=false
 
 add_module() {
@@ -236,7 +235,6 @@ if [[ $full == true ]]; then
   proto=true
   hook_tooling=true
   mib=true
-  serena=true
   service_otel_integration=true
 else
   for path in "${paths[@]}"; do
@@ -281,9 +279,6 @@ else
       mibgen.yaml|spec/mib/*|src/protocol/snmp/cmd/mibgen/*|src/protocol/smi/*) mib=true ;;
     esac
     case "$path" in
-      tools/serena/*) serena=true ;;
-    esac
-    case "$path" in
       go.mod|go.sum|src/common/service/*.go|src/common/service/test/integration/otel*|src/common/service/test/integration/testdata/otel-collector.yaml|tools/test/service-otel-integration.sh)
         service_otel_integration=true
         ;;
@@ -303,7 +298,7 @@ fi
 gates_selected=false
 if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
   [[ $proto == true || $hook_tooling == true || $mib == true ||
-  $serena == true || $service_otel_integration == true ]]; then
+  $service_otel_integration == true ]]; then
   gates_selected=true
 fi
 
@@ -696,22 +691,6 @@ if [[ $hook_tooling == true ]]; then
       exit 1
     fi
   done
-fi
-
-if [[ $serena == true ]]; then
-  if command -v serena >/dev/null 2>&1; then
-    if ! serena_output=$(run serena project is_ignored_path buf.lock "$root"); then
-      printf '%s\n' "$serena_output" >&2
-      exit 1
-    fi
-    printf '%s\n' "$serena_output"
-    [[ $serena_output == *"Path 'buf.lock' IS ignored by the project configuration."* ]] || {
-      echo "Serena did not load tools/serena/project.yml." >&2
-      exit 1
-    }
-  else
-    echo "serena is not on PATH; skipping the optional project-config smoke check."
-  fi
 fi
 
 if [[ $service_otel_integration == true ]]; then
