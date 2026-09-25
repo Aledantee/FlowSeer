@@ -1,9 +1,10 @@
 # netpen Validation Matrix
 
 This matrix inventories every (behavior, mode) pair's intended ground-truth
-source, per KTD15. No live T1 run is recorded here; the `ospf` row carries one
-live T2 result below. Fixture provenance labels do not establish that this
-integration suite has executed a wire or vendor assertion.
+source, per KTD15. No live T1 run is recorded here. The `ospf` live-lab path is
+implemented, but its T1 AE6 and T2 cells remain pending until the deferred lab
+run records the target's observable. Fixture provenance labels do not establish
+that this integration suite has executed a wire or vendor assertion.
 
 ## Ground-truth sources
 
@@ -11,10 +12,9 @@ integration suite has executed a wire or vendor assertion.
   harvested from `l2l3-audit` (KTD14) pins the protocol structure.
   The Go behavior's TX is compared byte-for-byte (deterministic) or by
   field-set (randomized) against the fixture.
-- **(b)** T2 vendor behavioral truth: an operator-supplied Cisco NOS must
-  produce expected findings. T2 logs intended runs for the other behaviors
-  without executing or asserting them; the `ospf` row is the first with this
-  evidence.
+- **(b)** T2 vendor behavioral truth: the live lab injects from a Linux host and
+  reads the Cisco target's own observable over SSH. The OSPF path asserts the
+  spoofed neighbor's appearance and removal. The other behaviors remain pending.
 - **(c)** Planned ring self-consistency: captured frames would need to decode
   correctly. The ring compose fixture exists, but this suite has no capture or
   decoder test. These rows have no wire or vendor evidence from this suite.
@@ -35,8 +35,8 @@ integration suite has executed a wire or vendor assertion.
 | Mode | Mode flag (base = mode-less) |
 | Durability | Catalog durability class |
 | Fixture provenance | (a) Python-fixture / (c) ring-only / (a)+(c) both |
-| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list; t2 (b) = live result carried by the t2 run |
-| t2 status | never = t2 not yet run; dated result = live vendor observable on that date |
+| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list; pending live run = the assertion exists but has not run in the lab |
+| t2 status | never = no t2 assertion exists; pending live run = assertion implemented but not executed; dated result = live vendor observable on that date |
 | Teardown | teardown path from catalog (empty = none) |
 
 ## Matrix
@@ -63,7 +63,7 @@ integration suite has executed a wire or vendor assertion.
 | mld | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
 | mvrp | base | transient-decay | (c) | N/A | never | MRP timers, minutes |
 | ndpspoof | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| ospf | base | temporary-restored | (a) | t2 (b) | 2026-09-24 IOS-XE 17.3.2: neighbor 10.0.0.153 accepted, 10.0.0.99 elected BDR | goodbye/flush teardown |
+| ospf | base | temporary-restored | (a) | pending live run ([plan](../../../../../docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md)) | pending live run ([plan](../../../../../docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md)) | goodbye/flush teardown |
 | portsteal | base | transient-decay | (a) | N/A | never | CAM aging |
 | portsteal | relay | temporary-restored | (a) | N/A | never | ip_forward restore armed |
 | raflood | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
@@ -84,13 +84,20 @@ integration suite has executed a wire or vendor assertion.
 | vtp | wipe | permanent-destructive | (c) | N/A | never | opt-in per R15 |
 | wpad | base | transient-decay | (a) | not recorded | never | client proxy config residue, bound = TTL |
 
-## Live OSPF source-(b) result
+## Live OSPF source-(b) recording path
 
-The `ospf` row is this file's first source-(b) entry. It came from the
-lab-backed `netpen_t2` path, which is why that row names the t2 run in its
-`t1 AE6` cell. IOS-XE accepted the injection only after netpen computed the OSPF
-packet checksum; zero-checksum packets are dropped per RFC 2328, so the `t1` FRR
-tier and AE6 never surfaced the defect.
+The `netpen_t2` lab tier runs netpen on the Linux injector, reads
+`show ip ospf neighbor` from IOS-XE, and emits a matrix-ready evidence line when
+router ID `10.0.0.99` appears and later clears. Record that line here only after
+the live run passes. Until then, both OSPF cells cite the implementation plan as
+pending.
+
+The target needs an OSPF interface in `10.0.0.0/24`, area 0, with broadcast
+network type, hello 10, dead 40, and no authentication. The injector interface
+must share that data segment, with wiring inspectable through the EVE-NG manager
+at `10.20.0.101`. The injector runs the deployed netpen binary through sudo, so
+the live environment must include `NETPEN_LAB_INJECTOR_SUDO_PASSWORD` along with
+the SSH credentials and host-key pins documented in [the T2 README](t2/README.md).
 
 ## AE6 superset attacks (R4)
 
@@ -102,14 +109,14 @@ recorded manually; the tests do not update this file.
 
 | Superset | Fixture provenance | t1 target | t2 target | Caveat |
 |----------|-------------------|-----------|-----------|--------|
-| ospf | (a) | FRR r1 lab segment | vIOS (operator) | Harness waits for FRR adjacency; attack result is not asserted against FRR state |
-| eigrp | (a) | FRR r1 lab segment | vIOS (operator) | No EIGRP responder is configured |
-| wpad | (a) | lab segment | vIOS (operator) | LLMNR/NBNS-based; lab segment target |
-| etherchannel | (a) | FRR r1 lab segment | vIOS (operator) | No LACP/PAgP responder or wire assertion |
-| mld | (a) | lab segment | vIOS (operator) | IPv6 multicast; lab segment target |
-| raflood | (a) | lab segment | vIOS (operator) | IPv6 RA; lab segment target |
-| lldpspoof | (a) | FRR r1 lab segment | vIOS (operator) | No LLDP decoder assertion |
-| glbp | (a) | FRR r1 lab segment | vIOS (operator) | No GLBP responder or wire assertion |
+| ospf | (a) | FRR r1 lab segment | IOS-XE live lab | Live assertion implemented; run pending |
+| eigrp | (a) | FRR r1 lab segment | live lab (pending) | No EIGRP responder is configured |
+| wpad | (a) | lab segment | live lab (pending) | LLMNR/NBNS-based; lab segment target |
+| etherchannel | (a) | FRR r1 lab segment | live lab (pending) | No LACP/PAgP responder or wire assertion |
+| mld | (a) | lab segment | live lab (pending) | IPv6 multicast; lab segment target |
+| raflood | (a) | lab segment | live lab (pending) | IPv6 RA; lab segment target |
+| lldpspoof | (a) | FRR r1 lab segment | live lab (pending) | No LLDP decoder assertion |
+| glbp | (a) | FRR r1 lab segment | live lab (pending) | No GLBP responder or wire assertion |
 
 ### Ring-only caveat
 

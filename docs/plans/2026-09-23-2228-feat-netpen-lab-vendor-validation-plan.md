@@ -4,17 +4,16 @@ type: feat
 date: 2026-09-23
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 execution: mixed
 amends: docs/plans/2026-08-23-1042-feat-netpen-port-plan.md
 ---
 
 # Lab-Backed netpen Vendor Validation (OSPF / IOS-XE thin slice) - Plan
 
-> Partially implemented: 3 of 5 units passed, 2026-09-23T20:47:59Z to
-> 2026-09-23T21:04:08Z. U4-U5 are blocked until the injector has packet
-> capabilities, IOS-XE `.42` has the required OSPF baseline, and the injector
-> data interface is wired to that segment.
+> Implemented. 5 units, 2026-09-23T20:47:59Z to 2026-09-25T07:33:57Z. The
+> live lab run is deferred; the validation matrix records the OSPF evidence as
+> pending until the coordinator supplies the target baseline and wiring.
 
 ## Goal
 
@@ -67,6 +66,11 @@ change, and routes back as a blocker.
   (KTD10: stdout carries only records, stderr carries progress) — a
   non-interactive exec gives all three, where a prompt session would interleave
   them and force a sentinel wrapper.
+- The injector runs netpen through `sudo -S -p ''`, with the sudo password read
+  from `NETPEN_LAB_INJECTOR_SUDO_PASSWORD` and supplied on the remote command's
+  stdin. Why: packet injection needs `CAP_NET_RAW` and `CAP_NET_ADMIN`, and the
+  operator chose a per-run sudo credential instead of changing the deployed
+  binary's capabilities. (User-directed 2026-09-25.)
 - Management and injection are separate planes. The target is reached for
   observation at its management address (routed, e.g. `172.16.0.42`); injection
   happens on the data segment where the target has an OSPF interface in
@@ -256,7 +260,7 @@ Files: `src/edge/netpen/test/integration/VALIDATION_MATRIX.md`,
 After: U4
 Change: `VALIDATION_MATRIX.md` gains a section describing the live-lab source-(b)
 recording path (the `netpen_t2` lab tier, its prerequisites: the required IOS-XE
-OSPF baseline, the injector `setcap` grant, and the EVE-NG wiring reference at
+OSPF baseline, the injector sudo credential, and the EVE-NG wiring reference at
 `10.20.0.101`), and the `ospf` row's `t1 AE6` and `t2` cells are set from the
 live run — or to `pending live run` citing this plan if the run is deferred (R7,
 never a fabricated pass). The netpen port plan's outcome note is amended: T2
@@ -274,9 +278,9 @@ Waves: U1 U2 U3 | U4 | U5
   is green — config parsing, injector-argv construction, the IOS-XE parser and
   prompt, and the env-gating skip path all pass without a network. `verify-change`
   is green for every changed path.
-- Live (lab): with the lab environment set and the injector prepared
-  (`setcap cap_net_raw,cap_net_admin+eip` on the deployed `netpen`, or run under
-  sudo) and `.42` carrying the OSPF baseline, `task -d src/edge/netpen tier-t2`
+- Live (lab): with the lab environment set (including the injector sudo
+  credential) and `.42` carrying the OSPF baseline,
+  `task -d src/edge/netpen tier-t2`
   runs `t2_lab_ospf_test.go` against `.42` and passes: the neighbor `10.0.0.99`
   appears after injection and clears after teardown, and the two runs match in
   finding-class. The operator records the `ospf` row from the emitted line.
@@ -293,12 +297,6 @@ Waves: U1 U2 U3 | U4 | U5
 
 ## Open questions
 
-- Injector privilege: netpen needs `CAP_NET_RAW`/`CAP_NET_ADMIN` for AF_PACKET
-  (`link/link_linux.go:41-54`), and the Kali `aledante` sudo password is unknown
-  (`labIt123` failed for sudo). Recommended prep: a one-time
-  `setcap cap_net_raw,cap_net_admin+eip` on the deployed binary so the harness
-  runs it without sudo. Who performs that root action, and is `setcap` acceptable
-  versus supplying a sudo credential? (operator)
 - Lab baseline and wiring: `.42` needs an interface in `10.0.0.0/24`, area 0,
   broadcast, no auth, L2-adjacent to the injector's attack interface (the Kali
   `eth0` port with no IP is the candidate). The operator sets this via EVE-NG
@@ -308,12 +306,3 @@ Waves: U1 U2 U3 | U4 | U5
   fixture reliably reaches `2-WAY`/`FULL` against IOS-XE, the implementer may
   tighten the assertion to that state; decided as presence unless the live run
   shows a stable stronger state.
-
-- Parked by drive: U4-U5 (the live `netpen_t2` ospf assertion and its evidence
-  recording) need live-lab prep before they can run — injector `CAP_NET_RAW` on
-  Kali `.21`, the `.42` IOS-XE OSPF baseline in `10.0.0.0/24` area 0, and the
-  data-segment wiring to the injector's attack interface. Options: operator
-  prepares the lab and the drive resumes U4-U5 | land U1-U3 now via `land` and
-  leave U4-U5 for a later drive. Recommended: operator prepares the lab, then
-  resume, because U4-U5 carry the plan's actual vendor evidence and U1-U3 alone
-  leave the matrix rows pending.

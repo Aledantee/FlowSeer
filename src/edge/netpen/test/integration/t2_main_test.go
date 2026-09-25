@@ -8,44 +8,24 @@ import (
 	"os"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/edge/netpen/test/integration/testenv"
+	"go.aledante.io/FlowSeer/src/edge/netpen/test/integration/lab"
 )
 
-// TestMain owns the T2 lifecycle. T2 is the opt-in operator-supplied
-// virtual-Cisco tier: the operator provides a vIOS-class image (or any
-// Cisco IOS/IOS-XE image that runs under their container runtime) and
-// sets NETPEN_T2_IMAGE to its name. The tier is never automated and never
-// a gate — it skips cleanly when the image is not provided.
-//
-// This mirrors the snmp t4 pattern (operator-supplied live device).
+var t2Config lab.Config
+
+// TestMain owns the live-lab configuration gate for the opt-in T2 tier.
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if testing.Short() {
 		os.Exit(m.Run())
 	}
-	if !testenv.HasDocker() {
-		fmt.Fprintln(os.Stderr, "[netpen_t2] docker not on PATH; skipping tier")
+	cfg, err := lab.ConfigFromEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[netpen_t2] %v; skipping live lab tier\n", err)
 		os.Exit(0)
 	}
-	if !testenv.DockerDaemonRunning() {
-		fmt.Fprintln(os.Stderr, "[netpen_t2] docker daemon not running; skipping tier")
-		os.Exit(0)
-	}
-	if os.Getenv("NETPEN_T2_IMAGE") == "" {
-		fmt.Fprintln(os.Stderr, "[netpen_t2] NETPEN_T2_IMAGE not set; skipping tier (operator-supplied vIOS-class image required)")
-		os.Exit(0)
-	}
+	t2Config = cfg
+	fmt.Fprintf(os.Stderr, "[netpen_t2] live %s target at %s via injector %s\n", cfg.TargetPlatform, cfg.TargetHost, cfg.InjectorHost)
 
-	// The operator owns the image lifecycle. TestMain sets the target
-	// from NETPEN_T2_TARGET (the management IP of the vIOS instance).
-	target := os.Getenv("NETPEN_T2_TARGET")
-	if target == "" {
-		fmt.Fprintln(os.Stderr, "[netpen_t2] NETPEN_T2_TARGET not set; skipping tier (operator must set the vIOS management IP)")
-		os.Exit(0)
-	}
-	testenv.SetTarget(target)
-	fmt.Fprintf(os.Stderr, "[netpen_t2] operator-supplied target at %s\n", target)
-
-	code := m.Run()
-	os.Exit(code)
+	os.Exit(m.Run())
 }
