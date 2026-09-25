@@ -81,6 +81,7 @@ func IOSXEPrivilegedPrompt() ssh.Prompt {
 func IOSXEOSPFStatusCommand() ssh.Command {
 	return ssh.Command{
 		Line:          "show ip ospf",
+		AnchorOnEcho:  true,
 		Prompts:       []ssh.Prompt{IOSXEPrivilegedPrompt()},
 		MorePattern:   iosxeMorePattern,
 		MoreKeystroke: []byte(" "),
@@ -92,6 +93,7 @@ func IOSXEOSPFStatusCommand() ssh.Command {
 func IOSXEOSPFNeighborCommand() ssh.Command {
 	return ssh.Command{
 		Line:          "show ip ospf neighbor",
+		AnchorOnEcho:  true,
 		Prompts:       []ssh.Prompt{IOSXEPrivilegedPrompt()},
 		MorePattern:   iosxeMorePattern,
 		MoreKeystroke: []byte(" "),

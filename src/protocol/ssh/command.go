@@ -39,6 +39,11 @@ type Command struct {
 	// partial transcript indistinguishable from a complete one. At least
 	// one is required.
 	Prompts []Prompt
+	// AnchorOnEcho makes Run wait for Line to appear in the shell output before
+	// scanning for a prompt. It discards preceding bytes, the echo, and its
+	// following line ending. False scans the whole buffer for shells that do not
+	// echo commands.
+	AnchorOnEcho bool
 
 	// MorePattern, when non-nil, detects a pagination marker (e.g. a
 	// "--More--" line). On a match MoreKeystroke is written and
@@ -206,11 +211,22 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 	echo := []byte(cmd.Line)
 	var output bytes.Buffer
 	promptName := ""
+	awaitEcho := cmd.AnchorOnEcho
 	for {
 		var res scanResult
 		var skip int
 		matched, err := s.stdout.waitFor(runCtx, func(buf []byte) (int, bool) {
-			skip = echoSkipLen(buf, echo)
+			skip = 0
+			switch {
+			case awaitEcho:
+				echoStart := bytes.Index(buf, echo)
+				if echoStart < 0 {
+					return 0, false
+				}
+				skip = echoStart + echoSkipLen(buf[echoStart:], echo)
+			case !cmd.AnchorOnEcho:
+				skip = echoSkipLen(buf, echo)
+			}
 			r, ok := scanPrompt(buf[skip:], cmd.Prompts, cmd.MorePattern)
 			if !ok {
 				return 0, false
@@ -224,6 +240,7 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 			_ = s.Close()
 			return finish(output.Bytes(), s.waitErr(err))
 		}
+		awaitEcho = false
 		output.Write(matched[skip:res.outputEnd])
 		if res.kind == scanMore {
 			if _, err := s.stdin.Write(cmd.MoreKeystroke); err != nil {
