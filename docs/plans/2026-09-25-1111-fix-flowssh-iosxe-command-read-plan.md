@@ -66,7 +66,7 @@ Mechanism (verified in code):
 
 ## Decisions
 
-- Fix by anchoring each Run's prompt scan on that Run's own command echo: locate
+- Fix by anchoring a Run's prompt scan on that Run's own command echo: locate
   the echo as a substring, discard everything up to and including it, and scan
   for the prompt only in what follows; until the echo appears, match nothing.
   Why: the residual prompt always precedes the echo (the echo is the device's
@@ -74,6 +74,14 @@ Mechanism (verified in code):
   unmatchable and removes the lag at its source, for the first command and every
   later one. It subsumes the login-prompt race, so no separate priming Run is
   needed.
+- Echo-anchoring is OPT-IN per `Command`, default OFF. Why: the default must be
+  today's whole-buffer scan so FastIron and the device service are byte-identical
+  and untouched (no caller edits) — the FastIron test shells deliberately do not
+  echo non-empty commands, so an anchoring default would break them and forcing
+  an opt-out onto those callers is a change this fix must not make. Only the
+  netpen IOS-XE command builders (`lab/iosxe.go`) set the opt-in, since their
+  live device echoes and exhibits the lag. A `Command` field (name it for the
+  behavior, e.g. `AnchorOnEcho bool`) carries it, defaulting false.
 - Drop the priming-Run idea from the prior draft. Why: the diagnostic shows a
   prime does not help (it seeds the same lag — its own LF reprints a prompt that
   the next Run then matches); the echo anchor fixes the first command directly.
