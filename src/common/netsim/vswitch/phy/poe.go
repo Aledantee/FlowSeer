@@ -50,10 +50,10 @@ func (p Priority) rank() int {
 	}
 }
 
-// Group is one power-sourcing equipment group with its nominal power budget,
-// per the pethMainPseTable of the RFC 3621 Power Ethernet MIB.
+// Group is one power-sourcing equipment group with its nominal power budget
+// in nanowatts, per the pethMainPseTable of the RFC 3621 Power Ethernet MIB.
 type Group struct {
-	PowerMilliwatts uint32
+	PowerNanowatts uint64
 }
 
 // TypeID returns the stable identifier for Group facts.
@@ -63,7 +63,7 @@ func (g Group) TypeID() string {
 
 // Canonical returns the string representation of the group.
 func (g Group) Canonical() string {
-	return strconv.FormatUint(uint64(g.PowerMilliwatts), 10)
+	return strconv.FormatUint(g.PowerNanowatts, 10)
 }
 
 // PDState represents the powered-device attachment state on a PSE port.
@@ -101,14 +101,14 @@ func (s PDState) String() string {
 
 // PsePort is one power-sourcing port. MaxClass is the highest powered-device
 // class the port can source; no net/phy message carries it, so the loader
-// supplies it. Limit optionally caps the power the port may draw. PD is the
-// powered device attachment state. PDClass is the class of the attached
-// powered device, valid only when PD is [PDAttached].
+// supplies it. Limit optionally caps the power the port may draw, in
+// nanowatts. PD is the powered device attachment state. PDClass is the class
+// of the attached powered device, valid only when PD is [PDAttached].
 type PsePort struct {
 	Group    string
 	MaxClass uint8
 	Enabled  bool
-	Limit    *uint32
+	Limit    *uint64
 	Priority Priority
 	PD       PDState
 	PDClass  *uint8
@@ -133,7 +133,7 @@ func (p PsePort) Clone() PsePort {
 func (p PsePort) Canonical() string {
 	limStr := "<nil>"
 	if p.Limit != nil {
-		limStr = strconv.FormatUint(uint64(*p.Limit), 10)
+		limStr = strconv.FormatUint(*p.Limit, 10)
 	}
 	pdStr := "<nil>"
 	if p.PDClass != nil {
@@ -193,21 +193,24 @@ const (
 	ReasonClassUnsupported trace.Reason = "class-unsupported"
 )
 
-// classPowerMW is the power a powered device of each IEEE 802.3 class draws
-// at the PSE, per the 802.3bt power levels.
-var classPowerMW = [...]uint32{15_400, 4_000, 7_000, 15_400, 30_000, 45_000, 60_000, 75_000, 90_000}
+// classPowerNanowatts is the power a powered device of each IEEE 802.3
+// class draws at the PSE, per the 802.3bt power levels.
+var classPowerNanowatts = [...]uint64{
+	15_400_000_000, 4_000_000_000, 7_000_000_000, 15_400_000_000, 30_000_000_000,
+	45_000_000_000, 60_000_000_000, 75_000_000_000, 90_000_000_000,
+}
 
 // maxClass is the highest class IEEE 802.3bt defines.
-const maxClass = uint8(len(classPowerMW) - 1)
+const maxClass = uint8(len(classPowerNanowatts) - 1)
 
-// ClassPowerMW returns the power in milliwatts a powered device of class
-// draws at the PSE. It reports false for a class above 8.
-func ClassPowerMW(class uint8) (uint32, bool) {
+// ClassPowerNanowatts returns the power in nanowatts a powered device of
+// class draws at the PSE. It reports false for a class above 8.
+func ClassPowerNanowatts(class uint8) (uint64, bool) {
 	if class > maxClass {
 		return 0, false
 	}
 
-	return classPowerMW[class], true
+	return classPowerNanowatts[class], true
 }
 
 // PowerState represents the power allocation state of a PSE port.
@@ -255,40 +258,40 @@ type Allocation struct {
 
 // PortAllocation records the power distribution state, power interval, and denial reason for one port.
 type PortAllocation struct {
-	State         PowerState
-	MinMilliwatts uint32
-	MaxMilliwatts uint32
-	Denial        trace.Reason
+	State        PowerState
+	MinNanowatts uint64
+	MaxNanowatts uint64
+	Denial       trace.Reason
 }
 
 // GroupAllocation records a group's budget, the power allocated from it, and
-// the unallocated remainder, in milliwatts.
+// the unallocated remainder, in nanowatts.
 type GroupAllocation struct {
-	BudgetMilliwatts    uint32
-	AllocatedMilliwatts uint32
-	RemainderMilliwatts uint32
+	BudgetNanowatts    uint64
+	AllocatedNanowatts uint64
+	RemainderNanowatts uint64
 }
 
 // Allocate distributes each group's budget over its ports, critical priority
 // first with the port name as tie-break, charging each port its class power.
 //
 // Allocation follows the PoE truth table:
-//   - Disabled ports with no attached device yield [PowerNoDevice] 0..0 mW.
-//   - Disabled ports with an attached device yield [PowerDenied] with [ReasonDisabled] 0..0 mW.
-//   - Disabled ports with uncertain device state yield [PowerUnknown] 0..0 mW.
-//   - Enabled ports with no attached device yield [PowerNoDevice] 0..0 mW.
+//   - Disabled ports with no attached device yield [PowerNoDevice] 0..0 nW.
+//   - Disabled ports with an attached device yield [PowerDenied] with [ReasonDisabled] 0..0 nW.
+//   - Disabled ports with uncertain device state yield [PowerUnknown] 0..0 nW.
+//   - Enabled ports with no attached device yield [PowerNoDevice] 0..0 nW.
 //   - Enabled ports with an attached device whose class exceeds the port's maximum class
-//     yield [PowerDenied] with [ReasonClassUnsupported] 0..0 mW.
+//     yield [PowerDenied] with [ReasonClassUnsupported] 0..0 nW.
 //   - Enabled ports with an attached device whose class power exceeds the port's configured
-//     limit yield [PowerDenied] with [ReasonLimit] 0..0 mW.
+//     limit yield [PowerDenied] with [ReasonLimit] 0..0 nW.
 //   - Enabled ports with an attached device whose class power fits the group's minimum remainder
 //     yield [PowerDelivered] with power delivered and both remainders decremented.
 //   - Enabled ports with an attached device whose class power exceeds the group's maximum remainder
-//     yield [PowerDenied] with [ReasonBudget] 0..0 mW.
+//     yield [PowerDenied] with [ReasonBudget] 0..0 nW.
 //   - Enabled ports with an attached device whose class power falls between the minimum and
-//     maximum remainders yield [PowerUnknown] 0..P mW, decrementing minimum remainder.
+//     maximum remainders yield [PowerUnknown] 0..P nW, decrementing minimum remainder.
 //   - Enabled ports with an attached device of unknown class, or whose device attachment is
-//     unreported, yield [PowerUnknown] 0..D mW (where D is the largest class power fitting
+//     unreported, yield [PowerUnknown] 0..D nW (where D is the largest class power fitting
 //     the port's limit up to its maximum class), decrementing minimum remainder.
 //
 // Minimum remainder subtraction saturates at zero. Allocate returns empty maps when
@@ -316,10 +319,10 @@ func (c Config) Allocate() Allocation {
 			return cmp.Compare(x, y)
 		})
 
-		budget := c.PoE.Groups[groupName].PowerMilliwatts
+		budget := c.PoE.Groups[groupName].PowerNanowatts
 		remMin := budget
 		remMax := budget
-		var allocated uint32
+		var allocated uint64
 
 		for _, name := range names {
 			p := c.PoE.Ports[name]
@@ -344,9 +347,9 @@ func (c Config) Allocate() Allocation {
 			case PDAttached:
 				if p.PDClass == nil {
 					result.Ports[name] = PortAllocation{
-						State:         PowerUnknown,
-						MinMilliwatts: 0,
-						MaxMilliwatts: d,
+						State:        PowerUnknown,
+						MinNanowatts: 0,
+						MaxNanowatts: d,
 					}
 					remMin = subSat(remMin, d)
 
@@ -360,7 +363,7 @@ func (c Config) Allocate() Allocation {
 					continue
 				}
 
-				power, _ := ClassPowerMW(class)
+				power, _ := ClassPowerNanowatts(class)
 				if p.Limit != nil && power > *p.Limit {
 					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonLimit}
 
@@ -369,9 +372,9 @@ func (c Config) Allocate() Allocation {
 
 				if power <= remMin {
 					result.Ports[name] = PortAllocation{
-						State:         PowerDelivered,
-						MinMilliwatts: power,
-						MaxMilliwatts: power,
+						State:        PowerDelivered,
+						MinNanowatts: power,
+						MaxNanowatts: power,
 					}
 					remMin -= power
 					remMax -= power
@@ -387,36 +390,36 @@ func (c Config) Allocate() Allocation {
 				}
 
 				result.Ports[name] = PortAllocation{
-					State:         PowerUnknown,
-					MinMilliwatts: 0,
-					MaxMilliwatts: power,
+					State:        PowerUnknown,
+					MinNanowatts: 0,
+					MaxNanowatts: power,
 				}
 				remMin = subSat(remMin, power)
 
 			case PDUnknown:
 				result.Ports[name] = PortAllocation{
-					State:         PowerUnknown,
-					MinMilliwatts: 0,
-					MaxMilliwatts: d,
+					State:        PowerUnknown,
+					MinNanowatts: 0,
+					MaxNanowatts: d,
 				}
 				remMin = subSat(remMin, d)
 			}
 		}
 
 		result.Groups[groupName] = GroupAllocation{
-			BudgetMilliwatts:    budget,
-			AllocatedMilliwatts: allocated,
-			RemainderMilliwatts: remMax,
+			BudgetNanowatts:    budget,
+			AllocatedNanowatts: allocated,
+			RemainderNanowatts: remMax,
 		}
 	}
 
 	return result
 }
 
-func maxFittingPower(maxClass uint8, limit *uint32) uint32 {
-	var d uint32
-	for c := uint8(0); c <= maxClass && int(c) < len(classPowerMW); c++ {
-		power := classPowerMW[c]
+func maxFittingPower(maxClass uint8, limit *uint64) uint64 {
+	var d uint64
+	for c := uint8(0); c <= maxClass && int(c) < len(classPowerNanowatts); c++ {
+		power := classPowerNanowatts[c]
 		if limit == nil || power <= *limit {
 			if power > d {
 				d = power
@@ -427,7 +430,7 @@ func maxFittingPower(maxClass uint8, limit *uint32) uint32 {
 	return d
 }
 
-func subSat(a, b uint32) uint32 {
+func subSat(a, b uint64) uint64 {
 	if b >= a {
 		return 0
 	}

@@ -11,25 +11,29 @@ import option "buf/validate/validate.proto";
 // stack or a module in a rack; its index is the MIB's own key, not a
 // reference to any entity.
 message PseBudget {
+  reserved 2, 4, 5;
+  reserved power_milliwatts, consumption_milliwatts, usage_threshold_percent;
+
   // The PSE group, per pethMainPseGroupIndex. Must be present.
   uint32 pse_group = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).uint32.gt = 0
   ];
-  // Nominal power of the group in milliwatts, per pethMainPsePower. Absent
-  // means unreported; zero is invalid when present.
-  uint32 power_milliwatts = 2 [(buf.validate.field).uint32.gt = 0];
   // Operational status of the group. Absent means unreported.
   PseOperStatus oper_status = 3;
-  // Measured power consumption of the group in milliwatts, per
+  // Nominal power of the group in nanowatts, per pethMainPsePower. Absent
+  // means unreported; zero is invalid when present.
+  uint64 power_nanowatts = 6 [(buf.validate.field).uint64.gt = 0];
+  // Measured power consumption of the group in nanowatts, per
   // pethMainPseConsumptionPower. Absent means unreported; zero is an
   // explicit zero-power measurement.
-  uint32 consumption_milliwatts = 4;
-  // Percentage of nominal power at which the source raises an alarm, per
-  // pethMainPseUsageThreshold. Absent means unreported; a present value is
-  // between 1 and 99 inclusive.
-  uint32 usage_threshold_percent = 5 [(buf.validate.field).uint32 = {
-    gte: 1
-    lte: 99
+  uint64 consumption_nanowatts = 7;
+  // Share of nominal power at which the source raises an alarm in basis
+  // points, per pethMainPseUsageThreshold. Absent means unreported; a
+  // present value is between 100 and 9900 inclusive, the MIB's 1 to 99
+  // percent.
+  uint32 usage_threshold_basis_points = 8 [(buf.validate.field).uint32 = {
+    gte: 100
+    lte: 9900
   }];
 }

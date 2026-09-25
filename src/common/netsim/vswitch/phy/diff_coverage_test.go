@@ -10,7 +10,7 @@ import (
 // TestDiffCoversEveryConfigField is R9's gate: every exported phy.Config field reaches
 // phy.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
-	limit := uint32(5000)
+	limit := uint64(5_000_000_000)
 	pdClass := uint8(4)
 	seed := phy.Config{
 		Ethernet: map[string]phy.Ethernet{
@@ -30,7 +30,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 		PoE: &phy.PoE{
 			Groups: map[string]phy.Group{
-				"g1": {PowerMilliwatts: 370_000},
+				"g1": {PowerNanowatts: 370_000_000_000},
 			},
 			Ports: map[string]phy.PsePort{
 				"1/1/1": {

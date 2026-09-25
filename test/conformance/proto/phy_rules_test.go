@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	measurev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 )
 
@@ -212,25 +213,63 @@ func TestEthernetTransportRules(t *testing.T) {
 		{
 			name: "PSE budget with distinct group",
 			message: phyv1.PseBudget_builder{
-				PseGroup:              proto.Uint32(2),
-				PowerMilliwatts:       proto.Uint32(370_000),
-				ConsumptionMilliwatts: proto.Uint32(0),
-				UsageThresholdPercent: proto.Uint32(80),
-				OperStatus:            phyv1.PseOperStatus_PSE_OPER_STATUS_ON.Enum(),
+				PseGroup:                  proto.Uint32(2),
+				PowerNanowatts:            proto.Uint64(370_000_000_000),
+				ConsumptionNanowatts:      proto.Uint64(0),
+				UsageThresholdBasisPoints: proto.Uint32(8000),
+				OperStatus:                phyv1.PseOperStatus_PSE_OPER_STATUS_ON.Enum(),
 			}.Build(),
 			wantValid: true,
 		},
 		{
-			name: "PSE budget usage threshold above 99 percent",
+			name: "PSE budget usage threshold of zero",
 			message: phyv1.PseBudget_builder{
-				PseGroup:              proto.Uint32(1),
-				UsageThresholdPercent: proto.Uint32(100),
+				PseGroup:                  proto.Uint32(1),
+				UsageThresholdBasisPoints: proto.Uint32(0),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "PSE budget usage threshold of 100 percent",
+			message: phyv1.PseBudget_builder{
+				PseGroup:                  proto.Uint32(1),
+				UsageThresholdBasisPoints: proto.Uint32(10_000),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "PSE budget nominal power of zero",
+			message: phyv1.PseBudget_builder{
+				PseGroup:       proto.Uint32(1),
+				PowerNanowatts: proto.Uint64(0),
 			}.Build(),
 			wantValid: false,
 		},
 		{
 			name:      "PSE budget requires its group",
-			message:   phyv1.PseBudget_builder{PowerMilliwatts: proto.Uint32(1000)}.Build(),
+			message:   phyv1.PseBudget_builder{PowerNanowatts: proto.Uint64(1_000_000_000)}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "PoE draw of 30 W",
+			message: phyv1.PoeFacet_builder{
+				Supported:          proto.Bool(true),
+				PowerDrawNanowatts: proto.Uint64(30_000_000_000),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "requested settings on the facet",
+			message: phyv1.EthernetFacet_builder{
+				Settings: phyv1.EthernetSettings_builder{SpeedBps: proto.Uint64(1_000_000_000)}.Build(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "requested settings on the facet keep their own rules",
+			message: phyv1.EthernetFacet_builder{
+				Settings: phyv1.EthernetSettings_builder{SpeedBps: proto.Uint64(0)}.Build(),
+			}.Build(),
 			wantValid: false,
 		},
 	}
@@ -242,8 +281,8 @@ func TestPluggableModuleRules(t *testing.T) {
 	lane := func(index uint32) *phyv1.ModuleLane {
 		return phyv1.ModuleLane_builder{
 			Index: proto.Uint32(index),
-			TxPower: phyv1.OpticalPower_builder{
-				ValueNanowatts: proto.Uint32(500_000),
+			TxPower: measurev1.Power_builder{
+				ValueNanowatts: proto.Uint64(500_000),
 			}.Build(),
 		}.Build()
 	}
@@ -317,26 +356,58 @@ func TestPluggableModuleRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
-			name: "high alarm below high warning",
-			message: phyv1.OpticalPower_builder{
-				HighWarningNanowatts: proto.Uint32(900_000),
-				HighAlarmNanowatts:   proto.Uint32(800_000),
+			name: "lane power high alarm below high warning",
+			message: phyv1.ModuleLane_builder{
+				Index: proto.Uint32(1),
+				RxPower: measurev1.Power_builder{
+					HighWarningNanowatts: proto.Uint64(900_000),
+					HighAlarmNanowatts:   proto.Uint64(800_000),
+				}.Build(),
 			}.Build(),
 			wantValid: false,
 		},
 		{
-			name: "two of four thresholds in order",
-			message: phyv1.BiasCurrent_builder{
-				LowAlarmMicroamperes:   proto.Uint32(2_000),
-				LowWarningMicroamperes: proto.Uint32(3_000),
+			name: "lane bias with two of four thresholds in order",
+			message: phyv1.ModuleLane_builder{
+				Index: proto.Uint32(1),
+				Bias: measurev1.Current_builder{
+					LowAlarmMicroamperes:   proto.Int32(2_000),
+					LowWarningMicroamperes: proto.Int32(3_000),
+				}.Build(),
 			}.Build(),
 			wantValid: true,
 		},
 		{
-			name: "temperature thresholds out of order",
-			message: phyv1.ModuleTemperature_builder{
-				LowAlarmMillidegrees:   proto.Int32(-5_000),
-				LowWarningMillidegrees: proto.Int32(-10_000),
+			name: "module temperature thresholds out of order",
+			message: phyv1.ModuleDiagnostics_builder{
+				Temperature: measurev1.Temperature_builder{
+					LowAlarmMillidegreesCelsius:   proto.Int32(-5_000),
+					LowWarningMillidegreesCelsius: proto.Int32(-10_000),
+				}.Build(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "empty cage with a nominal bit rate",
+			message: phyv1.PluggableModule_builder{
+				Present:           proto.Bool(false),
+				NominalBitRateBps: proto.Uint64(10_300_000_000),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "nominal bit rate above 4 Gb/s",
+			message: phyv1.PluggableModule_builder{
+				Present:           proto.Bool(true),
+				NominalBitRateBps: proto.Uint64(10_300_000_000),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "nominal bit rate of zero",
+			message: phyv1.PluggableModule_builder{
+				Present:           proto.Bool(true),
+				NominalBitRateBps: proto.Uint64(0),
 			}.Build(),
 			wantValid: false,
 		},

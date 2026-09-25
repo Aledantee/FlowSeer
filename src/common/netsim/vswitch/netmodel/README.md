@@ -114,7 +114,7 @@ Physical layer attributes translate directly into tri-state physical facts in [p
   - `SEARCHING` maps to [phy.PDAbsent] with an assumption recorded that absence is inferred from the searching status (RFC 3621 treats non-delivering PSE states as searching).
   - `DISABLED`, `TEST`, `FAULT`, `OTHER_FAULT`, `UNSPECIFIED`, unrecognized values, and absent status map to [phy.PDUnknown].
 - PoE export ([Poe]):
-  - [phy.PowerDelivered] exports as `DELIVERING_POWER` with its allocated milliwatts and power class.
+  - [phy.PowerDelivered] exports as `DELIVERING_POWER` with its allocated nanowatts and power class.
   - [phy.PowerDenied] with reason `disabled` exports as `DISABLED`.
   - [phy.PowerNoDevice] and non-administrative denials (budget, limit, unsupported class) export as `SEARCHING` without a power class.
   - [phy.PowerUnknown] exports as `UNSPECIFIED`.

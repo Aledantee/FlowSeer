@@ -281,11 +281,11 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 
 	// Budget
 	pseGroup := uint32(1)
-	power370W := uint32(370_000)
+	power370W := uint64(370_000_000_000)
 	budgets := []*phyv1.PseBudget{
 		phyv1.PseBudget_builder{
-			PseGroup:        &pseGroup,
-			PowerMilliwatts: &power370W,
+			PseGroup:       &pseGroup,
+			PowerNanowatts: &power370W,
 		}.Build(),
 	}
 	for _, b := range budgets {
@@ -417,13 +417,13 @@ func TestICX7150Load(t *testing.T) {
 		t.Errorf("root port = %q, want lg1", rootPort)
 	}
 
-	// The capture reports no powered device on any port and 0 mW allocated.
+	// The capture reports no powered device on any port and 0 W allocated.
 	alloc := cfg.Phy.Allocate()
-	if g := alloc.Groups["1"]; g.AllocatedMilliwatts != 0 || g.RemainderMilliwatts != 370_000 {
-		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370000 mW", g)
+	if g := alloc.Groups["1"]; g.AllocatedNanowatts != 0 || g.RemainderNanowatts != 370_000_000_000 {
+		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370 W", g)
 	}
 	for name, pa := range alloc.Ports {
-		if pa.State != phy.PowerNoDevice || pa.MinMilliwatts != 0 || pa.Denial != "" {
+		if pa.State != phy.PowerNoDevice || pa.MinNanowatts != 0 || pa.Denial != "" {
 			t.Errorf("port %s allocation = %+v, want PowerNoDevice, no power, and no denial", name, pa)
 		}
 	}

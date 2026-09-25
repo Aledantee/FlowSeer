@@ -23,17 +23,17 @@ const (
 // Power over Ethernet attributes for one physical link. Presence of the
 // containing message means the source supplied PoE information.
 type PoeFacet struct {
-	state                               protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Supported                bool                   `protobuf:"varint,1,opt,name=supported"`
-	xxx_hidden_Role                     PoeRole                `protobuf:"varint,2,opt,name=role,enum=flowseer.net.phy.v1.PoeRole"`
-	xxx_hidden_PowerClass               uint32                 `protobuf:"varint,3,opt,name=power_class,json=powerClass"`
-	xxx_hidden_PowerDrawMilliwatts      uint32                 `protobuf:"varint,4,opt,name=power_draw_milliwatts,json=powerDrawMilliwatts"`
-	xxx_hidden_Status                   PoeStatus              `protobuf:"varint,5,opt,name=status,enum=flowseer.net.phy.v1.PoeStatus"`
-	xxx_hidden_AllocatedPowerMilliwatts uint32                 `protobuf:"varint,6,opt,name=allocated_power_milliwatts,json=allocatedPowerMilliwatts"`
-	XXX_raceDetectHookData              protoimpl.RaceDetectHookData
-	XXX_presence                        [1]uint32
-	unknownFields                       protoimpl.UnknownFields
-	sizeCache                           protoimpl.SizeCache
+	state                              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Supported               bool                   `protobuf:"varint,1,opt,name=supported"`
+	xxx_hidden_Role                    PoeRole                `protobuf:"varint,2,opt,name=role,enum=flowseer.net.phy.v1.PoeRole"`
+	xxx_hidden_PowerClass              uint32                 `protobuf:"varint,3,opt,name=power_class,json=powerClass"`
+	xxx_hidden_PowerDrawNanowatts      uint64                 `protobuf:"varint,7,opt,name=power_draw_nanowatts,json=powerDrawNanowatts"`
+	xxx_hidden_Status                  PoeStatus              `protobuf:"varint,5,opt,name=status,enum=flowseer.net.phy.v1.PoeStatus"`
+	xxx_hidden_AllocatedPowerNanowatts uint64                 `protobuf:"varint,8,opt,name=allocated_power_nanowatts,json=allocatedPowerNanowatts"`
+	XXX_raceDetectHookData             protoimpl.RaceDetectHookData
+	XXX_presence                       [1]uint32
+	unknownFields                      protoimpl.UnknownFields
+	sizeCache                          protoimpl.SizeCache
 }
 
 func (x *PoeFacet) Reset() {
@@ -84,9 +84,9 @@ func (x *PoeFacet) GetPowerClass() uint32 {
 	return 0
 }
 
-func (x *PoeFacet) GetPowerDrawMilliwatts() uint32 {
+func (x *PoeFacet) GetPowerDrawNanowatts() uint64 {
 	if x != nil {
-		return x.xxx_hidden_PowerDrawMilliwatts
+		return x.xxx_hidden_PowerDrawNanowatts
 	}
 	return 0
 }
@@ -100,9 +100,9 @@ func (x *PoeFacet) GetStatus() PoeStatus {
 	return PoeStatus_POE_STATUS_UNSPECIFIED
 }
 
-func (x *PoeFacet) GetAllocatedPowerMilliwatts() uint32 {
+func (x *PoeFacet) GetAllocatedPowerNanowatts() uint64 {
 	if x != nil {
-		return x.xxx_hidden_AllocatedPowerMilliwatts
+		return x.xxx_hidden_AllocatedPowerNanowatts
 	}
 	return 0
 }
@@ -122,8 +122,8 @@ func (x *PoeFacet) SetPowerClass(v uint32) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
-func (x *PoeFacet) SetPowerDrawMilliwatts(v uint32) {
-	x.xxx_hidden_PowerDrawMilliwatts = v
+func (x *PoeFacet) SetPowerDrawNanowatts(v uint64) {
+	x.xxx_hidden_PowerDrawNanowatts = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
@@ -132,8 +132,8 @@ func (x *PoeFacet) SetStatus(v PoeStatus) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
 }
 
-func (x *PoeFacet) SetAllocatedPowerMilliwatts(v uint32) {
-	x.xxx_hidden_AllocatedPowerMilliwatts = v
+func (x *PoeFacet) SetAllocatedPowerNanowatts(v uint64) {
+	x.xxx_hidden_AllocatedPowerNanowatts = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
@@ -158,7 +158,7 @@ func (x *PoeFacet) HasPowerClass() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *PoeFacet) HasPowerDrawMilliwatts() bool {
+func (x *PoeFacet) HasPowerDrawNanowatts() bool {
 	if x == nil {
 		return false
 	}
@@ -172,7 +172,7 @@ func (x *PoeFacet) HasStatus() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *PoeFacet) HasAllocatedPowerMilliwatts() bool {
+func (x *PoeFacet) HasAllocatedPowerNanowatts() bool {
 	if x == nil {
 		return false
 	}
@@ -194,9 +194,9 @@ func (x *PoeFacet) ClearPowerClass() {
 	x.xxx_hidden_PowerClass = 0
 }
 
-func (x *PoeFacet) ClearPowerDrawMilliwatts() {
+func (x *PoeFacet) ClearPowerDrawNanowatts() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_PowerDrawMilliwatts = 0
+	x.xxx_hidden_PowerDrawNanowatts = 0
 }
 
 func (x *PoeFacet) ClearStatus() {
@@ -204,9 +204,9 @@ func (x *PoeFacet) ClearStatus() {
 	x.xxx_hidden_Status = PoeStatus_POE_STATUS_UNSPECIFIED
 }
 
-func (x *PoeFacet) ClearAllocatedPowerMilliwatts() {
+func (x *PoeFacet) ClearAllocatedPowerNanowatts() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
-	x.xxx_hidden_AllocatedPowerMilliwatts = 0
+	x.xxx_hidden_AllocatedPowerNanowatts = 0
 }
 
 type PoeFacet_builder struct {
@@ -223,14 +223,14 @@ type PoeFacet_builder struct {
 	// (https://standards.ieee.org/ieee/802.3/10422/). Absent means no class
 	// was reported.
 	PowerClass *uint32
-	// The measured power draw in milliwatts. Absent means no measurement was
+	// The measured power draw in nanowatts. Absent means no measurement was
 	// reported; zero is an explicit zero-power measurement.
-	PowerDrawMilliwatts *uint32
+	PowerDrawNanowatts *uint64
 	// Current delivery status. Absent means the source did not report it.
 	Status *PoeStatus
-	// Power allocated to the port in milliwatts. Absent means no allocation was
+	// Power allocated to the port in nanowatts. Absent means no allocation was
 	// reported; zero is an explicit zero-power allocation.
-	AllocatedPowerMilliwatts *uint32
+	AllocatedPowerNanowatts *uint64
 }
 
 func (b0 PoeFacet_builder) Build() *PoeFacet {
@@ -249,17 +249,17 @@ func (b0 PoeFacet_builder) Build() *PoeFacet {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_PowerClass = *b.PowerClass
 	}
-	if b.PowerDrawMilliwatts != nil {
+	if b.PowerDrawNanowatts != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
-		x.xxx_hidden_PowerDrawMilliwatts = *b.PowerDrawMilliwatts
+		x.xxx_hidden_PowerDrawNanowatts = *b.PowerDrawNanowatts
 	}
 	if b.Status != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_Status = *b.Status
 	}
-	if b.AllocatedPowerMilliwatts != nil {
+	if b.AllocatedPowerNanowatts != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
-		x.xxx_hidden_AllocatedPowerMilliwatts = *b.AllocatedPowerMilliwatts
+		x.xxx_hidden_AllocatedPowerNanowatts = *b.AllocatedPowerNanowatts
 	}
 	return m0
 }
@@ -268,16 +268,16 @@ var File_flowseer_net_phy_v1_poe_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_poe_facet_proto_rawDesc = "" +
 	"\n" +
-	"#flowseer/net/phy/v1/poe_facet.proto\x12\x13flowseer.net.phy.v1\x1a\"flowseer/net/phy/v1/poe_role.proto\x1a$flowseer/net/phy/v1/poe_status.proto\"\x99\x04\n" +
+	"#flowseer/net/phy/v1/poe_facet.proto\x12\x13flowseer.net.phy.v1\x1a\"flowseer/net/phy/v1/poe_role.proto\x1a$flowseer/net/phy/v1/poe_status.proto\"\xd4\x04\n" +
 	"\bPoeFacet\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x120\n" +
 	"\x04role\x18\x02 \x01(\x0e2\x1c.flowseer.net.phy.v1.PoeRoleR\x04role\x12\x1f\n" +
 	"\vpower_class\x18\x03 \x01(\rR\n" +
-	"powerClass\x122\n" +
-	"\x15power_draw_milliwatts\x18\x04 \x01(\rR\x13powerDrawMilliwatts\x126\n" +
-	"\x06status\x18\x05 \x01(\x0e2\x1e.flowseer.net.phy.v1.PoeStatusR\x06status\x12<\n" +
-	"\x1aallocated_power_milliwatts\x18\x06 \x01(\rR\x18allocatedPowerMilliwatts:\xf1\x01\xbaH\xed\x01\x1a\xea\x01\n" +
-	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERB\xdb\x01\n" +
+	"powerClass\x120\n" +
+	"\x14power_draw_nanowatts\x18\a \x01(\x04R\x12powerDrawNanowatts\x126\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x1e.flowseer.net.phy.v1.PoeStatusR\x06status\x12:\n" +
+	"\x19allocated_power_nanowatts\x18\b \x01(\x04R\x17allocatedPowerNanowatts:\xf1\x01\xbaH\xed\x01\x1a\xea\x01\n" +
+	"#poe_facet.delivery_requires_support\x129PoE cannot deliver power when support is explicitly false\x1a\x87\x01!has(this.supported) || this.supported || !has(this.status) || this.status != flowseer.net.phy.v1.PoeStatus.POE_STATUS_DELIVERING_POWERJ\x04\b\x04\x10\x05J\x04\b\x06\x10\aR\x15power_draw_milliwattsR\x1aallocated_power_milliwattsB\xdb\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\rPoeFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

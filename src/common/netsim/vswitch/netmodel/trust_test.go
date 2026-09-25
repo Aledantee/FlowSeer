@@ -724,8 +724,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerMilliwatts: ptr(uint32(100_000))}.Build(),
-					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerMilliwatts: ptr(uint32(200_000))}.Build(),
+					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(100_000_000_000))}.Build(),
+					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(200_000_000_000))}.Build(),
 				},
 			},
 			conflictOn: "pse_budget",
@@ -1166,7 +1166,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		oper := interfacev1.OperStatus_OPER_STATUS_UP
 		unknown := phyv1.PoePriority(99)
 		group := uint32(1)
-		power := uint32(100_000)
+		power := uint64(100_000_000_000)
 		result := (loadInput{
 			ifaces: []*interfacev1.Interface{
 				interfacev1.Interface_builder{
@@ -1182,7 +1182,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				}.Build(),
 			},
 			budgets: []*phyv1.PseBudget{
-				phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+				phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
 		assertUnsupported(t, result, netmodel.IssueInvalidPoePriority, analysis.PortScope("sw1", name))
@@ -1301,7 +1301,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 	supported := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	delivering := phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER
 	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
@@ -1408,7 +1408,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 			input := loadInput{
 				ifaces: []*interfacev1.Interface{iface},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
 				want: []port.Layer{port.LayerPoe},
 			}
@@ -1470,7 +1470,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 	supported := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
 	disabled := phyv1.PoeStatus_POE_STATUS_DISABLED
@@ -1531,7 +1531,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 			input := loadInput{
 				ifaces: []*interfacev1.Interface{iface},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
 				want: []port.Layer{port.LayerPoe},
 			}
