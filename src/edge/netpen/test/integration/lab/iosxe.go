@@ -74,6 +74,19 @@ func IOSXEPrivilegedPrompt() ssh.Prompt {
 	return ssh.Prompt{Name: "iosxe-privileged", Pattern: iosxePrivilegedPattern}
 }
 
+// IOSXEOSPFStatusCommand returns the IOS-XE OSPF process-status query with
+// prompt and pagination handling configured for [ssh.Session.Run]. The process
+// summary can exceed one screen, so it needs the same pagination handling as the
+// neighbor-table query.
+func IOSXEOSPFStatusCommand() ssh.Command {
+	return ssh.Command{
+		Line:          "show ip ospf",
+		Prompts:       []ssh.Prompt{IOSXEPrivilegedPrompt()},
+		MorePattern:   iosxeMorePattern,
+		MoreKeystroke: []byte(" "),
+	}
+}
+
 // IOSXEOSPFNeighborCommand returns the IOS-XE neighbor-table query with prompt
 // and pagination handling configured for [ssh.Session.Run].
 func IOSXEOSPFNeighborCommand() ssh.Command {

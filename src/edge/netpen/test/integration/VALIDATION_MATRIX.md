@@ -35,7 +35,7 @@ that this integration suite has executed a wire or vendor assertion.
 | Mode | Mode flag (base = mode-less) |
 | Durability | Catalog durability class |
 | Fixture provenance | (a) Python-fixture / (c) ring-only / (a)+(c) both |
-| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list; pending live run = the assertion exists but has not run in the lab |
+| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list; pending live run = the assertion exists but has not run in the lab; t2 (b) = live result carried by the t2 run |
 | t2 status | never = no t2 assertion exists; pending live run = assertion implemented but not executed; dated result = live vendor observable on that date |
 | Teardown | teardown path from catalog (empty = none) |
 
