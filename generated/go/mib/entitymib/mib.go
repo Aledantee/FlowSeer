@@ -1264,8 +1264,8 @@ var EntLogicalType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 47,
 // the value of this object is the empty string. This object may also
 // contain an empty string if a community string has not yet been assigned
 // by the agent or if no community string with suitable access rights can
-// be returned for a particular SNMP request. Note that this object is
-// deprecated. Agents that implement SNMPv3 access should use the
+// be returned for a particular SNMP request. Note that this object is deprecated.
+// Agents that implement SNMPv3 access should use the
 // entLogicalContextEngineID and entLogicalContextName objects to identify
 // the context associated with each logical entity. SNMPv3 agents may
 // return a zero-length string for this object or may continue to return a

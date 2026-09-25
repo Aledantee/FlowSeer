@@ -1322,18 +1322,18 @@ var IfMauJabberingStateEnters = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 var IfMauFalseCarriers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
 
 // IfMauTypeList is the column ifMauTypeList of table ifMauTable.
-// ********* THIS OBJECT IS DEPRECATED ********** This object has been
-// deprecated in favour of ifMauTypeListBits. A value that uniquely
-// identifies the set of possible IEEE 802.3 types that the MAU could be.
-// The value is a sum that initially takes the value zero. Then, for each
-// type capability of this MAU, 2 raised to the power noted below is added
-// to the sum. For example, a MAU that has the capability to be only
-// 10BASE-T would have a value of 512 (2**9). In contrast, a MAU that
-// supports both 10Base-T (full duplex) and 100BASE-TX (full duplex) would
-// have a value of ((2**11) + (2**16)), or 67584. The powers of 2 assigned
-// to the capabilities are these: Power Capability 0 other or unknown 1 AUI
-// 2 10BASE-5 3 FOIRL 4 10BASE-2 5 10BASE-T duplex mode unknown 6 10BASE-FP
-// 7 10BASE-FB 8 10BASE-FL duplex mode unknown 9 10BROAD36 10 10BASE-T half
+// ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
+// in favour of ifMauTypeListBits. A value that uniquely identifies the set
+// of possible IEEE 802.3 types that the MAU could be. The value is a sum
+// that initially takes the value zero. Then, for each type capability of
+// this MAU, 2 raised to the power noted below is added to the sum. For
+// example, a MAU that has the capability to be only 10BASE-T would have a
+// value of 512 (2**9). In contrast, a MAU that supports both 10Base-T
+// (full duplex) and 100BASE-TX (full duplex) would have a value of
+// ((2**11) + (2**16)), or 67584. The powers of 2 assigned to the
+// capabilities are these: Power Capability 0 other or unknown 1 AUI 2
+// 10BASE-5 3 FOIRL 4 10BASE-2 5 10BASE-T duplex mode unknown 6 10BASE-FP 7
+// 10BASE-FB 8 10BASE-FL duplex mode unknown 9 10BROAD36 10 10BASE-T half
 // duplex mode 11 10BASE-T full duplex mode 12 10BASE-FL half duplex mode
 // 13 10BASE-FL full duplex mode 14 100BASE-T4 15 100BASE-TX half duplex
 // mode 16 100BASE-TX full duplex mode 17 100BASE-FX half duplex mode 18
@@ -2366,30 +2366,30 @@ var IfMauAutoNegConfig = snmp.NewColumn[IfMauAutoNegConfigValue](snmp.MustOID(1,
 })
 
 // IfMauAutoNegCapability is the column ifMauAutoNegCapability of table ifMauAutoNegTable.
-// ********* THIS OBJECT IS DEPRECATED ********** This object has been
-// deprecated in favour of ifMauAutoNegCapabilityBits. A value that
-// uniquely identifies the set of capabilities of the local
-// auto-negotiation entity. The value is a sum that initially takes the
-// value zero. Then, for each capability of this interface, 2 raised to the
-// power noted below is added to the sum. For example, an interface that
-// has the capability to support only 100Base-TX half duplex would have a
-// value of 32768 (2**15). In contrast, an interface that supports both
-// 100Base-TX half duplex and 100Base-TX full duplex would have a value of
-// 98304 ((2**15) + (2**16)). The powers of 2 assigned to the capabilities
-// are these: Power Capability 0 other or unknown (1-9) (reserved) 10
-// 10BASE-T half duplex mode 11 10BASE-T full duplex mode 12 (reserved) 13
-// (reserved) 14 100BASE-T4 15 100BASE-TX half duplex mode 16 100BASE-TX
-// full duplex mode 17 (reserved) 18 (reserved) 19 100BASE-T2 half duplex
-// mode 20 100BASE-T2 full duplex mode Note that interfaces that support
-// this MIB may have capabilities that extend beyond the scope of this MIB.
+// ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
+// in favour of ifMauAutoNegCapabilityBits. A value that uniquely
+// identifies the set of capabilities of the local auto-negotiation entity.
+// The value is a sum that initially takes the value zero. Then, for each
+// capability of this interface, 2 raised to the power noted below is added
+// to the sum. For example, an interface that has the capability to support
+// only 100Base-TX half duplex would have a value of 32768 (2**15). In
+// contrast, an interface that supports both 100Base-TX half duplex and
+// 100Base-TX full duplex would have a value of 98304 ((2**15) + (2**16)).
+// The powers of 2 assigned to the capabilities are these: Power Capability
+// 0 other or unknown (1-9) (reserved) 10 10BASE-T half duplex mode 11
+// 10BASE-T full duplex mode 12 (reserved) 13 (reserved) 14 100BASE-T4 15
+// 100BASE-TX half duplex mode 16 100BASE-TX full duplex mode 17 (reserved)
+// 18 (reserved) 19 100BASE-T2 half duplex mode 20 100BASE-T2 full duplex
+// mode Note that interfaces that support this MIB may have capabilities
+// that extend beyond the scope of this MIB.
 //
 // Deprecated: ifMauAutoNegCapability is STATUS deprecated in MAU-MIB.
 var IfMauAutoNegCapability = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // IfMauAutoNegCapAdvertised is the column ifMauAutoNegCapAdvertised of table ifMauAutoNegTable.
-// ********* THIS OBJECT IS DEPRECATED ********** This object has been
-// deprecated in favour of ifMauAutoNegCapAdvertisedBits. A value that
-// uniquely identifies the set of capabilities advertised by the local
+// ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
+// in favour of ifMauAutoNegCapAdvertisedBits. A value that uniquely
+// identifies the set of capabilities advertised by the local
 // auto-negotiation entity. Refer to ifMauAutoNegCapability for a
 // description of the possible values of this object. Capabilities in this
 // object that are not available in ifMauAutoNegCapability cannot be
@@ -2399,9 +2399,9 @@ var IfMauAutoNegCapability = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 var IfMauAutoNegCapAdvertised = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // IfMauAutoNegCapReceived is the column ifMauAutoNegCapReceived of table ifMauAutoNegTable.
-// ********* THIS OBJECT IS DEPRECATED ********** This object has been
-// deprecated in favour of ifMauAutoNegCapReceivedBits. A value that
-// uniquely identifies the set of capabilities received from the remote
+// ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
+// in favour of ifMauAutoNegCapReceivedBits. A value that uniquely
+// identifies the set of capabilities received from the remote
 // auto-negotiation entity. Refer to ifMauAutoNegCapability for a
 // description of the possible values of this object. Note that interfaces
 // that support this MIB may be attached to remote auto-negotiation
