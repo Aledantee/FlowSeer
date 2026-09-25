@@ -5,12 +5,27 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: code
 ---
 
 # Generated Code Style Conformance - Plan
 
 Outcome: implemented 2026-09-25 on this branch (1d982d63..ba082819). All four units passed; the verifier is green on the union of changed paths. The first implement lane (opencode) hung, so U2 and U4 were finished on replacement lanes from its merged work. The wide bench case now walks the 18 current ifTable columns (user decision). t4_manual_verify_test.go still walks the deprecated ipAddrTable; it builds only under its lab tag, so SA1019 does not fire today, and the open question below stands.
+
+Reviewed 2026-09-25: accept after fixes. One correctness defect and four smaller
+ones were found and fixed in two rounds (cd4b6527, ace96ff7, dcb2a076, 946446b6,
+3b4219cd). The correctness one: yanggen claimed the schema variable's name but
+emitted the unclaimed spelling, so a sibling node named after another node's
+schema companion produced a `type X` and a `var X` in one package — output that
+does not compile. No vendored module has that shape, so nothing was broken in
+the tree; a fixture node now covers it. Requirement 12 was not met on the first
+measurement either: three `deprecatedComment` hits survived, because a wrapped
+line of copied MIB prose can open with the word "deprecated". `splitDoc` now
+keeps that word off a line start, and the probe reads zero for all four
+checkers. Two findings stand open, both pre-existing and outside this change:
+yanggen's output is not reproducible run to run, and `moduleScopedName`'s
+empty-name fallback became unreachable when `goname.Exported("")` was fixed.
 
 ## Goal
 
