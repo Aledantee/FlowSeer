@@ -36,8 +36,9 @@ exclusion removed. For `./generated/go/mib/...` the results were:
 | `gocritic deprecatedComment` on copied "is deprecated in favour of" text | 6 | copied MIB text, see Decisions |
 | `misspell` in copied MIB DESCRIPTION text | 6 | spec text, out of scope |
 
-For YANG, the full `./generated/go/yang/...` run (208 MB) did not finish
-while this plan was written. A sample (`ruckus-icx/openconfigvlan`,
+For YANG, lint runs only on a sample. The full `./generated/go/yang/...`
+tree (208 MB) is not linted, because on this host it exhausts memory.
+The sample (`ruckus-icx/openconfigvlan`,
 `ruckus-icx/openconfigsystem`, `aruba-cx/openconfignetworkinstance`)
 returned 266 `unlambda` hits on
 `Equal: func(a, b XFlatRow) bool { return yang.EqualStructs(a, b) }`,
@@ -402,7 +403,7 @@ Waves: U1 U3 | U2 U4
   sets `exclusions.generated: disable`, run over
   `./generated/go/mib/...` and over the three sampled YANG packages. It must
   report zero `unlambda`, `unconvert`, `singleCaseSwitch`, and
-  `deprecatedComment` issues. If time allows, rerun the full YANG tree.
+  `deprecatedComment` issues. Do not lint the full YANG tree.
 - The generator tests' AST walk (U2, U3) finds no `_` identifier, and
   `grep -rnE '^(type|func|var) [A-Za-z0-9]*_' generated/go/yang generated/go/mib`
   prints nothing as a quick spot check.
@@ -425,9 +426,6 @@ Waves: U1 U3 | U2 U4
   `generated/go/yang` from lint once this lands, so the generators stay
   held to the same rules? It is a policy surface and a separate request.
   Lint time over the 208 MB YANG tree is the cost to weigh.
-- The full-tree YANG lint had not finished when this plan was written.
-  If it reports a check the sample did not show, the implementer adds it
-  to U2 when the emitter fix is mechanical, and asks otherwise.
 - `src/protocol/snmp/test/integration/t4_manual_verify_test.go:137`
   walks the deprecated `ipAddrTable` on lab switches, so once U3 lands,
   the verifier fails SA1019 there. Choose one: move the test to
