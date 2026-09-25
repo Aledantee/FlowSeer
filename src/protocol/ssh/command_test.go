@@ -109,6 +109,35 @@ func TestRunStripsEchoedInput(t *testing.T) {
 	}
 }
 
+func TestRunAnchorOnEchoIgnoresResidualPrompt(t *testing.T) {
+	t.Parallel()
+	const line = "show clock"
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_, _ = ch.Write([]byte("LABRT42#\r\n" + line + "\r\n12:34:56 UTC\r\nLABRT42#"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{
+		Line:         line,
+		AnchorOnEcho: true,
+		Prompts: []ssh.Prompt{{
+			Name:    "privileged",
+			Pattern: regexp.MustCompile(`(?m)^LABRT42#\s*$`),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+
+	want := []byte("12:34:56 UTC\r\n")
+	if !bytes.Equal(res.Output, want) {
+		t.Errorf("Output = %q, want %q", res.Output, want)
+	}
+}
+
 func TestRunPagination(t *testing.T) {
 	t.Parallel()
 	// The handler runs in its own goroutine and must never call a
@@ -154,6 +183,49 @@ func TestRunPagination(t *testing.T) {
 	}
 	if !bytes.Contains(res.Output, []byte("page one")) || !bytes.Contains(res.Output, []byte("page two")) {
 		t.Errorf("Output = %q, want both pages", res.Output)
+	}
+}
+
+func TestRunAnchorOnEchoPagination(t *testing.T) {
+	t.Parallel()
+	const line = "show run"
+	keyResult := make(chan error, 1)
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_, _ = ch.Write([]byte(line + "\r\npage one\r\n--More--"))
+		key := make([]byte, 1)
+		if _, err := io.ReadFull(ch, key); err != nil {
+			keyResult <- fmt.Errorf("read continuation keystroke: %w", err)
+			return
+		}
+		if key[0] != ' ' {
+			keyResult <- fmt.Errorf("continuation keystroke = %q, want %q", key, " ")
+			return
+		}
+		keyResult <- nil
+		_, _ = ch.Write([]byte("\r\npage two\r\nswitch#"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{
+		Line:          line,
+		AnchorOnEcho:  true,
+		Prompts:       []ssh.Prompt{privPrompt},
+		MorePattern:   regexp.MustCompile(`--More--`),
+		MoreKeystroke: []byte(" "),
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if kerr := <-keyResult; kerr != nil {
+		t.Fatal(kerr)
+	}
+
+	want := []byte("page one\r\n\r\npage two\r\n")
+	if !bytes.Equal(res.Output, want) {
+		t.Errorf("Output = %q, want %q", res.Output, want)
 	}
 }
 

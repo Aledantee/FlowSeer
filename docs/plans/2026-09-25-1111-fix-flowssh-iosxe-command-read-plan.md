@@ -4,12 +4,15 @@ type: fix
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 ---
 
 # flowssh IOS-XE Command Read - Plan
+
+> Implemented. The command reader and IOS-XE builders now use opt-in echo
+> anchoring. U2 live validation and matrix recording remain for the coordinator.
 
 > Root cause confirmed by a live diagnostic against LABRT42 (2026-09-25): every
 > `Session.Run` returns the *previous* command's output — a one-command
@@ -22,11 +25,12 @@ Make `src/protocol/ssh` (`flowssh`) `Session.Run` return the output of the
 command it just sent, against a live Cisco IOS-XE device that echoes a prompt
 between commands, so the `netpen_t2` `TestT2OSPFLiveLab` observable reads
 succeed and the `ospf` VALIDATION_MATRIX cells carry real vendor truth instead
-of `pending live run`. The means is anchoring each Run's prompt scan on that
-Run's own command echo, so a residual prompt left in the ring cannot be matched
-as the current command's terminator. This plan is wrong if anchoring on the
-echo cannot be done without breaking the documented no-echo shell support and
-no real caller needs a fresh design — then U1 routes back as a blocker.
+of `pending live run`. The means is opting the IOS-XE commands into a Run scan
+anchored on that command's own echo, so a residual prompt left in the ring
+cannot be matched as the current command's terminator. This plan is wrong if
+anchoring on the echo cannot be done without breaking the documented no-echo
+shell support and no real caller needs a fresh design — then U1 routes back as
+a blocker.
 
 ## Background evidence
 
@@ -66,9 +70,10 @@ Mechanism (verified in code):
 
 ## Decisions
 
-- Fix by anchoring a Run's prompt scan on that Run's own command echo: locate
-  the echo as a substring, discard everything up to and including it, and scan
-  for the prompt only in what follows; until the echo appears, match nothing.
+- Fix opted-in commands by anchoring each Run's prompt scan on that Run's own
+  command echo: locate the echo as a substring, discard everything up to and
+  including it, and scan for the prompt only in what follows; until the echo
+  appears, match nothing.
   Why: the residual prompt always precedes the echo (the echo is the device's
   response to *this* command), so anchoring on the echo makes a stale prompt
   unmatchable and removes the lag at its source, for the first command and every
@@ -87,13 +92,11 @@ Mechanism (verified in code):
   the next Run then matches); the echo anchor fixes the first command directly.
 - No line-terminator change. Why: C1 is ruled out; LF executes commands and
   yields output on this IOS-XE.
-- Preserve the documented no-echo shell support, or make it a reviewed breaking
-  change if no caller needs it. Why: `echoSkipLen`'s contract
-  (`command.go:280-284`) states a non-echoing shell is supported; anchoring on
-  the echo must keep that path working (fall back when no echo is configured) or
-  the change must be an explicit, reviewed removal. This is the one open
-  sub-decision (see Open questions); recommended: keep no-echo support via an
-  explicit "expect echo" default that every current caller already satisfies.
+- Ruled: preserve no-echo support by making echo anchoring opt-in through
+  `Command.AnchorOnEcho`. Existing callers retain the whole-buffer scan, while
+  the IOS-XE OSPF commands opt in. Why: FastIron's no-echo behavior stays
+  unchanged, and callers affected by residual prompts can require the stronger
+  boundary. Cost if wrong: each affected command builder must opt in explicitly.
 - No compatibility shim. Why: pre-stability building blocks; the fix changes
   internal scan behavior, and every caller's observable result only becomes
   correct.
@@ -128,22 +131,23 @@ Mechanism (verified in code):
 ## Units
 
 ### U1. Anchor the prompt scan on the command echo
-Files: `src/protocol/ssh/command.go`, `src/protocol/ssh/command_test.go`
+Files: `src/protocol/ssh/command.go`, `src/protocol/ssh/command_test.go`,
+`src/edge/netpen/test/integration/lab/iosxe.go`
 After: none
 Change: in `Run`'s `waitFor` match (`command.go:210-223`), find the command
 echo as a substring of the buffer and discard everything up to and including it
-before `scanPrompt`; while the echo has not appeared, return `(0, false)` so no
-prompt matches. Keep the existing `\r\n`/`\n`-after-echo trimming. Preserve
-no-echo support per the Decisions sub-decision (an "expect echo" path that all
-current callers satisfy, falling back to today's whole-buffer scan when a
-command declares it expects no echo). `MorePattern` handling and the
+before `scanPrompt` when `Command.AnchorOnEcho` is true; while the echo has not
+appeared, return `(0, false)` so no prompt matches. Keep the existing
+`\r\n`/`\n`-after-echo trimming. The default false value preserves today's
+whole-buffer scan for no-echo callers. `MorePattern` handling and the
 `res.consumed`/`outputEnd` offsets stay correct relative to the new anchor.
+Set `AnchorOnEcho` on both IOS-XE OSPF command builders.
 Tests: `command_test.go` — (a) residual-prompt-before-echo returns the current
 output (R1); (b) the existing no-residual case still returns the full output;
 (c) a `--More--` paginated command still assembles across pages; (d) if no-echo
 support is kept, a no-echo command still matches as before. Use the package's
 in-process SSH server harness.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/ssh/command.go src/protocol/ssh/command_test.go`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/ssh/command.go src/protocol/ssh/command_test.go src/edge/netpen/test/integration/lab/iosxe.go`
 
 ### U2. Live-validate and record vendor truth
 Files: `src/edge/netpen/test/integration/VALIDATION_MATRIX.md`,
@@ -182,11 +186,3 @@ Waves: U1 | U2
 - VALIDATION_MATRIX `ospf` cells and the 2026-09-23 plan outcome note updated in
   this change; this plan's `status` set with an outcome note.
 - No `R#`/`U#` labels in code.
-
-## Open questions
-
-- No-echo shell support: keep it (recommended — an explicit per-command
-  "expect echo" default that every current caller satisfies) or remove it as a
-  reviewed breaking change if no caller needs a non-echoing shell. `implement`
-  may rule on this by auditing callers; today all callers (lanehost, fastiron,
-  netpen) drive echoing device shells.
