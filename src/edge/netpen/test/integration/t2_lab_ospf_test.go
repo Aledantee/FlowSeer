@@ -5,7 +5,6 @@ package integration
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +24,7 @@ func TestT2OSPFLiveLab(t *testing.T) {
 		t.Fatalf("target platform = %q, want iosxe", t2Config.TargetPlatform)
 	}
 
-	session, err := flowssh.Dial(t.Context(), sshEndpoint(t2Config.TargetHost), flowssh.Options{
+	session, err := flowssh.Dial(t.Context(), lab.SSHAddress(t2Config.TargetHost), flowssh.Options{
 		Username:        t2Config.TargetUser,
 		Password:        t2Config.TargetPassword,
 		HostKeySHA256:   t2Config.TargetHostKeySHA256,
@@ -51,8 +50,8 @@ func TestT2OSPFLiveLab(t *testing.T) {
 		t.Skip("target OSPF prerequisite is not active; configure the injection-facing interface before the live run")
 	}
 
-	firstClass := runOSPFInjection(t, t.Context())
-	secondClass := runOSPFInjection(t, t.Context())
+	firstClass := runOSPFInjection(t.Context(), t)
+	secondClass := runOSPFInjection(t.Context(), t)
 	if firstClass != secondClass {
 		t.Fatalf("OSPF finding class changed between injections: first %q, second %q", firstClass, secondClass)
 	}
@@ -69,7 +68,7 @@ func TestT2OSPFLiveLab(t *testing.T) {
 	t.Logf("validation matrix evidence: ospf; t1 AE6=t2 (b); t2=IOS-XE neighbor %s accepted and cleared; target=%s; finding-class=%s", ospfAttackerRouterID, t2Config.TargetHost, firstClass)
 }
 
-func runOSPFInjection(t *testing.T, ctx context.Context) string {
+func runOSPFInjection(ctx context.Context, t *testing.T) string {
 	t.Helper()
 	argv := t2Config.InjectCommand("ospf", 2*time.Second, 20*time.Second)
 	injectionCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -120,11 +119,4 @@ func waitForOSPFNeighbor(ctx context.Context, session *flowssh.Session, wantPres
 		case <-ticker.C:
 		}
 	}
-}
-
-func sshEndpoint(host string) string {
-	if _, _, err := net.SplitHostPort(host); err == nil {
-		return host
-	}
-	return net.JoinHostPort(host, "22")
 }

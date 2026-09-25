@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"go.aledante.io/FlowSeer/src/common/secret"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 func TestConfigFromEnv(t *testing.T) {
@@ -107,7 +108,7 @@ func TestRunInjectorSuppliesSudoPasswordOnStdin(t *testing.T) {
 	}
 	observed := make(chan observation, 1)
 	serverErr := make(chan error, 1)
-	go func() {
+	spawn.Go(t.Context(), "serve injector SSH test connection", func() {
 		conn, err := listener.Accept()
 		if err != nil {
 			serverErr <- err
@@ -127,7 +128,7 @@ func TestRunInjectorSuppliesSudoPasswordOnStdin(t *testing.T) {
 			return
 		}
 		defer func() { _ = serverConn.Close() }()
-		go ssh.DiscardRequests(requests)
+		spawn.Go(t.Context(), "discard injector SSH global requests", func() { ssh.DiscardRequests(requests) })
 
 		newChannel, ok := <-channels
 		if !ok {
@@ -162,7 +163,7 @@ func TestRunInjectorSuppliesSudoPasswordOnStdin(t *testing.T) {
 		}
 		observed <- observation{command: execRequest.Command, stdin: string(stdin)}
 		_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{}))
-	}()
+	})
 
 	cfg := Config{
 		InjectorHost:           listener.Addr().String(),

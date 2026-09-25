@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -136,7 +137,7 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	if err := validateHostKeyPin(cfg.InjectorHostKeySHA256); err != nil {
 		return InjectorResult{}, fmt.Errorf("injector host-key pin: %w", err)
 	}
-	address := sshAddress(cfg.InjectorHost)
+	address := SSHAddress(cfg.InjectorHost)
 	transport, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	if err != nil {
 		return InjectorResult{}, fmt.Errorf("dial injector: %w", err)
@@ -161,7 +162,7 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	defer func() { _ = session.Close() }()
 
 	var stdout, stderr bytes.Buffer
-	session.Stdin = strings.NewReader(cfg.InjectorSudoPassword.RevealString() + "\n")
+	session.Stdin = io.MultiReader(bytes.NewReader(cfg.InjectorSudoPassword.Reveal()), strings.NewReader("\n"))
 	session.Stdout = &stdout
 	session.Stderr = &stderr
 	if err := session.Start(shellCommand(argv)); err != nil {
@@ -209,7 +210,8 @@ func pinnedHostKey(pin string) ssh.HostKeyCallback {
 	}
 }
 
-func sshAddress(host string) string {
+// SSHAddress adds the default SSH port when host does not include one.
+func SSHAddress(host string) string {
 	if _, _, err := net.SplitHostPort(host); err == nil {
 		return host
 	}
