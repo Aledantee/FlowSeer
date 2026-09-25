@@ -3,16 +3,17 @@
 Libraries that speak a management protocol on the wire, plus the schema
 languages those protocols are described in.
 
-| Package    | What it does                                            |
-| ---------- | ------------------------------------------------------- |
-| `snmp`     | SNMP v1/v2c/v3 client, table streams, trap reception     |
-| `netconf`  | NETCONF over SSH: datastores, edits, notifications       |
-| `ssh`      | SSH interactive shell: prompts, pagination, evidence     |
-| `restconf` | RESTCONF over HTTP: resources, subscriptions             |
-| `gnmi`     | gNMI: Get, Set, Subscribe                                |
-| `syslog`   | RFC 3164/5424 parsing, encoding, and receivers           |
-| `smi`      | SMIv1/SMIv2 MIB parser behind `snmp/cmd/mibgen`          |
-| `yang`     | YANG parser and data trees behind `yang/cmd/yanggen`     |
+| Package           | What it does                                            |
+| ----------------- | ------------------------------------------------------- |
+| `snmp`            | SNMP v1/v2c/v3 client, table streams, trap reception     |
+| `netconf`         | NETCONF over SSH: datastores, edits, notifications       |
+| `ssh`             | SSH interactive shell: prompts, pagination, evidence     |
+| `restconf`        | RESTCONF over HTTP: resources, subscriptions             |
+| `gnmi`            | gNMI: Get, Set, Subscribe                                |
+| `syslog`          | RFC 3164/5424 parsing, encoding, and receivers           |
+| `smi`             | SMIv1/SMIv2 MIB parser behind `snmp/cmd/mibgen`          |
+| `yang`            | YANG parser and data trees behind `yang/cmd/yanggen`     |
+| `internal/goname` | Go identifier builder behind `mibgen` and `yanggen`      |
 
 `smi` and `yang` are compilers, not protocols. They live here because each one
 exists to serve the protocol next to it, and splitting them into a third tree

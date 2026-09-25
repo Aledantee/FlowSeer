@@ -159,13 +159,20 @@ func emitWatchColumnLoop(g *jen.Group, tw tableWalkContext, arm func(cg *jen.Gro
 		lg.Id("entryLen").Op(":=").Add(newOIDCall(tw.EntryPrefix)).Dot("Len").Call()
 		lg.If(jen.Id("o").Dot("Len").Call().Op("<=").Id("entryLen")).Block(jen.Continue())
 		lg.Id("colID").Op(":=").Id("o").Dot("At").Call(jen.Id("entryLen"))
-		lg.Switch(jen.Id("colID")).BlockFunc(func(sg *jen.Group) {
-			for _, c := range sortedCols {
-				sg.Case(jen.Lit(int(c.Sub))).BlockFunc(func(cg *jen.Group) {
-					arm(cg, c)
-				})
-			}
-		})
+		if len(sortedCols) == 1 {
+			c := sortedCols[0]
+			lg.If(jen.Id("colID").Op("==").Lit(int(c.Sub))).BlockFunc(func(cg *jen.Group) {
+				arm(cg, c)
+			})
+		} else {
+			lg.Switch(jen.Id("colID")).BlockFunc(func(sg *jen.Group) {
+				for _, c := range sortedCols {
+					sg.Case(jen.Lit(int(c.Sub))).BlockFunc(func(cg *jen.Group) {
+						arm(cg, c)
+					})
+				}
+			})
+		}
 	})
 }
 

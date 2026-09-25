@@ -468,9 +468,7 @@ func MtxrWlRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 		return 0, errs.Msg("empty Get response for mtxrWlRtabEntryCount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrWlCMRtabEntryCountGet reads the SMIv2 scalar mtxrWlCMRtabEntryCount.
@@ -487,9 +485,7 @@ func MtxrWlCMRtabEntryCountGet(ctx context.Context, sess snmp.Session) (uint32, 
 		return 0, errs.Msg("empty Get response for mtxrWlCMRtabEntryCount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrWlCMREntryCountGet reads the SMIv2 scalar mtxrWlCMREntryCount.
@@ -506,9 +502,7 @@ func MtxrWlCMREntryCountGet(ctx context.Context, sess snmp.Session) (uint32, err
 		return 0, errs.Msg("empty Get response for mtxrWlCMREntryCount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrHlCoreVoltageGet reads the SMIv2 scalar mtxrHlCoreVoltage.
@@ -525,9 +519,7 @@ func MtxrHlCoreVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, errs.Msg("empty Get response for mtxrHlCoreVoltage")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlThreeDotThreeVoltageGet reads the SMIv2 scalar mtxrHlThreeDotThreeVoltage.
@@ -544,9 +536,7 @@ func MtxrHlThreeDotThreeVoltageGet(ctx context.Context, sess snmp.Session) (int3
 		return 0, errs.Msg("empty Get response for mtxrHlThreeDotThreeVoltage")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlFiveVoltageGet reads the SMIv2 scalar mtxrHlFiveVoltage.
@@ -563,9 +553,7 @@ func MtxrHlFiveVoltageGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, errs.Msg("empty Get response for mtxrHlFiveVoltage")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlTwelveVoltageGet reads the SMIv2 scalar mtxrHlTwelveVoltage.
@@ -582,9 +570,7 @@ func MtxrHlTwelveVoltageGet(ctx context.Context, sess snmp.Session) (int32, erro
 		return 0, errs.Msg("empty Get response for mtxrHlTwelveVoltage")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlSensorTemperatureGet reads the SMIv2 scalar mtxrHlSensorTemperature.
@@ -601,9 +587,7 @@ func MtxrHlSensorTemperatureGet(ctx context.Context, sess snmp.Session) (int32, 
 		return 0, errs.Msg("empty Get response for mtxrHlSensorTemperature")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlCpuTemperatureGet reads the SMIv2 scalar mtxrHlCpuTemperature.
@@ -620,9 +604,7 @@ func MtxrHlCpuTemperatureGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, errs.Msg("empty Get response for mtxrHlCpuTemperature")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlBoardTemperatureGet reads the SMIv2 scalar mtxrHlBoardTemperature.
@@ -637,9 +619,7 @@ func MtxrHlBoardTemperatureGet(ctx context.Context, sess snmp.Session) (int32, e
 		return 0, errs.Msg("empty Get response for mtxrHlBoardTemperature")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlVoltageGet reads the SMIv2 scalar mtxrHlVoltage.
@@ -654,9 +634,7 @@ func MtxrHlVoltageGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrHlVoltage")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlActiveFanGet reads the SMIv2 scalar mtxrHlActiveFan.
@@ -671,9 +649,7 @@ func MtxrHlActiveFanGet(ctx context.Context, sess snmp.Session) (string, error) 
 		return "", errs.Msg("empty Get response for mtxrHlActiveFan")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrHlTemperatureGet reads the SMIv2 scalar mtxrHlTemperature.
@@ -688,9 +664,7 @@ func MtxrHlTemperatureGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, errs.Msg("empty Get response for mtxrHlTemperature")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlProcessorTemperatureGet reads the SMIv2 scalar mtxrHlProcessorTemperature.
@@ -705,9 +679,7 @@ func MtxrHlProcessorTemperatureGet(ctx context.Context, sess snmp.Session) (int3
 		return 0, errs.Msg("empty Get response for mtxrHlProcessorTemperature")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlPowerGet reads the SMIv2 scalar mtxrHlPower.
@@ -724,9 +696,7 @@ func MtxrHlPowerGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrHlPower")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlCurrentGet reads the SMIv2 scalar mtxrHlCurrent.
@@ -743,9 +713,7 @@ func MtxrHlCurrentGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrHlCurrent")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlProcessorFrequencyGet reads the SMIv2 scalar mtxrHlProcessorFrequency.
@@ -762,9 +730,7 @@ func MtxrHlProcessorFrequencyGet(ctx context.Context, sess snmp.Session) (int32,
 		return 0, errs.Msg("empty Get response for mtxrHlProcessorFrequency")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHlPowerSupplyStateGet reads the SMIv2 scalar mtxrHlPowerSupplyState.
@@ -827,9 +793,7 @@ func MtxrHlFanSpeed1Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for mtxrHlFanSpeed1")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrHlFanSpeed2Get reads the SMIv2 scalar mtxrHlFanSpeed2.
@@ -846,9 +810,7 @@ func MtxrHlFanSpeed2Get(ctx context.Context, sess snmp.Session) (uint32, error) 
 		return 0, errs.Msg("empty Get response for mtxrHlFanSpeed2")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrAlarmSocketStatusGet reads the SMIv2 scalar mtxrAlarmSocketStatus.
@@ -888,9 +850,7 @@ func MtxrLicSoftwareIdGet(ctx context.Context, sess snmp.Session) (string, error
 		return "", errs.Msg("empty Get response for mtxrLicSoftwareId")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLicUpgrUntilGet reads the SMIv2 scalar mtxrLicUpgrUntil.
@@ -907,9 +867,7 @@ func MtxrLicUpgrUntilGet(ctx context.Context, sess snmp.Session) (time.Time, err
 		return time.Time{}, errs.Msg("empty Get response for mtxrLicUpgrUntil")
 	}
 
-	return func(vb snmp.VarBind) (time.Time, error) {
-		return snmp.DecodeDateAndTime(vb)
-	}(vbs[0])
+	return snmp.DecodeDateAndTime(vbs[0])
 }
 
 // MtxrLicLevelGet reads the SMIv2 scalar mtxrLicLevel.
@@ -926,9 +884,7 @@ func MtxrLicLevelGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrLicLevel")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrLicVersionGet reads the SMIv2 scalar mtxrLicVersion.
@@ -945,9 +901,7 @@ func MtxrLicVersionGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrLicVersion")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLicUpgradableToGet reads the SMIv2 scalar mtxrLicUpgradableTo.
@@ -964,9 +918,7 @@ func MtxrLicUpgradableToGet(ctx context.Context, sess snmp.Session) (int32, erro
 		return 0, errs.Msg("empty Get response for mtxrLicUpgradableTo")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrHotspotActiveUserCountGet reads the SMIv2 scalar mtxrHotspotActiveUserCount.
@@ -983,9 +935,7 @@ func MtxrHotspotActiveUserCountGet(ctx context.Context, sess snmp.Session) (uint
 		return 0, errs.Msg("empty Get response for mtxrHotspotActiveUserCount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrHotspotHostCountGet reads the SMIv2 scalar mtxrHotspotHostCount.
@@ -1002,9 +952,7 @@ func MtxrHotspotHostCountGet(ctx context.Context, sess snmp.Session) (uint32, er
 		return 0, errs.Msg("empty Get response for mtxrHotspotHostCount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrDHCPLeaseCountGet reads the SMIv2 scalar mtxrDHCPLeaseCount.
@@ -1019,9 +967,7 @@ func MtxrDHCPLeaseCountGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for mtxrDHCPLeaseCount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrSystemRebootGet reads the SMIv2 scalar mtxrSystemReboot.
@@ -1038,9 +984,7 @@ func MtxrSystemRebootGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, errs.Msg("empty Get response for mtxrSystemReboot")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrUSBPowerResetGet reads the SMIv2 scalar mtxrUSBPowerReset.
@@ -1057,9 +1001,7 @@ func MtxrUSBPowerResetGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, errs.Msg("empty Get response for mtxrUSBPowerReset")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrSerialNumberGet reads the SMIv2 scalar mtxrSerialNumber.
@@ -1076,9 +1018,7 @@ func MtxrSerialNumberGet(ctx context.Context, sess snmp.Session) (string, error)
 		return "", errs.Msg("empty Get response for mtxrSerialNumber")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrFirmwareVersionGet reads the SMIv2 scalar mtxrFirmwareVersion.
@@ -1095,9 +1035,7 @@ func MtxrFirmwareVersionGet(ctx context.Context, sess snmp.Session) (string, err
 		return "", errs.Msg("empty Get response for mtxrFirmwareVersion")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrNoteGet reads the SMIv2 scalar mtxrNote.
@@ -1114,9 +1052,7 @@ func MtxrNoteGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrNote")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrBuildTimeGet reads the SMIv2 scalar mtxrBuildTime.
@@ -1133,9 +1069,7 @@ func MtxrBuildTimeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrBuildTime")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrFirmwareUpgradeVersionGet reads the SMIv2 scalar mtxrFirmwareUpgradeVersion.
@@ -1152,9 +1086,7 @@ func MtxrFirmwareUpgradeVersionGet(ctx context.Context, sess snmp.Session) (stri
 		return "", errs.Msg("empty Get response for mtxrFirmwareUpgradeVersion")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrDisplayNameGet reads the SMIv2 scalar mtxrDisplayName.
@@ -1171,9 +1103,7 @@ func MtxrDisplayNameGet(ctx context.Context, sess snmp.Session) (string, error) 
 		return "", errs.Msg("empty Get response for mtxrDisplayName")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrBoardNameGet reads the SMIv2 scalar mtxrBoardName.
@@ -1190,9 +1120,7 @@ func MtxrBoardNameGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrBoardName")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrDateGet reads the SMIv2 scalar mtxrDate.
@@ -1209,9 +1137,7 @@ func MtxrDateGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrDate")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrLongtitudeGet reads the SMIv2 scalar mtxrLongtitude.
@@ -1228,9 +1154,7 @@ func MtxrLongtitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrLongtitude")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLatitudeGet reads the SMIv2 scalar mtxrLatitude.
@@ -1247,9 +1171,7 @@ func MtxrLatitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrLatitude")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrAltitudeGet reads the SMIv2 scalar mtxrAltitude.
@@ -1266,9 +1188,7 @@ func MtxrAltitudeGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrAltitude")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrSpeedGet reads the SMIv2 scalar mtxrSpeed.
@@ -1285,9 +1205,7 @@ func MtxrSpeedGet(ctx context.Context, sess snmp.Session) (string, error) {
 		return "", errs.Msg("empty Get response for mtxrSpeed")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrSattelitesGet reads the SMIv2 scalar mtxrSattelites.
@@ -1304,9 +1222,7 @@ func MtxrSattelitesGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrSattelites")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrValidGet reads the SMIv2 scalar mtxrValid.
@@ -1323,9 +1239,7 @@ func MtxrValidGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for mtxrValid")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWirelessModemSignalStrengthGet reads the SMIv2 scalar mtxrWirelessModemSignalStrength.
@@ -1342,9 +1256,7 @@ func MtxrWirelessModemSignalStrengthGet(ctx context.Context, sess snmp.Session) 
 		return 0, errs.Msg("empty Get response for mtxrWirelessModemSignalStrength")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWirelessModemSignalECIOGet reads the SMIv2 scalar mtxrWirelessModemSignalECIO.
@@ -1361,9 +1273,7 @@ func MtxrWirelessModemSignalECIOGet(ctx context.Context, sess snmp.Session) (int
 		return 0, errs.Msg("empty Get response for mtxrWirelessModemSignalECIO")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWirelessModemManufacturerGet reads the SMIv2 scalar mtxrWirelessModemManufacturer.
@@ -1380,9 +1290,7 @@ func MtxrWirelessModemManufacturerGet(ctx context.Context, sess snmp.Session) (s
 		return "", errs.Msg("empty Get response for mtxrWirelessModemManufacturer")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemModelGet reads the SMIv2 scalar mtxrWirelessModemModel.
@@ -1399,9 +1307,7 @@ func MtxrWirelessModemModelGet(ctx context.Context, sess snmp.Session) (string, 
 		return "", errs.Msg("empty Get response for mtxrWirelessModemModel")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemRevisionGet reads the SMIv2 scalar mtxrWirelessModemRevision.
@@ -1418,9 +1324,7 @@ func MtxrWirelessModemRevisionGet(ctx context.Context, sess snmp.Session) (strin
 		return "", errs.Msg("empty Get response for mtxrWirelessModemRevision")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemIMEIGet reads the SMIv2 scalar mtxrWirelessModemIMEI.
@@ -1437,9 +1341,7 @@ func MtxrWirelessModemIMEIGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", errs.Msg("empty Get response for mtxrWirelessModemIMEI")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemIMSIGet reads the SMIv2 scalar mtxrWirelessModemIMSI.
@@ -1456,9 +1358,7 @@ func MtxrWirelessModemIMSIGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", errs.Msg("empty Get response for mtxrWirelessModemIMSI")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemAccessTechnologyGet reads the SMIv2 scalar mtxrWirelessModemAccessTechnology.
@@ -1475,9 +1375,7 @@ func MtxrWirelessModemAccessTechnologyGet(ctx context.Context, sess snmp.Session
 		return "", errs.Msg("empty Get response for mtxrWirelessModemAccessTechnology")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemFrameErrorRateGet reads the SMIv2 scalar mtxrWirelessModemFrameErrorRate.
@@ -1494,9 +1392,7 @@ func MtxrWirelessModemFrameErrorRateGet(ctx context.Context, sess snmp.Session) 
 		return "", errs.Msg("empty Get response for mtxrWirelessModemFrameErrorRate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWirelessModemRSRPGet reads the SMIv2 scalar mtxrWirelessModemRSRP.
@@ -1513,9 +1409,7 @@ func MtxrWirelessModemRSRPGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, errs.Msg("empty Get response for mtxrWirelessModemRSRP")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWirelessModemRSRQGet reads the SMIv2 scalar mtxrWirelessModemRSRQ.
@@ -1532,9 +1426,7 @@ func MtxrWirelessModemRSRQGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, errs.Msg("empty Get response for mtxrWirelessModemRSRQ")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWirelessModemSINRGet reads the SMIv2 scalar mtxrWirelessModemSINR.
@@ -1551,9 +1443,7 @@ func MtxrWirelessModemSINRGet(ctx context.Context, sess snmp.Session) (int32, er
 		return 0, errs.Msg("empty Get response for mtxrWirelessModemSINR")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWirelessModemPinStatusGet reads the SMIv2 scalar mtxrWirelessModemPinStatus.
@@ -1570,9 +1460,7 @@ func MtxrWirelessModemPinStatusGet(ctx context.Context, sess snmp.Session) (stri
 		return "", errs.Msg("empty Get response for mtxrWirelessModemPinStatus")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLteFirmwareInstalledVersionGet reads the SMIv2 scalar mtxrLteFirmwareInstalledVersion.
@@ -1589,9 +1477,7 @@ func MtxrLteFirmwareInstalledVersionGet(ctx context.Context, sess snmp.Session) 
 		return "", errs.Msg("empty Get response for mtxrLteFirmwareInstalledVersion")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLteFirmwareLatestVersionGet reads the SMIv2 scalar mtxrLteFirmwareLatestVersion.
@@ -1609,9 +1495,7 @@ func MtxrLteFirmwareLatestVersionGet(ctx context.Context, sess snmp.Session) (st
 		return "", errs.Msg("empty Get response for mtxrLteFirmwareLatestVersion")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLteFirmwareStatusGet reads the SMIv2 scalar mtxrLteFirmwareStatus.
@@ -1626,9 +1510,7 @@ func MtxrLteFirmwareStatusGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", errs.Msg("empty Get response for mtxrLteFirmwareStatus")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrLteFirmwareLastCheckedGet reads the SMIv2 scalar mtxrLteFirmwareLastChecked.
@@ -1646,9 +1528,7 @@ func MtxrLteFirmwareLastCheckedGet(ctx context.Context, sess snmp.Session) (uint
 		return 0, errs.Msg("empty Get response for mtxrLteFirmwareLastChecked")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrLteFirmwareCheckTriggerGet reads the SMIv2 scalar mtxrLteFirmwareCheckTrigger.
@@ -1666,9 +1546,7 @@ func MtxrLteFirmwareCheckTriggerGet(ctx context.Context, sess snmp.Session) (int
 		return 0, errs.Msg("empty Get response for mtxrLteFirmwareCheckTrigger")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrLteFirmwareInstallTriggerGet reads the SMIv2 scalar mtxrLteFirmwareInstallTrigger.
@@ -1686,9 +1564,7 @@ func MtxrLteFirmwareInstallTriggerGet(ctx context.Context, sess snmp.Session) (i
 		return 0, errs.Msg("empty Get response for mtxrLteFirmwareInstallTrigger")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrIkeSACountGet reads the SMIv2 scalar mtxrIkeSACount.
@@ -1705,9 +1581,7 @@ func MtxrIkeSACountGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for mtxrIkeSACount")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrWifiCapsmanEnabledGet reads the SMIv2 scalar mtxrWifiCapsmanEnabled.
@@ -1724,9 +1598,7 @@ func MtxrWifiCapsmanEnabledGet(ctx context.Context, sess snmp.Session) (bool, er
 		return false, errs.Msg("empty Get response for mtxrWifiCapsmanEnabled")
 	}
 
-	return func(vb snmp.VarBind) (bool, error) {
-		return snmp.DecodeTruthValue(vb)
-	}(vbs[0])
+	return snmp.DecodeTruthValue(vbs[0])
 }
 
 // MtxrWifiCapsmanInterfacesGet reads the SMIv2 scalar mtxrWifiCapsmanInterfaces.
@@ -1743,9 +1615,7 @@ func MtxrWifiCapsmanInterfacesGet(ctx context.Context, sess snmp.Session) (strin
 		return "", errs.Msg("empty Get response for mtxrWifiCapsmanInterfaces")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWifiCapsmanCACertificateGet reads the SMIv2 scalar mtxrWifiCapsmanCACertificate.
@@ -1762,9 +1632,7 @@ func MtxrWifiCapsmanCACertificateGet(ctx context.Context, sess snmp.Session) (st
 		return "", errs.Msg("empty Get response for mtxrWifiCapsmanCACertificate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWifiCapsmanCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanCertificate.
@@ -1781,9 +1649,7 @@ func MtxrWifiCapsmanCertificateGet(ctx context.Context, sess snmp.Session) (stri
 		return "", errs.Msg("empty Get response for mtxrWifiCapsmanCertificate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWifiCapsmanRequirePeerCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanRequirePeerCertificate.
@@ -1800,9 +1666,7 @@ func MtxrWifiCapsmanRequirePeerCertificateGet(ctx context.Context, sess snmp.Ses
 		return false, errs.Msg("empty Get response for mtxrWifiCapsmanRequirePeerCertificate")
 	}
 
-	return func(vb snmp.VarBind) (bool, error) {
-		return snmp.DecodeTruthValue(vb)
-	}(vbs[0])
+	return snmp.DecodeTruthValue(vbs[0])
 }
 
 // MtxrWifiCapsmanPackagePathGet reads the SMIv2 scalar mtxrWifiCapsmanPackagePath.
@@ -1819,9 +1683,7 @@ func MtxrWifiCapsmanPackagePathGet(ctx context.Context, sess snmp.Session) (stri
 		return "", errs.Msg("empty Get response for mtxrWifiCapsmanPackagePath")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWifiCapsmanUpgradePolicyGet reads the SMIv2 scalar mtxrWifiCapsmanUpgradePolicy.
@@ -1838,9 +1700,7 @@ func MtxrWifiCapsmanUpgradePolicyGet(ctx context.Context, sess snmp.Session) (in
 		return 0, errs.Msg("empty Get response for mtxrWifiCapsmanUpgradePolicy")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // MtxrWifiCapsmanGeneratedCaCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanGeneratedCaCertificate.
@@ -1857,9 +1717,7 @@ func MtxrWifiCapsmanGeneratedCaCertificateGet(ctx context.Context, sess snmp.Ses
 		return "", errs.Msg("empty Get response for mtxrWifiCapsmanGeneratedCaCertificate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrWifiCapsmanGeneratedCertificateGet reads the SMIv2 scalar mtxrWifiCapsmanGeneratedCertificate.
@@ -1876,9 +1734,7 @@ func MtxrWifiCapsmanGeneratedCertificateGet(ctx context.Context, sess snmp.Sessi
 		return "", errs.Msg("empty Get response for mtxrWifiCapsmanGeneratedCertificate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapEnabledGet reads the SMIv2 scalar mtxrCapEnabled.
@@ -1895,9 +1751,7 @@ func MtxrCapEnabledGet(ctx context.Context, sess snmp.Session) (bool, error) {
 		return false, errs.Msg("empty Get response for mtxrCapEnabled")
 	}
 
-	return func(vb snmp.VarBind) (bool, error) {
-		return snmp.DecodeTruthValue(vb)
-	}(vbs[0])
+	return snmp.DecodeTruthValue(vbs[0])
 }
 
 // MtxrCapInterfacesGet reads the SMIv2 scalar mtxrCapInterfaces.
@@ -1914,9 +1768,7 @@ func MtxrCapInterfacesGet(ctx context.Context, sess snmp.Session) (string, error
 		return "", errs.Msg("empty Get response for mtxrCapInterfaces")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapCertificateGet reads the SMIv2 scalar mtxrCapCertificate.
@@ -1933,9 +1785,7 @@ func MtxrCapCertificateGet(ctx context.Context, sess snmp.Session) (string, erro
 		return "", errs.Msg("empty Get response for mtxrCapCertificate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapCapsManAddressesGet reads the SMIv2 scalar mtxrCapCapsManAddresses.
@@ -1952,9 +1802,7 @@ func MtxrCapCapsManAddressesGet(ctx context.Context, sess snmp.Session) (string,
 		return "", errs.Msg("empty Get response for mtxrCapCapsManAddresses")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapCapsManNamesGet reads the SMIv2 scalar mtxrCapCapsManNames.
@@ -1971,9 +1819,7 @@ func MtxrCapCapsManNamesGet(ctx context.Context, sess snmp.Session) (string, err
 		return "", errs.Msg("empty Get response for mtxrCapCapsManNames")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapCapsManCertificateCommonNamesGet reads the SMIv2 scalar mtxrCapCapsManCertificateCommonNames.
@@ -1990,9 +1836,7 @@ func MtxrCapCapsManCertificateCommonNamesGet(ctx context.Context, sess snmp.Sess
 		return "", errs.Msg("empty Get response for mtxrCapCapsManCertificateCommonNames")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapLockToCapsManGet reads the SMIv2 scalar mtxrCapLockToCapsMan.
@@ -2009,9 +1853,7 @@ func MtxrCapLockToCapsManGet(ctx context.Context, sess snmp.Session) (bool, erro
 		return false, errs.Msg("empty Get response for mtxrCapLockToCapsMan")
 	}
 
-	return func(vb snmp.VarBind) (bool, error) {
-		return snmp.DecodeTruthValue(vb)
-	}(vbs[0])
+	return snmp.DecodeTruthValue(vbs[0])
 }
 
 // MtxrCapSlavesStaticGet reads the SMIv2 scalar mtxrCapSlavesStatic.
@@ -2028,9 +1870,7 @@ func MtxrCapSlavesStaticGet(ctx context.Context, sess snmp.Session) (bool, error
 		return false, errs.Msg("empty Get response for mtxrCapSlavesStatic")
 	}
 
-	return func(vb snmp.VarBind) (bool, error) {
-		return snmp.DecodeTruthValue(vb)
-	}(vbs[0])
+	return snmp.DecodeTruthValue(vbs[0])
 }
 
 // MtxrCapSlavesDatapathGet reads the SMIv2 scalar mtxrCapSlavesDatapath.
@@ -2047,9 +1887,7 @@ func MtxrCapSlavesDatapathGet(ctx context.Context, sess snmp.Session) (string, e
 		return "", errs.Msg("empty Get response for mtxrCapSlavesDatapath")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapRequestedCertificateGet reads the SMIv2 scalar mtxrCapRequestedCertificate.
@@ -2066,9 +1904,7 @@ func MtxrCapRequestedCertificateGet(ctx context.Context, sess snmp.Session) (str
 		return "", errs.Msg("empty Get response for mtxrCapRequestedCertificate")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapLockedCapsManCommonNameGet reads the SMIv2 scalar mtxrCapLockedCapsManCommonName.
@@ -2085,9 +1921,7 @@ func MtxrCapLockedCapsManCommonNameGet(ctx context.Context, sess snmp.Session) (
 		return "", errs.Msg("empty Get response for mtxrCapLockedCapsManCommonName")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapCurrentCapsManAddressGet reads the SMIv2 scalar mtxrCapCurrentCapsManAddress.
@@ -2104,9 +1938,7 @@ func MtxrCapCurrentCapsManAddressGet(ctx context.Context, sess snmp.Session) (st
 		return "", errs.Msg("empty Get response for mtxrCapCurrentCapsManAddress")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCapCurrentCapsManIdentityGet reads the SMIv2 scalar mtxrCapCurrentCapsManIdentity.
@@ -2123,9 +1955,7 @@ func MtxrCapCurrentCapsManIdentityGet(ctx context.Context, sess snmp.Session) (s
 		return "", errs.Msg("empty Get response for mtxrCapCurrentCapsManIdentity")
 	}
 
-	return func(vb snmp.VarBind) (string, error) {
-		return snmp.DecodeDisplayString(vb)
-	}(vbs[0])
+	return snmp.DecodeDisplayString(vbs[0])
 }
 
 // MtxrCtTotalEntriesGet reads the SMIv2 scalar mtxrCtTotalEntries.
@@ -2142,9 +1972,7 @@ func MtxrCtTotalEntriesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for mtxrCtTotalEntries")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrCtIP4EntriesGet reads the SMIv2 scalar mtxrCtIP4Entries.
@@ -2161,9 +1989,7 @@ func MtxrCtIP4EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, errs.Msg("empty Get response for mtxrCtIP4Entries")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrCtIP6EntriesGet reads the SMIv2 scalar mtxrCtIP6Entries.
@@ -2180,59 +2006,39 @@ func MtxrCtIP6EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, errs.Msg("empty Get response for mtxrCtIP6Entries")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // MtxrWlStatTxRate is the column mtxrWlStatTxRate of table mtxrWlStatTable.
 // bits per second
-var MtxrWlStatTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 2), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlStatTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlStatRxRate is the column mtxrWlStatRxRate of table mtxrWlStatTable.
 // bits per second
-var MtxrWlStatRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 3), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlStatRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 3), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlStatStrength is the column mtxrWlStatStrength of table mtxrWlStatTable.
 // dBm
-var MtxrWlStatStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlStatStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlStatSsid is the column mtxrWlStatSsid of table mtxrWlStatTable.
-var MtxrWlStatSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlStatSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlStatBssid is the column mtxrWlStatBssid of table mtxrWlStatTable.
-var MtxrWlStatBssid = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrWlStatBssid = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWlStatFreq is the column mtxrWlStatFreq of table mtxrWlStatTable.
 // megahertz
-var MtxrWlStatFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlStatFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlStatBand is the column mtxrWlStatBand of table mtxrWlStatTable.
-var MtxrWlStatBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlStatBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlStatTxCCQ is the column mtxrWlStatTxCCQ of table mtxrWlStatTable.
-var MtxrWlStatTxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 9), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlStatTxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlStatRxCCQ is the column mtxrWlStatRxCCQ of table mtxrWlStatTable.
-var MtxrWlStatRxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 10), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlStatRxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlStatTableKey is the decoded INDEX of one mtxrWlStatTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2340,7 +2146,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 				switch tw.cols[cell.Column].Key() {
 				case MtxrWlStatTxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlStatTxRate = uint32(v)
+						row.MtxrWlStatTxRate = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2358,7 +2164,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 					}
 				case MtxrWlStatRxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlStatRxRate = uint32(v)
+						row.MtxrWlStatRxRate = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2376,7 +2182,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 					}
 				case MtxrWlStatStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlStatStrength = int32(v)
+						row.MtxrWlStatStrength = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2420,7 +2226,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 					}
 				case MtxrWlStatFreq.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlStatFreq = int32(v)
+						row.MtxrWlStatFreq = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2451,7 +2257,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 					}
 				case MtxrWlStatTxCCQ.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlStatTxCCQ = uint32(v)
+						row.MtxrWlStatTxCCQ = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2469,7 +2275,7 @@ func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] 
 					}
 				case MtxrWlStatRxCCQ.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlStatRxCCQ = uint32(v)
+						row.MtxrWlStatRxCCQ = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2563,99 +2369,63 @@ func (mtxrWlStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 
 // MtxrWlRtabStrength is the column mtxrWlRtabStrength of table mtxrWlRtabTable.
 // dBm
-var MtxrWlRtabStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabTxBytes is the column mtxrWlRtabTxBytes of table mtxrWlRtabTable.
-var MtxrWlRtabTxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabTxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlRtabRxBytes is the column mtxrWlRtabRxBytes of table mtxrWlRtabTable.
-var MtxrWlRtabRxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabRxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlRtabTxPackets is the column mtxrWlRtabTxPackets of table mtxrWlRtabTable.
-var MtxrWlRtabTxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabTxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlRtabRxPackets is the column mtxrWlRtabRxPackets of table mtxrWlRtabTable.
-var MtxrWlRtabRxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 7), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabRxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlRtabTxRate is the column mtxrWlRtabTxRate of table mtxrWlRtabTable.
 // bits per second
-var MtxrWlRtabTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 8), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlRtabRxRate is the column mtxrWlRtabRxRate of table mtxrWlRtabTable.
 // bits per second
-var MtxrWlRtabRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 9), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 9), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlRtabRouterOSVersion is the column mtxrWlRtabRouterOSVersion of table mtxrWlRtabTable.
 // RouterOS version
-var MtxrWlRtabRouterOSVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 10), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlRtabRouterOSVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlRtabUptime is the column mtxrWlRtabUptime of table mtxrWlRtabTable.
 // uptime
-var MtxrWlRtabUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 11), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlRtabUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 11), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // MtxrWlRtabSignalToNoise is the column mtxrWlRtabSignalToNoise of table mtxrWlRtabTable.
 // Measured in dB, if value does not exist it is indicated with 0
-var MtxrWlRtabSignalToNoise = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabSignalToNoise = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabTxStrengthCh0 is the column mtxrWlRtabTxStrengthCh0 of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrengthCh0 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabTxStrengthCh0 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 13), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabRxStrengthCh0 is the column mtxrWlRtabRxStrengthCh0 of table mtxrWlRtabTable.
-var MtxrWlRtabRxStrengthCh0 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 14), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabRxStrengthCh0 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 14), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabTxStrengthCh1 is the column mtxrWlRtabTxStrengthCh1 of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrengthCh1 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabTxStrengthCh1 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabRxStrengthCh1 is the column mtxrWlRtabRxStrengthCh1 of table mtxrWlRtabTable.
-var MtxrWlRtabRxStrengthCh1 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabRxStrengthCh1 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabTxStrengthCh2 is the column mtxrWlRtabTxStrengthCh2 of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrengthCh2 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 17), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabTxStrengthCh2 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabRxStrengthCh2 is the column mtxrWlRtabRxStrengthCh2 of table mtxrWlRtabTable.
-var MtxrWlRtabRxStrengthCh2 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabRxStrengthCh2 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabTxStrength is the column mtxrWlRtabTxStrength of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 19), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlRtabTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlRtabRadioName is the column mtxrWlRtabRadioName of table mtxrWlRtabTable.
-var MtxrWlRtabRadioName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 20), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlRtabRadioName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 20), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlRtabTableKey is the decoded INDEX of one mtxrWlRtabTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2794,7 +2564,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 				switch tw.cols[cell.Column].Key() {
 				case MtxrWlRtabStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabStrength = int32(v)
+						row.MtxrWlRtabStrength = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2812,7 +2582,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxBytes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabTxBytes = uint32(v)
+						row.MtxrWlRtabTxBytes = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2830,7 +2600,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabRxBytes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabRxBytes = uint32(v)
+						row.MtxrWlRtabRxBytes = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2848,7 +2618,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxPackets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabTxPackets = uint32(v)
+						row.MtxrWlRtabTxPackets = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2866,7 +2636,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabRxPackets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabRxPackets = uint32(v)
+						row.MtxrWlRtabRxPackets = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2884,7 +2654,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlRtabTxRate = uint32(v)
+						row.MtxrWlRtabTxRate = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2902,7 +2672,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabRxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlRtabRxRate = uint32(v)
+						row.MtxrWlRtabRxRate = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2933,7 +2703,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabUptime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrWlRtabUptime = uint32(v)
+						row.MtxrWlRtabUptime = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2951,7 +2721,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabSignalToNoise.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabSignalToNoise = int32(v)
+						row.MtxrWlRtabSignalToNoise = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2969,7 +2739,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxStrengthCh0.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrengthCh0 = int32(v)
+						row.MtxrWlRtabTxStrengthCh0 = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2987,7 +2757,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabRxStrengthCh0.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabRxStrengthCh0 = int32(v)
+						row.MtxrWlRtabRxStrengthCh0 = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3005,7 +2775,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxStrengthCh1.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrengthCh1 = int32(v)
+						row.MtxrWlRtabTxStrengthCh1 = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3023,7 +2793,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabRxStrengthCh1.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabRxStrengthCh1 = int32(v)
+						row.MtxrWlRtabRxStrengthCh1 = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3041,7 +2811,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxStrengthCh2.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrengthCh2 = int32(v)
+						row.MtxrWlRtabTxStrengthCh2 = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3059,7 +2829,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabRxStrengthCh2.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabRxStrengthCh2 = int32(v)
+						row.MtxrWlRtabRxStrengthCh2 = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3077,7 +2847,7 @@ func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] 
 					}
 				case MtxrWlRtabTxStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrength = int32(v)
+						row.MtxrWlRtabTxStrength = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3184,56 +2954,36 @@ func (mtxrWlRtabTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 
 // MtxrWlApTxRate is the column mtxrWlApTxRate of table mtxrWlApTable.
 // bits per second
-var MtxrWlApTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 2), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlApTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlApRxRate is the column mtxrWlApRxRate of table mtxrWlApTable.
 // bits per second
-var MtxrWlApRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 3), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlApRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 3), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlApSsid is the column mtxrWlApSsid of table mtxrWlApTable.
-var MtxrWlApSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlApSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlApBssid is the column mtxrWlApBssid of table mtxrWlApTable.
-var MtxrWlApBssid = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrWlApBssid = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 5), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWlApClientCount is the column mtxrWlApClientCount of table mtxrWlApTable.
-var MtxrWlApClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlApClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlApFreq is the column mtxrWlApFreq of table mtxrWlApTable.
 // megahertz
-var MtxrWlApFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlApFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlApBand is the column mtxrWlApBand of table mtxrWlApTable.
-var MtxrWlApBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlApBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlApNoiseFloor is the column mtxrWlApNoiseFloor of table mtxrWlApTable.
-var MtxrWlApNoiseFloor = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlApNoiseFloor = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlApOverallTxCCQ is the column mtxrWlApOverallTxCCQ of table mtxrWlApTable.
-var MtxrWlApOverallTxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 10), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlApOverallTxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlApAuthClientCount is the column mtxrWlApAuthClientCount of table mtxrWlApTable.
-var MtxrWlApAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 11), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlApAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlApTableKey is the decoded INDEX of one mtxrWlApTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3344,7 +3094,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 				switch tw.cols[cell.Column].Key() {
 				case MtxrWlApTxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlApTxRate = uint32(v)
+						row.MtxrWlApTxRate = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3362,7 +3112,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					}
 				case MtxrWlApRxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlApRxRate = uint32(v)
+						row.MtxrWlApRxRate = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3406,7 +3156,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					}
 				case MtxrWlApClientCount.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlApClientCount = uint32(v)
+						row.MtxrWlApClientCount = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3424,7 +3174,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					}
 				case MtxrWlApFreq.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlApFreq = int32(v)
+						row.MtxrWlApFreq = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3455,7 +3205,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					}
 				case MtxrWlApNoiseFloor.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlApNoiseFloor = int32(v)
+						row.MtxrWlApNoiseFloor = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3473,7 +3223,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					}
 				case MtxrWlApOverallTxCCQ.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlApOverallTxCCQ = uint32(v)
+						row.MtxrWlApOverallTxCCQ = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3491,7 +3241,7 @@ func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
 					}
 				case MtxrWlApAuthClientCount.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlApAuthClientCount = uint32(v)
+						row.MtxrWlApAuthClientCount = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3584,67 +3334,43 @@ func (mtxrWlApTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, op
 }
 
 // MtxrWlCMRtabAddr is the column mtxrWlCMRtabAddr of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabAddr = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrWlCMRtabAddr = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWlCMRtabUptime is the column mtxrWlCMRtabUptime of table mtxrWlCMRtabTable.
 // uptime
-var MtxrWlCMRtabUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 3), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 3), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // MtxrWlCMRtabTxBytes is the column mtxrWlCMRtabTxBytes of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabTxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabTxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMRtabRxBytes is the column mtxrWlCMRtabRxBytes of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabRxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabRxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMRtabTxPackets is the column mtxrWlCMRtabTxPackets of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabTxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabTxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMRtabRxPackets is the column mtxrWlCMRtabRxPackets of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabRxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 7), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabRxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMRtabTxRate is the column mtxrWlCMRtabTxRate of table mtxrWlCMRtabTable.
 // bits per second
-var MtxrWlCMRtabTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 8), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlCMRtabRxRate is the column mtxrWlCMRtabRxRate of table mtxrWlCMRtabTable.
 // bits per second
-var MtxrWlCMRtabRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 9), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRtabRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 9), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWlCMRtabTxStrength is the column mtxrWlCMRtabTxStrength of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlCMRtabTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlCMRtabRxStrength is the column mtxrWlCMRtabRxStrength of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabRxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWlCMRtabRxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWlCMRtabSsid is the column mtxrWlCMRtabSsid of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 12), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMRtabSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMRtabEapIdent is the column mtxrWlCMRtabEapIdent of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabEapIdent = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 13), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMRtabEapIdent = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMRtabTableKey is the decoded INDEX of one mtxrWlCMRtabTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3778,7 +3504,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabUptime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrWlCMRtabUptime = uint32(v)
+						row.MtxrWlCMRtabUptime = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3796,7 +3522,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabTxBytes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabTxBytes = uint32(v)
+						row.MtxrWlCMRtabTxBytes = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3814,7 +3540,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabRxBytes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabRxBytes = uint32(v)
+						row.MtxrWlCMRtabRxBytes = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3832,7 +3558,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabTxPackets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabTxPackets = uint32(v)
+						row.MtxrWlCMRtabTxPackets = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3850,7 +3576,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabRxPackets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabRxPackets = uint32(v)
+						row.MtxrWlCMRtabRxPackets = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3868,7 +3594,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabTxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlCMRtabTxRate = uint32(v)
+						row.MtxrWlCMRtabTxRate = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3886,7 +3612,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabRxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlCMRtabRxRate = uint32(v)
+						row.MtxrWlCMRtabRxRate = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3904,7 +3630,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabTxStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlCMRtabTxStrength = int32(v)
+						row.MtxrWlCMRtabTxStrength = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3922,7 +3648,7 @@ func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableR
 					}
 				case MtxrWlCMRtabRxStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlCMRtabRxStrength = int32(v)
+						row.MtxrWlCMRtabRxStrength = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4041,25 +3767,17 @@ func (mtxrWlCMRtabTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 }
 
 // MtxrWlCMRegClientCount is the column mtxrWlCMRegClientCount of table mtxrWlCMTable.
-var MtxrWlCMRegClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 2), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRegClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMAuthClientCount is the column mtxrWlCMAuthClientCount of table mtxrWlCMTable.
-var MtxrWlCMAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 3), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMState is the column mtxrWlCMState of table mtxrWlCMTable.
-var MtxrWlCMState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMChannel is the column mtxrWlCMChannel of table mtxrWlCMTable.
 // for master only
-var MtxrWlCMChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMTableKey is the decoded INDEX of one mtxrWlCMTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4152,7 +3870,7 @@ func (tw *MtxrWlCMTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMTableRow] {
 				switch tw.cols[cell.Column].Key() {
 				case MtxrWlCMRegClientCount.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRegClientCount = uint32(v)
+						row.MtxrWlCMRegClientCount = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4170,7 +3888,7 @@ func (tw *MtxrWlCMTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMTableRow] {
 					}
 				case MtxrWlCMAuthClientCount.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMAuthClientCount = uint32(v)
+						row.MtxrWlCMAuthClientCount = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4298,9 +4016,7 @@ var MtxrWl60GMode = snmp.NewColumn[MtxrWl60GModeValue](snmp.MustOID(1, 3, 6, 1, 
 })
 
 // MtxrWl60GSsid is the column mtxrWl60GSsid of table mtxrWl60GTable.
-var MtxrWl60GSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWl60GSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWl60GConnected is the column mtxrWl60GConnected of table mtxrWl60GTable.
 var MtxrWl60GConnected = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
@@ -4312,45 +4028,29 @@ var MtxrWl60GConnected = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1
 })
 
 // MtxrWl60GRemote is the column mtxrWl60GRemote of table mtxrWl60GTable.
-var MtxrWl60GRemote = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrWl60GRemote = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 5), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWl60GFreq is the column mtxrWl60GFreq of table mtxrWl60GTable.
 // Mhz
-var MtxrWl60GFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GMcs is the column mtxrWl60GMcs of table mtxrWl60GTable.
-var MtxrWl60GMcs = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GMcs = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GSignal is the column mtxrWl60GSignal of table mtxrWl60GTable.
-var MtxrWl60GSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GTxSector is the column mtxrWl60GTxSector of table mtxrWl60GTable.
-var MtxrWl60GTxSector = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GTxSector = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GTxSectorInfo is the column mtxrWl60GTxSectorInfo of table mtxrWl60GTable.
-var MtxrWl60GTxSectorInfo = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 11), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWl60GTxSectorInfo = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWl60GRssi is the column mtxrWl60GRssi of table mtxrWl60GTable.
-var MtxrWl60GRssi = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GRssi = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GPhyRate is the column mtxrWl60GPhyRate of table mtxrWl60GTable.
-var MtxrWl60GPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 13), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWl60GPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 13), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWl60GTableKey is the decoded INDEX of one mtxrWl60GTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4526,7 +4226,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					}
 				case MtxrWl60GFreq.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GFreq = int32(v)
+						row.MtxrWl60GFreq = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4544,7 +4244,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					}
 				case MtxrWl60GMcs.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GMcs = int32(v)
+						row.MtxrWl60GMcs = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4562,7 +4262,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					}
 				case MtxrWl60GSignal.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GSignal = int32(v)
+						row.MtxrWl60GSignal = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4580,7 +4280,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					}
 				case MtxrWl60GTxSector.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GTxSector = int32(v)
+						row.MtxrWl60GTxSector = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4611,7 +4311,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					}
 				case MtxrWl60GRssi.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GRssi = int32(v)
+						row.MtxrWl60GRssi = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4629,7 +4329,7 @@ func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
 					}
 				case MtxrWl60GPhyRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWl60GPhyRate = uint32(v)
+						row.MtxrWl60GPhyRate = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4731,41 +4431,27 @@ var MtxrWl60GStaConnected = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4
 })
 
 // MtxrWl60GStaRemote is the column mtxrWl60GStaRemote of table mtxrWl60GStaTable.
-var MtxrWl60GStaRemote = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrWl60GStaRemote = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWl60GStaMcs is the column mtxrWl60GStaMcs of table mtxrWl60GStaTable.
-var MtxrWl60GStaMcs = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GStaMcs = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GStaSignal is the column mtxrWl60GStaSignal of table mtxrWl60GStaTable.
-var MtxrWl60GStaSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GStaSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GStaTxSector is the column mtxrWl60GStaTxSector of table mtxrWl60GStaTable.
-var MtxrWl60GStaTxSector = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GStaTxSector = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GStaPhyRate is the column mtxrWl60GStaPhyRate of table mtxrWl60GStaTable.
 // Mbits per second
-var MtxrWl60GStaPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 8), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWl60GStaPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWl60GStaRssi is the column mtxrWl60GStaRssi of table mtxrWl60GStaTable.
-var MtxrWl60GStaRssi = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GStaRssi = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GStaDistance is the column mtxrWl60GStaDistance of table mtxrWl60GStaTable.
 // meters
-var MtxrWl60GStaDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWl60GStaDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWl60GStaTableKey is the decoded INDEX of one mtxrWl60GStaTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4901,7 +4587,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					}
 				case MtxrWl60GStaMcs.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaMcs = int32(v)
+						row.MtxrWl60GStaMcs = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4919,7 +4605,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					}
 				case MtxrWl60GStaSignal.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaSignal = int32(v)
+						row.MtxrWl60GStaSignal = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4937,7 +4623,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					}
 				case MtxrWl60GStaTxSector.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaTxSector = int32(v)
+						row.MtxrWl60GStaTxSector = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4955,7 +4641,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					}
 				case MtxrWl60GStaPhyRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWl60GStaPhyRate = uint32(v)
+						row.MtxrWl60GStaPhyRate = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4973,7 +4659,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					}
 				case MtxrWl60GStaRssi.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaRssi = int32(v)
+						row.MtxrWl60GStaRssi = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -4991,7 +4677,7 @@ func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableR
 					}
 				case MtxrWl60GStaDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaDistance = int32(v)
+						row.MtxrWl60GStaDistance = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5084,24 +4770,16 @@ func (mtxrWl60GStaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 }
 
 // MtxrWlCMRemoteName is the column mtxrWlCMRemoteName of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMRemoteName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMRemoteState is the column mtxrWlCMRemoteState of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMRemoteState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMRemoteAddress is the column mtxrWlCMRemoteAddress of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteAddress = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWlCMRemoteAddress = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWlCMRemoteRadios is the column mtxrWlCMRemoteRadios of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteRadios = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWlCMRemoteRadios = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrWlCMRemoteTableKey is the decoded INDEX of one mtxrWlCMRemoteTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -5233,7 +4911,7 @@ func (tw *MtxrWlCMRemoteTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRemoteTa
 					}
 				case MtxrWlCMRemoteRadios.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRemoteRadios = uint32(v)
+						row.MtxrWlCMRemoteRadios = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5326,29 +5004,19 @@ func (mtxrWlCMRemoteTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessi
 }
 
 // MtxrQueueSimpleName is the column mtxrQueueSimpleName of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrQueueSimpleName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrQueueSimpleSrcAddr is the column mtxrQueueSimpleSrcAddr of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleSrcAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 3), snmp.KindIPAddress, func(vb snmp.VarBind) (net.IP, error) {
-	return snmp.DecodeIP(vb)
-})
+var MtxrQueueSimpleSrcAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 3), snmp.KindIPAddress, snmp.DecodeIP)
 
 // MtxrQueueSimpleSrcMask is the column mtxrQueueSimpleSrcMask of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleSrcMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 4), snmp.KindIPAddress, func(vb snmp.VarBind) (net.IP, error) {
-	return snmp.DecodeIP(vb)
-})
+var MtxrQueueSimpleSrcMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 4), snmp.KindIPAddress, snmp.DecodeIP)
 
 // MtxrQueueSimpleDstAddr is the column mtxrQueueSimpleDstAddr of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDstAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 5), snmp.KindIPAddress, func(vb snmp.VarBind) (net.IP, error) {
-	return snmp.DecodeIP(vb)
-})
+var MtxrQueueSimpleDstAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 5), snmp.KindIPAddress, snmp.DecodeIP)
 
 // MtxrQueueSimpleDstMask is the column mtxrQueueSimpleDstMask of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDstMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 6), snmp.KindIPAddress, func(vb snmp.VarBind) (net.IP, error) {
-	return snmp.DecodeIP(vb)
-})
+var MtxrQueueSimpleDstMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 6), snmp.KindIPAddress, snmp.DecodeIP)
 
 // MtxrQueueSimpleIface is the column mtxrQueueSimpleIface of table mtxrQueueSimpleTable.
 // interface index
@@ -5361,44 +5029,28 @@ var MtxrQueueSimpleIface = snmp.NewColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 
 })
 
 // MtxrQueueSimpleBytesIn is the column mtxrQueueSimpleBytesIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 8), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrQueueSimpleBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 8), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrQueueSimpleBytesOut is the column mtxrQueueSimpleBytesOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 9), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrQueueSimpleBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 9), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrQueueSimplePacketsIn is the column mtxrQueueSimplePacketsIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePacketsIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 10), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueSimplePacketsIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueSimplePacketsOut is the column mtxrQueueSimplePacketsOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePacketsOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 11), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueSimplePacketsOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueSimplePCQQueuesIn is the column mtxrQueueSimplePCQQueuesIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePCQQueuesIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 12), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueSimplePCQQueuesIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueSimplePCQQueuesOut is the column mtxrQueueSimplePCQQueuesOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePCQQueuesOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 13), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueSimplePCQQueuesOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 13), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueSimpleDroppedIn is the column mtxrQueueSimpleDroppedIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDroppedIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 14), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueSimpleDroppedIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueSimpleDroppedOut is the column mtxrQueueSimpleDroppedOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDroppedOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 15), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueSimpleDroppedOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 15), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueSimpleTableKey is the decoded INDEX of one mtxrQueueSimpleTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -5604,7 +5256,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimpleBytesIn.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrQueueSimpleBytesIn = uint64(v)
+						row.MtxrQueueSimpleBytesIn = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5622,7 +5274,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimpleBytesOut.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrQueueSimpleBytesOut = uint64(v)
+						row.MtxrQueueSimpleBytesOut = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5640,7 +5292,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimplePacketsIn.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePacketsIn = uint32(v)
+						row.MtxrQueueSimplePacketsIn = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5658,7 +5310,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimplePacketsOut.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePacketsOut = uint32(v)
+						row.MtxrQueueSimplePacketsOut = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5676,7 +5328,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimplePCQQueuesIn.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePCQQueuesIn = uint32(v)
+						row.MtxrQueueSimplePCQQueuesIn = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5694,7 +5346,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimplePCQQueuesOut.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePCQQueuesOut = uint32(v)
+						row.MtxrQueueSimplePCQQueuesOut = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5712,7 +5364,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimpleDroppedIn.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimpleDroppedIn = uint32(v)
+						row.MtxrQueueSimpleDroppedIn = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5730,7 +5382,7 @@ func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimple
 					}
 				case MtxrQueueSimpleDroppedOut.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimpleDroppedOut = uint32(v)
+						row.MtxrQueueSimpleDroppedOut = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -5823,15 +5475,11 @@ func (mtxrQueueSimpleTableT) WalkWithOptions(ctx context.Context, sess snmp.Sess
 }
 
 // MtxrQueueTreeName is the column mtxrQueueTreeName of table mtxrQueueTreeTable.
-var MtxrQueueTreeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrQueueTreeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrQueueTreeFlow is the column mtxrQueueTreeFlow of table mtxrQueueTreeTable.
 // flowmark
-var MtxrQueueTreeFlow = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrQueueTreeFlow = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrQueueTreeParentIndex is the column mtxrQueueTreeParentIndex of table mtxrQueueTreeTable.
 // index of parent tree queue or parent interface
@@ -5844,29 +5492,19 @@ var MtxrQueueTreeParentIndex = snmp.NewColumn[ObjectIndex](snmp.MustOID(1, 3, 6,
 })
 
 // MtxrQueueTreeBytes is the column mtxrQueueTreeBytes of table mtxrQueueTreeTable.
-var MtxrQueueTreeBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueTreeBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueTreePackets is the column mtxrQueueTreePackets of table mtxrQueueTreeTable.
-var MtxrQueueTreePackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueTreePackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueTreeHCBytes is the column mtxrQueueTreeHCBytes of table mtxrQueueTreeTable.
-var MtxrQueueTreeHCBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 7), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrQueueTreeHCBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 7), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrQueueTreePCQQueues is the column mtxrQueueTreePCQQueues of table mtxrQueueTreeTable.
-var MtxrQueueTreePCQQueues = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 8), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueTreePCQQueues = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueTreeDropped is the column mtxrQueueTreeDropped of table mtxrQueueTreeTable.
-var MtxrQueueTreeDropped = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 9), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrQueueTreeDropped = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrQueueTreeTableKey is the decoded INDEX of one mtxrQueueTreeTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -6015,7 +5653,7 @@ func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTabl
 					}
 				case MtxrQueueTreeBytes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreeBytes = uint32(v)
+						row.MtxrQueueTreeBytes = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6033,7 +5671,7 @@ func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTabl
 					}
 				case MtxrQueueTreePackets.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreePackets = uint32(v)
+						row.MtxrQueueTreePackets = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6051,7 +5689,7 @@ func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTabl
 					}
 				case MtxrQueueTreeHCBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrQueueTreeHCBytes = uint64(v)
+						row.MtxrQueueTreeHCBytes = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6069,7 +5707,7 @@ func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTabl
 					}
 				case MtxrQueueTreePCQQueues.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreePCQQueues = uint32(v)
+						row.MtxrQueueTreePCQQueues = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6087,7 +5725,7 @@ func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTabl
 					}
 				case MtxrQueueTreeDropped.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreeDropped = uint32(v)
+						row.MtxrQueueTreeDropped = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6180,14 +5818,10 @@ func (mtxrQueueTreeTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 }
 
 // MtxrGaugeName is the column mtxrGaugeName of table mtxrGaugeTable.
-var MtxrGaugeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrGaugeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrGaugeValue is the column mtxrGaugeValue of table mtxrGaugeTable.
-var MtxrGaugeValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrGaugeValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrGaugeUnit is the column mtxrGaugeUnit of table mtxrGaugeTable.
 // units
@@ -6300,7 +5934,7 @@ func (tw *MtxrGaugeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrGaugeTableRow] {
 					}
 				case MtxrGaugeValue.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrGaugeValue = int32(v)
+						row.MtxrGaugeValue = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6411,99 +6045,61 @@ func (mtxrGaugeTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 }
 
 // MtxrHotspotActiveUserServerID is the column mtxrHotspotActiveUserServerID of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserServerID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserServerID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserName is the column mtxrHotspotActiveUserName of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrHotspotActiveUserName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrHotspotActiveUserDomain is the column mtxrHotspotActiveUserDomain of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserDomain = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrHotspotActiveUserDomain = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrHotspotActiveUserIP is the column mtxrHotspotActiveUserIP of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserIP = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 5), snmp.KindIPAddress, func(vb snmp.VarBind) (net.IP, error) {
-	return snmp.DecodeIP(vb)
-})
+var MtxrHotspotActiveUserIP = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 5), snmp.KindIPAddress, snmp.DecodeIP)
 
 // MtxrHotspotActiveUserMAC is the column mtxrHotspotActiveUserMAC of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserMAC = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrHotspotActiveUserMAC = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrHotspotActiveUserConnectTime is the column mtxrHotspotActiveUserConnectTime of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserConnectTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserConnectTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserValidTillTime is the column mtxrHotspotActiveUserValidTillTime of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserValidTillTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserValidTillTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserIdleStartTime is the column mtxrHotspotActiveUserIdleStartTime of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserIdleStartTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserIdleStartTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserIdleTimeout is the column mtxrHotspotActiveUserIdleTimeout of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserIdleTimeout = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserIdleTimeout = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserPingTimeout is the column mtxrHotspotActiveUserPingTimeout of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserPingTimeout = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserPingTimeout = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserBytesIn is the column mtxrHotspotActiveUserBytesIn of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 12), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrHotspotActiveUserBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 12), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrHotspotActiveUserBytesOut is the column mtxrHotspotActiveUserBytesOut of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 13), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrHotspotActiveUserBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrHotspotActiveUserPacketsIn is the column mtxrHotspotActiveUserPacketsIn of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserPacketsIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 14), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrHotspotActiveUserPacketsIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrHotspotActiveUserPacketsOut is the column mtxrHotspotActiveUserPacketsOut of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserPacketsOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 15), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrHotspotActiveUserPacketsOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 15), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrHotspotActiveUserLimitBytesIn is the column mtxrHotspotActiveUserLimitBytesIn of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserLimitBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 16), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrHotspotActiveUserLimitBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 16), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrHotspotActiveUserLimitBytesOut is the column mtxrHotspotActiveUserLimitBytesOut of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserLimitBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 17), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrHotspotActiveUserLimitBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 17), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrHotspotActiveUserAdvertStatus is the column mtxrHotspotActiveUserAdvertStatus of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserAdvertStatus = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserAdvertStatus = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserRadius is the column mtxrHotspotActiveUserRadius of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserRadius = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 19), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserRadius = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUserBlockedByAdvert is the column mtxrHotspotActiveUserBlockedByAdvert of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserBlockedByAdvert = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 20), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrHotspotActiveUserBlockedByAdvert = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 20), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrHotspotActiveUsersTableKey is the decoded INDEX of one mtxrHotspotActiveUsersTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -6641,7 +6237,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 				switch tw.cols[cell.Column].Key() {
 				case MtxrHotspotActiveUserServerID.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserServerID = int32(v)
+						row.MtxrHotspotActiveUserServerID = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6711,7 +6307,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserConnectTime.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserConnectTime = int32(v)
+						row.MtxrHotspotActiveUserConnectTime = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6729,7 +6325,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserValidTillTime.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserValidTillTime = int32(v)
+						row.MtxrHotspotActiveUserValidTillTime = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6747,7 +6343,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserIdleStartTime.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserIdleStartTime = int32(v)
+						row.MtxrHotspotActiveUserIdleStartTime = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6765,7 +6361,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserIdleTimeout.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserIdleTimeout = int32(v)
+						row.MtxrHotspotActiveUserIdleTimeout = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6783,7 +6379,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserPingTimeout.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserPingTimeout = int32(v)
+						row.MtxrHotspotActiveUserPingTimeout = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6801,7 +6397,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserBytesIn.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserBytesIn = uint64(v)
+						row.MtxrHotspotActiveUserBytesIn = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6819,7 +6415,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserBytesOut.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserBytesOut = uint64(v)
+						row.MtxrHotspotActiveUserBytesOut = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6837,7 +6433,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserPacketsIn.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserPacketsIn = uint64(v)
+						row.MtxrHotspotActiveUserPacketsIn = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6855,7 +6451,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserPacketsOut.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserPacketsOut = uint64(v)
+						row.MtxrHotspotActiveUserPacketsOut = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6873,7 +6469,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserLimitBytesIn.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserLimitBytesIn = uint64(v)
+						row.MtxrHotspotActiveUserLimitBytesIn = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6891,7 +6487,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserLimitBytesOut.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserLimitBytesOut = uint64(v)
+						row.MtxrHotspotActiveUserLimitBytesOut = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6909,7 +6505,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserAdvertStatus.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserAdvertStatus = int32(v)
+						row.MtxrHotspotActiveUserAdvertStatus = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6927,7 +6523,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserRadius.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserRadius = int32(v)
+						row.MtxrHotspotActiveUserRadius = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
@@ -6945,7 +6541,7 @@ func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHots
 					}
 				case MtxrHotspotActiveUserBlockedByAdvert.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserBlockedByAdvert = int32(v)
+						row.MtxrHotspotActiveUserBlockedByAdvert = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7038,15 +6634,11 @@ func (mtxrHotspotActiveUsersTableT) WalkWithOptions(ctx context.Context, sess sn
 }
 
 // MtxrScriptName is the column mtxrScriptName of table mtxrScriptTable.
-var MtxrScriptName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrScriptName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrScriptRunCmd is the column mtxrScriptRunCmd of table mtxrScriptTable.
 // set non zero to run
-var MtxrScriptRunCmd = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrScriptRunCmd = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrScriptTableKey is the decoded INDEX of one mtxrScriptTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -7146,7 +6738,7 @@ func (tw *MtxrScriptTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptTableRow] 
 					}
 				case MtxrScriptRunCmd.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrScriptRunCmd = int32(v)
+						row.MtxrScriptRunCmd = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7240,33 +6832,23 @@ func (mtxrScriptTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 
 // MtxrDnStatTxRate is the column mtxrDnStatTxRate of table mtxrDnStatTable.
 // bits per second
-var MtxrDnStatTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 2), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrDnStatTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrDnStatRxRate is the column mtxrDnStatRxRate of table mtxrDnStatTable.
 // bits per second
-var MtxrDnStatRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 3), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrDnStatRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 3), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrDnStatTxStrength is the column mtxrDnStatTxStrength of table mtxrDnStatTable.
 // dBm
-var MtxrDnStatTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrDnStatTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrDnStatRxStrength is the column mtxrDnStatRxStrength of table mtxrDnStatTable.
 // dBm
-var MtxrDnStatRxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrDnStatRxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrDnConnected is the column mtxrDnConnected of table mtxrDnStatTable.
 // 0 - not connected, connected otherwise
-var MtxrDnConnected = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrDnConnected = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrDnStatTableKey is the decoded INDEX of one mtxrDnStatTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -7362,7 +6944,7 @@ func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] 
 				switch tw.cols[cell.Column].Key() {
 				case MtxrDnStatTxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrDnStatTxRate = uint32(v)
+						row.MtxrDnStatTxRate = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7380,7 +6962,7 @@ func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] 
 					}
 				case MtxrDnStatRxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrDnStatRxRate = uint32(v)
+						row.MtxrDnStatRxRate = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7398,7 +6980,7 @@ func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] 
 					}
 				case MtxrDnStatTxStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrDnStatTxStrength = int32(v)
+						row.MtxrDnStatTxStrength = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7416,7 +6998,7 @@ func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] 
 					}
 				case MtxrDnStatRxStrength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrDnStatRxStrength = int32(v)
+						row.MtxrDnStatRxStrength = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7434,7 +7016,7 @@ func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] 
 					}
 				case MtxrDnConnected.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrDnConnected = int32(v)
+						row.MtxrDnConnected = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -7527,34 +7109,22 @@ func (mtxrDnStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 }
 
 // MtxrNeighborIpAddress is the column mtxrNeighborIpAddress of table mtxrNeighborTable.
-var MtxrNeighborIpAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2), snmp.KindIPAddress, func(vb snmp.VarBind) (net.IP, error) {
-	return snmp.DecodeIP(vb)
-})
+var MtxrNeighborIpAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2), snmp.KindIPAddress, snmp.DecodeIP)
 
 // MtxrNeighborMacAddress is the column mtxrNeighborMacAddress of table mtxrNeighborTable.
-var MtxrNeighborMacAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrNeighborMacAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrNeighborVersion is the column mtxrNeighborVersion of table mtxrNeighborTable.
-var MtxrNeighborVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrNeighborVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrNeighborPlatform is the column mtxrNeighborPlatform of table mtxrNeighborTable.
-var MtxrNeighborPlatform = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrNeighborPlatform = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrNeighborIdentity is the column mtxrNeighborIdentity of table mtxrNeighborTable.
-var MtxrNeighborIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrNeighborIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrNeighborSoftwareID is the column mtxrNeighborSoftwareID of table mtxrNeighborTable.
-var MtxrNeighborSoftwareID = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrNeighborSoftwareID = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrNeighborInterfaceID is the column mtxrNeighborInterfaceID of table mtxrNeighborTable.
 var MtxrNeighborInterfaceID = snmp.NewColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
@@ -7836,344 +7406,208 @@ func (mtxrNeighborTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 }
 
 // MtxrInterfaceStatsName is the column mtxrInterfaceStatsName of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrInterfaceStatsName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrInterfaceStatsDriverRxBytes is the column mtxrInterfaceStatsDriverRxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 11), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsDriverRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 11), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsDriverRxPackets is the column mtxrInterfaceStatsDriverRxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 12), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsDriverRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 12), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsDriverTxBytes is the column mtxrInterfaceStatsDriverTxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 13), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsDriverTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsDriverTxPackets is the column mtxrInterfaceStatsDriverTxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 14), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsDriverTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx64 is the column mtxrInterfaceStatsTxRx64 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 15), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 15), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx65To127 is the column mtxrInterfaceStatsTxRx65To127 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 16), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 16), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx128To255 is the column mtxrInterfaceStatsTxRx128To255 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 17), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 17), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx256To511 is the column mtxrInterfaceStatsTxRx256To511 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 18), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 18), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx512To1023 is the column mtxrInterfaceStatsTxRx512To1023 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 19), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 19), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx1024To1518 is the column mtxrInterfaceStatsTxRx1024To1518 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 20), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 20), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxRx1519ToMax is the column mtxrInterfaceStatsTxRx1519ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 21), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxBytes is the column mtxrInterfaceStatsRxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 31), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 31), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxPackets is the column mtxrInterfaceStatsRxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 32), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 32), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxTooShort is the column mtxrInterfaceStatsRxTooShort of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxTooShort = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 33), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxTooShort = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 33), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx64 is the column mtxrInterfaceStatsRx64 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 34), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 34), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx65To127 is the column mtxrInterfaceStatsRx65To127 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 35), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 35), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx128To255 is the column mtxrInterfaceStatsRx128To255 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 36), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 36), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx256To511 is the column mtxrInterfaceStatsRx256To511 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 37), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 37), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx512To1023 is the column mtxrInterfaceStatsRx512To1023 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 38), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 38), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx1024To1518 is the column mtxrInterfaceStatsRx1024To1518 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 39), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 39), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRx1519ToMax is the column mtxrInterfaceStatsRx1519ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 40), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 40), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxTooLong is the column mtxrInterfaceStatsRxTooLong of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxTooLong = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 41), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxTooLong = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 41), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxBroadcast is the column mtxrInterfaceStatsRxBroadcast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxBroadcast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 42), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxBroadcast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 42), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxPause is the column mtxrInterfaceStatsRxPause of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxPause = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 43), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxPause = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 43), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxMulticast is the column mtxrInterfaceStatsRxMulticast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxMulticast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 44), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxMulticast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 44), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxFCSError is the column mtxrInterfaceStatsRxFCSError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxFCSError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 45), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxFCSError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 45), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxAlignError is the column mtxrInterfaceStatsRxAlignError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxAlignError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 46), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxAlignError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 46), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxFragment is the column mtxrInterfaceStatsRxFragment of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxFragment = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 47), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxFragment = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 47), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxOverflow is the column mtxrInterfaceStatsRxOverflow of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxOverflow = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 48), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxOverflow = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 48), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxControl is the column mtxrInterfaceStatsRxControl of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxControl = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 49), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxControl = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 49), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxUnknownOp is the column mtxrInterfaceStatsRxUnknownOp of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxUnknownOp = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 50), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxUnknownOp = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 50), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxLengthError is the column mtxrInterfaceStatsRxLengthError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxLengthError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 51), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxLengthError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 51), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxCodeError is the column mtxrInterfaceStatsRxCodeError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxCodeError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 52), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxCodeError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 52), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxCarrierError is the column mtxrInterfaceStatsRxCarrierError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxCarrierError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 53), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxCarrierError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 53), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxJabber is the column mtxrInterfaceStatsRxJabber of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxJabber = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 54), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxJabber = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 54), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsRxDrop is the column mtxrInterfaceStatsRxDrop of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxDrop = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 55), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsRxDrop = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 55), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxBytes is the column mtxrInterfaceStatsTxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 61), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 61), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxPackets is the column mtxrInterfaceStatsTxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 62), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 62), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxTooShort is the column mtxrInterfaceStatsTxTooShort of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxTooShort = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 63), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxTooShort = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 63), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx64 is the column mtxrInterfaceStatsTx64 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 64), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 64), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx65To127 is the column mtxrInterfaceStatsTx65To127 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 65), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 65), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx128To255 is the column mtxrInterfaceStatsTx128To255 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 66), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 66), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx256To511 is the column mtxrInterfaceStatsTx256To511 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 67), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 67), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx512To1023 is the column mtxrInterfaceStatsTx512To1023 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 68), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 68), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx1024To1518 is the column mtxrInterfaceStatsTx1024To1518 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 69), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 69), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTx1519ToMax is the column mtxrInterfaceStatsTx1519ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 70), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 70), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxTooLong is the column mtxrInterfaceStatsTxTooLong of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxTooLong = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 71), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxTooLong = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 71), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxBroadcast is the column mtxrInterfaceStatsTxBroadcast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxBroadcast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 72), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxBroadcast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 72), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxPause is the column mtxrInterfaceStatsTxPause of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxPause = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 73), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxPause = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 73), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxMulticast is the column mtxrInterfaceStatsTxMulticast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxMulticast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 74), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxMulticast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 74), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxUnderrun is the column mtxrInterfaceStatsTxUnderrun of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxUnderrun = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 75), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxUnderrun = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 75), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxCollision is the column mtxrInterfaceStatsTxCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 76), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 76), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxExcessiveCollision is the column mtxrInterfaceStatsTxExcessiveCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxExcessiveCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 77), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxExcessiveCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 77), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxMultipleCollision is the column mtxrInterfaceStatsTxMultipleCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxMultipleCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 78), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxMultipleCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 78), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxSingleCollision is the column mtxrInterfaceStatsTxSingleCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxSingleCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 79), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxSingleCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 79), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxExcessiveDeferred is the column mtxrInterfaceStatsTxExcessiveDeferred of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxExcessiveDeferred = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 80), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxExcessiveDeferred = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 80), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxDeferred is the column mtxrInterfaceStatsTxDeferred of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxDeferred = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 81), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxDeferred = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 81), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxLateCollision is the column mtxrInterfaceStatsTxLateCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxLateCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 82), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxLateCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 82), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxTotalCollision is the column mtxrInterfaceStatsTxTotalCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxTotalCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 83), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxTotalCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 83), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxPauseHonored is the column mtxrInterfaceStatsTxPauseHonored of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxPauseHonored = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 84), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxPauseHonored = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 84), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxDrop is the column mtxrInterfaceStatsTxDrop of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxDrop = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 85), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxDrop = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 85), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxJabber is the column mtxrInterfaceStatsTxJabber of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxJabber = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 86), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxJabber = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 86), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxFCSError is the column mtxrInterfaceStatsTxFCSError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxFCSError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 87), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxFCSError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 87), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxControl is the column mtxrInterfaceStatsTxControl of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxControl = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 88), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxControl = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 88), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTxFragment is the column mtxrInterfaceStatsTxFragment of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxFragment = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 89), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxFragment = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 89), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsLinkDowns is the column mtxrInterfaceStatsLinkDowns of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsLinkDowns = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 90), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrInterfaceStatsLinkDowns = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 90), snmp.KindCounter32, snmp.DecodeUint32)
 
 // MtxrInterfaceStatsTxRx1024ToMax is the column mtxrInterfaceStatsTxRx1024ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx1024ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 91), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrInterfaceStatsTxRx1024ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 91), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrInterfaceStatsTableKey is the decoded INDEX of one mtxrInterfaceStatsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -8471,7 +7905,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsDriverRxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverRxBytes = uint64(v)
+						row.MtxrInterfaceStatsDriverRxBytes = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8489,7 +7923,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsDriverRxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverRxPackets = uint64(v)
+						row.MtxrInterfaceStatsDriverRxPackets = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8507,7 +7941,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsDriverTxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverTxBytes = uint64(v)
+						row.MtxrInterfaceStatsDriverTxBytes = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8525,7 +7959,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsDriverTxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverTxPackets = uint64(v)
+						row.MtxrInterfaceStatsDriverTxPackets = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8543,7 +7977,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx64.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx64 = uint64(v)
+						row.MtxrInterfaceStatsTxRx64 = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8561,7 +7995,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx65To127.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx65To127 = uint64(v)
+						row.MtxrInterfaceStatsTxRx65To127 = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8579,7 +8013,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx128To255.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx128To255 = uint64(v)
+						row.MtxrInterfaceStatsTxRx128To255 = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8597,7 +8031,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx256To511.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx256To511 = uint64(v)
+						row.MtxrInterfaceStatsTxRx256To511 = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8615,7 +8049,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx512To1023.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx512To1023 = uint64(v)
+						row.MtxrInterfaceStatsTxRx512To1023 = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8633,7 +8067,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx1024To1518.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx1024To1518 = uint64(v)
+						row.MtxrInterfaceStatsTxRx1024To1518 = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8651,7 +8085,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx1519ToMax.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx1519ToMax = uint64(v)
+						row.MtxrInterfaceStatsTxRx1519ToMax = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8669,7 +8103,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxBytes = uint64(v)
+						row.MtxrInterfaceStatsRxBytes = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8687,7 +8121,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxPackets = uint64(v)
+						row.MtxrInterfaceStatsRxPackets = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8705,7 +8139,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxTooShort.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxTooShort = uint64(v)
+						row.MtxrInterfaceStatsRxTooShort = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8723,7 +8157,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx64.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx64 = uint64(v)
+						row.MtxrInterfaceStatsRx64 = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8741,7 +8175,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx65To127.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx65To127 = uint64(v)
+						row.MtxrInterfaceStatsRx65To127 = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8759,7 +8193,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx128To255.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx128To255 = uint64(v)
+						row.MtxrInterfaceStatsRx128To255 = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8777,7 +8211,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx256To511.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx256To511 = uint64(v)
+						row.MtxrInterfaceStatsRx256To511 = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8795,7 +8229,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx512To1023.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx512To1023 = uint64(v)
+						row.MtxrInterfaceStatsRx512To1023 = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8813,7 +8247,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx1024To1518.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx1024To1518 = uint64(v)
+						row.MtxrInterfaceStatsRx1024To1518 = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8831,7 +8265,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRx1519ToMax.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx1519ToMax = uint64(v)
+						row.MtxrInterfaceStatsRx1519ToMax = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8849,7 +8283,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxTooLong.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxTooLong = uint64(v)
+						row.MtxrInterfaceStatsRxTooLong = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8867,7 +8301,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxBroadcast.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxBroadcast = uint64(v)
+						row.MtxrInterfaceStatsRxBroadcast = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8885,7 +8319,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxPause.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxPause = uint64(v)
+						row.MtxrInterfaceStatsRxPause = v
 						row.observed[0] |= 1 << 24
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8903,7 +8337,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxMulticast.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxMulticast = uint64(v)
+						row.MtxrInterfaceStatsRxMulticast = v
 						row.observed[0] |= 1 << 25
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8921,7 +8355,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxFCSError.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxFCSError = uint64(v)
+						row.MtxrInterfaceStatsRxFCSError = v
 						row.observed[0] |= 1 << 26
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8939,7 +8373,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxAlignError.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxAlignError = uint64(v)
+						row.MtxrInterfaceStatsRxAlignError = v
 						row.observed[0] |= 1 << 27
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8957,7 +8391,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxFragment.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxFragment = uint64(v)
+						row.MtxrInterfaceStatsRxFragment = v
 						row.observed[0] |= 1 << 28
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8975,7 +8409,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxOverflow.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxOverflow = uint64(v)
+						row.MtxrInterfaceStatsRxOverflow = v
 						row.observed[0] |= 1 << 29
 					} else {
 						vb, vbErr := rv.Decode()
@@ -8993,7 +8427,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxControl.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxControl = uint64(v)
+						row.MtxrInterfaceStatsRxControl = v
 						row.observed[0] |= 1 << 30
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9011,7 +8445,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxUnknownOp.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxUnknownOp = uint64(v)
+						row.MtxrInterfaceStatsRxUnknownOp = v
 						row.observed[0] |= 1 << 31
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9029,7 +8463,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxLengthError.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxLengthError = uint64(v)
+						row.MtxrInterfaceStatsRxLengthError = v
 						row.observed[0] |= 1 << 32
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9047,7 +8481,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxCodeError.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxCodeError = uint64(v)
+						row.MtxrInterfaceStatsRxCodeError = v
 						row.observed[0] |= 1 << 33
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9065,7 +8499,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxCarrierError.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxCarrierError = uint64(v)
+						row.MtxrInterfaceStatsRxCarrierError = v
 						row.observed[0] |= 1 << 34
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9083,7 +8517,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxJabber.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxJabber = uint64(v)
+						row.MtxrInterfaceStatsRxJabber = v
 						row.observed[0] |= 1 << 35
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9101,7 +8535,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsRxDrop.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxDrop = uint64(v)
+						row.MtxrInterfaceStatsRxDrop = v
 						row.observed[0] |= 1 << 36
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9119,7 +8553,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxBytes = uint64(v)
+						row.MtxrInterfaceStatsTxBytes = v
 						row.observed[0] |= 1 << 37
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9137,7 +8571,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxPackets = uint64(v)
+						row.MtxrInterfaceStatsTxPackets = v
 						row.observed[0] |= 1 << 38
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9155,7 +8589,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxTooShort.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxTooShort = uint64(v)
+						row.MtxrInterfaceStatsTxTooShort = v
 						row.observed[0] |= 1 << 39
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9173,7 +8607,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx64.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx64 = uint64(v)
+						row.MtxrInterfaceStatsTx64 = v
 						row.observed[0] |= 1 << 40
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9191,7 +8625,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx65To127.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx65To127 = uint64(v)
+						row.MtxrInterfaceStatsTx65To127 = v
 						row.observed[0] |= 1 << 41
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9209,7 +8643,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx128To255.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx128To255 = uint64(v)
+						row.MtxrInterfaceStatsTx128To255 = v
 						row.observed[0] |= 1 << 42
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9227,7 +8661,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx256To511.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx256To511 = uint64(v)
+						row.MtxrInterfaceStatsTx256To511 = v
 						row.observed[0] |= 1 << 43
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9245,7 +8679,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx512To1023.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx512To1023 = uint64(v)
+						row.MtxrInterfaceStatsTx512To1023 = v
 						row.observed[0] |= 1 << 44
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9263,7 +8697,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx1024To1518.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx1024To1518 = uint64(v)
+						row.MtxrInterfaceStatsTx1024To1518 = v
 						row.observed[0] |= 1 << 45
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9281,7 +8715,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTx1519ToMax.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx1519ToMax = uint64(v)
+						row.MtxrInterfaceStatsTx1519ToMax = v
 						row.observed[0] |= 1 << 46
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9299,7 +8733,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxTooLong.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxTooLong = uint64(v)
+						row.MtxrInterfaceStatsTxTooLong = v
 						row.observed[0] |= 1 << 47
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9317,7 +8751,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxBroadcast.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxBroadcast = uint64(v)
+						row.MtxrInterfaceStatsTxBroadcast = v
 						row.observed[0] |= 1 << 48
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9335,7 +8769,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxPause.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxPause = uint64(v)
+						row.MtxrInterfaceStatsTxPause = v
 						row.observed[0] |= 1 << 49
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9353,7 +8787,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxMulticast.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxMulticast = uint64(v)
+						row.MtxrInterfaceStatsTxMulticast = v
 						row.observed[0] |= 1 << 50
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9371,7 +8805,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxUnderrun.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxUnderrun = uint64(v)
+						row.MtxrInterfaceStatsTxUnderrun = v
 						row.observed[0] |= 1 << 51
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9389,7 +8823,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxCollision.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxCollision = uint64(v)
+						row.MtxrInterfaceStatsTxCollision = v
 						row.observed[0] |= 1 << 52
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9407,7 +8841,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxExcessiveCollision.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxExcessiveCollision = uint64(v)
+						row.MtxrInterfaceStatsTxExcessiveCollision = v
 						row.observed[0] |= 1 << 53
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9425,7 +8859,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxMultipleCollision.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxMultipleCollision = uint64(v)
+						row.MtxrInterfaceStatsTxMultipleCollision = v
 						row.observed[0] |= 1 << 54
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9443,7 +8877,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxSingleCollision.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxSingleCollision = uint64(v)
+						row.MtxrInterfaceStatsTxSingleCollision = v
 						row.observed[0] |= 1 << 55
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9461,7 +8895,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxExcessiveDeferred.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxExcessiveDeferred = uint64(v)
+						row.MtxrInterfaceStatsTxExcessiveDeferred = v
 						row.observed[0] |= 1 << 56
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9479,7 +8913,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxDeferred.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxDeferred = uint64(v)
+						row.MtxrInterfaceStatsTxDeferred = v
 						row.observed[0] |= 1 << 57
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9497,7 +8931,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxLateCollision.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxLateCollision = uint64(v)
+						row.MtxrInterfaceStatsTxLateCollision = v
 						row.observed[0] |= 1 << 58
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9515,7 +8949,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxTotalCollision.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxTotalCollision = uint64(v)
+						row.MtxrInterfaceStatsTxTotalCollision = v
 						row.observed[0] |= 1 << 59
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9533,7 +8967,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxPauseHonored.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxPauseHonored = uint64(v)
+						row.MtxrInterfaceStatsTxPauseHonored = v
 						row.observed[0] |= 1 << 60
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9551,7 +8985,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxDrop.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxDrop = uint64(v)
+						row.MtxrInterfaceStatsTxDrop = v
 						row.observed[0] |= 1 << 61
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9569,7 +9003,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxJabber.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxJabber = uint64(v)
+						row.MtxrInterfaceStatsTxJabber = v
 						row.observed[0] |= 1 << 62
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9587,7 +9021,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxFCSError.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxFCSError = uint64(v)
+						row.MtxrInterfaceStatsTxFCSError = v
 						row.observed[0] |= 1 << 63
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9605,7 +9039,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxControl.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxControl = uint64(v)
+						row.MtxrInterfaceStatsTxControl = v
 						row.observed[1] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9623,7 +9057,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxFragment.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxFragment = uint64(v)
+						row.MtxrInterfaceStatsTxFragment = v
 						row.observed[1] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9641,7 +9075,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsLinkDowns.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrInterfaceStatsLinkDowns = uint32(v)
+						row.MtxrInterfaceStatsLinkDowns = v
 						row.observed[1] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9659,7 +9093,7 @@ func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfac
 					}
 				case MtxrInterfaceStatsTxRx1024ToMax.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx1024ToMax = uint64(v)
+						row.MtxrInterfaceStatsTxRx1024ToMax = v
 						row.observed[1] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9752,9 +9186,7 @@ func (mtxrInterfaceStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.S
 }
 
 // MtxrPOEName is the column mtxrPOEName of table mtxrPOETable.
-var MtxrPOEName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrPOEName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrPOEStatus is the column mtxrPOEStatus of table mtxrPOETable.
 var MtxrPOEStatus = snmp.NewColumn[MtxrPOEStatusValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrPOEStatusValue, error) {
@@ -9767,21 +9199,15 @@ var MtxrPOEStatus = snmp.NewColumn[MtxrPOEStatusValue](snmp.MustOID(1, 3, 6, 1, 
 
 // MtxrPOEVoltage is the column mtxrPOEVoltage of table mtxrPOETable.
 // V
-var MtxrPOEVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrPOEVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrPOECurrent is the column mtxrPOECurrent of table mtxrPOETable.
 // mA
-var MtxrPOECurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrPOECurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrPOEPower is the column mtxrPOEPower of table mtxrPOETable.
 // W
-var MtxrPOEPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrPOEPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrPOETableKey is the decoded INDEX of one mtxrPOETable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -9908,7 +9334,7 @@ func (tw *MtxrPOETableWalker) Iter() iter.Seq2[snmp.OID, MtxrPOETableRow] {
 					}
 				case MtxrPOEVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOEVoltage = int32(v)
+						row.MtxrPOEVoltage = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9926,7 +9352,7 @@ func (tw *MtxrPOETableWalker) Iter() iter.Seq2[snmp.OID, MtxrPOETableRow] {
 					}
 				case MtxrPOECurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOECurrent = int32(v)
+						row.MtxrPOECurrent = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -9944,7 +9370,7 @@ func (tw *MtxrPOETableWalker) Iter() iter.Seq2[snmp.OID, MtxrPOETableRow] {
 					}
 				case MtxrPOEPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOEPower = int32(v)
+						row.MtxrPOEPower = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10038,27 +9464,21 @@ func (mtxrPOETableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opt
 
 // MtxrLTEModemSignalRSSI is the column mtxrLTEModemSignalRSSI of table mtxrLTEModemTable.
 // dBm
-var MtxrLTEModemSignalRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemSignalRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemSignalRSRQ is the column mtxrLTEModemSignalRSRQ of table mtxrLTEModemTable.
 // dB
-var MtxrLTEModemSignalRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+//
+// Deprecated: mtxrLTEModemSignalRSRQ is STATUS deprecated in MIKROTIK-MIB.
+var MtxrLTEModemSignalRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemSignalRSRP is the column mtxrLTEModemSignalRSRP of table mtxrLTEModemTable.
 // dBm
-var MtxrLTEModemSignalRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemSignalRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemCellId is the column mtxrLTEModemCellId of table mtxrLTEModemTable.
 // current cell ID
-var MtxrLTEModemCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemAccessTechnology is the column mtxrLTEModemAccessTechnology of table mtxrLTEModemTable.
 // as reported by +CREG
@@ -10072,99 +9492,61 @@ var MtxrLTEModemAccessTechnology = snmp.NewColumn[MtxrLTEModemAccessTechnologyVa
 
 // MtxrLTEModemSignalSINR is the column mtxrLTEModemSignalSINR of table mtxrLTEModemTable.
 // dB
-var MtxrLTEModemSignalSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemSignalSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemEnbId is the column mtxrLTEModemEnbId of table mtxrLTEModemTable.
-var MtxrLTEModemEnbId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemEnbId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemSectorId is the column mtxrLTEModemSectorId of table mtxrLTEModemTable.
-var MtxrLTEModemSectorId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemSectorId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemLac is the column mtxrLTEModemLac of table mtxrLTEModemTable.
-var MtxrLTEModemLac = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemLac = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemIMEI is the column mtxrLTEModemIMEI of table mtxrLTEModemTable.
-var MtxrLTEModemIMEI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 11), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemIMEI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemIMSI is the column mtxrLTEModemIMSI of table mtxrLTEModemTable.
-var MtxrLTEModemIMSI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 12), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemIMSI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemUICC is the column mtxrLTEModemUICC of table mtxrLTEModemTable.
-var MtxrLTEModemUICC = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 13), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemUICC = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemRAT is the column mtxrLTEModemRAT of table mtxrLTEModemTable.
-var MtxrLTEModemRAT = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 14), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemRAT = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 14), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemPrimaryBand is the column mtxrLTEModemPrimaryBand of table mtxrLTEModemTable.
-var MtxrLTEModemPrimaryBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 15), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemPrimaryBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 15), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemSessionUptime is the column mtxrLTEModemSessionUptime of table mtxrLTEModemTable.
-var MtxrLTEModemSessionUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 16), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrLTEModemSessionUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 16), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // MtxrLTEModemRegStatus is the column mtxrLTEModemRegStatus of table mtxrLTEModemTable.
-var MtxrLTEModemRegStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 17), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemRegStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 17), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemPinStatus is the column mtxrLTEModemPinStatus of table mtxrLTEModemTable.
-var MtxrLTEModemPinStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 18), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemPinStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 18), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemModel is the column mtxrLTEModemModel of table mtxrLTEModemTable.
-var MtxrLTEModemModel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 19), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemModel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 19), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemFirmware is the column mtxrLTEModemFirmware of table mtxrLTEModemTable.
-var MtxrLTEModemFirmware = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 20), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrLTEModemFirmware = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 20), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrLTEModemCQI is the column mtxrLTEModemCQI of table mtxrLTEModemTable.
-var MtxrLTEModemCQI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 21), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemCQI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemNrRSRP is the column mtxrLTEModemNrRSRP of table mtxrLTEModemTable.
-var MtxrLTEModemNrRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 22), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemNrRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemNrRSRQ is the column mtxrLTEModemNrRSRQ of table mtxrLTEModemTable.
-var MtxrLTEModemNrRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 23), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemNrRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemNrSINR is the column mtxrLTEModemNrSINR of table mtxrLTEModemTable.
-var MtxrLTEModemNrSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 24), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemNrSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemSignalRSRQD10 is the column mtxrLTEModemSignalRSRQD10 of table mtxrLTEModemTable.
-var MtxrLTEModemSignalRSRQD10 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTEModemSignalRSRQD10 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTEModemTableKey is the decoded INDEX of one mtxrLTEModemTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -10317,7 +9699,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 				switch tw.cols[cell.Column].Key() {
 				case MtxrLTEModemSignalRSSI.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSSI = int32(v)
+						row.MtxrLTEModemSignalRSSI = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10335,7 +9717,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemSignalRSRQ.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSRQ = int32(v)
+						row.MtxrLTEModemSignalRSRQ = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10353,7 +9735,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemSignalRSRP.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSRP = int32(v)
+						row.MtxrLTEModemSignalRSRP = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10371,7 +9753,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemCellId.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemCellId = int32(v)
+						row.MtxrLTEModemCellId = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10407,7 +9789,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemSignalSINR.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalSINR = int32(v)
+						row.MtxrLTEModemSignalSINR = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10425,7 +9807,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemEnbId.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemEnbId = int32(v)
+						row.MtxrLTEModemEnbId = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10443,7 +9825,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemSectorId.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSectorId = int32(v)
+						row.MtxrLTEModemSectorId = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10461,7 +9843,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemLac.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemLac = int32(v)
+						row.MtxrLTEModemLac = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10544,7 +9926,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemSessionUptime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrLTEModemSessionUptime = uint32(v)
+						row.MtxrLTEModemSessionUptime = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10614,7 +9996,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemCQI.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemCQI = int32(v)
+						row.MtxrLTEModemCQI = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10632,7 +10014,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemNrRSRP.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemNrRSRP = int32(v)
+						row.MtxrLTEModemNrRSRP = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10650,7 +10032,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemNrRSRQ.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemNrRSRQ = int32(v)
+						row.MtxrLTEModemNrRSRQ = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10668,7 +10050,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemNrSINR.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemNrSINR = int32(v)
+						row.MtxrLTEModemNrSINR = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10686,7 +10068,7 @@ func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableR
 					}
 				case MtxrLTEModemSignalRSRQD10.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSRQD10 = int32(v)
+						row.MtxrLTEModemSignalRSRQD10 = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10779,65 +10161,43 @@ func (mtxrLTEModemTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 }
 
 // MtxrLTECarrierAggBand is the column mtxrLTECarrierAggBand of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggBand = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggBand = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggEARFCN is the column mtxrLTECarrierAggEARFCN of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggEARFCN = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggEARFCN = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggBandwidth is the column mtxrLTECarrierAggBandwidth of table mtxrLTECarrierAggTable.
 // MHz
-var MtxrLTECarrierAggBandwidth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggBandwidth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggPhyCellId is the column mtxrLTECarrierAggPhyCellId of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggPhyCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggPhyCellId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggRSSI is the column mtxrLTECarrierAggRSSI of table mtxrLTECarrierAggTable.
 // dBm
-var MtxrLTECarrierAggRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggRSRP is the column mtxrLTECarrierAggRSRP of table mtxrLTECarrierAggTable.
 // dBm
-var MtxrLTECarrierAggRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggRSRQ is the column mtxrLTECarrierAggRSRQ of table mtxrLTECarrierAggTable.
 // dB
-var MtxrLTECarrierAggRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggSINR is the column mtxrLTECarrierAggSINR of table mtxrLTECarrierAggTable.
 // dB
-var MtxrLTECarrierAggSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggSNR is the column mtxrLTECarrierAggSNR of table mtxrLTECarrierAggTable.
 // dB
-var MtxrLTECarrierAggSNR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrLTECarrierAggSNR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrLTECarrierAggNR is the column mtxrLTECarrierAggNR of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggNR = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var MtxrLTECarrierAggNR = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // MtxrLTECarrierAggUplink is the column mtxrLTECarrierAggUplink of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggUplink = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var MtxrLTECarrierAggUplink = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 13), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // MtxrLTECarrierAggTableKey is the decoded INDEX of one mtxrLTECarrierAggTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -10952,7 +10312,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 				switch tw.cols[cell.Column].Key() {
 				case MtxrLTECarrierAggBand.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggBand = int32(v)
+						row.MtxrLTECarrierAggBand = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10970,7 +10330,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggEARFCN.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggEARFCN = int32(v)
+						row.MtxrLTECarrierAggEARFCN = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -10988,7 +10348,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggBandwidth.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggBandwidth = int32(v)
+						row.MtxrLTECarrierAggBandwidth = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11006,7 +10366,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggPhyCellId.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggPhyCellId = int32(v)
+						row.MtxrLTECarrierAggPhyCellId = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11024,7 +10384,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggRSSI.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggRSSI = int32(v)
+						row.MtxrLTECarrierAggRSSI = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11042,7 +10402,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggRSRP.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggRSRP = int32(v)
+						row.MtxrLTECarrierAggRSRP = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11060,7 +10420,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggRSRQ.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggRSRQ = int32(v)
+						row.MtxrLTECarrierAggRSRQ = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11078,7 +10438,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggSINR.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggSINR = int32(v)
+						row.MtxrLTECarrierAggSINR = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11096,7 +10456,7 @@ func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrie
 					}
 				case MtxrLTECarrierAggSNR.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggSNR = int32(v)
+						row.MtxrLTECarrierAggSNR = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11215,20 +10575,14 @@ func (mtxrLTECarrierAggTableT) WalkWithOptions(ctx context.Context, sess snmp.Se
 }
 
 // MtxrPartitionName is the column mtxrPartitionName of table mtxrPartitionTable.
-var MtxrPartitionName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrPartitionName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrPartitionSize is the column mtxrPartitionSize of table mtxrPartitionTable.
 // MB
-var MtxrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrPartitionVersion is the column mtxrPartitionVersion of table mtxrPartitionTable.
-var MtxrPartitionVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrPartitionVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrPartitionActive is the column mtxrPartitionActive of table mtxrPartitionTable.
 var MtxrPartitionActive = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
@@ -11355,7 +10709,7 @@ func (tw *MtxrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, MtxrPartitionTabl
 					}
 				case MtxrPartitionSize.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPartitionSize = int32(v)
+						row.MtxrPartitionSize = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11498,9 +10852,7 @@ func (mtxrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 
 // MtxrScriptRunOutput is the column mtxrScriptRunOutput of table mtxrScriptRunTable.
 // this oid on get request will run script and return it's output
-var MtxrScriptRunOutput = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrScriptRunOutput = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrScriptRunTableKey is the decoded INDEX of one mtxrScriptRunTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -11551,8 +10903,7 @@ func (r MtxrScriptRunTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r MtxrScriptRunTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrScriptRunOutput.Key():
+	if col.Key() == MtxrScriptRunOutput.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -11581,8 +10932,7 @@ func (tw *MtxrScriptRunTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptRunTabl
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrScriptRunOutput.Key():
+				if tw.cols[cell.Column].Key() == MtxrScriptRunOutput.Key() {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
@@ -11672,9 +11022,7 @@ func (mtxrScriptRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 }
 
 // MtxrOpticalName is the column mtxrOpticalName of table mtxrOpticalTable.
-var MtxrOpticalName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrOpticalName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrOpticalRxLoss is the column mtxrOpticalRxLoss of table mtxrOpticalTable.
 var MtxrOpticalRxLoss = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
@@ -11695,44 +11043,28 @@ var MtxrOpticalTxFault = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1
 })
 
 // MtxrOpticalWavelength is the column mtxrOpticalWavelength of table mtxrOpticalTable.
-var MtxrOpticalWavelength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrOpticalWavelength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrOpticalTemperature is the column mtxrOpticalTemperature of table mtxrOpticalTable.
-var MtxrOpticalTemperature = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 6), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrOpticalTemperature = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 6), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrOpticalSupplyVoltage is the column mtxrOpticalSupplyVoltage of table mtxrOpticalTable.
-var MtxrOpticalSupplyVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrOpticalSupplyVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrOpticalTxBiasCurrent is the column mtxrOpticalTxBiasCurrent of table mtxrOpticalTable.
-var MtxrOpticalTxBiasCurrent = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 8), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrOpticalTxBiasCurrent = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrOpticalTxPower is the column mtxrOpticalTxPower of table mtxrOpticalTable.
-var MtxrOpticalTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrOpticalTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrOpticalRxPower is the column mtxrOpticalRxPower of table mtxrOpticalTable.
-var MtxrOpticalRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrOpticalRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrOpticalVendorName is the column mtxrOpticalVendorName of table mtxrOpticalTable.
-var MtxrOpticalVendorName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 11), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrOpticalVendorName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrOpticalVendorSerial is the column mtxrOpticalVendorSerial of table mtxrOpticalTable.
-var MtxrOpticalVendorSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 12), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrOpticalVendorSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrOpticalModulePresent is the column mtxrOpticalModulePresent of table mtxrOpticalTable.
 // Whether a transceiver module is inserted in the cage
@@ -11746,9 +11078,7 @@ var MtxrOpticalModulePresent = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1
 
 // MtxrOpticalVendorPartNumber is the column mtxrOpticalVendorPartNumber of table mtxrOpticalTable.
 // Vendor part number of the transceiver module
-var MtxrOpticalVendorPartNumber = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 14), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrOpticalVendorPartNumber = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 14), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrOpticalType is the column mtxrOpticalType of table mtxrOpticalTable.
 // Transceiver module type, SFF-8024 identifier value
@@ -11772,15 +11102,11 @@ var MtxrOpticalConnectorType = snmp.NewColumn[MtxrOpticalConnectorTypeValue](snm
 
 // MtxrOpticalLinkLengthCopperOM4 is the column mtxrOpticalLinkLengthCopperOM4 of table mtxrOpticalTable.
 // Supported link length for copper cable or OM4 fiber
-var MtxrOpticalLinkLengthCopperOM4 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 17), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrOpticalLinkLengthCopperOM4 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 17), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrOpticalSupportedRates is the column mtxrOpticalSupportedRates of table mtxrOpticalTable.
 // Comma separated list of link rates supported by the module
-var MtxrOpticalSupportedRates = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 18), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrOpticalSupportedRates = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 18), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrOpticalTableKey is the decoded INDEX of one mtxrOpticalTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -11961,7 +11287,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalWavelength.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalWavelength = uint32(v)
+						row.MtxrOpticalWavelength = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11979,7 +11305,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalTemperature.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalTemperature = uint32(v)
+						row.MtxrOpticalTemperature = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -11997,7 +11323,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalSupplyVoltage.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalSupplyVoltage = uint32(v)
+						row.MtxrOpticalSupplyVoltage = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12015,7 +11341,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalTxBiasCurrent.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalTxBiasCurrent = uint32(v)
+						row.MtxrOpticalTxBiasCurrent = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12033,7 +11359,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalTxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalTxPower = int32(v)
+						row.MtxrOpticalTxPower = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12051,7 +11377,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalRxPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalRxPower = int32(v)
+						row.MtxrOpticalRxPower = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12162,7 +11488,7 @@ func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow
 					}
 				case MtxrOpticalLinkLengthCopperOM4.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalLinkLengthCopperOM4 = uint32(v)
+						row.MtxrOpticalLinkLengthCopperOM4 = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12269,15 +11595,11 @@ func (mtxrOpticalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 
 // MtxrIkeSAInitiatorCookie is the column mtxrIkeSAInitiatorCookie of table mtxrIkeSATable.
 // initiator SPI
-var MtxrIkeSAInitiatorCookie = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var MtxrIkeSAInitiatorCookie = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // MtxrIkeSAResponderCookie is the column mtxrIkeSAResponderCookie of table mtxrIkeSATable.
 // responder SPI
-var MtxrIkeSAResponderCookie = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var MtxrIkeSAResponderCookie = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // MtxrIkeSAResponder is the column mtxrIkeSAResponder of table mtxrIkeSATable.
 // IKE side
@@ -12301,9 +11623,7 @@ var MtxrIkeSANatt = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 149
 
 // MtxrIkeSAVersion is the column mtxrIkeSAVersion of table mtxrIkeSATable.
 // protocol version
-var MtxrIkeSAVersion = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 6), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrIkeSAVersion = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 6), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrIkeSAState is the column mtxrIkeSAState of table mtxrIkeSATable.
 var MtxrIkeSAState = snmp.NewColumn[MtxrIkeSAStateValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrIkeSAStateValue, error) {
@@ -12315,92 +11635,60 @@ var MtxrIkeSAState = snmp.NewColumn[MtxrIkeSAStateValue](snmp.MustOID(1, 3, 6, 1
 })
 
 // MtxrIkeSAUptime is the column mtxrIkeSAUptime of table mtxrIkeSATable.
-var MtxrIkeSAUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 8), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrIkeSAUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 8), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // MtxrIkeSASeen is the column mtxrIkeSASeen of table mtxrIkeSATable.
 // time elapsed since last valid IKE packet
-var MtxrIkeSASeen = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 9), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrIkeSASeen = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 9), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // MtxrIkeSAIdentity is the column mtxrIkeSAIdentity of table mtxrIkeSATable.
 // peer identity
-var MtxrIkeSAIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 10), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrIkeSAIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrIkeSAPh2Count is the column mtxrIkeSAPh2Count of table mtxrIkeSATable.
 // total ph2 SA pairs
-var MtxrIkeSAPh2Count = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 11), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrIkeSAPh2Count = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 11), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrIkeSALocalAddressType is the column mtxrIkeSALocalAddressType of table mtxrIkeSATable.
-var MtxrIkeSALocalAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrIkeSALocalAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrIkeSALocalAddress is the column mtxrIkeSALocalAddress of table mtxrIkeSATable.
-var MtxrIkeSALocalAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 13), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var MtxrIkeSALocalAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 13), snmp.KindOctetString, snmp.DecodeBytes)
 
 // MtxrIkeSALocalPort is the column mtxrIkeSALocalPort of table mtxrIkeSATable.
-var MtxrIkeSALocalPort = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 14), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrIkeSALocalPort = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 14), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // MtxrIkeSAPeerAddressType is the column mtxrIkeSAPeerAddressType of table mtxrIkeSATable.
-var MtxrIkeSAPeerAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrIkeSAPeerAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrIkeSAPeerAddress is the column mtxrIkeSAPeerAddress of table mtxrIkeSATable.
-var MtxrIkeSAPeerAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 16), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var MtxrIkeSAPeerAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 16), snmp.KindOctetString, snmp.DecodeBytes)
 
 // MtxrIkeSAPeerPort is the column mtxrIkeSAPeerPort of table mtxrIkeSATable.
-var MtxrIkeSAPeerPort = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 17), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrIkeSAPeerPort = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 17), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // MtxrIkeSADynamicAddressType is the column mtxrIkeSADynamicAddressType of table mtxrIkeSATable.
-var MtxrIkeSADynamicAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrIkeSADynamicAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrIkeSADynamicAddress is the column mtxrIkeSADynamicAddress of table mtxrIkeSATable.
 // dynamic address allocated by mode config
-var MtxrIkeSADynamicAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 19), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var MtxrIkeSADynamicAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 19), snmp.KindOctetString, snmp.DecodeBytes)
 
 // MtxrIkeSATxBytes is the column mtxrIkeSATxBytes of table mtxrIkeSATable.
 // ph2 SA tx bytes
-var MtxrIkeSATxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 20), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrIkeSATxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 20), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrIkeSARxBytes is the column mtxrIkeSARxBytes of table mtxrIkeSATable.
 // ph2 SA rx bytes
-var MtxrIkeSARxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 21), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrIkeSARxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrIkeSATxPackets is the column mtxrIkeSATxPackets of table mtxrIkeSATable.
 // ph2 SA tx packets
-var MtxrIkeSATxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 22), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrIkeSATxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 22), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrIkeSARxPackets is the column mtxrIkeSARxPackets of table mtxrIkeSATable.
 // ph2 SA rx packets
-var MtxrIkeSARxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 23), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrIkeSARxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 23), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrIkeSATableKey is the decoded INDEX of one mtxrIkeSATable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -12609,7 +11897,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSAVersion.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSAVersion = uint32(v)
+						row.MtxrIkeSAVersion = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12645,7 +11933,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSAUptime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrIkeSAUptime = uint32(v)
+						row.MtxrIkeSAUptime = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12663,7 +11951,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSASeen.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrIkeSASeen = uint32(v)
+						row.MtxrIkeSASeen = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12694,7 +11982,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSAPh2Count.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSAPh2Count = uint32(v)
+						row.MtxrIkeSAPh2Count = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12712,7 +12000,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSALocalAddressType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSALocalAddressType = int32(v)
+						row.MtxrIkeSALocalAddressType = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12743,7 +12031,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSALocalPort.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSALocalPort = uint32(v)
+						row.MtxrIkeSALocalPort = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12761,7 +12049,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSAPeerAddressType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSAPeerAddressType = int32(v)
+						row.MtxrIkeSAPeerAddressType = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12792,7 +12080,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSAPeerPort.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSAPeerPort = uint32(v)
+						row.MtxrIkeSAPeerPort = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12810,7 +12098,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSADynamicAddressType.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSADynamicAddressType = int32(v)
+						row.MtxrIkeSADynamicAddressType = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12841,7 +12129,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSATxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSATxBytes = uint64(v)
+						row.MtxrIkeSATxBytes = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12859,7 +12147,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSARxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSARxBytes = uint64(v)
+						row.MtxrIkeSARxBytes = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12877,7 +12165,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSATxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSATxPackets = uint64(v)
+						row.MtxrIkeSATxPackets = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12895,7 +12183,7 @@ func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
 					}
 				case MtxrIkeSARxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSARxPackets = uint64(v)
+						row.MtxrIkeSARxPackets = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
@@ -12989,51 +12277,35 @@ func (mtxrIkeSATableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 
 // MtxrRemoteCapAddress is the column mtxrRemoteCapAddress of table mtxrRemoteCapTable.
 // IP address of the remote CAP.
-var MtxrRemoteCapAddress = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapAddress = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapIdentity is the column mtxrRemoteCapIdentity of table mtxrRemoteCapTable.
 // Identity name of the remote CAP.
-var MtxrRemoteCapIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapBoardName is the column mtxrRemoteCapBoardName of table mtxrRemoteCapTable.
 // Board name of the remote CAP.
-var MtxrRemoteCapBoardName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapBoardName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapSerial is the column mtxrRemoteCapSerial of table mtxrRemoteCapTable.
 // Serial number of the remote CAP.
-var MtxrRemoteCapSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapVersion is the column mtxrRemoteCapVersion of table mtxrRemoteCapTable.
 // RouterOS version of the remote CAP.
-var MtxrRemoteCapVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapBaseMac is the column mtxrRemoteCapBaseMac of table mtxrRemoteCapTable.
 // Base MAC address of the remote CAP.
-var MtxrRemoteCapBaseMac = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrRemoteCapBaseMac = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrRemoteCapCommonName is the column mtxrRemoteCapCommonName of table mtxrRemoteCapTable.
 // Certificate common name of the remote CAP.
-var MtxrRemoteCapCommonName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapCommonName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapState is the column mtxrRemoteCapState of table mtxrRemoteCapTable.
 // State of the remote CAP (e.g., connected, disconnected).
-var MtxrRemoteCapState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrRemoteCapState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrRemoteCapTableKey is the decoded INDEX of one mtxrRemoteCapTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -13318,105 +12590,71 @@ func (mtxrRemoteCapTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 
 // MtxrWifiRegistrationMacAddress is the column mtxrWifiRegistrationMacAddress of table mtxrWifiRegistrationTable.
 // MAC address of the registered device.
-var MtxrWifiRegistrationMacAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var MtxrWifiRegistrationMacAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // MtxrWifiRegistrationSsid is the column mtxrWifiRegistrationSsid of table mtxrWifiRegistrationTable.
 // SSID of the connected access point.
-var MtxrWifiRegistrationSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiRegistrationSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiRegistrationUptime is the column mtxrWifiRegistrationUptime of table mtxrWifiRegistrationTable.
 // Uptime of the registered connection.
-var MtxrWifiRegistrationUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWifiRegistrationUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4), snmp.KindTimeTicks, snmp.DecodeUint32)
 
 // MtxrWifiRegistrationLastActivity is the column mtxrWifiRegistrationLastActivity of table mtxrWifiRegistrationTable.
 // Time since the last activity of the registered device.
-var MtxrWifiRegistrationLastActivity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWifiRegistrationLastActivity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWifiRegistrationSignal is the column mtxrWifiRegistrationSignal of table mtxrWifiRegistrationTable.
 // Signal strength of the registered device.
-var MtxrWifiRegistrationSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWifiRegistrationSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWifiRegistrationAuthType is the column mtxrWifiRegistrationAuthType of table mtxrWifiRegistrationTable.
 // Authentication type used by the registered device.
-var MtxrWifiRegistrationAuthType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 7), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiRegistrationAuthType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiRegistrationBand is the column mtxrWifiRegistrationBand of table mtxrWifiRegistrationTable.
 // Wireless band used by the registered device.
-var MtxrWifiRegistrationBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiRegistrationBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiRegistrationTxRate is the column mtxrWifiRegistrationTxRate of table mtxrWifiRegistrationTable.
 // Transmission rate of the registered device.
-var MtxrWifiRegistrationTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 9), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWifiRegistrationTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 9), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWifiRegistrationRxRate is the column mtxrWifiRegistrationRxRate of table mtxrWifiRegistrationTable.
 // Reception rate of the registered device.
-var MtxrWifiRegistrationRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var MtxrWifiRegistrationRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10), snmp.KindGauge32, snmp.DecodeUint32)
 
 // MtxrWifiRegistrationTxPackets is the column mtxrWifiRegistrationTxPackets of table mtxrWifiRegistrationTable.
 // Number of transmitted packets.
-var MtxrWifiRegistrationTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrWifiRegistrationTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrWifiRegistrationRxPackets is the column mtxrWifiRegistrationRxPackets of table mtxrWifiRegistrationTable.
 // Number of received packets.
-var MtxrWifiRegistrationRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrWifiRegistrationRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrWifiRegistrationTxBytes is the column mtxrWifiRegistrationTxBytes of table mtxrWifiRegistrationTable.
 // Number of transmitted bytes.
-var MtxrWifiRegistrationTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 13), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrWifiRegistrationTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrWifiRegistrationRxBytes is the column mtxrWifiRegistrationRxBytes of table mtxrWifiRegistrationTable.
 // Number of received bytes.
-var MtxrWifiRegistrationRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var MtxrWifiRegistrationRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
 
 // MtxrWifiRegistrationTxBitsPerSecond is the column mtxrWifiRegistrationTxBitsPerSecond of table mtxrWifiRegistrationTable.
 // Transmission rate in bits per second.
-var MtxrWifiRegistrationTxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWifiRegistrationTxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWifiRegistrationRxBitsPerSecond is the column mtxrWifiRegistrationRxBitsPerSecond of table mtxrWifiRegistrationTable.
 // Reception rate in bits per second.
-var MtxrWifiRegistrationRxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWifiRegistrationRxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWifiRegistrationVlanId is the column mtxrWifiRegistrationVlanId of table mtxrWifiRegistrationTable.
 // VLAN ID of the registered device.
-var MtxrWifiRegistrationVlanId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var MtxrWifiRegistrationVlanId = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
 
 // MtxrWifiRegistrationAuthorized is the column mtxrWifiRegistrationAuthorized of table mtxrWifiRegistrationTable.
 // Indicates whether the device is authorized.
-var MtxrWifiRegistrationAuthorized = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var MtxrWifiRegistrationAuthorized = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // MtxrWifiRegistrationTableKey is the decoded INDEX of one mtxrWifiRegistrationTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -13578,7 +12816,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationUptime.Key():
 					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrWifiRegistrationUptime = uint32(v)
+						row.MtxrWifiRegistrationUptime = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13596,7 +12834,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationLastActivity.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationLastActivity = int32(v)
+						row.MtxrWifiRegistrationLastActivity = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13614,7 +12852,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationSignal.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationSignal = int32(v)
+						row.MtxrWifiRegistrationSignal = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13658,7 +12896,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationTxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWifiRegistrationTxRate = uint32(v)
+						row.MtxrWifiRegistrationTxRate = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13676,7 +12914,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationRxRate.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWifiRegistrationRxRate = uint32(v)
+						row.MtxrWifiRegistrationRxRate = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13694,7 +12932,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationTxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationTxPackets = uint64(v)
+						row.MtxrWifiRegistrationTxPackets = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13712,7 +12950,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationRxPackets.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationRxPackets = uint64(v)
+						row.MtxrWifiRegistrationRxPackets = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13730,7 +12968,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationTxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationTxBytes = uint64(v)
+						row.MtxrWifiRegistrationTxBytes = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13748,7 +12986,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationRxBytes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationRxBytes = uint64(v)
+						row.MtxrWifiRegistrationRxBytes = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13766,7 +13004,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationTxBitsPerSecond.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationTxBitsPerSecond = int32(v)
+						row.MtxrWifiRegistrationTxBitsPerSecond = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13784,7 +13022,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationRxBitsPerSecond.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationRxBitsPerSecond = int32(v)
+						row.MtxrWifiRegistrationRxBitsPerSecond = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13802,7 +13040,7 @@ func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRe
 					}
 				case MtxrWifiRegistrationVlanId.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationVlanId = int32(v)
+						row.MtxrWifiRegistrationVlanId = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -13909,28 +13147,20 @@ func (mtxrWifiRegistrationTableT) WalkWithOptions(ctx context.Context, sess snmp
 
 // MtxrWifiInterfacesName is the column mtxrWifiInterfacesName of table mtxrWifiInterfaces.
 // Name of the WiFi interface
-var MtxrWifiInterfacesName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiInterfacesName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiInterfacesSsid is the column mtxrWifiInterfacesSsid of table mtxrWifiInterfaces.
 // SSID associated with the WiFi interface
-var MtxrWifiInterfacesSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiInterfacesSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiInterfacesFreq is the column mtxrWifiInterfacesFreq of table mtxrWifiInterfaces.
 // Frequency used by the WiFi interface
-var MtxrWifiInterfacesFreq = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiInterfacesFreq = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiInterfacesCurrentChannel is the column mtxrWifiInterfacesCurrentChannel of table mtxrWifiInterfaces.
 // Channel currently in use by the WiFi interface. Empty when the interface
 // is not running
-var MtxrWifiInterfacesCurrentChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var MtxrWifiInterfacesCurrentChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // MtxrWifiInterfacesKey is the decoded INDEX of one mtxrWifiInterfaces row, one field per
 // part in INDEX order. It is comparable and usable as a map key.

@@ -34,12 +34,12 @@ func TestT4WatcherObservesInducedChange(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 
-			w := netconf.Watch(ctx, s, ietfif.Interfaces_InterfaceDescriptor(), yang.WatchConfig{Interval: 10 * time.Second})
+			w := netconf.Watch(ctx, s, ietfif.InterfacesInterfaceDescriptor(), yang.WatchConfig{Interval: 10 * time.Second})
 
 			t.Log("watching /interfaces; change one interface once during the 3 minute window")
 			deadline := time.After(3 * time.Minute)
 			modified := map[string]int{}
-			ch := make(chan yang.WatchEvent[ietfif.Interfaces_Interface, ietfif.Interfaces_InterfaceKey], 128)
+			ch := make(chan yang.WatchEvent[ietfif.InterfacesInterface, ietfif.InterfacesInterfaceKey], 128)
 			done := make(chan struct{})
 			defer func() {
 				cancel()

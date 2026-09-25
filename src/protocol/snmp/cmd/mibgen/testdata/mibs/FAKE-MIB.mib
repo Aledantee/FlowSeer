@@ -1,6 +1,6 @@
 FAKE-MIB DEFINITIONS ::= BEGIN
 IMPORTS
-    OBJECT-TYPE, MODULE-IDENTITY, Integer32, Counter64, TimeTicks, IpAddress
+    OBJECT-TYPE, MODULE-IDENTITY, Integer32, Counter32, Counter64, TimeTicks, IpAddress
         FROM SNMPv2-SMI
     DisplayString, MacAddress, TEXTUAL-CONVENTION
         FROM SNMPv2-TC
@@ -51,6 +51,47 @@ fakeCaps OBJECT-TYPE
     DESCRIPTION "A BITS-typed scalar."
     ::= { fakeMIB 6 }
 
+fakeLegacyMac OBJECT-TYPE
+    SYNTAX      MacAddress
+    MAX-ACCESS  read-only
+    STATUS      obsolete
+    DESCRIPTION "An obsolete scalar with a natural textual-convention decoder."
+    ::= { fakeMIB 18 }
+
+fakeSoloTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeSoloEntry
+    MAX-ACCESS  not-accessible
+    STATUS      deprecated
+    DESCRIPTION "A deprecated table with one readable column."
+    ::= { fakeMIB 19 }
+
+fakeSoloEntry OBJECT-TYPE
+    SYNTAX      FakeSoloEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeSoloTable."
+    INDEX { fakeSoloIndex }
+    ::= { fakeSoloTable 1 }
+
+FakeSoloEntry ::= SEQUENCE {
+    fakeSoloIndex       Integer32,
+    fakeSoloLastChange  Counter32
+}
+
+fakeSoloIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index."
+    ::= { fakeSoloEntry 1 }
+
+fakeSoloLastChange OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "The table's single readable column and change indicator."
+    ::= { fakeSoloEntry 2 }
+
 fakeTable OBJECT-TYPE
     SYNTAX      SEQUENCE OF FakeEntry
     MAX-ACCESS  not-accessible
@@ -73,7 +114,9 @@ FakeEntry ::= SEQUENCE {
     fakeOctets      Counter64,
     fakeLastChange  TimeTicks,
     fakeFlags       FakeCapabilities,
-    fakeRef         FakeKeyIndex
+    fakeRef         FakeKeyIndex,
+    fakeMode        INTEGER,
+    fakeDeprecated  Counter32
 }
 
 fakeIndex OBJECT-TYPE
@@ -130,6 +173,22 @@ fakeRef OBJECT-TYPE
                  Covers the cross-package keyed-convention path and its
                  degraded form when that module is not configured."
     ::= { fakeEntry 7 }
+
+fakeMode OBJECT-TYPE
+    SYNTAX      INTEGER {
+        only(1)
+    }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A one-member enum column."
+    ::= { fakeEntry 8 }
+
+fakeDeprecated OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      deprecated
+    DESCRIPTION "A deprecated counter column."
+    ::= { fakeEntry 9 }
 
 -- fakeStackTable has no per-row indicator column, so structural
 -- per-row discovery cannot bind it. Its indicator is the module-level

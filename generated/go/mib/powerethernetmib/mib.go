@@ -211,9 +211,7 @@ func (v PethPsePortPowerPriorityValue) String() string {
 // PethPsePortAdminEnable is the column pethPsePortAdminEnable of table pethPsePortTable.
 // true (1) An interface which can provide the PSE functions. false(2) The
 // interface will act as it would if it had no PSE function.
-var PethPsePortAdminEnable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var PethPsePortAdminEnable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // PethPsePortPowerPairsControlAbility is the column pethPsePortPowerPairsControlAbility of table pethPsePortTable.
 // Describes the capability of controlling the power pairs functionality to
@@ -221,9 +219,7 @@ var PethPsePortAdminEnable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // has the capability to control the power pairs. When false the PSE Pinout
 // Alternative used cannot be controlled through the PethPsePortAdminEnable
 // attribute.
-var PethPsePortPowerPairsControlAbility = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var PethPsePortPowerPairsControlAbility = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // PethPsePortPowerPairs is the column pethPsePortPowerPairs of table pethPsePortTable.
 // Describes or controls the pairs in use. If the value of
@@ -277,18 +273,14 @@ var PethPsePortPowerPriority = snmp.NewColumn[PethPsePortPowerPriorityValue](snm
 // This counter is incremented when the PSE state diagram transitions
 // directly from the state POWER_ON to the state IDLE due to
 // tmpdo_timer_done being asserted.
-var PethPsePortMPSAbsentCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 8), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethPsePortMPSAbsentCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
 
 // PethPsePortType is the column pethPsePortType of table pethPsePortTable.
 // A manager will set the value of this variable to indicate the type of
 // powered device that is connected to the port. The default value supplied
 // by the agent if no value has ever been set should be a zero-length octet
 // string.
-var PethPsePortType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 9), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var PethPsePortType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 9), snmp.KindOctetString, snmp.DecodeBytes)
 
 // PethPsePortPowerClassifications is the column pethPsePortPowerClassifications of table pethPsePortTable.
 // Classification is a way to tag different terminals on the Power over LAN
@@ -309,30 +301,22 @@ var PethPsePortPowerClassifications = snmp.NewColumn[PethPsePortPowerClassificat
 // PethPsePortInvalidSignatureCounter is the column pethPsePortInvalidSignatureCounter of table pethPsePortTable.
 // This counter is incremented when the PSE state diagram enters the state
 // SIGNATURE_INVALID.
-var PethPsePortInvalidSignatureCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 11), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethPsePortInvalidSignatureCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
 
 // PethPsePortPowerDeniedCounter is the column pethPsePortPowerDeniedCounter of table pethPsePortTable.
 // This counter is incremented when the PSE state diagram enters the state
 // POWER_DENIED.
-var PethPsePortPowerDeniedCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 12), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethPsePortPowerDeniedCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
 
 // PethPsePortOverLoadCounter is the column pethPsePortOverLoadCounter of table pethPsePortTable.
 // This counter is incremented when the PSE state diagram enters the state
 // ERROR_DELAY_OVER.
-var PethPsePortOverLoadCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 13), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethPsePortOverLoadCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 13), snmp.KindCounter32, snmp.DecodeUint32)
 
 // PethPsePortShortCounter is the column pethPsePortShortCounter of table pethPsePortTable.
 // This counter is incremented when the PSE state diagram enters the state
 // ERROR_DELAY_SHORT.
-var PethPsePortShortCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 14), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethPsePortShortCounter = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 1, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
 
 // PethPsePortTableKey is the decoded INDEX of one pethPsePortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -530,7 +514,7 @@ func (tw *PethPsePortTableWalker) Iter() iter.Seq2[snmp.OID, PethPsePortTableRow
 					}
 				case PethPsePortMPSAbsentCounter.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.PethPsePortMPSAbsentCounter = uint32(v)
+						row.PethPsePortMPSAbsentCounter = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -579,7 +563,7 @@ func (tw *PethPsePortTableWalker) Iter() iter.Seq2[snmp.OID, PethPsePortTableRow
 					}
 				case PethPsePortInvalidSignatureCounter.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.PethPsePortInvalidSignatureCounter = uint32(v)
+						row.PethPsePortInvalidSignatureCounter = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -597,7 +581,7 @@ func (tw *PethPsePortTableWalker) Iter() iter.Seq2[snmp.OID, PethPsePortTableRow
 					}
 				case PethPsePortPowerDeniedCounter.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.PethPsePortPowerDeniedCounter = uint32(v)
+						row.PethPsePortPowerDeniedCounter = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -615,7 +599,7 @@ func (tw *PethPsePortTableWalker) Iter() iter.Seq2[snmp.OID, PethPsePortTableRow
 					}
 				case PethPsePortOverLoadCounter.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.PethPsePortOverLoadCounter = uint32(v)
+						row.PethPsePortOverLoadCounter = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -633,7 +617,7 @@ func (tw *PethPsePortTableWalker) Iter() iter.Seq2[snmp.OID, PethPsePortTableRow
 					}
 				case PethPsePortShortCounter.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.PethPsePortShortCounter = uint32(v)
+						row.PethPsePortShortCounter = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -727,9 +711,7 @@ func (pethPsePortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 
 // PethMainPsePower is the column pethMainPsePower of table pethMainPseTable.
 // The nominal power of the PSE expressed in Watts.
-var PethMainPsePower = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1, 1, 2), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethMainPsePower = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
 
 // PethMainPseOperStatus is the column pethMainPseOperStatus of table pethMainPseTable.
 // The operational status of the main PSE.
@@ -743,16 +725,12 @@ var PethMainPseOperStatus = snmp.NewColumn[PethMainPseOperStatusValue](snmp.Must
 
 // PethMainPseConsumptionPower is the column pethMainPseConsumptionPower of table pethMainPseTable.
 // Measured usage power expressed in Watts.
-var PethMainPseConsumptionPower = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1, 1, 4), snmp.KindGauge32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var PethMainPseConsumptionPower = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1, 1, 4), snmp.KindGauge32, snmp.DecodeUint32)
 
 // PethMainPseUsageThreshold is the column pethMainPseUsageThreshold of table pethMainPseTable.
 // The usage threshold expressed in percents for comparing the measured
 // power and initiating an alarm if the threshold is exceeded.
-var PethMainPseUsageThreshold = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var PethMainPseUsageThreshold = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 3, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // PethMainPseTableKey is the decoded INDEX of one pethMainPseTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -845,7 +823,7 @@ func (tw *PethMainPseTableWalker) Iter() iter.Seq2[snmp.OID, PethMainPseTableRow
 				switch tw.cols[cell.Column].Key() {
 				case PethMainPsePower.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.PethMainPsePower = uint32(v)
+						row.PethMainPsePower = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -881,7 +859,7 @@ func (tw *PethMainPseTableWalker) Iter() iter.Seq2[snmp.OID, PethMainPseTableRow
 					}
 				case PethMainPseConsumptionPower.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.PethMainPseConsumptionPower = uint32(v)
+						row.PethMainPseConsumptionPower = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -899,7 +877,7 @@ func (tw *PethMainPseTableWalker) Iter() iter.Seq2[snmp.OID, PethMainPseTableRow
 					}
 				case PethMainPseUsageThreshold.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.PethMainPseUsageThreshold = int32(v)
+						row.PethMainPseUsageThreshold = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -995,9 +973,7 @@ func (pethMainPseTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 // This object controls, on a per-group basis, whether or not notifications
 // from the agent are enabled. The value true(1) means that notifications
 // are enabled; the value false(2) means that they are not.
-var PethNotificationControlEnable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 4, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var PethNotificationControlEnable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 105, 1, 4, 1, 1, 2), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // PethNotificationControlTableKey is the decoded INDEX of one pethNotificationControlTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1048,8 +1024,7 @@ func (r PethNotificationControlTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r PethNotificationControlTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case PethNotificationControlEnable.Key():
+	if col.Key() == PethNotificationControlEnable.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -1078,8 +1053,7 @@ func (tw *PethNotificationControlTableWalker) Iter() iter.Seq2[snmp.OID, PethNot
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case PethNotificationControlEnable.Key():
+				if tw.cols[cell.Column].Key() == PethNotificationControlEnable.Key() {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr

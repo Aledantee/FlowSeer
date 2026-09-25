@@ -4,8 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"strings"
-	"unicode"
+
+	"go.aledante.io/FlowSeer/src/protocol/internal/goname"
 )
 
 // naming.go: deterministic YANG-to-Go identifier mangling with a
@@ -15,38 +15,16 @@ import (
 // suffixing a short hash of the loser's schema path, never by parse
 // order.
 
-// camel converts a YANG identifier to an exported Go identifier:
-// split on '-', '.', '_', capitalize each part, drop anything not
-// alphanumeric, and prefix "X" when the result would start with a
-// digit or be empty.
+// camel converts a YANG identifier to an exported Go identifier
+// using the shared goname rules.
 func camel(name string) string {
-	var b strings.Builder
-	upperNext := true
-	for _, r := range name {
-		switch {
-		case r == '-' || r == '.' || r == '_' || r == ' ' || r == '/' || r == ':':
-			upperNext = true
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			if upperNext {
-				r = unicode.ToUpper(r)
-				upperNext = false
-			}
-			b.WriteRune(r)
-		default:
-			upperNext = true
-		}
-	}
-	s := b.String()
-	if s == "" || unicode.IsDigit(rune(s[0])) {
-		s = "X" + s
-	}
-	return s
+	return goname.Exported(name)
 }
 
 // nameScope allocates unique identifiers within one scope (a package
 // or one struct's fields). Identical (identifier, path) pairs return
 // the same name; a different path colliding on the identifier gets a
-// deterministic "_<hash>" suffix derived from its path.
+// deterministic "X<hash>" suffix derived from its path.
 type nameScope struct {
 	byName map[string]string // identifier -> owning path
 	byPath map[string]string // path -> identifier
@@ -64,7 +42,7 @@ func (s *nameScope) claim(want, path string) string {
 	name := want
 	if owner, taken := s.byName[name]; taken && owner != path {
 		sum := sha256.Sum256([]byte(path))
-		name = fmt.Sprintf("%s_%s", want, hex.EncodeToString(sum[:3]))
+		name = fmt.Sprintf("%sX%s", want, hex.EncodeToString(sum[:3]))
 		// A hash collision on top of a name collision is vanishingly
 		// unlikely but must still terminate deterministically.
 		for i := 4; ; i++ {
@@ -72,7 +50,7 @@ func (s *nameScope) claim(want, path string) string {
 				break
 			}
 			sum = sha256.Sum256([]byte(path + fmt.Sprint(i)))
-			name = fmt.Sprintf("%s_%s", want, hex.EncodeToString(sum[:3]))
+			name = fmt.Sprintf("%sX%s", want, hex.EncodeToString(sum[:3]))
 		}
 	}
 	s.byName[name] = path

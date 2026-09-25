@@ -278,9 +278,7 @@ func Dot1dBaseBridgeAddressGet(ctx context.Context, sess snmp.Session) (net.Hard
 		return nil, errs.Msg("empty Get response for dot1dBaseBridgeAddress")
 	}
 
-	return func(vb snmp.VarBind) (net.HardwareAddr, error) {
-		return snmp.DecodeMacAddress(vb)
-	}(vbs[0])
+	return snmp.DecodeMacAddress(vbs[0])
 }
 
 // Dot1dBaseNumPortsGet reads the SMIv2 scalar dot1dBaseNumPorts.
@@ -297,9 +295,7 @@ func Dot1dBaseNumPortsGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, errs.Msg("empty Get response for dot1dBaseNumPorts")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dBaseTypeGet reads the SMIv2 scalar dot1dBaseType.
@@ -373,9 +369,7 @@ func Dot1dStpPriorityGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, errs.Msg("empty Get response for dot1dStpPriority")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpTimeSinceTopologyChangeGet reads the SMIv2 scalar dot1dStpTimeSinceTopologyChange.
@@ -394,9 +388,7 @@ func Dot1dStpTimeSinceTopologyChangeGet(ctx context.Context, sess snmp.Session) 
 		return 0, errs.Msg("empty Get response for dot1dStpTimeSinceTopologyChange")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // Dot1dStpTopChangesGet reads the SMIv2 scalar dot1dStpTopChanges.
@@ -414,9 +406,7 @@ func Dot1dStpTopChangesGet(ctx context.Context, sess snmp.Session) (uint32, erro
 		return 0, errs.Msg("empty Get response for dot1dStpTopChanges")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // Dot1dStpDesignatedRootGet reads the SMIv2 scalar dot1dStpDesignatedRoot.
@@ -436,9 +426,7 @@ func Dot1dStpDesignatedRootGet(ctx context.Context, sess snmp.Session) ([]byte, 
 		return nil, errs.Msg("empty Get response for dot1dStpDesignatedRoot")
 	}
 
-	return func(vb snmp.VarBind) ([]byte, error) {
-		return snmp.DecodeBytes(vb)
-	}(vbs[0])
+	return snmp.DecodeBytes(vbs[0])
 }
 
 // Dot1dStpRootCostGet reads the SMIv2 scalar dot1dStpRootCost.
@@ -455,9 +443,7 @@ func Dot1dStpRootCostGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, errs.Msg("empty Get response for dot1dStpRootCost")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpRootPortGet reads the SMIv2 scalar dot1dStpRootPort.
@@ -475,9 +461,7 @@ func Dot1dStpRootPortGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, errs.Msg("empty Get response for dot1dStpRootPort")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpMaxAgeGet reads the SMIv2 scalar dot1dStpMaxAge.
@@ -496,9 +480,7 @@ func Dot1dStpMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for dot1dStpMaxAge")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpHelloTimeGet reads the SMIv2 scalar dot1dStpHelloTime.
@@ -518,9 +500,7 @@ func Dot1dStpHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, error)
 		return 0, errs.Msg("empty Get response for dot1dStpHelloTime")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpHoldTimeGet reads the SMIv2 scalar dot1dStpHoldTime.
@@ -539,9 +519,7 @@ func Dot1dStpHoldTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, errs.Msg("empty Get response for dot1dStpHoldTime")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpForwardDelayGet reads the SMIv2 scalar dot1dStpForwardDelay.
@@ -567,9 +545,7 @@ func Dot1dStpForwardDelayGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, errs.Msg("empty Get response for dot1dStpForwardDelay")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpBridgeMaxAgeGet reads the SMIv2 scalar dot1dStpBridgeMaxAge.
@@ -591,9 +567,7 @@ func Dot1dStpBridgeMaxAgeGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, errs.Msg("empty Get response for dot1dStpBridgeMaxAge")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpBridgeHelloTimeGet reads the SMIv2 scalar dot1dStpBridgeHelloTime.
@@ -613,9 +587,7 @@ func Dot1dStpBridgeHelloTimeGet(ctx context.Context, sess snmp.Session) (int32, 
 		return 0, errs.Msg("empty Get response for dot1dStpBridgeHelloTime")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dStpBridgeForwardDelayGet reads the SMIv2 scalar dot1dStpBridgeForwardDelay.
@@ -637,9 +609,7 @@ func Dot1dStpBridgeForwardDelayGet(ctx context.Context, sess snmp.Session) (int3
 		return 0, errs.Msg("empty Get response for dot1dStpBridgeForwardDelay")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dTpLearnedEntryDiscardsGet reads the SMIv2 scalar dot1dTpLearnedEntryDiscards.
@@ -662,9 +632,7 @@ func Dot1dTpLearnedEntryDiscardsGet(ctx context.Context, sess snmp.Session) (uin
 		return 0, errs.Msg("empty Get response for dot1dTpLearnedEntryDiscards")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // Dot1dTpAgingTimeGet reads the SMIv2 scalar dot1dTpAgingTime.
@@ -682,17 +650,13 @@ func Dot1dTpAgingTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 		return 0, errs.Msg("empty Get response for dot1dTpAgingTime")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // Dot1dBasePort is the column dot1dBasePort of table dot1dBasePortTable.
 // The port number of the port for which this entry contains bridge
 // management information.
-var Dot1dBasePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dBasePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dBasePortIfIndex is the column dot1dBasePortIfIndex of table dot1dBasePortTable.
 // The value of the instance of the ifIndex object, defined in IF-MIB, for
@@ -714,24 +678,18 @@ var Dot1dBasePortIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 
 // associated with the X.25 virtual circuit corresponding to this port. For
 // a port which has a unique value of dot1dBasePortIfIndex, this object can
 // have the value { 0 0 }.
-var Dot1dBasePortCircuit = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 3), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var Dot1dBasePortCircuit = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
 
 // Dot1dBasePortDelayExceededDiscards is the column dot1dBasePortDelayExceededDiscards of table dot1dBasePortTable.
 // The number of frames discarded by this port due to excessive transit
 // delay through the bridge. It is incremented by both transparent and
 // source route bridges.
-var Dot1dBasePortDelayExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1dBasePortDelayExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dBasePortMtuExceededDiscards is the column dot1dBasePortMtuExceededDiscards of table dot1dBasePortTable.
 // The number of frames discarded by this port due to an excessive size. It
 // is incremented by both transparent and source route bridges.
-var Dot1dBasePortMtuExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1dBasePortMtuExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dBasePortTableKey is the decoded INDEX of one dot1dBasePortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -827,7 +785,7 @@ func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTabl
 				switch tw.cols[cell.Column].Key() {
 				case Dot1dBasePort.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dBasePort = int32(v)
+						row.Dot1dBasePort = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -876,7 +834,7 @@ func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTabl
 					}
 				case Dot1dBasePortDelayExceededDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dBasePortDelayExceededDiscards = uint32(v)
+						row.Dot1dBasePortDelayExceededDiscards = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -894,7 +852,7 @@ func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTabl
 					}
 				case Dot1dBasePortMtuExceededDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dBasePortMtuExceededDiscards = uint32(v)
+						row.Dot1dBasePortMtuExceededDiscards = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -989,9 +947,7 @@ func (dot1dBasePortTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 // Dot1dStpPort is the column dot1dStpPort of table dot1dStpPortTable.
 // The port number of the port for which this entry contains Spanning Tree
 // Protocol management information.
-var Dot1dStpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dStpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dStpPortPriority is the column dot1dStpPortPriority of table dot1dStpPortTable.
 // The value of the priority field that is contained in the first (in
@@ -999,9 +955,7 @@ var Dot1dStpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 1
 // of the Port ID is given by the value of dot1dStpPort. On bridges
 // supporting IEEE 802.1t or IEEE 802.1w, permissible values are 0-240, in
 // steps of 16.
-var Dot1dStpPortPriority = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dStpPortPriority = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dStpPortState is the column dot1dStpPortState of table dot1dStpPortTable.
 // The port's current state, as defined by application of the Spanning Tree
@@ -1036,46 +990,34 @@ var Dot1dStpPortEnable = snmp.NewColumn[Dot1dStpPortEnableValue](snmp.MustOID(1,
 // of this object then this object should report the maximum value, namely
 // 65535. Applications should try to read the dot1dStpPortPathCost32 object
 // if this object reports the maximum value.
-var Dot1dStpPortPathCost = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dStpPortPathCost = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dStpPortDesignatedRoot is the column dot1dStpPortDesignatedRoot of table dot1dStpPortTable.
 // The unique Bridge Identifier of the Bridge recorded as the Root in the
 // Configuration BPDUs transmitted by the Designated Bridge for the segment
 // to which the port is attached.
-var Dot1dStpPortDesignatedRoot = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1dStpPortDesignatedRoot = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 6), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1dStpPortDesignatedCost is the column dot1dStpPortDesignatedCost of table dot1dStpPortTable.
 // The path cost of the Designated Port of the segment connected to this
 // port. This value is compared to the Root Path Cost field in received
 // bridge PDUs.
-var Dot1dStpPortDesignatedCost = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dStpPortDesignatedCost = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dStpPortDesignatedBridge is the column dot1dStpPortDesignatedBridge of table dot1dStpPortTable.
 // The Bridge Identifier of the bridge that this port considers to be the
 // Designated Bridge for this port's segment.
-var Dot1dStpPortDesignatedBridge = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1dStpPortDesignatedBridge = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 8), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1dStpPortDesignatedPort is the column dot1dStpPortDesignatedPort of table dot1dStpPortTable.
 // The Port Identifier of the port on the Designated Bridge for this port's
 // segment.
-var Dot1dStpPortDesignatedPort = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 9), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1dStpPortDesignatedPort = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 9), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1dStpPortForwardTransitions is the column dot1dStpPortForwardTransitions of table dot1dStpPortTable.
 // The number of times this port has transitioned from the Learning state
 // to the Forwarding state.
-var Dot1dStpPortForwardTransitions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 10), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1dStpPortForwardTransitions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dStpPortPathCost32 is the column dot1dStpPortPathCost32 of table dot1dStpPortTable.
 // The contribution of this port to the path cost of paths towards the
@@ -1083,9 +1025,7 @@ var Dot1dStpPortForwardTransitions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6
 // the default value of this parameter be in inverse proportion to the
 // speed of the attached LAN. This object replaces dot1dStpPortPathCost to
 // support IEEE 802.1t.
-var Dot1dStpPortPathCost32 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dStpPortPathCost32 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dStpPortTableKey is the decoded INDEX of one dot1dStpPortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1199,7 +1139,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 				switch tw.cols[cell.Column].Key() {
 				case Dot1dStpPort.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPort = int32(v)
+						row.Dot1dStpPort = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1217,7 +1157,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 					}
 				case Dot1dStpPortPriority.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortPriority = int32(v)
+						row.Dot1dStpPortPriority = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1271,7 +1211,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 					}
 				case Dot1dStpPortPathCost.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortPathCost = int32(v)
+						row.Dot1dStpPortPathCost = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1302,7 +1242,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 					}
 				case Dot1dStpPortDesignatedCost.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortDesignatedCost = int32(v)
+						row.Dot1dStpPortDesignatedCost = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1346,7 +1286,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 					}
 				case Dot1dStpPortForwardTransitions.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dStpPortForwardTransitions = uint32(v)
+						row.Dot1dStpPortForwardTransitions = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1364,7 +1304,7 @@ func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableR
 					}
 				case Dot1dStpPortPathCost32.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortPathCost32 = int32(v)
+						row.Dot1dStpPortPathCost32 = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1459,9 +1399,7 @@ func (dot1dStpPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session
 // Dot1dTpFdbAddress is the column dot1dTpFdbAddress of table dot1dTpFdbTable.
 // A unicast MAC address for which the bridge has forwarding and/or
 // filtering information.
-var Dot1dTpFdbAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var Dot1dTpFdbAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // Dot1dTpFdbPort is the column dot1dTpFdbPort of table dot1dTpFdbTable.
 // Either the value '0', or the port number of the port on which a frame
@@ -1472,9 +1410,7 @@ var Dot1dTpFdbAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1
 // dot1dStaticTable). Implementors are encouraged to assign the port value
 // to this object whenever it is learned, even for addresses for which the
 // corresponding value of dot1dTpFdbStatus is not learned(3).
-var Dot1dTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dTpFdbStatus is the column dot1dTpFdbStatus of table dot1dTpFdbTable.
 // The status of this entry. The meanings of the values are: other(1) -
@@ -1603,7 +1539,7 @@ func (tw *Dot1dTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpFdbTableRow] 
 					}
 				case Dot1dTpFdbPort.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpFdbPort = int32(v)
+						row.Dot1dTpFdbPort = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1716,16 +1652,12 @@ func (dot1dTpFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, 
 // Dot1dTpPort is the column dot1dTpPort of table dot1dTpPortTable.
 // The port number of the port for which this entry contains Transparent
 // bridging management information.
-var Dot1dTpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dTpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dTpPortMaxInfo is the column dot1dTpPortMaxInfo of table dot1dTpPortTable.
 // The maximum size of the INFO (non-MAC) field that this port will receive
 // or transmit.
-var Dot1dTpPortMaxInfo = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dTpPortMaxInfo = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dTpPortInFrames is the column dot1dTpPortInFrames of table dot1dTpPortTable.
 // The number of frames that have been received by this port from its
@@ -1733,9 +1665,7 @@ var Dot1dTpPortMaxInfo = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17
 // this port is only counted by this object if and only if it is for a
 // protocol being processed by the local bridging function, including
 // bridge management frames.
-var Dot1dTpPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 3), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1dTpPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dTpPortOutFrames is the column dot1dTpPortOutFrames of table dot1dTpPortTable.
 // The number of frames that have been transmitted by this port to its
@@ -1743,16 +1673,12 @@ var Dot1dTpPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // this port is only counted by this object if and only if it is for a
 // protocol being processed by the local bridging function, including
 // bridge management frames.
-var Dot1dTpPortOutFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1dTpPortOutFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dTpPortInDiscards is the column dot1dTpPortInDiscards of table dot1dTpPortTable.
 // Count of received valid frames that were discarded (i.e., filtered) by
 // the Forwarding Process.
-var Dot1dTpPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot1dTpPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot1dTpPortTableKey is the decoded INDEX of one dot1dTpPortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1848,7 +1774,7 @@ func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow
 				switch tw.cols[cell.Column].Key() {
 				case Dot1dTpPort.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpPort = int32(v)
+						row.Dot1dTpPort = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1866,7 +1792,7 @@ func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow
 					}
 				case Dot1dTpPortMaxInfo.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpPortMaxInfo = int32(v)
+						row.Dot1dTpPortMaxInfo = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1884,7 +1810,7 @@ func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow
 					}
 				case Dot1dTpPortInFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dTpPortInFrames = uint32(v)
+						row.Dot1dTpPortInFrames = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1902,7 +1828,7 @@ func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow
 					}
 				case Dot1dTpPortOutFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dTpPortOutFrames = uint32(v)
+						row.Dot1dTpPortOutFrames = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1920,7 +1846,7 @@ func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow
 					}
 				case Dot1dTpPortInDiscards.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dTpPortInDiscards = uint32(v)
+						row.Dot1dTpPortInDiscards = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2016,18 +1942,14 @@ func (dot1dTpPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 // The destination MAC address in a frame to which this entry's filtering
 // information applies. This object can take the value of a unicast
 // address, a group address, or the broadcast address.
-var Dot1dStaticAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (net.HardwareAddr, error) {
-	return snmp.DecodeMacAddress(vb)
-})
+var Dot1dStaticAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
 
 // Dot1dStaticReceivePort is the column dot1dStaticReceivePort of table dot1dStaticTable.
 // Either the value '0', or the port number of the port from which a frame
 // must be received in order for this entry's filtering information to
 // apply. A value of zero indicates that this entry applies on all ports of
 // the bridge for which there is no other applicable entry.
-var Dot1dStaticReceivePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Dot1dStaticReceivePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Dot1dStaticAllowedToGoTo is the column dot1dStaticAllowedToGoTo of table dot1dStaticTable.
 // The set of ports to which frames received from a specific port and
@@ -2047,9 +1969,7 @@ var Dot1dStaticReceivePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // transport (484 bytes, in the case of SNMP over UDP, see RFC 3417,
 // section 3.2). SNMP engines on bridges supporting a large number of ports
 // must support appropriate maximum message sizes.
-var Dot1dStaticAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Dot1dStaticAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Dot1dStaticStatus is the column dot1dStaticStatus of table dot1dStaticTable.
 // This object indicates the status of this entry. The default value is
@@ -2177,7 +2097,7 @@ func (tw *Dot1dStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStaticTableRow
 					}
 				case Dot1dStaticReceivePort.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStaticReceivePort = int32(v)
+						row.Dot1dStaticReceivePort = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()

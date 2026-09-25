@@ -31,9 +31,7 @@ func (FakeKeyIndex) HomeTable() snmp.TableDescriptor {
 
 // FakeKeyName is the column fakeKeyName of table fakeKeyTable.
 // Name.
-var FakeKeyName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var FakeKeyName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // FakeKeyTableKey is the decoded INDEX of one fakeKeyTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -84,8 +82,7 @@ func (r FakeKeyTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r FakeKeyTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case FakeKeyName.Key():
+	if col.Key() == FakeKeyName.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -114,8 +111,7 @@ func (tw *FakeKeyTableWalker) Iter() iter.Seq2[snmp.OID, FakeKeyTableRow] {
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case FakeKeyName.Key():
+				if tw.cols[cell.Column].Key() == FakeKeyName.Key() {
 					vb, vbErr := rv.Decode()
 					if vbErr != nil {
 						derr = vbErr
