@@ -5,13 +5,21 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: accept after fixes
 execution: code
 ---
 
 # Hand-Written Go Style Conformance - Plan
 
 > Implemented. 6 units, 2026-09-25T14:50:27Z to 2026-09-25T17:55:26Z.
+>
+> The first review's verdict was withdrawn, not overturned. Its lane was pinned to
+> `claude-opus-5` and fell back to `claude-opus-4-8` at 2026-09-25T18:56:13Z on a
+> cyber refusal, seven minutes into a two-and-a-half-hour run: 86 turns on the
+> pinned model, then 174 on the substitute, so every finding, every fix and the
+> verdict came from a model nobody chose. The fixes it produced are kept
+> (`a58f9293`, merged as `461dcc68`) because they verify and read correctly; the
+> verdict is not evidence and the `review` field is empty until a lane that ran on
+> its pinned model fills it.
 
 ## Goal
 
@@ -86,6 +94,23 @@ in golden traces and conformance corpora.
   capacity. Why not rename `New` to `MustNew`: the panic is unreachable once those
   boundaries reject, and `code-style.md` Remedies prefers making the branch
   unreachable over a new name. **Unconfirmed.**
+
+## Decisions the user made after implementation
+
+- Keep the first review's merged fixes and clear its verdict. Why: the fixes stand
+  on their own (the verifier passes over them and each names a defect checkable in
+  the tree), but a verdict is a judgement, and this one was made by
+  `claude-opus-4-8` after a silent fallback from the pinned `claude-opus-5`. A
+  judgement from a model nobody selected is not a review.
+- Re-run the review stage on `gpt-5.6-sol` (`codex`), per
+  [`review`](../../.claude/skills/review/SKILL.md) with its fix loop, over the
+  whole change from this plan's implementation base `fbcb3d3d` through
+  `461dcc68`, the first review's fixes included. Its verdict replaces the withdrawn
+  one.
+- `compound` may finish on its own lane, but its result merges only after the new
+  review is accepted, and is re-run if the new review changes what its lesson
+  rests on. Why: the lesson it captured is drawn from a finding of the withdrawn
+  review.
 
 ## Requirements
 
