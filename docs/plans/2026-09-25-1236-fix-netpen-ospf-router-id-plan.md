@@ -4,12 +4,16 @@ type: fix
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 ---
 
 # netpen OSPF Attacker Router ID - Plan
+
+> Implemented. 2 units, 2026-09-25T10:46:11Z to 2026-09-25T10:47:42Z.
+> U4 remains for the coordinator: live validation and the validation-matrix
+> updates were not run in this worktree.
 
 > U1 resolved (2026-09-25): the harvest generator builds the OSPF payload as a raw
 > `gopacket.Payload`, so `craft`'s `ComputeChecksums` (which only covers eth/ip)

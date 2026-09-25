@@ -5,6 +5,12 @@ import (
 	"testing"
 )
 
+func TestAttackerRouterID(t *testing.T) {
+	if got := ipToRouterID(attackerRouterID); got != "10.0.0.99" {
+		t.Errorf("attacker router ID: got %q, want %q", got, "10.0.0.99")
+	}
+}
+
 func TestExtractIPPayloadRejectsInvalidEnvelope(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
