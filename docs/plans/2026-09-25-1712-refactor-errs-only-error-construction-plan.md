@@ -50,6 +50,10 @@ These are the user's rulings, not this plan's proposals.
   `docs/agent-observations.md` on the coordinator branch at `5a3114b7`. E6 also
   avoids Claude: it does not edit netpen files, but the gate it builds parses them
   on every run, which is the same material in front of the same classifier.
+- Claude is the last resort on a sensitive unit, not a peer choice: it runs only
+  when every non-Claude model in the role's fit set is unavailable, and then on
+  `claude-opus-4-8` at high effort. Never Opus 5.5 there — its cyber flags reroute
+  or stall the lane rather than failing it.
 - Every Claude lane's transcript is read before its work is accepted, at
   `~/.claude/projects/<worktree path with / replaced by ->/<session>.jsonl`. A
   `{"type":"system","subtype":"model_refusal_fallback"}` event, or any `model`
@@ -223,7 +227,7 @@ Lanes, from the Decisions above and `delegate`'s resolution at 2026-09-25T21:5xZ
 | --- | --- | --- |
 | E1, E2 | `gemini-3.8-flash-high` (`google`) | no `sensitive_paths`, and the only prepaid pool with headroom |
 | E3 | `gpt-5.6-sol` (`codex`) | the user's decision; park the unit if the pool runs dry |
-| E4, E5 | `claude-opus-5-5` high | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`) but no netpen, so Claude is permitted; transcript checked before the work is accepted |
+| E4, E5 | `claude-opus-4-8` high, last resort | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`) but no netpen, so Claude is permitted. Claude only because both non-Claude models in the `execute-sensitive` fit set are unavailable: `gpt-5.6-sol` is past the cutoff and spoken for by E3, `kimi-k3` is on `synthetic` at 96%. Never Opus 5.5 on a sensitive unit: its cyber flags reroute or stall. Transcript checked before the work is accepted |
 | E6 | `gemini-3.8-flash-high` (`google`) | the gate parses netpen on every run |
 
 With a one-worker budget these run in turn, so the wave grouping only fixes the
