@@ -391,3 +391,230 @@ func restatedItems(maxLen uint64, pattern string) *validate.FieldRules {
 	}
 	return &validate.FieldRules{Type: &validate.FieldRules_String_{String_: s}}
 }
+
+// canonicalUnitSuffixes are the field-name suffixes that name a canonical
+// unit. The longest suffix matching across both lists decides, so a
+// canonical suffix that ends in a forbidden one is never misread as it.
+var canonicalUnitSuffixes = []string{
+	"_bps", "_bytes", "_mhz", "_nanowatts", "_millidbm", "_millidb", "_millidbi",
+	"_millidegrees_celsius", "_microvolts", "_microamperes", "_rpm",
+	"_basis_points", "_nanometers", "_packets", "_frames",
+}
+
+// forbiddenUnitSuffixes name a unit the schema language replaced: a scaled
+// rate, a linear power in a coarser unit, a percentage, a time span or point
+// that belongs in a Duration or Timestamp, octets for bytes, or a level
+// without its milli scale.
+var forbiddenUnitSuffixes = []string{
+	"_mbps", "_kbps", "_milliwatts", "_watts", "_percent", "_seconds", "_ms",
+	"_millis", "_octets", "_millidegrees", "_dbm", "_db", "_dbi", "_mw",
+}
+
+// TestCanonicalUnitSuffixes walks every FlowSeer package and fails on a
+// numeric field whose name ends in a forbidden unit suffix. A suffix in
+// neither list carries no unit (overload_count) and passes.
+func TestCanonicalUnitSuffixes(t *testing.T) {
+	eachFlowseerFile(func(fd protoreflect.FileDescriptor) {
+		for _, violation := range unitSuffixViolations(fd.Messages()) {
+			t.Error(violation)
+		}
+	})
+
+	// A descriptor that breaks only this rule must be flagged, or the walk
+	// above cannot tell a clean tree from one it read nothing from. The
+	// canonical and unit-free fields beside it must not be.
+	numeric := func(name string, fieldType descriptorpb.FieldDescriptorProto_Type, label descriptorpb.FieldDescriptorProto_Label, number int32) *descriptorpb.FieldDescriptorProto {
+		return &descriptorpb.FieldDescriptorProto{
+			Name:   proto.String(name),
+			Number: proto.Int32(number),
+			Label:  label.Enum(),
+			Type:   fieldType.Enum(),
+		}
+	}
+	optional := descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL
+	repeated := descriptorpb.FieldDescriptorProto_LABEL_REPEATED
+	file := buildSyntheticFile(t, "unit_suffix_breaks.proto", nil, &descriptorpb.DescriptorProto{
+		Name: proto.String("UnitSuffixes"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			numeric("latency_ms", descriptorpb.FieldDescriptorProto_TYPE_UINT32, optional, 1),
+			numeric("temperature_millidegrees", descriptorpb.FieldDescriptorProto_TYPE_SINT32, optional, 2),
+			numeric("samples_seconds", descriptorpb.FieldDescriptorProto_TYPE_SFIXED64, repeated, 3),
+			numeric("temperature_millidegrees_celsius", descriptorpb.FieldDescriptorProto_TYPE_SINT32, optional, 4),
+			numeric("in_bytes", descriptorpb.FieldDescriptorProto_TYPE_UINT64, optional, 5),
+			numeric("overload_count", descriptorpb.FieldDescriptorProto_TYPE_UINT64, optional, 6),
+			{
+				Name:   proto.String("label_percent"),
+				Number: proto.Int32(7),
+				Label:  optional.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			},
+		},
+	})
+	got := unitSuffixViolations(file.Messages())
+	want := []string{"UnitSuffixes.latency_ms", "UnitSuffixes.temperature_millidegrees ", "UnitSuffixes.samples_seconds"}
+	if len(got) != len(want) {
+		t.Errorf("synthetic message produced %d violations, want %d:\n  %s", len(got), len(want), strings.Join(got, "\n  "))
+	}
+	for _, site := range want {
+		if len(violationsFor(got, site)) != 1 {
+			t.Errorf("synthetic %s was not flagged exactly once:\n  %s", strings.TrimSpace(site), strings.Join(got, "\n  "))
+		}
+	}
+}
+
+// unitSuffixViolations returns one line per numeric field in messages whose
+// longest matching unit suffix is a forbidden one.
+func unitSuffixViolations(messages protoreflect.MessageDescriptors) []string {
+	var violations []string
+	eachField(messages, func(field protoreflect.FieldDescriptor) {
+		if !isIntegerKind(field.Kind()) {
+			return
+		}
+		suffix, forbidden := unitSuffix(string(field.Name()))
+		if !forbidden {
+			return
+		}
+		site := string(field.ContainingMessage().FullName()) + "." + string(field.Name())
+		violations = append(violations, fmt.Sprintf("%s ends in the forbidden unit suffix %s; "+
+			"name the canonical unit, or use a Duration or Timestamp for time", site, suffix))
+	})
+	return violations
+}
+
+// unitSuffix returns the longest unit suffix name ends in and whether it is
+// forbidden. The name is read with a leading underscore so a bare field
+// named for a unit (seconds) matches the same suffix a prefixed one does.
+func unitSuffix(name string) (string, bool) {
+	name = "_" + name
+	longest, forbidden := "", false
+	for _, suffixes := range []struct {
+		list      []string
+		forbidden bool
+	}{{canonicalUnitSuffixes, false}, {forbiddenUnitSuffixes, true}} {
+		for _, suffix := range suffixes.list {
+			if strings.HasSuffix(name, suffix) && len(suffix) > len(longest) {
+				longest, forbidden = suffix, suffixes.forbidden
+			}
+		}
+	}
+	return longest, forbidden
+}
+
+func isIntegerKind(kind protoreflect.Kind) bool {
+	switch kind {
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Uint32Kind,
+		protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Uint64Kind,
+		protoreflect.Fixed32Kind, protoreflect.Fixed64Kind,
+		protoreflect.Sfixed32Kind, protoreflect.Sfixed64Kind:
+		return true
+	}
+	return false
+}
+
+// timestampName is the message a counters message's last_discontinuity
+// field carries.
+const timestampName protoreflect.FullName = "google.protobuf.Timestamp"
+
+// TestCountersCarryDiscontinuity walks every FlowSeer package and fails on a
+// message named *Counters without a singular google.protobuf.Timestamp
+// last_discontinuity. A decrease between two readings is a necessary reset
+// signal and not a sufficient one; the field is what makes a reset visible
+// when the counter climbed past its old value before the next reading.
+func TestCountersCarryDiscontinuity(t *testing.T) {
+	eachFlowseerFile(func(fd protoreflect.FileDescriptor) {
+		for _, violation := range discontinuityViolations(fd.Messages()) {
+			t.Error(violation)
+		}
+	})
+
+	// Each synthetic counters message breaks the rule one way and must be
+	// flagged; the conforming one beside them must not be.
+	counter := &descriptorpb.FieldDescriptorProto{
+		Name:   proto.String("in_frames"),
+		Number: proto.Int32(1),
+		Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+		Type:   descriptorpb.FieldDescriptorProto_TYPE_UINT64.Enum(),
+	}
+	discontinuity := func(fieldType descriptorpb.FieldDescriptorProto_Type, typeName string) *descriptorpb.FieldDescriptorProto {
+		f := &descriptorpb.FieldDescriptorProto{
+			Name:   proto.String("last_discontinuity"),
+			Number: proto.Int32(2),
+			Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			Type:   fieldType.Enum(),
+		}
+		if typeName != "" {
+			f.TypeName = proto.String(typeName)
+		}
+		return f
+	}
+	message := func(name string, fields ...*descriptorpb.FieldDescriptorProto) *descriptorpb.DescriptorProto {
+		return &descriptorpb.DescriptorProto{Name: proto.String(name), Field: fields}
+	}
+	file := buildSyntheticFile(t, "counters_breaks.proto", []string{"google/protobuf/timestamp.proto"},
+		message("MissingCounters", counter),
+		message("SecondsCounters", counter, discontinuity(descriptorpb.FieldDescriptorProto_TYPE_UINT64, "")),
+		message("ConformingCounters", counter, discontinuity(descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, "."+string(timestampName))),
+	)
+	got := discontinuityViolations(file.Messages())
+	for _, name := range []string{"MissingCounters", "SecondsCounters"} {
+		if len(violationsFor(got, "."+name+" ")) != 1 {
+			t.Errorf("synthetic %s was not flagged exactly once:\n  %s", name, strings.Join(got, "\n  "))
+		}
+	}
+	if reported := violationsFor(got, ".ConformingCounters "); len(reported) != 0 {
+		t.Errorf("synthetic ConformingCounters was flagged:\n  %s", strings.Join(reported, "\n  "))
+	}
+}
+
+// discontinuityViolations returns one line per *Counters message in
+// messages, descending into nested types, whose last_discontinuity is
+// missing or is not a singular google.protobuf.Timestamp.
+func discontinuityViolations(messages protoreflect.MessageDescriptors) []string {
+	var violations []string
+	for i := range messages.Len() {
+		message := messages.Get(i)
+		if strings.HasSuffix(string(message.Name()), "Counters") {
+			field := message.Fields().ByName("last_discontinuity")
+			switch {
+			case field == nil:
+				violations = append(violations, fmt.Sprintf("%s has no last_discontinuity; "+
+					"every counters message carries the time its counters last reset", message.FullName()))
+			case field.Kind() != protoreflect.MessageKind || field.Message().FullName() != timestampName || field.IsList() || field.IsMap():
+				violations = append(violations, fmt.Sprintf("%s declares last_discontinuity as %s; "+
+					"it must be a singular %s", message.FullName(), describeFieldType(field), timestampName))
+			}
+		}
+		violations = append(violations, discontinuityViolations(message.Messages())...)
+	}
+	return violations
+}
+
+func describeFieldType(field protoreflect.FieldDescriptor) string {
+	kind := field.Kind().String()
+	if field.Message() != nil {
+		kind = string(field.Message().FullName())
+	}
+	if field.IsList() {
+		return "repeated " + kind
+	}
+	return kind
+}
+
+// buildSyntheticFile builds a synthetic file of the given messages, with the
+// given dependencies, against GlobalFiles.
+func buildSyntheticFile(t *testing.T, name string, deps []string, messages ...*descriptorpb.DescriptorProto) protoreflect.FileDescriptor {
+	t.Helper()
+
+	fdp := &descriptorpb.FileDescriptorProto{
+		Name:        proto.String("flowseer/conformance/synthetic/v1/" + name),
+		Package:     proto.String("flowseer.conformance.synthetic.v1"),
+		Syntax:      proto.String("proto3"),
+		Dependency:  deps,
+		MessageType: messages,
+	}
+	file, err := protodesc.NewFile(fdp, protoregistry.GlobalFiles)
+	if err != nil {
+		t.Fatalf("build the synthetic file %s: %v", name, err)
+	}
+	return file
+}

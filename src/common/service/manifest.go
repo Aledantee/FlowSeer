@@ -16,6 +16,7 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -143,22 +144,22 @@ func runtimeManifest(config runtimeConfig) (*runtimev1.RuntimeManifest, error) {
 	paths := config.modulePaths()
 	slices.Sort(paths)
 	manifest := runtimev1.RuntimeManifest_builder{
-		ServiceNamespace:       proto.String(config.identity.Namespace),
-		ServiceName:            proto.String(config.identity.Name),
-		Domain:                 proto.String(config.bus.domain),
-		EnvelopeType:           proto.String("flowseer.runtime.v1.Message"),
-		EnvelopeVersion:        proto.Uint32(manifestVersion),
-		SubjectVersion:         proto.Uint32(subjectVersion),
-		NatsVersion:            proto.String(server.VERSION),
-		Modules:                modules,
-		ModulePaths:            paths,
-		MailboxStream:          proto.String(mailboxStreamName),
-		MetadataStream:         proto.String(metadataStreamName),
-		MaxStoreBytes:          proto.Uint64(uint64(config.bus.maxStoreBytes)),
-		MailboxMaxBytes:        proto.Uint64(uint64(config.bus.mailboxMaxBytes)),
-		MetadataMaxBytes:       proto.Uint64(uint64(config.bus.metadataMaxBytes)),
-		ReserveBytes:           proto.Uint64(uint64(config.bus.reserveBytes)),
-		DuplicateWindowSeconds: proto.Uint64(uint64((24 * time.Hour).Seconds())),
+		ServiceNamespace: proto.String(config.identity.Namespace),
+		ServiceName:      proto.String(config.identity.Name),
+		Domain:           proto.String(config.bus.domain),
+		EnvelopeType:     proto.String("flowseer.runtime.v1.Message"),
+		EnvelopeVersion:  proto.Uint32(manifestVersion),
+		SubjectVersion:   proto.Uint32(subjectVersion),
+		NatsVersion:      proto.String(server.VERSION),
+		Modules:          modules,
+		ModulePaths:      paths,
+		MailboxStream:    proto.String(mailboxStreamName),
+		MetadataStream:   proto.String(metadataStreamName),
+		MaxStoreBytes:    proto.Uint64(uint64(config.bus.maxStoreBytes)),
+		MailboxMaxBytes:  proto.Uint64(uint64(config.bus.mailboxMaxBytes)),
+		MetadataMaxBytes: proto.Uint64(uint64(config.bus.metadataMaxBytes)),
+		ReserveBytes:     proto.Uint64(uint64(config.bus.reserveBytes)),
+		DuplicateWindow:  durationpb.New(24 * time.Hour),
 	}.Build()
 	if err := protovalidate.Validate(manifest); err != nil {
 		return nil, errs.From(err).Code(errCodeBusManifest).Msg("validate desired local bus manifest")

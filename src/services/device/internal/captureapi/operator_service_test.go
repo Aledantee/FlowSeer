@@ -530,12 +530,12 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	}
 
 	counters1 := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(1),
-		Accepted: proto.Uint64(1),
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
 	}.Build()
 	counters2 := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(2),
-		Accepted: proto.Uint64(2),
+		ReceivedPackets: proto.Uint64(2),
+		AcceptedPackets: proto.Uint64(2),
 	}.Build()
 
 	chunk1 := modelcapturev1.CapturePacketChunk_builder{
@@ -607,7 +607,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 		t.Fatalf("unexpected chunk 1 payload: %+v", gotChunk1)
 	}
 	// What the edge sent has to arrive intact, sequence and counters with it.
-	if gotChunk1.GetFirstSequence() != 1 || gotChunk1.GetCounters().GetAccepted() != 1 {
+	if gotChunk1.GetFirstSequence() != 1 || gotChunk1.GetCounters().GetAcceptedPackets() != 1 {
 		t.Fatalf("chunk 1 lost its sequence or counters on the way through: %+v", gotChunk1)
 	}
 
@@ -618,7 +618,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	if !gotChunk2.GetFinal() {
 		t.Fatal("expected chunk 2 to be final")
 	}
-	if gotChunk2.GetFirstSequence() != 2 || gotChunk2.GetCounters().GetAccepted() != 2 {
+	if gotChunk2.GetFirstSequence() != 2 || gotChunk2.GetCounters().GetAcceptedPackets() != 2 {
 		t.Fatalf("chunk 2 lost its sequence or counters on the way through: %+v", gotChunk2)
 	}
 
@@ -696,8 +696,8 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(packetCount),
-		Accepted: proto.Uint64(packetCount),
+		ReceivedPackets: proto.Uint64(packetCount),
+		AcceptedPackets: proto.Uint64(packetCount),
 	}.Build()
 
 	artifact, err := h.store.FinalizeArtifact(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, h.frozenClock.Add(time.Hour))
@@ -787,7 +787,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	if got := afterSweep.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
 		t.Fatalf("expected the session record to survive the sweep as COMPLETED, got: %v", got)
 	}
-	if got := afterSweep.GetState().GetCounters().GetAccepted(); got != packetCount {
+	if got := afterSweep.GetState().GetCounters().GetAcceptedPackets(); got != packetCount {
 		t.Fatalf("expected counters to survive the sweep with %d accepted, got: %d", packetCount, got)
 	}
 	swept := afterSweep.GetState().GetArtifact()

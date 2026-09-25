@@ -2,6 +2,8 @@ edition = "2024";
 
 package flowseer.net.phy.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // Cumulative Ethernet-specific error counters for one port. Each counter is
 // the value the source last reported, and an absent counter means the
 // source does not report it, never a zero. Counters are monotonic between
@@ -42,4 +44,7 @@ message EthernetCounters {
   uint64 internal_mac_receive_errors = 11;
   // Times an invalid data symbol was received while carrier was present.
   uint64 symbol_errors = 12;
+  // The time the counters last reset or restarted counting. Absent means the
+  // source does not report one.
+  google.protobuf.Timestamp last_discontinuity = 13;
 }

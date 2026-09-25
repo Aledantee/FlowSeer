@@ -25,14 +25,15 @@ const (
 // This is a table row, not an address value: canonical address, prefix, scope,
 // and lifetime types remain in flowseer.net.addr.v1.
 type InterfaceAddress struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_InterfaceName *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
-	xxx_hidden_Address       *v1.IpAddress          `protobuf:"bytes,2,opt,name=address"`
-	xxx_hidden_Prefix        *v1.IpPrefix           `protobuf:"bytes,3,opt,name=prefix"`
-	xxx_hidden_Origin        AddressOrigin          `protobuf:"varint,4,opt,name=origin,enum=flowseer.net.ip.v1.AddressOrigin"`
-	xxx_hidden_Status        AddressStatus          `protobuf:"varint,5,opt,name=status,enum=flowseer.net.ip.v1.AddressStatus"`
-	xxx_hidden_Scope         v1.IpScope             `protobuf:"varint,6,opt,name=scope,enum=flowseer.net.addr.v1.IpScope"`
-	xxx_hidden_Lifetime      *v1.IpLifetime         `protobuf:"bytes,7,opt,name=lifetime"`
+	state                    protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_InterfaceName *string                   `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
+	xxx_hidden_Address       *v1.IpAddress             `protobuf:"bytes,2,opt,name=address"`
+	xxx_hidden_Prefix        *v1.IpPrefix              `protobuf:"bytes,3,opt,name=prefix"`
+	xxx_hidden_Origin        AddressOrigin             `protobuf:"varint,4,opt,name=origin,enum=flowseer.net.ip.v1.AddressOrigin"`
+	xxx_hidden_Status        AddressStatus             `protobuf:"varint,5,opt,name=status,enum=flowseer.net.ip.v1.AddressStatus"`
+	xxx_hidden_Scope         v1.IpScope                `protobuf:"varint,6,opt,name=scope,enum=flowseer.net.addr.v1.IpScope"`
+	xxx_hidden_Lifetime      *v1.IpLifetime            `protobuf:"bytes,7,opt,name=lifetime"`
+	xxx_hidden_IidMethod     InterfaceIdentifierMethod `protobuf:"varint,8,opt,name=iid_method,json=iidMethod,enum=flowseer.net.ip.v1.InterfaceIdentifierMethod"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -122,9 +123,18 @@ func (x *InterfaceAddress) GetLifetime() *v1.IpLifetime {
 	return nil
 }
 
+func (x *InterfaceAddress) GetIidMethod() InterfaceIdentifierMethod {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 7) {
+			return x.xxx_hidden_IidMethod
+		}
+	}
+	return InterfaceIdentifierMethod_INTERFACE_IDENTIFIER_METHOD_UNSPECIFIED
+}
+
 func (x *InterfaceAddress) SetInterfaceName(v string) {
 	x.xxx_hidden_InterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
 }
 
 func (x *InterfaceAddress) SetAddress(v *v1.IpAddress) {
@@ -137,21 +147,26 @@ func (x *InterfaceAddress) SetPrefix(v *v1.IpPrefix) {
 
 func (x *InterfaceAddress) SetOrigin(v AddressOrigin) {
 	x.xxx_hidden_Origin = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 8)
 }
 
 func (x *InterfaceAddress) SetStatus(v AddressStatus) {
 	x.xxx_hidden_Status = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 8)
 }
 
 func (x *InterfaceAddress) SetScope(v v1.IpScope) {
 	x.xxx_hidden_Scope = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 8)
 }
 
 func (x *InterfaceAddress) SetLifetime(v *v1.IpLifetime) {
 	x.xxx_hidden_Lifetime = v
+}
+
+func (x *InterfaceAddress) SetIidMethod(v InterfaceIdentifierMethod) {
+	x.xxx_hidden_IidMethod = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 8)
 }
 
 func (x *InterfaceAddress) HasInterfaceName() bool {
@@ -203,6 +218,13 @@ func (x *InterfaceAddress) HasLifetime() bool {
 	return x.xxx_hidden_Lifetime != nil
 }
 
+func (x *InterfaceAddress) HasIidMethod() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
 func (x *InterfaceAddress) ClearInterfaceName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_InterfaceName = nil
@@ -235,6 +257,11 @@ func (x *InterfaceAddress) ClearLifetime() {
 	x.xxx_hidden_Lifetime = nil
 }
 
+func (x *InterfaceAddress) ClearIidMethod() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_IidMethod = InterfaceIdentifierMethod_INTERFACE_IDENTIFIER_METHOD_UNSPECIFIED
+}
+
 type InterfaceAddress_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -259,6 +286,10 @@ type InterfaceAddress_builder struct {
 	// Preferred and valid lease lifetimes. Absent means no lifetime information
 	// was observed; a present empty value means both lifetimes are infinite.
 	Lifetime *v1.IpLifetime
+	// How the interface identifier of an IPv6 address was generated. Valid
+	// only on an IPv6 address. Absent means the source did not report a
+	// method.
+	IidMethod *InterfaceIdentifierMethod
 }
 
 func (b0 InterfaceAddress_builder) Build() *InterfaceAddress {
@@ -266,24 +297,28 @@ func (b0 InterfaceAddress_builder) Build() *InterfaceAddress {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.InterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
 		x.xxx_hidden_InterfaceName = b.InterfaceName
 	}
 	x.xxx_hidden_Address = b.Address
 	x.xxx_hidden_Prefix = b.Prefix
 	if b.Origin != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 8)
 		x.xxx_hidden_Origin = *b.Origin
 	}
 	if b.Status != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 8)
 		x.xxx_hidden_Status = *b.Status
 	}
 	if b.Scope != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 8)
 		x.xxx_hidden_Scope = *b.Scope
 	}
 	x.xxx_hidden_Lifetime = b.Lifetime
+	if b.IidMethod != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 8)
+		x.xxx_hidden_IidMethod = *b.IidMethod
+	}
 	return m0
 }
 
@@ -291,7 +326,7 @@ var File_flowseer_net_ip_v1_interface_address_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_ip_v1_interface_address_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/net/ip/v1/interface_address.proto\x12\x12flowseer.net.ip.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a'flowseer/net/ip/v1/address_origin.proto\x1a'flowseer/net/ip/v1/address_status.proto\"\xdc\x1e\n" +
+	"*flowseer/net/ip/v1/interface_address.proto\x12\x12flowseer.net.ip.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a'flowseer/net/ip/v1/address_origin.proto\x1a'flowseer/net/ip/v1/address_status.proto\x1a4flowseer/net/ip/v1/interface_identifier_method.proto\"\xde \n" +
 	"\x10InterfaceAddress\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12A\n" +
 	"\aaddress\x18\x02 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12>\n" +
@@ -299,21 +334,25 @@ const file_flowseer_net_ip_v1_interface_address_proto_rawDesc = "" +
 	"\x06origin\x18\x04 \x01(\x0e2!.flowseer.net.ip.v1.AddressOriginR\x06origin\x129\n" +
 	"\x06status\x18\x05 \x01(\x0e2!.flowseer.net.ip.v1.AddressStatusR\x06status\x123\n" +
 	"\x05scope\x18\x06 \x01(\x0e2\x1d.flowseer.net.addr.v1.IpScopeR\x05scope\x12<\n" +
-	"\blifetime\x18\a \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetime:\xa6\x1b\xbaH\xa2\x1b\x1a\xaa\x01\n" +
-	" interface_address.family_matches\x12.address and prefix must use the same IP family\x1aV!has(this.address) || !has(this.prefix) || has(this.address.v4) == has(this.prefix.v4)\x1a\xf6\f\n" +
+	"\blifetime\x18\a \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetime\x12L\n" +
+	"\n" +
+	"iid_method\x18\b \x01(\x0e2-.flowseer.net.ip.v1.InterfaceIdentifierMethodR\tiidMethod:\xda\x1c\xbaH\xd6\x1c\x1a\xaa\x01\n" +
+	" interface_address.family_matches\x12.address and prefix must use the same IP family\x1aV!has(this.address) || !has(this.prefix) || has(this.address.v4) == has(this.prefix.v4)\x1a\xb1\x01\n" +
+	")interface_address.iid_method_is_ipv6_only\x12>an interface identifier method applies only to an IPv6 address\x1aD!has(this.iid_method) || (has(this.address) && has(this.address.v6))\x1a\xf6\f\n" +
 	"(interface_address.ipv4_address_in_prefix\x12-IPv4 prefix must contain the assigned address\x1a\x9a\f!has(this.address) || !has(this.prefix) || !has(this.address.v4) || !has(this.prefix.v4) || !has(this.address.v4.octets) || !has(this.prefix.v4.address) || !has(this.prefix.v4.address.octets) || !has(this.prefix.v4.length) || this.address.v4.octets.size() != 4 || this.prefix.v4.address.octets.size() != 4 || this.prefix.v4.length > 32u || ('%x'.format([this.address.v4.octets]).substring(0, int(this.prefix.v4.length / 4u)) == '%x'.format([this.prefix.v4.address.octets]).substring(0, int(this.prefix.v4.length / 4u)) && (this.prefix.v4.length % 4u == 0u || this.prefix.v4.length % 4u == 1u && ('%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + '%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) ).matches('^(0[0-7]|8[89a-f])$') || this.prefix.v4.length % 4u == 2u && ('%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + '%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) ).matches('^(0[0-3]|4[4-7]|8[89ab]|c[c-f])$') || this.prefix.v4.length % 4u == 3u && ('%x'.format([this.prefix.v4.address.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) + '%x'.format([this.address.v4.octets]).substring(int(this.prefix.v4.length / 4u), int(this.prefix.v4.length / 4u + 1u)) ).matches('^(0[01]|2[23]|4[45]|6[67]|8[89]|a[ab]|c[cd]|e[ef])$')))\x1a\xf9\f\n" +
 	"(interface_address.ipv6_address_in_prefix\x12-IPv6 prefix must contain the assigned address\x1a\x9d\f!has(this.address) || !has(this.prefix) || !has(this.address.v6) || !has(this.prefix.v6) || !has(this.address.v6.octets) || !has(this.prefix.v6.address) || !has(this.prefix.v6.address.octets) || !has(this.prefix.v6.length) || this.address.v6.octets.size() != 16 || this.prefix.v6.address.octets.size() != 16 || this.prefix.v6.length > 128u || ('%x'.format([this.address.v6.octets]).substring(0, int(this.prefix.v6.length / 4u)) == '%x'.format([this.prefix.v6.address.octets]).substring(0, int(this.prefix.v6.length / 4u)) && (this.prefix.v6.length % 4u == 0u || this.prefix.v6.length % 4u == 1u && ('%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + '%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) ).matches('^(0[0-7]|8[89a-f])$') || this.prefix.v6.length % 4u == 2u && ('%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + '%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) ).matches('^(0[0-3]|4[4-7]|8[89ab]|c[c-f])$') || this.prefix.v6.length % 4u == 3u && ('%x'.format([this.prefix.v6.address.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) + '%x'.format([this.address.v6.octets]).substring(int(this.prefix.v6.length / 4u), int(this.prefix.v6.length / 4u + 1u)) ).matches('^(0[01]|2[23]|4[45]|6[67]|8[89]|a[ab]|c[cd]|e[ef])$')))B\xdc\x01\n" +
 	"\x16com.flowseer.net.ip.v1B\x15InterfaceAddressProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_interface_address_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_ip_v1_interface_address_proto_goTypes = []any{
-	(*InterfaceAddress)(nil), // 0: flowseer.net.ip.v1.InterfaceAddress
-	(*v1.IpAddress)(nil),     // 1: flowseer.net.addr.v1.IpAddress
-	(*v1.IpPrefix)(nil),      // 2: flowseer.net.addr.v1.IpPrefix
-	(AddressOrigin)(0),       // 3: flowseer.net.ip.v1.AddressOrigin
-	(AddressStatus)(0),       // 4: flowseer.net.ip.v1.AddressStatus
-	(v1.IpScope)(0),          // 5: flowseer.net.addr.v1.IpScope
-	(*v1.IpLifetime)(nil),    // 6: flowseer.net.addr.v1.IpLifetime
+	(*InterfaceAddress)(nil),       // 0: flowseer.net.ip.v1.InterfaceAddress
+	(*v1.IpAddress)(nil),           // 1: flowseer.net.addr.v1.IpAddress
+	(*v1.IpPrefix)(nil),            // 2: flowseer.net.addr.v1.IpPrefix
+	(AddressOrigin)(0),             // 3: flowseer.net.ip.v1.AddressOrigin
+	(AddressStatus)(0),             // 4: flowseer.net.ip.v1.AddressStatus
+	(v1.IpScope)(0),                // 5: flowseer.net.addr.v1.IpScope
+	(*v1.IpLifetime)(nil),          // 6: flowseer.net.addr.v1.IpLifetime
+	(InterfaceIdentifierMethod)(0), // 7: flowseer.net.ip.v1.InterfaceIdentifierMethod
 }
 var file_flowseer_net_ip_v1_interface_address_proto_depIdxs = []int32{
 	1, // 0: flowseer.net.ip.v1.InterfaceAddress.address:type_name -> flowseer.net.addr.v1.IpAddress
@@ -322,11 +361,12 @@ var file_flowseer_net_ip_v1_interface_address_proto_depIdxs = []int32{
 	4, // 3: flowseer.net.ip.v1.InterfaceAddress.status:type_name -> flowseer.net.ip.v1.AddressStatus
 	5, // 4: flowseer.net.ip.v1.InterfaceAddress.scope:type_name -> flowseer.net.addr.v1.IpScope
 	6, // 5: flowseer.net.ip.v1.InterfaceAddress.lifetime:type_name -> flowseer.net.addr.v1.IpLifetime
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	7, // 6: flowseer.net.ip.v1.InterfaceAddress.iid_method:type_name -> flowseer.net.ip.v1.InterfaceIdentifierMethod
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_ip_v1_interface_address_proto_init() }
@@ -336,6 +376,7 @@ func file_flowseer_net_ip_v1_interface_address_proto_init() {
 	}
 	file_flowseer_net_ip_v1_address_origin_proto_init()
 	file_flowseer_net_ip_v1_address_status_proto_init()
+	file_flowseer_net_ip_v1_interface_identifier_method_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

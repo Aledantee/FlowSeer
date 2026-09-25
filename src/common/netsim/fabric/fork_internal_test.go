@@ -298,7 +298,7 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 		},
 	}
 	fab.counters = map[Endpoint]*Counters{
-		{Node: "sw1", Port: "1/1/1"}: {InOctets: 100},
+		{Node: "sw1", Port: "1/1/1"}: {InBytes: 100},
 	}
 
 	return fab

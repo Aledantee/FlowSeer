@@ -586,6 +586,10 @@ func ifXTableCounter(x ifmib.IfXTableRow, col snmp.Column[uint32], value uint32)
 // without it reports none. They are never derived from
 // ifInNUcastPkts/ifOutNUcastPkts, which lump multicast and broadcast
 // together and so answer neither question.
+//
+// last_discontinuity stays unset: IF-MIB ifCounterDiscontinuityTime is
+// TimeTicks since the agent booted, and converting it needs the agent's
+// boot time from a sysUpTime read this mapper does not do.
 func interfaceCounters(r ifmib.IfTableRow, x ifmib.IfXTableRow) *interfacev1.InterfaceCounters {
 	c := &interfacev1.InterfaceCounters{}
 	reported := false
@@ -600,9 +604,9 @@ func interfaceCounters(r ifmib.IfTableRow, x ifmib.IfXTableRow) *interfacev1.Int
 		reported = true
 	}
 
-	set(c.SetInOctets, highCapacity(x, ifmib.IfHCInOctets, x.IfHCInOctets).
+	set(c.SetInBytes, highCapacity(x, ifmib.IfHCInOctets, x.IfHCInOctets).
 		or(ifTableCounter(r, ifmib.IfInOctets, r.IfInOctets)))
-	set(c.SetOutOctets, highCapacity(x, ifmib.IfHCOutOctets, x.IfHCOutOctets).
+	set(c.SetOutBytes, highCapacity(x, ifmib.IfHCOutOctets, x.IfHCOutOctets).
 		or(ifTableCounter(r, ifmib.IfOutOctets, r.IfOutOctets)))
 	set(c.SetInUnicastPackets, highCapacity(x, ifmib.IfHCInUcastPkts, x.IfHCInUcastPkts).
 		or(ifTableCounter(r, ifmib.IfInUcastPkts, r.IfInUcastPkts)))

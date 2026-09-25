@@ -62,8 +62,8 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 
 	packets := []*netcapturev1.PacketRecord{invariantPacket()}
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(1),
-		Accepted: proto.Uint64(1),
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
 	}.Build()
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 
