@@ -19,7 +19,7 @@ import (
 // payload via the generated codec.
 func serverConfigXML(t *testing.T, name string, port uint16) []byte {
 	t.Helper()
-	servers := fixturemain.Servers{Server: []fixturemain.Servers_Server{{Name: &name, Port: &port}}}
+	servers := fixturemain.Servers{Server: []fixturemain.ServersServer{{Name: &name, Port: &port}}}
 	xmlBytes, err := yang.MarshalXMLStruct(fixturemain.ServersSchema, servers)
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func readServers(t *testing.T, s *netconf.Session) map[string]uint16 {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	walker := netconf.Walk(ctx, s, fixturemain.Servers_ServerDescriptor())
+	walker := netconf.Walk(ctx, s, fixturemain.ServersServerDescriptor())
 	out := make(map[string]uint16)
 	for row := range walker.Iter() {
 		if row.Name == nil {
