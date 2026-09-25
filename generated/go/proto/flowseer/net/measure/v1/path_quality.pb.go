@@ -159,7 +159,7 @@ var File_flowseer_net_measure_v1_path_quality_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_measure_v1_path_quality_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/net/measure/v1/path_quality.proto\x12\x17flowseer.net.measure.v1\x1a*flowseer/net/measure/v1/basis_points.proto\x1a\x1egoogle/protobuf/duration.proto\"\xc0\x01\n" +
+	"*flowseer/net/measure/v1/path_quality.proto\x12\x17flowseer.net.measure.v1\x1a\x1egoogle/protobuf/duration.proto\"\xc0\x01\n" +
 	"\vPathQuality\x12=\n" +
 	"\alatency\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\alatency\x12;\n" +
 	"\x06jitter\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\x06jitter\x125\n" +
@@ -186,7 +186,6 @@ func file_flowseer_net_measure_v1_path_quality_proto_init() {
 	if File_flowseer_net_measure_v1_path_quality_proto != nil {
 		return
 	}
-	file_flowseer_net_measure_v1_basis_points_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

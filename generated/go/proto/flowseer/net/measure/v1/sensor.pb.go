@@ -1592,7 +1592,7 @@ var File_flowseer_net_measure_v1_sensor_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_measure_v1_sensor_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/net/measure/v1/sensor.proto\x12\x17flowseer.net.measure.v1\x1a*flowseer/net/measure/v1/basis_points.proto\"\x84\b\n" +
+	"$flowseer/net/measure/v1/sensor.proto\x12\x17flowseer.net.measure.v1\"\x84\b\n" +
 	"\vTemperature\x12<\n" +
 	"\x1avalue_millidegrees_celsius\x18\x01 \x01(\x11R\x18valueMillidegreesCelsius\x12E\n" +
 	"\x1fhigh_alarm_millidegrees_celsius\x18\x02 \x01(\x11R\x1chighAlarmMillidegreesCelsius\x12I\n" +
@@ -1674,7 +1674,6 @@ func file_flowseer_net_measure_v1_sensor_proto_init() {
 	if File_flowseer_net_measure_v1_sensor_proto != nil {
 		return
 	}
-	file_flowseer_net_measure_v1_basis_points_proto_init()
 	file_flowseer_net_measure_v1_sensor_proto_msgTypes[6].OneofWrappers = []any{
 		(*sensorReading_Temperature)(nil),
 		(*sensorReading_Voltage)(nil),

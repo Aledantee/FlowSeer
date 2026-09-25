@@ -2,8 +2,8 @@ edition = "2024";
 
 package flowseer.net.measure.v1;
 
-import "flowseer/net/measure/v1/basis_points.proto";
 import "google/protobuf/duration.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
 import option "buf/validate/validate.proto";
 
 // The performance of the path between two points, as a device or an uplink
