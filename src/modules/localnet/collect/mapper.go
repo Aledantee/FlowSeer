@@ -194,7 +194,7 @@ type Scalar[T any] struct {
 
 // NewScalar declares a scalar read through its generated getter:
 //
-//	collect.NewScalar("lldpLocSysName", lldpmib.LldpLocSysNameGet)
+//	collect.NewScalar("lldpLocSysName", lldpmib.LLDPLocSysNameGet)
 func NewScalar[T any](name string, get func(context.Context, snmp.Session) (T, error)) Scalar[T] {
 	return Scalar[T]{name: name, get: get}
 }

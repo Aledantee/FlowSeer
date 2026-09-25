@@ -66,10 +66,10 @@ var dot3StatsColumns = []snmp.AnyColumn{
 	etherlikemib.Dot3StatsDeferredTransmissions,
 	etherlikemib.Dot3StatsLateCollisions,
 	etherlikemib.Dot3StatsExcessiveCollisions,
-	etherlikemib.Dot3StatsInternalMacTransmitErrors,
+	etherlikemib.Dot3StatsInternalMACTransmitErrors,
 	etherlikemib.Dot3StatsCarrierSenseErrors,
 	etherlikemib.Dot3StatsFrameTooLongs,
-	etherlikemib.Dot3StatsInternalMacReceiveErrors,
+	etherlikemib.Dot3StatsInternalMACReceiveErrors,
 	etherlikemib.Dot3StatsSymbolErrors,
 	etherlikemib.Dot3StatsDuplexStatus,
 }
@@ -78,9 +78,9 @@ var dot3StatsColumns = []snmp.AnyColumn{
 var dot3HCStatsColumns = []snmp.AnyColumn{
 	etherlikemib.Dot3HCStatsAlignmentErrors,
 	etherlikemib.Dot3HCStatsFCSErrors,
-	etherlikemib.Dot3HCStatsInternalMacTransmitErrors,
+	etherlikemib.Dot3HCStatsInternalMACTransmitErrors,
 	etherlikemib.Dot3HCStatsFrameTooLongs,
-	etherlikemib.Dot3HCStatsInternalMacReceiveErrors,
+	etherlikemib.Dot3HCStatsInternalMACReceiveErrors,
 	etherlikemib.Dot3HCStatsSymbolErrors,
 }
 
@@ -408,12 +408,12 @@ func ethernetCounters(r etherlikemib.Dot3StatsTableRow, h etherlikemib.Dot3HCSta
 		or(dot3Counter(r, etherlikemib.Dot3StatsAlignmentErrors, r.Dot3StatsAlignmentErrors)))
 	set(c.SetFcsErrors, dot3HCCounter(h, etherlikemib.Dot3HCStatsFCSErrors, h.Dot3HCStatsFCSErrors).
 		or(dot3Counter(r, etherlikemib.Dot3StatsFCSErrors, r.Dot3StatsFCSErrors)))
-	set(c.SetInternalMacTransmitErrors, dot3HCCounter(h, etherlikemib.Dot3HCStatsInternalMacTransmitErrors, h.Dot3HCStatsInternalMacTransmitErrors).
-		or(dot3Counter(r, etherlikemib.Dot3StatsInternalMacTransmitErrors, r.Dot3StatsInternalMacTransmitErrors)))
+	set(c.SetInternalMacTransmitErrors, dot3HCCounter(h, etherlikemib.Dot3HCStatsInternalMACTransmitErrors, h.Dot3HCStatsInternalMACTransmitErrors).
+		or(dot3Counter(r, etherlikemib.Dot3StatsInternalMACTransmitErrors, r.Dot3StatsInternalMACTransmitErrors)))
 	set(c.SetFrameTooLongs, dot3HCCounter(h, etherlikemib.Dot3HCStatsFrameTooLongs, h.Dot3HCStatsFrameTooLongs).
 		or(dot3Counter(r, etherlikemib.Dot3StatsFrameTooLongs, r.Dot3StatsFrameTooLongs)))
-	set(c.SetInternalMacReceiveErrors, dot3HCCounter(h, etherlikemib.Dot3HCStatsInternalMacReceiveErrors, h.Dot3HCStatsInternalMacReceiveErrors).
-		or(dot3Counter(r, etherlikemib.Dot3StatsInternalMacReceiveErrors, r.Dot3StatsInternalMacReceiveErrors)))
+	set(c.SetInternalMacReceiveErrors, dot3HCCounter(h, etherlikemib.Dot3HCStatsInternalMACReceiveErrors, h.Dot3HCStatsInternalMACReceiveErrors).
+		or(dot3Counter(r, etherlikemib.Dot3StatsInternalMACReceiveErrors, r.Dot3StatsInternalMACReceiveErrors)))
 	set(c.SetSymbolErrors, dot3HCCounter(h, etherlikemib.Dot3HCStatsSymbolErrors, h.Dot3HCStatsSymbolErrors).
 		or(dot3Counter(r, etherlikemib.Dot3StatsSymbolErrors, r.Dot3StatsSymbolErrors)))
 

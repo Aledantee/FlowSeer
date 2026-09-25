@@ -49,50 +49,50 @@ type LLDPFacts struct {
 // address tables carry their address in the index, so their columns are
 // asked for only because a walk needs a column to ask for.
 var (
-	lldpPortConfigRead = collect.NewTable[lldpmib.LldpPortConfigTableRow](
-		lldpmib.LldpPortConfigTable.Descriptor(), lldpmib.LldpPortConfigTable.Walk,
-		lldpmib.LldpPortConfigAdminStatus,
-		lldpmib.LldpPortConfigNotificationEnable,
-		lldpmib.LldpPortConfigTLVsTxEnable,
+	lldpPortConfigRead = collect.NewTable[lldpmib.LLDPPortConfigTableRow](
+		lldpmib.LLDPPortConfigTable.Descriptor(), lldpmib.LLDPPortConfigTable.Walk,
+		lldpmib.LLDPPortConfigAdminStatus,
+		lldpmib.LLDPPortConfigNotificationEnable,
+		lldpmib.LLDPPortConfigTLVsTxEnable,
 	)
-	lldpLocPortRead = collect.NewTable[lldpmib.LldpLocPortTableRow](
-		lldpmib.LldpLocPortTable.Descriptor(), lldpmib.LldpLocPortTable.Walk,
-		lldpmib.LldpLocPortIdSubtype,
-		lldpmib.LldpLocPortId,
-		lldpmib.LldpLocPortDesc,
+	lldpLocPortRead = collect.NewTable[lldpmib.LLDPLocPortTableRow](
+		lldpmib.LLDPLocPortTable.Descriptor(), lldpmib.LLDPLocPortTable.Walk,
+		lldpmib.LLDPLocPortIDSubtype,
+		lldpmib.LLDPLocPortID,
+		lldpmib.LLDPLocPortDesc,
 	)
-	lldpLocManAddrRead = collect.NewTable[lldpmib.LldpLocManAddrTableRow](
-		lldpmib.LldpLocManAddrTable.Descriptor(), lldpmib.LldpLocManAddrTable.Walk,
-		lldpmib.LldpLocManAddrIfSubtype,
-		lldpmib.LldpLocManAddrIfId,
+	lldpLocManAddrRead = collect.NewTable[lldpmib.LLDPLocManAddrTableRow](
+		lldpmib.LLDPLocManAddrTable.Descriptor(), lldpmib.LLDPLocManAddrTable.Walk,
+		lldpmib.LLDPLocManAddrIfSubtype,
+		lldpmib.LLDPLocManAddrIfID,
 	)
-	lldpRemRead = collect.NewTable[lldpmib.LldpRemTableRow](
-		lldpmib.LldpRemTable.Descriptor(), lldpmib.LldpRemTable.Walk,
-		lldpmib.LldpRemChassisIdSubtype,
-		lldpmib.LldpRemChassisId,
-		lldpmib.LldpRemPortIdSubtype,
-		lldpmib.LldpRemPortId,
-		lldpmib.LldpRemPortDesc,
-		lldpmib.LldpRemSysName,
-		lldpmib.LldpRemSysDesc,
-		lldpmib.LldpRemSysCapSupported,
-		lldpmib.LldpRemSysCapEnabled,
+	lldpRemRead = collect.NewTable[lldpmib.LLDPRemTableRow](
+		lldpmib.LLDPRemTable.Descriptor(), lldpmib.LLDPRemTable.Walk,
+		lldpmib.LLDPRemChassisIDSubtype,
+		lldpmib.LLDPRemChassisID,
+		lldpmib.LLDPRemPortIDSubtype,
+		lldpmib.LLDPRemPortID,
+		lldpmib.LLDPRemPortDesc,
+		lldpmib.LLDPRemSysName,
+		lldpmib.LLDPRemSysDesc,
+		lldpmib.LLDPRemSysCapSupported,
+		lldpmib.LLDPRemSysCapEnabled,
 	)
-	lldpRemManAddrRead = collect.NewTable[lldpmib.LldpRemManAddrTableRow](
-		lldpmib.LldpRemManAddrTable.Descriptor(), lldpmib.LldpRemManAddrTable.Walk,
-		lldpmib.LldpRemManAddrIfSubtype,
-		lldpmib.LldpRemManAddrIfId,
+	lldpRemManAddrRead = collect.NewTable[lldpmib.LLDPRemManAddrTableRow](
+		lldpmib.LLDPRemManAddrTable.Descriptor(), lldpmib.LLDPRemManAddrTable.Walk,
+		lldpmib.LLDPRemManAddrIfSubtype,
+		lldpmib.LLDPRemManAddrIfID,
 	)
 )
 
 // The local-system scalars the LLDP mapper reads.
 var (
-	lldpLocChassisIDSubtypeRead = collect.NewScalar("lldpLocChassisIdSubtype", lldpmib.LldpLocChassisIdSubtypeGet)
-	lldpLocChassisIDRead        = collect.NewScalar("lldpLocChassisId", lldpmib.LldpLocChassisIdGet)
-	lldpLocSysNameRead          = collect.NewScalar("lldpLocSysName", lldpmib.LldpLocSysNameGet)
-	lldpLocSysDescRead          = collect.NewScalar("lldpLocSysDesc", lldpmib.LldpLocSysDescGet)
-	lldpLocSysCapSupportedRead  = collect.NewScalar("lldpLocSysCapSupported", lldpmib.LldpLocSysCapSupportedGet)
-	lldpLocSysCapEnabledRead    = collect.NewScalar("lldpLocSysCapEnabled", lldpmib.LldpLocSysCapEnabledGet)
+	lldpLocChassisIDSubtypeRead = collect.NewScalar("lldpLocChassisIdSubtype", lldpmib.LLDPLocChassisIDSubtypeGet)
+	lldpLocChassisIDRead        = collect.NewScalar("lldpLocChassisId", lldpmib.LLDPLocChassisIDGet)
+	lldpLocSysNameRead          = collect.NewScalar("lldpLocSysName", lldpmib.LLDPLocSysNameGet)
+	lldpLocSysDescRead          = collect.NewScalar("lldpLocSysDesc", lldpmib.LLDPLocSysDescGet)
+	lldpLocSysCapSupportedRead  = collect.NewScalar("lldpLocSysCapSupported", lldpmib.LLDPLocSysCapSupportedGet)
+	lldpLocSysCapEnabledRead    = collect.NewScalar("lldpLocSysCapEnabled", lldpmib.LLDPLocSysCapEnabledGet)
 )
 
 // The IANA address family numbers whose management addresses reach the
@@ -297,7 +297,7 @@ func lldpLocManAddrs(snap *collect.Snapshot) ([]*lldpv1.ManagementAddress, error
 	var addrs []*lldpv1.ManagementAddress
 
 	for _, row := range lldpLocManAddrRead.Rows(snap) {
-		if addr, ok := managementAddress(row.Key.LldpLocManAddrSubtype, row.Key.LldpLocManAddr); ok {
+		if addr, ok := managementAddress(row.Key.LLDPLocManAddrSubtype, row.Key.LLDPLocManAddr); ok {
 			addrs = append(addrs, addr)
 		}
 	}
@@ -316,15 +316,15 @@ func lldpLocManAddrs(snap *collect.Snapshot) ([]*lldpv1.ManagementAddress, error
 // enriches the ports lldpPortConfigTable already named.
 func lldpPorts(snap *collect.Snapshot, portNames map[uint32]string) ([]*lldpv1.PortSettings, error) {
 	type portRow struct {
-		config lldpmib.LldpPortConfigTableRow
-		loc    lldpmib.LldpLocPortTableRow
+		config lldpmib.LLDPPortConfigTableRow
+		loc    lldpmib.LLDPLocPortTableRow
 	}
 
-	rows := make(map[lldpmib.LldpPortNumber]*portRow)
+	rows := make(map[lldpmib.LLDPPortNumber]*portRow)
 
-	var order []lldpmib.LldpPortNumber
+	var order []lldpmib.LLDPPortNumber
 
-	at := func(num lldpmib.LldpPortNumber) *portRow {
+	at := func(num lldpmib.LLDPPortNumber) *portRow {
 		row, ok := rows[num]
 		if !ok {
 			row = &portRow{}
@@ -336,11 +336,11 @@ func lldpPorts(snap *collect.Snapshot, portNames map[uint32]string) ([]*lldpv1.P
 	}
 
 	for _, row := range lldpPortConfigRead.Rows(snap) {
-		at(row.Key.LldpPortConfigPortNum).config = row
+		at(row.Key.LLDPPortConfigPortNum).config = row
 	}
 
 	for _, row := range lldpLocPortRead.Rows(snap) {
-		at(row.Key.LldpLocPortNum).loc = row
+		at(row.Key.LLDPLocPortNum).loc = row
 	}
 
 	var locErr error
@@ -359,28 +359,28 @@ func lldpPorts(snap *collect.Snapshot, portNames map[uint32]string) ([]*lldpv1.P
 		// The MIB assigns no zero admin status, so a nonsense reading
 		// leaves the field absent; a value the schema does not name is
 		// kept, since the two numberings are the same registry.
-		if row.config.Observed(lldpmib.LldpPortConfigAdminStatus) && row.config.LldpPortConfigAdminStatus > 0 {
-			port.SetAdminStatus(lldpv1.PortAdminStatus(row.config.LldpPortConfigAdminStatus))
+		if row.config.Observed(lldpmib.LLDPPortConfigAdminStatus) && row.config.LLDPPortConfigAdminStatus > 0 {
+			port.SetAdminStatus(lldpv1.PortAdminStatus(row.config.LLDPPortConfigAdminStatus))
 		}
 
-		if row.config.Observed(lldpmib.LldpPortConfigNotificationEnable) {
-			port.SetNotificationsEnabled(row.config.LldpPortConfigNotificationEnable)
+		if row.config.Observed(lldpmib.LLDPPortConfigNotificationEnable) {
+			port.SetNotificationsEnabled(row.config.LLDPPortConfigNotificationEnable)
 		}
 
-		if row.config.Observed(lldpmib.LldpPortConfigTLVsTxEnable) {
-			if tlvs := transmittedTLVs(row.config.LldpPortConfigTLVsTxEnable); len(tlvs) > 0 {
+		if row.config.Observed(lldpmib.LLDPPortConfigTLVsTxEnable) {
+			if tlvs := transmittedTLVs(row.config.LLDPPortConfigTLVsTxEnable); len(tlvs) > 0 {
 				port.SetTransmittedTlvs(tlvs)
 			}
 		}
 
-		if row.loc.Observed(lldpmib.LldpLocPortIdSubtype) && row.loc.Observed(lldpmib.LldpLocPortId) {
-			if portID, ok := portID(row.loc.LldpLocPortIdSubtype, row.loc.LldpLocPortId); ok {
+		if row.loc.Observed(lldpmib.LLDPLocPortIDSubtype) && row.loc.Observed(lldpmib.LLDPLocPortID) {
+			if portID, ok := portID(row.loc.LLDPLocPortIDSubtype, row.loc.LLDPLocPortID); ok {
 				port.SetPortId(portID)
 			}
 		}
 
-		if row.loc.Observed(lldpmib.LldpLocPortDesc) {
-			port.SetPortDescription(string(row.loc.LldpLocPortDesc))
+		if row.loc.Observed(lldpmib.LLDPLocPortDesc) {
+			port.SetPortDescription(string(row.loc.LLDPLocPortDesc))
 		}
 
 		ports = append(ports, port)
@@ -420,21 +420,21 @@ func lldpNeighbors(snap *collect.Snapshot, portNames map[uint32]string) ([]*lldp
 // octets are key parts — the table's columns say only how the neighbor
 // reaches that address, not what it is. A walk that stopped partway
 // returns the groups it did read beside its error.
-func lldpRemManAddrs(snap *collect.Snapshot) (map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress, error) {
-	addrs := make(map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress)
+func lldpRemManAddrs(snap *collect.Snapshot) (map[lldpmib.LLDPRemTableKey][]*lldpv1.ManagementAddress, error) {
+	addrs := make(map[lldpmib.LLDPRemTableKey][]*lldpv1.ManagementAddress)
 
 	for _, row := range lldpRemManAddrRead.Rows(snap) {
-		addr, ok := managementAddress(row.Key.LldpRemManAddrSubtype, row.Key.LldpRemManAddr)
+		addr, ok := managementAddress(row.Key.LLDPRemManAddrSubtype, row.Key.LLDPRemManAddr)
 		if !ok {
 			continue
 		}
 
 		// The address key begins with the remote row's own key, which is
 		// how the two tables join.
-		key := lldpmib.LldpRemTableKey{
-			LldpRemTimeMark:     row.Key.LldpRemTimeMark,
-			LldpRemLocalPortNum: row.Key.LldpRemLocalPortNum,
-			LldpRemIndex:        row.Key.LldpRemIndex,
+		key := lldpmib.LLDPRemTableKey{
+			LLDPRemTimeMark:     row.Key.LLDPRemTimeMark,
+			LLDPRemLocalPortNum: row.Key.LLDPRemLocalPortNum,
+			LLDPRemIndex:        row.Key.LLDPRemIndex,
 		}
 
 		addrs[key] = append(addrs[key], addr)
@@ -450,17 +450,17 @@ func lldpRemManAddrs(snap *collect.Snapshot) (map[lldpmib.LldpRemTableKey][]*lld
 // mapNeighbor builds one Neighbor from its lldpRemTable row and the
 // management addresses of the same remote key.
 func mapNeighbor(
-	row lldpmib.LldpRemTableRow,
+	row lldpmib.LLDPRemTableRow,
 	addrs []*lldpv1.ManagementAddress,
 	portNames map[uint32]string,
 ) (*lldpv1.Neighbor, error) {
-	localPort, remIndex := row.Key.LldpRemLocalPortNum, row.Key.LldpRemIndex
+	localPort, remIndex := row.Key.LLDPRemLocalPortNum, row.Key.LLDPRemIndex
 
 	neighbor := &lldpv1.Neighbor{}
 	neighbor.SetLocalInterfaceName(localPortName(localPort, portNames))
 
-	chassis, ok := chassisID(row.LldpRemChassisIdSubtype, row.LldpRemChassisId)
-	if !ok || !row.Observed(lldpmib.LldpRemChassisIdSubtype) || !row.Observed(lldpmib.LldpRemChassisId) {
+	chassis, ok := chassisID(row.LLDPRemChassisIDSubtype, row.LLDPRemChassisID)
+	if !ok || !row.Observed(lldpmib.LLDPRemChassisIDSubtype) || !row.Observed(lldpmib.LLDPRemChassisID) {
 		return nil, errs.New().
 			Code(ErrCodeLLDPNeighborIncomplete).
 			Attr("local_port", localPort).
@@ -470,8 +470,8 @@ func mapNeighbor(
 
 	neighbor.SetChassisId(chassis)
 
-	port, ok := portID(row.LldpRemPortIdSubtype, row.LldpRemPortId)
-	if !ok || !row.Observed(lldpmib.LldpRemPortIdSubtype) || !row.Observed(lldpmib.LldpRemPortId) {
+	port, ok := portID(row.LLDPRemPortIDSubtype, row.LLDPRemPortID)
+	if !ok || !row.Observed(lldpmib.LLDPRemPortIDSubtype) || !row.Observed(lldpmib.LLDPRemPortID) {
 		return nil, errs.New().
 			Code(ErrCodeLLDPNeighborIncomplete).
 			Attr("local_port", localPort).
@@ -481,24 +481,24 @@ func mapNeighbor(
 
 	neighbor.SetPortId(port)
 
-	if row.Observed(lldpmib.LldpRemPortDesc) {
-		neighbor.SetPortDescription(string(row.LldpRemPortDesc))
+	if row.Observed(lldpmib.LLDPRemPortDesc) {
+		neighbor.SetPortDescription(string(row.LLDPRemPortDesc))
 	}
 
-	if row.Observed(lldpmib.LldpRemSysName) {
-		neighbor.SetSystemName(string(row.LldpRemSysName))
+	if row.Observed(lldpmib.LLDPRemSysName) {
+		neighbor.SetSystemName(string(row.LLDPRemSysName))
 	}
 
-	if row.Observed(lldpmib.LldpRemSysDesc) {
-		neighbor.SetSystemDescription(string(row.LldpRemSysDesc))
+	if row.Observed(lldpmib.LLDPRemSysDesc) {
+		neighbor.SetSystemDescription(string(row.LLDPRemSysDesc))
 	}
 
-	if row.Observed(lldpmib.LldpRemSysCapSupported) {
-		neighbor.SetCapabilitiesSupported(capabilities(row.LldpRemSysCapSupported))
+	if row.Observed(lldpmib.LLDPRemSysCapSupported) {
+		neighbor.SetCapabilitiesSupported(capabilities(row.LLDPRemSysCapSupported))
 	}
 
-	if row.Observed(lldpmib.LldpRemSysCapEnabled) {
-		neighbor.SetCapabilitiesEnabled(capabilities(row.LldpRemSysCapEnabled))
+	if row.Observed(lldpmib.LLDPRemSysCapEnabled) {
+		neighbor.SetCapabilitiesEnabled(capabilities(row.LLDPRemSysCapEnabled))
 	}
 
 	if len(addrs) > 0 {
@@ -559,7 +559,7 @@ func managementAddress(subtype int32, address string) (*lldpv1.ManagementAddress
 // as reported, including one this schema version does not name, and the
 // octets untouched. A subtype of zero or an octet string outside the
 // protocol's 1-to-255 range is no identifier at all.
-func chassisID(subtype lldpmib.LldpChassisIdSubtype, value []byte) (*lldpv1.ChassisId, bool) {
+func chassisID(subtype lldpmib.LLDPChassisIDSubtype, value []byte) (*lldpv1.ChassisId, bool) {
 	if subtype < 1 || len(value) < 1 || len(value) > 255 {
 		return nil, false
 	}
@@ -573,7 +573,7 @@ func chassisID(subtype lldpmib.LldpChassisIdSubtype, value []byte) (*lldpv1.Chas
 
 // portID is [chassisID] for a port identifier, which the protocol shapes
 // the same way.
-func portID(subtype lldpmib.LldpPortIdSubtype, value []byte) (*lldpv1.PortId, bool) {
+func portID(subtype lldpmib.LLDPPortIDSubtype, value []byte) (*lldpv1.PortId, bool) {
 	if subtype < 1 || len(value) < 1 || len(value) > 255 {
 		return nil, false
 	}
@@ -615,7 +615,7 @@ func transmittedTLVs(bits snmp.BitSet) []lldpv1.TlvType {
 // caller could not resolve still names the row it came from. The lookup
 // is on the arc as the agent spelled it, which the conversion restores
 // from the narrowed key type.
-func localPortName(num lldpmib.LldpPortNumber, portNames map[uint32]string) string {
+func localPortName(num lldpmib.LLDPPortNumber, portNames map[uint32]string) string {
 	arc := uint32(num)
 
 	if name, ok := portNames[arc]; ok && name != "" {

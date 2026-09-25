@@ -152,10 +152,6 @@ func renderModule(
 	if err := checkSourceNames(mod); err != nil {
 		return nil, nil, err
 	}
-	if err := checkGoNameUniqueness(mod, set); err != nil {
-		return nil, nil, err
-	}
-
 	// OID pre-pass: every node's OID must satisfy snmp.NewOID before any
 	// emitter renders a snmp.MustOID call for it. MustOID enforces the
 	// SMIv2 root and length rules (validateSubs) that smi.OID.String and
@@ -183,6 +179,9 @@ func renderModule(
 	ec.tableIndicatorsByOID = make(map[string]struct{}, len(ec.tableIndicators))
 	for _, ti := range ec.tableIndicators {
 		ec.tableIndicatorsByOID[ti.Table.OID.String()] = struct{}{}
+	}
+	if err := checkGoNameUniqueness(ec); err != nil {
+		return nil, nil, err
 	}
 
 	f := jen.NewFilePathName(pkgPrefix+"/"+cm.Package, cm.Package)
@@ -471,48 +470,55 @@ func checkSourceNames(mod *smi.Module) error {
 // checkGoNameUniqueness refuses a module in which two SMI names map to
 // the same Go identifier: "fooId" and "fooID" both camel-case to
 // FooID, and one generated package cannot carry two bindings under one
-// name. Generated output is a public API typed by hand, so a silently
+// name. It reserves the package-level identifiers each emitter actually
+// writes, including accessor and table suffixes and enum/BITS members.
+// Generated output is a public API typed by hand, so a silently
 // disambiguated or hash-suffixed name is not an option; the refusal
 // names both SMI names so the clash is resolved deliberately, in the
 // MIB or in the config. It runs beside checkSourceNames over every
-// name the module contributes to its Go package — scalars, columns,
-// tables, and the types that emit a Go declaration (enumerations, key
-// types) — and iterates in declaration order so the report is
-// deterministic. A name the emitter never spells, like the SEQUENCE
-// type behind a table row, cannot collide in the package and is not
-// checked.
-func checkGoNameUniqueness(mod *smi.Module, set *smi.ModuleSet) error {
+// name the module contributes to its Go package and iterates in
+// declaration order so the report is deterministic. A name the emitter
+// never spells, like the SEQUENCE type behind a table row, cannot
+// collide in the package and is not checked.
+func checkGoNameUniqueness(ec *emitCtx) error {
+	mod := ec.mod
 	seen := make(map[string]string)
 	reported := make(map[string]bool)
 	var clashes []string
-	visit := func(name string) {
-		goName := camelCase(name)
+	visit := func(goName, smiName string) {
 		first, ok := seen[goName]
 		if !ok {
-			seen[goName] = name
+			seen[goName] = smiName
 			return
 		}
-		if first != name && !reported[goName] {
+		if first != smiName && !reported[goName] {
 			reported[goName] = true
-			clashes = append(clashes, fmt.Sprintf("%q and %q both map to %q", first, name, goName))
+			clashes = append(clashes, fmt.Sprintf("%q and %q both emit %q", first, smiName, goName))
 		}
 	}
 
 	for _, n := range mod.Nodes {
-		switch n.Kind {
-		case smi.NodeScalar, smi.NodeTable:
-			visit(n.Name)
-		case smi.NodeColumn:
-			// A not-accessible index column travels in the index
-			// suffix; the emitter never spells its name in the
-			// generated package.
-			if n.Access != smi.AccessNotAccessible {
-				visit(n.Name)
+		if n.Kind != smi.NodeScalar && n.Kind != smi.NodeColumn {
+			continue
+		}
+		if n.Type == nil || n.Type.Name != "" {
+			continue
+		}
+		switch {
+		case n.Type.Enumerated():
+			prefix := camelCase(n.Name) + "Value"
+			visit(prefix, n.Name)
+			for _, member := range n.Type.Members {
+				visit(prefix+camelCase(member.Name), n.Name+"."+member.Name)
+			}
+		case isBitsType(n.Type):
+			prefix := camelCase(n.Name) + "Bit"
+			for _, member := range n.Type.Members {
+				visit(prefix+camelCase(member.Name), n.Name+"."+member.Name)
 			}
 		}
 	}
 
-	keyed := keyedConventions(set)
 	for _, ty := range mod.Types {
 		if ty.Name == "" {
 			continue
@@ -520,13 +526,100 @@ func checkGoNameUniqueness(mod *smi.Module, set *smi.ModuleSet) error {
 		switch {
 		case ty.Enumerated():
 			if _, wellKnown := wellKnownTC(ty.Name); !wellKnown {
-				visit(ty.Name)
+				prefix := camelCase(ty.Name)
+				visit(prefix, ty.Name)
+				for _, member := range ty.Members {
+					visit(prefix+camelCase(member.Name), ty.Name+"."+member.Name)
+				}
+			}
+		case isBitsType(ty):
+			prefix := camelCase(ty.Name)
+			for _, member := range ty.Members {
+				visit(prefix+camelCase(member.Name), ty.Name+"."+member.Name)
 			}
 		default:
-			if _, ok := keyed[typeKey{Module: mod.Name, Name: ty.Name}]; ok {
-				visit(ty.Name)
+			if _, ok := ec.keyed[typeKey{Module: mod.Name, Name: ty.Name}]; ok {
+				visit(camelCase(ty.Name), ty.Name)
 			}
 		}
+	}
+
+	for _, n := range mod.Nodes {
+		if n.Kind == smi.NodeScalar {
+			visit(camelCase(n.Name)+"Get", n.Name)
+		}
+	}
+
+	hasColumns := false
+	for _, table := range mod.Tables {
+		if table == nil || table.Node == nil || table.Row == nil || len(table.Columns) == 0 {
+			continue
+		}
+
+		tableName := camelCase(table.Node.Name)
+		keyResolved := len(table.Index) > 0
+		for _, part := range table.Index {
+			if part.Unresolved || part.Type == nil {
+				keyResolved = false
+				break
+			}
+		}
+		root := table
+		for root.AugmentsTable != nil {
+			root = root.AugmentsTable
+		}
+		if keyResolved && root == table {
+			visit(tableName+"Key", table.Node.Name)
+		}
+		keyEmitted := keyResolved
+		if keyEmitted && root != table && root.Node.Module != mod.Name &&
+			ec.moduleQual(root.Node.Module, camelCase(root.Node.Name)+"Key") == nil {
+			keyEmitted = false
+		}
+
+		if !tableBound(table) {
+			continue
+		}
+		hasColumns = true
+		for _, col := range table.Columns {
+			if col.Access != smi.AccessNotAccessible {
+				visit(camelCase(col.Name), col.Name)
+			}
+		}
+		for _, goName := range []string{
+			tableName,
+			tableName + "Row",
+			tableName + "Walker",
+			unexported(tableName) + "T",
+		} {
+			visit(goName, table.Node.Name)
+		}
+		if keyEmitted {
+			visit(unexported(tableName)+"IndexShapes", table.Node.Name)
+			visit("decode"+tableName+"Key", table.Node.Name)
+		}
+		if ec.tableHasIndicator(table.Node.OID.String()) {
+			for _, goName := range []string{
+				"decode" + tableName + "Row",
+				"equal" + tableName + "Row",
+				"merge" + tableName + "Row",
+				tableName + "Watcher",
+			} {
+				visit(goName, table.Node.Name)
+			}
+		}
+	}
+
+	if hasColumns {
+		visit(dispatchMapName(mod.Name), mod.Name)
+		visit("OIDDispatch", mod.Name)
+	}
+	if ec.hasIndicator && hasColumns {
+		visit(tierMapName(mod.Name), mod.Name)
+		visit("ColumnTier", mod.Name)
+	}
+	for _, ti := range ec.tableIndicators {
+		visit(camelCase(ti.Table.Name)+"Indicator", ti.Table.Name)
 	}
 
 	if len(clashes) == 0 {

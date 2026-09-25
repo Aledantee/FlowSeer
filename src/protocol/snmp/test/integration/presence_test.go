@@ -51,7 +51,7 @@ func TestIfTableRow_ObservedDistinguishesZeroFromAbsent(t *testing.T) {
 	vbs = append(vbs, zeroValuedIfRowFixtures(2)...)
 	sess := &fakeSession{vbs: vbs}
 
-	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, ifmib.IfMtu)
+	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, ifmib.IfMTU)
 	rows := map[uint32]ifmib.IfTableRow{}
 	for idx, row := range tw.Iter() {
 		if idx.Len() == 0 {
@@ -73,16 +73,16 @@ func TestIfTableRow_ObservedDistinguishesZeroFromAbsent(t *testing.T) {
 	if !sparse.Observed(ifmib.IfDescr) {
 		t.Error("row 1: IfDescr unobserved, want observed")
 	}
-	if sparse.Observed(ifmib.IfMtu) {
-		t.Error("row 1: IfMtu observed, want unobserved (the agent never reported it)")
+	if sparse.Observed(ifmib.IfMTU) {
+		t.Error("row 1: IfMTU observed, want unobserved (the agent never reported it)")
 	}
 
 	zeroed := rows[2]
-	if !zeroed.Observed(ifmib.IfMtu) {
-		t.Error("row 2: IfMtu unobserved, want observed (the agent reported a genuine zero)")
+	if !zeroed.Observed(ifmib.IfMTU) {
+		t.Error("row 2: IfMTU unobserved, want observed (the agent reported a genuine zero)")
 	}
-	if zeroed.IfMtu != 0 {
-		t.Errorf("row 2: IfMtu = %d, want 0", zeroed.IfMtu)
+	if zeroed.IfMTU != 0 {
+		t.Errorf("row 2: IfMTU = %d, want 0", zeroed.IfMTU)
 	}
 	if zeroed.Observed(ifmib.IfDescr) {
 		t.Error("row 2: IfDescr observed, want unobserved")
@@ -110,7 +110,7 @@ func TestIfTableRow_ObservedRejectsForeignColumn(t *testing.T) {
 	sess := fakeIfTableSession()
 	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr)
 	for _, row := range tw.Iter() {
-		if row.Observed(lldpmib.LldpRemPortId) {
+		if row.Observed(lldpmib.LLDPRemPortID) {
 			t.Error("a column of another table reads observed")
 		}
 	}
@@ -148,7 +148,7 @@ func TestIfTableWalk_RejectsForeignColumnWithCollidingSubID(t *testing.T) {
 func TestIfTableWalk_RejectsForeignColumnWithoutCollision(t *testing.T) {
 	sess := fakeIfTableSession()
 
-	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, lldpmib.LldpRemPortId)
+	tw := ifmib.IfTable.Walk(context.Background(), sess, ifmib.IfDescr, lldpmib.LLDPRemPortID)
 	for range tw.Iter() { //nolint:revive // draining the iterator is the point
 		t.Error("walk over a foreign column yielded a row, want none")
 	}
@@ -181,27 +181,27 @@ func TestLldpRemTable_CapabilitiesDecodeAsBitSet(t *testing.T) {
 	// bit 9, which LLDP-MIB gives no name.
 	sess := &fakeSession{vbs: lldpCapFixture(1, []byte{0x28, 0x40}, []byte{0x20, 0x00})}
 
-	tw := lldpmib.LldpRemTable.Walk(context.Background(), sess, lldpmib.LldpRemSysCapSupported, lldpmib.LldpRemSysCapEnabled)
+	tw := lldpmib.LLDPRemTable.Walk(context.Background(), sess, lldpmib.LLDPRemSysCapSupported, lldpmib.LLDPRemSysCapEnabled)
 	n := 0
 	for idx, row := range tw.Iter() {
 		n++
-		if !row.KeyValid() || idx.Len() != 3 || uint32(row.Key.LldpRemLocalPortNum) != idx.At(1) || uint32(row.Key.LldpRemIndex) != idx.At(2) {
+		if !row.KeyValid() || idx.Len() != 3 || uint32(row.Key.LLDPRemLocalPortNum) != idx.At(1) || uint32(row.Key.LLDPRemIndex) != idx.At(2) {
 			t.Errorf("composite Row.Key = %+v (valid %t), iterator index = %v; want a key decoded from the three arcs", row.Key, row.KeyValid(), idx)
 		}
-		if !row.LldpRemSysCapSupported.Has(lldpmib.LldpSystemCapabilitiesMapBridge) {
+		if !row.LLDPRemSysCapSupported.Has(lldpmib.LLDPSystemCapabilitiesMapBridge) {
 			t.Error("supported: bridge bit not set")
 		}
-		if !row.LldpRemSysCapSupported.Has(lldpmib.LldpSystemCapabilitiesMapRouter) {
+		if !row.LLDPRemSysCapSupported.Has(lldpmib.LLDPSystemCapabilitiesMapRouter) {
 			t.Error("supported: router bit not set")
 		}
-		if !row.LldpRemSysCapSupported.Has(9) {
+		if !row.LLDPRemSysCapSupported.Has(9) {
 			t.Error("supported: unnamed bit 9 dropped")
 		}
-		if row.LldpRemSysCapSupported.Has(lldpmib.LldpSystemCapabilitiesMapOther) {
+		if row.LLDPRemSysCapSupported.Has(lldpmib.LLDPSystemCapabilitiesMapOther) {
 			t.Error("supported: other bit set, want unset")
 		}
-		if !row.LldpRemSysCapEnabled.Equal(snmp.NewBitSet(lldpmib.LldpSystemCapabilitiesMapBridge)) {
-			t.Errorf("enabled = %v, want just bridge", row.LldpRemSysCapEnabled)
+		if !row.LLDPRemSysCapEnabled.Equal(snmp.NewBitSet(lldpmib.LLDPSystemCapabilitiesMapBridge)) {
+			t.Errorf("enabled = %v, want just bridge", row.LLDPRemSysCapEnabled)
 		}
 	}
 	if err := tw.Err(); err != nil {
@@ -217,20 +217,20 @@ func TestLldpRemTable_CapabilitiesDecodeAsBitSet(t *testing.T) {
 func TestLldpRemTable_EmptyCapabilitiesIsEmptySet(t *testing.T) {
 	sess := &fakeSession{vbs: lldpCapFixture(1, []byte{}, []byte{0x00, 0x00})}
 
-	tw := lldpmib.LldpRemTable.Walk(context.Background(), sess, lldpmib.LldpRemSysCapSupported, lldpmib.LldpRemSysCapEnabled)
+	tw := lldpmib.LLDPRemTable.Walk(context.Background(), sess, lldpmib.LLDPRemSysCapSupported, lldpmib.LLDPRemSysCapEnabled)
 	for _, row := range tw.Iter() {
-		if !row.LldpRemSysCapSupported.Empty() {
-			t.Errorf("supported = %v, want empty", row.LldpRemSysCapSupported)
+		if !row.LLDPRemSysCapSupported.Empty() {
+			t.Errorf("supported = %v, want empty", row.LLDPRemSysCapSupported)
 		}
-		if row.LldpRemSysCapSupported.Has(lldpmib.LldpSystemCapabilitiesMapOther) {
+		if row.LLDPRemSysCapSupported.Has(lldpmib.LLDPSystemCapabilitiesMapOther) {
 			t.Error("empty value reports the zero-position bit as set")
 		}
-		if !row.LldpRemSysCapEnabled.Empty() {
-			t.Errorf("enabled = %v, want empty", row.LldpRemSysCapEnabled)
+		if !row.LLDPRemSysCapEnabled.Empty() {
+			t.Errorf("enabled = %v, want empty", row.LLDPRemSysCapEnabled)
 		}
 		// The columns were requested and answered, so both read observed
 		// even though the sets are empty.
-		if !row.Observed(lldpmib.LldpRemSysCapSupported) || !row.Observed(lldpmib.LldpRemSysCapEnabled) {
+		if !row.Observed(lldpmib.LLDPRemSysCapSupported) || !row.Observed(lldpmib.LLDPRemSysCapEnabled) {
 			t.Error("an answered capability column reads unobserved")
 		}
 	}
@@ -249,7 +249,7 @@ func TestLldpRemTable_MalformedCapabilityDeclines(t *testing.T) {
 		vb:  snmp.Integer32Var{Header: snmp.Header{OID: sup, Kind: snmp.KindInteger32}, Value: 20},
 	}}}
 
-	tw := lldpmib.LldpRemTable.Walk(context.Background(), sess, lldpmib.LldpRemSysCapSupported)
+	tw := lldpmib.LLDPRemTable.Walk(context.Background(), sess, lldpmib.LLDPRemSysCapSupported)
 	for range tw.Iter() { //nolint:revive // draining the iterator is the point
 	}
 	if tw.Err() == nil {

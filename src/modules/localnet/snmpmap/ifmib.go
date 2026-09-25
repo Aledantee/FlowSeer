@@ -37,7 +37,7 @@ var (
 var ifTableColumns = []snmp.AnyColumn{
 	ifmib.IfDescr,
 	ifmib.IfType,
-	ifmib.IfMtu,
+	ifmib.IfMTU,
 	ifmib.IfPhysAddress,
 	ifmib.IfAdminStatus,
 	ifmib.IfOperStatus,
@@ -327,8 +327,8 @@ func mapInterface(
 
 	// A negative ifMtu is outside the MIB's range and says nothing about
 	// the interface, so it reads as unreported.
-	if r.Observed(ifmib.IfMtu) && r.IfMtu >= 0 {
-		iface.SetMtu(uint32(r.IfMtu))
+	if r.Observed(ifmib.IfMTU) && r.IfMTU >= 0 {
+		iface.SetMtu(uint32(r.IfMTU))
 	}
 
 	if r.Observed(ifmib.IfPhysAddress) {
