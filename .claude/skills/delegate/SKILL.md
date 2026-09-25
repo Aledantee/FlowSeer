@@ -42,7 +42,8 @@ Resolve a role to a lane in this order, once per lane:
 4. Move a pool that already holds a running lane of this wave to the back
    until that lane settles.
 5. Take the model whose pool has the most headroom, and within ten points
-   the one with the lower registry price. A signed-in pool whose source
+   the one with the lower registry price; `price: null` marks a
+   subscription pool and counts as the lower. A signed-in pool whose source
    failed (`windows: null`) counts as full headroom until it answers with a
    429.
 

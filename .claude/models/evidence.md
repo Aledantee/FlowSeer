@@ -14,6 +14,7 @@ One line per claim the registry relies on: model, claim, source, date read.
 - OpenCode Go — $10/month buys $60 of usage at list rates, metered $12 per 5 hours and $30 per week; Luna and Grok 4.5 capped at $15/month each — https://www.bitdoze.com/opencode-go-plan/ and https://llmgateway.io/blog/opencode-go-pricing — 2026-09-09.
 
 - Claude pool — a subscription metered by the session, weekly and Fable-weekly windows (host discovery, 2026-09-25), not per token. Per-token list prices on the Claude rows do not describe what a lane costs this host; `claude-opus-5-5` goes in without one — user, 2026-09-25.
+- Claude Opus 4.8 — effort levels low–max in Claude Code — https://code.claude.com/docs/en/model-config.md (Adjust effort level); 1M context at standard rate for Claude 4.6 and later — https://platform.claude.com/docs/en/about-claude/pricing (Long context pricing) — 2026-09-25.
 - Claude Opus 5.5 — released 2026-09-22; context 1M, 128K max output; Claude Code's default effort for it is `medium`, not `high`, and a top-level user `effortLevel` does not apply to it; effort levels low–max — https://techcrunch.com/2026/09/22/anthropic-releases-opus-5-5-with-lower-prices-and-fable-level-performance/ and https://code.claude.com/docs/en/model-config.md (Adjust effort level) — 2026-09-25.
 
 ## Refusal posture
