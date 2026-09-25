@@ -93,7 +93,7 @@ func TestEmitFixtureSurface(t *testing.T) {
 		// Structs, schemas, and descriptors.
 		"type Servers struct",
 		"type ServersServer struct",
-		"var ServersServerSchema =",
+		"var ServersServerSchemaX4d76e3 =",
 		"type ServersServerKey struct",
 		"func ServersServerDescriptor() yang.ListDescriptor",
 		// Nested list: flat row with the ancestor key, schema chain,
@@ -190,7 +190,8 @@ func TestGoldenPackagesBuild(t *testing.T) {
 
 // TestEmitNoUnderscores parses the golden fixture output with go/parser and
 // walks every declaration, asserting: no identifier or struct field contains '_',
-// Servers_Server is now ServersServer, and companion/child clash resolution holds.
+// Servers_Server is now ServersServer, and companion/child clash resolution holds,
+// including a sibling struct (server-schema) whose name equals a list's schema var.
 func TestEmitNoUnderscores(t *testing.T) {
 	goldenRoot := filepath.Join("testdata", "golden", "fixture")
 	entries, err := os.ReadDir(goldenRoot)
@@ -203,9 +204,12 @@ func TestEmitNoUnderscores(t *testing.T) {
 	foundServersServerKey := false
 	foundSchemaChildClash := false
 	foundKeyChildClash := false
+	foundSiblingStruct := false
+	foundSchemaSiblingClash := false
 
 	schemaChildRE := regexp.MustCompile(`^ServersSchemaX[0-9a-f]{6}$`)
 	keyChildRE := regexp.MustCompile(`^ServersServerKeyX[0-9a-f]{6}$`)
+	schemaSiblingRE := regexp.MustCompile(`^ServersServerSchemaX[0-9a-f]{6}$`)
 
 	fset := token.NewFileSet()
 	for _, e := range entries {
@@ -248,6 +252,9 @@ func TestEmitNoUnderscores(t *testing.T) {
 							if name == "ServersServerKey" {
 								foundServersServerKey = true
 							}
+							if name == "ServersServerSchema" {
+								foundSiblingStruct = true
+							}
 							if st, ok := s.Type.(*ast.StructType); ok {
 								for _, field := range st.Fields.List {
 									for _, id := range field.Names {
@@ -265,6 +272,12 @@ func TestEmitNoUnderscores(t *testing.T) {
 								}
 								if name == "ServersSchema" {
 									foundServersSchema = true
+								}
+								if schemaSiblingRE.MatchString(name) {
+									foundSchemaSiblingClash = true
+								}
+								if name == "ServersServerSchema" {
+									t.Errorf("%s: var %q takes the sibling struct's name", f.Name(), name)
 								}
 							}
 						}
@@ -293,5 +306,11 @@ func TestEmitNoUnderscores(t *testing.T) {
 	}
 	if !foundKeyChildClash {
 		t.Error("child container ServersServerKeyX<hex> not found in golden fixtures")
+	}
+	if !foundSiblingStruct {
+		t.Error("sibling container type ServersServerSchema not found in golden fixtures")
+	}
+	if !foundSchemaSiblingClash {
+		t.Error("list schema var ServersServerSchemaX<hex> not found in golden fixtures")
 	}
 }
