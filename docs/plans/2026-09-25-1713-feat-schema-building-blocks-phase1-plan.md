@@ -4,13 +4,27 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Schema Building Blocks Phase 1, Shared Leaves and the Schema Language - Plan
+
+> Implemented. 5 units, 2026-09-25T17:48Z to 2026-09-25T20:26Z. The
+> Verification and Definition-of-done lines naming `--full` are replaced by
+> one targeted verifier run over the union of paths changed in this phase
+> (`spec/proto/flowseer`, `test/conformance/proto`, `src/common/netsim`,
+> `src/modules/localnet`, `src/modules/capture`, `src/services/device`, and
+> `src/common/service/manifest.go`), because `--full` builds and race-tests
+> `generated/` and exhausts host memory; that targeted run ended `FlowSeer
+> verification passed.` Two rulings were made at implementation time and
+> are in Decisions: same-name fields moving to `net/measure` reserve only
+> their old number, and the registry-row count, repeated interface-name
+> carriers, the two carriers outside the key-rules parenthetical, the
+> `duplicate_window` Duration, and the missing `ipAddressOrigin` mapper
+> carrier are all recorded there.
 
 ## Goal
 

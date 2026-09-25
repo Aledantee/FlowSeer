@@ -103,7 +103,7 @@ discovery re-cuts the table in the record before any later phase lands.
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase1-plan.md
 After: none
-Landed:
+Landed: `68a18e63..ed9f129e`
 
 ### U2. Phase 2: network instances and routing
 
