@@ -341,3 +341,14 @@ go test -race ./test/conformance/... ./src/modules/localnet/snmpmap/... ./src/co
   Under the Protocol Buffers wire encoding specification and Google's Go protobuf runtime (`google.golang.org/protobuf`), unmarshaling wire bytes containing multiple fields for the same oneof applies "last tag wins" — the later tag overwrites the earlier tag and leaves no unknown fields. In Go's opaque API runtime, a oneof is represented in-memory by an interface holding at most one concrete variant; it cannot hold both arms simultaneously.
   When `protovalidate.Validate` evaluates the unmarshaled message, `msg.WhichOneof(descriptor)` returns the single populated arm, satisfying `(buf.validate.oneof).required = true`. Protovalidate's `oneof.go` only emits `"exactly one field is required in oneof"` when `WhichOneof` is nil (no arm set). It is therefore impossible for `protovalidate.Validate` on an unmarshaled message to reject wire bytes containing multiple oneof tags without rejecting valid messages.
   Per brief rule 19 ("a requirement you believe the code cannot satisfy is a blocker: record it in the plan's Open questions, commit what passed, state the blocker, stop"), execution stops here for re-planning or requirement clarification.
+
+- Parked by drive: requirement 4 ("a NextHop with both arms set fails oneof
+  validation") tests a structurally impossible state — protobuf oneof decoding
+  is last-tag-wins, so an unmarshaled message never holds both arms, and
+  protovalidate rejects only when no arm is set. U1 (network instance) landed;
+  U2 (routing/NextHop) is blocked on this. Options: (a) rewrite requirement 4 to
+  assert the enforceable invariant — a NextHop with no arm set fails the required
+  oneof, exactly-one passes, and a comment on NextHop notes the oneof makes
+  both-arms unrepresentable | (b) keep the wording and drop the impossible "both
+  arms" test as structurally covered. Recommended: (a), because it tests the real
+  contract instead of a state the wire format cannot produce, and documents why.
