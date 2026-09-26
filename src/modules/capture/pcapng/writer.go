@@ -2,12 +2,12 @@ package pcapng
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"math"
 	"time"
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Block types (draft-ietf-opsawg-pcapng-05).
@@ -87,7 +87,7 @@ func (wr *Writer) WriteRecord(rec *capturev1.PacketRecord) error {
 // errClosed is Close's sticky error once it has already succeeded: a
 // second Close, or a WriteRecord after one, would otherwise append another
 // block past what the Interface Statistics Block summarized.
-var errClosed = errors.New("pcapng: writer is already closed")
+var errClosed = errs.Msg("pcapng: writer is already closed")
 
 // Close appends one Interface Statistics Block carrying counters. Only the
 // three CaptureCounters fields the pcapng draft's own ISB options name have

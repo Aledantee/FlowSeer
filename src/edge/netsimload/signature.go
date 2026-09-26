@@ -2,9 +2,9 @@ package netsimload
 
 import (
 	"encoding/binary"
-	"fmt"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 )
@@ -30,10 +30,10 @@ type Signature struct {
 // SignatureSize payload octets. The source frame is never mutated.
 func Sign(frame ethernet.Frame, flowID fabric.FlowID, sequence uint64, submittedAt time.Time) (ethernet.Frame, error) {
 	if flowID == 0 {
-		return ethernet.Frame{}, fmt.Errorf("flow ID must be nonzero")
+		return ethernet.Frame{}, errs.Msg("flow ID must be nonzero")
 	}
 	if len(frame.Payload) < SignatureSize {
-		return ethernet.Frame{}, fmt.Errorf("frame payload is %d octets, need at least %d", len(frame.Payload), SignatureSize)
+		return ethernet.Frame{}, errs.Msgf("frame payload is %d octets, need at least %d", len(frame.Payload), SignatureSize)
 	}
 
 	frame.Payload = append([]byte(nil), frame.Payload...)
@@ -52,16 +52,16 @@ func Sign(frame ethernet.Frame, flowID fabric.FlowID, sequence uint64, submitted
 // word so unrelated traffic cannot enter a configured flow.
 func DecodeSignature(payload []byte) (Signature, error) {
 	if len(payload) < SignatureSize {
-		return Signature{}, fmt.Errorf("signature payload is %d octets, need at least %d", len(payload), SignatureSize)
+		return Signature{}, errs.Msgf("signature payload is %d octets, need at least %d", len(payload), SignatureSize)
 	}
 	if string(payload[0:4]) != string(signatureMagic[:]) {
-		return Signature{}, fmt.Errorf("signature magic is %q", payload[0:4])
+		return Signature{}, errs.Msgf("signature magic is %q", payload[0:4])
 	}
 	if version := binary.BigEndian.Uint32(payload[4:8]); version != signatureVersion {
-		return Signature{}, fmt.Errorf("signature version is %d", version)
+		return Signature{}, errs.Msgf("signature version is %d", version)
 	}
 	if reserved := binary.BigEndian.Uint32(payload[12:16]); reserved != 0 {
-		return Signature{}, fmt.Errorf("signature reserved word is %d", reserved)
+		return Signature{}, errs.Msgf("signature reserved word is %d", reserved)
 	}
 
 	return Signature{
@@ -75,7 +75,7 @@ func DecodeSignature(payload []byte) (Signature, error) {
 func DecodeWireSignature(wire []byte) (Signature, error) {
 	frame, err := ethernet.Decode(wire)
 	if err != nil {
-		return Signature{}, fmt.Errorf("decode Ethernet frame: %w", err)
+		return Signature{}, errs.Wrap(err, "decode Ethernet frame")
 	}
 
 	return DecodeSignature(frame.Payload)

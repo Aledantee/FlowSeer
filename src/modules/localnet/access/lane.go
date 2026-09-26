@@ -1233,7 +1233,7 @@ func (ds *deviceState) clearCurrent(open *openMutation) {
 // acknowledgement turned the mutation terminal rather than because the step
 // completed. It is never returned to a caller: process reads the machine
 // and reports the terminal phase instead.
-var errMutationEnded = errors.New("mutation ended before this step completed")
+var errMutationEnded = errs.Msg("mutation ended before this step completed")
 
 // armCheckpoint registers the wait for seq's CheckpointRequest and returns
 // it without blocking. Publishing the channel is a separate step from
