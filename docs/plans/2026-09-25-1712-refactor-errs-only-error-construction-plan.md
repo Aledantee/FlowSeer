@@ -130,6 +130,17 @@ This plan's own decisions:
   holds them lowercase and unpunctuated, and changing message text in the same
   change as 654 mechanical call-site edits would hide the one that matters.
 
+## Decisions made after implementation
+
+- Review this change on `claude-opus-4-8`, pinned from the start, with its
+  transcript read before the verdict is accepted. The user's decision. Opus 4.8
+  rather than 5.x because 5.x's cyber flags produce the silent fallback that
+  invalidated the first review of the style plan; pinning the fallback target
+  from the start removes the thing that can happen quietly. The change includes
+  `src/edge/netpen`, which is kept off Claude for *editing*; reviewing it there is
+  the accepted exception, as it was for the style plan.
+- Compound on `gemini-3.8-flash` (`google`). The user's decision.
+
 ## Requirements
 
 1. No non-test Go file under `src/` outside `src/common/errs` calls `errors.New`
