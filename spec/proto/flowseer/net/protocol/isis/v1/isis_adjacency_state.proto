@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.isis.v1;
+
+// The operational state of an IS-IS adjacency (RFC 4444, ISIS-MIB isisISAdjState).
+enum IsisAdjacencyState {
+  ISIS_ADJACENCY_STATE_UNSPECIFIED = 0;
+  // The adjacency is down and inactive (ISIS-MIB down).
+  ISIS_ADJACENCY_STATE_DOWN = 1;
+  // The adjacency is initializing communication (ISIS-MIB initializing).
+  ISIS_ADJACENCY_STATE_INITIALIZING = 2;
+  // The adjacency is fully established and operational (ISIS-MIB up).
+  ISIS_ADJACENCY_STATE_UP = 3;
+  // Communication with the neighbor has failed (ISIS-MIB failed).
+  ISIS_ADJACENCY_STATE_FAILED = 4;
+}

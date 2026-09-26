@@ -246,8 +246,9 @@ the vendored specs cited per decision.
   explicit ones. IOS-XE reports `standby` where the others say failed
   (`Cisco-IOS-XE-isis-oper.yang:66-91`); a mapper leaves that state
   absent rather than guess.
-- **`IsisLevel` is pass-through of the `IsisLevel` TC: `LEVEL_1 = 1`,
-  `LEVEL_2 = 2`, `LEVEL_1_2 = 3`** (`ISIS-MIB:249-262`), used by the
+- **`IsisLevel` is pass-through of the `IsisLevel` TC: `LEVEL1 = 1`,
+  `LEVEL2 = 2`, `LEVEL1_AND_LEVEL2 = 3`** (`ISIS-MIB:249-262`; digits
+  cannot follow an underscore under STYLE2024), used by the
   instance's `level_type` (`isisSysLevelType`, `:351-367`) and the
   adjacency's `usage` (`isisISAdjUsage`, `:2379-2389`), which is part of
   the adjacency key as it is in IOS-XE's (`system-id level if-name`,
@@ -494,7 +495,7 @@ the vendored specs cited per decision.
 6. IS-IS adjacency state has four values and the adjacency key is
    complete. Example: `IsisAdjacencyState` names exactly 1 to 4 beside
    `_UNSPECIFIED`; an `IsisAdjacency` without `usage` fails; `usage`
-   `LEVEL_1_2` passes; a 5-octet `neighbor_system_id` fails; an
+   `LEVEL1_AND_LEVEL2` passes; a 5-octet `neighbor_system_id` fails; an
    `IsisInstance` area address of 0 or 21 octets fails.
 7. VRRP bounds its key and converts no interval ambiguously. Example:
    `vrid` 0 and 256 fail, 1 and 255 pass; `priority` 256 fails, 0 and 255

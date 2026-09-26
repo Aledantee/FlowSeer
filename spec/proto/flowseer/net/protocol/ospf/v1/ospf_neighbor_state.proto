@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+// The state of an OSPF neighbor conversation (RFC 2328 §10.1, OSPF-MIB ospfNbrState, OSPFV3-MIB ospfv3NbrState).
+enum OspfNeighborState {
+  OSPF_NEIGHBOR_STATE_UNSPECIFIED = 0;
+  // Initial state of a neighbor conversation; no information has been received.
+  OSPF_NEIGHBOR_STATE_DOWN = 1;
+  // Valid only for NBMA networks; Hello packets sent recently to the neighbor.
+  OSPF_NEIGHBOR_STATE_ATTEMPT = 2;
+  // A Hello packet has recently been seen from the neighbor.
+  OSPF_NEIGHBOR_STATE_INIT = 3;
+  // Bidirectional communication has been established with the neighbor.
+  OSPF_NEIGHBOR_STATE_TWO_WAY = 4;
+  // First step in creating an adjacency; establishing master/slave relationship.
+  OSPF_NEIGHBOR_STATE_EXCHANGE_START = 5;
+  // Describing database by sending Database Description packets.
+  OSPF_NEIGHBOR_STATE_EXCHANGE = 6;
+  // Requesting more recent LSAs discovered in the Exchange state.
+  OSPF_NEIGHBOR_STATE_LOADING = 7;
+  // The neighbor is fully adjacent.
+  OSPF_NEIGHBOR_STATE_FULL = 8;
+}

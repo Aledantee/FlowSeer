@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+// The network type of an OSPF interface (RFC 2328, OSPF-MIB ospfIfType, OSPFV3-MIB ospfv3IfType).
+// Value 4 is unassigned in OSPF-MIB and remains unassigned.
+enum OspfInterfaceType {
+  OSPF_INTERFACE_TYPE_UNSPECIFIED = 0;
+  // Broadcast multi-access network (e.g. Ethernet).
+  OSPF_INTERFACE_TYPE_BROADCAST = 1;
+  // Non-broadcast multi-access network (e.g. Frame Relay, X.25).
+  OSPF_INTERFACE_TYPE_NBMA = 2;
+  // Point-to-point network connecting a single pair of routers.
+  OSPF_INTERFACE_TYPE_POINT_TO_POINT = 3;
+  // Point-to-multipoint network. Value 4 is unassigned in the MIB and stays unassigned.
+  OSPF_INTERFACE_TYPE_POINT_TO_MULTIPOINT = 5;
+}

@@ -1,0 +1,54 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/protocol/ospf/v1/ospf_interface_state.proto";
+import "flowseer/net/protocol/ospf/v1/ospf_interface_type.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An interface participating in an OSPF process (RFC 2328 §9, OSPF-MIB ospfIfEntry).
+message OspfInterface {
+  option (buf.validate.message).cel = {
+    id: "ospf_interface.instance_id_is_v3"
+    message: "instance_id is valid only for OSPF version 3"
+    expression: "!has(this.instance_id) || this.version == 3u"
+  };
+
+  // The local interface name. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The OSPF version: 2 for OSPFv2 or 3 for OSPFv3. Must be present.
+  uint32 version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 2,
+    (buf.validate.field).uint32.lte = 3
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The OSPFv3 interface instance identifier (RFC 5340 §2.4, OSPFV3-MIB Ospfv3IfInstIdTC).
+  // Valid only for OSPF version 3.
+  uint32 instance_id = 4 [(buf.validate.field).uint32.lte = 255];
+  // The area identifier this interface belongs to. Must be present.
+  uint32 area_id = 5 [(buf.validate.field).required = true];
+  // The type of this OSPF interface.
+  OspfInterfaceType interface_type = 6;
+  // The operational state of this OSPF interface.
+  OspfInterfaceState state = 7;
+  // The priority of this interface for designated router election (OSPF-MIB ospfIfRtrPriority, 0 to 255).
+  uint32 priority = 8 [(buf.validate.field).uint32.lte = 255];
+  // The metric cost of sending a packet on this interface (OSPF-MIB ospfIfMetricValue, 1 to 65535).
+  uint32 cost = 9 [(buf.validate.field).uint32.lte = 65535];
+  // The interval between Hello packets sent on this interface (OSPF-MIB ospfIfHelloInterval).
+  google.protobuf.Duration hello_interval = 10 [(buf.validate.field).duration.gte = {seconds: 0}];
+  // The interval before declaring a silent neighbor dead (OSPF-MIB ospfIfRtrDeadInterval).
+  google.protobuf.Duration dead_interval = 11 [(buf.validate.field).duration.gte = {seconds: 0}];
+  // The time between LSA retransmissions (OSPF-MIB ospfIfRetransInterval).
+  google.protobuf.Duration retransmit_interval = 12 [(buf.validate.field).duration.gte = {seconds: 0}];
+}
