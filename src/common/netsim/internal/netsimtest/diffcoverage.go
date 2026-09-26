@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -393,18 +394,18 @@ func mutateLeaf(v reflect.Value) error {
 	case reflect.Array:
 		return mutateArrayLeaf(v)
 	default:
-		return fmt.Errorf("diffcoverage: no mutation strategy for leaf kind %s (type %s)", v.Kind(), t)
+		return errs.Msgf("diffcoverage: no mutation strategy for leaf kind %s (type %s)", v.Kind(), t)
 	}
 	return nil
 }
 
 func mutateArrayLeaf(v reflect.Value) error {
 	if v.Len() == 0 {
-		return fmt.Errorf("diffcoverage: no mutation strategy for zero-length array type %s", v.Type())
+		return errs.Msgf("diffcoverage: no mutation strategy for zero-length array type %s", v.Type())
 	}
 	last := v.Index(v.Len() - 1)
 	if last.Kind() != reflect.Uint8 {
-		return fmt.Errorf("diffcoverage: no mutation strategy for array element kind %s (type %s)", last.Kind(), v.Type())
+		return errs.Msgf("diffcoverage: no mutation strategy for array element kind %s (type %s)", last.Kind(), v.Type())
 	}
 	last.SetUint((last.Uint() + 1) % 256)
 	return nil
@@ -435,7 +436,7 @@ func leavesOrEmpty[C any](seed C) ([]coverageLeaf, reflect.Value, error) {
 	var leaves []coverageLeaf
 	discoverLeaves(seedVal, nil, "", "", &leaves)
 	if len(leaves) == 0 {
-		return nil, seedVal, fmt.Errorf("the walk found no perturbable leaf in %T; a config with nothing to check would "+
+		return nil, seedVal, errs.Msgf("the walk found no perturbable leaf in %T; a config with nothing to check would "+
 			"pass this gate vacuously rather than proving anything", seed)
 	}
 	return leaves, seedVal, nil
@@ -473,22 +474,22 @@ func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize f
 	origCopy.Set(origLeafVal)
 
 	if err := mutateLeaf(leafVal); err != nil {
-		return fmt.Errorf("perturbing %s: %w", l.displayPath, err)
+		return errs.Wrapf(err, "perturbing %s", l.displayPath)
 	}
 	commit()
 
 	if reflect.DeepEqual(origCopy.Interface(), leafVal.Interface()) {
-		return fmt.Errorf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
+		return errs.Msgf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
 			l.displayPath, leafVal.Interface(), leafVal.Type())
 	}
 
 	perturbed, ok := perturbedRoot.Interface().(C)
 	if !ok {
-		return fmt.Errorf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
+		return errs.Msgf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
 	}
 
 	if changes := diff(normalize(seed), normalize(perturbed)); len(changes) == 0 {
-		return fmt.Errorf("diff reported no change after perturbing %s", l.displayPath)
+		return errs.Msgf("diff reported no change after perturbing %s", l.displayPath)
 	}
 	return nil
 }
@@ -616,22 +617,22 @@ func checkLeafRetention[C any](seed C, seedVal reflect.Value, l coverageLeaf, ke
 	origCopy.Set(origLeafVal)
 
 	if err := mutateLeaf(leafVal); err != nil {
-		return fmt.Errorf("perturbing %s: %w", l.displayPath, err)
+		return errs.Wrapf(err, "perturbing %s", l.displayPath)
 	}
 	commit()
 
 	if reflect.DeepEqual(origCopy.Interface(), leafVal.Interface()) {
-		return fmt.Errorf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
+		return errs.Msgf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
 			l.displayPath, leafVal.Interface(), leafVal.Type())
 	}
 
 	perturbed, ok := perturbedRoot.Interface().(C)
 	if !ok {
-		return fmt.Errorf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
+		return errs.Msgf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
 	}
 
 	if keyFn(seed) == keyFn(perturbed) {
-		return fmt.Errorf("retention key reported no change after perturbing %s", l.displayPath)
+		return errs.Msgf("retention key reported no change after perturbing %s", l.displayPath)
 	}
 	return nil
 }

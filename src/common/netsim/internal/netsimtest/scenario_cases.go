@@ -1,11 +1,11 @@
 package netsimtest
 
 import (
-	"errors"
-	"fmt"
 	"reflect"
 	"slices"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -174,12 +174,12 @@ func CasePlanningScenarioReplaysLinkFlap() Case {
 				return ExecutionResult{}, err
 			}
 			if runRes.Stop != replayRes.Stop || runRes.Steps != replayRes.Steps || !slices.Equal(runRes.Fingerprints, replayRes.Fingerprints) {
-				return ExecutionResult{}, errors.New("scenario replay produced diverging results")
+				return ExecutionResult{}, errs.Msg("scenario replay produced diverging results")
 			}
 
 			report := fab.Report()
 			if len(report) == 0 {
-				return ExecutionResult{}, errors.New("expected at least one journey in report")
+				return ExecutionResult{}, errs.Msg("expected at least one journey in report")
 			}
 			j1 := report[0]
 
@@ -192,11 +192,11 @@ func CasePlanningScenarioReplaysLinkFlap() Case {
 			}
 			report2 := fab2.Report()
 			if len(report2) == 0 {
-				return ExecutionResult{}, errors.New("expected replay report to match")
+				return ExecutionResult{}, errs.Msg("expected replay report to match")
 			}
 			j2 := report2[0]
 			if j1.State != j2.State || !reflect.DeepEqual(j1.Deliveries, j2.Deliveries) {
-				return ExecutionResult{}, errors.New("replay journey state diverged")
+				return ExecutionResult{}, errs.Msg("replay journey state diverged")
 			}
 
 			return ExecutionResult{
@@ -327,12 +327,12 @@ func CaseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 
 			runRes := fab.Run(2)
 			if runRes.Stop != fabric.StopBudget {
-				return ExecutionResult{}, fmt.Errorf("run stop reason = %v, want StopBudget", runRes.Stop)
+				return ExecutionResult{}, errs.Msgf("run stop reason = %v, want StopBudget", runRes.Stop)
 			}
 
 			report := fab.Report()
 			if len(report) == 0 {
-				return ExecutionResult{}, errors.New("expected at least one journey in report")
+				return ExecutionResult{}, errs.Msg("expected at least one journey in report")
 			}
 			j := report[0]
 
