@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/stream"
@@ -81,7 +81,7 @@ func transmit(input io.Reader, output io.Writer, dependencies netsimload.Depende
 		return err
 	}
 	if document.Version != inputVersion {
-		return fmt.Errorf("unsupported transmit document version %d", document.Version)
+		return errs.Msgf("unsupported transmit document version %d", document.Version)
 	}
 	drain, err := parseDuration("drain", document.Drain)
 	if err != nil {
@@ -92,11 +92,11 @@ func transmit(input io.Reader, output io.Writer, dependencies netsimload.Depende
 	for _, inputFlow := range document.Flows {
 		spec, err := streamSpec(inputFlow)
 		if err != nil {
-			return fmt.Errorf("flow %d: %w", inputFlow.ID, err)
+			return errs.Wrapf(err, "flow %d", inputFlow.ID)
 		}
 		source, err := spec.Source()
 		if err != nil {
-			return fmt.Errorf("flow %d: %w", inputFlow.ID, err)
+			return errs.Wrapf(err, "flow %d", inputFlow.ID)
 		}
 		flows = append(flows, netsimload.FlowSource{ID: fabric.FlowID(inputFlow.ID), Source: source})
 	}
@@ -120,25 +120,25 @@ func compare(input io.Reader, output io.Writer) error {
 		return err
 	}
 	if document.Version != inputVersion {
-		return fmt.Errorf("unsupported compare document version %d", document.Version)
+		return errs.Msgf("unsupported compare document version %d", document.Version)
 	}
 	if document.Destination == "" {
-		return errors.New("compare destination is required")
+		return errs.Msg("compare destination is required")
 	}
 
 	flowIDs := make(map[fabric.FlowID]struct{}, len(document.Simulator.Flows))
 	for _, flow := range document.Simulator.Flows {
 		if flow.ID == 0 {
-			return errors.New("simulator flow ID must be nonzero")
+			return errs.Msg("simulator flow ID must be nonzero")
 		}
 		if _, exists := flowIDs[flow.ID]; exists {
-			return fmt.Errorf("simulator flow ID %d is duplicated", flow.ID)
+			return errs.Msgf("simulator flow ID %d is duplicated", flow.ID)
 		}
 		flowIDs[flow.ID] = struct{}{}
 	}
 	for id := range document.Lab.Flows {
 		if _, exists := flowIDs[id]; !exists {
-			return fmt.Errorf("lab flow ID %d is unknown to the simulator input", id)
+			return errs.Msgf("lab flow ID %d is unknown to the simulator input", id)
 		}
 	}
 
@@ -148,22 +148,22 @@ func compare(input io.Reader, output io.Writer) error {
 
 func streamSpec(input transmitFlow) (stream.Spec, error) {
 	if (input.FramesPerSecond == nil) == (input.BitsPerSecond == nil) {
-		return stream.Spec{}, errors.New("exactly one of frames_per_second or bits_per_second is required")
+		return stream.Spec{}, errs.Msg("exactly one of frames_per_second or bits_per_second is required")
 	}
 	if (input.Count == nil) == (input.Duration == nil) {
-		return stream.Spec{}, errors.New("exactly one of count or duration is required")
+		return stream.Spec{}, errs.Msg("exactly one of count or duration is required")
 	}
 	if input.ID == 0 {
-		return stream.Spec{}, errors.New("flow ID must be nonzero")
+		return stream.Spec{}, errs.Msg("flow ID must be nonzero")
 	}
 
 	wire, err := hex.DecodeString(input.FrameHex)
 	if err != nil {
-		return stream.Spec{}, fmt.Errorf("decode frame_hex: %w", err)
+		return stream.Spec{}, errs.Wrap(err, "decode frame_hex")
 	}
 	frame, err := ethernet.Decode(wire)
 	if err != nil {
-		return stream.Spec{}, fmt.Errorf("decode frame_hex Ethernet frame: %w", err)
+		return stream.Spec{}, errs.Wrap(err, "decode frame_hex Ethernet frame")
 	}
 	gap, err := parseDuration("gap", input.Gap)
 	if err != nil {
@@ -206,10 +206,10 @@ func parseDuration(name, value string) (time.Duration, error) {
 	}
 	duration, err := time.ParseDuration(value)
 	if err != nil {
-		return 0, fmt.Errorf("parse %s duration %q: %w", name, value, err)
+		return 0, errs.Wrapf(err, "parse %s duration %q", name, value)
 	}
 	if duration < 0 {
-		return 0, fmt.Errorf("%s duration must be nonnegative", name)
+		return 0, errs.Msgf("%s duration must be nonnegative", name)
 	}
 	return duration, nil
 }
@@ -218,14 +218,14 @@ func decodeJSON(input io.Reader, destination any) error {
 	decoder := json.NewDecoder(input)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
-		return fmt.Errorf("decode JSON: %w", err)
+		return errs.Wrap(err, "decode JSON")
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
 		if err == nil {
-			return errors.New("decode JSON: multiple documents are not allowed")
+			return errs.Msg("decode JSON: multiple documents are not allowed")
 		}
-		return fmt.Errorf("decode JSON: %w", err)
+		return errs.Wrap(err, "decode JSON")
 	}
 	return nil
 }

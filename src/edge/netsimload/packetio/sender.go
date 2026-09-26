@@ -21,7 +21,7 @@ var ErrUnsupportedPlatform = errs.New().
 	Msg("packet sender is linux-only")
 
 // ErrClosed is returned when a sender has already been closed.
-var ErrClosed = errors.New("packet sender is closed")
+var ErrClosed = errs.Msg("packet sender is closed")
 
 // IsUnsupported reports whether err identifies the unsupported-platform case.
 func IsUnsupported(err error) bool {

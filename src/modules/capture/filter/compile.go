@@ -1,13 +1,12 @@
 package filter
 
 import (
-	"fmt"
-
 	"golang.org/x/net/bpf"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // RawInstruction is one assembled BPF instruction, the form SO_ATTACH_FILTER
@@ -77,7 +76,7 @@ func Compile(f *capturev1.CaptureFilter) ([]bpf.Instruction, error) {
 	for i, c := range clauses {
 		b, err := compileClause(c)
 		if err != nil {
-			return nil, fmt.Errorf("compile clause %d: %w", i, err)
+			return nil, errs.Wrapf(err, "compile clause %d", i)
 		}
 		blocks[i] = b
 	}
@@ -92,7 +91,7 @@ func Compile(f *capturev1.CaptureFilter) ([]bpf.Instruction, error) {
 	backpatch(&prog, fails, rejectPos)
 
 	if len(prog) > maxInstructions {
-		return nil, fmt.Errorf("filter compiles to %d instructions, over the %d classic BPF ceiling", len(prog), maxInstructions)
+		return nil, errs.Msgf("filter compiles to %d instructions, over the %d classic BPF ceiling", len(prog), maxInstructions)
 	}
 
 	return prog, nil
@@ -114,76 +113,76 @@ func compileClause(c *capturev1.CaptureFilterClause) (block, error) {
 	if c.HasSrcMac() {
 		b, err := macBlock(srcMACOff, c.GetSrcMac())
 		if err != nil {
-			return nil, fmt.Errorf("src_mac: %w", err)
+			return nil, errs.Wrap(err, "src_mac")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasDstMac() {
 		b, err := macBlock(dstMACOff, c.GetDstMac())
 		if err != nil {
-			return nil, fmt.Errorf("dst_mac: %w", err)
+			return nil, errs.Wrap(err, "dst_mac")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasSrcPrefix() {
 		b, err := prefixFieldBlock(fieldSrc, c.GetSrcPrefix())
 		if err != nil {
-			return nil, fmt.Errorf("src_prefix: %w", err)
+			return nil, errs.Wrap(err, "src_prefix")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasDstPrefix() {
 		b, err := prefixFieldBlock(fieldDst, c.GetDstPrefix())
 		if err != nil {
-			return nil, fmt.Errorf("dst_prefix: %w", err)
+			return nil, errs.Wrap(err, "dst_prefix")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasIpProtocol() {
 		b, err := ipProtocolBlock(c.GetIpProtocol())
 		if err != nil {
-			return nil, fmt.Errorf("ip_protocol: %w", err)
+			return nil, errs.Wrap(err, "ip_protocol")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasSrcPort() {
 		b, err := portBlock(0, c.GetSrcPort())
 		if err != nil {
-			return nil, fmt.Errorf("src_port: %w", err)
+			return nil, errs.Wrap(err, "src_port")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasDstPort() {
 		b, err := portBlock(2, c.GetDstPort())
 		if err != nil {
-			return nil, fmt.Errorf("dst_port: %w", err)
+			return nil, errs.Wrap(err, "dst_port")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasTcpFlags() {
 		b, err := tcpFlagsBlock(c.GetTcpFlags())
 		if err != nil {
-			return nil, fmt.Errorf("tcp_flags: %w", err)
+			return nil, errs.Wrap(err, "tcp_flags")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasIcmp() {
 		b, err := icmpBlock(c.GetIcmp())
 		if err != nil {
-			return nil, fmt.Errorf("icmp: %w", err)
+			return nil, errs.Wrap(err, "icmp")
 		}
 		blocks = append(blocks, b)
 	}
 	if c.HasDscp() {
 		b, err := dscpBlock(c.GetDscp())
 		if err != nil {
-			return nil, fmt.Errorf("dscp: %w", err)
+			return nil, errs.Wrap(err, "dscp")
 		}
 		blocks = append(blocks, b)
 	}
 
 	if len(blocks) == 0 {
-		return nil, fmt.Errorf("clause constrains no field")
+		return nil, errs.Msg("clause constrains no field")
 	}
 	return and(blocks...), nil
 }
@@ -310,11 +309,11 @@ func be16(b []byte) uint32 {
 
 func macBlock(off uint32, addr *addrv1.EuiAddress) (block, error) {
 	if !addr.HasEui48() {
-		return nil, fmt.Errorf("a MAC match requires a 48-bit address")
+		return nil, errs.Msg("a MAC match requires a 48-bit address")
 	}
 	octets := addr.GetEui48().GetOctets()
 	if len(octets) != 6 {
-		return nil, fmt.Errorf("a 48-bit address must carry 6 octets, got %d", len(octets))
+		return nil, errs.Msgf("a 48-bit address must carry 6 octets, got %d", len(octets))
 	}
 	return and(
 		atomAbs(off, 4, be32(octets[0:4])),
@@ -350,7 +349,7 @@ func prefixBlock(l frameLayout, which ipField, p *addrv1.IpPrefix) (block, error
 		v4 := p.GetV4()
 		addr := v4.GetAddress().GetOctets()
 		if len(addr) != 4 {
-			return nil, fmt.Errorf("an IPv4 prefix address must carry 4 octets, got %d", len(addr))
+			return nil, errs.Msgf("an IPv4 prefix address must carry 4 octets, got %d", len(addr))
 		}
 		off := l.ipOff + 12
 		if which == fieldDst {
@@ -365,7 +364,7 @@ func prefixBlock(l frameLayout, which ipField, p *addrv1.IpPrefix) (block, error
 		v6 := p.GetV6()
 		addr := v6.GetAddress().GetOctets()
 		if len(addr) != 16 {
-			return nil, fmt.Errorf("an IPv6 prefix address must carry 16 octets, got %d", len(addr))
+			return nil, errs.Msgf("an IPv6 prefix address must carry 16 octets, got %d", len(addr))
 		}
 		base := l.ipOff + 8
 		if which == fieldDst {
@@ -384,7 +383,7 @@ func prefixBlock(l frameLayout, which ipField, p *addrv1.IpPrefix) (block, error
 		}
 		return and(blocks...), nil
 	default:
-		return nil, fmt.Errorf("an IP prefix names neither v4 nor v6")
+		return nil, errs.Msg("an IP prefix names neither v4 nor v6")
 	}
 }
 
@@ -454,7 +453,7 @@ func portCompare(setup []bpf.Instruction, m *packetv1.TransportPortMatch) (block
 			atom(setup, bpf.JumpLessOrEqual, r.GetEnd()),
 		), nil
 	default:
-		return nil, fmt.Errorf("a port match names neither exact nor range")
+		return nil, errs.Msg("a port match names neither exact nor range")
 	}
 }
 
@@ -510,7 +509,7 @@ func tcpFlagsBlock(m *packetv1.TcpFlagsMatch) (block, error) {
 	setMask := flagMask(m.GetRequiredSet())
 	clearMask := flagMask(m.GetRequiredClear())
 	if setMask == 0 && clearMask == 0 {
-		return nil, fmt.Errorf("a TCP flags match requires at least one set or clear flag")
+		return nil, errs.Msg("a TCP flags match requires at least one set or clear flag")
 	}
 	return withLayouts(func(l frameLayout) (block, error) {
 		v4Setup := append(loadMemShiftAbs(l.ipOff), bpf.LoadIndirect{Off: l.ipOff + 13, Size: 1})
@@ -576,17 +575,17 @@ func icmpBlock(m *packetv1.IcmpMatch) (block, error) {
 	case m.HasV4():
 		v4 := m.GetV4()
 		if len(v4.GetTypes()) == 0 && len(v4.GetCodes()) == 0 {
-			return nil, fmt.Errorf("an ICMPv4 match requires at least one type or code")
+			return nil, errs.Msg("an ICMPv4 match requires at least one type or code")
 		}
 		return withLayouts(func(l frameLayout) (block, error) { return icmpv4FamilyBlock(l, v4), nil })
 	case m.HasV6():
 		v6 := m.GetV6()
 		if len(v6.GetTypes()) == 0 && len(v6.GetCodes()) == 0 {
-			return nil, fmt.Errorf("an ICMPv6 match requires at least one type or code")
+			return nil, errs.Msg("an ICMPv6 match requires at least one type or code")
 		}
 		return withLayouts(func(l frameLayout) (block, error) { return icmpv6FamilyBlock(l, v6), nil })
 	default:
-		return nil, fmt.Errorf("an ICMP match names neither v4 nor v6")
+		return nil, errs.Msg("an ICMP match names neither v4 nor v6")
 	}
 }
 

@@ -3,7 +3,6 @@ package edgebus
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -138,7 +137,7 @@ func (r *Receiver) Close(ctx context.Context) error {
 		return errs.From(err).Code(ErrCodeReceiver).Msg("stop loopback receiver")
 	}
 	if r.err != nil {
-		return fmt.Errorf("loopback receiver: %w", r.err)
+		return errs.Wrap(r.err, "loopback receiver")
 	}
 	return nil
 }

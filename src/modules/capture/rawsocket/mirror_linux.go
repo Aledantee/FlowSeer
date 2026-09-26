@@ -4,7 +4,6 @@ package rawsocket
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -269,11 +268,11 @@ type linuxMirrorSource struct {
 // does not include one, so rawV6 uses mirror.Decode directly.
 func decodeV4(payload []byte, src, dst net.IP) (*capturev1.MirrorEnvelope, []byte, error) {
 	if len(payload) < 20 {
-		return nil, nil, fmt.Errorf("IPv4 header truncated: %d bytes", len(payload))
+		return nil, nil, errs.Msgf("IPv4 header truncated: %d bytes", len(payload))
 	}
 	ihl := int(payload[0]&0x0F) * 4
 	if ihl < 20 || ihl > len(payload) {
-		return nil, nil, fmt.Errorf("IPv4 header length %d invalid for a %d-byte packet", ihl, len(payload))
+		return nil, nil, errs.Msgf("IPv4 header length %d invalid for a %d-byte packet", ihl, len(payload))
 	}
 	return mirror.Decode(payload[ihl:], src, dst)
 }
