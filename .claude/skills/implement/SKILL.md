@@ -107,7 +107,9 @@ For each unit:
 4. Update the package README, convention doc, solution citations, and any
    test or benchmark name the unit made false, in the same unit.
 5. Check, commit, verify, in that order:
-   - Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`).
+   - Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`),
+     never a script under `tools/hooks/` (`delegate`, Write the brief,
+     item 6).
      Output that may carry diagnostics goes to a file and is grepped after
      (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),
      never through a filter that drops what it does not match.
@@ -180,8 +182,8 @@ alone otherwise; a run against `HEAD` after the commit sees an empty
 diff, so the test-change list below would come out empty for a branch
 that deleted a test three units ago. When
 `$(git rev-parse --git-dir)/flowseer-verification-dirty` holds the
-`<Bash mutation; verify with --full>` line, run `--full` instead; nothing
-else clears it. Quote the run's last line into the report; a line other
+`<Bash mutation; verify with --full>` line after the `--base main` run,
+the branch's own generator or module change keeps it: run `--full`. Quote the run's last line into the report; a line other
 than `FlowSeer verification passed.` blocks the report.
 
 Read the deviations off the tree, not from memory: a session's account of

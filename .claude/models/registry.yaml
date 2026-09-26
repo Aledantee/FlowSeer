@@ -9,7 +9,7 @@
 # stays there. `price: null` on a Claude row means none was recorded: that pool
 # is a subscription metered by its windows, not per token. Sources and dates
 # live in `.claude/models/evidence.md`.
-as_of: 2026-09-25  # Claude safeguard fallback and Opus 5.5 recorded 2026-09-25, Opus 5.5 replaced Opus 5 in both review roles; calibrations 2026-09-09 and 2026-09-19/20: Merge task, see evidence.md; Sonnet 5 execute re-calibrated at xhigh 2026-09-18; catalogue re-pulled 2026-09-19 19:50Z, which priced the synthetic pool and took the five ids Synthetic does not answer back off it
+as_of: 2026-09-26  # execute-sensitive order and narrowed sensitive_paths set by the user 2026-09-26; Claude safeguard fallback and Opus 5.5 recorded 2026-09-25, Opus 5.5 replaced Opus 5 in both review roles; calibrations 2026-09-09 and 2026-09-19/20: Merge task, see evidence.md; Sonnet 5 execute re-calibrated at xhigh 2026-09-18; catalogue re-pulled 2026-09-19 19:50Z, which priced the synthetic pool and took the five ids Synthetic does not answer back off it
 
 pools:
   claude: {cli: claude, pin: orca-model, meter: requests}
@@ -58,7 +58,8 @@ models:
   grok-4.6: {pool: null, vendor: xai, price: [2, 6], context: 500000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
 
 # A role names what a piece of delegated work needs. `fit` lists the models
-# that do it, in no order: `delegate` picks by pool headroom. `effort` is the
+# that do it, best-first: `delegate` takes the first one whose pool is usable
+# and has a free slot. `effort` is the
 # level passed where the model supports one; a model whose `effort` list lacks
 # the level gets the highest level it lists. A `local` result carries the
 # effort it was measured at when that differs from the role's: `default`
@@ -71,14 +72,16 @@ roles:
   lookup: {effort: low, fit: [claude-haiku-4-5, gemini-3.8-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
   research: {effort: medium, fit: [claude-sonnet-5, gemini-3.8-flash, glm-5.3-flash]}  # deepseek-v4-flash left with the go pool 2026-09-19
   execute: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, kimi-k3, deepseek-v4.1-flash]}  # deepseek-v4.1-flash added 2026-09-22 on its 7/7 of 2026-09-20 (one run, no -race, base bd9e0862); claude-sonnet-5 removed 2026-09-18 (6/7, 6/7, 5/7 across default and xhigh, same deadlock). glm-5.3 was removed 2026-09-09 on a lane that opencode cut at its 32,000-token output cap: that result is void, and whether glm-5.3 belongs here is unmeasured, not settled
-  execute-sensitive: {effort: high, fit: [gpt-5.6-sol, kimi-k3], exclude: [claude-opus-5-5, claude-opus-5, claude-fable-5-1, gpt-6-astra], last_resort: [claude-opus-4-8]}  # last_resort added 2026-09-25 by the user on Opus 4.8's 7/7 execute lane; the Merge task is not sensitive, so its refusal rate on sensitive paths is unmeasured
+  execute-sensitive: {effort: high, fit: [gpt-5.6-sol, gemini-3.8-flash, kimi-k3], exclude: [claude-opus-5-5, claude-opus-5, claude-fable-5-1, gpt-6-astra], last_resort: [claude-opus-4-8]}  # order set by the user 2026-09-26: codex while it has quota, then google, and Claude only when nothing else is usable, pinned to Opus 4.8 from the start; last_resort added 2026-09-25 on Opus 4.8's 7/7 execute lane; the Merge task is not sensitive, so refusal rates on sensitive paths are unmeasured
   review-unit: {effort: xhigh, fit: [gemini-3.8-flash, gpt-5.6-sol, claude-opus-5-5], vendor_differs_from: executor}  # claude-opus-5-5 replaced claude-opus-5 2026-09-25 on its review-seam lane at high (xhigh unmeasured); sonnet, qwen3.8-max missed the calibration bug 2026-09-09
-  review-seam: {effort: high, fit: [claude-opus-5-5, gpt-5.6-sol]}  # claude-opus-5-5 replaced claude-opus-5 2026-09-25: known bug found plus four valid extras against Opus 5's one, same diff
+  review-seam: {effort: high, fit: [claude-opus-5-5, gpt-5.6-sol], model_differs_from: executor}  # claude-opus-5-5 replaced claude-opus-5 2026-09-25: known bug found plus four valid extras against Opus 5's one, same diff
   judge: {effort: max, fit: [claude-fable-5-1, gpt-6-astra], never_sensitive: true}
   critique: {effort: high, fit: [gemini-3.8-flash, kimi-k3]}  # minimax-m3 left with the go pool 2026-09-19; Synthetic answers 404 for it
 
-# Paths whose units carry the `sensitive` tag: security classifiers on the
-# top tier decline work here. With `switchModelsOnFlag` true (Claude Code's
+# Paths whose units carry the `sensitive` tag: the offensive-security tooling,
+# where security classifiers on the top tier decline work. Narrowed by the
+# user 2026-09-26: SNMP and the local-network mapping are ordinary protocol
+# code. With `switchModelsOnFlag` true (Claude Code's
 # default) a decline is a silent swap to `cyber_fallback` for the rest of the
 # session; with it false, a `-p` turn ends in a refusal error instead. The
 # classifier also reads tool output, so a unit that only reads these paths
@@ -86,8 +89,6 @@ roles:
 sensitive_paths:
   - src/edge/netpen/**
   - src/common/internal/netpenguard/**
-  - src/modules/localnet/**
-  - src/protocol/snmp/**
 
 # opencode lanes run the default agent with the model on the launch line
 # (`opencode --model <pool_id>`), the same way `claude` and `codex` take

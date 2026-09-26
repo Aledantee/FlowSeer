@@ -124,8 +124,11 @@ verified, and rewrites that listing; `land` reads the receipt.
 - A Bash change under `generated/`, or to a `go.mod`, `go.sum`, or
   `buf.lock`, also writes the `<Bash mutation; verify with --full>` line,
   because a generator and the module graph reach packages no path names.
-  That line clears only under `--full`; the path beside it says what
-  caused it.
+  That line clears under `--full`, or under `--base REF` when every
+  generated, `go.mod`, `go.sum`, or `buf.lock` path the marker names is
+  byte-identical to `REF`; any marked file identical to an explicit
+  `--base` clears the same way, since it is the base, not an edit. The
+  path beside the line says what caused it.
 - A `--full` run removes the marker outright, so a marker found beside a
   `full=true` receipt names paths edited after the run.
 

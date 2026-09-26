@@ -52,8 +52,12 @@ if args and args[0] == "status":
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
     if args[args.index("--terminal") + 1] == "":
         print("esc to interrupt")
+    elif failure == "terminal-read":
+        sys.exit(1)
+    elif os.environ.get("ORCA_STUB_SCREEN"):
+        print(os.environ["ORCA_STUB_SCREEN"])
     else:
-        print("Read .orca-brief.md" if pointer_file.exists() else "")
+        print(pointer_file.read_text() if pointer_file.exists() else "")
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "close":
     if failure == "terminal-close" or os.environ.get("ORCA_STUB_CLOSE_FAIL") == "1":
         print("injected close failure", file=sys.stderr)
@@ -101,7 +105,7 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "send":
     if failure == "pointer":
         print("injected pointer failure", file=sys.stderr)
         sys.exit(1)
-    pointer_file.write_text("sent")
+    pointer_file.write_text(args[args.index("--text") + 1])
     if failure == "state-mkdir":
         Path(os.environ["ORCA_STUB_STATE_DIR"]).write_text("occupied")
     print(json.dumps({{"result": {{"status": "ok"}}}}))
@@ -452,6 +456,75 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assertTrue(state_file.exists())
         self.assertTrue(child_path.exists())
         self.assertNotIn("worktree rm", self.orca_calls())
+
+    def live_lane(self):
+        child_path = self.root / "child-l1"
+        child_path.mkdir()
+        (self.state_dir / "l1.json").write_text(json.dumps({
+            "name": "l1", "cli": "agy", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(child_path), "branch": "branch-l1",
+            "run": "run-l1",
+        }))
+        return child_path
+
+    def test_wait_reads_agy_cancel_hint_as_working_and_reports_a_frozen_screen_stalled(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Thinking... (esc to cancel)"
+        result = self.command("wait", "l1", "--stall", "1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines()[0], "stalled")
+
+    def test_wait_reports_idle_for_a_settled_screen(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        result = self.command("wait", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines()[0], "idle")
+
+    def test_keys_refuses_text_the_terminal_would_truncate(self):
+        self.live_lane()
+        result = self.command("keys", "l1", "x" * 201)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("use tell", result.stderr)
+        self.assertNotIn("terminal send", self.orca_calls())
+
+    def test_tell_delivers_the_file_and_points_the_terminal_at_it(self):
+        child_path = self.live_lane()
+        note = self.root / "note.md"
+        note.write_text("x" * 600)
+        result = self.command("tell", "l1", str(note))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((child_path / ".orca-note.md").read_text(), "x" * 600)
+        self.assertIn("Read .orca-note.md", self.orca_calls())
+        exclude = (self.repo / ".git" / "info" / "exclude").read_text().splitlines()
+        self.assertIn("/.orca-note.md", exclude)
+
+    def test_wait_reports_a_closed_terminal_as_exited(self):
+        self.live_lane()
+        self.env["ORCA_STUB_FAIL"] = "terminal-read"
+        result = self.command("wait", "l1")
+        self.assertEqual(result.stdout.splitlines()[0], "exited")
+
+    def test_tell_fails_when_the_pointer_count_does_not_grow(self):
+        self.live_lane()
+        note = self.root / "note.md"
+        note.write_text("text")
+        self.env["ORCA_STUB_SCREEN"] = "Read .orca-note.md in this directory"
+        result = self.command("tell", "l1", str(note))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("message not on", result.stderr)
+
+    def test_stop_stalled_removes_a_lane_still_showing_the_hint(self):
+        state_file, child_path, _ = self.graded_lane()
+        (child_path / ".orca-note.md").write_text("note")
+        self.env["ORCA_STUB_SCREEN"] = "esc to cancel"
+        refused = self.command("stop", "l1")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("still working", refused.stderr)
+        result = self.command("stop", "l1", "--stalled")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state_file.exists())
+        self.assertFalse((child_path / ".orca-note.md").exists())
 
 
 if __name__ == "__main__":

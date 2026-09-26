@@ -167,7 +167,7 @@ Rules:
   disagreeing is the normal case, not a surprise.
 - A unit adding or changing the exported `Config` of a module under
   `src/modules/` names a test in a package outside that module's directory.
-- Over six units or 300 lines, cut what the implementer can decide alone,
+- Over six units or 300 lines (an inventory of sites excluded), cut what the implementer can decide alone,
   then load `references/phases.md` and split along its dependency
   clusters into a parent plan and phase plans. A request that names a
   decided sequence of changes gets a parent plan by the same reference

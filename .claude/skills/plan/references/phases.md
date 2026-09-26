@@ -1,6 +1,9 @@
 # Split a large plan into phases
 
-A plan over six units or 300 lines is checked for dependency clusters. A
+A plan over six units or 300 lines is checked for dependency clusters;
+an inventory of sites an audit or conformance plan enumerates (files,
+call sites, findings) does not count toward the 300, since it is data the
+implementer needs, not a decision left open. A
 plan that outlives one session is otherwise implemented by a later session
 that re-derives what landed and why; a phase plan is small enough to land
 in one, and the ledger `implement` keeps carries the rest across.
@@ -15,7 +18,8 @@ and the module graph in `buf.yaml` for schema. A unit that creates a new
 package joins the cluster of the units that import it.
 
 One cluster means the plan stays whole: say so under Decisions, with the
-cluster as the reason, and keep the plan under 300 lines by cutting what
+cluster as the reason, and keep the plan under 300 lines, inventory
+excluded, by cutting what
 the implementer can decide alone.
 
 ## Write the parent and the phases

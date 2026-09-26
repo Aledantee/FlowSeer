@@ -43,13 +43,20 @@ names the lane; this file is the procedure.
   so `status` still lists the lane, and reports that it needs manual removal.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
   seen satisfied while an opencode worker was mid-turn. The turn has ended
-  when the screen shows no "esc interrupt" hint on two reads five seconds
-  apart. With `--timeout` it prints `timeout`, and the worker is still at
-  work.
+  when two reads five seconds apart show no "esc to interrupt" or "esc to
+  cancel" hint and the same screen. A screen that shows the hint unchanged
+  for `--stall` seconds (default 1200) prints `stalled`; a terminal that
+  cannot be read prints `exited`. With `--timeout` it prints `timeout`,
+  and the worker is still at work.
+- `keys` sends at most 200 characters without Enter, for dialog answers;
+  longer text arrives with only its tail. `tell` copies a file into the
+  checkout as `.orca-note.md` and submits a pointer to it, as `start` does
+  with the brief, and fails when no new pointer reaches the screen.
 - `grade` appends a `grade` event (`accepted`, `amended`, `rejected`, or
   `blocked`, with verifier outcome `pass`, `fail`, or `none`) for the lane's
   `run` to the run log. Re-grading appends another; scorers read the last.
-- `stop` refuses a lane that has no `grade` event for its `run`, is mid-turn,
+- `stop` refuses a lane that has no `grade` event for its `run`, is
+  mid-turn (unless `--stalled`, after `wait` printed `stalled`),
   whose checkout is dirty, or whose branch is not merged into this one. Before
   removing the lane, it writes an `end` event with the branch head to the run
   log. `orca worktree rm` deletes the branch with the checkout, so no `git
@@ -71,6 +78,11 @@ through this script yet.
 - `wait` prints `idle` and the screen shows a dialog: a permission prompt
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
+- `wait` prints `stalled`: read the screen first, since a silent tool call
+  looks the same. A hung stream is graded `blocked`, stopped with
+  `stop <slug> --stalled`, and dispatched again.
+- `keys` says it takes 200 characters at most: write the text to a file and
+  send it with `tell <slug> <file>`.
 - `wait` keeps running on a quiet worker: rule out causes in cost order.
   The provider's quota (`pool-usage.sh`), then the screen for a prompt or
   a mangled instruction, then `git status` in the worker's checkout, where

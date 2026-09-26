@@ -122,7 +122,7 @@ what they approve, and re-read the signal afterwards.
 | --- | --- |
 | receipt older than the last commit | a verifier run |
 | marker names paths, receipt `full=false` | a targeted run naming those paths; a marker carrying the receipt's mtime holds the lines that run could not clear, listed in its output under `Unverified edits remain after this run:` |
-| marker holds `<Bash mutation; verify with --full>`, receipt `full=false` | a `--full` run |
+| marker holds `<Bash mutation; verify with --full>`, receipt `full=false` | a `--base main` run, which clears the line when every file it stands for is identical to `main`; a `--full` run when it survives |
 | marker beside a `full=true` receipt | a targeted run naming the marker's paths: they were edited after the full run |
 | no `implemented:` line for planless work done in the main conversation or by `steer`, `main..HEAD` non-empty, receipt signal holds | ask whether the work is complete; on yes, write the line to the checkpoints file, and in Orca to the card, before merging |
 
@@ -163,8 +163,8 @@ orca terminal list --worktree active --json   # only this terminal remains
 
 Release a settled worker with `worker-release`; a running worker stops the
 skill. A child worktree of this one whose branch has landed here is removed
-now, as `delegate/references/orca.md` describes under Remove a finished
-child worktree; one whose branch did not land, or that holds uncommitted
+now, as `delegate/references/orca.md` describes under Orchestration
+runs; one whose branch did not land, or that holds uncommitted
 files, is named in the report and left alone. A `git worktree remove` or
 `git branch -d` the harness refuses from this session goes into the report
 as a command for the person, with the child's path and branch:
@@ -174,8 +174,9 @@ orca worktree list --json   # entries whose parentWorktreeId is this worktree
 ```
 
 `.claude/skills/delegate/scripts/orca-worker.sh status` (unsandboxed) must
-also list no lane of this task; a merged lane still listed is stopped with
-`stop <slug>`, which removes its checkout and branch.
+also list no lane of this task; a merged lane still listed is graded
+(`delegate`, the outcome table) and then stopped with `stop <slug>`, which
+removes its checkout and branch.
 
 ## 3. Merge
 
@@ -203,13 +204,21 @@ Then verify the union, sandbox disabled. `main` is now an ancestor of
 .claude/skills/verify-change/scripts/verify-change.sh --base main
 ```
 
-When the dirty marker holds the `<Bash mutation; verify with --full>` line,
-run `--full` instead. Report a red verifier as is, with the exact command
-and output, and stop.
+The merge marks every file it wrote from `main`, and this run clears
+those, since they are identical to `main`, along with the
+`<Bash mutation; verify with --full>` line when every generated or module
+file it stands for came from `main`. When that line survives, the branch
+itself changed one of them: run `--full`. Report a red verifier as is,
+with the exact command and output, and stop.
 
-`main` itself moves only in the primary checkout. Run the fast-forward
-once; a worktree-isolated session is refused, and the report then carries
-the command verbatim for the person:
+`main` itself moves only in the primary checkout, and only when the run's
+last line reads `FlowSeer verification passed.`, no
+`flowseer-verification-dirty` file remains, and the receipt's
+`verified_at` is newer than `HEAD`'s commit. The fast-forward is a command
+of its own, run after those three are read, never chained onto the
+verifier run or the check of its result.
+Run it once; a worktree-isolated session is refused, and the report then
+carries the command verbatim for the person:
 
 ```bash
 git -C <primary> merge --ff-only <branch>   # <primary>: the parent of $(git rev-parse --git-common-dir)

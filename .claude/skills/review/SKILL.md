@@ -272,8 +272,14 @@ round is:
    each briefed with its findings' `path:line`, failure scenario, and
    smallest fix, and with the class step 4 named: the mechanism behind
    the finding, and the instruction to find and fix every other site that
-   engages it and report the sites it cleared. The coordinating session
-   does not make the fixes itself.
+   engages it and report the sites it cleared. The files a fix worker may
+   edit are its findings' files, the file in the owning layer where the
+   fix belongs (a helper a test needs goes in the layer that owns it, not
+   in the test), every file the fix leaves stale, such as a Taskfile
+   description or a README, and the files of the other sites of the
+   class it finds, each listed in its report. The changed paths that scoped the review do
+   not bound the fix. The coordinating session does not make the fixes
+   itself.
 2. Merge each worker's branch, then run the verifier once on the union of
    the changed paths, before anything is reviewed again.
 3. Repeat steps 3 and 4 of this skill over the branch diff, briefing the reviewer with

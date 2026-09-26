@@ -42,6 +42,7 @@ USAGE
 full=false
 print_selection=false
 base=HEAD
+base_given=false
 explicit=false
 paths=()
 
@@ -58,6 +59,7 @@ while (($#)); do
     --base)
       (($# >= 2)) || { echo "--base requires a ref" >&2; exit 2; }
       base=$2
+      base_given=true
       shift 2
       ;;
     --)
@@ -740,6 +742,7 @@ marker=$git_dir/flowseer-verification-dirty
 receipt=$git_dir/flowseer-verification-receipt
 if [[ -s $marker ]]; then
   remaining=$(mktemp "$build_dir/remaining.XXXXXX")
+  module_wide=0 module_wide_base=0
   while IFS= read -r marked; do
     verified=$full
     if [[ $verified == false ]]; then
@@ -750,8 +753,27 @@ if [[ -s $marker ]]; then
         fi
       done
     fi
+    # A file byte-identical to an explicit base is the base, not an edit:
+    # `land` merges main in, the marker names every file that merge wrote,
+    # and a run against main has nothing of them left to examine.
+    if [[ $verified == false && $base_given == true && $marked != '<Bash mutation; verify with --full>' \
+          && $(git rev-parse -q --verify "$base:$marked" 2>/dev/null) == $(git hash-object -- "$marked" 2>/dev/null) ]]; then
+      verified=identical
+    fi
+    if [[ $marked =~ (^|/)(generated/|go\.mod$|go\.sum$|buf\.lock$) ]]; then
+      module_wide=$((module_wide + 1))
+      [[ $verified == identical ]] && module_wide_base=$((module_wide_base + 1))
+    fi
+    [[ $verified == identical ]] && verified=true
     [[ $verified == true ]] || printf '%s\n' "$marked" >>"$remaining"
   done <"$marker"
+  # The Bash-mutation line stands for the generator output and module files
+  # the hook saw change, which it marks beside the line. When every one of
+  # them is identical to the base, nothing module-wide is left to run.
+  if ((module_wide > 0 && module_wide_base == module_wide)); then
+    { grep -v -x '<Bash mutation; verify with --full>' "$remaining" || true; } >"$remaining.kept"
+    mv "$remaining.kept" "$remaining"
+  fi
   if [[ -s $remaining ]]; then
     # Rewritten in the same second as the receipt below, so a marker with
     # the receipt's mtime is this run's own doing, not an artifact. Say
@@ -761,7 +783,8 @@ if [[ -s $marker ]]; then
     echo "Unverified edits remain after this run:"
     sed 's/^/  /' "$marker"
     if grep -qx '<Bash mutation; verify with --full>' "$marker"; then
-      echo "  The Bash-mutation line clears only under --full."
+      echo "  The Bash-mutation line clears under --full, or under --base REF once every"
+      echo "  generated, go.mod, go.sum, or buf.lock file it marked is identical to REF."
     fi
   else
     rm -f "$marker"
