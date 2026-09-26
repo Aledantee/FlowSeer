@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -261,19 +262,43 @@ func TestEmit_DescriptionWithGoLiteralHazards(t *testing.T) {
 	}
 
 	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, "escapemib_mib.go", out, parser.AllErrors|parser.ParseComments); err != nil {
+	f, err := parser.ParseFile(fset, "escapemib_mib.go", out, parser.AllErrors|parser.ParseComments)
+	if err != nil {
 		t.Fatalf("emitted source does not parse: %v\n--- emitted ---\n%s", err, out)
 	}
 
 	// The hazards have to be in the file for the parse above to prove
 	// anything. The description reaches a comment, where a backslash is
-	// ordinary text, and the member names reach string literals.
+	// ordinary text, and the member names reach string literals in the
+	// package-level static names array.
 	src := string(out)
 	if !strings.Contains(src, `C:\temp\x`) {
 		t.Errorf("the backslash-bearing description did not reach the emitted source:\n%s", src)
 	}
-	if !strings.Contains(src, `return "with-hyphen"`) {
-		t.Errorf("the enum member did not reach a string literal:\n%s", src)
+
+	var foundLiteral bool
+	ast.Inspect(f, func(n ast.Node) bool {
+		vs, ok := n.(*ast.ValueSpec)
+		if !ok {
+			return true
+		}
+		for _, id := range vs.Names {
+			if id.Name == "escapeStatusValueNames" {
+				for _, val := range vs.Values {
+					if cl, ok := val.(*ast.CompositeLit); ok {
+						for _, elt := range cl.Elts {
+							if bl, ok := elt.(*ast.BasicLit); ok && bl.Kind == token.STRING && bl.Value == `"with-hyphen"` {
+								foundLiteral = true
+							}
+						}
+					}
+				}
+			}
+		}
+		return true
+	})
+	if !foundLiteral {
+		t.Errorf("the enum member did not reach a string literal in escapeStatusValueNames:\n%s", src)
 	}
 }
 
