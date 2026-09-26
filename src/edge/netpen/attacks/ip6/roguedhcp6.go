@@ -19,6 +19,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -52,22 +53,22 @@ func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("roguedhcp6: no solicit received")
+			return errs.Msg("roguedhcp6: no solicit received")
 		}
 		if frame.Err != nil {
-			return fmt.Errorf("roguedhcp6: receive solicit: %w", frame.Err)
+			return errs.Wrap(frame.Err, "roguedhcp6: receive solicit")
 		}
 		var err error
 		solicit, err = decodeDHCPv6(frame.Data)
 		if err != nil {
-			return fmt.Errorf("roguedhcp6: decode solicit: %w", err)
+			return errs.Wrap(err, "roguedhcp6: decode solicit")
 		}
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 
 	if solicit.MsgType != layers.DHCPv6MsgTypeSolicit {
-		return fmt.Errorf("roguedhcp6: expected SOLICIT, got %s", solicit.MsgType)
+		return errs.Msgf("roguedhcp6: expected SOLICIT, got %s", solicit.MsgType)
 	}
 
 	// Extract the client DUID from the SOLICIT options.
@@ -79,16 +80,16 @@ func RunRogueDHCPv6(ctx context.Context, deps runner.Deps) error {
 		}
 	}
 	if len(clientDUID) == 0 {
-		return fmt.Errorf("roguedhcp6: solicit missing or empty client ID")
+		return errs.Msg("roguedhcp6: solicit missing or empty client ID")
 	}
 
 	// Craft and send the ADVERTISE response.
 	advertise, err := craftDHCPv6Advertise(src, solicit.TransactionID, clientDUID)
 	if err != nil {
-		return fmt.Errorf("roguedhcp6: craft advertise: %w", err)
+		return errs.Wrap(err, "roguedhcp6: craft advertise")
 	}
 	if err := deps.AttackLeg.Send(ctx, advertise); err != nil {
-		return fmt.Errorf("roguedhcp6: send advertise: %w", err)
+		return errs.Wrap(err, "roguedhcp6: send advertise")
 	}
 
 	leaseAddr := net.ParseIP("fd00::200")
@@ -162,11 +163,11 @@ func decodeDHCPv6(data []byte) (*layers.DHCPv6, error) {
 	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
 	dhcpLayer := pkt.Layer(layers.LayerTypeDHCPv6)
 	if dhcpLayer == nil {
-		return nil, fmt.Errorf("no DHCPv6 layer")
+		return nil, errs.Msg("no DHCPv6 layer")
 	}
 	dhcp, ok := dhcpLayer.(*layers.DHCPv6)
 	if !ok {
-		return nil, fmt.Errorf("unexpected DHCPv6 layer type")
+		return nil, errs.Msg("unexpected DHCPv6 layer type")
 	}
 	return dhcp, nil
 }

@@ -7,7 +7,6 @@ package routing
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -76,18 +75,18 @@ func RunWPAD(ctx context.Context, deps runner.Deps) error {
 
 	nbnsPkt, err := craftNBTNSResponse(src, qname, answerIP)
 	if err != nil {
-		return fmt.Errorf("wpad: craft nbt-ns: %w", err)
+		return errs.Wrap(err, "wpad: craft nbt-ns")
 	}
 	if err := deps.AttackLeg.Send(ctx, nbnsPkt); err != nil {
-		return fmt.Errorf("wpad: send nbt-ns: %w", err)
+		return errs.Wrap(err, "wpad: send nbt-ns")
 	}
 
 	llmnrPkt, err := craftLLMNRResponse(src, qname, answerIP)
 	if err != nil {
-		return fmt.Errorf("wpad: craft llmnr: %w", err)
+		return errs.Wrap(err, "wpad: craft llmnr")
 	}
 	if err := deps.AttackLeg.Send(ctx, llmnrPkt); err != nil {
-		return fmt.Errorf("wpad: send llmnr: %w", err)
+		return errs.Wrap(err, "wpad: send llmnr")
 	}
 
 	// The fixture exercises secret redaction without receiving credentials.

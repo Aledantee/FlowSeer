@@ -9,13 +9,14 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
@@ -68,7 +69,7 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 	// the target to remove the adjacency from its table.
 	goodbyePkt, err := craftEIGRPHello(src, asNum, eigrpFlagGoodbye)
 	if err != nil {
-		return fmt.Errorf("eigrp: craft goodbye: %w", err)
+		return errs.Wrap(err, "eigrp: craft goodbye")
 	}
 	deps.Teardown.Arm("eigrp-goodbye", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, goodbyePkt)
@@ -77,13 +78,13 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 	// Phase 1: Hello (Init flag).
 	helloPkt, err := craftEIGRPHello(src, asNum, eigrpFlagInit)
 	if err != nil {
-		return fmt.Errorf("eigrp: craft hello: %w", err)
+		return errs.Wrap(err, "eigrp: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("eigrp: send hello: %w", err)
+		return errs.Wrap(err, "eigrp: send hello")
 	}
 
 	// Phase 2: receive the target's response (adjacency formation).
@@ -115,13 +116,13 @@ func RunEIGRP(ctx context.Context, deps runner.Deps) error {
 	// Phase 3: route inject (Update with IPv4 Internal TLV).
 	injectPkt, err := craftEIGRPRouteInject(src, asNum)
 	if err != nil {
-		return fmt.Errorf("eigrp: craft inject: %w", err)
+		return errs.Wrap(err, "eigrp: craft inject")
 	}
 	if err := deps.AttackLeg.Send(ctx, injectPkt); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("eigrp: send inject: %w", err)
+		return errs.Wrap(err, "eigrp: send inject")
 	}
 
 	// Emit the finding.
@@ -149,20 +150,20 @@ func recvEIGRPAdjacency(ctx context.Context, leg link.Leg) (bool, error) {
 			return false, err
 		}
 		if !ok {
-			return false, fmt.Errorf("eigrp: receive: %w", io.EOF)
+			return false, errs.Wrap(io.EOF, "eigrp: receive")
 		}
 		if f.Err != nil {
-			return false, fmt.Errorf("eigrp: receive: %w", f.Err)
+			return false, errs.Wrap(f.Err, "eigrp: receive")
 		}
 		// Decode EIGRP from the frame. Skip Ethernet + IPv4 to reach
 		// the EIGRP payload (protocol 88).
 		payload, err := extractIPPayload(f.Data, 88)
 		if err != nil {
-			return false, fmt.Errorf("eigrp: decode ipv4: %w", err)
+			return false, errs.Wrap(err, "eigrp: decode ipv4")
 		}
 		eigrp := &nl.EIGRP{}
 		if err := eigrp.DecodeFromBytes(payload, nil); err != nil {
-			return false, fmt.Errorf("eigrp: decode: %w", err)
+			return false, errs.Wrap(err, "eigrp: decode")
 		}
 		// Goodbye flag = refused adjacency
 		if eigrp.Flags&eigrpFlagGoodbye != 0 {
@@ -180,41 +181,41 @@ func recvEIGRPAdjacency(ctx context.Context, leg link.Leg) (bool, error) {
 // is excluded from the returned payload.
 func extractIPPayload(frame []byte, proto int) ([]byte, error) {
 	if len(frame) < 14 {
-		return nil, fmt.Errorf("frame too short for Ethernet")
+		return nil, errs.Msg("frame too short for Ethernet")
 	}
 	// Check EtherType is IPv4.
 	etherType := binary.BigEndian.Uint16(frame[12:14])
 	if etherType != 0x0800 {
-		return nil, fmt.Errorf("not IPv4 (EtherType 0x%04x)", etherType)
+		return nil, errs.Msgf("not IPv4 (EtherType 0x%04x)", etherType)
 	}
 	// IPv4 header: 14-byte Ethernet + 20-byte minimum IPv4.
 	if len(frame) < 14+20 {
-		return nil, fmt.Errorf("frame too short for IPv4")
+		return nil, errs.Msg("frame too short for IPv4")
 	}
 	if frame[14]>>4 != 4 {
-		return nil, fmt.Errorf("invalid ipv4 version")
+		return nil, errs.Msg("invalid ipv4 version")
 	}
 	if int(frame[23]) != proto {
-		return nil, fmt.Errorf("unexpected ip protocol %d", frame[23])
+		return nil, errs.Msgf("unexpected ip protocol %d", frame[23])
 	}
 	ihl := int(frame[14]&0x0f) * 4
 	if ihl < 20 {
-		return nil, fmt.Errorf("invalid ipv4 header length %d", ihl)
+		return nil, errs.Msgf("invalid ipv4 header length %d", ihl)
 	}
 	if len(frame) < 14+ihl {
-		return nil, fmt.Errorf("frame too short for IHL")
+		return nil, errs.Msg("frame too short for IHL")
 	}
 	if binary.BigEndian.Uint16(frame[20:22])&0x3fff != 0 {
-		return nil, fmt.Errorf("fragmented ipv4 packet")
+		return nil, errs.Msg("fragmented ipv4 packet")
 	}
 	// Trim to IP total length to exclude Ethernet padding.
 	ipTotalLen := int(binary.BigEndian.Uint16(frame[16:18]))
 	if ipTotalLen < ihl {
-		return nil, fmt.Errorf("IP total length %d < IHL %d", ipTotalLen, ihl)
+		return nil, errs.Msgf("IP total length %d < IHL %d", ipTotalLen, ihl)
 	}
 	payloadEnd := 14 + ipTotalLen
 	if payloadEnd > len(frame) {
-		return nil, fmt.Errorf("truncated ipv4 packet")
+		return nil, errs.Msg("truncated ipv4 packet")
 	}
 	return frame[14+ihl : payloadEnd], nil
 }

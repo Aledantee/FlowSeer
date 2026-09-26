@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	tea "charm.land/bubbletea/v2"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
@@ -83,7 +84,7 @@ func streamTUI(ctx context.Context, ch <-chan findings.Record, meta findings.Met
 	}
 	<-done
 	if err != nil {
-		return fmt.Errorf("tui: %w", err)
+		return errs.Wrap(err, "tui")
 	}
 	return nil
 }

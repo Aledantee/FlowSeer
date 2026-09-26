@@ -15,10 +15,11 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -39,13 +40,13 @@ func RunVRRP(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftVRRP(src, vrid, priority, vips)
 	if err != nil {
-		return fmt.Errorf("vrrp: craft advertisement: %w", err)
+		return errs.Wrap(err, "vrrp: craft advertisement")
 	}
 
 	count := 2
 	for range count {
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("vrrp: send advertisement: %w", err)
+			return errs.Wrap(err, "vrrp: send advertisement")
 		}
 	}
 

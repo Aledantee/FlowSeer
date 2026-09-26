@@ -17,6 +17,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -60,7 +61,7 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 	// matching sequence and LSAge=3600. Removal is not verified.
 	flushPkt, err := craftLSAFlush(src, routerID, areaID)
 	if err != nil {
-		return fmt.Errorf("ospf: craft flush: %w", err)
+		return errs.Wrap(err, "ospf: craft flush")
 	}
 	deps.Teardown.Arm("ospf-lsa-flush", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, flushPkt)
@@ -70,7 +71,7 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 	// listed, which drives the adjacency to reset.
 	goodbyePkt, err := craftOSPFHello(src, routerID, areaID, nil)
 	if err != nil {
-		return fmt.Errorf("ospf: craft goodbye: %w", err)
+		return errs.Wrap(err, "ospf: craft goodbye")
 	}
 	deps.Teardown.Arm("ospf-goodbye", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, goodbyePkt)
@@ -79,13 +80,13 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 	// Phase 1: Hello.
 	helloPkt, err := craftOSPFHello(src, routerID, areaID, nil)
 	if err != nil {
-		return fmt.Errorf("ospf: craft hello: %w", err)
+		return errs.Wrap(err, "ospf: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("ospf: send hello: %w", err)
+		return errs.Wrap(err, "ospf: send hello")
 	}
 
 	// Phase 2: receive the target's hello (adjacency formation).
@@ -105,26 +106,26 @@ func RunOSPF(ctx context.Context, deps runner.Deps) error {
 	// Phase 3: Database Description.
 	dbDescPkt, err := craftDBDesc(src, routerID, areaID)
 	if err != nil {
-		return fmt.Errorf("ospf: craft db desc: %w", err)
+		return errs.Wrap(err, "ospf: craft db desc")
 	}
 	if err := deps.AttackLeg.Send(ctx, dbDescPkt); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("ospf: send db desc: %w", err)
+		return errs.Wrap(err, "ospf: send db desc")
 	}
 
 	// Phase 4: LSA Update (inject route).
 	injectSeq := uint32(0x80000001) // Fixture sequence
 	lsaUpdatePkt, err := craftLSAUpdate(src, routerID, areaID, injectSeq)
 	if err != nil {
-		return fmt.Errorf("ospf: craft lsa update: %w", err)
+		return errs.Wrap(err, "ospf: craft lsa update")
 	}
 	if err := deps.AttackLeg.Send(ctx, lsaUpdatePkt); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("ospf: send lsa update: %w", err)
+		return errs.Wrap(err, "ospf: send lsa update")
 	}
 
 	// Emit the finding.
@@ -154,10 +155,10 @@ func recvOSPF(ctx context.Context, leg link.Leg) (*layers.OSPFv2, error) {
 			return nil, err
 		}
 		if !ok {
-			return nil, fmt.Errorf("ospf: receive: %w", io.EOF)
+			return nil, errs.Wrap(io.EOF, "ospf: receive")
 		}
 		if f.Err != nil {
-			return nil, fmt.Errorf("ospf: receive: %w", f.Err)
+			return nil, errs.Wrap(f.Err, "ospf: receive")
 		}
 		// Decode: skip Ethernet + IPv4 to reach OSPF payload.
 		pkt := gopacket.NewPacket(f.Data, layers.LayerTypeEthernet, gopacket.Default)
@@ -166,7 +167,7 @@ func recvOSPF(ctx context.Context, leg link.Leg) (*layers.OSPFv2, error) {
 				return ospf, nil
 			}
 		}
-		return nil, fmt.Errorf("ospf: no OSPF layer in frame")
+		return nil, errs.Msg("ospf: no OSPF layer in frame")
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

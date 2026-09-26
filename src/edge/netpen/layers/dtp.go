@@ -15,6 +15,8 @@ import (
 	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // DTPTLVType identifies a DTP TLV.
@@ -91,7 +93,7 @@ func (d *DTP) NeighborState() string {
 func (d *DTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 1 {
 		df.SetTruncated()
-		return fmt.Errorf("DTP: truncated at offset 0, need >=1 bytes, got %d", len(data))
+		return errs.Msgf("DTP: truncated at offset 0, need >=1 bytes, got %d", len(data))
 	}
 
 	d.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -106,17 +108,17 @@ func (d *DTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	for offset < len(data) {
 		if offset+4 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("DTP: truncated TLV header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
+			return errs.Msgf("DTP: truncated TLV header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
 		}
 
 		tlvType := DTPTLVType(binary.BigEndian.Uint16(data[offset : offset+2]))
 		tlvLen := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
 		if tlvLen < 4 {
-			return fmt.Errorf("DTP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
+			return errs.Msgf("DTP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
 		}
 		if offset+tlvLen > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("DTP: truncated TLV value at offset %d, type 0x%04x, need %d bytes, got %d", offset, tlvType, tlvLen-4, len(data)-offset-4)
+			return errs.Msgf("DTP: truncated TLV value at offset %d, type 0x%04x, need %d bytes, got %d", offset, tlvType, tlvLen-4, len(data)-offset-4)
 		}
 
 		value := data[offset+4 : offset+tlvLen]

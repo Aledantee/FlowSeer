@@ -10,12 +10,12 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -35,7 +35,7 @@ func RunVoiceVLAN(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftLLDPVoiceVLAN(src, voiceVLAN)
 	if err != nil {
-		return fmt.Errorf("voicevlan: craft frame: %w", err)
+		return errs.Wrap(err, "voicevlan: craft frame")
 	}
 
 	restoreArmed := "no"
@@ -47,7 +47,7 @@ func RunVoiceVLAN(ctx context.Context, deps runner.Deps) error {
 	}
 
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return fmt.Errorf("voicevlan: send: %w", err)
+		return errs.Wrap(err, "voicevlan: send")
 	}
 
 	detail, _ := json.Marshal(voiceVLANFinding{

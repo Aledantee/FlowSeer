@@ -12,9 +12,10 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // LLMNR is a Link-Local Multicast Name Resolution message.
@@ -76,7 +77,7 @@ const (
 func (l *LLMNR) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < dnsHeaderLen {
 		df.SetTruncated()
-		return fmt.Errorf("LLMNR: truncated at offset 0, need >=%d bytes, got %d", dnsHeaderLen, len(data))
+		return errs.Msgf("LLMNR: truncated at offset 0, need >=%d bytes, got %d", dnsHeaderLen, len(data))
 	}
 
 	l.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -96,11 +97,11 @@ func (l *LLMNR) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	for i := uint16(0); i < l.QDCount; i++ {
 		name, next, err := decodeDNSName(data, offset)
 		if err != nil {
-			return fmt.Errorf("LLMNR: %w", err)
+			return errs.Wrap(err, "LLMNR")
 		}
 		if next+4 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("LLMNR: truncated question at offset %d, need 4 bytes, got %d", next, len(data)-next)
+			return errs.Msgf("LLMNR: truncated question at offset %d, need 4 bytes, got %d", next, len(data)-next)
 		}
 		qtype := binary.BigEndian.Uint16(data[next : next+2])
 		qclass := binary.BigEndian.Uint16(data[next+2 : next+4])
@@ -116,11 +117,11 @@ func (l *LLMNR) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	for i := uint16(0); i < l.ANCount; i++ {
 		name, next, err := decodeDNSName(data, offset)
 		if err != nil {
-			return fmt.Errorf("LLMNR: %w", err)
+			return errs.Wrap(err, "LLMNR")
 		}
 		if next+10 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("LLMNR: truncated answer at offset %d, need 10 bytes, got %d", next, len(data)-next)
+			return errs.Msgf("LLMNR: truncated answer at offset %d, need 10 bytes, got %d", next, len(data)-next)
 		}
 		rrType := binary.BigEndian.Uint16(data[next : next+2])
 		rrClass := binary.BigEndian.Uint16(data[next+2 : next+4])
@@ -128,7 +129,7 @@ func (l *LLMNR) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		rdlen := int(binary.BigEndian.Uint16(data[next+8 : next+10]))
 		if next+10+rdlen > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("LLMNR: truncated answer rdata at offset %d, need %d bytes, got %d",
+			return errs.Msgf("LLMNR: truncated answer rdata at offset %d, need %d bytes, got %d",
 				next+10, rdlen, len(data)-next-10)
 		}
 		// Aliased to the packet buffer; lifetime is the same as
@@ -212,7 +213,7 @@ func decodeDNSName(data []byte, offset int) (string, int, error) {
 
 	for {
 		if index >= len(data) {
-			return "", 0, fmt.Errorf("name decompression: offset %d out of bounds (data length %d)", index, len(data))
+			return "", 0, errs.Msgf("name decompression: offset %d out of bounds (data length %d)", index, len(data))
 		}
 
 		b := data[index]
@@ -228,7 +229,7 @@ func decodeDNSName(data []byte, offset int) (string, int, error) {
 		if b&0xC0 == 0xC0 {
 			// Compression pointer.
 			if index+2 > len(data) {
-				return "", 0, fmt.Errorf("name decompression: truncated pointer at offset %d", index)
+				return "", 0, errs.Msgf("name decompression: truncated pointer at offset %d", index)
 			}
 			ptr := int(binary.BigEndian.Uint16(data[index:index+2]) & 0x3FFF)
 
@@ -244,17 +245,17 @@ func decodeDNSName(data []byte, offset int) (string, int, error) {
 				visited = make(map[int]struct{})
 			}
 			if _, seen := visited[index]; seen {
-				return "", 0, fmt.Errorf("name decompression: compression pointer loop detected at offset %d (pointer to %d)", index, ptr)
+				return "", 0, errs.Msgf("name decompression: compression pointer loop detected at offset %d (pointer to %d)", index, ptr)
 			}
 			visited[index] = struct{}{}
 
 			hops++
 			if hops > maxNamePointer {
-				return "", 0, fmt.Errorf("name decompression: pointer depth %d exceeds limit %d at offset %d", hops, maxNamePointer, index)
+				return "", 0, errs.Msgf("name decompression: pointer depth %d exceeds limit %d at offset %d", hops, maxNamePointer, index)
 			}
 
 			if ptr >= len(data) {
-				return "", 0, fmt.Errorf("name decompression: pointer offset %d out of bounds (data length %d)", ptr, len(data))
+				return "", 0, errs.Msgf("name decompression: pointer offset %d out of bounds (data length %d)", ptr, len(data))
 			}
 
 			index = ptr
@@ -262,16 +263,16 @@ func decodeDNSName(data []byte, offset int) (string, int, error) {
 		}
 
 		if b&0xC0 != 0 {
-			return "", 0, fmt.Errorf("name decompression: invalid label type 0x%02x at offset %d", b, index)
+			return "", 0, errs.Msgf("name decompression: invalid label type 0x%02x at offset %d", b, index)
 		}
 
 		// Normal label.
 		labelLen := int(b)
 		if labelLen > 63 {
-			return "", 0, fmt.Errorf("name decompression: label length %d exceeds 63 at offset %d", labelLen, index)
+			return "", 0, errs.Msgf("name decompression: label length %d exceeds 63 at offset %d", labelLen, index)
 		}
 		if index+1+labelLen > len(data) {
-			return "", 0, fmt.Errorf("name decompression: truncated label at offset %d, need %d bytes, got %d",
+			return "", 0, errs.Msgf("name decompression: truncated label at offset %d, need %d bytes, got %d",
 				index, labelLen, len(data)-index-1)
 		}
 
@@ -282,7 +283,7 @@ func decodeDNSName(data []byte, offset int) (string, int, error) {
 		index += 1 + labelLen
 
 		if len(labels) > 255 {
-			return "", 0, fmt.Errorf("name decompression: name length exceeds 255 at offset %d", offset)
+			return "", 0, errs.Msgf("name decompression: name length exceeds 255 at offset %d", offset)
 		}
 	}
 }

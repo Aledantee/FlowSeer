@@ -10,9 +10,10 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // GLBPOpcode is a GLBP message opcode.
@@ -83,7 +84,7 @@ const (
 func (g *GLBP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < glbpMinLen {
 		df.SetTruncated()
-		return fmt.Errorf("GLBP: truncated at offset 0, need >=%d bytes, got %d", glbpMinLen, len(data))
+		return errs.Msgf("GLBP: truncated at offset 0, need >=%d bytes, got %d", glbpMinLen, len(data))
 	}
 
 	g.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -104,11 +105,11 @@ func (g *GLBP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		tlvType := binary.BigEndian.Uint16(data[offset : offset+2])
 		tlvLen := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
 		if tlvLen < 4 {
-			return fmt.Errorf("GLBP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
+			return errs.Msgf("GLBP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
 		}
 		if offset+tlvLen > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("GLBP: truncated TLV value at offset %d, type 0x%04x, need %d bytes, got %d",
+			return errs.Msgf("GLBP: truncated TLV value at offset %d, type 0x%04x, need %d bytes, got %d",
 				offset, tlvType, tlvLen-4, len(data)-offset-4)
 		}
 

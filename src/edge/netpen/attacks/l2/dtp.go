@@ -18,9 +18,9 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -57,7 +57,7 @@ func RunDTP(ctx context.Context, deps runner.Deps) error {
 		// Build the restore frame now so the teardown step has it ready.
 		restorePkt, err := craftDTPFrame(src, layers.DTPStatusAccess)
 		if err != nil {
-			return fmt.Errorf("dtp: craft restore frame: %w", err)
+			return errs.Wrap(err, "dtp: craft restore frame")
 		}
 		deps.Teardown.Arm("access-port-restore", func(ctx context.Context) error {
 			return deps.AttackLeg.Send(ctx, restorePkt)
@@ -68,10 +68,10 @@ func RunDTP(ctx context.Context, deps runner.Deps) error {
 	// Send the DTP "desirable" frame to negotiate the trunk.
 	desirablePkt, err := craftDTPFrame(src, layers.DTPStatusDesirable)
 	if err != nil {
-		return fmt.Errorf("dtp: craft desirable frame: %w", err)
+		return errs.Wrap(err, "dtp: craft desirable frame")
 	}
 	if err := deps.AttackLeg.Send(ctx, desirablePkt); err != nil {
-		return fmt.Errorf("dtp: send desirable: %w", err)
+		return errs.Wrap(err, "dtp: send desirable")
 	}
 
 	// Emit the finding.

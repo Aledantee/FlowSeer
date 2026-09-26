@@ -11,12 +11,13 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -61,7 +62,7 @@ func RunVlanEnum(ctx context.Context, deps runner.Deps) error {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
-				return fmt.Errorf("vlanenum: receive: %w", frame.Err)
+				return errs.Wrap(frame.Err, "vlanenum: receive")
 			}
 			pkt := gopacket.NewPacket(frame.Data, layers.LayerTypeEthernet, gopacket.Lazy)
 			dot1q := pkt.Layer(layers.LayerTypeDot1Q)
@@ -88,7 +89,7 @@ done:
 	sort.Slice(vlans, func(i, j int) bool { return vlans[i] < vlans[j] })
 
 	if len(vlans) == 0 {
-		return fmt.Errorf("vlanenum: no tagged frames observed")
+		return errs.Msg("vlanenum: no tagged frames observed")
 	}
 
 	detail, _ := json.Marshal(vlanEnumFinding{

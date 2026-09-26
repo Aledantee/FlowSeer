@@ -13,9 +13,10 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // EIGRPOpcode is an EIGRP message opcode.
@@ -81,7 +82,7 @@ const (
 func (e *EIGRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < eigrpMinLen {
 		df.SetTruncated()
-		return fmt.Errorf("EIGRP: truncated at offset 0, need >=%d bytes, got %d", eigrpMinLen, len(data))
+		return errs.Msgf("EIGRP: truncated at offset 0, need >=%d bytes, got %d", eigrpMinLen, len(data))
 	}
 
 	e.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -100,7 +101,7 @@ func (e *EIGRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		tlvType := binary.BigEndian.Uint16(data[offset : offset+2])
 		tlvLen := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
 		if tlvLen < 4 {
-			return fmt.Errorf("EIGRP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
+			return errs.Msgf("EIGRP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
 		}
 		if offset+tlvLen > len(data) {
 			// Missing TLV tail: the header decoded fine. Stop parsing

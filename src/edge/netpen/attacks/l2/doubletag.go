@@ -11,10 +11,11 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -40,10 +41,10 @@ func RunDoubleTag(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftDoubleTagFrame(src, outerVLAN, innerVLAN)
 	if err != nil {
-		return fmt.Errorf("doubletag: craft frame: %w", err)
+		return errs.Wrap(err, "doubletag: craft frame")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return fmt.Errorf("doubletag: send: %w", err)
+		return errs.Wrap(err, "doubletag: send")
 	}
 
 	detail, _ := json.Marshal(doubleTagFinding{

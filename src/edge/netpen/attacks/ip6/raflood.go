@@ -15,11 +15,12 @@ package ip6
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -39,10 +40,10 @@ func RunRAFlood(ctx context.Context, deps runner.Deps) error {
 	for i := 1; i <= frameCount; i++ {
 		pkt, err := craftRAFloodFrame(i)
 		if err != nil {
-			return fmt.Errorf("raflood: craft frame %d: %w", i, err)
+			return errs.Wrapf(err, "raflood: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("raflood: send frame %d: %w", i, err)
+			return errs.Wrapf(err, "raflood: send frame %d", i)
 		}
 		if err := ctx.Err(); err != nil {
 			return err

@@ -14,11 +14,12 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
@@ -47,19 +48,19 @@ func RunRogueDHCP(ctx context.Context, deps runner.Deps) error {
 	// OFFER frame.
 	offer, err := craftDHCPOffer(src, rogueIP, leaseTime)
 	if err != nil {
-		return fmt.Errorf("roguedhcp: craft offer: %w", err)
+		return errs.Wrap(err, "roguedhcp: craft offer")
 	}
 	if err := deps.AttackLeg.Send(ctx, offer); err != nil {
-		return fmt.Errorf("roguedhcp: send offer: %w", err)
+		return errs.Wrap(err, "roguedhcp: send offer")
 	}
 
 	// ACK frame.
 	ack, err := craftDHCPAck(src, rogueIP, leaseTime)
 	if err != nil {
-		return fmt.Errorf("roguedhcp: craft ack: %w", err)
+		return errs.Wrap(err, "roguedhcp: craft ack")
 	}
 	if err := deps.AttackLeg.Send(ctx, ack); err != nil {
-		return fmt.Errorf("roguedhcp: send ack: %w", err)
+		return errs.Wrap(err, "roguedhcp: send ack")
 	}
 
 	// Simulated credential capture from the rogue server exchange.

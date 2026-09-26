@@ -12,11 +12,12 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -40,10 +41,10 @@ func RunICMPRedirect(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftICMPRedirect(src, srcGW, dstVictim, redirectGW, origDst)
 	if err != nil {
-		return fmt.Errorf("icmpredirect: craft redirect: %w", err)
+		return errs.Wrap(err, "icmpredirect: craft redirect")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return fmt.Errorf("icmpredirect: send redirect: %w", err)
+		return errs.Wrap(err, "icmpredirect: send redirect")
 	}
 
 	detail, _ := json.Marshal(icmpRedirectFinding{

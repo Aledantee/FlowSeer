@@ -17,8 +17,8 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -93,10 +93,10 @@ func RunVTP(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftDot3SNAP(vtpDstMAC, src, snapPIDVTP, vtp)
 	if err != nil {
-		return fmt.Errorf("vtp: craft frame: %w", err)
+		return errs.Wrap(err, "vtp: craft frame")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return fmt.Errorf("vtp: send: %w", err)
+		return errs.Wrap(err, "vtp: send")
 	}
 
 	detail, _ := json.Marshal(vtpFinding{

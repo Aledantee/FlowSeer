@@ -12,12 +12,13 @@ package ip6
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -40,10 +41,10 @@ func RunRAGuard(ctx context.Context, deps runner.Deps) error {
 	// Craft and send the forged RA (same as rogue RA).
 	pkt, err := craftRogueRA(src)
 	if err != nil {
-		return fmt.Errorf("raguard: craft RA: %w", err)
+		return errs.Wrap(err, "raguard: craft RA")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return fmt.Errorf("raguard: send RA: %w", err)
+		return errs.Wrap(err, "raguard: send RA")
 	}
 
 	sent := 1
@@ -66,7 +67,7 @@ func RunRAGuard(ctx context.Context, deps runner.Deps) error {
 					goto done
 				}
 				if frame.Err != nil {
-					return fmt.Errorf("raguard: receive observation: %w", frame.Err)
+					return errs.Wrap(frame.Err, "raguard: receive observation")
 				}
 				observed++
 				if isRAGuardFrame(frame.Data, src) {

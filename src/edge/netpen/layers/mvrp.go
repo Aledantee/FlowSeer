@@ -15,6 +15,8 @@ import (
 	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // MVRPEvent is a packed event descriptor value.
@@ -91,7 +93,7 @@ func (m *MVRP) NextLayerType() gopacket.LayerType { return gopacket.LayerTypeZer
 func (m *MVRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 1 {
 		df.SetTruncated()
-		return fmt.Errorf("MVRP: truncated at offset 0, need >=1 bytes, got %d", len(data))
+		return errs.Msgf("MVRP: truncated at offset 0, need >=1 bytes, got %d", len(data))
 	}
 
 	m.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -106,7 +108,7 @@ func (m *MVRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		}
 		if offset+4 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("MVRP: truncated message header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
+			return errs.Msgf("MVRP: truncated message header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
 		}
 
 		msg := MVRPMessage{
@@ -122,7 +124,7 @@ func (m *MVRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		firstValLen := mvrpFirstValueLen
 		if firstValOffset+firstValLen > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("MVRP: truncated first value at offset %d, need %d bytes, got %d", firstValOffset, firstValLen, len(data)-firstValOffset)
+			return errs.Msgf("MVRP: truncated first value at offset %d, need %d bytes, got %d", firstValOffset, firstValLen, len(data)-firstValOffset)
 		}
 
 		if firstValLen >= 2 {
@@ -136,7 +138,7 @@ func (m *MVRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		if numEventBytes > 0 {
 			if eventsOffset+numEventBytes > len(data) {
 				df.SetTruncated()
-				return fmt.Errorf("MVRP: truncated packed events at offset %d, need %d bytes, got %d", eventsOffset, numEventBytes, len(data)-eventsOffset)
+				return errs.Msgf("MVRP: truncated packed events at offset %d, need %d bytes, got %d", eventsOffset, numEventBytes, len(data)-eventsOffset)
 			}
 			for i := 0; i < int(msg.NumValues); i++ {
 				byteIdx := i / 3

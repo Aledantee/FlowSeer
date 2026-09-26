@@ -3,10 +3,11 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -39,11 +40,11 @@ func RunARPSpoof(ctx context.Context, deps runner.Deps) error {
 	// Pre-build the neighbor repair frames so the teardown step has them.
 	victimRepair, err := craftARPRestore(src, victimMAC, victimIP, gwIP, gwMAC)
 	if err != nil {
-		return fmt.Errorf("arpspoof: craft victim repair: %w", err)
+		return errs.Wrap(err, "arpspoof: craft victim repair")
 	}
 	gwRepair, err := craftARPRestore(src, gwMAC, gwIP, victimIP, victimMAC)
 	if err != nil {
-		return fmt.Errorf("arpspoof: craft gateway repair: %w", err)
+		return errs.Wrap(err, "arpspoof: craft gateway repair")
 	}
 	deps.Teardown.Arm("neighbor-unicast-repair-victim", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, victimRepair)
@@ -56,18 +57,18 @@ func RunARPSpoof(ctx context.Context, deps runner.Deps) error {
 	// gw→victim (attacker claims to be victim).
 	victimPoison, err := craftARPSpoof(src, victimMAC, victimIP, gwIP)
 	if err != nil {
-		return fmt.Errorf("arpspoof: craft victim poison: %w", err)
+		return errs.Wrap(err, "arpspoof: craft victim poison")
 	}
 	gwPoison, err := craftARPSpoof(src, gwMAC, gwIP, victimIP)
 	if err != nil {
-		return fmt.Errorf("arpspoof: craft gateway poison: %w", err)
+		return errs.Wrap(err, "arpspoof: craft gateway poison")
 	}
 
 	if err := deps.AttackLeg.Send(ctx, victimPoison); err != nil {
-		return fmt.Errorf("arpspoof: send victim poison: %w", err)
+		return errs.Wrap(err, "arpspoof: send victim poison")
 	}
 	if err := deps.AttackLeg.Send(ctx, gwPoison); err != nil {
-		return fmt.Errorf("arpspoof: send gateway poison: %w", err)
+		return errs.Wrap(err, "arpspoof: send gateway poison")
 	}
 
 	detail, _ := json.Marshal(arpSpoofFinding{

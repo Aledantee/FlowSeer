@@ -12,8 +12,9 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -42,19 +43,19 @@ func RunEtherChannel(ctx context.Context, deps runner.Deps) error {
 	// Craft and send the LACPDU.
 	lacpPkt, err := craftLACPDU(src)
 	if err != nil {
-		return fmt.Errorf("etherchannel: craft LACP: %w", err)
+		return errs.Wrap(err, "etherchannel: craft LACP")
 	}
 	if err := deps.AttackLeg.Send(ctx, lacpPkt); err != nil {
-		return fmt.Errorf("etherchannel: send LACP: %w", err)
+		return errs.Wrap(err, "etherchannel: send LACP")
 	}
 
 	// Craft and send the PAgP hello.
 	pagpPkt, err := craftPAgPHello(src)
 	if err != nil {
-		return fmt.Errorf("etherchannel: craft PAgP: %w", err)
+		return errs.Wrap(err, "etherchannel: craft PAgP")
 	}
 	if err := deps.AttackLeg.Send(ctx, pagpPkt); err != nil {
-		return fmt.Errorf("etherchannel: send PAgP: %w", err)
+		return errs.Wrap(err, "etherchannel: send PAgP")
 	}
 
 	detail, _ := json.Marshal(etherChannelFinding{
