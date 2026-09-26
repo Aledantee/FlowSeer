@@ -6,6 +6,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
+// Module identifies a YANG module by its name and XML namespace URI.
+// Modules are immutable after construction and safe for concurrent use.
+type Module struct {
+	Name      string
+	Namespace string
+}
+
 // Schema describes one YANG container or list node and how it maps
 // onto a generated Go struct: the node's module qualification, its
 // key leaves, and one [Field] per child. yanggen emits one Schema
@@ -17,10 +24,8 @@ import (
 // A Schema and its Fields are immutable after construction and safe
 // for concurrent use.
 type Schema struct {
-	// Module is the defining module's name; Namespace its XML
-	// namespace URI.
-	Module    string
-	Namespace string
+	// Module is the defining module.
+	Module *Module
 	// Name is the node's local name in the data tree.
 	Name string
 	// Presence marks a presence container: the container's existence
@@ -33,6 +38,22 @@ type Schema struct {
 	Fields []Field
 }
 
+// moduleName returns s's defining module name, or "" if s or s.Module is nil.
+func (s *Schema) moduleName() string {
+	if s == nil || s.Module == nil {
+		return ""
+	}
+	return s.Module.Name
+}
+
+// namespaceURI returns s's XML namespace URI, or "" if s or s.Module is nil.
+func (s *Schema) namespaceURI() string {
+	if s == nil || s.Module == nil {
+		return ""
+	}
+	return s.Module.Namespace
+}
+
 // Field maps one child node onto a Go struct field. Exactly one of
 // Type (scalar leaf / leaf-list) or Child (container / nested list)
 // is set.
@@ -41,11 +62,10 @@ type Field struct {
 	GoName string
 	// Name is the YANG node name.
 	Name string
-	// Module and Namespace are set only when the child belongs to a
-	// different module than its parent (augmented-in nodes); empty
-	// means inherit the parent Schema's.
-	Module    string
-	Namespace string
+	// Module is set only when the child belongs to a different module
+	// than its parent (augmented-in nodes); nil means inherit the
+	// parent Schema's module.
+	Module *Module
 	// Type is the leaf's resolved YANG type. Nil for containers and
 	// nested lists.
 	Type *Type
@@ -62,18 +82,18 @@ type Field struct {
 
 // qualifiedModule returns the module owning f within s.
 func (f *Field) qualifiedModule(s *Schema) string {
-	if f.Module != "" {
-		return f.Module
+	if f != nil && f.Module != nil {
+		return f.Module.Name
 	}
-	return s.Module
+	return s.moduleName()
 }
 
 // qualifiedNamespace returns the XML namespace owning f within s.
 func (f *Field) qualifiedNamespace(s *Schema) string {
-	if f.Namespace != "" {
-		return f.Namespace
+	if f != nil && f.Module != nil {
+		return f.Module.Namespace
 	}
-	return s.Namespace
+	return s.namespaceURI()
 }
 
 // structValue unwraps v (a struct, struct pointer, or reflect-able

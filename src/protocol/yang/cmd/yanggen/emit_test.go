@@ -93,15 +93,15 @@ func TestEmitFixtureSurface(t *testing.T) {
 		// Structs, schemas, and descriptors.
 		"type Servers struct",
 		"type ServersServer struct",
-		"var ServersServerSchemaX4d76e3 =",
-		"type ServersServerKey struct",
-		"func ServersServerDescriptor() yang.ListDescriptor",
+		"var ServersServerSchemaX",
+		"type ServerKey struct",
+		"func ServerDescriptor() yang.ListDescriptor",
 		// Nested list: flat row with the ancestor key, schema chain,
 		// nested decode.
-		"type ServersServerEndpoint struct",
-		"type ServersServerEndpointFlatRow struct",
-		"yang.DecodeXMLNested[ServersServerEndpoint]",
-		"yang.DecodeJSONNested[ServersServerEndpoint]",
+		"type Endpoint struct",
+		"type EndpointFlatRow struct",
+		"yang.NestedRowCodec(",
+		"yang.JoinPath(",
 		// Deviation applied: the deviated leaf is gone (asserted via
 		// notWant below); presence, unions, identityref, and the
 		// leafref key are asserted by wantRE above.
@@ -145,7 +145,7 @@ func TestEmitAugmentModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !regexp.MustCompile(`Module:\s+"fixture-aug"`).MatchString(mainSrc) {
+	if !regexp.MustCompile(`Module:\s+moduleFixtureAug`).MatchString(mainSrc) {
 		t.Error("augmented-in owner leaf lost its defining-module qualification")
 	}
 	if !regexp.MustCompile(`Owner\s+\*string`).MatchString(mainSrc) {
@@ -160,6 +160,47 @@ func TestEmitAugmentModule(t *testing.T) {
 		if !strings.Contains(typesSrc, w) {
 			t.Errorf("fixture-types missing identity value %s", w)
 		}
+	}
+}
+
+// TestEmitGroupingInstantiatingModule asserts that nodes instantiated from
+// a grouping in another module take the instantiating module's name.
+func TestEmitGroupingInstantiatingModule(t *testing.T) {
+	vs := fixtureVendor(t)
+	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(mainSrc, `"fixture-grp"`) {
+		t.Error("emitted fixture-main unexpectedly contains defining module fixture-grp")
+	}
+
+	// The shared item schema literal names fixture-main.
+	pat := `ItemSchema\s*=\s*&yang\.Schema\{[\s\S]*?Module:\s+(?:"fixture-main"|moduleFixtureMain)`
+	if !regexp.MustCompile(pat).MatchString(mainSrc) {
+		t.Errorf("emitted fixture-main missing fixture-main Module on ItemSchema")
+	}
+}
+
+// TestEmitGroupingSharedShape verifies Requirement 4: a grouping used under
+// two containers of fixture-main generates one struct for the two instances.
+func TestEmitGroupingSharedShape(t *testing.T) {
+	vs := fixtureVendor(t)
+	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(mainSrc, "type Item struct") {
+		t.Error("type Item struct not found in emitted fixture-main")
+	}
+	if strings.Contains(mainSrc, "PrimaryGroupItem") || strings.Contains(mainSrc, "SecondaryGroupItem") {
+		t.Error("emitted separate structs for grouping instances instead of shared Item")
+	}
+	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main/primary-group/item."
+	if !strings.Contains(mainSrc, wantComment) {
+		t.Errorf("emitted fixture-main missing doc comment %q", wantComment)
 	}
 }
 
@@ -201,14 +242,12 @@ func TestEmitNoUnderscores(t *testing.T) {
 
 	foundServersServer := false
 	foundServersSchema := false
-	foundServersServerKey := false
-	foundSchemaChildClash := false
-	foundKeyChildClash := false
+	foundServerKey := false
+	foundSchemaChild := false
+	foundKeyChild := false
 	foundSiblingStruct := false
 	foundSchemaSiblingClash := false
 
-	schemaChildRE := regexp.MustCompile(`^ServersSchemaX[0-9a-f]{6}$`)
-	keyChildRE := regexp.MustCompile(`^ServersServerKeyX[0-9a-f]{6}$`)
 	schemaSiblingRE := regexp.MustCompile(`^ServersServerSchemaX[0-9a-f]{6}$`)
 
 	fset := token.NewFileSet()
@@ -243,14 +282,14 @@ func TestEmitNoUnderscores(t *testing.T) {
 							if name == "ServersServer" {
 								foundServersServer = true
 							}
-							if schemaChildRE.MatchString(name) {
-								foundSchemaChildClash = true
+							if name == "Schema" {
+								foundSchemaChild = true
 							}
-							if keyChildRE.MatchString(name) {
-								foundKeyChildClash = true
+							if name == "Key" {
+								foundKeyChild = true
 							}
-							if name == "ServersServerKey" {
-								foundServersServerKey = true
+							if name == "ServerKey" {
+								foundServerKey = true
 							}
 							if name == "ServersServerSchema" {
 								foundSiblingStruct = true
@@ -298,19 +337,175 @@ func TestEmitNoUnderscores(t *testing.T) {
 	if !foundServersSchema {
 		t.Error("var ServersSchema companion not found in golden fixtures")
 	}
-	if !foundServersServerKey {
-		t.Error("type ServersServerKey companion not found in golden fixtures")
+	if !foundServerKey {
+		t.Error("type ServerKey companion not found in golden fixtures")
 	}
-	if !foundSchemaChildClash {
-		t.Error("child container ServersSchemaX<hex> not found in golden fixtures")
+	if !foundSchemaChild {
+		t.Error("child container Schema not found in golden fixtures")
 	}
-	if !foundKeyChildClash {
-		t.Error("child container ServersServerKeyX<hex> not found in golden fixtures")
+	if !foundKeyChild {
+		t.Error("child container Key not found in golden fixtures")
 	}
 	if !foundSiblingStruct {
 		t.Error("sibling container type ServersServerSchema not found in golden fixtures")
 	}
 	if !foundSchemaSiblingClash {
 		t.Error("list schema var ServersServerSchemaX<hex> not found in golden fixtures")
+	}
+}
+
+// TestRequirement6AndSingleLineFields ensures every exported identifier has
+// a doc comment, no companion comment contains a /-separated path, and simple
+// field literals in Schema.Fields sit on a single line.
+func TestRequirement6AndSingleLineFields(t *testing.T) {
+	goldenDir := filepath.Join("testdata", "golden", "fixture")
+	entries, err := os.ReadDir(goldenDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pkgDir := filepath.Join(goldenDir, entry.Name())
+		files, err := os.ReadDir(pkgDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range files {
+			if !strings.HasSuffix(f.Name(), ".go") {
+				continue
+			}
+			filePath := filepath.Join(pkgDir, f.Name())
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fset := token.NewFileSet()
+			file, err := parser.ParseFile(fset, filePath, content, parser.ParseComments)
+			if err != nil {
+				t.Fatalf("%s does not parse: %v", filePath, err)
+			}
+
+			companionTypes := make(map[string]bool)
+			for _, decl := range file.Decls {
+				if fn, ok := decl.(*ast.FuncDecl); ok && strings.HasSuffix(fn.Name.Name, "Descriptor") {
+					if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
+						switch ret := fn.Type.Results.List[0].Type.(type) {
+						case *ast.IndexListExpr:
+							for _, idx := range ret.Indices {
+								if id, ok := idx.(*ast.Ident); ok {
+									if strings.HasSuffix(id.Name, "Key") || strings.HasSuffix(id.Name, "FlatRow") {
+										companionTypes[id.Name] = true
+									}
+								}
+							}
+						case *ast.IndexExpr:
+							if id, ok := ret.Index.(*ast.Ident); ok {
+								if strings.HasSuffix(id.Name, "Key") || strings.HasSuffix(id.Name, "FlatRow") {
+									companionTypes[id.Name] = true
+								}
+							}
+						}
+					}
+				}
+			}
+
+			for _, decl := range file.Decls {
+				switch d := decl.(type) {
+				case *ast.GenDecl:
+					for _, spec := range d.Specs {
+						switch s := spec.(type) {
+						case *ast.TypeSpec:
+							if !ast.IsExported(s.Name.Name) {
+								continue
+							}
+							doc := d.Doc.Text()
+							if doc == "" && s.Doc != nil {
+								doc = s.Doc.Text()
+							}
+							if strings.TrimSpace(doc) == "" {
+								t.Errorf("%s: exported type %s missing doc comment", f.Name(), s.Name.Name)
+							}
+							if companionTypes[s.Name.Name] {
+								if strings.Contains(doc, "/") {
+									t.Errorf("%s: companion type %s comment contains '/': %q", f.Name(), s.Name.Name, doc)
+								}
+							}
+						case *ast.ValueSpec:
+							for _, id := range s.Names {
+								if !ast.IsExported(id.Name) {
+									continue
+								}
+								doc := d.Doc.Text()
+								if doc == "" && s.Doc != nil {
+									doc = s.Doc.Text()
+								}
+								if strings.TrimSpace(doc) == "" {
+									t.Errorf("%s: exported var %s missing doc comment", f.Name(), id.Name)
+								}
+								if strings.Contains(id.Name, "Schema") {
+									if strings.Contains(doc, "/") {
+										t.Errorf("%s: companion var %s comment contains '/': %q", f.Name(), id.Name, doc)
+									}
+								}
+							}
+						}
+					}
+				case *ast.FuncDecl:
+					if !ast.IsExported(d.Name.Name) {
+						continue
+					}
+					doc := d.Doc.Text()
+					if strings.TrimSpace(doc) == "" {
+						t.Errorf("%s: exported func %s missing doc comment", f.Name(), d.Name.Name)
+					}
+					if strings.HasSuffix(d.Name.Name, "Descriptor") {
+						if strings.Contains(doc, "/") {
+							t.Errorf("%s: companion func %s comment contains '/': %q", f.Name(), d.Name.Name, doc)
+						}
+					}
+				}
+			}
+
+			// Verify single-line field literals in schema Fields slices.
+			ast.Inspect(file, func(n ast.Node) bool {
+				cl, ok := n.(*ast.CompositeLit)
+				if !ok {
+					return true
+				}
+				if arrType, ok := cl.Type.(*ast.ArrayType); ok {
+					if sel, ok := arrType.Elt.(*ast.SelectorExpr); ok && sel.Sel.Name == "Field" {
+						for _, elt := range cl.Elts {
+							fieldLit, ok := elt.(*ast.CompositeLit)
+							if !ok {
+								continue
+							}
+							hasMultiLineType := false
+							for _, eltItem := range fieldLit.Elts {
+								if kv, ok := eltItem.(*ast.KeyValueExpr); ok {
+									if k, ok := kv.Key.(*ast.Ident); ok && k.Name == "Type" {
+										if _, isComp := kv.Value.(*ast.UnaryExpr); isComp {
+											hasMultiLineType = true
+										}
+									}
+								}
+							}
+							if hasMultiLineType {
+								continue
+							}
+							startPos := fset.Position(fieldLit.Pos())
+							endPos := fset.Position(fieldLit.End())
+							if startPos.Line != endPos.Line {
+								t.Errorf("%s: line %d: field literal spans multiple lines (%d to %d)",
+									f.Name(), startPos.Line, startPos.Line, endPos.Line)
+							}
+						}
+					}
+				}
+				return true
+			})
+		}
 	}
 }

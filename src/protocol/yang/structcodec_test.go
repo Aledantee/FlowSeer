@@ -23,25 +23,29 @@ type testExtra struct {
 	Note *string
 }
 
+var (
+	modTestMain = &yang.Module{Name: "test-main", Namespace: "urn:test:main"}
+	modTestAug  = &yang.Module{Name: "test-aug", Namespace: "urn:test:aug"}
+)
+
 func serverSchema() *yang.Schema {
 	return &yang.Schema{
-		Module:    "test-main",
-		Namespace: "urn:test:main",
-		Name:      "server",
-		Keys:      []string{"name"},
+		Module: modTestMain,
+		Name:   "server",
+		Keys:   []string{"name"},
 		Fields: []yang.Field{
 			{GoName: "Name", Name: "name", Type: &yang.Type{Kind: yang.TypeString}},
 			{GoName: "Port", Name: "port", Type: &yang.Type{Kind: yang.TypeUint16}},
 			{
 				GoName: "Owner", Name: "owner",
-				Module: "test-aug", Namespace: "urn:test:aug",
-				Type: &yang.Type{Kind: yang.TypeString},
+				Module: modTestAug,
+				Type:   &yang.Type{Kind: yang.TypeString},
 			},
 			{GoName: "Tags", Name: "tags", LeafList: true, Type: &yang.Type{Kind: yang.TypeString}},
 			{
 				GoName: "Extra", Name: "extra",
 				Child: &yang.Schema{
-					Module: "test-main", Namespace: "urn:test:main", Name: "extra", Presence: true,
+					Module: modTestMain, Name: "extra", Presence: true,
 					Fields: []yang.Field{
 						{GoName: "Note", Name: "note", Type: &yang.Type{Kind: yang.TypeString}},
 					},
@@ -193,7 +197,7 @@ func TestVisitStructLeaves(t *testing.T) {
 		Server []testServer
 	}
 	parent := &yang.Schema{
-		Module: "test-main", Namespace: "urn:test:main", Name: "servers",
+		Module: modTestMain, Name: "servers",
 		Fields: []yang.Field{
 			{GoName: "Server", Name: "server", List: true, Child: serverSchema()},
 		},

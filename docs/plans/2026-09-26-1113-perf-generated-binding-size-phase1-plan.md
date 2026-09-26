@@ -4,12 +4,19 @@ type: perf
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-26-1113-perf-generated-binding-size-plan.md
 ---
 
 # Generated Binding Size Phase 1 - yanggen - Plan
+
+> Implemented. 5 units, 2026-09-26T21:50Z to 2026-09-26T22:25Z. Generated tree
+> shrank to 48,882,316 bytes (76.2% reduction from the 205,604,350-byte baseline,
+> well below the 102,802,175-byte limit); ciscoiosxenative shrank to 31,679,228
+> bytes (81.4% reduction from 170,104,398 bytes, well below the 85,052,199-byte limit).
+> Codegen style rule recorded in docs/code-style.md. Integration tests updated for
+> shortest unique suffix naming.
 
 ## Goal
 
@@ -340,14 +347,14 @@ U2, U3, and U4 all edit `emit_module.go`, which is why they form a chain.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path outside `generated/`.
-- [ ] The `src/protocol/yang` docs, `cmd/yanggen/doc.go`, the companion-symbols
+- [x] The verifier is green for every changed path outside `generated/`.
+- [x] The `src/protocol/yang` docs, `cmd/yanggen/doc.go`, the companion-symbols
       solution, and `docs/code-style.md` are updated in the same change.
-- [ ] `generated/go/yang` is at or below 102,802,175 bytes, and the number is
+- [x] `generated/go/yang` is at or below 102,802,175 bytes, and the number is
       recorded.
-- [ ] `status` is `implemented`, with an outcome note, and the parent's P1
+- [x] `status` is `implemented`, with an outcome note, and the parent's P1
       `Landed:` line carries the commit range.
-- [ ] No plan labels in code or commit messages.
+- [x] No plan labels in code or commit messages.
 
 ## Open questions
 

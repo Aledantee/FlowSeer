@@ -138,3 +138,27 @@ func TestParseRESTCONFURIRejectsKeyMismatch(t *testing.T) {
 		t.Errorf("error is %T, want *errs.Error", err)
 	}
 }
+
+func TestPathJoinAndIn(t *testing.T) {
+	a := &yang.Module{Name: "a", Namespace: "urn:a"}
+	b := &yang.Module{Name: "b", Namespace: "urn:b"}
+
+	p := yang.JoinPath(yang.In(a, "x", "y"), yang.In(b, "z"))
+
+	if got, want := p.String(), "/a:x/y/b:z"; got != want {
+		t.Errorf("p.String() = %q, want %q", got, want)
+	}
+
+	if len(p.Segments) != 3 {
+		t.Fatalf("len(p.Segments) = %d, want 3", len(p.Segments))
+	}
+	if got, want := p.Segments[0].Namespace, "urn:a"; got != want {
+		t.Errorf("segment 0 namespace = %q, want %q", got, want)
+	}
+	if got, want := p.Segments[1].Namespace, ""; got != want {
+		t.Errorf("segment 1 namespace = %q, want %q", got, want)
+	}
+	if got, want := p.Segments[2].Namespace, "urn:b"; got != want {
+		t.Errorf("segment 2 namespace = %q, want %q", got, want)
+	}
+}

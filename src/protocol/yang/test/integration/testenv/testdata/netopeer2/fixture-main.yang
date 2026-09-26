@@ -7,6 +7,10 @@ module fixture-main {
     prefix ft;
   }
 
+  import fixture-grp {
+    prefix fg;
+  }
+
   include fixture-main-sub;
 
   revision 2026-01-02 {
@@ -112,5 +116,13 @@ module fixture-main {
     leaf count {
       type uint32;
     }
+  }
+
+  container primary-group {
+    uses fg:endpoint-settings;
+  }
+
+  container secondary-group {
+    uses fg:endpoint-settings;
   }
 }
