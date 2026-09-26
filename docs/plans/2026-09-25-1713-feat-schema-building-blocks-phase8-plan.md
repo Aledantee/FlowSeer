@@ -5,6 +5,8 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept
+compound: no lesson
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
@@ -752,3 +754,11 @@ has a cellular interface.
   §9.1.4, §9.1.7, the LTE RS-SINR clause, TS 38.133 §10.1 (SS-RSRP,
   SS-RSRQ, SS-SINR tables), TS 23.003 §2.2 and §6.2.1, and ITU-T E.118
   for the ICCID length, and tighten or widen the rules to match.
+
+- Resolved (phase-8 review ruling): per-interface QoS (`QosInterface`) and
+  cellular (`CellularInterface`) facts are rows keyed by interface name, not
+  facets on `Interface`. Facets would add `net/qos` and `net/cellular` as
+  dependencies of `net/interface`, which the layering allowlist forbids; rows
+  keep the dependency direction correct and follow the STP `PortState`
+  precedent. Review verdict: accept. Compound: no lesson (no-secrets-in-schema
+  and the layering direction are established conventions).
