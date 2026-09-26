@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+import "buf/validate/validate.proto";
+
+// Predefined protovalidate rules (https://protovalidate.com/) for IEEE 802.11
+// channel numbers and channel widths in MHz (IEEE Std 802.11-2020, Annex E;
+// IEEE Std 802.11be). Channel numbers span 1 to 233 across 2.4 GHz, 5 GHz,
+// and 6 GHz bands. Channel widths encompass 20, 40, 80, 160, and 320 MHz
+// sub-7 GHz channels and 2160, 4320, 6480, and 8640 MHz 60 GHz (directional
+// multi-gigabit) channels.
+extend buf.validate.UInt32Rules {
+  bool wifi_channel = 50004 [(buf.validate.predefined).cel = {
+    id: "uint32.wifi_channel"
+    message: "value must be an 802.11 channel number in 1..233"
+    expression: "!rule || (this >= 1u && this <= 233u)"
+  }];
+  bool wifi_channel_width_mhz = 50005 [(buf.validate.predefined).cel = {
+    id: "uint32.wifi_channel_width_mhz"
+    message: "value must be a valid 802.11 channel width in MHz"
+    expression: "!rule || this in [20u, 40u, 80u, 160u, 320u, 2160u, 4320u, 6480u, 8640u]"
+  }];
+}

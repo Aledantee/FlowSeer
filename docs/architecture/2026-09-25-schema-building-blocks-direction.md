@@ -206,7 +206,7 @@ regeneration.
 
 ### 5. Facets, settings, and table rows
 
-A facet is per-interface and named `<Name>Facet`; the requested values for
+A facet is per-interface, or per-component for a radio, and named `<Name>Facet`; the requested values for
 the same layer are `<Name>Settings`, carried by the facet. A declared
 `Settings` that no facet carries is a review finding (`EthernetSettings`
 today).

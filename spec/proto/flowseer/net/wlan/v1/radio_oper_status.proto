@@ -1,0 +1,14 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Operational status of a wireless radio interface (Cisco
+// Cisco-IOS-XE-wireless-access-point-oper enum-radio-oper-state).
+enum RadioOperStatus {
+  // Operational status is unspecified or unknown.
+  RADIO_OPER_STATUS_UNSPECIFIED = 0;
+  // Radio is actively operating and transmitting/receiving.
+  RADIO_OPER_STATUS_UP = 1;
+  // Radio is operationally down.
+  RADIO_OPER_STATUS_DOWN = 2;
+}

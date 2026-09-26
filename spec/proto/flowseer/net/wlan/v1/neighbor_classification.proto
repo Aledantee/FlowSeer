@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Classification of a neighboring or overheard BSS (Cisco Cisco-IOS-XE-wireless-enum-types
+// rogue-class-type, Meraki Air Marshal detection types).
+enum NeighborClassification {
+  // Classification is unspecified or unknown by the reporting source.
+  NEIGHBOR_CLASSIFICATION_UNSPECIFIED = 0;
+  // Detected BSS has not been classified as friendly, rogue, or malicious.
+  NEIGHBOR_CLASSIFICATION_UNCLASSIFIED = 1;
+  // Known or authorized neighbor BSS (e.g. adjacent friendly network).
+  NEIGHBOR_CLASSIFICATION_FRIENDLY = 2;
+  // Malicious neighboring AP or device (e.g. honeypot, denial of service).
+  NEIGHBOR_CLASSIFICATION_MALICIOUS = 3;
+  // Rogue AP connected to the operator's wired network infrastructure.
+  NEIGHBOR_CLASSIFICATION_ROGUE = 4;
+  // Impersonating AP spoofing the operator's network identity or SSID.
+  NEIGHBOR_CLASSIFICATION_SPOOF = 5;
+}

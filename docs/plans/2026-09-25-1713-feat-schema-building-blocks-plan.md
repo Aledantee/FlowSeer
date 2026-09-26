@@ -115,7 +115,7 @@ Landed:
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase3-plan.md
 After: U1
-Landed:
+Landed: `2844b9fb..f4259ff5`
 
 ### U4. Phase 4: endpoints and port access
 

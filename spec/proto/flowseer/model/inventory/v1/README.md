@@ -9,9 +9,9 @@ FlowSeer-assigned UUID.
 
 ## Boundaries
 
-Imports: model/edge, model/policy, net/addr, net/key, net/phy
+Imports: model/edge, model/policy, net/addr, net/key, net/phy, net/wlan
 
-Imported by: api/device, event/access, model/access, store/device
+Imported by: api/device, event/access, model/access, model/wireless, store/device
 
 Deliberately absent:
 
@@ -239,14 +239,15 @@ operator's own answer is `DeviceConfig.location`, and the two coexist.
 
 A component is one physical part of a device as the device reports it:
 the chassis, a backplane, a slot, a power supply, a fan, a sensor, a line
-card, a port, a stack member, or a transceiver seated in a port. The tree
-is the Entity MIB's (RFC 6933) `entPhysicalTable` with the transceiver
-added as its own kind, because a pluggable module is what a cable
-terminates on and what carries the per-lane diagnostics `net/phy`
-already models; `ComponentState.module` embeds `PluggableModule` for
-exactly that kind. A port names the interface it fronts by the device's
-own interface name, which is the `entAliasMappingTable` join and the only
-way from the physical tree to the interface model.
+card, a port, a stack member, a transceiver seated in a port, or an 802.11
+radio. The tree is the Entity MIB's (RFC 6933) `entPhysicalTable` with the
+transceiver and radio added as FlowSeer's additions: a pluggable module is
+what a cable terminates on and what carries the per-lane diagnostics `net/phy`
+already models; an 802.11 radio carries its facet from `net/wlan`.
+`ComponentState.module` embeds `PluggableModule` and `ComponentState.radio`
+embeds `RadioFacet` for exactly those kinds. A port names the interface it
+fronts by the device's own interface name, which is the `entAliasMappingTable`
+join and the only way from the physical tree to the interface model.
 
 A component is owned by its device and keyed by a device-local name, so
 `ComponentGlobalRef` composes the device's ref with that name.

@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Protected Management Frames mode (IEEE Std 802.11-2020 clause 9.4.2.25.4,
+// Wi-Fi Alliance WPA3 Specification v3.5). Configures or reports the Management
+// Frame Protection Capable (MFPC) and Required (MFPR) bits in the RSN Capabilities element.
+enum PmfMode {
+  // PMF mode is unspecified or unknown.
+  PMF_MODE_UNSPECIFIED = 0;
+  // PMF is disabled: MFPC=0, MFPR=0.
+  PMF_MODE_DISABLED = 1;
+  // PMF is optional (PMF capable): MFPC=1, MFPR=0.
+  PMF_MODE_OPTIONAL = 2;
+  // PMF is required (mandatory): MFPC=1, MFPR=1.
+  PMF_MODE_REQUIRED = 3;
+}

@@ -153,8 +153,9 @@ Three boundaries keep it from eroding the typed refs:
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
   nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `model/inventory/v1` are the same class: UUID-keyed,
-  landed, and outside the enum until the inventory store answers for them. `AccessPolicyHandle`,
+  `Cable`, and `Link` in `model/inventory/v1`, and `Wlan` in
+  `model/wireless/v1`, are the same class: UUID-keyed,
+  landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
@@ -172,7 +173,8 @@ a VLAN by its id. The moment a `net/` message grows a ref it has become an
 Entity and belongs further up the tree.
 
 Primitives do not use the triad's suffixes either. A Primitive that bundles
-what a source reports about one interface for one layer is a `<Name>Facet`
+what a source reports about one interface, or about one component for a radio,
+for one layer is a `<Name>Facet`
 (`EthernetFacet`, `IpFacet`, `SwitchportFacet`); the requested values a
 caller may set for the same layer are a `<Name>Settings` message the facet
 carries beside the observed values. `CopperFacet.poe_settings` is the
@@ -319,8 +321,9 @@ holds the rationale and standards grounding for each rule.
   back to a device (such as an operation target or capture source) use
   `shell_safe_interface_name` (`^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$`). A field whose
   name spells an interface name carries exactly one of them.
-- **Facets, settings, and rows**: per-interface bundles are named `<Name>Facet`,
-  and requested values for that layer are `<Name>Settings`, carried by the
+- **Facets, settings, and rows**: per-interface bundles, or per-component for a
+  radio, are named `<Name>Facet`, and requested values for that layer are
+  `<Name>Settings`, carried by the
   facet ([rule 5](../architecture/2026-09-25-schema-building-blocks-direction.md#5-facets-settings-and-table-rows)).
   Device-scoped table rows are named for the thing they describe (`Vlan`, `Route`,
   `BgpPeer`); use `<Table>Entry` only when the table name is the natural noun and

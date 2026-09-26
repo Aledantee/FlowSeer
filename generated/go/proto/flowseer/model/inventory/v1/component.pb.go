@@ -17,6 +17,7 @@ package inventoryv1
 
 import (
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -31,8 +32,8 @@ const (
 )
 
 // What a component is, after the physical classes of RFC 6933 with the
-// transceiver added because a pluggable module is what a cable terminates
-// on and what carries per-lane diagnostics.
+// transceiver and radio added: a pluggable module is what a cable terminates
+// on and what carries per-lane diagnostics; a radio carries its facet.
 type ComponentKind int32
 
 const (
@@ -58,6 +59,8 @@ const (
 	ComponentKind_COMPONENT_KIND_STORAGE      ComponentKind = 12
 	// A pluggable module seated in a port; module carries its diagnostics.
 	ComponentKind_COMPONENT_KIND_TRANSCEIVER ComponentKind = 13
+	// An 802.11 radio; radio carries its facet.
+	ComponentKind_COMPONENT_KIND_RADIO ComponentKind = 14
 )
 
 // Enum value maps for ComponentKind.
@@ -77,6 +80,7 @@ var (
 		11: "COMPONENT_KIND_CPU",
 		12: "COMPONENT_KIND_STORAGE",
 		13: "COMPONENT_KIND_TRANSCEIVER",
+		14: "COMPONENT_KIND_RADIO",
 	}
 	ComponentKind_value = map[string]int32{
 		"COMPONENT_KIND_UNSPECIFIED":  0,
@@ -93,6 +97,7 @@ var (
 		"COMPONENT_KIND_CPU":          11,
 		"COMPONENT_KIND_STORAGE":      12,
 		"COMPONENT_KIND_TRANSCEIVER":  13,
+		"COMPONENT_KIND_RADIO":        14,
 	}
 )
 
@@ -314,6 +319,7 @@ type ComponentState struct {
 	xxx_hidden_FieldReplaceable bool                   `protobuf:"varint,12,opt,name=field_replaceable,json=fieldReplaceable"`
 	xxx_hidden_InterfaceName    *string                `protobuf:"bytes,13,opt,name=interface_name,json=interfaceName"`
 	xxx_hidden_Module           *v1.PluggableModule    `protobuf:"bytes,20,opt,name=module"`
+	xxx_hidden_Radio            *v11.RadioFacet        `protobuf:"bytes,21,opt,name=radio"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -469,6 +475,13 @@ func (x *ComponentState) GetModule() *v1.PluggableModule {
 	return nil
 }
 
+func (x *ComponentState) GetRadio() *v11.RadioFacet {
+	if x != nil {
+		return x.xxx_hidden_Radio
+	}
+	return nil
+}
+
 func (x *ComponentState) SetRef(v *ComponentGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
@@ -479,61 +492,65 @@ func (x *ComponentState) SetParent(v *ComponentLocalRef) {
 
 func (x *ComponentState) SetKind(v ComponentKind) {
 	x.xxx_hidden_Kind = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 15)
 }
 
 func (x *ComponentState) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 15)
 }
 
 func (x *ComponentState) SetVendor(v string) {
 	x.xxx_hidden_Vendor = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 15)
 }
 
 func (x *ComponentState) SetModel(v string) {
 	x.xxx_hidden_Model = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 15)
 }
 
 func (x *ComponentState) SetSerial(v string) {
 	x.xxx_hidden_Serial = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 15)
 }
 
 func (x *ComponentState) SetHardwareRevision(v string) {
 	x.xxx_hidden_HardwareRevision = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 15)
 }
 
 func (x *ComponentState) SetFirmwareRevision(v string) {
 	x.xxx_hidden_FirmwareRevision = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 15)
 }
 
 func (x *ComponentState) SetSoftwareRevision(v string) {
 	x.xxx_hidden_SoftwareRevision = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 15)
 }
 
 func (x *ComponentState) SetPosition(v uint32) {
 	x.xxx_hidden_Position = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 15)
 }
 
 func (x *ComponentState) SetFieldReplaceable(v bool) {
 	x.xxx_hidden_FieldReplaceable = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 15)
 }
 
 func (x *ComponentState) SetInterfaceName(v string) {
 	x.xxx_hidden_InterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 15)
 }
 
 func (x *ComponentState) SetModule(v *v1.PluggableModule) {
 	x.xxx_hidden_Module = v
+}
+
+func (x *ComponentState) SetRadio(v *v11.RadioFacet) {
+	x.xxx_hidden_Radio = v
 }
 
 func (x *ComponentState) HasRef() bool {
@@ -634,6 +651,13 @@ func (x *ComponentState) HasModule() bool {
 	return x.xxx_hidden_Module != nil
 }
 
+func (x *ComponentState) HasRadio() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Radio != nil
+}
+
 func (x *ComponentState) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -701,6 +725,10 @@ func (x *ComponentState) ClearModule() {
 	x.xxx_hidden_Module = nil
 }
 
+func (x *ComponentState) ClearRadio() {
+	x.xxx_hidden_Radio = nil
+}
+
 type ComponentState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -743,6 +771,9 @@ type ComponentState_builder struct {
 	// For a transceiver, the module identity and diagnostics read from it.
 	// Set only on a transceiver; unset there means the module was not read.
 	Module *v1.PluggableModule
+	// For a radio, the facet read from it. Set only on a radio; unset there
+	// means the radio was not read.
+	Radio *v11.RadioFacet
 }
 
 func (b0 ComponentState_builder) Build() *ComponentState {
@@ -752,50 +783,51 @@ func (b0 ComponentState_builder) Build() *ComponentState {
 	x.xxx_hidden_Ref = b.Ref
 	x.xxx_hidden_Parent = b.Parent
 	if b.Kind != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 15)
 		x.xxx_hidden_Kind = *b.Kind
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 15)
 		x.xxx_hidden_Description = b.Description
 	}
 	if b.Vendor != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 15)
 		x.xxx_hidden_Vendor = b.Vendor
 	}
 	if b.Model != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 15)
 		x.xxx_hidden_Model = b.Model
 	}
 	if b.Serial != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 15)
 		x.xxx_hidden_Serial = b.Serial
 	}
 	if b.HardwareRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 15)
 		x.xxx_hidden_HardwareRevision = b.HardwareRevision
 	}
 	if b.FirmwareRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 15)
 		x.xxx_hidden_FirmwareRevision = b.FirmwareRevision
 	}
 	if b.SoftwareRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 15)
 		x.xxx_hidden_SoftwareRevision = b.SoftwareRevision
 	}
 	if b.Position != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 15)
 		x.xxx_hidden_Position = *b.Position
 	}
 	if b.FieldReplaceable != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 15)
 		x.xxx_hidden_FieldReplaceable = *b.FieldReplaceable
 	}
 	if b.InterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 15)
 		x.xxx_hidden_InterfaceName = b.InterfaceName
 	}
 	x.xxx_hidden_Module = b.Module
+	x.xxx_hidden_Radio = b.Radio
 	return m0
 }
 
@@ -928,13 +960,13 @@ var File_flowseer_model_inventory_v1_component_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/model/inventory/v1/component.proto\x12\x1bflowseer.model.inventory.v1\x1a(flowseer/model/inventory/v1/device.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\"6\n" +
+	"+flowseer/model/inventory/v1/component.proto\x12\x1bflowseer.model.inventory.v1\x1a(flowseer/model/inventory/v1/device.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\x1a&flowseer/net/wlan/v1/radio_facet.proto\"6\n" +
 	"\x11ComponentLocalRef\x12!\n" +
 	"\x04name\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\x04name\"\xb8\x01\n" +
 	"\x12ComponentGlobalRef\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12T\n" +
-	"\tcomponent\x18\x02 \x01(\v2..flowseer.model.inventory.v1.ComponentLocalRefB\x06\xbaH\x03\xc8\x01\x01R\tcomponent\"\x85\b\n" +
+	"\tcomponent\x18\x02 \x01(\v2..flowseer.model.inventory.v1.ComponentLocalRefB\x06\xbaH\x03\xc8\x01\x01R\tcomponent\"\xa4\t\n" +
 	"\x0eComponentState\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.model.inventory.v1.ComponentGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12F\n" +
 	"\x06parent\x18\x02 \x01(\v2..flowseer.model.inventory.v1.ComponentLocalRefR\x06parent\x12M\n" +
@@ -954,16 +986,18 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\bposition\x18\v \x01(\rR\bposition\x12+\n" +
 	"\x11field_replaceable\x18\f \x01(\bR\x10fieldReplaceable\x120\n" +
 	"\x0einterface_name\x18\r \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceName\x12<\n" +
-	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module:\x98\x02\xbaH\x94\x02\x1a\x9b\x01\n" +
+	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module\x126\n" +
+	"\x05radio\x18\x15 \x01(\v2 .flowseer.net.wlan.v1.RadioFacetR\x05radio:\xff\x02\xbaH\xfb\x02\x1a\x9b\x01\n" +
 	"\x1fcomponent_state.parent_not_self\x12$a component cannot be its own parent\x1aR!has(this.ref) || !has(this.parent) || this.parent.name != this.ref.component.name\x1at\n" +
-	"'component_state.module_only_transceiver\x12#module is set only on a transceiver\x1a$!has(this.module) || this.kind == 13\"\x89\a\n" +
+	"'component_state.module_only_transceiver\x12#module is set only on a transceiver\x1a$!has(this.module) || this.kind == 13\x1ae\n" +
+	" component_state.radio_only_radio\x12\x1cradio is set only on a radio\x1a#!has(this.radio) || this.kind == 14\"\x89\a\n" +
 	"\x0eComponentEvent\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.model.inventory.v1.ComponentGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12C\n" +
 	"\x06before\x18\x02 \x01(\v2+.flowseer.model.inventory.v1.ComponentStateR\x06before\x12A\n" +
 	"\x05after\x18\x03 \x01(\v2+.flowseer.model.inventory.v1.ComponentStateR\x05after:\xa3\x05\xbaH\x9f\x05\x1a\x9d\x02\n" +
 	"\"component_event.before_matches_ref\x128the before side must describe the entity the event names\x1a\xbc\x01!has(this.before) || !has(this.ref) || !has(this.before.ref) || (this.before.ref.device.device.id == this.ref.device.device.id && this.before.ref.component.name == this.ref.component.name)\x1a\x97\x02\n" +
 	"!component_event.after_matches_ref\x127the after side must describe the entity the event names\x1a\xb8\x01!has(this.after) || !has(this.ref) || !has(this.after.ref) || (this.after.ref.device.device.id == this.ref.device.device.id && this.after.ref.component.name == this.ref.component.name)\x1ac\n" +
-	"\x18component_event.one_side\x12\"an event carries at least one side\x1a#has(this.before) || has(this.after)*\x9e\x03\n" +
+	"\x18component_event.one_side\x12\"an event carries at least one side\x1a#has(this.before) || has(this.after)*\xb8\x03\n" +
 	"\rComponentKind\x12\x1e\n" +
 	"\x1aCOMPONENT_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14COMPONENT_KIND_OTHER\x10\x01\x12\x1a\n" +
@@ -979,7 +1013,8 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\x12\x16\n" +
 	"\x12COMPONENT_KIND_CPU\x10\v\x12\x1a\n" +
 	"\x16COMPONENT_KIND_STORAGE\x10\f\x12\x1e\n" +
-	"\x1aCOMPONENT_KIND_TRANSCEIVER\x10\rB\x92\x02\n" +
+	"\x1aCOMPONENT_KIND_TRANSCEIVER\x10\r\x12\x18\n" +
+	"\x14COMPONENT_KIND_RADIO\x10\x0eB\x92\x02\n" +
 	"\x1fcom.flowseer.model.inventory.v1B\x0eComponentProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_component_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
@@ -992,22 +1027,24 @@ var file_flowseer_model_inventory_v1_component_proto_goTypes = []any{
 	(*ComponentEvent)(nil),     // 4: flowseer.model.inventory.v1.ComponentEvent
 	(*DeviceGlobalRef)(nil),    // 5: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*v1.PluggableModule)(nil), // 6: flowseer.net.phy.v1.PluggableModule
+	(*v11.RadioFacet)(nil),     // 7: flowseer.net.wlan.v1.RadioFacet
 }
 var file_flowseer_model_inventory_v1_component_proto_depIdxs = []int32{
-	5, // 0: flowseer.model.inventory.v1.ComponentGlobalRef.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	1, // 1: flowseer.model.inventory.v1.ComponentGlobalRef.component:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
-	2, // 2: flowseer.model.inventory.v1.ComponentState.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
-	1, // 3: flowseer.model.inventory.v1.ComponentState.parent:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
-	0, // 4: flowseer.model.inventory.v1.ComponentState.kind:type_name -> flowseer.model.inventory.v1.ComponentKind
-	6, // 5: flowseer.model.inventory.v1.ComponentState.module:type_name -> flowseer.net.phy.v1.PluggableModule
-	2, // 6: flowseer.model.inventory.v1.ComponentEvent.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
-	3, // 7: flowseer.model.inventory.v1.ComponentEvent.before:type_name -> flowseer.model.inventory.v1.ComponentState
-	3, // 8: flowseer.model.inventory.v1.ComponentEvent.after:type_name -> flowseer.model.inventory.v1.ComponentState
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	5,  // 0: flowseer.model.inventory.v1.ComponentGlobalRef.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
+	1,  // 1: flowseer.model.inventory.v1.ComponentGlobalRef.component:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
+	2,  // 2: flowseer.model.inventory.v1.ComponentState.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
+	1,  // 3: flowseer.model.inventory.v1.ComponentState.parent:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
+	0,  // 4: flowseer.model.inventory.v1.ComponentState.kind:type_name -> flowseer.model.inventory.v1.ComponentKind
+	6,  // 5: flowseer.model.inventory.v1.ComponentState.module:type_name -> flowseer.net.phy.v1.PluggableModule
+	7,  // 6: flowseer.model.inventory.v1.ComponentState.radio:type_name -> flowseer.net.wlan.v1.RadioFacet
+	2,  // 7: flowseer.model.inventory.v1.ComponentEvent.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
+	3,  // 8: flowseer.model.inventory.v1.ComponentEvent.before:type_name -> flowseer.model.inventory.v1.ComponentState
+	3,  // 9: flowseer.model.inventory.v1.ComponentEvent.after:type_name -> flowseer.model.inventory.v1.ComponentState
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_model_inventory_v1_component_proto_init() }

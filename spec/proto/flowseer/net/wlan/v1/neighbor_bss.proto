@@ -1,0 +1,43 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/wlan/v1/neighbor_classification.proto";
+import "flowseer/net/wlan/v1/wifi_band.proto";
+import "flowseer/net/wlan/v1/wlan_security.proto";
+import option "flowseer/net/wlan/v1/channel.proto";
+
+// Overheard or scanned neighboring 802.11 Basic Service Set (BSS).
+// Represents rogue-scan, neighbor-environment, or candidate BSS sightings.
+message NeighborBss {
+  option (buf.validate.message).cel = {
+    id: "neighbor_bss.channel_needs_band"
+    message: "primary_channel requires an explicit, non-zero band"
+    expression: "!has(this.primary_channel) || (has(this.band) && this.band != 0)"
+  };
+
+  // Hardware MAC address (BSSID) of the detected neighbor BSS. Must be present.
+  flowseer.net.addr.v1.MacAddress bssid = 1 [(buf.validate.field).required = true];
+  // Advertised Service Set Identifier (SSID) of the neighbor BSS, up to 32 octets.
+  // Empty bytes indicates a hidden BSS with a suppressed SSID.
+  bytes ssid = 2 [(buf.validate.field).bytes.max_len = 32];
+  // Operating frequency band. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  WifiBand band = 3;
+  // Primary operating channel number (1..233). Unset means unobserved.
+  uint32 primary_channel = 4 [(buf.validate.field).uint32.(wifi_channel) = true];
+  // Operating channel width in MHz. Unset means unobserved.
+  uint32 channel_width_mhz = 5 [(buf.validate.field).uint32.(wifi_channel_width_mhz) = true];
+  // Received Signal Strength Indicator (RSSI) in milli-dBm (0.001 dBm resolution). Unset means unobserved.
+  sint32 rssi_millidbm = 6;
+  // Detected wireless security mode. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  WlanSecurity security = 7;
+  // Threat or neighbor classification. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  NeighborClassification classification = 8;
+  // Name of the reporting local radio component that detected this sighting. Unset means reported per device.
+  string radio_name = 9 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+}

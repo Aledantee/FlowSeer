@@ -12,6 +12,7 @@ package flowseer.model.inventory.v1;
 
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/net/phy/v1/pluggable_module.proto";
+import "flowseer/net/wlan/v1/radio_facet.proto";
 import option "buf/validate/validate.proto";
 import option "flowseer/net/key/v1/key.proto";
 
@@ -36,8 +37,8 @@ message ComponentGlobalRef {
 }
 
 // What a component is, after the physical classes of RFC 6933 with the
-// transceiver added because a pluggable module is what a cable terminates
-// on and what carries per-lane diagnostics.
+// transceiver and radio added: a pluggable module is what a cable terminates
+// on and what carries per-lane diagnostics; a radio carries its facet.
 enum ComponentKind {
   // No kind named. Components reject the zero value.
   COMPONENT_KIND_UNSPECIFIED = 0;
@@ -61,6 +62,8 @@ enum ComponentKind {
   COMPONENT_KIND_STORAGE = 12;
   // A pluggable module seated in a port; module carries its diagnostics.
   COMPONENT_KIND_TRANSCEIVER = 13;
+  // An 802.11 radio; radio carries its facet.
+  COMPONENT_KIND_RADIO = 14;
 }
 
 // The observed definition of one component: where it sits in the device's
@@ -77,6 +80,11 @@ message ComponentState {
     id: "component_state.module_only_transceiver"
     message: "module is set only on a transceiver"
     expression: "!has(this.module) || this.kind == 13"
+  };
+  option (buf.validate.message).cel = {
+    id: "component_state.radio_only_radio"
+    message: "radio is set only on a radio"
+    expression: "!has(this.radio) || this.kind == 14"
   };
 
   // The ref to this component. Must be present.
@@ -145,6 +153,9 @@ message ComponentState {
   // For a transceiver, the module identity and diagnostics read from it.
   // Set only on a transceiver; unset there means the module was not read.
   flowseer.net.phy.v1.PluggableModule module = 20;
+  // For a radio, the facet read from it. Set only on a radio; unset there
+  // means the radio was not read.
+  flowseer.net.wlan.v1.RadioFacet radio = 21;
 }
 
 // One transition of a component, carried as the observed definition

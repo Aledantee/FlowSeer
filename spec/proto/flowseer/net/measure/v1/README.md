@@ -10,7 +10,7 @@ the edge of the system and a consumer never learns which unit a source used.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: net/phy
+Imported by: net/phy, net/wlan
 
 Deliberately absent:
 
