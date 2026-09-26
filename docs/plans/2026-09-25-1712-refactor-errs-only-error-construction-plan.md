@@ -39,9 +39,17 @@ These are the user's rulings, not this plan's proposals.
   permits what the gate rejects would send the next reader the wrong way.
 - The gate lands last, after every conversion. A gate that lands first fails the
   build for as long as the migration runs.
-- E3, the `src/edge/netpen` unit, runs on `gpt-5.6-sol` (the `codex` pool) even
-  though that pool is past `delegate`'s 85% cutoff. The user accepts that it may
-  run dry mid-unit; if it does, park E3 and carry on with the others.
+- Keeping netpen off Claude is a preference, not a rule. When no non-Claude lane
+  with a fitting model has quota, the work runs on Claude rather than waiting.
+  Lanes are chosen in this order: `gpt-5.6-sol` on `codex` while it is under its
+  limit and sparingly, because its remaining quota is nearly spent; then
+  `gemini-3.8-flash` on `google` wherever the role's fit set includes it; then
+  Claude. On netpen or any `sensitive_paths` unit, Claude is pinned to
+  `claude-opus-4-8` from the start — not Opus 5.x, whose cyber flags produce the
+  silent fallback that cost this work its first review.
+- E3, the `src/edge/netpen` unit, therefore runs now on `claude-opus-4-8` rather
+  than waiting for `codex` to reset: `codex` is at 95%, `kimi-k3`'s pool is at 96%,
+  and `google` is not in the `execute-sensitive` fit set.
 - No unit that touches `src/edge/netpen` runs on a Claude model. A Claude lane can
   fall back from its pinned model on a cyber refusal without failing, and the
   fallback is silent in the lane's own output. It has already happened here:
@@ -50,10 +58,10 @@ These are the user's rulings, not this plan's proposals.
   `docs/agent-observations.md` on the coordinator branch at `5a3114b7`. E6 also
   avoids Claude: it does not edit netpen files, but the gate it builds parses them
   on every run, which is the same material in front of the same classifier.
-- Claude is the last resort on a sensitive unit, not a peer choice: it runs only
-  when every non-Claude model in the role's fit set is unavailable, and then on
-  `claude-opus-4-8` at high effort. Never Opus 5.5 there — its cyber flags reroute
-  or stall the lane rather than failing it.
+- Claude is the last choice on a sensitive unit, not a peer one, but it is a real
+  choice rather than a reason to stop: it runs when every non-Claude model in the
+  role's fit set is out of quota, on `claude-opus-4-8` at high effort. Never Opus
+  5.x there.
 - Every Claude lane's transcript is read before its work is accepted, at
   `~/.claude/projects/<worktree path with / replaced by ->/<session>.jsonl`. A
   `{"type":"system","subtype":"model_refusal_fallback"}` event, or any `model`
@@ -162,7 +170,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 ### E3. netpen
 Files: `src/edge/netpen/`
 After: none
-Lane: `gpt-5.6-sol` on `codex`, per the user's decision, never a Claude model.
+Lane: `claude-opus-4-8` at high effort, pinned from the start. Its transcript is
+read before the work is accepted.
 Change: 213 sites in the nested module — `attacks/` 129, `layers/` 59, `test/` 15
 (non-test files only), `catalog/` 9, one elsewhere. The module already imports
 `errs`, so no `go.mod` changes; if one does, that is a blocker.
@@ -196,7 +205,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol s
 
 ### E6. the convention and the gate
 Files: `docs/code-style.md`, `test/conformance/errs/`
-After: E1, E2, E3, E4, E5
+After: E1, E2, E3, E4, E5. The gate fails on any `fmt.Errorf` left under `src/`,
+and netpen alone holds 213 of them, so it cannot land before E3.
 Change: `docs/code-style.md` Errors drops "Plain `fmt.Errorf(…)` stays fine where
 nothing structured is needed." and states the errs-only rule with the Decisions'
 mapping, keeping the section's existing sentences about wrapping, sentinels,
@@ -226,8 +236,8 @@ Lanes, from the Decisions above and `delegate`'s resolution at 2026-09-25T21:5xZ
 | Unit | Lane | Why |
 | --- | --- | --- |
 | E1, E2 | `gemini-3.8-flash-high` (`google`) | no `sensitive_paths`, and the only prepaid pool with headroom |
-| E3 | `gpt-5.6-sol` (`codex`) | the user's decision; park the unit if the pool runs dry |
-| E4, E5 | `claude-opus-4-8` high, last resort | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`) but no netpen, so Claude is permitted. Claude only because both non-Claude models in the `execute-sensitive` fit set are unavailable: `gpt-5.6-sol` is past the cutoff and spoken for by E3, `kimi-k3` is on `synthetic` at 96%. Never Opus 5.5 on a sensitive unit: its cyber flags reroute or stall. Transcript checked before the work is accepted |
+| E3 | `claude-opus-4-8` high | netpen; `codex` 95%, `kimi-k3` 96%, `google` not in the fit set. Pinned Opus 4.8 from the start; transcript checked |
+| E4, E5 | `claude-opus-4-8` high | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`); both non-Claude models in the `execute-sensitive` fit set are out of quota. Transcript checked |
 | E6 | `gemini-3.8-flash-high` (`google`) | the gate parses netpen on every run |
 
 With a one-worker budget these run in turn, so the wave grouping only fixes the
@@ -285,5 +295,5 @@ the suites cover 654 sites.
 
 ## Open questions
 
-Empty. The rule, the mapping, the test-file exclusion, the document amendment, and
+Empty. Every decision above is the user's. The rule, the mapping, the test-file exclusion, the document amendment, and
 the gate's position are all the user's decisions, recorded under Decisions.
