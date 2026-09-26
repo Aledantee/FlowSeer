@@ -1,0 +1,35 @@
+edition = "2024";
+
+package flowseer.net.protocol.cdp.v1;
+
+// A function a device announces in its CDP Capabilities TLV. Integers are the
+// bit positions of the TLV's 32-bit mask, bit 0 being the least significant
+// (mask 0x01); CISCO-CDP-MIB leaves the values to the CDP specification, so
+// they follow the Wireshark dissector (epan/dissectors/packet-cdp.c:1355-1397
+// at commit 16c09df25f262e2e1b432521aba7eb6a3ea4afe3). Unnamed positions
+// remain valid capabilities. Zero is a real capability, so a capability list
+// is empty rather than zero-filled when nothing was announced.
+enum Capability {
+  // Routes packets (mask 0x01).
+  CAPABILITY_ROUTER = 0;
+  // Bridges transparently (mask 0x02).
+  CAPABILITY_TRANSPARENT_BRIDGE = 1;
+  // Bridges with source routing (mask 0x04).
+  CAPABILITY_SOURCE_ROUTE_BRIDGE = 2;
+  // Switches at layer 2 (mask 0x08).
+  CAPABILITY_SWITCH = 3;
+  // Sends and receives packets as a host (mask 0x10).
+  CAPABILITY_HOST = 4;
+  // Handles IGMP, as a switch that snoops it announces (mask 0x20).
+  CAPABILITY_IGMP = 5;
+  // Repeats frames at the physical layer (mask 0x40).
+  CAPABILITY_REPEATER = 6;
+  // Terminates voice calls as an IP phone (mask 0x80).
+  CAPABILITY_VOIP_PHONE = 7;
+  // Is managed remotely (mask 0x100).
+  CAPABILITY_REMOTELY_MANAGED = 8;
+  // Is a CVTA/STP dispute resolution or Cisco VT camera device (mask 0x200).
+  CAPABILITY_CVTA = 9;
+  // Relays MAC frames between two ports (mask 0x400).
+  CAPABILITY_TWO_PORT_MAC_RELAY = 10;
+}
