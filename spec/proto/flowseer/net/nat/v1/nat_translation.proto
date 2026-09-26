@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.nat.v1;
+
+// A NAT translation entity type (RFC 4008 NatTranslationEntity).
+//
+// Values correspond to RFC 4008 NatTranslationEntity BITS, numbered bit
+// position plus one so 0 is reserved for unspecified.
+// A static bidirectional mapping sets multiple translation entities.
+enum NatTranslation {
+  NAT_TRANSLATION_UNSPECIFIED = 0;
+  // Inbound source address/port translation (bit 0 + 1).
+  NAT_TRANSLATION_INBOUND_SOURCE = 1;
+  // Outbound destination address/port translation (bit 1 + 1).
+  NAT_TRANSLATION_OUTBOUND_DESTINATION = 2;
+  // Inbound destination address/port translation (bit 2 + 1, e.g. port forwarding, MikroTik dstnat).
+  NAT_TRANSLATION_INBOUND_DESTINATION = 3;
+  // Outbound source address/port translation (bit 3 + 1, e.g. masquerade/SNAT, MikroTik srcnat).
+  NAT_TRANSLATION_OUTBOUND_SOURCE = 4;
+}

@@ -1,0 +1,61 @@
+edition = "2024";
+
+package flowseer.net.nat.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/nat/v1/nat_session_direction.proto";
+import "flowseer/net/packet/v1/ip_protocol.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An active NAT translation session (RFC 4008 natSessionTable, Cisco-IOS-XE-nat-oper.yang).
+message NatSession {
+  // The network instance this session belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The IP payload protocol for this session. Must be present.
+  flowseer.net.packet.v1.IpProtocol protocol = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.(flowseer.net.packet.v1.ip_protocol) = true
+  ];
+  // The session endpoint as seen from the internal/private realm. Must be present.
+  NatEndpoint private_source = 3 [(buf.validate.field).required = true];
+  // The remote destination endpoint as seen from the internal/private realm.
+  NatEndpoint private_destination = 4;
+  // The session endpoint as seen from the external/public realm. Must be present.
+  NatEndpoint public_source = 5 [(buf.validate.field).required = true];
+  // The remote destination endpoint as seen from the external/public realm.
+  NatEndpoint public_destination = 6;
+  // The direction of the flow that initiated this session.
+  NatSessionDirection direction = 7;
+  // Remaining idle time before this session expires.
+  google.protobuf.Duration expires_in = 8 [(buf.validate.field).duration.gte = {seconds: 0}];
+  // Cumulative traffic counters for this session.
+  NatSessionCounters counters = 9;
+}
+
+// An endpoint participating in a NAT translation session.
+message NatEndpoint {
+  // The IP address of the endpoint. Must be present.
+  flowseer.net.addr.v1.IpAddress address = 1 [(buf.validate.field).required = true];
+  // The transport-layer port number (0 to 65535). Unset for protocols without ports.
+  uint32 port = 2 [(buf.validate.field).uint32.lte = 65535];
+}
+
+// Packet and byte counters for a NAT session (RFC 4008, Cisco-IOS-XE-nat-oper.yang).
+message NatSessionCounters {
+  // Total packets received from the private realm.
+  uint64 in_packets = 1;
+  // Total packets sent toward the private realm.
+  uint64 out_packets = 2;
+  // Total bytes received from the private realm.
+  uint64 in_bytes = 3;
+  // Total bytes sent toward the private realm.
+  uint64 out_bytes = 4;
+  // The time of the most recent discontinuity in these counters.
+  google.protobuf.Timestamp last_discontinuity = 5;
+}

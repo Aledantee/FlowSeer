@@ -39,7 +39,7 @@ imports outside `net/`, and any root may import them.
 - `routing/v1/`: Route row, NextHop, NextHopGroup, SpecialNextHop, RouteSourceProtocol, and the RouteTableType RIB/FIB discriminator.
 - `filter/v1/`: L2 match terms.
 - `qos/v1/` (planned; schema building blocks record): Trust mode, classifier terms, queues.
-- `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
+- `nat/v1/`: NAT mappings and sessions.
 - `wlan/v1/`: RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
 - `cellular/v1/` (planned; schema building blocks record): Cellular radio facts and signal quality.
 - `endpoint/v1/`: Wired and wireless attachment, fingerprint, per-endpoint counters.

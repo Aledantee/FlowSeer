@@ -175,6 +175,10 @@ A client device connected to the network by a wired switchport or wireless BSS a
 
 A device-scoped table row in `net/portaccess/v1.Session` representing an authenticated access session on a physical switchport. It is keyed by interface name and client MAC address to support multi-supplicant ports across 802.1X, MAC authentication bypass, and web authentication. Scoped by interface name, the network instance is inherited and omitted per Rule 4.
 
+### NAT mapping and session
+
+A mapping is a configured rule that says which addresses and ports translate to which; a session is one live translation, the same conversation seen in the private and the public realm.
+
 ## Capture
 
 ### Capture Session

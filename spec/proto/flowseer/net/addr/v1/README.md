@@ -8,7 +8,7 @@ facets, configuration, state, or events.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: edge/attach, event/log, model/endpoint, model/inventory, model/wireless, net/capture, net/endpoint, net/filter, net/instance, net/interface, net/ip, net/multicast, net/portaccess, net/protocol/bfd, net/protocol/bgp, net/protocol/cdp, net/protocol/dhcp, net/protocol/dns, net/protocol/isis, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/ospf, net/protocol/stp, net/protocol/vrrp, net/routing, net/switching, net/wlan, store/device
+Imported by: edge/attach, event/log, model/endpoint, model/inventory, model/wireless, net/capture, net/endpoint, net/filter, net/instance, net/interface, net/ip, net/multicast, net/nat, net/portaccess, net/protocol/bfd, net/protocol/bgp, net/protocol/cdp, net/protocol/dhcp, net/protocol/dns, net/protocol/isis, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/ospf, net/protocol/stp, net/protocol/vrrp, net/routing, net/switching, net/wlan, store/device
 
 Deliberately absent:
 

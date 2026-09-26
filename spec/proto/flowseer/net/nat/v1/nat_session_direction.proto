@@ -1,0 +1,12 @@
+edition = "2024";
+
+package flowseer.net.nat.v1;
+
+// The direction of the flow that initiated a NAT session (RFC 4008 natSessionDirection).
+enum NatSessionDirection {
+  NAT_SESSION_DIRECTION_UNSPECIFIED = 0;
+  // Initiated by an inbound packet from an external/public realm (RFC 4008 inbound(1)).
+  NAT_SESSION_DIRECTION_INBOUND = 1;
+  // Initiated by an outbound packet from an internal/private realm (RFC 4008 outbound(2)).
+  NAT_SESSION_DIRECTION_OUTBOUND = 2;
+}
