@@ -183,6 +183,8 @@ case "$cmd" in
         orca terminal send --terminal "$term" --text '' --enter --json >/dev/null \
           || undo "cannot answer Codex hooks review for $lane"
       done
+      # The last round's Enter needs the same redraw time as the others.
+      sleep 2
       grep -q -i 'hooks need review' <<<"$(screen "$term")" && undo "$lane still shows the hooks review after four rounds"
     fi
     st=$(orca terminal show --terminal "$term" --json 2>/dev/null | json 'd["result"]["terminal"].get("status") or d["result"].get("status")') \
