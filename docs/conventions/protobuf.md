@@ -153,8 +153,9 @@ Three boundaries keep it from eroding the typed refs:
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
   nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `model/inventory/v1` are the same class: UUID-keyed,
-  landed, and outside the enum until the inventory store answers for them. `AccessPolicyHandle`,
+  `Cable`, and `Link` in `model/inventory/v1`, and `Wlan` in
+  `model/wireless/v1`, are the same class: UUID-keyed,
+  landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in

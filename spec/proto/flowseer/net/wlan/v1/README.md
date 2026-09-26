@@ -9,7 +9,7 @@ predefined channel validation rules.
 
 Imports: net/addr, net/measure, net/switching
 
-Imported by: model/inventory
+Imported by: model/inventory, model/wireless
 
 Deliberately absent:
 

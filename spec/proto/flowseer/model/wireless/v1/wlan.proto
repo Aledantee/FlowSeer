@@ -1,0 +1,168 @@
+edition = "2024";
+
+// The wireless LAN family — logical 802.11 networks configured across
+// access points and their observed broadcast state. An SSID can be
+// configured and broadcast by no radio; the triad separates intent
+// from observation.
+package flowseer.model.wireless.v1;
+
+import "flowseer/model/inventory/v1/component.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/wlan/v1/pmf_mode.proto";
+import "flowseer/net/wlan/v1/wifi_band.proto";
+import "flowseer/net/wlan/v1/wlan_security.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// The local reference to a wireless LAN.
+message WlanLocalRef {
+  // FlowSeer-assigned WLAN identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a wireless LAN.
+message WlanGlobalRef {
+  // The WLAN's own key. Must be present.
+  WlanLocalRef wlan = 1 [(buf.validate.field).required = true];
+}
+
+// The observed broadcast status of a wireless LAN.
+enum WlanStatus {
+  // Broadcast status is unspecified. The zero value is rejected by state and event.
+  WLAN_STATUS_UNSPECIFIED = 0;
+  // The network is broadcast by at least one radio.
+  WLAN_STATUS_BROADCASTING = 1;
+  // The source reports the network but no radio broadcasts it.
+  WLAN_STATUS_NOT_BROADCASTING = 2;
+  // The source no longer reports the configured network.
+  WLAN_STATUS_MISSING = 3;
+}
+
+// One radio broadcasting a wireless LAN and the BSSID it broadcasts on.
+message WlanBroadcast {
+  // The radio component broadcasting this network. Must be present.
+  flowseer.model.inventory.v1.ComponentGlobalRef radio = 1 [(buf.validate.field).required = true];
+  // The BSSID hardware address beaconed on this radio. Must be present.
+  flowseer.net.addr.v1.MacAddress bssid = 2 [(buf.validate.field).required = true];
+}
+
+// The intended definition of one wireless LAN network.
+message WlanConfig {
+  option (buf.validate.message).cel = {
+    id: "wlan_config.pmf_matches_security"
+    message: "pmf mode must be compatible with the selected security mode"
+    expression:
+      "!has(this.pmf) || ((this.security in [5, 8, 10]) ? this.pmf == 3 : "
+      "((this.security in [6, 9]) ? this.pmf == 2 : true))"
+  };
+
+  // The ref to this WLAN. Must be present.
+  WlanGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Operator-assigned name for the WLAN profile.
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+  // Service Set Identifier (SSID) beaconed for this network. Must be present.
+  bytes ssid = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.min_len = 1,
+    (buf.validate.field).bytes.max_len = 32
+  ];
+  // Wireless security and authentication mode. Must be present; the zero value is rejected.
+  flowseer.net.wlan.v1.WlanSecurity security = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Protected Management Frames mode. Unset means the controller applies the
+  // security mode's own PMF setting.
+  flowseer.net.wlan.v1.PmfMode pmf = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // VLAN identifier mapped to this WLAN.
+  uint32 vlan_id = 6 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true];
+  // Whether BSSs suppress broadcasting the SSID in beacon frames.
+  bool hidden = 7;
+  // Whether the WLAN is enabled. Must be present.
+  bool enabled = 8 [(buf.validate.field).required = true];
+  // Operating frequency bands this WLAN runs on. Empty means every band the serving radios run.
+  repeated flowseer.net.wlan.v1.WifiBand bands = 9 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+}
+
+// The observed broadcast state of one wireless LAN network.
+message WlanState {
+  option (buf.validate.message).cel = {
+    id: "wlan_state.status_matches_broadcasts"
+    message: "status must match the broadcast list"
+    expression:
+      "!has(this.status) || "
+      "(this.status == 1 ? this.broadcasts.size() > 0 : this.broadcasts.size() == 0)"
+  };
+
+  // The ref to this WLAN. Must be present.
+  WlanGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Observed broadcast status. Must be present; the zero value is rejected.
+  WlanStatus status = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Service Set Identifier (SSID) beaconed for this network.
+  bytes ssid = 3 [(buf.validate.field).bytes.max_len = 32];
+  // Wireless security and authentication mode.
+  flowseer.net.wlan.v1.WlanSecurity security = 4;
+  // Protected Management Frames mode.
+  flowseer.net.wlan.v1.PmfMode pmf = 5;
+  // VLAN identifier mapped to this WLAN.
+  uint32 vlan_id = 6 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true];
+  // Whether BSSs suppress broadcasting the SSID in beacon frames.
+  bool hidden = 7;
+  // Whether the WLAN is enabled.
+  bool enabled = 8;
+  // Operating frequency bands this WLAN runs on.
+  repeated flowseer.net.wlan.v1.WifiBand bands = 9;
+  // Radios currently broadcasting this WLAN.
+  repeated WlanBroadcast broadcasts = 10;
+}
+
+// One transition of a wireless LAN's broadcast status.
+message WlanEvent {
+  option (buf.validate.message).cel = {
+    id: "wlan_event.status_changes"
+    message: "a wlan event must change the status"
+    expression: "!has(this.from) || this.from != this.to"
+  };
+
+  // The ref to the WLAN that changed. Must be present.
+  WlanGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The status before the transition. Unset means the WLAN appeared.
+  WlanStatus from = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The status after the transition. Must be present; the zero value is rejected.
+  WlanStatus to = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}

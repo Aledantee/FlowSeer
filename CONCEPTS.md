@@ -58,6 +58,10 @@ The origin of one live response or event — which Binding answered and when the
 
 A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
 
+### Wlan
+
+A logical 802.11 network defined by its SSID, security settings, and broadcast state. A WLAN is UUID-identified and managed as a full Config/State/Event triad: an SSID can be configured without being broadcast by any radio, and its broadcast state tracks which radio components and BSSIDs currently beacon it.
+
 ## Runtime
 
 ### Service Module

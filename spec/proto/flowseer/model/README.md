@@ -17,7 +17,7 @@ services; services live in service roots (`api/`, `edge/`).
 
 ## Boundaries
 
-Imports: net/addr, net/capture, net/interface, net/key, net/phy, net/wlan
+Imports: net/addr, net/capture, net/interface, net/key, net/phy, net/switching, net/wlan
 
 Imported by: api/capture, api/device, api/edge, edge/attach, edge/capture, edge/dispatch, event/access, store/device
 
@@ -33,3 +33,4 @@ Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
 - `edge/v1/`: Edge entity, keys, proof of possession, assertion headers, and provisioning.
 - `inventory/v1/`: Hardware, component, integration, and topology entities and ref pairs.
 - `policy/v1/`: Access policy, credential, and host-trust handles.
+- `wireless/v1/`: Wireless LAN entity, SSID configuration, broadcast state, and radio associations.
