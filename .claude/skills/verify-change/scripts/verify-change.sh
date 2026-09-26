@@ -472,6 +472,17 @@ if ((${#modules[@]})); then
           rel=${go_file#"$module"/}
         fi
         pkg_dir=$(dirname "$rel")
+        # A testdata directory belongs to the package that encloses it, and
+        # `go list ./...` never names one. Naming it here would vet, test,
+        # and lint fixtures that exist to hold what those tools reject (a
+        # dot import, an undocumented export), so the change is routed to
+        # the owning package, whose tests read the fixture.
+        if [[ $pkg_dir == testdata || $pkg_dir == testdata/* ]]; then
+          pkg_dir=.
+        elif [[ $pkg_dir == */testdata || $pkg_dir == */testdata/* ]]; then
+          pkg_dir=${pkg_dir%%/testdata/*}
+          pkg_dir=${pkg_dir%/testdata}
+        fi
         [[ -d $pkg_dir ]] || continue
         pkg=$(go list -e -f '{{.ImportPath}}' "./$pkg_dir" 2>/dev/null) || continue
         [[ -n $pkg ]] && changed_pkgs+=("$pkg")
