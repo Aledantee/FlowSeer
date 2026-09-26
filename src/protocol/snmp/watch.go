@@ -226,7 +226,7 @@ func NewScalarIndicator(scalarOID OID, kind Kind, tableRoots []OID) (ChangeIndic
 // MustChangeIndicator is the panicking companion to [NewPerRowIndicator]
 // and [NewScalarIndicator], intended for codegen output where the
 // arguments are statically known to be valid. A validation failure
-// panics with the underlying error, matching the [MustOID] and
+// panics with the underlying error; this matches the [MustOID] and
 // [regexp.MustCompile] contract.
 //
 // Usage: pass the result of NewPerRowIndicator or NewScalarIndicator
