@@ -28,7 +28,7 @@ message OspfArea {
   uint32 area_id = 4 [(buf.validate.field).required = true];
   // The type of this OSPF area.
   OspfAreaType area_type = 5;
-  // Total number of link-state advertisements in this area LSDB (OSPF-MIB ospfAreaSpfRuns/ospfAreaBdrRtrCount).
+  // Total number of link-state advertisements in this area LSDB (OSPF-MIB ospfAreaLsaCount).
   uint32 lsa_count = 6;
   // Number of area border routers reachable within this area (OSPF-MIB ospfAreaBdrRtrCount).
   uint32 area_border_routers = 7;

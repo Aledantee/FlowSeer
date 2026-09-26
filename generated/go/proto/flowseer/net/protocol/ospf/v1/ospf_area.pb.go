@@ -276,7 +276,7 @@ type OspfArea_builder struct {
 	AreaId *uint32
 	// The type of this OSPF area.
 	AreaType *OspfAreaType
-	// Total number of link-state advertisements in this area LSDB (OSPF-MIB ospfAreaSpfRuns/ospfAreaBdrRtrCount).
+	// Total number of link-state advertisements in this area LSDB (OSPF-MIB ospfAreaLsaCount).
 	LsaCount *uint32
 	// Number of area border routers reachable within this area (OSPF-MIB ospfAreaBdrRtrCount).
 	AreaBorderRouters *uint32

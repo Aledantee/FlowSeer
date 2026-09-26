@@ -934,7 +934,9 @@ type BgpPeerCounters_builder struct {
 	OutMessages *uint64
 	// Number of transitions into the Established state (BGP4-MIB bgpPeerFsmEstablishedTransitions).
 	EstablishedTransitions *uint64
-	// The time these counters last reset or experienced a discontinuity. Must be present.
+	// The time these counters last reset or experienced a discontinuity. Unset
+	// means the source does not report it (BGP4-MIB has no per-peer discontinuity
+	// object).
 	LastDiscontinuity *timestamppb.Timestamp
 }
 
@@ -1001,15 +1003,15 @@ const file_flowseer_net_protocol_bgp_v1_bgp_peer_proto_rawDesc = "" +
 	"\x06active\x18\x03 \x01(\bR\x06active\x12+\n" +
 	"\x11received_prefixes\x18\x04 \x01(\rR\x10receivedPrefixes\x12#\n" +
 	"\rsent_prefixes\x18\x05 \x01(\rR\fsentPrefixes\x12-\n" +
-	"\x12installed_prefixes\x18\x06 \x01(\rR\x11installedPrefixes\"\xbf\x02\n" +
+	"\x12installed_prefixes\x18\x06 \x01(\rR\x11installedPrefixes\"\xb7\x02\n" +
 	"\x0fBgpPeerCounters\x12,\n" +
 	"\x12in_update_messages\x18\x01 \x01(\x04R\x10inUpdateMessages\x12.\n" +
 	"\x13out_update_messages\x18\x02 \x01(\x04R\x11outUpdateMessages\x12\x1f\n" +
 	"\vin_messages\x18\x03 \x01(\x04R\n" +
 	"inMessages\x12!\n" +
 	"\fout_messages\x18\x04 \x01(\x04R\voutMessages\x127\n" +
-	"\x17established_transitions\x18\x05 \x01(\x04R\x16establishedTransitions\x12Q\n" +
-	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\x11lastDiscontinuityB\x92\x02\n" +
+	"\x17established_transitions\x18\x05 \x01(\x04R\x16establishedTransitions\x12I\n" +
+	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x92\x02\n" +
 	" com.flowseer.net.protocol.bgp.v1B\fBgpPeerProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
