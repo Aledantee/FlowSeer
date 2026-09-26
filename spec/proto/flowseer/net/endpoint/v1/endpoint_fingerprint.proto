@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+import option "buf/validate/validate.proto";
+import option "flowseer/net/endpoint/v1/dhcp.proto";
+
+// Raw observed fingerprint facts emitted by a client network stack.
+message EndpointFingerprint {
+  // Ordered list of requested DHCP option codes from DHCP Option 55
+  // (RFC 2132 §9.8). Validated against dhcp_option_code (1..254).
+  repeated uint32 dhcp_parameter_request_list = 1 [(buf.validate.field).repeated.items.uint32.(flowseer.net.endpoint.v1.dhcp_option_code) = true];
+  // DHCP Vendor Class Identifier string from DHCP Option 60 (RFC 2132 §9.13).
+  // Maximum length is 255 bytes per RFC 2132. Unset means not reported.
+  string dhcp_vendor_class = 2 [(buf.validate.field).string.max_len = 255];
+  // HTTP User-Agent header string observed from client traffic.
+  // Maximum length is 1024 characters. Unset means not reported.
+  string http_user_agent = 3 [(buf.validate.field).string.max_len = 1024];
+}
