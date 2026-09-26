@@ -3,12 +3,14 @@ edition = "2024";
 package flowseer.net.protocol.stp.v1;
 
 import "flowseer/net/protocol/stp/v1/bridge_id.proto";
+import "flowseer/net/protocol/stp/v1/mst_config_id.proto";
 import "flowseer/net/protocol/stp/v1/protocol_version.proto";
 import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
 import option "flowseer/net/key/v1/key.proto";
 
-// Observed spanning tree protocol state of a bridge. The bridge's
+// Observed spanning tree protocol state of a bridge; on an MSTP bridge, the
+// state of its CIST, whose MSTIs are MstInstance rows. The bridge's
 // administrative settings travel in the same message, so this package
 // deliberately has no BridgeConfig and no BridgeEvent.
 message BridgeState {
@@ -63,5 +65,28 @@ message BridgeState {
   uint32 tx_hold_count = 14 [
     (buf.validate.field).uint32.gte = 1,
     (buf.validate.field).uint32.lte = 10
+  ];
+  // Network instance whose bridge runs this spanning tree. Must be present.
+  string network_instance = 15 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // MST configuration identifier of the bridge's region. Absent unless the
+  // bridge runs MSTP and reported it.
+  MstConfigId mst_config_id = 16;
+  // Bridge identifier of the CIST regional root. Absent unless the bridge runs
+  // MSTP and reported it. Mirrors ieee8021MstpCistRegionalRootIdentifier
+  // (IEEE8021-MSTP-MIB-202211080000Z:201).
+  BridgeId cist_regional_root = 17;
+  // CIST internal root path cost from this bridge to the CIST regional root;
+  // zero on the regional root. Absent unless the bridge runs MSTP and reported
+  // it. Mirrors ieee8021MstpCistPathCost (IEEE8021-MSTP-MIB-202211080000Z:211).
+  uint32 cist_internal_root_path_cost = 18 [(buf.validate.field).uint32.lte = 2147483647];
+  // Maximum number of hops an MSTP BPDU travels within the region. Absent
+  // unless the bridge runs MSTP and reported it. Mirrors
+  // ieee8021MstpCistMaxHops (IEEE8021-MSTP-MIB-202211080000Z:224).
+  uint32 max_hops = 19 [
+    (buf.validate.field).uint32.gte = 6,
+    (buf.validate.field).uint32.lte = 40
   ];
 }

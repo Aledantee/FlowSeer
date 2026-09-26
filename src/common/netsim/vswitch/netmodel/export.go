@@ -259,7 +259,9 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 		txHoldCount = uint32(stp.DefaultTxHoldCount)
 	}
 
+	networkInstance := DefaultNetworkInstance
 	bb := stpv1.BridgeState_builder{
+		NetworkInstance:    &networkInstance,
 		ProtocolVersion:    &protoVer,
 		BridgeId:           bridgeIDMessage(sw.BridgeID()),
 		DesignatedRoot:     bridgeIDMessage(rootID),

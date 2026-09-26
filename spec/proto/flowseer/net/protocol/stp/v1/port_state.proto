@@ -32,7 +32,7 @@ message PortState {
     (buf.validate.field).uint32.gte = 1,
     (buf.validate.field).uint32.lte = 200000000
   ];
-  // Spanning tree port role assigned by RSTP.
+  // Spanning tree port role; on an MSTP bridge, the port's CIST role.
   PortRole role = 5;
   // Current forwarding state of the port. Mirrors dot1dStpPortState (BRIDGE-MIB:611).
   ForwardingState state = 6;
@@ -66,8 +66,9 @@ message PortState {
   // Administrative auto-edge port status. Absent means the source did not report
   // it. Mirrors ieee8021MstpCistPortAutoEdgePort (IEEE8021-MSTP-MIB:1426).
   bool auto_edge = 16;
-  // Spanning tree protocol version the port transmits: STP when the port migrated
-  // to a legacy peer, RSTP otherwise. Absent means unreported.
+  // Spanning tree protocol version of the BPDUs the port transmits: STP when
+  // the port migrated to a legacy peer, otherwise the bridge's own version,
+  // RSTP or MSTP. Absent means unreported.
   ProtocolVersion oper_protocol_version = 17;
   // Number of BPDUs transmitted by this port. Absent means the source did not
   // report the counter; zero means none. Mirrors tx_count of Open vSwitch

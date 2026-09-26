@@ -317,6 +317,7 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 	rootPort := "lg1"
 	rootCost := uint32(2000)
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance:       ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion:       &protoRSTP,
 		BridgeId:              localBridgeID,
 		DesignatedRoot:        designatedRootID,

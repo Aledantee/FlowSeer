@@ -134,6 +134,10 @@ A device's routing or bridging domain: its default instance, a VRF, or a Layer 2
 
 One row of a network instance's routing table: a destination prefix, how it was learned, and the next hops it forwards over, or a special action that discards or receives the packet locally. A route also says whether it came from the RIB or the FIB, because the standard SNMP routing tables do not.
 
+### Spanning tree instance
+
+One spanning tree a bridge runs. The CIST is the bridge's own tree, carried by its bridge state; under MSTP every further tree is a numbered MSTI row beside it, keyed by network instance and MSTID 1 to 4094. Every VLAN belongs to exactly one of them, and the VLAN map spells the CIST as instance 0. Unrelated to a network instance, which is a forwarding domain rather than a tree inside one.
+
 ### Canonical unit
 
 Every physical quantity has one canonical unit, named in the field suffix, in integer fixed point. A mapper converts from a source's native unit at the edge of the system so consumers compare values without having to know which unit each source reported. The unit table is rule 1 of the [schema building blocks direction](docs/architecture/2026-09-25-schema-building-blocks-direction.md).

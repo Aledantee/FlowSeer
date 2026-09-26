@@ -578,7 +578,7 @@ type PortState_builder struct {
 	// Operational path cost in use toward the root (1..200000000). Mirrors
 	// dot1dStpPortPathCost32 (BRIDGE-MIB:725).
 	PathCost *uint32
-	// Spanning tree port role assigned by RSTP.
+	// Spanning tree port role; on an MSTP bridge, the port's CIST role.
 	Role *PortRole
 	// Current forwarding state of the port. Mirrors dot1dStpPortState (BRIDGE-MIB:611).
 	State *ForwardingState
@@ -612,8 +612,9 @@ type PortState_builder struct {
 	// Administrative auto-edge port status. Absent means the source did not report
 	// it. Mirrors ieee8021MstpCistPortAutoEdgePort (IEEE8021-MSTP-MIB:1426).
 	AutoEdge *bool
-	// Spanning tree protocol version the port transmits: STP when the port migrated
-	// to a legacy peer, RSTP otherwise. Absent means unreported.
+	// Spanning tree protocol version of the BPDUs the port transmits: STP when
+	// the port migrated to a legacy peer, otherwise the bridge's own version,
+	// RSTP or MSTP. Absent means unreported.
 	OperProtocolVersion *ProtocolVersion
 	// Number of BPDUs transmitted by this port. Absent means the source did not
 	// report the counter; zero means none. Mirrors tx_count of Open vSwitch

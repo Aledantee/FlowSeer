@@ -303,6 +303,7 @@ func validBridgeState() *stpv1.BridgeState {
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	priority := uint32(32768)
 	return stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
@@ -378,6 +379,7 @@ func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 				ProtocolVersion: test.version,
 				BridgeId:        bridgeID,
 			}.Build()
@@ -441,6 +443,7 @@ func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			builder := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 				ProtocolVersion: &protocol,
 				BridgeId:        bridgeID,
 			}
@@ -942,6 +945,7 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 		protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 		priority := uint32(32768)
 		bridgeState := stpv1.BridgeState_builder{
+			NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 			ProtocolVersion: &protocol,
 			BridgeId: stpv1.BridgeId_builder{
 				Priority: &priority,
@@ -1004,6 +1008,7 @@ func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	priority := uint32(32767)
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,

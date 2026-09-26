@@ -10,4 +10,7 @@ enum ProtocolVersion {
   PROTOCOL_VERSION_STP = 1;
   // Rapid Spanning Tree Protocol (IEEE 802.1D-2004; dot1dStpVersion rstp).
   PROTOCOL_VERSION_RSTP = 2;
+  // Multiple Spanning Tree Protocol (IEEE 802.1Q; ieee8021SpanningTreeVersion
+  // mstp(3), IEEE8021-SPANNING-TREE-MIB-201412150000Z:378).
+  PROTOCOL_VERSION_MSTP = 3;
 }

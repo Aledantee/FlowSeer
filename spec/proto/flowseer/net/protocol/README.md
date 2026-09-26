@@ -17,7 +17,7 @@ facilities, not an individual control protocol.
 
 ## Boundaries
 
-Imports: net/addr, net/key
+Imports: net/addr, net/key, net/switching
 
 Imported by: nothing
 
@@ -30,7 +30,7 @@ packages.
 
 - `lacp/v1/`: Link Aggregation Control Protocol aggregator and member port states.
 - `lldp/v1/`: Link Layer Discovery Protocol local-system, port, and neighbor observations.
-- `stp/v1/`: Spanning Tree Protocol bridge and port states and timers.
+- `stp/v1/`: Spanning Tree Protocol bridge and port states and timers, MSTIs, and the VLAN-to-MSTI map.
 - `cdp/v1/` (planned; schema building blocks record): CDP neighbors.
 - `ntp/v1/` (planned; schema building blocks record): NTP associations.
 - `dhcp/v1/` (planned; schema building blocks record): Leases, server pools, snooping bindings.
