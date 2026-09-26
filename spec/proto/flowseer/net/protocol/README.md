@@ -35,7 +35,7 @@ packages.
 - `ntp/v1/`: NTP associations.
 - `dhcp/v1/` (planned; schema building blocks record): Leases, server pools, snooping bindings.
 - `dns/v1/` (planned; schema building blocks record): Resolver configuration and servers.
-- `bgp/v1/` (planned; schema building blocks record): Peers, address families, communities.
+- `bgp/v1/`: Instances, peers, address families, and paths with communities.
 - `ospf/v1/` (planned; schema building blocks record): Neighbors, areas, interface types (v2 and v3).
 - `isis/v1/` (planned; schema building blocks record): Adjacencies and levels.
 - `vrrp/v1/` (planned; schema building blocks record): VRRP groups (v2 and v3).

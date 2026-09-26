@@ -480,8 +480,8 @@ the vendored specs cited per decision.
 4. A community is exactly one of its two shapes. Example:
    `BgpCommunity{}` fails at oneof `kind`; `{standard: 0xFFFFFF01}`
    passes; `{large: {global_administrator 4200000000,
-   local_data_part_1 1, local_data_part_2 2}}` passes; a large community
-   without `local_data_part_2` fails. A `BgpAsPathSegment` with no ASNs
+   local_data_part1 1, local_data_part2 2}}` passes; a large community
+   without `local_data_part2` fails. A `BgpAsPathSegment` with no ASNs
    fails; a `BgpPath` without `prefix` fails.
 5. OSPF keeps the registry gap and the key split. Example:
    `OspfInterfaceType.Descriptor().Values().ByNumber(4)` is nil;
@@ -660,8 +660,9 @@ Change:
   Decisions, each value commented with its registry label.
 - `bgp_community.proto` declares `BgpCommunity` (required oneof `kind`:
   `uint32 standard = 1`, `BgpLargeCommunity large = 2`) and
-  `BgpLargeCommunity` (`global_administrator = 1`, `local_data_part_1 =
-  2`, `local_data_part_2 = 3`, each required uint32, RFC 8092 §3). The
+  `BgpLargeCommunity` (`global_administrator = 1`, `local_data_part1 =
+  2`, `local_data_part2 = 3`, each required uint32, RFC 8092 §3;
+  digits cannot follow an underscore under STYLE2024). The
   oneof's comment carries the both-arms sentence from the solution.
 - `bgp_path.proto` declares `BgpPath` and `BgpAsPathSegment`.
   `BgpPath`: `network_instance = 1`, `protocol_instance = 2` (required,

@@ -1,0 +1,32 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+// Subsequent address family identifiers for BGP (IANA SAFI Parameters, RFC 4760 §3).
+// Values keep the IANA integers; the registry reserves 0.
+enum BgpSafi {
+  // The subsequent address family was not reported.
+  BGP_SAFI_UNSPECIFIED = 0;
+  // Network Layer Reachability Information used for unicast forwarding (1).
+  BGP_SAFI_UNICAST = 1;
+  // Network Layer Reachability Information used for multicast forwarding (2).
+  BGP_SAFI_MULTICAST = 2;
+  // Network Layer Reachability Information carrying labeled unicast routes (4).
+  BGP_SAFI_LABELED_UNICAST = 4;
+  // Multicast VPN (5).
+  BGP_SAFI_MCAST_VPN = 5;
+  // Virtual Private LAN Service, VPLS (65).
+  BGP_SAFI_VPLS = 65;
+  // Ethernet VPN, EVPN (70).
+  BGP_SAFI_EVPN = 70;
+  // BGP Link-State, BGP-LS (71).
+  BGP_SAFI_BGP_LS = 71;
+  // MPLS-labeled VPN address, MPLS_VPN (128).
+  BGP_SAFI_MPLS_VPN = 128;
+  // Route Target Constraint (132).
+  BGP_SAFI_ROUTE_TARGET_CONSTRAINT = 132;
+  // Dissemination of flow specification rules, Flowspec (133).
+  BGP_SAFI_FLOWSPEC = 133;
+  // Flow specification rules for VPNv4/VPNv6 (134).
+  BGP_SAFI_FLOWSPEC_VPN = 134;
+}

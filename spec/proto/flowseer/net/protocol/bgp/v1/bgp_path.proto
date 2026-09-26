@@ -1,0 +1,59 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/bgp/v1/bgp_as_path_segment_type.proto";
+import "flowseer/net/protocol/bgp/v1/bgp_community.proto";
+import "flowseer/net/protocol/bgp/v1/bgp_origin.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An IPv4 or IPv6 unicast Loc-RIB path (RFC 4271 §4.3, BGP4-MIB bgp4PathAttrEntry).
+message BgpPath {
+  // The network instance this path belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The destination IP prefix. Must be present.
+  flowseer.net.addr.v1.IpPrefix prefix = 3 [(buf.validate.field).required = true];
+  // The address of the BGP neighbor that advertised this path. Absent for locally originated paths.
+  flowseer.net.addr.v1.IpAddress neighbor_address = 4;
+  // Path identifier for BGP ADD-PATH (RFC 7911 §3). Absent unless ADD-PATH was negotiated.
+  uint32 path_id = 5;
+  // The path origin attribute (RFC 4271 §4.3, BGP4-MIB bgp4PathAttrOrigin).
+  BgpOrigin origin = 6;
+  // The autonomous system path to the destination (RFC 4271 §4.3).
+  repeated BgpAsPathSegment as_path = 7;
+  // The next-hop IP address (RFC 4271 §4.3).
+  flowseer.net.addr.v1.IpAddress next_hop = 8;
+  // Multi-Exit Discriminator metric (RFC 4271 §4.3). Absent if not reported.
+  uint32 med = 9;
+  // Local preference degree (RFC 4271 §5.1.5). Absent if not reported.
+  uint32 local_preference = 10;
+  // Communities attached to this path (RFC 1997, RFC 8092).
+  repeated BgpCommunity communities = 11;
+  // Whether this path is selected as the best path to the prefix (BGP4-MIB bgp4PathAttrBest).
+  bool best = 12;
+}
+
+// A single segment of a BGP AS_PATH attribute (RFC 4271 §4.3, RFC 5065 §3).
+message BgpAsPathSegment {
+  // The type of this AS path segment. Must be present.
+  BgpAsPathSegmentType type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  // The sequence or set of autonomous system numbers in this segment.
+  repeated uint32 asns = 2 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 255
+  }];
+}
