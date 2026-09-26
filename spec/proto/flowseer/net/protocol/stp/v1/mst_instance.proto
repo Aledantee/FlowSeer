@@ -1,0 +1,54 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+import "flowseer/net/protocol/stp/v1/bridge_id.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// Observed state of one multiple spanning tree instance (MSTI) of an MSTP
+// bridge, keyed by network instance and MSTID. The CIST is the bridge's
+// BridgeState, never a row here. Mirrors ieee8021MstpEntry
+// (IEEE8021-MSTP-MIB-202211080000Z:259).
+message MstInstance {
+  // Network instance whose bridge runs this MSTI. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // MSTID of the instance, 1 to 4094. Must be present. Mirrors
+  // ieee8021MstpId (IEEE8021-MSTP-MIB-202211080000Z:297) and
+  // IEEE8021MstIdentifier (IEEE8021-TC-MIB:317).
+  uint32 mst_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 4094
+  ];
+  // Bridge identifier of this bridge for the MSTI, priority masked to its four
+  // most significant bits; the system ID extension equals mst_id. Must be
+  // present. Mirrors ieee8021MstpBridgeId (IEEE8021-MSTP-MIB-202211080000Z:306)
+  // and ieee8021MstpBridgePriority (:379).
+  BridgeId bridge_id = 3 [(buf.validate.field).required = true];
+  // Bridge identifier of the MSTI's root, which is the regional root. Absent
+  // means no root has been elected. Mirrors ieee8021MstpDesignatedRoot
+  // (IEEE8021-MSTP-MIB-202211080000Z:348).
+  BridgeId designated_root = 4;
+  // Path cost from this bridge to the MSTI's root; zero on the root. Mirrors
+  // ieee8021MstpRootPathCost (IEEE8021-MSTP-MIB-202211080000Z:358).
+  uint32 root_path_cost = 5;
+  // Device-local name of the MSTI's root port. Absent means this bridge is the
+  // MSTI's root. Mirrors ieee8021MstpRootPort
+  // (IEEE8021-MSTP-MIB-202211080000Z:369).
+  string root_port_interface_name = 6 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // Whether a topology change is in progress in the MSTI. Mirrors
+  // ieee8021MstpTopologyChange (IEEE8021-MSTP-MIB-202211080000Z:338).
+  bool topology_change = 7;
+  // Count of topology changes in the MSTI since the bridge initialized.
+  // Mirrors ieee8021MstpTopologyChanges (IEEE8021-MSTP-MIB-202211080000Z:326).
+  uint64 topology_changes = 8;
+  // Elapsed duration since the last topology change in the MSTI. Absent means
+  // no topology change has been detected. Mirrors
+  // ieee8021MstpTimeSinceTopologyChange (IEEE8021-MSTP-MIB-202211080000Z:315).
+  google.protobuf.Duration time_since_topology_change = 9;
+}

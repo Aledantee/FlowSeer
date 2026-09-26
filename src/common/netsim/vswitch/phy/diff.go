@@ -45,16 +45,16 @@ func (f BoolFact) String() string {
 	return "false"
 }
 
-// PowerFact represents power in milliwatts.
-type PowerFact uint32
+// PowerFact represents power in nanowatts.
+type PowerFact uint64
 
 // TypeID returns the stable identifier for PowerFact.
-func (f PowerFact) TypeID() string { return "phy.power_mw" }
+func (f PowerFact) TypeID() string { return "phy.power_nw" }
 
-// Canonical returns the decimal string representation of power in milliwatts.
+// Canonical returns the decimal string representation of power in nanowatts.
 func (f PowerFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// String returns the decimal string representation of power in milliwatts.
+// String returns the decimal string representation of power in nanowatts.
 func (f PowerFact) String() string { return strconv.FormatUint(uint64(f), 10) }
 
 // ClassFact represents an IEEE PD or PSE class.
@@ -253,13 +253,13 @@ func diffPoE(a, b *PoE) []trace.Change {
 
 			continue
 		}
-		if ag.PowerMilliwatts != bg.PowerMilliwatts {
+		if ag.PowerNanowatts != bg.PowerNanowatts {
 			changes = append(changes, trace.Change{
 				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
-				Field:   "power_milliwatts",
-				From:    PowerFact(ag.PowerMilliwatts),
-				To:      PowerFact(bg.PowerMilliwatts),
+				Field:   "power_nanowatts",
+				From:    PowerFact(ag.PowerNanowatts),
+				To:      PowerFact(bg.PowerNanowatts),
 			})
 		}
 	}
@@ -313,11 +313,11 @@ func diffPoE(a, b *PoE) []trace.Change {
 				To:      BoolFact(bp.Enabled),
 			})
 		}
-		if !equalUint32Ptr(ap.Limit, bp.Limit) {
+		if !equalUint64Ptr(ap.Limit, bp.Limit) {
 			changes = append(changes, trace.Change{
 				Layer:   port.LayerPoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
-				Field:   "power_limit_milliwatts",
+				Field:   "power_limit_nanowatts",
 				From:    limitFact(ap.Limit),
 				To:      limitFact(bp.Limit),
 			})
@@ -399,7 +399,7 @@ func observedDuplex(e Ethernet) Duplex {
 	return e.Observed.Duplex
 }
 
-func limitFact(limit *uint32) trace.Fact {
+func limitFact(limit *uint64) trace.Fact {
 	if limit == nil {
 		return nil
 	}
@@ -415,7 +415,7 @@ func pdClassFact(pdClass *uint8) trace.Fact {
 	return ClassFact(*pdClass)
 }
 
-func equalUint32Ptr(a, b *uint32) bool {
+func equalUint64Ptr(a, b *uint64) bool {
 	if a == nil && b == nil {
 		return true
 	}

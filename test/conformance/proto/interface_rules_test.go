@@ -39,7 +39,8 @@ func TestInterfaceRules(t *testing.T) {
 					VlanId: proto.Uint32(20),
 				}.Build(),
 				Ip: ipv1.IpFacet_builder{
-					Ipv4: ipv1.Ipv4Facet_builder{Enabled: proto.Bool(true)}.Build(),
+					Ipv4:            ipv1.Ipv4Facet_builder{Enabled: proto.Bool(true)}.Build(),
+					NetworkInstance: proto.String("default"),
 				}.Build(),
 			}.Build(),
 			wantValid: true,
@@ -87,7 +88,7 @@ func TestInterfaceRules(t *testing.T) {
 		{
 			name: "subinterface parent empty",
 			message: interfacev1.Subinterface_builder{
-				Parent: proto.String(""),
+				ParentInterfaceName: proto.String(""),
 			}.Build(),
 			wantValid: false,
 		},
@@ -172,7 +173,7 @@ func TestSubinterfaceKeepsTagOrder(t *testing.T) {
 	iface := interfacev1.Interface_builder{
 		Name: proto.String("GigabitEthernet1/0/1.100"),
 		Sub: interfacev1.Subinterface_builder{
-			Parent: proto.String("GigabitEthernet1/0/1"),
+			ParentInterfaceName: proto.String("GigabitEthernet1/0/1"),
 			Encapsulation: switchingv1.VlanTagStack_builder{
 				Tags: []*switchingv1.VlanTag{outer, inner},
 			}.Build(),
@@ -206,4 +207,37 @@ func TestSubinterfaceKeepsTagOrder(t *testing.T) {
 	if got := tags[1].GetVlanId(); got != 200 {
 		t.Errorf("got innermost VID %d, want 200", got)
 	}
+}
+
+// TestIpFacetRequiresNetworkInstance holds the routed interface's instance
+// key: an IP facet that does not name its network instance fails on that
+// field.
+func TestIpFacetRequiresNetworkInstance(t *testing.T) {
+	errsAtField(t, ipv1.IpFacet_builder{
+		Ipv4: ipv1.Ipv4Facet_builder{Enabled: proto.Bool(true)}.Build(),
+	}.Build(), "network_instance", "value is required")
+
+	runValidationCases(t, []validationCase{
+		{
+			name: "routed VLAN interface without an instance",
+			message: interfacev1.Interface_builder{
+				Name: proto.String("Vlan20"),
+				Vlan: interfacev1.VlanInterface_builder{
+					VlanId: proto.Uint32(20),
+				}.Build(),
+				Ip: ipv1.IpFacet_builder{
+					Ipv4: ipv1.Ipv4Facet_builder{Enabled: proto.Bool(true)}.Build(),
+				}.Build(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "IP facet in a VRF",
+			message: ipv1.IpFacet_builder{
+				Ipv6:            ipv1.Ipv6Facet_builder{Enabled: proto.Bool(true)}.Build(),
+				NetworkInstance: proto.String("vrf-red"),
+			}.Build(),
+			wantValid: true,
+		},
+	})
 }

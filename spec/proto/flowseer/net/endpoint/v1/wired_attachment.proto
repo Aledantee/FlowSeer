@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// A physical wired attachment of an endpoint to a switch port.
+message WiredAttachment {
+  // Device-local name of the switch hosting the port. 1 to 256 characters.
+  // Unset means the switch name was not reported.
+  string switch_name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  // Device-local interface name of the switch port.
+  // Validated against flowseer.net.key.v1.interface_name.
+  // Unset means the interface name was not reported.
+  string interface_name = 2 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // VLAN identifier assigned to the port or traffic. 1 to 4094.
+  // Validated against flowseer.net.switching.v1.vlan_id.
+  // Unset means no VLAN was reported.
+  uint32 vlan_id = 3 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true];
+}

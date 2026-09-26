@@ -475,7 +475,7 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 				},
 				PoE: &phy.PoE{
 					Groups: map[string]phy.Group{
-						"g1": {PowerMilliwatts: 60_000},
+						"g1": {PowerNanowatts: 60_000_000_000},
 					},
 					Ports: map[string]phy.PsePort{
 						"1/1/1": {Group: "g1", Enabled: true, MaxClass: 4},
@@ -1106,7 +1106,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 			Phy: &phy.Config{
 				PoE: &phy.PoE{
 					Groups: map[string]phy.Group{
-						"g1": {PowerMilliwatts: 60_000},
+						"g1": {PowerNanowatts: 60_000_000_000},
 					},
 				},
 			},
@@ -1115,7 +1115,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 			Phy: &phy.Config{
 				PoE: &phy.PoE{
 					Groups: map[string]phy.Group{
-						"g1": {PowerMilliwatts: 90_000},
+						"g1": {PowerNanowatts: 90_000_000_000},
 					},
 				},
 			},
@@ -1126,8 +1126,8 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 			t.Fatalf("got %d changes, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Subject.Kind != "pse_group" || ch.Subject.Key != "g1" || ch.Field != "power_milliwatts" ||
-			trace.CompareFact(ch.From, phy.PowerFact(60_000)) != 0 || trace.CompareFact(ch.To, phy.PowerFact(90_000)) != 0 {
+		if ch.Subject.Kind != "pse_group" || ch.Subject.Key != "g1" || ch.Field != "power_nanowatts" ||
+			trace.CompareFact(ch.From, phy.PowerFact(60_000_000_000)) != 0 || trace.CompareFact(ch.To, phy.PowerFact(90_000_000_000)) != 0 {
 			t.Errorf("unexpected pse_group change: %+v", ch)
 		}
 	})
@@ -1343,7 +1343,7 @@ func TestDiffEqualConfigsEmpty(t *testing.T) {
 					},
 					PoE: &phy.PoE{
 						Groups: map[string]phy.Group{
-							"g1": {PowerMilliwatts: 60_000},
+							"g1": {PowerNanowatts: 60_000_000_000},
 						},
 					},
 				},
@@ -1488,7 +1488,7 @@ func TestSwitchReadableState(t *testing.T) {
 				"1/1/1": {SupportedSpeedsBPS: []uint64{1_000_000_000}},
 			},
 			PoE: &phy.PoE{
-				Groups: map[string]phy.Group{"g1": {PowerMilliwatts: 15_400}},
+				Groups: map[string]phy.Group{"g1": {PowerNanowatts: 15_400_000_000}},
 				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "g1", Enabled: true, MaxClass: 3}},
 			},
 		},
@@ -1535,7 +1535,7 @@ func TestSwitchPowerMetadata(t *testing.T) {
 			Bridge: &bridge.Config{},
 			Phy: &phy.Config{
 				PoE: &phy.PoE{
-					Groups: map[string]phy.Group{"g1": {PowerMilliwatts: 60_000}},
+					Groups: map[string]phy.Group{"g1": {PowerNanowatts: 60_000_000_000}},
 					Ports: map[string]phy.PsePort{
 						"1/1/1": {Group: "g1", Enabled: true, MaxClass: 4, PD: phy.PDAttached, PDClass: phy.Class(4)},
 						"1/1/2": {Group: "g1", Enabled: true, MaxClass: 4, PD: phy.PDUnknown},

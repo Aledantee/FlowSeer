@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// IEEE 802.11 physical-layer amendment or standard spoken by a radio or BSS.
+// Generation names (Wi-Fi 4 through 7) derive from standard and band.
+enum Dot11Standard {
+  // Standard is unspecified or unknown.
+  DOT11_STANDARD_UNSPECIFIED = 0;
+  // IEEE 802.11a (OFDM at 5 GHz).
+  DOT11_STANDARD_A = 1;
+  // IEEE 802.11b (DSSS/HR-DSSS at 2.4 GHz).
+  DOT11_STANDARD_B = 2;
+  // IEEE 802.11g (ERP-OFDM at 2.4 GHz).
+  DOT11_STANDARD_G = 3;
+  // IEEE 802.11n (HT, Wi-Fi 4).
+  DOT11_STANDARD_N = 4;
+  // IEEE 802.11ac (VHT, Wi-Fi 5).
+  DOT11_STANDARD_AC = 5;
+  // IEEE 802.11ax (HE, Wi-Fi 6 / 6E).
+  DOT11_STANDARD_AX = 6;
+  // IEEE 802.11be (EHT, Wi-Fi 7).
+  DOT11_STANDARD_BE = 7;
+}

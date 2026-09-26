@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.aaa.v1;
+
+import option "buf/validate/validate.proto";
+
+// The RADIUS settings of an AAA server. Mirrors OpenConfig's radius container
+// (openconfig-aaa-radius.yang:88-132) without its secret-key leaves.
+message RadiusServer {
+  // The UDP port for authentication requests. Absent means unreported, not
+  // the RFC 2865 default of 1812.
+  uint32 auth_port = 1 [(buf.validate.field).uint32.lte = 65535];
+  // The UDP port for accounting requests. Absent means unreported, not the
+  // RFC 2866 default of 1813.
+  uint32 acct_port = 2 [(buf.validate.field).uint32.lte = 65535];
+  // How many times an unanswered request is resent. Absent means unreported.
+  uint32 retransmit_attempts = 3 [(buf.validate.field).uint32.lte = 255];
+}

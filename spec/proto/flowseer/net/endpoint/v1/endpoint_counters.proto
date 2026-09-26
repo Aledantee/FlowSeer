@@ -1,0 +1,21 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Traffic and frame counters for an observed endpoint.
+message EndpointCounters {
+  // Inbound byte counter. Unset means not reported.
+  uint64 in_bytes = 1;
+  // Outbound byte counter. Unset means not reported.
+  uint64 out_bytes = 2;
+  // Inbound frame counter. Unset means not reported.
+  uint64 in_frames = 3;
+  // Outbound frame counter. Unset means not reported.
+  uint64 out_frames = 4;
+  // Retransmitted 802.11 frame counter. Unset means not reported.
+  uint64 tx_retry_frames = 5;
+  // The time the counters last reset or restarted counting. Unset means not reported.
+  google.protobuf.Timestamp last_discontinuity = 6;
+}

@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+import "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An OSPF routing protocol instance on a device (RFC 2328, RFC 5340, OSPF-MIB).
+message OspfInstance {
+  // The network instance this OSPF instance runs within. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The OSPF version: 2 for OSPFv2 (RFC 2328) or 3 for OSPFv3 (RFC 5340). Must be present.
+  uint32 version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 2,
+    (buf.validate.field).uint32.lte = 3
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The router identifier of this OSPF instance in dotted-quad integer form (OSPF-MIB ospfRouterId).
+  uint32 router_id = 4;
+  // The administrative status of this OSPF instance (OSPF-MIB ospfAdminStat).
+  bool enabled = 5;
+}

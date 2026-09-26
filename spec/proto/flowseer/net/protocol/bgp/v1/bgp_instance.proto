@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+import "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A BGP routing protocol instance on a device (RFC 4271, BGP4-MIB).
+message BgpInstance {
+  // The network instance this BGP instance runs within. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The local autonomous system number (BGP4-MIB bgpLocalAs, RFC 6793). Must be present.
+  uint32 asn = 3 [(buf.validate.field).required = true];
+  // The local BGP router identifier (BGP4-MIB bgpIdentifier, RFC 6286).
+  // Unset means the identifier was not reported.
+  uint32 router_id = 4 [(buf.validate.field).uint32.gte = 1];
+}

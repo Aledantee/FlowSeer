@@ -1,0 +1,55 @@
+edition = "2024";
+
+package flowseer.net.nat.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/nat/v1/nat_mapping_kind.proto";
+import "flowseer/net/nat/v1/nat_translation.proto";
+import "flowseer/net/packet/v1/ip_protocol.proto";
+import "flowseer/net/packet/v1/transport_port.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A configured NAT address or port translation mapping rule (RFC 4008 natAddrMapTable, Cisco-IOS-XE-nat-oper.yang).
+message NatMapping {
+  option (buf.validate.message).cel = {
+    id: "nat_mapping.global_or_interface"
+    message: "mapping without global_addresses must specify interface_name"
+    expression: "has(this.global_addresses) || has(this.interface_name)"
+  };
+
+  // The network instance this mapping applies to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The configured name or identifier of this mapping (RFC 4008 natAddrMapName).
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // The local interface this mapping is bound to. Required when global_addresses is absent.
+  string interface_name = 3 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // The mapping origin kind (static or dynamic). Must be present.
+  NatMappingKind kind = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  // The translation direction and entities (RFC 4008 NatTranslationEntity).
+  repeated NatTranslation translations = 5 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+  // The transport protocol this mapping matches. Unset means all protocols.
+  flowseer.net.packet.v1.IpProtocol protocol = 6 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_protocol) = true];
+  // The internal/private IP address range to translate. Must be present.
+  flowseer.net.addr.v1.IpRange local_addresses = 7 [(buf.validate.field).required = true];
+  // The internal/private transport port range to translate. Unset means all ports.
+  flowseer.net.packet.v1.TransportPortRange local_ports = 8;
+  // The external/public IP address range to translate to. Absent when translating to interface address.
+  flowseer.net.addr.v1.IpRange global_addresses = 9;
+  // The external/public transport port range to translate to.
+  flowseer.net.packet.v1.TransportPortRange global_ports = 10;
+}

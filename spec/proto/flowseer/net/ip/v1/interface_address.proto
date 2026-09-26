@@ -5,7 +5,9 @@ package flowseer.net.ip.v1;
 import "flowseer/net/addr/v1/ip.proto";
 import "flowseer/net/ip/v1/address_origin.proto";
 import "flowseer/net/ip/v1/address_status.proto";
+import "flowseer/net/ip/v1/interface_identifier_method.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
 // An IP address and network prefix assigned to one device-local interface.
 // This is a table row, not an address value: canonical address, prefix, scope,
@@ -15,6 +17,11 @@ message InterfaceAddress {
     id: "interface_address.family_matches"
     message: "address and prefix must use the same IP family"
     expression: "!has(this.address) || !has(this.prefix) || has(this.address.v4) == has(this.prefix.v4)"
+  };
+  option (buf.validate.message).cel = {
+    id: "interface_address.iid_method_is_ipv6_only"
+    message: "an interface identifier method applies only to an IPv6 address"
+    expression: "!has(this.iid_method) || (has(this.address) && has(this.address.v6))"
   };
   option (buf.validate.message).cel = {
     id: "interface_address.ipv4_address_in_prefix"
@@ -79,8 +86,7 @@ message InterfaceAddress {
   // the containing InterfaceAddress when no interface identity is available.
   string interface_name = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
   ];
   // The assigned host address. Must be present; omit the containing
   // InterfaceAddress when no assignment was observed.
@@ -100,4 +106,8 @@ message InterfaceAddress {
   // Preferred and valid lease lifetimes. Absent means no lifetime information
   // was observed; a present empty value means both lifetimes are infinite.
   flowseer.net.addr.v1.IpLifetime lifetime = 7;
+  // How the interface identifier of an IPv6 address was generated. Valid
+  // only on an IPv6 address. Absent means the source did not report a
+  // method.
+  InterfaceIdentifierMethod iid_method = 8;
 }

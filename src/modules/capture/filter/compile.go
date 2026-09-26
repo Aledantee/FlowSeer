@@ -307,7 +307,7 @@ func be16(b []byte) uint32 {
 	return uint32(b[0])<<8 | uint32(b[1])
 }
 
-func macBlock(off uint32, addr *addrv1.EuiAddress) (block, error) {
+func macBlock(off uint32, addr *addrv1.MacAddress) (block, error) {
 	if !addr.HasEui48() {
 		return nil, errs.Msg("a MAC match requires a 48-bit address")
 	}

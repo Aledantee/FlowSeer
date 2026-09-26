@@ -20,17 +20,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A VLAN database row. Interface membership is held only by the embedding
+// A VLAN database row keyed by network instance and VLAN identifier. Interface membership is held only by the embedding
 // interface's switchport facet, so the two directions cannot drift.
 type Vlan struct {
-	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Id           uint32                 `protobuf:"varint,1,opt,name=id"`
-	xxx_hidden_Name         *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Registration VlanRegistration       `protobuf:"varint,3,opt,name=registration,enum=flowseer.net.switching.v1.VlanRegistration"`
-	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
-	XXX_presence            [1]uint32
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Id              uint32                 `protobuf:"varint,1,opt,name=id"`
+	xxx_hidden_Name            *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Registration    VlanRegistration       `protobuf:"varint,3,opt,name=registration,enum=flowseer.net.switching.v1.VlanRegistration"`
+	xxx_hidden_NetworkInstance *string                `protobuf:"bytes,4,opt,name=network_instance,json=networkInstance"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *Vlan) Reset() {
@@ -84,19 +85,34 @@ func (x *Vlan) GetRegistration() VlanRegistration {
 	return VlanRegistration_VLAN_REGISTRATION_UNSPECIFIED
 }
 
+func (x *Vlan) GetNetworkInstance() string {
+	if x != nil {
+		if x.xxx_hidden_NetworkInstance != nil {
+			return *x.xxx_hidden_NetworkInstance
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *Vlan) SetId(v uint32) {
 	x.xxx_hidden_Id = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *Vlan) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
 func (x *Vlan) SetRegistration(v VlanRegistration) {
 	x.xxx_hidden_Registration = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *Vlan) SetNetworkInstance(v string) {
+	x.xxx_hidden_NetworkInstance = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *Vlan) HasId() bool {
@@ -120,6 +136,13 @@ func (x *Vlan) HasRegistration() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *Vlan) HasNetworkInstance() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
 func (x *Vlan) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = 0
@@ -135,6 +158,11 @@ func (x *Vlan) ClearRegistration() {
 	x.xxx_hidden_Registration = VlanRegistration_VLAN_REGISTRATION_UNSPECIFIED
 }
 
+func (x *Vlan) ClearNetworkInstance() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_NetworkInstance = nil
+}
+
 type Vlan_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -148,6 +176,8 @@ type Vlan_builder struct {
 	// How the VLAN was registered in the bridge. Absent means the source did
 	// not report whether the entry is permanent or dynamic.
 	Registration *VlanRegistration
+	// The network instance whose bridge holds the VLAN. Must be present.
+	NetworkInstance *string
 }
 
 func (b0 Vlan_builder) Build() *Vlan {
@@ -155,16 +185,20 @@ func (b0 Vlan_builder) Build() *Vlan {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Id != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_Id = *b.Id
 	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Registration != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_Registration = *b.Registration
+	}
+	if b.NetworkInstance != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_NetworkInstance = b.NetworkInstance
 	}
 	return m0
 }
@@ -173,11 +207,12 @@ var File_flowseer_net_switching_v1_vlan_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_switching_v1_vlan_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/net/switching/v1/vlan.proto\x12\x19flowseer.net.switching.v1\x1a1flowseer/net/switching/v1/vlan_registration.proto\"\x89\x01\n" +
+	"$flowseer/net/switching/v1/vlan.proto\x12\x19flowseer.net.switching.v1\x1a1flowseer/net/switching/v1/vlan_registration.proto\"\xc2\x01\n" +
 	"\x04Vlan\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12O\n" +
-	"\fregistration\x18\x03 \x01(\x0e2+.flowseer.net.switching.v1.VlanRegistrationR\fregistrationB\x81\x02\n" +
+	"\fregistration\x18\x03 \x01(\x0e2+.flowseer.net.switching.v1.VlanRegistrationR\fregistration\x127\n" +
+	"\x10network_instance\x18\x04 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x90\xb5\x18\x01R\x0fnetworkInstanceB\x81\x02\n" +
 	"\x1dcom.flowseer.net.switching.v1B\tVlanProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_vlan_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

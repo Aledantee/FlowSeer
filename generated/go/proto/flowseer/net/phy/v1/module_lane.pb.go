@@ -7,6 +7,7 @@
 package phyv1
 
 import (
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -29,9 +30,9 @@ type ModuleLane struct {
 	state                           protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Index                uint32                 `protobuf:"varint,1,opt,name=index"`
 	xxx_hidden_WavelengthNanometers uint32                 `protobuf:"varint,2,opt,name=wavelength_nanometers,json=wavelengthNanometers"`
-	xxx_hidden_TxPower              *OpticalPower          `protobuf:"bytes,3,opt,name=tx_power,json=txPower"`
-	xxx_hidden_RxPower              *OpticalPower          `protobuf:"bytes,4,opt,name=rx_power,json=rxPower"`
-	xxx_hidden_Bias                 *BiasCurrent           `protobuf:"bytes,5,opt,name=bias"`
+	xxx_hidden_TxPower              *v1.Power              `protobuf:"bytes,6,opt,name=tx_power,json=txPower"`
+	xxx_hidden_RxPower              *v1.Power              `protobuf:"bytes,7,opt,name=rx_power,json=rxPower"`
+	xxx_hidden_Bias                 *v1.Current            `protobuf:"bytes,8,opt,name=bias"`
 	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
 	XXX_presence                    [1]uint32
 	unknownFields                   protoimpl.UnknownFields
@@ -77,21 +78,21 @@ func (x *ModuleLane) GetWavelengthNanometers() uint32 {
 	return 0
 }
 
-func (x *ModuleLane) GetTxPower() *OpticalPower {
+func (x *ModuleLane) GetTxPower() *v1.Power {
 	if x != nil {
 		return x.xxx_hidden_TxPower
 	}
 	return nil
 }
 
-func (x *ModuleLane) GetRxPower() *OpticalPower {
+func (x *ModuleLane) GetRxPower() *v1.Power {
 	if x != nil {
 		return x.xxx_hidden_RxPower
 	}
 	return nil
 }
 
-func (x *ModuleLane) GetBias() *BiasCurrent {
+func (x *ModuleLane) GetBias() *v1.Current {
 	if x != nil {
 		return x.xxx_hidden_Bias
 	}
@@ -108,15 +109,15 @@ func (x *ModuleLane) SetWavelengthNanometers(v uint32) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
-func (x *ModuleLane) SetTxPower(v *OpticalPower) {
+func (x *ModuleLane) SetTxPower(v *v1.Power) {
 	x.xxx_hidden_TxPower = v
 }
 
-func (x *ModuleLane) SetRxPower(v *OpticalPower) {
+func (x *ModuleLane) SetRxPower(v *v1.Power) {
 	x.xxx_hidden_RxPower = v
 }
 
-func (x *ModuleLane) SetBias(v *BiasCurrent) {
+func (x *ModuleLane) SetBias(v *v1.Current) {
 	x.xxx_hidden_Bias = v
 }
 
@@ -185,12 +186,17 @@ type ModuleLane_builder struct {
 	// The nominal wavelength of the lane's laser in nanometers. Absent means
 	// unreported or not applicable; zero is invalid when present.
 	WavelengthNanometers *uint32
-	// Transmitted optical power. Absent means unreported.
-	TxPower *OpticalPower
-	// Received optical power. Absent means unreported.
-	RxPower *OpticalPower
-	// Laser bias current. Absent means unreported.
-	Bias *BiasCurrent
+	// Transmitted optical power. SFF-8472 reports it linearly in tenths of a
+	// microwatt, which the nanowatt unit carries without loss; zero is a real
+	// measurement of no light. Absent means unreported.
+	TxPower *v1.Power
+	// Received optical power, in the same unit as tx_power. Absent means
+	// unreported.
+	RxPower *v1.Power
+	// Laser bias current. SFF-8472 reports it in steps of two microamperes,
+	// which the microampere unit carries without loss. Absent means
+	// unreported.
+	Bias *v1.Current
 }
 
 func (b0 ModuleLane_builder) Build() *ModuleLane {
@@ -215,27 +221,27 @@ var File_flowseer_net_phy_v1_module_lane_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_module_lane_proto_rawDesc = "" +
 	"\n" +
-	"%flowseer/net/phy/v1/module_lane.proto\x12\x13flowseer.net.phy.v1\x1a&flowseer/net/phy/v1/bias_current.proto\x1a'flowseer/net/phy/v1/optical_power.proto\"\x9e\x02\n" +
+	"%flowseer/net/phy/v1/module_lane.proto\x12\x13flowseer.net.phy.v1\x1a$flowseer/net/measure/v1/sensor.proto\"\xaa\x02\n" +
 	"\n" +
 	"ModuleLane\x12 \n" +
 	"\x05index\x18\x01 \x01(\rB\n" +
 	"\xbaH\a\xc8\x01\x01*\x02 \x00R\x05index\x12<\n" +
-	"\x15wavelength_nanometers\x18\x02 \x01(\rB\a\xbaH\x04*\x02 \x00R\x14wavelengthNanometers\x12<\n" +
-	"\btx_power\x18\x03 \x01(\v2!.flowseer.net.phy.v1.OpticalPowerR\atxPower\x12<\n" +
-	"\brx_power\x18\x04 \x01(\v2!.flowseer.net.phy.v1.OpticalPowerR\arxPower\x124\n" +
-	"\x04bias\x18\x05 \x01(\v2 .flowseer.net.phy.v1.BiasCurrentR\x04biasB\xdd\x01\n" +
+	"\x15wavelength_nanometers\x18\x02 \x01(\rB\a\xbaH\x04*\x02 \x00R\x14wavelengthNanometers\x129\n" +
+	"\btx_power\x18\x06 \x01(\v2\x1e.flowseer.net.measure.v1.PowerR\atxPower\x129\n" +
+	"\brx_power\x18\a \x01(\v2\x1e.flowseer.net.measure.v1.PowerR\arxPower\x124\n" +
+	"\x04bias\x18\b \x01(\v2 .flowseer.net.measure.v1.CurrentR\x04biasJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06B\xdd\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x0fModuleLaneProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_module_lane_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_module_lane_proto_goTypes = []any{
-	(*ModuleLane)(nil),   // 0: flowseer.net.phy.v1.ModuleLane
-	(*OpticalPower)(nil), // 1: flowseer.net.phy.v1.OpticalPower
-	(*BiasCurrent)(nil),  // 2: flowseer.net.phy.v1.BiasCurrent
+	(*ModuleLane)(nil), // 0: flowseer.net.phy.v1.ModuleLane
+	(*v1.Power)(nil),   // 1: flowseer.net.measure.v1.Power
+	(*v1.Current)(nil), // 2: flowseer.net.measure.v1.Current
 }
 var file_flowseer_net_phy_v1_module_lane_proto_depIdxs = []int32{
-	1, // 0: flowseer.net.phy.v1.ModuleLane.tx_power:type_name -> flowseer.net.phy.v1.OpticalPower
-	1, // 1: flowseer.net.phy.v1.ModuleLane.rx_power:type_name -> flowseer.net.phy.v1.OpticalPower
-	2, // 2: flowseer.net.phy.v1.ModuleLane.bias:type_name -> flowseer.net.phy.v1.BiasCurrent
+	1, // 0: flowseer.net.phy.v1.ModuleLane.tx_power:type_name -> flowseer.net.measure.v1.Power
+	1, // 1: flowseer.net.phy.v1.ModuleLane.rx_power:type_name -> flowseer.net.measure.v1.Power
+	2, // 2: flowseer.net.phy.v1.ModuleLane.bias:type_name -> flowseer.net.measure.v1.Current
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -248,8 +254,6 @@ func file_flowseer_net_phy_v1_module_lane_proto_init() {
 	if File_flowseer_net_phy_v1_module_lane_proto != nil {
 		return
 	}
-	file_flowseer_net_phy_v1_bias_current_proto_init()
-	file_flowseer_net_phy_v1_optical_power_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

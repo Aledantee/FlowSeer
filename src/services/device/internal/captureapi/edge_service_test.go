@@ -503,8 +503,8 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(5),
-		Accepted: proto.Uint64(5),
+		ReceivedPackets: proto.Uint64(5),
+		AcceptedPackets: proto.Uint64(5),
 	}.Build()
 
 	finalChunk := modelcapturev1.CapturePacketChunk_builder{
@@ -668,8 +668,8 @@ func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
 			FirstSequence: proto.Uint64(1),
 			Packets:       records,
 			Counters: netcapturev1.CaptureCounters_builder{
-				Received: proto.Uint64(uint64(packets)),
-				Accepted: proto.Uint64(uint64(packets)),
+				ReceivedPackets: proto.Uint64(uint64(packets)),
+				AcceptedPackets: proto.Uint64(uint64(packets)),
 			}.Build(),
 			Final: proto.Bool(true),
 		}.Build()

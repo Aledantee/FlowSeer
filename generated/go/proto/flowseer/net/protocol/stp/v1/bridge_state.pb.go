@@ -21,29 +21,35 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Observed spanning tree protocol state of a bridge. The bridge's
+// Observed spanning tree protocol state of a bridge; on an MSTP bridge, the
+// state of its CIST, whose MSTIs are MstInstance rows. The bridge's
 // administrative settings travel in the same message, so this package
 // deliberately has no BridgeConfig and no BridgeEvent.
 type BridgeState struct {
-	state                              protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ProtocolVersion         ProtocolVersion        `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,enum=flowseer.net.protocol.stp.v1.ProtocolVersion"`
-	xxx_hidden_BridgeId                *BridgeId              `protobuf:"bytes,2,opt,name=bridge_id,json=bridgeId"`
-	xxx_hidden_DesignatedRoot          *BridgeId              `protobuf:"bytes,3,opt,name=designated_root,json=designatedRoot"`
-	xxx_hidden_RootPathCost            uint32                 `protobuf:"varint,4,opt,name=root_path_cost,json=rootPathCost"`
-	xxx_hidden_RootPortInterfaceName   *string                `protobuf:"bytes,5,opt,name=root_port_interface_name,json=rootPortInterfaceName"`
-	xxx_hidden_MaxAge                  *durationpb.Duration   `protobuf:"bytes,6,opt,name=max_age,json=maxAge"`
-	xxx_hidden_HelloTime               *durationpb.Duration   `protobuf:"bytes,7,opt,name=hello_time,json=helloTime"`
-	xxx_hidden_ForwardDelay            *durationpb.Duration   `protobuf:"bytes,8,opt,name=forward_delay,json=forwardDelay"`
-	xxx_hidden_BridgeMaxAge            *durationpb.Duration   `protobuf:"bytes,9,opt,name=bridge_max_age,json=bridgeMaxAge"`
-	xxx_hidden_BridgeHelloTime         *durationpb.Duration   `protobuf:"bytes,10,opt,name=bridge_hello_time,json=bridgeHelloTime"`
-	xxx_hidden_BridgeForwardDelay      *durationpb.Duration   `protobuf:"bytes,11,opt,name=bridge_forward_delay,json=bridgeForwardDelay"`
-	xxx_hidden_TopologyChanges         uint64                 `protobuf:"varint,12,opt,name=topology_changes,json=topologyChanges"`
-	xxx_hidden_TimeSinceTopologyChange *durationpb.Duration   `protobuf:"bytes,13,opt,name=time_since_topology_change,json=timeSinceTopologyChange"`
-	xxx_hidden_TxHoldCount             uint32                 `protobuf:"varint,14,opt,name=tx_hold_count,json=txHoldCount"`
-	XXX_raceDetectHookData             protoimpl.RaceDetectHookData
-	XXX_presence                       [1]uint32
-	unknownFields                      protoimpl.UnknownFields
-	sizeCache                          protoimpl.SizeCache
+	state                               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ProtocolVersion          ProtocolVersion        `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,enum=flowseer.net.protocol.stp.v1.ProtocolVersion"`
+	xxx_hidden_BridgeId                 *BridgeId              `protobuf:"bytes,2,opt,name=bridge_id,json=bridgeId"`
+	xxx_hidden_DesignatedRoot           *BridgeId              `protobuf:"bytes,3,opt,name=designated_root,json=designatedRoot"`
+	xxx_hidden_RootPathCost             uint32                 `protobuf:"varint,4,opt,name=root_path_cost,json=rootPathCost"`
+	xxx_hidden_RootPortInterfaceName    *string                `protobuf:"bytes,5,opt,name=root_port_interface_name,json=rootPortInterfaceName"`
+	xxx_hidden_MaxAge                   *durationpb.Duration   `protobuf:"bytes,6,opt,name=max_age,json=maxAge"`
+	xxx_hidden_HelloTime                *durationpb.Duration   `protobuf:"bytes,7,opt,name=hello_time,json=helloTime"`
+	xxx_hidden_ForwardDelay             *durationpb.Duration   `protobuf:"bytes,8,opt,name=forward_delay,json=forwardDelay"`
+	xxx_hidden_BridgeMaxAge             *durationpb.Duration   `protobuf:"bytes,9,opt,name=bridge_max_age,json=bridgeMaxAge"`
+	xxx_hidden_BridgeHelloTime          *durationpb.Duration   `protobuf:"bytes,10,opt,name=bridge_hello_time,json=bridgeHelloTime"`
+	xxx_hidden_BridgeForwardDelay       *durationpb.Duration   `protobuf:"bytes,11,opt,name=bridge_forward_delay,json=bridgeForwardDelay"`
+	xxx_hidden_TopologyChanges          uint64                 `protobuf:"varint,12,opt,name=topology_changes,json=topologyChanges"`
+	xxx_hidden_TimeSinceTopologyChange  *durationpb.Duration   `protobuf:"bytes,13,opt,name=time_since_topology_change,json=timeSinceTopologyChange"`
+	xxx_hidden_TxHoldCount              uint32                 `protobuf:"varint,14,opt,name=tx_hold_count,json=txHoldCount"`
+	xxx_hidden_NetworkInstance          *string                `protobuf:"bytes,15,opt,name=network_instance,json=networkInstance"`
+	xxx_hidden_MstConfigId              *MstConfigId           `protobuf:"bytes,16,opt,name=mst_config_id,json=mstConfigId"`
+	xxx_hidden_CistRegionalRoot         *BridgeId              `protobuf:"bytes,17,opt,name=cist_regional_root,json=cistRegionalRoot"`
+	xxx_hidden_CistInternalRootPathCost uint32                 `protobuf:"varint,18,opt,name=cist_internal_root_path_cost,json=cistInternalRootPathCost"`
+	xxx_hidden_MaxHops                  uint32                 `protobuf:"varint,19,opt,name=max_hops,json=maxHops"`
+	XXX_raceDetectHookData              protoimpl.RaceDetectHookData
+	XXX_presence                        [1]uint32
+	unknownFields                       protoimpl.UnknownFields
+	sizeCache                           protoimpl.SizeCache
 }
 
 func (x *BridgeState) Reset() {
@@ -174,9 +180,47 @@ func (x *BridgeState) GetTxHoldCount() uint32 {
 	return 0
 }
 
+func (x *BridgeState) GetNetworkInstance() string {
+	if x != nil {
+		if x.xxx_hidden_NetworkInstance != nil {
+			return *x.xxx_hidden_NetworkInstance
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *BridgeState) GetMstConfigId() *MstConfigId {
+	if x != nil {
+		return x.xxx_hidden_MstConfigId
+	}
+	return nil
+}
+
+func (x *BridgeState) GetCistRegionalRoot() *BridgeId {
+	if x != nil {
+		return x.xxx_hidden_CistRegionalRoot
+	}
+	return nil
+}
+
+func (x *BridgeState) GetCistInternalRootPathCost() uint32 {
+	if x != nil {
+		return x.xxx_hidden_CistInternalRootPathCost
+	}
+	return 0
+}
+
+func (x *BridgeState) GetMaxHops() uint32 {
+	if x != nil {
+		return x.xxx_hidden_MaxHops
+	}
+	return 0
+}
+
 func (x *BridgeState) SetProtocolVersion(v ProtocolVersion) {
 	x.xxx_hidden_ProtocolVersion = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 19)
 }
 
 func (x *BridgeState) SetBridgeId(v *BridgeId) {
@@ -189,12 +233,12 @@ func (x *BridgeState) SetDesignatedRoot(v *BridgeId) {
 
 func (x *BridgeState) SetRootPathCost(v uint32) {
 	x.xxx_hidden_RootPathCost = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 19)
 }
 
 func (x *BridgeState) SetRootPortInterfaceName(v string) {
 	x.xxx_hidden_RootPortInterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 19)
 }
 
 func (x *BridgeState) SetMaxAge(v *durationpb.Duration) {
@@ -223,7 +267,7 @@ func (x *BridgeState) SetBridgeForwardDelay(v *durationpb.Duration) {
 
 func (x *BridgeState) SetTopologyChanges(v uint64) {
 	x.xxx_hidden_TopologyChanges = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 19)
 }
 
 func (x *BridgeState) SetTimeSinceTopologyChange(v *durationpb.Duration) {
@@ -232,7 +276,30 @@ func (x *BridgeState) SetTimeSinceTopologyChange(v *durationpb.Duration) {
 
 func (x *BridgeState) SetTxHoldCount(v uint32) {
 	x.xxx_hidden_TxHoldCount = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 19)
+}
+
+func (x *BridgeState) SetNetworkInstance(v string) {
+	x.xxx_hidden_NetworkInstance = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 14, 19)
+}
+
+func (x *BridgeState) SetMstConfigId(v *MstConfigId) {
+	x.xxx_hidden_MstConfigId = v
+}
+
+func (x *BridgeState) SetCistRegionalRoot(v *BridgeId) {
+	x.xxx_hidden_CistRegionalRoot = v
+}
+
+func (x *BridgeState) SetCistInternalRootPathCost(v uint32) {
+	x.xxx_hidden_CistInternalRootPathCost = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 17, 19)
+}
+
+func (x *BridgeState) SetMaxHops(v uint32) {
+	x.xxx_hidden_MaxHops = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 18, 19)
 }
 
 func (x *BridgeState) HasProtocolVersion() bool {
@@ -333,6 +400,41 @@ func (x *BridgeState) HasTxHoldCount() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 13)
 }
 
+func (x *BridgeState) HasNetworkInstance() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 14)
+}
+
+func (x *BridgeState) HasMstConfigId() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_MstConfigId != nil
+}
+
+func (x *BridgeState) HasCistRegionalRoot() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_CistRegionalRoot != nil
+}
+
+func (x *BridgeState) HasCistInternalRootPathCost() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 17)
+}
+
+func (x *BridgeState) HasMaxHops() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 18)
+}
+
 func (x *BridgeState) ClearProtocolVersion() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ProtocolVersion = ProtocolVersion_PROTOCOL_VERSION_UNSPECIFIED
@@ -394,6 +496,29 @@ func (x *BridgeState) ClearTxHoldCount() {
 	x.xxx_hidden_TxHoldCount = 0
 }
 
+func (x *BridgeState) ClearNetworkInstance() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 14)
+	x.xxx_hidden_NetworkInstance = nil
+}
+
+func (x *BridgeState) ClearMstConfigId() {
+	x.xxx_hidden_MstConfigId = nil
+}
+
+func (x *BridgeState) ClearCistRegionalRoot() {
+	x.xxx_hidden_CistRegionalRoot = nil
+}
+
+func (x *BridgeState) ClearCistInternalRootPathCost() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 17)
+	x.xxx_hidden_CistInternalRootPathCost = 0
+}
+
+func (x *BridgeState) ClearMaxHops() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 18)
+	x.xxx_hidden_MaxHops = 0
+}
+
 type BridgeState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -446,6 +571,23 @@ type BridgeState_builder struct {
 	// Transmit hold count limiting BPDU transmissions per second. Absent means
 	// the source did not report it. Mirrors dot1dStpTxHoldCount (RSTP-MIB:73).
 	TxHoldCount *uint32
+	// Network instance whose bridge runs this spanning tree. Must be present.
+	NetworkInstance *string
+	// MST configuration identifier of the bridge's region. Absent unless the
+	// bridge runs MSTP and reported it.
+	MstConfigId *MstConfigId
+	// Bridge identifier of the CIST regional root. Absent unless the bridge runs
+	// MSTP and reported it. Mirrors ieee8021MstpCistRegionalRootIdentifier
+	// (IEEE8021-MSTP-MIB-202211080000Z:201).
+	CistRegionalRoot *BridgeId
+	// CIST internal root path cost from this bridge to the CIST regional root;
+	// zero on the regional root. Absent unless the bridge runs MSTP and reported
+	// it. Mirrors ieee8021MstpCistPathCost (IEEE8021-MSTP-MIB-202211080000Z:211).
+	CistInternalRootPathCost *uint32
+	// Maximum number of hops an MSTP BPDU travels within the region. Absent
+	// unless the bridge runs MSTP and reported it. Mirrors
+	// ieee8021MstpCistMaxHops (IEEE8021-MSTP-MIB-202211080000Z:224).
+	MaxHops *uint32
 }
 
 func (b0 BridgeState_builder) Build() *BridgeState {
@@ -453,17 +595,17 @@ func (b0 BridgeState_builder) Build() *BridgeState {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.ProtocolVersion != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 19)
 		x.xxx_hidden_ProtocolVersion = *b.ProtocolVersion
 	}
 	x.xxx_hidden_BridgeId = b.BridgeId
 	x.xxx_hidden_DesignatedRoot = b.DesignatedRoot
 	if b.RootPathCost != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 19)
 		x.xxx_hidden_RootPathCost = *b.RootPathCost
 	}
 	if b.RootPortInterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 19)
 		x.xxx_hidden_RootPortInterfaceName = b.RootPortInterfaceName
 	}
 	x.xxx_hidden_MaxAge = b.MaxAge
@@ -473,13 +615,27 @@ func (b0 BridgeState_builder) Build() *BridgeState {
 	x.xxx_hidden_BridgeHelloTime = b.BridgeHelloTime
 	x.xxx_hidden_BridgeForwardDelay = b.BridgeForwardDelay
 	if b.TopologyChanges != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 19)
 		x.xxx_hidden_TopologyChanges = *b.TopologyChanges
 	}
 	x.xxx_hidden_TimeSinceTopologyChange = b.TimeSinceTopologyChange
 	if b.TxHoldCount != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 19)
 		x.xxx_hidden_TxHoldCount = *b.TxHoldCount
+	}
+	if b.NetworkInstance != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 14, 19)
+		x.xxx_hidden_NetworkInstance = b.NetworkInstance
+	}
+	x.xxx_hidden_MstConfigId = b.MstConfigId
+	x.xxx_hidden_CistRegionalRoot = b.CistRegionalRoot
+	if b.CistInternalRootPathCost != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 17, 19)
+		x.xxx_hidden_CistInternalRootPathCost = *b.CistInternalRootPathCost
+	}
+	if b.MaxHops != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 18, 19)
+		x.xxx_hidden_MaxHops = *b.MaxHops
 	}
 	return m0
 }
@@ -488,13 +644,13 @@ var File_flowseer_net_protocol_stp_v1_bridge_state_proto protoreflect.FileDescri
 
 const file_flowseer_net_protocol_stp_v1_bridge_state_proto_rawDesc = "" +
 	"\n" +
-	"/flowseer/net/protocol/stp/v1/bridge_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\x1a\x1egoogle/protobuf/duration.proto\"\xa4\a\n" +
+	"/flowseer/net/protocol/stp/v1/bridge_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a0flowseer/net/protocol/stp/v1/mst_config_id.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\x1a\x1egoogle/protobuf/duration.proto\"\xf5\t\n" +
 	"\vBridgeState\x12X\n" +
 	"\x10protocol_version\x18\x01 \x01(\x0e2-.flowseer.net.protocol.stp.v1.ProtocolVersionR\x0fprotocolVersion\x12K\n" +
 	"\tbridge_id\x18\x02 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdB\x06\xbaH\x03\xc8\x01\x01R\bbridgeId\x12O\n" +
 	"\x0fdesignated_root\x18\x03 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdR\x0edesignatedRoot\x12$\n" +
 	"\x0eroot_path_cost\x18\x04 \x01(\rR\frootPathCost\x12B\n" +
-	"\x18root_port_interface_name\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x15rootPortInterfaceName\x122\n" +
+	"\x18root_port_interface_name\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\x15rootPortInterfaceName\x122\n" +
 	"\amax_age\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\x06maxAge\x128\n" +
 	"\n" +
 	"hello_time\x18\a \x01(\v2\x19.google.protobuf.DurationR\thelloTime\x12>\n" +
@@ -506,7 +662,12 @@ const file_flowseer_net_protocol_stp_v1_bridge_state_proto_rawDesc = "" +
 	"\x10topology_changes\x18\f \x01(\x04R\x0ftopologyChanges\x12V\n" +
 	"\x1atime_since_topology_change\x18\r \x01(\v2\x19.google.protobuf.DurationR\x17timeSinceTopologyChange\x12-\n" +
 	"\rtx_hold_count\x18\x0e \x01(\rB\t\xbaH\x06*\x04\x18\n" +
-	"(\x01R\vtxHoldCountB\x96\x02\n" +
+	"(\x01R\vtxHoldCount\x127\n" +
+	"\x10network_instance\x18\x0f \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x90\xb5\x18\x01R\x0fnetworkInstance\x12M\n" +
+	"\rmst_config_id\x18\x10 \x01(\v2).flowseer.net.protocol.stp.v1.MstConfigIdR\vmstConfigId\x12T\n" +
+	"\x12cist_regional_root\x18\x11 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdR\x10cistRegionalRoot\x12K\n" +
+	"\x1ccist_internal_root_path_cost\x18\x12 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\xff\xff\aR\x18cistInternalRootPathCost\x12$\n" +
+	"\bmax_hops\x18\x13 \x01(\rB\t\xbaH\x06*\x04\x18((\x06R\amaxHopsB\x96\x02\n" +
 	" com.flowseer.net.protocol.stp.v1B\x10BridgeStateProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_bridge_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
@@ -515,6 +676,7 @@ var file_flowseer_net_protocol_stp_v1_bridge_state_proto_goTypes = []any{
 	(ProtocolVersion)(0),        // 1: flowseer.net.protocol.stp.v1.ProtocolVersion
 	(*BridgeId)(nil),            // 2: flowseer.net.protocol.stp.v1.BridgeId
 	(*durationpb.Duration)(nil), // 3: google.protobuf.Duration
+	(*MstConfigId)(nil),         // 4: flowseer.net.protocol.stp.v1.MstConfigId
 }
 var file_flowseer_net_protocol_stp_v1_bridge_state_proto_depIdxs = []int32{
 	1,  // 0: flowseer.net.protocol.stp.v1.BridgeState.protocol_version:type_name -> flowseer.net.protocol.stp.v1.ProtocolVersion
@@ -527,11 +689,13 @@ var file_flowseer_net_protocol_stp_v1_bridge_state_proto_depIdxs = []int32{
 	3,  // 7: flowseer.net.protocol.stp.v1.BridgeState.bridge_hello_time:type_name -> google.protobuf.Duration
 	3,  // 8: flowseer.net.protocol.stp.v1.BridgeState.bridge_forward_delay:type_name -> google.protobuf.Duration
 	3,  // 9: flowseer.net.protocol.stp.v1.BridgeState.time_since_topology_change:type_name -> google.protobuf.Duration
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	4,  // 10: flowseer.net.protocol.stp.v1.BridgeState.mst_config_id:type_name -> flowseer.net.protocol.stp.v1.MstConfigId
+	2,  // 11: flowseer.net.protocol.stp.v1.BridgeState.cist_regional_root:type_name -> flowseer.net.protocol.stp.v1.BridgeId
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_protocol_stp_v1_bridge_state_proto_init() }
@@ -540,6 +704,7 @@ func file_flowseer_net_protocol_stp_v1_bridge_state_proto_init() {
 		return
 	}
 	file_flowseer_net_protocol_stp_v1_bridge_id_proto_init()
+	file_flowseer_net_protocol_stp_v1_mst_config_id_proto_init()
 	file_flowseer_net_protocol_stp_v1_protocol_version_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{

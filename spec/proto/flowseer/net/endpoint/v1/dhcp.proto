@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+import "buf/validate/validate.proto";
+
+// Predefined protovalidate rules (https://protovalidate.com/) for DHCP and
+// BOOTP option codes (RFC 2132). Option codes 1 through 254 are IANA-assigned;
+// 0 (Pad) and 255 (End) are framing delimiters.
+extend buf.validate.UInt32Rules {
+  bool dhcp_option_code = 50006 [(buf.validate.predefined).cel = {
+    id: "uint32.dhcp_option_code"
+    message: "value must be a valid DHCP option code in 1..254"
+    expression: "!rule || (this >= 1u && this <= 254u)"
+  }];
+}

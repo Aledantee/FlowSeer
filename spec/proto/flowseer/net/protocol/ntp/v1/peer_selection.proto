@@ -1,0 +1,26 @@
+edition = "2024";
+
+package flowseer.net.protocol.ntp.v1;
+
+// NTP peer selection status indicating the role of the peer in clock discipline.
+// Enumeration values correspond to Cisco IOS-XE peer-select-status
+// (spec/yang/cisco/iosxe/2611/Cisco-IOS-XE-ntp-oper.yang:279-324).
+enum NtpPeerSelection {
+  NTP_PEER_SELECTION_UNSPECIFIED = 0;
+  // Peer was rejected due to loop, unreachability, or bad synchronization distance (Cisco-IOS-XE-ntp-oper.yang:285).
+  NTP_PEER_SELECTION_REJECTED = 1;
+  // Peer was discarded due to false tick or clock errors (Cisco-IOS-XE-ntp-oper.yang:291).
+  NTP_PEER_SELECTION_FALSE_TICKER = 2;
+  // Peer was discarded as not among the first ten sorted by sync distance (Cisco-IOS-XE-ntp-oper.yang:297).
+  NTP_PEER_SELECTION_EXCESS = 3;
+  // NTP peer rejected as outlier (Cisco-IOS-XE-ntp-oper.yang:303).
+  NTP_PEER_SELECTION_OUTLIER = 4;
+  // Candidate for selection as time server (Cisco-IOS-XE-ntp-oper.yang:308).
+  NTP_PEER_SELECTION_CANDIDATE = 5;
+  // Peer is a survivor but not among the first six peers (Cisco-IOS-XE-ntp-oper.yang:279).
+  NTP_PEER_SELECTION_BACKUP = 6;
+  // Peer selected as system time server (Cisco-IOS-XE-ntp-oper.yang:313).
+  NTP_PEER_SELECTION_SYSTEM_PEER = 7;
+  // Peer selected with Pulse Per Second synchronization (Cisco-IOS-XE-ntp-oper.yang:318).
+  NTP_PEER_SELECTION_PPS_PEER = 8;
+}

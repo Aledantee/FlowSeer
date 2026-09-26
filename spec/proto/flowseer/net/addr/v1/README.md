@@ -8,22 +8,22 @@ facets, configuration, state, or events.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: edge/attach, model/inventory, net/capture, net/filter, net/interface, net/ip, net/protocol/lacp, net/protocol/lldp, net/protocol/stp, net/switching, store/device
+Imported by: edge/attach, event/log, model/endpoint, model/inventory, model/wireless, net/aaa, net/capture, net/endpoint, net/filter, net/flow, net/instance, net/interface, net/ip, net/multicast, net/nat, net/portaccess, net/protocol/bfd, net/protocol/bgp, net/protocol/cdp, net/protocol/dhcp, net/protocol/dns, net/protocol/isis, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/ospf, net/protocol/stp, net/protocol/vrrp, net/routing, net/switching, net/wlan, store/device
 
 Deliberately absent:
 
 - Identity, tenant, observation time, and lifecycle. Primitives here are pure values with no entity context.
 - Interface scope and routing domains. Interface-specific address bindings live in `net/ip/v1`.
-- A MAC address message distinct from EUI-48. An Ethernet MAC address is an EUI-48.
+- A MAC address payload distinct from the IEEE formats. A MAC address is an EUI-48 or an EUI-64, and `MacAddress` only tags which.
 
 ## Contents
 
 The package contains:
 
 - IEEE identifiers: `Eui48Address` and `Eui64Address` value types, the tagged
-  `EuiAddress` wrapper whose oneof arm names the width, and Organizationally
-  Unique Identifiers (OUIs). There is no separate MAC address message; an
-  Ethernet MAC address is an EUI-48.
+  `MacAddress` wrapper whose oneof arm names the width, and Organizationally
+  Unique Identifiers (OUIs). The two value types keep the IEEE format names;
+  `MacAddress` is what a field holding a MAC address of either width takes.
 - IP address-family registry values and FlowSeer address classifications.
 - IP classification: FlowSeer's coarse address scopes.
 - IP values: IPv4 and IPv6 addresses, canonical masked network prefixes,

@@ -9,6 +9,7 @@ package phyv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -43,6 +44,7 @@ type EthernetCounters struct {
 	xxx_hidden_FrameTooLongs             uint64                 `protobuf:"varint,10,opt,name=frame_too_longs,json=frameTooLongs"`
 	xxx_hidden_InternalMacReceiveErrors  uint64                 `protobuf:"varint,11,opt,name=internal_mac_receive_errors,json=internalMacReceiveErrors"`
 	xxx_hidden_SymbolErrors              uint64                 `protobuf:"varint,12,opt,name=symbol_errors,json=symbolErrors"`
+	xxx_hidden_LastDiscontinuity         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_discontinuity,json=lastDiscontinuity"`
 	XXX_raceDetectHookData               protoimpl.RaceDetectHookData
 	XXX_presence                         [1]uint32
 	unknownFields                        protoimpl.UnknownFields
@@ -158,64 +160,75 @@ func (x *EthernetCounters) GetSymbolErrors() uint64 {
 	return 0
 }
 
+func (x *EthernetCounters) GetLastDiscontinuity() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_LastDiscontinuity
+	}
+	return nil
+}
+
 func (x *EthernetCounters) SetAlignmentErrors(v uint64) {
 	x.xxx_hidden_AlignmentErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 13)
 }
 
 func (x *EthernetCounters) SetFcsErrors(v uint64) {
 	x.xxx_hidden_FcsErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 13)
 }
 
 func (x *EthernetCounters) SetSingleCollisionFrames(v uint64) {
 	x.xxx_hidden_SingleCollisionFrames = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 13)
 }
 
 func (x *EthernetCounters) SetMultipleCollisionFrames(v uint64) {
 	x.xxx_hidden_MultipleCollisionFrames = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 13)
 }
 
 func (x *EthernetCounters) SetDeferredTransmissions(v uint64) {
 	x.xxx_hidden_DeferredTransmissions = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 13)
 }
 
 func (x *EthernetCounters) SetLateCollisions(v uint64) {
 	x.xxx_hidden_LateCollisions = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 13)
 }
 
 func (x *EthernetCounters) SetExcessiveCollisions(v uint64) {
 	x.xxx_hidden_ExcessiveCollisions = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 13)
 }
 
 func (x *EthernetCounters) SetInternalMacTransmitErrors(v uint64) {
 	x.xxx_hidden_InternalMacTransmitErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 13)
 }
 
 func (x *EthernetCounters) SetCarrierSenseErrors(v uint64) {
 	x.xxx_hidden_CarrierSenseErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 13)
 }
 
 func (x *EthernetCounters) SetFrameTooLongs(v uint64) {
 	x.xxx_hidden_FrameTooLongs = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 13)
 }
 
 func (x *EthernetCounters) SetInternalMacReceiveErrors(v uint64) {
 	x.xxx_hidden_InternalMacReceiveErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 13)
 }
 
 func (x *EthernetCounters) SetSymbolErrors(v uint64) {
 	x.xxx_hidden_SymbolErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 13)
+}
+
+func (x *EthernetCounters) SetLastDiscontinuity(v *timestamppb.Timestamp) {
+	x.xxx_hidden_LastDiscontinuity = v
 }
 
 func (x *EthernetCounters) HasAlignmentErrors() bool {
@@ -302,6 +315,13 @@ func (x *EthernetCounters) HasSymbolErrors() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 11)
 }
 
+func (x *EthernetCounters) HasLastDiscontinuity() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_LastDiscontinuity != nil
+}
+
 func (x *EthernetCounters) ClearAlignmentErrors() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_AlignmentErrors = 0
@@ -362,6 +382,10 @@ func (x *EthernetCounters) ClearSymbolErrors() {
 	x.xxx_hidden_SymbolErrors = 0
 }
 
+func (x *EthernetCounters) ClearLastDiscontinuity() {
+	x.xxx_hidden_LastDiscontinuity = nil
+}
+
 type EthernetCounters_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -395,6 +419,9 @@ type EthernetCounters_builder struct {
 	InternalMacReceiveErrors *uint64
 	// Times an invalid data symbol was received while carrier was present.
 	SymbolErrors *uint64
+	// The time the counters last reset or restarted counting. Absent means the
+	// source does not report one.
+	LastDiscontinuity *timestamppb.Timestamp
 }
 
 func (b0 EthernetCounters_builder) Build() *EthernetCounters {
@@ -402,53 +429,54 @@ func (b0 EthernetCounters_builder) Build() *EthernetCounters {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.AlignmentErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 13)
 		x.xxx_hidden_AlignmentErrors = *b.AlignmentErrors
 	}
 	if b.FcsErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 13)
 		x.xxx_hidden_FcsErrors = *b.FcsErrors
 	}
 	if b.SingleCollisionFrames != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 13)
 		x.xxx_hidden_SingleCollisionFrames = *b.SingleCollisionFrames
 	}
 	if b.MultipleCollisionFrames != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 13)
 		x.xxx_hidden_MultipleCollisionFrames = *b.MultipleCollisionFrames
 	}
 	if b.DeferredTransmissions != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 13)
 		x.xxx_hidden_DeferredTransmissions = *b.DeferredTransmissions
 	}
 	if b.LateCollisions != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 13)
 		x.xxx_hidden_LateCollisions = *b.LateCollisions
 	}
 	if b.ExcessiveCollisions != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 13)
 		x.xxx_hidden_ExcessiveCollisions = *b.ExcessiveCollisions
 	}
 	if b.InternalMacTransmitErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 13)
 		x.xxx_hidden_InternalMacTransmitErrors = *b.InternalMacTransmitErrors
 	}
 	if b.CarrierSenseErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 13)
 		x.xxx_hidden_CarrierSenseErrors = *b.CarrierSenseErrors
 	}
 	if b.FrameTooLongs != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 13)
 		x.xxx_hidden_FrameTooLongs = *b.FrameTooLongs
 	}
 	if b.InternalMacReceiveErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 13)
 		x.xxx_hidden_InternalMacReceiveErrors = *b.InternalMacReceiveErrors
 	}
 	if b.SymbolErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 13)
 		x.xxx_hidden_SymbolErrors = *b.SymbolErrors
 	}
+	x.xxx_hidden_LastDiscontinuity = b.LastDiscontinuity
 	return m0
 }
 
@@ -456,7 +484,7 @@ var File_flowseer_net_phy_v1_ethernet_counters_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_ethernet_counters_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/net/phy/v1/ethernet_counters.proto\x12\x13flowseer.net.phy.v1\"\xe2\x04\n" +
+	"+flowseer/net/phy/v1/ethernet_counters.proto\x12\x13flowseer.net.phy.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x05\n" +
 	"\x10EthernetCounters\x12)\n" +
 	"\x10alignment_errors\x18\x01 \x01(\x04R\x0falignmentErrors\x12\x1d\n" +
 	"\n" +
@@ -471,19 +499,22 @@ const file_flowseer_net_phy_v1_ethernet_counters_proto_rawDesc = "" +
 	"\x0fframe_too_longs\x18\n" +
 	" \x01(\x04R\rframeTooLongs\x12=\n" +
 	"\x1binternal_mac_receive_errors\x18\v \x01(\x04R\x18internalMacReceiveErrors\x12#\n" +
-	"\rsymbol_errors\x18\f \x01(\x04R\fsymbolErrorsB\xe3\x01\n" +
+	"\rsymbol_errors\x18\f \x01(\x04R\fsymbolErrors\x12I\n" +
+	"\x12last_discontinuity\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\xe3\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x15EthernetCountersProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_ethernet_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_ethernet_counters_proto_goTypes = []any{
-	(*EthernetCounters)(nil), // 0: flowseer.net.phy.v1.EthernetCounters
+	(*EthernetCounters)(nil),      // 0: flowseer.net.phy.v1.EthernetCounters
+	(*timestamppb.Timestamp)(nil), // 1: google.protobuf.Timestamp
 }
 var file_flowseer_net_phy_v1_ethernet_counters_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: flowseer.net.phy.v1.EthernetCounters.last_discontinuity:type_name -> google.protobuf.Timestamp
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_phy_v1_ethernet_counters_proto_init() }

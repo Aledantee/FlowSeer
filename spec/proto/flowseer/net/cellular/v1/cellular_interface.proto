@@ -1,0 +1,47 @@
+edition = "2024";
+
+package flowseer.net.cellular.v1;
+
+import "flowseer/net/cellular/v1/cellular_signal.proto";
+import "flowseer/net/cellular/v1/radio_access_technology.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// The cellular side of one WAN interface: its modem, SIM, serving cell, and
+// signal. Mirrors the IOS-XE cellular tables keyed by cellular-interface
+// (Cisco-IOS-XE-cellwan-oper.yang:1804-1841). Identifier formats are TS
+// 23.003's.
+message CellularInterface {
+  // The cellular interface. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The radio access technology in use. Absent means unreported.
+  RadioAccessTechnology technology = 2;
+  // The E-UTRA or NR operating band number, read with technology. Absent
+  // means unreported.
+  uint32 band = 3;
+  // The modem's IMEI, 15 digits (TS 23.003 §6.2.1). Absent means unreported.
+  string imei = 4 [(buf.validate.field).string.pattern = "^[0-9]{15}$"];
+  // The SIM's IMSI, at most 15 digits (TS 23.003 §2.2). Absent means
+  // unreported.
+  string imsi = 5 [(buf.validate.field).string.pattern = "^[0-9]{6,15}$"];
+  // The SIM's ICCID, digits only with any BCD F padding stripped. Absent
+  // means unreported.
+  string iccid = 6 [(buf.validate.field).string.pattern = "^[0-9]{1,22}$"];
+  // The serving network's mobile country code, three digits (TS 23.003
+  // §2.2). Absent means unreported.
+  string mcc = 7 [(buf.validate.field).string.pattern = "^[0-9]{3}$"];
+  // The serving network's mobile network code, two or three digits with any
+  // leading zero kept (TS 23.003 §2.2). Absent means unreported.
+  string mnc = 8 [(buf.validate.field).string.pattern = "^[0-9]{2,3}$"];
+  // The serving cell's identity. Absent means unreported.
+  uint64 cell_id = 9;
+  // The serving cell's tracking area code. Absent means unreported.
+  uint32 tracking_area_code = 10;
+  // The serving cell's physical cell identity. Absent means unreported.
+  uint32 physical_cell_id = 11;
+  // The serving cell's signal quality. Absent means unreported.
+  CellularSignal signal = 12;
+}

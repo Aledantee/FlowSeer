@@ -9,6 +9,7 @@ package interfacev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -30,8 +31,8 @@ const (
 // and 64-bit columns reports the 64-bit value here.
 type InterfaceCounters struct {
 	state                          protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_InOctets            uint64                 `protobuf:"varint,1,opt,name=in_octets,json=inOctets"`
-	xxx_hidden_OutOctets           uint64                 `protobuf:"varint,2,opt,name=out_octets,json=outOctets"`
+	xxx_hidden_InBytes             uint64                 `protobuf:"varint,1,opt,name=in_bytes,json=inBytes"`
+	xxx_hidden_OutBytes            uint64                 `protobuf:"varint,2,opt,name=out_bytes,json=outBytes"`
 	xxx_hidden_InUnicastPackets    uint64                 `protobuf:"varint,3,opt,name=in_unicast_packets,json=inUnicastPackets"`
 	xxx_hidden_OutUnicastPackets   uint64                 `protobuf:"varint,4,opt,name=out_unicast_packets,json=outUnicastPackets"`
 	xxx_hidden_InMulticastPackets  uint64                 `protobuf:"varint,5,opt,name=in_multicast_packets,json=inMulticastPackets"`
@@ -42,6 +43,7 @@ type InterfaceCounters struct {
 	xxx_hidden_OutErrors           uint64                 `protobuf:"varint,10,opt,name=out_errors,json=outErrors"`
 	xxx_hidden_InDiscards          uint64                 `protobuf:"varint,11,opt,name=in_discards,json=inDiscards"`
 	xxx_hidden_OutDiscards         uint64                 `protobuf:"varint,12,opt,name=out_discards,json=outDiscards"`
+	xxx_hidden_LastDiscontinuity   *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_discontinuity,json=lastDiscontinuity"`
 	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
 	XXX_presence                   [1]uint32
 	unknownFields                  protoimpl.UnknownFields
@@ -73,16 +75,16 @@ func (x *InterfaceCounters) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *InterfaceCounters) GetInOctets() uint64 {
+func (x *InterfaceCounters) GetInBytes() uint64 {
 	if x != nil {
-		return x.xxx_hidden_InOctets
+		return x.xxx_hidden_InBytes
 	}
 	return 0
 }
 
-func (x *InterfaceCounters) GetOutOctets() uint64 {
+func (x *InterfaceCounters) GetOutBytes() uint64 {
 	if x != nil {
-		return x.xxx_hidden_OutOctets
+		return x.xxx_hidden_OutBytes
 	}
 	return 0
 }
@@ -157,74 +159,85 @@ func (x *InterfaceCounters) GetOutDiscards() uint64 {
 	return 0
 }
 
-func (x *InterfaceCounters) SetInOctets(v uint64) {
-	x.xxx_hidden_InOctets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
+func (x *InterfaceCounters) GetLastDiscontinuity() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_LastDiscontinuity
+	}
+	return nil
 }
 
-func (x *InterfaceCounters) SetOutOctets(v uint64) {
-	x.xxx_hidden_OutOctets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 12)
+func (x *InterfaceCounters) SetInBytes(v uint64) {
+	x.xxx_hidden_InBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 13)
+}
+
+func (x *InterfaceCounters) SetOutBytes(v uint64) {
+	x.xxx_hidden_OutBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 13)
 }
 
 func (x *InterfaceCounters) SetInUnicastPackets(v uint64) {
 	x.xxx_hidden_InUnicastPackets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 13)
 }
 
 func (x *InterfaceCounters) SetOutUnicastPackets(v uint64) {
 	x.xxx_hidden_OutUnicastPackets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 13)
 }
 
 func (x *InterfaceCounters) SetInMulticastPackets(v uint64) {
 	x.xxx_hidden_InMulticastPackets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 13)
 }
 
 func (x *InterfaceCounters) SetOutMulticastPackets(v uint64) {
 	x.xxx_hidden_OutMulticastPackets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 13)
 }
 
 func (x *InterfaceCounters) SetInBroadcastPackets(v uint64) {
 	x.xxx_hidden_InBroadcastPackets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 13)
 }
 
 func (x *InterfaceCounters) SetOutBroadcastPackets(v uint64) {
 	x.xxx_hidden_OutBroadcastPackets = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 13)
 }
 
 func (x *InterfaceCounters) SetInErrors(v uint64) {
 	x.xxx_hidden_InErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 13)
 }
 
 func (x *InterfaceCounters) SetOutErrors(v uint64) {
 	x.xxx_hidden_OutErrors = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 13)
 }
 
 func (x *InterfaceCounters) SetInDiscards(v uint64) {
 	x.xxx_hidden_InDiscards = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 13)
 }
 
 func (x *InterfaceCounters) SetOutDiscards(v uint64) {
 	x.xxx_hidden_OutDiscards = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 12)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 13)
 }
 
-func (x *InterfaceCounters) HasInOctets() bool {
+func (x *InterfaceCounters) SetLastDiscontinuity(v *timestamppb.Timestamp) {
+	x.xxx_hidden_LastDiscontinuity = v
+}
+
+func (x *InterfaceCounters) HasInBytes() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *InterfaceCounters) HasOutOctets() bool {
+func (x *InterfaceCounters) HasOutBytes() bool {
 	if x == nil {
 		return false
 	}
@@ -301,14 +314,21 @@ func (x *InterfaceCounters) HasOutDiscards() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 11)
 }
 
-func (x *InterfaceCounters) ClearInOctets() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_InOctets = 0
+func (x *InterfaceCounters) HasLastDiscontinuity() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_LastDiscontinuity != nil
 }
 
-func (x *InterfaceCounters) ClearOutOctets() {
+func (x *InterfaceCounters) ClearInBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_InBytes = 0
+}
+
+func (x *InterfaceCounters) ClearOutBytes() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_OutOctets = 0
+	x.xxx_hidden_OutBytes = 0
 }
 
 func (x *InterfaceCounters) ClearInUnicastPackets() {
@@ -361,13 +381,17 @@ func (x *InterfaceCounters) ClearOutDiscards() {
 	x.xxx_hidden_OutDiscards = 0
 }
 
+func (x *InterfaceCounters) ClearLastDiscontinuity() {
+	x.xxx_hidden_LastDiscontinuity = nil
+}
+
 type InterfaceCounters_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Octets received, including framing characters.
-	InOctets *uint64
-	// Octets transmitted, including framing characters.
-	OutOctets *uint64
+	// Bytes received, including framing characters.
+	InBytes *uint64
+	// Bytes transmitted, including framing characters.
+	OutBytes *uint64
 	// Packets delivered to a higher layer that were not addressed to a
 	// multicast or broadcast address.
 	InUnicastPackets *uint64
@@ -394,60 +418,64 @@ type InterfaceCounters_builder struct {
 	InDiscards *uint64
 	// Outbound packets discarded without an error, such as for buffer space.
 	OutDiscards *uint64
+	// The time the counters last reset or restarted counting. Absent means the
+	// source does not report one.
+	LastDiscontinuity *timestamppb.Timestamp
 }
 
 func (b0 InterfaceCounters_builder) Build() *InterfaceCounters {
 	m0 := &InterfaceCounters{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.InOctets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
-		x.xxx_hidden_InOctets = *b.InOctets
+	if b.InBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 13)
+		x.xxx_hidden_InBytes = *b.InBytes
 	}
-	if b.OutOctets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 12)
-		x.xxx_hidden_OutOctets = *b.OutOctets
+	if b.OutBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 13)
+		x.xxx_hidden_OutBytes = *b.OutBytes
 	}
 	if b.InUnicastPackets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 13)
 		x.xxx_hidden_InUnicastPackets = *b.InUnicastPackets
 	}
 	if b.OutUnicastPackets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 13)
 		x.xxx_hidden_OutUnicastPackets = *b.OutUnicastPackets
 	}
 	if b.InMulticastPackets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 13)
 		x.xxx_hidden_InMulticastPackets = *b.InMulticastPackets
 	}
 	if b.OutMulticastPackets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 13)
 		x.xxx_hidden_OutMulticastPackets = *b.OutMulticastPackets
 	}
 	if b.InBroadcastPackets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 13)
 		x.xxx_hidden_InBroadcastPackets = *b.InBroadcastPackets
 	}
 	if b.OutBroadcastPackets != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 13)
 		x.xxx_hidden_OutBroadcastPackets = *b.OutBroadcastPackets
 	}
 	if b.InErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 13)
 		x.xxx_hidden_InErrors = *b.InErrors
 	}
 	if b.OutErrors != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 13)
 		x.xxx_hidden_OutErrors = *b.OutErrors
 	}
 	if b.InDiscards != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 13)
 		x.xxx_hidden_InDiscards = *b.InDiscards
 	}
 	if b.OutDiscards != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 12)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 13)
 		x.xxx_hidden_OutDiscards = *b.OutDiscards
 	}
+	x.xxx_hidden_LastDiscontinuity = b.LastDiscontinuity
 	return m0
 }
 
@@ -455,11 +483,10 @@ var File_flowseer_net_interface_v1_interface_counters_proto protoreflect.FileDes
 
 const file_flowseer_net_interface_v1_interface_counters_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/net/interface/v1/interface_counters.proto\x12\x19flowseer.net.interface.v1\"\xf9\x03\n" +
-	"\x11InterfaceCounters\x12\x1b\n" +
-	"\tin_octets\x18\x01 \x01(\x04R\binOctets\x12\x1d\n" +
-	"\n" +
-	"out_octets\x18\x02 \x01(\x04R\toutOctets\x12,\n" +
+	"2flowseer/net/interface/v1/interface_counters.proto\x12\x19flowseer.net.interface.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc0\x04\n" +
+	"\x11InterfaceCounters\x12\x19\n" +
+	"\bin_bytes\x18\x01 \x01(\x04R\ainBytes\x12\x1b\n" +
+	"\tout_bytes\x18\x02 \x01(\x04R\boutBytes\x12,\n" +
 	"\x12in_unicast_packets\x18\x03 \x01(\x04R\x10inUnicastPackets\x12.\n" +
 	"\x13out_unicast_packets\x18\x04 \x01(\x04R\x11outUnicastPackets\x120\n" +
 	"\x14in_multicast_packets\x18\x05 \x01(\x04R\x12inMulticastPackets\x122\n" +
@@ -472,19 +499,22 @@ const file_flowseer_net_interface_v1_interface_counters_proto_rawDesc = "" +
 	" \x01(\x04R\toutErrors\x12\x1f\n" +
 	"\vin_discards\x18\v \x01(\x04R\n" +
 	"inDiscards\x12!\n" +
-	"\fout_discards\x18\f \x01(\x04R\voutDiscardsB\x90\x02\n" +
+	"\fout_discards\x18\f \x01(\x04R\voutDiscards\x12I\n" +
+	"\x12last_discontinuity\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x90\x02\n" +
 	"\x1dcom.flowseer.net.interface.v1B\x16InterfaceCountersProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_interface_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_interface_counters_proto_goTypes = []any{
-	(*InterfaceCounters)(nil), // 0: flowseer.net.interface.v1.InterfaceCounters
+	(*InterfaceCounters)(nil),     // 0: flowseer.net.interface.v1.InterfaceCounters
+	(*timestamppb.Timestamp)(nil), // 1: google.protobuf.Timestamp
 }
 var file_flowseer_net_interface_v1_interface_counters_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: flowseer.net.interface.v1.InterfaceCounters.last_discontinuity:type_name -> google.protobuf.Timestamp
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_interface_v1_interface_counters_proto_init() }

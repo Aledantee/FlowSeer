@@ -9,6 +9,7 @@ package lldpv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -34,7 +35,9 @@ type Neighbor struct {
 	xxx_hidden_CapabilitiesSupported []SystemCapability     `protobuf:"varint,7,rep,packed,name=capabilities_supported,json=capabilitiesSupported,enum=flowseer.net.protocol.lldp.v1.SystemCapability"`
 	xxx_hidden_CapabilitiesEnabled   []SystemCapability     `protobuf:"varint,8,rep,packed,name=capabilities_enabled,json=capabilitiesEnabled,enum=flowseer.net.protocol.lldp.v1.SystemCapability"`
 	xxx_hidden_ManagementAddresses   *[]*ManagementAddress  `protobuf:"bytes,9,rep,name=management_addresses,json=managementAddresses"`
-	xxx_hidden_TimeToLiveSeconds     uint32                 `protobuf:"varint,10,opt,name=time_to_live_seconds,json=timeToLiveSeconds"`
+	xxx_hidden_TimeToLive            *durationpb.Duration   `protobuf:"bytes,11,opt,name=time_to_live,json=timeToLive"`
+	xxx_hidden_Ieee8023              *Ieee8023Extension     `protobuf:"bytes,12,opt,name=ieee8023"`
+	xxx_hidden_Med                   *MedExtension          `protobuf:"bytes,13,opt,name=med"`
 	XXX_raceDetectHookData           protoimpl.RaceDetectHookData
 	XXX_presence                     [1]uint32
 	unknownFields                    protoimpl.UnknownFields
@@ -143,16 +146,30 @@ func (x *Neighbor) GetManagementAddresses() []*ManagementAddress {
 	return nil
 }
 
-func (x *Neighbor) GetTimeToLiveSeconds() uint32 {
+func (x *Neighbor) GetTimeToLive() *durationpb.Duration {
 	if x != nil {
-		return x.xxx_hidden_TimeToLiveSeconds
+		return x.xxx_hidden_TimeToLive
 	}
-	return 0
+	return nil
+}
+
+func (x *Neighbor) GetIeee8023() *Ieee8023Extension {
+	if x != nil {
+		return x.xxx_hidden_Ieee8023
+	}
+	return nil
+}
+
+func (x *Neighbor) GetMed() *MedExtension {
+	if x != nil {
+		return x.xxx_hidden_Med
+	}
+	return nil
 }
 
 func (x *Neighbor) SetLocalInterfaceName(v string) {
 	x.xxx_hidden_LocalInterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
 }
 
 func (x *Neighbor) SetChassisId(v *ChassisId) {
@@ -165,17 +182,17 @@ func (x *Neighbor) SetPortId(v *PortId) {
 
 func (x *Neighbor) SetPortDescription(v string) {
 	x.xxx_hidden_PortDescription = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 12)
 }
 
 func (x *Neighbor) SetSystemName(v string) {
 	x.xxx_hidden_SystemName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 12)
 }
 
 func (x *Neighbor) SetSystemDescription(v string) {
 	x.xxx_hidden_SystemDescription = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 12)
 }
 
 func (x *Neighbor) SetCapabilitiesSupported(v []SystemCapability) {
@@ -190,9 +207,16 @@ func (x *Neighbor) SetManagementAddresses(v []*ManagementAddress) {
 	x.xxx_hidden_ManagementAddresses = &v
 }
 
-func (x *Neighbor) SetTimeToLiveSeconds(v uint32) {
-	x.xxx_hidden_TimeToLiveSeconds = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 10)
+func (x *Neighbor) SetTimeToLive(v *durationpb.Duration) {
+	x.xxx_hidden_TimeToLive = v
+}
+
+func (x *Neighbor) SetIeee8023(v *Ieee8023Extension) {
+	x.xxx_hidden_Ieee8023 = v
+}
+
+func (x *Neighbor) SetMed(v *MedExtension) {
+	x.xxx_hidden_Med = v
 }
 
 func (x *Neighbor) HasLocalInterfaceName() bool {
@@ -237,11 +261,25 @@ func (x *Neighbor) HasSystemDescription() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
 }
 
-func (x *Neighbor) HasTimeToLiveSeconds() bool {
+func (x *Neighbor) HasTimeToLive() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+	return x.xxx_hidden_TimeToLive != nil
+}
+
+func (x *Neighbor) HasIeee8023() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Ieee8023 != nil
+}
+
+func (x *Neighbor) HasMed() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Med != nil
 }
 
 func (x *Neighbor) ClearLocalInterfaceName() {
@@ -272,9 +310,16 @@ func (x *Neighbor) ClearSystemDescription() {
 	x.xxx_hidden_SystemDescription = nil
 }
 
-func (x *Neighbor) ClearTimeToLiveSeconds() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
-	x.xxx_hidden_TimeToLiveSeconds = 0
+func (x *Neighbor) ClearTimeToLive() {
+	x.xxx_hidden_TimeToLive = nil
+}
+
+func (x *Neighbor) ClearIeee8023() {
+	x.xxx_hidden_Ieee8023 = nil
+}
+
+func (x *Neighbor) ClearMed() {
+	x.xxx_hidden_Med = nil
 }
 
 type Neighbor_builder struct {
@@ -309,12 +354,17 @@ type Neighbor_builder struct {
 	// The addresses at which the neighbor announced it can be managed. An
 	// empty list means none were announced.
 	ManagementAddresses []*ManagementAddress
-	// The time to live the neighbor announced, in seconds, from the mandatory
-	// Time To Live TLV (IEEE 802.1AB-2016 8.5.4). Zero means the neighbor
-	// asked for its information to be discarded. Absent means the source did
-	// not report it; a consumer then cannot tell a fresh announcement from
-	// one about to expire.
-	TimeToLiveSeconds *uint32
+	// The time to live the neighbor announced, from the mandatory Time To Live
+	// TLV (IEEE 802.1AB-2016 8.5.4), which carries whole seconds in 16 bits.
+	// Zero means the neighbor asked for its information to be discarded.
+	// Absent means the source did not report it; a consumer then cannot tell a
+	// fresh announcement from one about to expire.
+	TimeToLive *durationpb.Duration
+	// The IEEE 802.3 organizationally specific TLVs. Absent means the neighbor
+	// sent none of them.
+	Ieee8023 *Ieee8023Extension
+	// The LLDP-MED TLVs. Absent means the neighbor sent none of them.
+	Med *MedExtension
 }
 
 func (b0 Neighbor_builder) Build() *Neighbor {
@@ -322,30 +372,29 @@ func (b0 Neighbor_builder) Build() *Neighbor {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.LocalInterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
 		x.xxx_hidden_LocalInterfaceName = b.LocalInterfaceName
 	}
 	x.xxx_hidden_ChassisId = b.ChassisId
 	x.xxx_hidden_PortId = b.PortId
 	if b.PortDescription != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 12)
 		x.xxx_hidden_PortDescription = b.PortDescription
 	}
 	if b.SystemName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 12)
 		x.xxx_hidden_SystemName = b.SystemName
 	}
 	if b.SystemDescription != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 12)
 		x.xxx_hidden_SystemDescription = b.SystemDescription
 	}
 	x.xxx_hidden_CapabilitiesSupported = b.CapabilitiesSupported
 	x.xxx_hidden_CapabilitiesEnabled = b.CapabilitiesEnabled
 	x.xxx_hidden_ManagementAddresses = &b.ManagementAddresses
-	if b.TimeToLiveSeconds != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 10)
-		x.xxx_hidden_TimeToLiveSeconds = *b.TimeToLiveSeconds
-	}
+	x.xxx_hidden_TimeToLive = b.TimeToLive
+	x.xxx_hidden_Ieee8023 = b.Ieee8023
+	x.xxx_hidden_Med = b.Med
 	return m0
 }
 
@@ -353,9 +402,9 @@ var File_flowseer_net_protocol_lldp_v1_neighbor_proto protoreflect.FileDescripto
 
 const file_flowseer_net_protocol_lldp_v1_neighbor_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/net/protocol/lldp/v1/neighbor.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a.flowseer/net/protocol/lldp/v1/chassis_id.proto\x1a6flowseer/net/protocol/lldp/v1/management_address.proto\x1a+flowseer/net/protocol/lldp/v1/port_id.proto\x1a5flowseer/net/protocol/lldp/v1/system_capability.proto\"\xdf\x05\n" +
+	",flowseer/net/protocol/lldp/v1/neighbor.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a.flowseer/net/protocol/lldp/v1/chassis_id.proto\x1a6flowseer/net/protocol/lldp/v1/ieee8023_extension.proto\x1a6flowseer/net/protocol/lldp/v1/management_address.proto\x1a1flowseer/net/protocol/lldp/v1/med_extension.proto\x1a+flowseer/net/protocol/lldp/v1/port_id.proto\x1a5flowseer/net/protocol/lldp/v1/system_capability.proto\x1a\x1egoogle/protobuf/duration.proto\"\x99\a\n" +
 	"\bNeighbor\x12>\n" +
-	"\x14local_interface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\x12localInterfaceName\x12O\n" +
+	"\x14local_interface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\x12localInterfaceName\x12O\n" +
 	"\n" +
 	"chassis_id\x18\x02 \x01(\v2(.flowseer.net.protocol.lldp.v1.ChassisIdB\x06\xbaH\x03\xc8\x01\x01R\tchassisId\x12F\n" +
 	"\aport_id\x18\x03 \x01(\v2%.flowseer.net.protocol.lldp.v1.PortIdB\x06\xbaH\x03\xc8\x01\x01R\x06portId\x12)\n" +
@@ -365,18 +414,24 @@ const file_flowseer_net_protocol_lldp_v1_neighbor_proto_rawDesc = "" +
 	"\x12system_description\x18\x06 \x01(\tR\x11systemDescription\x12p\n" +
 	"\x16capabilities_supported\x18\a \x03(\x0e2/.flowseer.net.protocol.lldp.v1.SystemCapabilityB\b\xbaH\x05\x92\x01\x02\x18\x01R\x15capabilitiesSupported\x12l\n" +
 	"\x14capabilities_enabled\x18\b \x03(\x0e2/.flowseer.net.protocol.lldp.v1.SystemCapabilityB\b\xbaH\x05\x92\x01\x02\x18\x01R\x13capabilitiesEnabled\x12c\n" +
-	"\x14management_addresses\x18\t \x03(\v20.flowseer.net.protocol.lldp.v1.ManagementAddressR\x13managementAddresses\x12:\n" +
-	"\x14time_to_live_seconds\x18\n" +
-	" \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x11timeToLiveSecondsB\x9a\x02\n" +
+	"\x14management_addresses\x18\t \x03(\v20.flowseer.net.protocol.lldp.v1.ManagementAddressR\x13managementAddresses\x12K\n" +
+	"\ftime_to_live\x18\v \x01(\v2\x19.google.protobuf.DurationB\x0e\xbaH\v\xaa\x01\b\"\x04\b\xff\xff\x032\x00R\n" +
+	"timeToLive\x12L\n" +
+	"\bieee8023\x18\f \x01(\v20.flowseer.net.protocol.lldp.v1.Ieee8023ExtensionR\bieee8023\x12=\n" +
+	"\x03med\x18\r \x01(\v2+.flowseer.net.protocol.lldp.v1.MedExtensionR\x03medJ\x04\b\n" +
+	"\x10\vR\x14time_to_live_secondsB\x9a\x02\n" +
 	"!com.flowseer.net.protocol.lldp.v1B\rNeighborProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_goTypes = []any{
-	(*Neighbor)(nil),          // 0: flowseer.net.protocol.lldp.v1.Neighbor
-	(*ChassisId)(nil),         // 1: flowseer.net.protocol.lldp.v1.ChassisId
-	(*PortId)(nil),            // 2: flowseer.net.protocol.lldp.v1.PortId
-	(SystemCapability)(0),     // 3: flowseer.net.protocol.lldp.v1.SystemCapability
-	(*ManagementAddress)(nil), // 4: flowseer.net.protocol.lldp.v1.ManagementAddress
+	(*Neighbor)(nil),            // 0: flowseer.net.protocol.lldp.v1.Neighbor
+	(*ChassisId)(nil),           // 1: flowseer.net.protocol.lldp.v1.ChassisId
+	(*PortId)(nil),              // 2: flowseer.net.protocol.lldp.v1.PortId
+	(SystemCapability)(0),       // 3: flowseer.net.protocol.lldp.v1.SystemCapability
+	(*ManagementAddress)(nil),   // 4: flowseer.net.protocol.lldp.v1.ManagementAddress
+	(*durationpb.Duration)(nil), // 5: google.protobuf.Duration
+	(*Ieee8023Extension)(nil),   // 6: flowseer.net.protocol.lldp.v1.Ieee8023Extension
+	(*MedExtension)(nil),        // 7: flowseer.net.protocol.lldp.v1.MedExtension
 }
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_depIdxs = []int32{
 	1, // 0: flowseer.net.protocol.lldp.v1.Neighbor.chassis_id:type_name -> flowseer.net.protocol.lldp.v1.ChassisId
@@ -384,11 +439,14 @@ var file_flowseer_net_protocol_lldp_v1_neighbor_proto_depIdxs = []int32{
 	3, // 2: flowseer.net.protocol.lldp.v1.Neighbor.capabilities_supported:type_name -> flowseer.net.protocol.lldp.v1.SystemCapability
 	3, // 3: flowseer.net.protocol.lldp.v1.Neighbor.capabilities_enabled:type_name -> flowseer.net.protocol.lldp.v1.SystemCapability
 	4, // 4: flowseer.net.protocol.lldp.v1.Neighbor.management_addresses:type_name -> flowseer.net.protocol.lldp.v1.ManagementAddress
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	5, // 5: flowseer.net.protocol.lldp.v1.Neighbor.time_to_live:type_name -> google.protobuf.Duration
+	6, // 6: flowseer.net.protocol.lldp.v1.Neighbor.ieee8023:type_name -> flowseer.net.protocol.lldp.v1.Ieee8023Extension
+	7, // 7: flowseer.net.protocol.lldp.v1.Neighbor.med:type_name -> flowseer.net.protocol.lldp.v1.MedExtension
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_protocol_lldp_v1_neighbor_proto_init() }
@@ -397,7 +455,9 @@ func file_flowseer_net_protocol_lldp_v1_neighbor_proto_init() {
 		return
 	}
 	file_flowseer_net_protocol_lldp_v1_chassis_id_proto_init()
+	file_flowseer_net_protocol_lldp_v1_ieee8023_extension_proto_init()
 	file_flowseer_net_protocol_lldp_v1_management_address_proto_init()
+	file_flowseer_net_protocol_lldp_v1_med_extension_proto_init()
 	file_flowseer_net_protocol_lldp_v1_port_id_proto_init()
 	file_flowseer_net_protocol_lldp_v1_system_capability_proto_init()
 	type x struct{}

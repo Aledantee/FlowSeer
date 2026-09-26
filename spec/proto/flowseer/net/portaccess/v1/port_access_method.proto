@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.portaccess.v1;
+
+// The authentication method used for a port-access session.
+enum PortAccessMethod {
+  // Method is unspecified or unknown.
+  PORT_ACCESS_METHOD_UNSPECIFIED = 0;
+  // IEEE 802.1X port-based network access control.
+  PORT_ACCESS_METHOD_DOT1X = 1;
+  // MAC Authentication Bypass (MAB).
+  PORT_ACCESS_METHOD_MAB = 2;
+  // Web-based captive portal authentication.
+  PORT_ACCESS_METHOD_WEB_AUTH = 3;
+}

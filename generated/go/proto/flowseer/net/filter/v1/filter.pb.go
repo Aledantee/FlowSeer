@@ -239,6 +239,11 @@ type FilterMatch struct {
 	xxx_hidden_DstPorts    *[]*v1.TransportPortMatch `protobuf:"bytes,5,rep,name=dst_ports,json=dstPorts"`
 	xxx_hidden_Icmp        *v1.IcmpMatch             `protobuf:"bytes,6,opt,name=icmp"`
 	xxx_hidden_TcpFlags    *v1.TcpFlagsMatch         `protobuf:"bytes,7,opt,name=tcp_flags,json=tcpFlags"`
+	xxx_hidden_EtherType   v1.EtherType              `protobuf:"varint,8,opt,name=ether_type,json=etherType,enum=flowseer.net.packet.v1.EtherType"`
+	xxx_hidden_SrcMac      *MacMatch                 `protobuf:"bytes,9,opt,name=src_mac,json=srcMac"`
+	xxx_hidden_DstMac      *MacMatch                 `protobuf:"bytes,10,opt,name=dst_mac,json=dstMac"`
+	xxx_hidden_Pcps        []uint32                  `protobuf:"varint,11,rep,packed,name=pcps"`
+	xxx_hidden_Dscps       []v1.IpDscp               `protobuf:"varint,12,rep,packed,name=dscps,enum=flowseer.net.packet.v1.IpDscp"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -329,9 +334,46 @@ func (x *FilterMatch) GetTcpFlags() *v1.TcpFlagsMatch {
 	return nil
 }
 
+func (x *FilterMatch) GetEtherType() v1.EtherType {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 7) {
+			return x.xxx_hidden_EtherType
+		}
+	}
+	return v1.EtherType(0)
+}
+
+func (x *FilterMatch) GetSrcMac() *MacMatch {
+	if x != nil {
+		return x.xxx_hidden_SrcMac
+	}
+	return nil
+}
+
+func (x *FilterMatch) GetDstMac() *MacMatch {
+	if x != nil {
+		return x.xxx_hidden_DstMac
+	}
+	return nil
+}
+
+func (x *FilterMatch) GetPcps() []uint32 {
+	if x != nil {
+		return x.xxx_hidden_Pcps
+	}
+	return nil
+}
+
+func (x *FilterMatch) GetDscps() []v1.IpDscp {
+	if x != nil {
+		return x.xxx_hidden_Dscps
+	}
+	return nil
+}
+
 func (x *FilterMatch) SetProtocol(v v1.IpProtocol) {
 	x.xxx_hidden_Protocol = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 12)
 }
 
 func (x *FilterMatch) SetSrcPrefixes(v []*v11.IpPrefix) {
@@ -358,6 +400,27 @@ func (x *FilterMatch) SetTcpFlags(v *v1.TcpFlagsMatch) {
 	x.xxx_hidden_TcpFlags = v
 }
 
+func (x *FilterMatch) SetEtherType(v v1.EtherType) {
+	x.xxx_hidden_EtherType = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 12)
+}
+
+func (x *FilterMatch) SetSrcMac(v *MacMatch) {
+	x.xxx_hidden_SrcMac = v
+}
+
+func (x *FilterMatch) SetDstMac(v *MacMatch) {
+	x.xxx_hidden_DstMac = v
+}
+
+func (x *FilterMatch) SetPcps(v []uint32) {
+	x.xxx_hidden_Pcps = v
+}
+
+func (x *FilterMatch) SetDscps(v []v1.IpDscp) {
+	x.xxx_hidden_Dscps = v
+}
+
 func (x *FilterMatch) HasProtocol() bool {
 	if x == nil {
 		return false
@@ -379,6 +442,27 @@ func (x *FilterMatch) HasTcpFlags() bool {
 	return x.xxx_hidden_TcpFlags != nil
 }
 
+func (x *FilterMatch) HasEtherType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
+func (x *FilterMatch) HasSrcMac() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_SrcMac != nil
+}
+
+func (x *FilterMatch) HasDstMac() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_DstMac != nil
+}
+
 func (x *FilterMatch) ClearProtocol() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Protocol = v1.IpProtocol_IP_PROTOCOL_HOPOPT
@@ -390,6 +474,19 @@ func (x *FilterMatch) ClearIcmp() {
 
 func (x *FilterMatch) ClearTcpFlags() {
 	x.xxx_hidden_TcpFlags = nil
+}
+
+func (x *FilterMatch) ClearEtherType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_EtherType = v1.EtherType_ETHER_TYPE_UNSPECIFIED
+}
+
+func (x *FilterMatch) ClearSrcMac() {
+	x.xxx_hidden_SrcMac = nil
+}
+
+func (x *FilterMatch) ClearDstMac() {
+	x.xxx_hidden_DstMac = nil
 }
 
 type FilterMatch_builder struct {
@@ -409,6 +506,18 @@ type FilterMatch_builder struct {
 	Icmp *v1.IcmpMatch
 	// TCP control flag predicate.
 	TcpFlags *v1.TcpFlagsMatch
+	// The Ethernet frame's EtherType.
+	EtherType *v1.EtherType
+	// Source MAC address predicate.
+	SrcMac *MacMatch
+	// Destination MAC address predicate.
+	DstMac *MacMatch
+	// IEEE 802.1Q priority code points. If non-empty, the frame's PCP must be
+	// one of them.
+	Pcps []uint32
+	// Differentiated Services code points. If non-empty, the packet's DSCP must
+	// be one of them.
+	Dscps []v1.IpDscp
 }
 
 func (b0 FilterMatch_builder) Build() *FilterMatch {
@@ -416,7 +525,7 @@ func (b0 FilterMatch_builder) Build() *FilterMatch {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Protocol != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 12)
 		x.xxx_hidden_Protocol = *b.Protocol
 	}
 	x.xxx_hidden_SrcPrefixes = &b.SrcPrefixes
@@ -425,6 +534,14 @@ func (b0 FilterMatch_builder) Build() *FilterMatch {
 	x.xxx_hidden_DstPorts = &b.DstPorts
 	x.xxx_hidden_Icmp = b.Icmp
 	x.xxx_hidden_TcpFlags = b.TcpFlags
+	if b.EtherType != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 12)
+		x.xxx_hidden_EtherType = *b.EtherType
+	}
+	x.xxx_hidden_SrcMac = b.SrcMac
+	x.xxx_hidden_DstMac = b.DstMac
+	x.xxx_hidden_Pcps = b.Pcps
+	x.xxx_hidden_Dscps = b.Dscps
 	return m0
 }
 
@@ -734,11 +851,11 @@ var File_flowseer_net_filter_v1_filter_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_filter_v1_filter_proto_rawDesc = "" +
 	"\n" +
-	"#flowseer/net/filter/v1/filter.proto\x12\x16flowseer.net.filter.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a!flowseer/net/packet/v1/icmp.proto\x1a(flowseer/net/packet/v1/ip_protocol.proto\x1a&flowseer/net/packet/v1/tcp_flags.proto\x1a+flowseer/net/packet/v1/transport_port.proto\"\xbd\x01\n" +
+	"#flowseer/net/filter/v1/filter.proto\x12\x16flowseer.net.filter.v1\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a&flowseer/net/filter/v1/mac_match.proto\x1a'flowseer/net/packet/v1/ether_type.proto\x1a!flowseer/net/packet/v1/icmp.proto\x1a$flowseer/net/packet/v1/ip_dscp.proto\x1a(flowseer/net/packet/v1/ip_protocol.proto\x1a&flowseer/net/packet/v1/tcp_flags.proto\x1a+flowseer/net/packet/v1/transport_port.proto\"\xbd\x01\n" +
 	"\vFilterFacet\x12\x15\n" +
 	"\x06in_set\x18\x01 \x01(\tR\x05inSet\x12\x17\n" +
 	"\aout_set\x18\x02 \x01(\tR\x06outSet:~\xbaH{\x1ay\n" +
-	"\x16filter_facet.non_empty\x126a filter facet must bind an ingress or egress rule set\x1a'this.in_set != \"\" || this.out_set != \"\"\"\xe0\x03\n" +
+	"\x16filter_facet.non_empty\x126a filter facet must bind an ingress or egress rule set\x1a'this.in_set != \"\" || this.out_set != \"\"\"\x93\x06\n" +
 	"\vFilterMatch\x12>\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2\".flowseer.net.packet.v1.IpProtocolR\bprotocol\x12A\n" +
 	"\fsrc_prefixes\x18\x02 \x03(\v2\x1e.flowseer.net.addr.v1.IpPrefixR\vsrcPrefixes\x12A\n" +
@@ -746,7 +863,16 @@ const file_flowseer_net_filter_v1_filter_proto_rawDesc = "" +
 	"\tsrc_ports\x18\x04 \x03(\v2*.flowseer.net.packet.v1.TransportPortMatchR\bsrcPorts\x12G\n" +
 	"\tdst_ports\x18\x05 \x03(\v2*.flowseer.net.packet.v1.TransportPortMatchR\bdstPorts\x125\n" +
 	"\x04icmp\x18\x06 \x01(\v2!.flowseer.net.packet.v1.IcmpMatchR\x04icmp\x12B\n" +
-	"\ttcp_flags\x18\a \x01(\v2%.flowseer.net.packet.v1.TcpFlagsMatchR\btcpFlags\"\xa8\x01\n" +
+	"\ttcp_flags\x18\a \x01(\v2%.flowseer.net.packet.v1.TcpFlagsMatchR\btcpFlags\x12L\n" +
+	"\n" +
+	"ether_type\x18\b \x01(\x0e2!.flowseer.net.packet.v1.EtherTypeB\n" +
+	"\xbaH\a\x82\x01\x04\x80\xb5\x18\x01R\tetherType\x129\n" +
+	"\asrc_mac\x18\t \x01(\v2 .flowseer.net.filter.v1.MacMatchR\x06srcMac\x129\n" +
+	"\adst_mac\x18\n" +
+	" \x01(\v2 .flowseer.net.filter.v1.MacMatchR\x06dstMac\x12$\n" +
+	"\x04pcps\x18\v \x03(\rB\x10\xbaH\r\x92\x01\n" +
+	"\x18\x01\"\x06*\x04\x90\xb5\x18\x01R\x04pcps\x12G\n" +
+	"\x05dscps\x18\f \x03(\x0e2\x1e.flowseer.net.packet.v1.IpDscpB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a\x82\x01\x04\x98\xb5\x18\x01R\x05dscps\"\xa8\x01\n" +
 	"\n" +
 	"FilterRule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x129\n" +
@@ -785,6 +911,9 @@ var file_flowseer_net_filter_v1_filter_proto_goTypes = []any{
 	(*v1.TransportPortMatch)(nil), // 8: flowseer.net.packet.v1.TransportPortMatch
 	(*v1.IcmpMatch)(nil),          // 9: flowseer.net.packet.v1.IcmpMatch
 	(*v1.TcpFlagsMatch)(nil),      // 10: flowseer.net.packet.v1.TcpFlagsMatch
+	(v1.EtherType)(0),             // 11: flowseer.net.packet.v1.EtherType
+	(*MacMatch)(nil),              // 12: flowseer.net.filter.v1.MacMatch
+	(v1.IpDscp)(0),                // 13: flowseer.net.packet.v1.IpDscp
 }
 var file_flowseer_net_filter_v1_filter_proto_depIdxs = []int32{
 	6,  // 0: flowseer.net.filter.v1.FilterMatch.protocol:type_name -> flowseer.net.packet.v1.IpProtocol
@@ -794,15 +923,19 @@ var file_flowseer_net_filter_v1_filter_proto_depIdxs = []int32{
 	8,  // 4: flowseer.net.filter.v1.FilterMatch.dst_ports:type_name -> flowseer.net.packet.v1.TransportPortMatch
 	9,  // 5: flowseer.net.filter.v1.FilterMatch.icmp:type_name -> flowseer.net.packet.v1.IcmpMatch
 	10, // 6: flowseer.net.filter.v1.FilterMatch.tcp_flags:type_name -> flowseer.net.packet.v1.TcpFlagsMatch
-	3,  // 7: flowseer.net.filter.v1.FilterRule.match:type_name -> flowseer.net.filter.v1.FilterMatch
-	0,  // 8: flowseer.net.filter.v1.FilterRule.action:type_name -> flowseer.net.filter.v1.FilterAction
-	0,  // 9: flowseer.net.filter.v1.FilterRuleSet.default:type_name -> flowseer.net.filter.v1.FilterAction
-	4,  // 10: flowseer.net.filter.v1.FilterRuleSet.rules:type_name -> flowseer.net.filter.v1.FilterRule
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	11, // 7: flowseer.net.filter.v1.FilterMatch.ether_type:type_name -> flowseer.net.packet.v1.EtherType
+	12, // 8: flowseer.net.filter.v1.FilterMatch.src_mac:type_name -> flowseer.net.filter.v1.MacMatch
+	12, // 9: flowseer.net.filter.v1.FilterMatch.dst_mac:type_name -> flowseer.net.filter.v1.MacMatch
+	13, // 10: flowseer.net.filter.v1.FilterMatch.dscps:type_name -> flowseer.net.packet.v1.IpDscp
+	3,  // 11: flowseer.net.filter.v1.FilterRule.match:type_name -> flowseer.net.filter.v1.FilterMatch
+	0,  // 12: flowseer.net.filter.v1.FilterRule.action:type_name -> flowseer.net.filter.v1.FilterAction
+	0,  // 13: flowseer.net.filter.v1.FilterRuleSet.default:type_name -> flowseer.net.filter.v1.FilterAction
+	4,  // 14: flowseer.net.filter.v1.FilterRuleSet.rules:type_name -> flowseer.net.filter.v1.FilterRule
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_filter_v1_filter_proto_init() }
@@ -810,6 +943,7 @@ func file_flowseer_net_filter_v1_filter_proto_init() {
 	if File_flowseer_net_filter_v1_filter_proto != nil {
 		return
 	}
+	file_flowseer_net_filter_v1_mac_match_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -1,0 +1,27 @@
+edition = "2024";
+
+package flowseer.net.qos.v1;
+
+// The header field a port believes when it classifies an incoming frame.
+// FlowSeer-normalized: no registry owns trust modes, and OpenConfig QoS has
+// no trust leaf.
+enum TrustMode {
+  TRUST_MODE_UNSPECIFIED = 0;
+  // No header field is trusted; the port applies its default class. Mirrors
+  // EdgeSwitch agentCosMapIntfTrustMode untrusted
+  // (EdgeSwitch-QOS-COS-MIB:286-293).
+  TRUST_MODE_UNTRUSTED = 1;
+  // The IEEE 802.1Q priority code point is trusted. Mirrors EdgeSwitch
+  // trustDot1p, D-Link dQosPortIfTrustMode cos (DLINKSW-QOS-MIB:907-911), and
+  // Cisco SMB QosTrustMode cos (CISCOSBqosclimib.mib:379-399).
+  TRUST_MODE_COS = 2;
+  // The DSCP is trusted. Mirrors EdgeSwitch trustIpDscp, D-Link dscp, and
+  // Cisco SMB dscp.
+  TRUST_MODE_DSCP = 3;
+  // The three-bit IP precedence is trusted. Mirrors EdgeSwitch
+  // trustIpPrecedence.
+  TRUST_MODE_IP_PRECEDENCE = 4;
+  // The PCP is trusted for L2 traffic and the DSCP for L3 traffic. Mirrors
+  // Cisco SMB QosTrustMode cos-dscp.
+  TRUST_MODE_COS_DSCP = 5;
+}

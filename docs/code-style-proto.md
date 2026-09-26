@@ -1,6 +1,6 @@
 ---
 name: Protobuf Style
-last_updated: 2026-08-20
+last_updated: 2026-09-25
 ---
 
 # FlowSeer — Protobuf Style
@@ -360,6 +360,29 @@ explicit presence `has(this.x)` is meaningful for scalars too, and an expression
 assumes population will fire on partial messages. And give every `cel` rule a stable
 `id` and a `message` written for the API consumer who will read it in an error
 response, not for the reviewer of this file.
+
+**Predefined-rule extension numbers**
+
+Two packages already use 50000 on different rules messages, and this table stops
+a third package from taking a number already used on the same message.
+
+| Rules message | Number | Rule name | File |
+| --- | --- | --- | --- |
+| `StringRules` | 50000 | `interface_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
+| `StringRules` | 50001 | `shell_safe_interface_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
+| `StringRules` | 50002 | `network_instance_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
+| `StringRules` | 50003 | `protocol_instance_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
+| `UInt32Rules` | 50000 | `vlan_id` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
+| `UInt32Rules` | 50001 | `vlan_tag_vid` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
+| `UInt32Rules` | 50002 | `vlan_pcp` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
+| `UInt32Rules` | 50003 | `basis_points` | `spec/proto/flowseer/net/measure/v1/basis_points.proto` |
+| `UInt32Rules` | 50004 | `wifi_channel` | `spec/proto/flowseer/net/wlan/v1/channel.proto` |
+| `UInt32Rules` | 50005 | `wifi_channel_width_mhz` | `spec/proto/flowseer/net/wlan/v1/channel.proto` |
+| `UInt32Rules` | 50006 | `dhcp_option_code` | `spec/proto/flowseer/net/endpoint/v1/dhcp.proto` |
+| `EnumRules` | 50000 | `ether_type` | `spec/proto/flowseer/net/packet/v1/ether_type.proto` |
+| `EnumRules` | 50001 | `tcp_flag` | `spec/proto/flowseer/net/packet/v1/tcp_flags.proto` |
+| `EnumRules` | 50002 | `ip_protocol` | `spec/proto/flowseer/net/packet/v1/ip_protocol.proto` |
+| `EnumRules` | 50003 | `ip_dscp` | `spec/proto/flowseer/net/packet/v1/ip_dscp.proto` |
 
 **Where rules are enforced**
 

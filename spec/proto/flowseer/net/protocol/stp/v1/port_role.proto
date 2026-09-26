@@ -2,7 +2,8 @@ edition = "2024";
 
 package flowseer.net.protocol.stp.v1;
 
-// Port role assigned by the Rapid Spanning Tree Protocol (IEEE 802.1D-2004).
+// Port role assigned by the Rapid Spanning Tree Protocol (IEEE 802.1D-2004)
+// or the Multiple Spanning Tree Protocol (IEEE 802.1Q).
 enum PortRole {
   // Port role was not reported.
   PORT_ROLE_UNSPECIFIED = 0;
@@ -16,4 +17,9 @@ enum PortRole {
   PORT_ROLE_ALTERNATE = 4;
   // Backup path to the attached LAN segment, discarded to prevent loops.
   PORT_ROLE_BACKUP = 5;
+  // MSTI role of the boundary port through which the region's regional root
+  // reaches the CIST root outside the region. IOS-XE reports it as stp-master
+  // (Cisco-IOS-XE-spanning-tree-oper.yang:116); ieee8021MstpPortRole has no
+  // such value (IEEE8021-MSTP-MIB-202211080000Z:965).
+  PORT_ROLE_MASTER = 6;
 }

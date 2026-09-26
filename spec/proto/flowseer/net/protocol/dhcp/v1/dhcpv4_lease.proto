@@ -1,0 +1,47 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/dhcp/v1/dhcp_allocation.proto";
+import "google/protobuf/timestamp.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A DHCPv4 server lease binding (RFC 2131, Cisco-IOS-XE-dhcp-oper.yang).
+message Dhcpv4Lease {
+  // The network instance this lease belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The IPv4 address leased to the client. Must be present.
+  flowseer.net.addr.v1.Ipv4Address address = 2 [(buf.validate.field).required = true];
+  // The name of the DHCP pool this lease was allocated from.
+  string pool_name = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // The client MAC / hardware address (RFC 2131 chaddr).
+  flowseer.net.addr.v1.MacAddress client_hardware_address = 4;
+  // The client identifier option (RFC 2132 §9.14 option 61, 2 to 255 octets).
+  bytes client_identifier = 5 [
+    (buf.validate.field).bytes.min_len = 2,
+    (buf.validate.field).bytes.max_len = 255
+  ];
+  // The client host name option (RFC 2132 §3.14 option 12).
+  string host_name = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // The allocation mechanism used for this lease.
+  DhcpAllocation allocation = 7;
+  // The lease expiration. Absence indicates unreported expiry.
+  oneof expiry {
+    // The timestamp when this lease expires.
+    google.protobuf.Timestamp expires_at = 10;
+    // An infinite / permanent lease (RFC 2131 §3.3 0xffffffff).
+    bool infinite = 11 [(buf.validate.field).bool.const = true];
+  }
+}

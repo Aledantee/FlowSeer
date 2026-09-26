@@ -1036,7 +1036,7 @@ const file_flowseer_model_inventory_v1_link_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\n" +
 	"systemName\"\xdf\x01\n" +
 	"\aLinkEnd\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12F\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12F\n" +
 	"\x06device\x18\n" +
 	" \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefH\x00R\x06device\x12F\n" +
 	"\aforeign\x18\v \x01(\v2*.flowseer.model.inventory.v1.ForeignSystemH\x00R\aforeignB\x0f\n" +

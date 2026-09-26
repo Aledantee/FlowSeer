@@ -1,6 +1,6 @@
 ---
 name: Protobuf Model Conventions
-last_updated: 2026-09-05
+last_updated: 2026-09-25
 ---
 
 # FlowSeer — Protobuf Model Conventions
@@ -19,7 +19,9 @@ Facet oblige a schema author to write, and is the "conventions doc" that
 
 The package tree, the import layering, and the primitive/entity split are fixed
 by [the network model structure
-direction](../architecture/2026-08-20-network-model-structure-direction.md).
+direction](../architecture/2026-08-20-network-model-structure-direction.md),
+as amended by the [schema building blocks
+direction](../architecture/2026-09-25-schema-building-blocks-direction.md).
 
 ## The triad
 
@@ -48,16 +50,18 @@ never reports back.
 The triad is shaped for entities where intended and observed genuinely
 diverge — device-level configuration a human asks for and a device reports
 on. Do not apply it reflexively. A family may be **deliberately partial**: a
-machine-observed entity nobody configures has no `Config`; a projection
-nobody stores has no `Event`; and a pure-intent entity nobody observes has
-no `State` — and no `Config` suffix either, because with no observed side to
-separate from, the intent message *is* the entity and is named plain
-`<Entity>`. Such a family is `<Entity>` plus `<Entity>Event`, whose before
-and after carry `<Entity>` — the attribute families are the worked example.
-When a member is deliberately absent, say so in the family file's file-level
-doc comment, naming what is missing and why. The hook reports every missing
-member and cannot tell deliberate from forgotten, so the comment is what
-lets the next reader tell, and putting it in a predictable place is what
+machine-observed entity nobody configures has no `Config` (such as `Endpoint`
+in `model/endpoint/v1`, whose family is `EndpointState` and `EndpointEvent`,
+with `EndpointConfig` deliberately absent per its file-level doc comment); a
+projection nobody stores has no `Event`; and a pure-intent entity nobody
+observes has no `State` — and no `Config` suffix either, because with no
+observed side to separate from, the intent message *is* the entity and is named
+plain `<Entity>`. Such a family is `<Entity>` plus `<Entity>Event`, whose
+before and after carry `<Entity>` — the attribute families are the worked
+example. When a member is deliberately absent, say so in the family file's
+file-level doc comment, naming what is missing and why. The hook reports every
+missing member and cannot tell deliberate from forgotten, so the comment is
+what lets the next reader tell, and putting it in a predictable place is what
 lets them find it.
 
 ## The ref pair
@@ -151,8 +155,9 @@ Three boundaries keep it from eroding the typed refs:
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
   nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `model/inventory/v1` are the same class: UUID-keyed,
-  landed, and outside the enum until the inventory store answers for them. `AccessPolicyHandle`,
+  `Cable`, and `Link` in `model/inventory/v1`, `Wlan` in
+  `model/wireless/v1`, and `Endpoint` in `model/endpoint/v1`, are the same class:
+  UUID-keyed, landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
@@ -170,7 +175,8 @@ a VLAN by its id. The moment a `net/` message grows a ref it has become an
 Entity and belongs further up the tree.
 
 Primitives do not use the triad's suffixes either. A Primitive that bundles
-what a source reports about one interface for one layer is a `<Name>Facet`
+what a source reports about one interface, or about one component for a radio,
+for one layer is a `<Name>Facet`
 (`EthernetFacet`, `IpFacet`, `SwitchportFacet`); the requested values a
 caller may set for the same layer are a `<Name>Settings` message the facet
 carries beside the observed values. `CopperFacet.poe_settings` is the
@@ -179,6 +185,12 @@ facet. It is the same intended-versus-observed line the triad draws, drawn
 once inside a value rather than across three messages, because a Primitive
 has no identity to diff against and no event to carry. `Config` and `State`
 stay reserved for Entities so that the hook's family check means one thing.
+
+A Primitive never carries credential material. The shared secret, key, or
+password a device uses with a peer is held in the secret store behind a
+credential ref and carried only as `model/credential` material, so a `net/`
+message names the peer and never the secret. `AaaServer` in `net/aaa/v1`
+names a RADIUS or TACACS+ server by address and has no field for its secret.
 
 ## Tenancy is ambient
 
@@ -225,15 +237,19 @@ receive values it does not know and must handle them.
 Enums fall into two classes. A FlowSeer-normalized taxonomy numbers its own
 values and uses `<ENUM_NAME>_UNSPECIFIED = 0`. A registry pass-through enum
 keeps the external registry's integers exactly, including a real assignment at
-zero such as `IP_PROTOCOL_HOPOPT`, `IP_DSCP_CS0`, or `IP_ECN_NON_ECT`.
+zero such as `IP_PROTOCOL_HOPOPT`, `IP_DSCP_CS0`, `IP_ECN_NON_ECT`,
+`BFD_SESSION_STATE_ADMIN_DOWN`, or `BFD_DIAGNOSTIC_NO_DIAGNOSTIC`.
 Presence carries "not observed" for both classes. Consumers of a pass-through
 enum whose registry owns zero must check presence before reading the generated
 getter, because the getter's absent default is also that registry's real zero
 value. Open pass-through enums preserve unknown registry values, but they do
 not enforce the registry's numeric width by themselves. Every field using
-`IpDscp`, `IpEcn`, or `IpProtocol` therefore validates the complete numeric
-domain at the use site: `0..63`, `0..3`, or `0..255`, respectively. These
-packet-header registries live in `net/packet/v1`, not the address package.
+`IpDscp`, `IpEcn`, `IpProtocol`, or `BfdDiagnostic` therefore validates the
+complete numeric domain at the use site: `0..63`, `0..3`, `0..255`, or `0..31`,
+respectively. These packet-header registries live in `net/packet/v1`, not the
+address package.
+`SyslogSeverity` and `SyslogFacility` in `net/log/v1` define every registry
+value, so `enum.defined_only` is their complete domain rule.
 
 ## Typed variants
 
@@ -262,6 +278,17 @@ a byte count, and adding a variant is adding an arm.
 `IpPrefix`, and the related IP value types together; the MAC family uses
 `Eui48Address` / `Eui64Address` / `MacAddress`.
 
+The pattern is not limited to addresses. `RouteDistinguisher` in
+`net/instance/v1` is a required `format` oneof of `As2RouteDistinguisher`,
+`Ipv4RouteDistinguisher`, and `As4RouteDistinguisher`, because the three
+RFC 4364 §4.2 types split the same six octets into fields of different widths,
+and each arm bounds its own fields; a `"65000:100"` string would push that
+parsing into every consumer. `NextHop` in `net/routing/v1` is a required
+`target` oneof of a `ForwardingNextHop` message and a `SpecialNextHop` enum:
+a next hop either forwards or discards, and the oneof is what makes both at
+once unrepresentable. Protobuf keeps at most one arm, and decoding keeps the
+last arm on the wire, so `required` only has the empty case left to reject.
+
 An IP prefix carries a typed family address plus a prefix length. Its address
 is the canonical network address, not an observed interface address: every
 host bit beyond the declared length is zero. Model an observed interface
@@ -281,6 +308,72 @@ Reach for the domain's own word before reaching for consistency with a sibling.
 This is not the pattern for a scalar with a range. A VLAN id is one type with
 one rule; it gets a protovalidate predefined rule, not a wrapper message
 (direction convention 4).
+
+## Units and keys
+
+Field-author checklist for quantities, keys, and naming. The
+[schema building blocks direction](../architecture/2026-09-25-schema-building-blocks-direction.md)
+holds the rationale and standards grounding for each rule.
+
+- **Canonical units**: every physical quantity has one canonical unit, named in the
+  field suffix, in integer fixed point ([rule 1](../architecture/2026-09-25-schema-building-blocks-direction.md#1-one-canonical-unit-per-quantity)):
+
+  | Quantity | Wire type | Field suffix |
+  | --- | --- | --- |
+  | Point in time | `google.protobuf.Timestamp` | none |
+  | Time span | `google.protobuf.Duration` | none |
+  | Data rate | `uint64` | `_bps` |
+  | Data size and byte counters | `uint64` | `_bytes` |
+  | Frequency and channel width | `uint32` | `_mhz` |
+  | Linear power | `uint64` | `_nanowatts` |
+  | Power level and gain | `sint32` | `_millidbm`, `_millidb`, `_millidbi` |
+  | Temperature | `sint32` | `_millidegrees_celsius` |
+  | Voltage | `sint32` | `_microvolts` |
+  | Current | `sint32` | `_microamperes` |
+  | Rotation speed | `uint32` | `_rpm` |
+  | Percentage and ratio | `uint32` | `_basis_points` |
+
+  Floating point is reserved for coordinates on `Location` and decimal operator
+  attributes; every other numeric quantity uses integer fixed point. Counters
+  are `uint64`, named for the unit (`in_bytes`, `in_frames`), and live in a
+  `<Domain>Counters` message; every `*Counters` message carries
+  `google.protobuf.Timestamp last_discontinuity` ([rule 2](../architecture/2026-09-25-schema-building-blocks-direction.md#2-counters-and-statistics)).
+- **Interface names**: an interface name is validated by a predefined rule from
+  `net/key/v1/key.proto` ([rule 3](../architecture/2026-09-25-schema-building-blocks-direction.md#3-keys-and-cross-references)).
+  Observed rows use `interface_name` (1 to 255 characters). Values FlowSeer sends
+  back to a device (such as an operation target or capture source) use
+  `shell_safe_interface_name` (`^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$`). A field whose
+  name spells an interface name carries exactly one of them.
+- **Network instance key**: a forwarding table's row names the network instance
+  it belongs to in a required `string network_instance` validated by
+  `net/key/v1`'s `network_instance_name` rule ([rule 4](../architecture/2026-09-25-schema-building-blocks-direction.md#4-the-network-instance-is-part-of-the-key)).
+  `Vlan`, `FdbEntry`, and `Route` carry it on the row. A routed interface
+  carries it once, in `IpFacet.network_instance`; `InterfaceAddress` and
+  `NeighborEntry` rows are keyed by interface name and inherit it. A device
+  with no instance concept reports one `NetworkInstance` of kind `DEFAULT`,
+  named as the device names it or `default` when it has no name, and every
+  row names that instance; an absent key never stands for the default.
+- **Protocol instance key**: a routing protocol's instance-level rows carry
+  `network_instance` and a required `protocol_instance` validated by
+  `protocol_instance_name`; rows keyed by an interface carry `protocol_instance`
+  and inherit the network instance; the mapper names the instance as the device
+  does, `default` when it has none.
+- **Facets, settings, and rows**: per-interface bundles, or per-component for a
+  radio, are named `<Name>Facet`, and requested values for that layer are
+  `<Name>Settings`, carried by the
+  facet ([rule 5](../architecture/2026-09-25-schema-building-blocks-direction.md#5-facets-settings-and-table-rows)).
+  Device-scoped table rows are named for the thing they describe (`Vlan`, `Route`,
+  `BgpPeer`, `Session`); use `<Table>Entry` only when the table name is the natural noun and
+  the row has none of its own (`FdbEntry`, `NeighborEntry`). `NetworkInstance`
+  is the row for an instance itself, keyed by `name` with a required `kind`.
+  `Route` is keyed by `(network_instance, destination_prefix)` and carries its
+  next hops as a `NextHopGroup`, plus a `table_type` saying whether the row
+  came from the RIB or the FIB. `Session` in `net/portaccess/v1` is the row
+  for a port-access session, keyed by `(interface_name, mac)` and scoped by the
+  interface column, so `network_instance` is omitted per Rule 4.
+  `QosInterface` in `net/qos/v1` and `CellularInterface` in
+  `net/cellular/v1` are per-interface rows keyed by `interface_name` that omit
+  `network_instance` the same way.
 
 ## Field numbering
 

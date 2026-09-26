@@ -26,16 +26,16 @@ const (
 // stack or a module in a rack; its index is the MIB's own key, not a
 // reference to any entity.
 type PseBudget struct {
-	state                            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_PseGroup              uint32                 `protobuf:"varint,1,opt,name=pse_group,json=pseGroup"`
-	xxx_hidden_PowerMilliwatts       uint32                 `protobuf:"varint,2,opt,name=power_milliwatts,json=powerMilliwatts"`
-	xxx_hidden_OperStatus            PseOperStatus          `protobuf:"varint,3,opt,name=oper_status,json=operStatus,enum=flowseer.net.phy.v1.PseOperStatus"`
-	xxx_hidden_ConsumptionMilliwatts uint32                 `protobuf:"varint,4,opt,name=consumption_milliwatts,json=consumptionMilliwatts"`
-	xxx_hidden_UsageThresholdPercent uint32                 `protobuf:"varint,5,opt,name=usage_threshold_percent,json=usageThresholdPercent"`
-	XXX_raceDetectHookData           protoimpl.RaceDetectHookData
-	XXX_presence                     [1]uint32
-	unknownFields                    protoimpl.UnknownFields
-	sizeCache                        protoimpl.SizeCache
+	state                                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_PseGroup                  uint32                 `protobuf:"varint,1,opt,name=pse_group,json=pseGroup"`
+	xxx_hidden_OperStatus                PseOperStatus          `protobuf:"varint,3,opt,name=oper_status,json=operStatus,enum=flowseer.net.phy.v1.PseOperStatus"`
+	xxx_hidden_PowerNanowatts            uint64                 `protobuf:"varint,6,opt,name=power_nanowatts,json=powerNanowatts"`
+	xxx_hidden_ConsumptionNanowatts      uint64                 `protobuf:"varint,7,opt,name=consumption_nanowatts,json=consumptionNanowatts"`
+	xxx_hidden_UsageThresholdBasisPoints uint32                 `protobuf:"varint,8,opt,name=usage_threshold_basis_points,json=usageThresholdBasisPoints"`
+	XXX_raceDetectHookData               protoimpl.RaceDetectHookData
+	XXX_presence                         [1]uint32
+	unknownFields                        protoimpl.UnknownFields
+	sizeCache                            protoimpl.SizeCache
 }
 
 func (x *PseBudget) Reset() {
@@ -70,32 +70,32 @@ func (x *PseBudget) GetPseGroup() uint32 {
 	return 0
 }
 
-func (x *PseBudget) GetPowerMilliwatts() uint32 {
-	if x != nil {
-		return x.xxx_hidden_PowerMilliwatts
-	}
-	return 0
-}
-
 func (x *PseBudget) GetOperStatus() PseOperStatus {
 	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
 			return x.xxx_hidden_OperStatus
 		}
 	}
 	return PseOperStatus_PSE_OPER_STATUS_UNSPECIFIED
 }
 
-func (x *PseBudget) GetConsumptionMilliwatts() uint32 {
+func (x *PseBudget) GetPowerNanowatts() uint64 {
 	if x != nil {
-		return x.xxx_hidden_ConsumptionMilliwatts
+		return x.xxx_hidden_PowerNanowatts
 	}
 	return 0
 }
 
-func (x *PseBudget) GetUsageThresholdPercent() uint32 {
+func (x *PseBudget) GetConsumptionNanowatts() uint64 {
 	if x != nil {
-		return x.xxx_hidden_UsageThresholdPercent
+		return x.xxx_hidden_ConsumptionNanowatts
+	}
+	return 0
+}
+
+func (x *PseBudget) GetUsageThresholdBasisPoints() uint32 {
+	if x != nil {
+		return x.xxx_hidden_UsageThresholdBasisPoints
 	}
 	return 0
 }
@@ -105,23 +105,23 @@ func (x *PseBudget) SetPseGroup(v uint32) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
-func (x *PseBudget) SetPowerMilliwatts(v uint32) {
-	x.xxx_hidden_PowerMilliwatts = v
+func (x *PseBudget) SetOperStatus(v PseOperStatus) {
+	x.xxx_hidden_OperStatus = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
-func (x *PseBudget) SetOperStatus(v PseOperStatus) {
-	x.xxx_hidden_OperStatus = v
+func (x *PseBudget) SetPowerNanowatts(v uint64) {
+	x.xxx_hidden_PowerNanowatts = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
 
-func (x *PseBudget) SetConsumptionMilliwatts(v uint32) {
-	x.xxx_hidden_ConsumptionMilliwatts = v
+func (x *PseBudget) SetConsumptionNanowatts(v uint64) {
+	x.xxx_hidden_ConsumptionNanowatts = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
 }
 
-func (x *PseBudget) SetUsageThresholdPercent(v uint32) {
-	x.xxx_hidden_UsageThresholdPercent = v
+func (x *PseBudget) SetUsageThresholdBasisPoints(v uint32) {
+	x.xxx_hidden_UsageThresholdBasisPoints = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
@@ -132,28 +132,28 @@ func (x *PseBudget) HasPseGroup() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *PseBudget) HasPowerMilliwatts() bool {
+func (x *PseBudget) HasOperStatus() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *PseBudget) HasOperStatus() bool {
+func (x *PseBudget) HasPowerNanowatts() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *PseBudget) HasConsumptionMilliwatts() bool {
+func (x *PseBudget) HasConsumptionNanowatts() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
-func (x *PseBudget) HasUsageThresholdPercent() bool {
+func (x *PseBudget) HasUsageThresholdBasisPoints() bool {
 	if x == nil {
 		return false
 	}
@@ -165,24 +165,24 @@ func (x *PseBudget) ClearPseGroup() {
 	x.xxx_hidden_PseGroup = 0
 }
 
-func (x *PseBudget) ClearPowerMilliwatts() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_PowerMilliwatts = 0
-}
-
 func (x *PseBudget) ClearOperStatus() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_OperStatus = PseOperStatus_PSE_OPER_STATUS_UNSPECIFIED
 }
 
-func (x *PseBudget) ClearConsumptionMilliwatts() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_ConsumptionMilliwatts = 0
+func (x *PseBudget) ClearPowerNanowatts() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_PowerNanowatts = 0
 }
 
-func (x *PseBudget) ClearUsageThresholdPercent() {
+func (x *PseBudget) ClearConsumptionNanowatts() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ConsumptionNanowatts = 0
+}
+
+func (x *PseBudget) ClearUsageThresholdBasisPoints() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_UsageThresholdPercent = 0
+	x.xxx_hidden_UsageThresholdBasisPoints = 0
 }
 
 type PseBudget_builder struct {
@@ -190,19 +190,20 @@ type PseBudget_builder struct {
 
 	// The PSE group, per pethMainPseGroupIndex. Must be present.
 	PseGroup *uint32
-	// Nominal power of the group in milliwatts, per pethMainPsePower. Absent
-	// means unreported; zero is invalid when present.
-	PowerMilliwatts *uint32
 	// Operational status of the group. Absent means unreported.
 	OperStatus *PseOperStatus
-	// Measured power consumption of the group in milliwatts, per
+	// Nominal power of the group in nanowatts, per pethMainPsePower. Absent
+	// means unreported; zero is invalid when present.
+	PowerNanowatts *uint64
+	// Measured power consumption of the group in nanowatts, per
 	// pethMainPseConsumptionPower. Absent means unreported; zero is an
 	// explicit zero-power measurement.
-	ConsumptionMilliwatts *uint32
-	// Percentage of nominal power at which the source raises an alarm, per
-	// pethMainPseUsageThreshold. Absent means unreported; a present value is
-	// between 1 and 99 inclusive.
-	UsageThresholdPercent *uint32
+	ConsumptionNanowatts *uint64
+	// Share of nominal power at which the source raises an alarm in basis
+	// points, per pethMainPseUsageThreshold. Absent means unreported; a
+	// present value is between 100 and 9900 inclusive, the MIB's 1 to 99
+	// percent.
+	UsageThresholdBasisPoints *uint32
 }
 
 func (b0 PseBudget_builder) Build() *PseBudget {
@@ -213,21 +214,21 @@ func (b0 PseBudget_builder) Build() *PseBudget {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_PseGroup = *b.PseGroup
 	}
-	if b.PowerMilliwatts != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
-		x.xxx_hidden_PowerMilliwatts = *b.PowerMilliwatts
-	}
 	if b.OperStatus != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_OperStatus = *b.OperStatus
 	}
-	if b.ConsumptionMilliwatts != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
-		x.xxx_hidden_ConsumptionMilliwatts = *b.ConsumptionMilliwatts
+	if b.PowerNanowatts != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		x.xxx_hidden_PowerNanowatts = *b.PowerNanowatts
 	}
-	if b.UsageThresholdPercent != nil {
+	if b.ConsumptionNanowatts != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		x.xxx_hidden_ConsumptionNanowatts = *b.ConsumptionNanowatts
+	}
+	if b.UsageThresholdBasisPoints != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
-		x.xxx_hidden_UsageThresholdPercent = *b.UsageThresholdPercent
+		x.xxx_hidden_UsageThresholdBasisPoints = *b.UsageThresholdBasisPoints
 	}
 	return m0
 }
@@ -236,15 +237,16 @@ var File_flowseer_net_phy_v1_pse_budget_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_pse_budget_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/net/phy/v1/pse_budget.proto\x12\x13flowseer.net.phy.v1\x1a)flowseer/net/phy/v1/pse_oper_status.proto\"\xa7\x02\n" +
+	"$flowseer/net/phy/v1/pse_budget.proto\x12\x13flowseer.net.phy.v1\x1a)flowseer/net/phy/v1/pse_oper_status.proto\"\x82\x03\n" +
 	"\tPseBudget\x12'\n" +
 	"\tpse_group\x18\x01 \x01(\rB\n" +
-	"\xbaH\a\xc8\x01\x01*\x02 \x00R\bpseGroup\x122\n" +
-	"\x10power_milliwatts\x18\x02 \x01(\rB\a\xbaH\x04*\x02 \x00R\x0fpowerMilliwatts\x12C\n" +
+	"\xbaH\a\xc8\x01\x01*\x02 \x00R\bpseGroup\x12C\n" +
 	"\voper_status\x18\x03 \x01(\x0e2\".flowseer.net.phy.v1.PseOperStatusR\n" +
-	"operStatus\x125\n" +
-	"\x16consumption_milliwatts\x18\x04 \x01(\rR\x15consumptionMilliwatts\x12A\n" +
-	"\x17usage_threshold_percent\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x18c(\x01R\x15usageThresholdPercentB\xdc\x01\n" +
+	"operStatus\x120\n" +
+	"\x0fpower_nanowatts\x18\x06 \x01(\x04B\a\xbaH\x042\x02 \x00R\x0epowerNanowatts\x123\n" +
+	"\x15consumption_nanowatts\x18\a \x01(\x04R\x14consumptionNanowatts\x12K\n" +
+	"\x1cusage_threshold_basis_points\x18\b \x01(\rB\n" +
+	"\xbaH\a*\x05\x18\xacM(dR\x19usageThresholdBasisPointsJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x10power_milliwattsR\x16consumption_milliwattsR\x17usage_threshold_percentB\xdc\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x0ePseBudgetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_pse_budget_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

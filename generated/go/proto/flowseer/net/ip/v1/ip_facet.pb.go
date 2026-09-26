@@ -20,14 +20,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Per-family IP attributes embedded by a routed interface. Either family may
-// be absent because partial observations and single-stack interfaces are valid.
+// Per-family IP attributes embedded by a routed interface, and the network
+// instance the interface routes in. Either family may be absent because
+// partial observations and single-stack interfaces are valid.
 type IpFacet struct {
-	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ipv4 *Ipv4Facet             `protobuf:"bytes,1,opt,name=ipv4"`
-	xxx_hidden_Ipv6 *Ipv6Facet             `protobuf:"bytes,2,opt,name=ipv6"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ipv4            *Ipv4Facet             `protobuf:"bytes,1,opt,name=ipv4"`
+	xxx_hidden_Ipv6            *Ipv6Facet             `protobuf:"bytes,2,opt,name=ipv6"`
+	xxx_hidden_NetworkInstance *string                `protobuf:"bytes,3,opt,name=network_instance,json=networkInstance"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *IpFacet) Reset() {
@@ -69,12 +73,27 @@ func (x *IpFacet) GetIpv6() *Ipv6Facet {
 	return nil
 }
 
+func (x *IpFacet) GetNetworkInstance() string {
+	if x != nil {
+		if x.xxx_hidden_NetworkInstance != nil {
+			return *x.xxx_hidden_NetworkInstance
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *IpFacet) SetIpv4(v *Ipv4Facet) {
 	x.xxx_hidden_Ipv4 = v
 }
 
 func (x *IpFacet) SetIpv6(v *Ipv6Facet) {
 	x.xxx_hidden_Ipv6 = v
+}
+
+func (x *IpFacet) SetNetworkInstance(v string) {
+	x.xxx_hidden_NetworkInstance = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
 func (x *IpFacet) HasIpv4() bool {
@@ -91,12 +110,24 @@ func (x *IpFacet) HasIpv6() bool {
 	return x.xxx_hidden_Ipv6 != nil
 }
 
+func (x *IpFacet) HasNetworkInstance() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
 func (x *IpFacet) ClearIpv4() {
 	x.xxx_hidden_Ipv4 = nil
 }
 
 func (x *IpFacet) ClearIpv6() {
 	x.xxx_hidden_Ipv6 = nil
+}
+
+func (x *IpFacet) ClearNetworkInstance() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_NetworkInstance = nil
 }
 
 type IpFacet_builder struct {
@@ -106,6 +137,9 @@ type IpFacet_builder struct {
 	Ipv4 *Ipv4Facet
 	// IPv6 attributes. Absent means no IPv6 information was supplied.
 	Ipv6 *Ipv6Facet
+	// The network instance the interface routes in. Must be present. Address
+	// and neighbor rows keyed by this interface belong to the same instance.
+	NetworkInstance *string
 }
 
 func (b0 IpFacet_builder) Build() *IpFacet {
@@ -114,6 +148,10 @@ func (b0 IpFacet_builder) Build() *IpFacet {
 	_, _ = b, x
 	x.xxx_hidden_Ipv4 = b.Ipv4
 	x.xxx_hidden_Ipv6 = b.Ipv6
+	if b.NetworkInstance != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_NetworkInstance = b.NetworkInstance
+	}
 	return m0
 }
 
@@ -121,10 +159,11 @@ var File_flowseer_net_ip_v1_ip_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_ip_v1_ip_facet_proto_rawDesc = "" +
 	"\n" +
-	"!flowseer/net/ip/v1/ip_facet.proto\x12\x12flowseer.net.ip.v1\x1a#flowseer/net/ip/v1/ipv4_facet.proto\x1a#flowseer/net/ip/v1/ipv6_facet.proto\"o\n" +
+	"!flowseer/net/ip/v1/ip_facet.proto\x12\x12flowseer.net.ip.v1\x1a#flowseer/net/ip/v1/ipv4_facet.proto\x1a#flowseer/net/ip/v1/ipv6_facet.proto\"\xa8\x01\n" +
 	"\aIpFacet\x121\n" +
 	"\x04ipv4\x18\x01 \x01(\v2\x1d.flowseer.net.ip.v1.Ipv4FacetR\x04ipv4\x121\n" +
-	"\x04ipv6\x18\x02 \x01(\v2\x1d.flowseer.net.ip.v1.Ipv6FacetR\x04ipv6B\xd3\x01\n" +
+	"\x04ipv6\x18\x02 \x01(\v2\x1d.flowseer.net.ip.v1.Ipv6FacetR\x04ipv6\x127\n" +
+	"\x10network_instance\x18\x03 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x90\xb5\x18\x01R\x0fnetworkInstanceB\xd3\x01\n" +
 	"\x16com.flowseer.net.ip.v1B\fIpFacetProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_ip_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

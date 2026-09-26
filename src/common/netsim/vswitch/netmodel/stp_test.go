@@ -366,7 +366,7 @@ func TestStpLoad_LagMemberSkipped(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagParent,
+				LagParentInterfaceName: &lagParent,
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{
@@ -382,6 +382,7 @@ func TestStpLoad_LagMemberSkipped(t *testing.T) {
 	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
 	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId:        bridgeID,
 	}.Build()
@@ -464,7 +465,7 @@ func TestStpLoad_AbsentPortSkipped(t *testing.T) {
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
 	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
-	bridgeState := stpv1.BridgeState_builder{ProtocolVersion: &protocol, BridgeId: bridgeID}.Build()
+	bridgeState := stpv1.BridgeState_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance), ProtocolVersion: &protocol, BridgeId: bridgeID}.Build()
 	if err := protovalidate.Validate(bridgeState); err != nil {
 		t.Fatalf("bridge state validation failed: %v", err)
 	}
@@ -528,7 +529,7 @@ func TestStpLoad_MissingAdminPathCostReported(t *testing.T) {
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
 	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
-	bridgeState := stpv1.BridgeState_builder{ProtocolVersion: &protocol, BridgeId: bridgeID}.Build()
+	bridgeState := stpv1.BridgeState_builder{NetworkInstance: ptr(netmodel.DefaultNetworkInstance), ProtocolVersion: &protocol, BridgeId: bridgeID}.Build()
 	if err := protovalidate.Validate(bridgeState); err != nil {
 		t.Fatalf("bridge state validation failed: %v", err)
 	}
@@ -671,6 +672,7 @@ func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
 	prio := uint32(32768)
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId:        stpv1.BridgeId_builder{Priority: &prio}.Build(),
 	}.Build()
@@ -718,6 +720,7 @@ func TestStpLoad_TxHoldCountAndAutoEdge(t *testing.T) {
 	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
 	txHold4 := uint32(4)
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId:        bridgeID,
 		TxHoldCount:     &txHold4,
@@ -785,6 +788,7 @@ func TestStpLoad_AbsentTxHoldCountReportedDefault(t *testing.T) {
 	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
 	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId:        bridgeID,
 	}.Build()
@@ -821,6 +825,7 @@ func TestStpLoadPreservesExplicitZeroPrioritiesAndReportsTimerDefaults(t *testin
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	zero := uint32(0)
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &zero,
@@ -890,6 +895,7 @@ func TestStpLoadDefaultsOnlyAbsentPriorities(t *testing.T) {
 	name := "1/1/1"
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Address: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
@@ -944,6 +950,7 @@ func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
 	adminPathCost := uint32(200_000_001)
 	validAdminPathCost := stp.MaxPathCost
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
@@ -1004,6 +1011,7 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 	priority := uint32(32768)
 	invalidTxHoldCount := uint32(11)
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
@@ -1072,6 +1080,7 @@ func TestStpLoadClassifiesInvalidEffectiveTimerRelations(t *testing.T) {
 			protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 			priority := uint32(32768)
 			builder := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 				ProtocolVersion: &protocol,
 				BridgeId: stpv1.BridgeId_builder{
 					Priority: &priority,

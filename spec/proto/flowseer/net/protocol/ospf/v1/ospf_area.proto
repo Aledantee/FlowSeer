@@ -1,0 +1,37 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/protocol/ospf/v1/ospf_area_type.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An OSPF area configured within an OSPF instance (RFC 2328 §1.2, OSPF-MIB ospfAreaEntry).
+message OspfArea {
+  // The network instance this area belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The OSPF version: 2 for OSPFv2 or 3 for OSPFv3. Must be present.
+  uint32 version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 2,
+    (buf.validate.field).uint32.lte = 3
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The 32-bit area identifier in integer form; 0 is the backbone area. Must be present.
+  uint32 area_id = 4 [(buf.validate.field).required = true];
+  // The type of this OSPF area.
+  OspfAreaType area_type = 5;
+  // Total number of link-state advertisements in this area LSDB (OSPF-MIB ospfAreaLsaCount).
+  uint32 lsa_count = 6;
+  // Number of area border routers reachable within this area (OSPF-MIB ospfAreaBdrRtrCount).
+  uint32 area_border_routers = 7;
+  // Number of AS border routers reachable within this area (OSPF-MIB ospfAreaAsBdrRtrCount).
+  uint32 as_border_routers = 8;
+}

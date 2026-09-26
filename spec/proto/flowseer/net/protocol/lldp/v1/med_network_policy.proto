@@ -1,0 +1,33 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/packet/v1/ip_dscp.proto";
+import "flowseer/net/protocol/lldp/v1/med_application_type.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// One LLDP-MED network policy a neighbor announced for an application.
+// Mirrors lldpXMedRemMediaPolicyEntry (LLDP-EXT-MED-MIB:949).
+message MedNetworkPolicy {
+  // The application the policy applies to. Must be present. Mirrors
+  // lldpXMedRemMediaPolicyAppType (LLDP-EXT-MED-MIB:972).
+  MedApplicationType application_type = 1 [(buf.validate.field).required = true];
+  // Whether the neighbor reports the policy as unknown; the VLAN, priority,
+  // and DSCP are then to be ignored. Mirrors lldpXMedRemMediaPolicyUnknown
+  // (LLDP-EXT-MED-MIB:1027).
+  bool unknown = 2;
+  // Whether the application sends tagged frames; when false, the VLAN and
+  // priority are to be ignored. Mirrors lldpXMedRemMediaPolicyTagged
+  // (LLDP-EXT-MED-MIB:1042).
+  bool tagged = 3;
+  // The VLAN identifier, 0 to 4095: 0 means priority-tagged frames on the
+  // port's default VLAN, and 4095 is reserved for implementation use. Mirrors
+  // lldpXMedRemMediaPolicyVlanID (LLDP-EXT-MED-MIB:984).
+  uint32 vlan_id = 4 [(buf.validate.field).uint32.lte = 4095];
+  // The IEEE 802.1Q priority code point. Mirrors
+  // lldpXMedRemMediaPolicyPriority (LLDP-EXT-MED-MIB:1003).
+  uint32 priority = 5 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_pcp) = true];
+  // The DSCP value. Mirrors lldpXMedRemMediaPolicyDscp (LLDP-EXT-MED-MIB:1015).
+  flowseer.net.packet.v1.IpDscp dscp = 6 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_dscp) = true];
+}

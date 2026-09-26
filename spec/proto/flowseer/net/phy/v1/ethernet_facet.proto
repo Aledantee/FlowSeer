@@ -9,6 +9,7 @@ import "flowseer/net/phy/v1/ethernet_capabilities.proto";
 import "flowseer/net/phy/v1/ethernet_counters.proto";
 import "flowseer/net/phy/v1/ethernet_duplex.proto";
 import "flowseer/net/phy/v1/ethernet_fec_mode.proto";
+import "flowseer/net/phy/v1/ethernet_settings.proto";
 import "flowseer/net/phy/v1/fiber_facet.proto";
 import "flowseer/net/phy/v1/mau_link_mode.proto";
 import "flowseer/net/phy/v1/mau_type.proto";
@@ -86,4 +87,8 @@ message EthernetFacet {
   // Ethernet-specific error counters. Absent means the source reported no
   // Ethernet counters at all; individual counters carry their own presence.
   EthernetCounters counters = 32;
+  // Requested physical-link settings the caller set, kept apart from the
+  // applied and negotiated facts above. Absent means no requested settings
+  // were reported.
+  EthernetSettings settings = 33;
 }

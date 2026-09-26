@@ -2,9 +2,11 @@ package conformance
 
 import (
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	runtimev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/runtime/v1"
 )
@@ -67,7 +69,7 @@ func TestRuntimeManifestRequiresCapacityAndDeduplicationFields(t *testing.T) {
 		"mailbox_max_bytes",
 		"metadata_max_bytes",
 		"reserve_bytes",
-		"duplicate_window_seconds",
+		"duplicate_window",
 	}
 	for _, name := range fields {
 		t.Run(string(name), func(t *testing.T) {
@@ -81,21 +83,21 @@ func TestRuntimeManifestRequiresCapacityAndDeduplicationFields(t *testing.T) {
 
 func validRuntimeManifest() *runtimev1.RuntimeManifest {
 	return runtimev1.RuntimeManifest_builder{
-		ServiceNamespace:       proto.String("flowseer"),
-		ServiceName:            proto.String("edge"),
-		Domain:                 proto.String("v1_abc234"),
-		EnvelopeType:           proto.String("flowseer.runtime.v1.Message"),
-		EnvelopeVersion:        proto.Uint32(1),
-		SubjectVersion:         proto.Uint32(1),
-		NatsVersion:            proto.String("2.14.6"),
-		ModulePaths:            []string{"edge/worker"},
-		MailboxStream:          proto.String("FLOWSEER_MAILBOX"),
-		MetadataStream:         proto.String("FLOWSEER_METADATA"),
-		MaxStoreBytes:          proto.Uint64(1 << 30),
-		MailboxMaxBytes:        proto.Uint64(768 << 20),
-		MetadataMaxBytes:       proto.Uint64(64 << 20),
-		ReserveBytes:           proto.Uint64(192 << 20),
-		DuplicateWindowSeconds: proto.Uint64(24 * 60 * 60),
+		ServiceNamespace: proto.String("flowseer"),
+		ServiceName:      proto.String("edge"),
+		Domain:           proto.String("v1_abc234"),
+		EnvelopeType:     proto.String("flowseer.runtime.v1.Message"),
+		EnvelopeVersion:  proto.Uint32(1),
+		SubjectVersion:   proto.Uint32(1),
+		NatsVersion:      proto.String("2.14.6"),
+		ModulePaths:      []string{"edge/worker"},
+		MailboxStream:    proto.String("FLOWSEER_MAILBOX"),
+		MetadataStream:   proto.String("FLOWSEER_METADATA"),
+		MaxStoreBytes:    proto.Uint64(1 << 30),
+		MailboxMaxBytes:  proto.Uint64(768 << 20),
+		MetadataMaxBytes: proto.Uint64(64 << 20),
+		ReserveBytes:     proto.Uint64(192 << 20),
+		DuplicateWindow:  durationpb.New(24 * time.Hour),
 		Modules: []*runtimev1.ModuleContract{
 			runtimev1.ModuleContract_builder{
 				Path:                proto.String("edge/worker"),
@@ -117,22 +119,22 @@ func TestRuntimeBusControlRecordWireContracts(t *testing.T) {
 			message: (&runtimev1.RuntimeManifest{}).ProtoReflect().Descriptor(),
 			name:    "flowseer.runtime.v1.RuntimeManifest",
 			fields: map[protoreflect.Name]protoreflect.FieldNumber{
-				"service_namespace":        1,
-				"service_name":             2,
-				"domain":                   3,
-				"envelope_type":            4,
-				"envelope_version":         5,
-				"subject_version":          6,
-				"nats_version":             7,
-				"modules":                  8,
-				"module_paths":             9,
-				"mailbox_stream":           10,
-				"metadata_stream":          11,
-				"max_store_bytes":          12,
-				"mailbox_max_bytes":        13,
-				"metadata_max_bytes":       14,
-				"reserve_bytes":            15,
-				"duplicate_window_seconds": 16,
+				"service_namespace":  1,
+				"service_name":       2,
+				"domain":             3,
+				"envelope_type":      4,
+				"envelope_version":   5,
+				"subject_version":    6,
+				"nats_version":       7,
+				"modules":            8,
+				"module_paths":       9,
+				"mailbox_stream":     10,
+				"metadata_stream":    11,
+				"max_store_bytes":    12,
+				"mailbox_max_bytes":  13,
+				"metadata_max_bytes": 14,
+				"reserve_bytes":      15,
+				"duplicate_window":   17,
 			},
 		},
 		{

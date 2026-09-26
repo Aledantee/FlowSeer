@@ -1,0 +1,14 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+// The type of an OSPF area (RFC 2328, RFC 3101, OSPF-MIB ospfImportAsExtern).
+enum OspfAreaType {
+  OSPF_AREA_TYPE_UNSPECIFIED = 0;
+  // Normal area that imports external AS routes (OSPF-MIB importExternal).
+  OSPF_AREA_TYPE_NORMAL = 1;
+  // Stub area that does not import external AS routes (OSPF-MIB importNoExternal).
+  OSPF_AREA_TYPE_STUB = 2;
+  // Not-so-stubby area that imports external AS routes as Type-7 LSAs (OSPF-MIB importNssa).
+  OSPF_AREA_TYPE_NSSA = 3;
+}

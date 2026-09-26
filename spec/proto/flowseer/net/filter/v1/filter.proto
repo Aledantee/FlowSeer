@@ -3,11 +3,15 @@ edition = "2024";
 package flowseer.net.filter.v1;
 
 import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/filter/v1/mac_match.proto";
+import "flowseer/net/packet/v1/ether_type.proto";
 import "flowseer/net/packet/v1/icmp.proto";
+import "flowseer/net/packet/v1/ip_dscp.proto";
 import "flowseer/net/packet/v1/ip_protocol.proto";
 import "flowseer/net/packet/v1/tcp_flags.proto";
 import "flowseer/net/packet/v1/transport_port.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
 
 // Action applied to a packet matching a filter rule or set default.
 enum FilterAction {
@@ -54,6 +58,28 @@ message FilterMatch {
   flowseer.net.packet.v1.IcmpMatch icmp = 6;
   // TCP control flag predicate.
   flowseer.net.packet.v1.TcpFlagsMatch tcp_flags = 7;
+  // The Ethernet frame's EtherType.
+  flowseer.net.packet.v1.EtherType ether_type = 8 [(buf.validate.field).enum.(flowseer.net.packet.v1.ether_type) = true];
+  // Source MAC address predicate.
+  MacMatch src_mac = 9;
+  // Destination MAC address predicate.
+  MacMatch dst_mac = 10;
+  // IEEE 802.1Q priority code points. If non-empty, the frame's PCP must be
+  // one of them.
+  repeated uint32 pcps = 11 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {[flowseer.net.switching.v1.vlan_pcp]: true}
+    }
+  }];
+  // Differentiated Services code points. If non-empty, the packet's DSCP must
+  // be one of them.
+  repeated flowseer.net.packet.v1.IpDscp dscps = 12 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      enum: {[flowseer.net.packet.v1.ip_dscp]: true}
+    }
+  }];
 }
 
 // A single rule matching packet criteria and dictating an action.

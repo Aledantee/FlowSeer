@@ -1,0 +1,114 @@
+edition = "2024";
+
+package flowseer.net.protocol.vrrp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/vrrp/v1/vrrp_state.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A Virtual Router Redundancy Protocol group (RFC 3768, RFC 5798, VRRP-MIB, VRRPV3-MIB).
+message VrrpGroup {
+  option (buf.validate.message).cel = {
+    id: "vrrp_group.v2_is_ipv4"
+    message: "VRRP version 2 supports IPv4 only"
+    expression: "this.version != 2u || int(this.address_family) == 1"
+  };
+  option (buf.validate.message).cel = {
+    id: "vrrp_group.v3_interval"
+    message: "VRRP version 3 advertisement_interval must not exceed 40.95s"
+    expression:
+      "!has(this.advertisement_interval) || "
+      "this.version != 3u || "
+      "this.advertisement_interval <= duration('40.95s')"
+  };
+  option (buf.validate.message).cel = {
+    id: "vrrp_group.v2_interval"
+    message: "VRRP version 2 advertisement_interval must be whole seconds"
+    expression:
+      "!has(this.advertisement_interval) || "
+      "this.version != 2u || "
+      "this.advertisement_interval == duration(string(this.advertisement_interval.getSeconds()) + 's')"
+  };
+  option (buf.validate.message).cel = {
+    id: "vrrp_group.address_family"
+    message: "master, primary, and virtual addresses must match the group address_family"
+    expression:
+      "int(this.address_family) == 1 ? "
+      "((!has(this.master_address) || has(this.master_address.v4)) && "
+      "(!has(this.primary_address) || has(this.primary_address.v4)) && "
+      "this.virtual_addresses.all(a, has(a.v4))) : "
+      "((!has(this.master_address) || has(this.master_address.v6)) && "
+      "(!has(this.primary_address) || has(this.primary_address.v6)) && "
+      "this.virtual_addresses.all(a, has(a.v6)))"
+  };
+
+  // The local interface name this VRRP group runs on. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The IP address family for this virtual router. Must be present.
+  flowseer.net.addr.v1.IpVersion address_family = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  // The Virtual Router Identifier (RFC 5798 §5.2.3, 1 to 255). Must be present.
+  uint32 vrid = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 255
+  ];
+  // The VRRP protocol version: 2 for VRRPv2 (RFC 3768) or 3 for VRRPv3 (RFC 5798).
+  uint32 version = 4 [
+    (buf.validate.field).uint32.gte = 2,
+    (buf.validate.field).uint32.lte = 3
+  ];
+  // The operational state of this virtual router.
+  VrrpState state = 5;
+  // The priority of this router for Master election (0 to 255).
+  // Priority 255 means this router owns the virtual addresses.
+  // Priority 0 is sent only by a Master relinquishing its role.
+  uint32 priority = 6 [(buf.validate.field).uint32.lte = 255];
+  // The current Master router IP address.
+  flowseer.net.addr.v1.IpAddress master_address = 7;
+  // The primary IP address of this router on the interface.
+  flowseer.net.addr.v1.IpAddress primary_address = 8;
+  // The virtual IP addresses backed by this virtual router group.
+  repeated flowseer.net.addr.v1.IpAddress virtual_addresses = 9;
+  // The virtual MAC address associated with this virtual router (RFC 5798 §7.3).
+  flowseer.net.addr.v1.MacAddress virtual_mac = 10;
+  // The advertisement interval between VRRP advertisements.
+  // VRRPv3 specifies centiseconds (multiples of 10ms up to 40.95s); VRRPv2 specifies whole seconds up to 255s.
+  google.protobuf.Duration advertisement_interval = 11 [
+    (buf.validate.field).duration.gte = {nanos: 10000000},
+    (buf.validate.field).duration.lte = {seconds: 255},
+    (buf.validate.field).cel = {
+      id: "vrrp_group.advertisement_interval_centiseconds"
+      message: "advertisement_interval must be a multiple of 10ms (centiseconds)"
+      expression:
+        "this.getMilliseconds() % 10 == 0 && "
+        "this == duration(string(this.getMilliseconds()) + 'ms')"
+    }
+  ];
+  // Whether a higher priority backup router preempts a lower priority master (RFC 5798 §5.2.5).
+  bool preempt = 12;
+  // Whether the virtual router in Master state accepts packets addressed to the virtual IP address for local processing (RFC 5798 §5.2.6).
+  bool accept_mode = 13;
+  // Operational counters for this VRRP group.
+  VrrpGroupCounters counters = 14;
+}
+
+// Operational counters for a VRRP group (RFC 5798 §5.2.8, VRRP-MIB vrrpRouterStatisticsTable).
+message VrrpGroupCounters {
+  // Number of times this virtual router has transitioned to the Master state (VRRP-MIB vrrpStatsBecomeMaster).
+  uint64 master_transitions = 1;
+  // Total number of VRRP advertisements received by this virtual router (VRRP-MIB vrrpStatsAdvertiseRcvd).
+  uint64 received_advertisements = 2;
+  // The time of the most recent discontinuity in these counters.
+  google.protobuf.Timestamp last_discontinuity = 3;
+}

@@ -7,9 +7,9 @@ unicast forwarding database rows.
 
 ## Boundaries
 
-Imports: net/addr, net/packet
+Imports: net/addr, net/key, net/packet
 
-Imported by: net/capture, net/interface
+Imported by: model/wireless, net/capture, net/endpoint, net/filter, net/interface, net/multicast, net/portaccess, net/protocol/cdp, net/protocol/dhcp, net/protocol/lldp, net/protocol/stp, net/qos, net/wlan
 
 Deliberately absent:
 
@@ -22,6 +22,15 @@ Protovalidate rules distinguish usable VLAN identifiers (`1..4094`) from the
 tag VID field (`0..4094`), where zero represents a priority tag. Exact tag
 stacks are ordered outermost to innermost and are not configuration match
 expressions.
+
+`Vlan` and `FdbEntry` rows name the network instance whose bridge holds them,
+by the `network_instance` key that `net/instance` defines. The forwarding
+database key `(network_instance, vlan_id, mac)` assumes independent VLAN
+learning, where each VLAN has its own filtering database; the network instance
+is what separates two bridge domains that reuse a VLAN identifier. A device
+with a single bridge reports every row in the instance named `default`. Shared
+VLAN learning, where several VLANs share one filtering database, is not
+modeled.
 
 STP, LACP, and registration protocols own separate protocol packages. Device
 identity, tenant, lifecycle, provenance, observation time, and collector health

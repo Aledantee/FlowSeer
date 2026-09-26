@@ -1,0 +1,36 @@
+edition = "2024";
+
+package flowseer.net.system.v1;
+
+import "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An installed software image or firmware file on a device partition.
+message SoftwareImage {
+  // The network instance scoping this image table. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The slot or partition identifier where the image resides. Must be present.
+  string slot = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 255
+    }
+  ];
+  // The software version of this image. Unset means not reported.
+  string version = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // Whether this image is currently running on the system. Unset means the
+  // source does not say.
+  bool running = 4;
+  // Whether this image is designated to boot on the next restart. Unset means
+  // the source does not say.
+  bool next_boot = 5;
+  // The size of the image file in bytes. Unset means not reported.
+  uint64 size_bytes = 6;
+}

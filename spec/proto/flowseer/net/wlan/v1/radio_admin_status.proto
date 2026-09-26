@@ -1,0 +1,14 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Administrative status of a wireless radio interface (Cisco
+// Cisco-IOS-XE-wireless-access-point-oper enum-radio-admin-state).
+enum RadioAdminStatus {
+  // Administrative status is unspecified or unknown.
+  RADIO_ADMIN_STATUS_UNSPECIFIED = 0;
+  // Radio interface is administratively enabled.
+  RADIO_ADMIN_STATUS_UP = 1;
+  // Radio interface is administratively disabled.
+  RADIO_ADMIN_STATUS_DOWN = 2;
+}

@@ -2059,9 +2059,9 @@ const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\xc0\x01\n" +
 	"\x17CaptureSessionGlobalRef\x12A\n" +
 	"\x04edge\x18\x01 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12b\n" +
-	"\x0fcapture_session\x18\x02 \x01(\v21.flowseer.model.capture.v1.CaptureSessionLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x0ecaptureSession\"\x8e\x01\n" +
-	"\x14LocalInterfaceSource\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x12 \n" +
+	"\x0fcapture_session\x18\x02 \x01(\v21.flowseer.model.capture.v1.CaptureSessionLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x0ecaptureSession\"m\n" +
+	"\x14LocalInterfaceSource\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x88\xb5\x18\x01R\rinterfaceName\x12 \n" +
 	"\vpromiscuous\x18\x02 \x01(\bR\vpromiscuous\"\xd7\x01\n" +
 	"\x14MirrorReceiverSource\x12g\n" +
 	"\x0eencapsulations\x18\x01 \x03(\x0e2,.flowseer.net.capture.v1.MirrorEncapsulationB\x11\xbaH\x0e\x92\x01\v\b\x01\"\a\x82\x01\x04\x10\x01 \x00R\x0eencapsulations\x12&\n" +

@@ -1,0 +1,31 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/phy/v1/poe_role.proto";
+import "flowseer/net/protocol/lldp/v1/power_pairs.proto";
+import option "buf/validate/validate.proto";
+
+// The IEEE 802.3 Power via MDI TLV a neighbor announced. Each field is absent
+// when the neighbor or the source did not report it. Mirrors
+// lldpXdot3RemPowerTable (LLDP-EXT-DOT3-MIB:563-653).
+message PowerViaMdi {
+  // Whether the neighbor's port sources or draws power. Mirrors
+  // lldpXdot3RemPowerPortClass (LLDP-EXT-DOT3-MIB:593).
+  flowseer.net.phy.v1.PoeRole port_class = 1;
+  // Whether the port supports power via MDI. Mirrors
+  // lldpXdot3RemPowerMDISupported (LLDP-EXT-DOT3-MIB:604).
+  bool supported = 2;
+  // Whether power via MDI is enabled on the port. Mirrors
+  // lldpXdot3RemPowerMDIEnabled (LLDP-EXT-DOT3-MIB:616).
+  bool enabled = 3;
+  // Whether the pair selection can be controlled. Mirrors
+  // lldpXdot3RemPowerPairControlable (LLDP-EXT-DOT3-MIB:627).
+  bool pair_control_capable = 4;
+  // The pairs that carry power. Mirrors lldpXdot3RemPowerPairs
+  // (LLDP-EXT-DOT3-MIB:641).
+  PowerPairs pairs = 5;
+  // The IEEE 802.3 power class, 0 to 4: the MIB's lldpXdot3RemPowerClass
+  // (1..5, LLDP-EXT-DOT3-MIB:653) minus one.
+  uint32 power_class = 6 [(buf.validate.field).uint32.lte = 4];
+}

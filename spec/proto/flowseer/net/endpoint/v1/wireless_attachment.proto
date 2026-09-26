@@ -1,0 +1,65 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/wlan/v1/wifi_band.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/wlan/v1/channel.proto";
+
+// An observed wireless attachment of an endpoint to an 802.11 BSS.
+message WirelessAttachment {
+  option (buf.validate.message).cel = {
+    id: "wireless_attachment.channel_needs_band"
+    message: "channel requires band to be specified"
+    expression: "!has(this.channel) || (has(this.band) && this.band != 0)"
+  };
+
+  // Device-local name or identifier of the access point hosting the BSS.
+  // 1 to 256 characters. Unset means the AP name was not reported.
+  string ap_name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  // The serving BSS, identified by its 802.11 BSSID when the source reports it,
+  // or by the source's own stable identifier for the serving AP/BSS otherwise
+  // (e.g. UniFi reports the AP by id but never the BSSID). Exactly one is set:
+  // a oneof holds at most one arm and decoding is last-tag-wins, so both cannot
+  // coexist, and the required constraint rejects the empty case.
+  oneof serving_bss {
+    option (buf.validate.oneof).required = true;
+    // Basic Service Set Identifier (BSSID) hardware address of the radio interface.
+    flowseer.net.addr.v1.MacAddress bssid = 2;
+    // The source integration's own stable identifier for the serving AP or BSS,
+    // when it does not expose the BSSID. Unique within the integration named by
+    // the record envelope's provenance. 1 to 256 characters.
+    string vendor_bss_id = 12 [(buf.validate.field).string = {
+      min_len: 1
+      max_len: 256
+    }];
+  }
+  // Service Set Identifier (SSID) octets (IEEE Std 802.11-2020, 0..32 octets).
+  // Unset means the SSID was not reported.
+  bytes ssid = 3 [(buf.validate.field).bytes.max_len = 32];
+  // Operating frequency band of the BSS.
+  flowseer.net.wlan.v1.WifiBand band = 4;
+  // Primary operating channel number (IEEE Std 802.11-2020 Annex E, 1..233).
+  // Validated against flowseer.net.wlan.v1.wifi_channel.
+  uint32 channel = 5 [(buf.validate.field).uint32.(flowseer.net.wlan.v1.wifi_channel) = true];
+  // Received Signal Strength Indicator in milli-dBm. Unset means not reported.
+  sint32 rssi_millidbm = 6;
+  // Signal-to-Noise Ratio in milli-dB. Unset means not reported.
+  sint32 snr_millidb = 7;
+  // Negotiated PHY link data rate in bits per second. Unset means not reported.
+  uint64 negotiated_rate_bps = 8;
+  // Modulation and Coding Scheme index (0..31). Unset means not reported.
+  uint32 mcs = 9 [(buf.validate.field).uint32.lte = 31];
+  // Number of spatial streams (1..8). Unset means not reported.
+  uint32 nss = 10 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 8
+  }];
+  // Guard interval duration. Unset means not reported.
+  google.protobuf.Duration guard_interval = 11;
+}

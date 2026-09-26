@@ -1,0 +1,23 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+// The trigger or mechanism for a wireless endpoint's roam between BSSs.
+// Normalized from IEEE Std 802.11-2020 clauses 13.11 and 11.24.8, and Cisco
+// dot11-client-roam-type (Cisco-IOS-XE-wireless-mobility-types.yang).
+enum RoamReason {
+  // Roam reason is unspecified or unknown.
+  ROAM_REASON_UNSPECIFIED = 0;
+  // Standard 802.11 reassociation without fast transition.
+  ROAM_REASON_STANDARD = 1;
+  // Fast BSS transition using IEEE 802.11r FT.
+  ROAM_REASON_FAST_BSS_TRANSITION = 2;
+  // Opportunistic Key Caching (OKC) or PMKID caching.
+  ROAM_REASON_OPPORTUNISTIC_KEY_CACHING = 3;
+  // Directed transition via IEEE 802.11v BSS Transition Management (BTM).
+  ROAM_REASON_BSS_TRANSITION_MANAGEMENT = 4;
+  // AP or controller band steering across frequency bands.
+  ROAM_REASON_BAND_STEERED = 5;
+  // AP or controller load balancing across access points.
+  ROAM_REASON_LOAD_BALANCED = 6;
+}

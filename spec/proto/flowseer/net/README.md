@@ -21,20 +21,36 @@ belongs in `model/`.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, edge/attach, model/access, model/capture, model/inventory, store/device
+Imported by: api/capture, api/device, edge/attach, event/log, model/access, model/alarm, model/capture, model/endpoint, model/inventory, model/wireless, store/device
 
 Packages under `net/` are leaves with respect to every other root: nothing here
 imports outside `net/`, and any root may import them.
 
 ## Packages
 
+- `key/v1/`: Predefined rules for device-local keys: interface_name, network_instance_name, protocol_instance_name.
+- `measure/v1/`: Sensor readings, percentages, and path quality.
 - `addr/v1/`: Canonical IP, prefix, range, lifetime, MAC, EUI, and OUI value types.
 - `packet/v1/`: Packet-header registries, exact header values, and small reusable match atoms.
 - `phy/v1/`: Ethernet settings, capabilities, active link facts, MAU types, transport arms, pluggable module, and PoE.
+- `instance/v1/`: NetworkInstance row, NetworkInstanceKind, and RouteDistinguisher.
 - `switching/v1/`: VLAN database rows, exact tag stacks, switchport membership, aggregation attributes, and forwarding entries.
 - `ip/v1/`: Per-interface IPv4 and IPv6 facets, assigned-address rows, and neighbor cache.
-- `capture/v1/`: Ref-free packet capture values, counters, filter clauses, mirror encapsulation, and packet records.
+- `routing/v1/`: Route row, NextHop, NextHopGroup, SpecialNextHop, RouteSourceProtocol, and the RouteTableType RIB/FIB discriminator.
+- `filter/v1/`: Packet filter rule sets, rules, L2 to L4 match terms, and the interface filter facet.
+- `qos/v1/`: Trust mode, classifiers with their terms and policers, and per-interface queues.
+- `nat/v1/`: NAT mappings and sessions.
+- `wlan/v1/`: RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
+- `cellular/v1/`: Cellular interface technology, identifiers, serving cell, and signal quality.
+- `endpoint/v1/`: Wired and wireless attachment, fingerprint, per-endpoint counters.
+- `portaccess/v1/`: Port-access sessions (802.1X, MAC authentication, web authentication).
+- `system/v1/`: Resource utilization, software images, licenses.
+- `multicast/v1/`: IGMP/MLD snooping group membership.
+- `aaa/v1/`: RADIUS and TACACS+ server identity.
+- `flow/v1/`: Flow-export settings (sFlow, NetFlow, IPFIX).
+- `log/v1/`: Syslog severity and facility (RFC 5424 registries).
 - `interface/v1/`: Normalized interface message with kind-specific oneof arms and routed facet.
+- `capture/v1/`: Ref-free packet capture values, counters, filter clauses, mirror encapsulation, and packet records.
 - `protocol/`: Protocol-specific observation tables and state machines.
 
 ## Standards grounding
@@ -69,6 +85,14 @@ IETF RFCs:
   [RFC 3621](https://www.rfc-editor.org/rfc/rfc3621.html), and
   [RFC 4363](https://www.rfc-editor.org/rfc/rfc4363.html) for Ethernet-like
   interface, Power over Ethernet, and VLAN bridge MIB semantics.
+- [RFC 4364, section 4.2](https://www.rfc-editor.org/rfc/rfc4364.html#section-4.2)
+  for BGP/MPLS IP VPN route distinguisher formats.
+- [RFC 8349](https://www.rfc-editor.org/rfc/rfc8349.html) and
+  [RFC 4292](https://www.rfc-editor.org/rfc/rfc4292.html) for routes, RIBs,
+  next hops, and the IP forwarding table MIB.
+- [RFC 2132](https://www.rfc-editor.org/rfc/rfc2132.html) and
+  [RFC 4702](https://www.rfc-editor.org/rfc/rfc4702.html) for DHCP options
+  and DHCP client FQDN.
 
 IANA registries:
 
@@ -78,6 +102,8 @@ IANA registries:
 - [ICMPv6 Parameters](https://www.iana.org/assignments/icmpv6-parameters)
 - [IEEE 802 Numbers](https://www.iana.org/assignments/ieee-802-numbers)
 - [Assigned Internet Protocol Numbers](https://www.iana.org/assignments/protocol-numbers)
+- [IANA-RTPROTO-MIB](https://www.iana.org/assignments/ianaiprouteprotocol-mib)
+  (`IANAipRouteProtocol`) for route source protocols
 
 IEEE and other bodies:
 
@@ -89,3 +115,7 @@ IEEE and other bodies:
   for EUI-48, EUI-64, and OUI identifier formats.
 - [SNIA SFF-8024](https://members.snia.org/document/dl/26423) for pluggable
   transceiver form-factor identifiers.
+- [IEEE 802.1X](https://standards.ieee.org/ieee/802.1X/) and
+  [IEEE8021-PAE-MIB](https://www.ieee802.org/1/files/public/MIBs/IEEE8021-PAE-MIB-202006040000Z.mib)
+  for Port Access Entity control and port-access session MIB semantics.
+- Cisco Meraki Connection Stats for wireless connection failure stages.

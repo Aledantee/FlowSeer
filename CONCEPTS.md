@@ -58,6 +58,23 @@ The origin of one live response or event — which Binding answered and when the
 
 A reference to one entity whose kind is decided at runtime, as a kind plus an id. Used only where the target's kind is genuinely dynamic — a statically-known target keeps its typed ref pair. Admission of a kind to the dynamic-reference vocabulary is a contract: the entity must be UUID-identified, answer existence checks, and cascade attribute values that reference it when deleted.
 
+### Wlan
+
+A logical 802.11 network defined by its SSID, security settings, and broadcast state. A WLAN is UUID-identified and managed as a full Config/State/Event triad: an SSID can be configured without being broadcast by any radio, and its broadcast state tracks which radio components and BSSIDs currently beacon it.
+
+### Syslog Record
+
+One received log line tied to its device, captured as an append-only timeline
+fact. A syslog record is never diffed, reconciled, or tracked through a
+lifecycle, and is never an alarm.
+
+### Alarm
+
+A named, clearable fault condition a device raises on one of its resources,
+keyed by resource and alarm type. An Alarm is managed as an observed state
+and transition (`AlarmState`, `AlarmEvent`), distinct from an append-only
+syslog record.
+
 ## Runtime
 
 ### Service Module
@@ -112,15 +129,67 @@ Managed Device state that differs from the centrally recorded baseline without a
 
 ### Facet
 
-A bundle of per-layer attributes for one interface — switchport membership, IP enablement, Ethernet link facts — embedded by value in the interface message. A facet's presence is its own discriminator: a routed interface is one whose IP facet is set, with no boolean beside it to disagree.
+A bundle of per-layer attributes for one interface — switchport membership, IP enablement, Ethernet link facts — embedded by value in the interface or component it describes. A facet's presence is its own discriminator: a routed interface is one whose IP facet is set, with no boolean beside it to disagree.
+
+### Radio
+
+A component of kind radio carrying a radio facet with its BSSs. An access point hosting radios is a Device.
 
 ### Table
 
 Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
+### Network instance
+
+A device's routing or bridging domain: its default instance, a VRF, or a Layer 2 switch instance. Every forwarding table names the instance it belongs to, so two domains that reuse a VLAN id or a prefix stay apart; a routed interface names its instance once in its IP facet, and rows keyed by that interface inherit it. A device with no instance concept reports one of kind `DEFAULT`, named `default` unless the device has its own name for it.
+
+### Protocol instance
+
+One running instance of a routing protocol inside a network instance, such as an OSPF process or an IS-IS tag, named as the device names it; its rows name both, and rows keyed by an interface name only the protocol instance.
+
+### Route
+
+One row of a network instance's routing table: a destination prefix, how it was learned, and the next hops it forwards over, or a special action that discards or receives the packet locally. A route also says whether it came from the RIB or the FIB, because the standard SNMP routing tables do not.
+
+### Protocol table
+
+A table a single protocol owns lives in that protocol's package under `net/protocol/`, such as the LLDP and CDP neighbor tables. A table several protocols fill lives in a package named for its function, such as snooping group membership, which IGMP and MLD both fill. No message unions two protocols' rows; a protocol-blind view such as what is on a port is a projection a service computes.
+
+### Spanning tree instance
+
+One spanning tree a bridge runs. The CIST is the bridge's own tree, carried by its bridge state; under MSTP every further tree is a numbered MSTI row beside it, keyed by network instance and MSTID 1 to 4094. Every VLAN belongs to exactly one of them, and the VLAN map spells the CIST as instance 0. Unrelated to a network instance, which is a forwarding domain rather than a tree inside one.
+
+### Canonical unit
+
+Every physical quantity has one canonical unit, named in the field suffix, in integer fixed point. A mapper converts from a source's native unit at the edge of the system so consumers compare values without having to know which unit each source reported. The unit table is rule 1 of the [schema building blocks direction](docs/architecture/2026-09-25-schema-building-blocks-direction.md).
+
 ### Virtual Device
 
 A device the simulator under `src/common/netsim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
+
+### Endpoint
+
+A client device connected to the network by a wired switchport or wireless BSS association. An Endpoint carries a UUID-keyed identity in `model/endpoint/v1` with an active/stale/retired lifecycle, observed MAC and IP addresses, optional fingerprint and counters, and an attachment oneof (`wired` or `wireless`). Endpoints are observed clients rather than configured infrastructure, so the family is deliberately partial: `EndpointState` and `EndpointEvent` without an `EndpointConfig`.
+
+### Port-access session
+
+A device-scoped table row in `net/portaccess/v1.Session` representing an authenticated access session on a physical switchport. It is keyed by interface name and client MAC address to support multi-supplicant ports across 802.1X, MAC authentication bypass, and web authentication. Scoped by interface name, the network instance is inherited and omitted per Rule 4.
+
+### Trust mode
+
+The header field a port believes when it classifies an incoming frame: the PCP, the DSCP, the IP precedence, or the PCP for L2 traffic and the DSCP for L3 traffic. An untrusted port believes none and applies its default class.
+
+### AAA server
+
+A RADIUS or TACACS+ server a device is configured to use, identified by its address and protocol. Its shared secret is a credential held in the secret store, never part of the row.
+
+### Cellular interface
+
+The cellular side of a WAN interface: its modem, SIM, serving cell, and signal, keyed by the interface name. Unlike an 802.11 radio, which is a component, every cellular source presents the modem as an interface.
+
+### NAT mapping and session
+
+A mapping is a configured rule that says which addresses and ports translate to which; a session is one live translation, the same conversation seen in the private and the public realm.
 
 ## Capture
 

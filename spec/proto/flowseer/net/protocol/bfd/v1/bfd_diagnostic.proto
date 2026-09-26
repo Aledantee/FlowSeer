@@ -1,0 +1,28 @@
+edition = "2024";
+
+package flowseer.net.protocol.bfd.v1;
+
+// The diagnostic code indicating the reason for the last session state change (RFC 5880 §4.1, RFC 7330).
+// Zero is a real value (NO_DIAGNOSTIC); presence carries "unreported".
+enum BfdDiagnostic {
+  // No diagnostic specified (RFC 5880 §4.1 Diag 0).
+  BFD_DIAGNOSTIC_NO_DIAGNOSTIC = 0;
+  // Control Detection Time Expired (RFC 5880 §4.1 Diag 1).
+  BFD_DIAGNOSTIC_CONTROL_DETECTION_TIME_EXPIRED = 1;
+  // Echo Function Failed (RFC 5880 §4.1 Diag 2).
+  BFD_DIAGNOSTIC_ECHO_FUNCTION_FAILED = 2;
+  // Neighbor Signaled Session Down (RFC 5880 §4.1 Diag 3).
+  BFD_DIAGNOSTIC_NEIGHBOR_SIGNALED_SESSION_DOWN = 3;
+  // Forwarding Plane Reset (RFC 5880 §4.1 Diag 4).
+  BFD_DIAGNOSTIC_FORWARDING_PLANE_RESET = 4;
+  // Path Down (RFC 5880 §4.1 Diag 5).
+  BFD_DIAGNOSTIC_PATH_DOWN = 5;
+  // Concatenated Path Down (RFC 5880 §4.1 Diag 6).
+  BFD_DIAGNOSTIC_CONCATENATED_PATH_DOWN = 6;
+  // Administratively Down (RFC 5880 §4.1 Diag 7).
+  BFD_DIAGNOSTIC_ADMINISTRATIVELY_DOWN = 7;
+  // Reverse Concatenated Path Down (RFC 5880 §4.1 Diag 8).
+  BFD_DIAGNOSTIC_REVERSE_CONCATENATED_PATH_DOWN = 8;
+  // Mis-connectivity Defect (RFC 7330 IANAbfdDiagTC misConnectivityDefect(9)).
+  BFD_DIAGNOSTIC_MIS_CONNECTIVITY_DEFECT = 9;
+}

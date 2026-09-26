@@ -1,0 +1,143 @@
+edition = "2024";
+
+// An alarm condition observed on a device: AlarmState and AlarmEvent.
+// AlarmConfig is deliberately absent: alarms are device-reported state and
+// transitions rather than operator-configured intent, and operator
+// acknowledgment is not modeled here. The Alarm entity is owned by its device
+// and keyed by resource and alarm type; it sits outside EntityType like
+// Component because its key is device-scoped rather than a top-level UUID.
+package flowseer.model.alarm.v1;
+
+import "flowseer/model/inventory/v1/component.proto";
+import "flowseer/model/inventory/v1/device.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// Perceived severity of an alarm, ordered from least to most severe.
+enum AlarmSeverity {
+  // No severity specified. State and events reject the zero value.
+  ALARM_SEVERITY_UNSPECIFIED = 0;
+  // Severity is indeterminate or cannot be determined.
+  ALARM_SEVERITY_INDETERMINATE = 1;
+  // Warning condition: an action should be taken before it becomes a problem.
+  ALARM_SEVERITY_WARNING = 2;
+  // Minor condition: a non-service-affecting fault has developed.
+  ALARM_SEVERITY_MINOR = 3;
+  // Major condition: a service-affecting condition has developed.
+  ALARM_SEVERITY_MAJOR = 4;
+  // Critical condition: a service-affecting condition has developed and
+  // immediate corrective action is required.
+  ALARM_SEVERITY_CRITICAL = 5;
+}
+
+// An empty message representing an alarm that applies to the device as a whole
+// rather than any individual component, interface, or sub-resource.
+message WholeDevice {}
+
+// The target resource on the device to which an alarm applies.
+message AlarmResource {
+  // Exactly one target resource. A oneof holds at most one arm and wire
+  // decoding is last-tag-wins, so both arms cannot coexist; required
+  // rejects the empty case.
+  oneof target {
+    option (buf.validate.oneof).required = true;
+
+    // The alarm applies to the device as a whole.
+    WholeDevice device = 1;
+    // The physical or logical component to which the alarm applies.
+    flowseer.model.inventory.v1.ComponentLocalRef component = 2;
+    // The network interface to which the alarm applies.
+    string interface_name = 3 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+    // Any other device-reported resource identifier (e.g. BGP neighbor or process).
+    string other = 4 [
+      (buf.validate.field).string.min_len = 1,
+      (buf.validate.field).string.max_len = 1024
+    ];
+  }
+}
+
+// The local reference to an alarm within its device.
+message AlarmLocalRef {
+  // The resource this alarm applies to. Must be present.
+  AlarmResource resource = 1 [(buf.validate.field).required = true];
+  // The alarm type identifier as reported by the device or management protocol.
+  // Must be present.
+  string type_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+  // Optional qualifier distinguishing multiple alarm instances of the same
+  // type on the same resource (RFC 8632 alarm-type-qualifier).
+  string type_qualifier = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+// The global reference to an alarm.
+message AlarmGlobalRef {
+  // The device owning this alarm. Must be present.
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // The alarm's local reference within the device. Must be present.
+  AlarmLocalRef alarm = 2 [(buf.validate.field).required = true];
+}
+
+// The observed definition of one alarm condition on a device.
+message AlarmState {
+  // The ref to this alarm. Must be present.
+  AlarmGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Severity of the alarm. Unset means the source did not report one.
+  // The zero value is rejected.
+  AlarmSeverity severity = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Whether the alarm condition has cleared. Must be present.
+  bool cleared = 3 [(buf.validate.field).required = true];
+  // Human-readable diagnostic description of the alarm.
+  string text = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+  // Timestamp when the alarm condition was first created or detected.
+  google.protobuf.Timestamp created_at = 5;
+  // Timestamp when the alarm condition was most recently raised.
+  google.protobuf.Timestamp last_raised_at = 6;
+  // Timestamp when the alarm state or severity most recently changed.
+  google.protobuf.Timestamp last_changed_at = 7;
+}
+
+// One transition of an alarm condition, carried as the observed definition
+// before and after.
+message AlarmEvent {
+  option (buf.validate.message).cel = {
+    id: "alarm_event.before_matches_ref"
+    message: "the before side must describe the alarm the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref == this.ref"
+  };
+  option (buf.validate.message).cel = {
+    id: "alarm_event.after_matches_ref"
+    message: "the after side must describe the alarm the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref == this.ref"
+  };
+  option (buf.validate.message).cel = {
+    id: "alarm_event.one_side"
+    message: "an event carries at least one side"
+    expression: "has(this.before) || has(this.after)"
+  };
+
+  // The ref to the alarm that changed. Must be present.
+  AlarmGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The observed definition before the transition. Unset means the alarm
+  // was newly raised.
+  AlarmState before = 2;
+  // The observed definition after the transition. Unset means the device
+  // stopped listing the alarm.
+  AlarmState after = 3;
+}

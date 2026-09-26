@@ -5,6 +5,7 @@ edition = "2024";
 package flowseer.runtime.v1;
 
 import "flowseer/runtime/v1/message.proto";
+import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
 
 // One statically declared subscription in a runtime manifest.
@@ -69,6 +70,9 @@ message ModuleContract {
 
 // The complete persisted routing and broker contract for one service binary.
 message RuntimeManifest {
+  reserved 16;
+  reserved duplicate_window_seconds;
+
   // Service tenancy namespace. Must be present.
   string service_namespace = 1 [
     (buf.validate.field).required = true,
@@ -145,9 +149,9 @@ message RuntimeManifest {
   ];
   // Deduplication window shared by persisted publish identities. Must be
   // present.
-  uint64 duplicate_window_seconds = 16 [
+  google.protobuf.Duration duplicate_window = 17 [
     (buf.validate.field).required = true,
-    (buf.validate.field).uint64.gte = 1
+    (buf.validate.field).duration.gte = {seconds: 1}
   ];
 }
 

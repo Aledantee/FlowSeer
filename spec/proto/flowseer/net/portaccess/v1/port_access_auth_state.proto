@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.portaccess.v1;
+
+// The authorization state of a port-access session.
+enum PortAccessAuthState {
+  // Authorization state is unspecified or unknown.
+  PORT_ACCESS_AUTH_STATE_UNSPECIFIED = 0;
+  // The session is authenticated and authorized for network access.
+  PORT_ACCESS_AUTH_STATE_AUTHORIZED = 1;
+  // The session is unauthenticated or unauthorized.
+  PORT_ACCESS_AUTH_STATE_UNAUTHORIZED = 2;
+}

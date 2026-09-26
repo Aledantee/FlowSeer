@@ -1,0 +1,42 @@
+edition = "2024";
+
+package flowseer.net.routing.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/routing/v1/special_next_hop.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A next hop that forwards the packet out of an interface, to a gateway
+// address, or both (RFC 8349 §7, simple-next-hop).
+message ForwardingNextHop {
+  option (buf.validate.message).cel = {
+    id: "forwarding_next_hop.target_present"
+    message: "a forwarding next hop must name an outgoing interface, a gateway address, or both"
+    expression: "has(this.interface_name) || has(this.address)"
+  };
+
+  // The device-reported outgoing interface name. Absent when the source
+  // reported only a gateway address.
+  string interface_name = 1 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // The gateway address. Absent for a route to a directly attached network
+  // or a point-to-point interface.
+  flowseer.net.addr.v1.IpAddress address = 2;
+}
+
+// A route's next hop: a forwarding target or a special action. Exactly one arm
+// is set. A next hop with both arms is not representable: the oneof holds at
+// most one arm, and decoding keeps the last arm on the wire.
+message NextHop {
+  oneof target {
+    option (buf.validate.oneof).required = true;
+
+    // Forward the packet.
+    ForwardingNextHop forwarding = 1;
+    // Act on the packet instead of forwarding it. Unspecified is invalid.
+    SpecialNextHop special = 2 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+  }
+}

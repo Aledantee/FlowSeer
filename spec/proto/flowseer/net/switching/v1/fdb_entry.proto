@@ -6,10 +6,14 @@ import "flowseer/net/addr/v1/eui.proto";
 import "flowseer/net/switching/v1/fdb_entry_kind.proto";
 import "flowseer/net/switching/v1/fdb_entry_status.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 import option "flowseer/net/switching/v1/vlan_id.proto";
 
-// A device-local unicast forwarding-database row keyed by VLAN identifier and
-// EUI-48 address. Bridge-domain scoping belongs to a future instance model.
+// A device-local unicast forwarding-database row keyed by network instance,
+// VLAN identifier, and EUI-48 address. The key assumes independent VLAN
+// learning, where each VLAN has its own filtering database
+// (https://standards.ieee.org/ieee/802.1Q/10323/); the network instance
+// scopes the row to one bridge domain.
 // The unicast constraint checks the IEEE 802 individual/group (I/G) bit, the
 // least significant bit of the first octet, which is zero for an individual
 // (unicast) address
@@ -31,12 +35,14 @@ message FdbEntry {
   flowseer.net.addr.v1.Eui48Address mac = 2 [(buf.validate.field).required = true];
   // The device-reported egress interface name. Absent is valid for local,
   // remote, invalid, or unresolved entries; a present name must not be empty.
-  string interface_name = 3 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
-  ];
+  string interface_name = 3 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
   // How the entry was created or is owned. Absent means unreported.
   FdbEntryKind kind = 4;
   // Current forwarding usability. Absent means unreported.
   FdbEntryStatus status = 5;
+  // The network instance whose bridge holds the entry. Must be present.
+  string network_instance = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
 }

@@ -1,0 +1,39 @@
+edition = "2024";
+
+package flowseer.net.flow.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/flow/v1/flow_export_protocol.proto";
+import "flowseer/net/packet/v1/ip_dscp.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A NetFlow or IPFIX exporter a device sends flow records through. Mirrors
+// the IOS-XE flow exporter (Cisco-IOS-XE-flow.yang:4400-4470, :4709-4745).
+message FlowExporter {
+  // The exporter's name, unique on the device. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 60
+    }
+  ];
+  // The collector's address. Must be present.
+  flowseer.net.addr.v1.IpAddress destination = 2 [(buf.validate.field).required = true];
+  // The collector's UDP port. Absent means unreported.
+  uint32 port = 3 [(buf.validate.field).uint32.lte = 65535];
+  // The record format sent. Absent means unreported.
+  FlowExportProtocol protocol = 4;
+  // The interface whose address export packets are sent from. Absent means
+  // unreported.
+  string source_interface_name = 5 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // The DSCP export packets are marked with. Absent means unreported.
+  flowseer.net.packet.v1.IpDscp dscp = 6 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_dscp) = true];
+  // How often templates are resent. Absent means unreported.
+  google.protobuf.Duration template_refresh = 7 [(buf.validate.field).duration = {
+    gte: {seconds: 1}
+    lte: {seconds: 86400}
+  }];
+}

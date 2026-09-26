@@ -209,9 +209,9 @@ func (s Snapshot) Fingerprint() string {
 				b.WriteString("=")
 				b.WriteString(escapeFingerprint(pa.State.Canonical()))
 				b.WriteString(",")
-				b.WriteString(strconv.FormatUint(uint64(pa.MinMilliwatts), 10))
+				b.WriteString(strconv.FormatUint(pa.MinNanowatts, 10))
 				b.WriteString(",")
-				b.WriteString(strconv.FormatUint(uint64(pa.MaxMilliwatts), 10))
+				b.WriteString(strconv.FormatUint(pa.MaxNanowatts, 10))
 				b.WriteString(",")
 				b.WriteString(escapeFingerprint(string(pa.Denial)))
 			}
@@ -227,11 +227,11 @@ func (s Snapshot) Fingerprint() string {
 				ga := dev.Power.Groups[gName]
 				b.WriteString(escapeFingerprint(gName))
 				b.WriteString("=")
-				b.WriteString(strconv.FormatUint(uint64(ga.BudgetMilliwatts), 10))
+				b.WriteString(strconv.FormatUint(ga.BudgetNanowatts, 10))
 				b.WriteString(",")
-				b.WriteString(strconv.FormatUint(uint64(ga.AllocatedMilliwatts), 10))
+				b.WriteString(strconv.FormatUint(ga.AllocatedNanowatts, 10))
 				b.WriteString(",")
-				b.WriteString(strconv.FormatUint(uint64(ga.RemainderMilliwatts), 10))
+				b.WriteString(strconv.FormatUint(ga.RemainderNanowatts, 10))
 			}
 			b.WriteString("}")
 		}

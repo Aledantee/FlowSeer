@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.aaa.v1;
+
+// Whether a device reports an AAA server as reachable. Mirrors IOS-XE
+// aaa-server-states (Cisco-IOS-XE-aaa-oper.yang:537-551).
+enum AaaServerStatus {
+  AAA_SERVER_STATUS_UNSPECIFIED = 0;
+  // The server answers.
+  AAA_SERVER_STATUS_ALIVE = 1;
+  // The device has marked the server dead.
+  AAA_SERVER_STATUS_DEAD = 2;
+}

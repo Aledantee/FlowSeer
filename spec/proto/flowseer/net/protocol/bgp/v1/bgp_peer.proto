@@ -1,0 +1,135 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/bgp/v1/bgp_afi.proto";
+import "flowseer/net/protocol/bgp/v1/bgp_peer_state.proto";
+import "flowseer/net/protocol/bgp/v1/bgp_safi.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A BGP peer neighbor session (RFC 4271, BGP4-MIB bgpPeerEntry).
+message BgpPeer {
+  option (buf.validate.message).cel = {
+    id: "bgp_peer.link_local_interface"
+    message: "interface_name must be present when remote_address is an IPv6 link-local address"
+    expression:
+      "!has(this.remote_address) || !has(this.remote_address.v6) || "
+      "!'%x'.format([this.remote_address.v6.octets]).matches('^fe[89ab]') || "
+      "has(this.interface_name)"
+  };
+  option (buf.validate.message).cel = {
+    id: "bgp_peer.hold_time"
+    message: "negotiated_hold_time must be 0s or whole seconds from 3s to 65535s"
+    expression:
+      "!has(this.negotiated_hold_time) || this.negotiated_hold_time == duration('0s') || ("
+      "this.negotiated_hold_time >= duration('3s') && "
+      "this.negotiated_hold_time <= duration('65535s') && "
+      "this.negotiated_hold_time == duration(string(this.negotiated_hold_time.getSeconds()) + 's'))"
+  };
+  option (buf.validate.message).cel = {
+    id: "bgp_peer.keepalive"
+    message: "negotiated_keepalive must be whole seconds up to 21845s"
+    expression:
+      "!has(this.negotiated_keepalive) || ("
+      "this.negotiated_keepalive >= duration('0s') && "
+      "this.negotiated_keepalive <= duration('21845s') && "
+      "this.negotiated_keepalive == duration(string(this.negotiated_keepalive.getSeconds()) + 's'))"
+  };
+  option (buf.validate.message).cel = {
+    id: "bgp_peer.address_families_unique"
+    message: "address_families must be unique on (afi, safi)"
+    expression: "this.address_families.map(af, string(int(af.afi)) + '/' + string(int(af.safi))).unique()"
+  };
+
+  // The network instance this peer belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The remote IP address of the peer (BGP4-MIB bgpPeerRemoteAddr). Must be present.
+  flowseer.net.addr.v1.IpAddress remote_address = 3 [(buf.validate.field).required = true];
+  // The local interface this peer session is bound to. Required for IPv6 link-local peers.
+  string interface_name = 4 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // The local IP address of the connection (BGP4-MIB bgpPeerLocalAddr).
+  flowseer.net.addr.v1.IpAddress local_address = 5;
+  // The remote autonomous system number (BGP4-MIB bgpPeerRemoteAs, RFC 6793).
+  uint32 remote_asn = 6;
+  // The local autonomous system number (BGP4-MIB bgpPeerLocalAs, RFC 6793).
+  uint32 local_asn = 7;
+  // The remote BGP router identifier (BGP4-MIB bgpPeerIdentifier, RFC 6286).
+  // Absent if not yet received in an OPEN message.
+  uint32 remote_router_id = 8 [(buf.validate.field).uint32.gte = 1];
+  // The state of the BGP peer connection (BGP4-MIB bgpPeerState).
+  BgpPeerState state = 9;
+  // Whether this peer session is administratively enabled (BGP4-MIB bgpPeerAdminStatus).
+  bool enabled = 10;
+  // How long the peer has been in, or out of, Established state (BGP4-MIB bgpPeerFsmEstablishedTime).
+  google.protobuf.Duration established_time = 11 [(buf.validate.field).duration.gte = {seconds: 0}];
+  // Negotiated hold time in whole seconds (0s or 3s to 65535s, RFC 4271 §4.2, BGP4-MIB bgpPeerHoldTime).
+  google.protobuf.Duration negotiated_hold_time = 12;
+  // Negotiated keepalive interval in whole seconds (0s to 21845s, BGP4-MIB bgpPeerKeepAlive).
+  google.protobuf.Duration negotiated_keepalive = 13;
+  // The address families negotiated and active for this peer.
+  repeated BgpPeerAddressFamily address_families = 14;
+  // Message and transition counters for this peer.
+  BgpPeerCounters counters = 15;
+}
+
+// BGP address family capabilities and prefix counters for a peer (RFC 4760, openconfig-bgp-neighbor.yang).
+message BgpPeerAddressFamily {
+  // Address Family Identifier (AFI). Must be present and within 16-bit range.
+  BgpAfi afi = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.not_in = 0,
+    (buf.validate.field).cel = {
+      id: "bgp_peer_address_family.afi"
+      message: "afi must fit the 16-bit range (1 to 65535)"
+      expression: "this <= 65535"
+    }
+  ];
+  // Subsequent Address Family Identifier (SAFI). Must be present and within 8-bit range.
+  BgpSafi safi = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.not_in = 0,
+    (buf.validate.field).cel = {
+      id: "bgp_peer_address_family.safi"
+      message: "safi must fit the 8-bit range (1 to 255)"
+      expression: "this <= 255"
+    }
+  ];
+  // Whether the address family is active for this peer.
+  bool active = 3;
+  // Prefixes received from this peer for this family.
+  uint32 received_prefixes = 4;
+  // Prefixes sent to this peer for this family.
+  uint32 sent_prefixes = 5;
+  // Prefixes installed in the RIB/FIB for this family.
+  uint32 installed_prefixes = 6;
+}
+
+// Message and transition counters for a BGP peer connection (BGP4-MIB).
+message BgpPeerCounters {
+  // Number of BGP UPDATE messages received (BGP4-MIB bgpPeerInUpdates).
+  uint64 in_update_messages = 1;
+  // Number of BGP UPDATE messages sent (BGP4-MIB bgpPeerOutUpdates).
+  uint64 out_update_messages = 2;
+  // Total number of BGP messages received (BGP4-MIB bgpPeerInTotalMessages).
+  uint64 in_messages = 3;
+  // Total number of BGP messages sent (BGP4-MIB bgpPeerOutTotalMessages).
+  uint64 out_messages = 4;
+  // Number of transitions into the Established state (BGP4-MIB bgpPeerFsmEstablishedTransitions).
+  uint64 established_transitions = 5;
+  // The time these counters last reset or experienced a discontinuity. Unset
+  // means the source does not report it (BGP4-MIB has no per-peer discontinuity
+  // object).
+  google.protobuf.Timestamp last_discontinuity = 6;
+}

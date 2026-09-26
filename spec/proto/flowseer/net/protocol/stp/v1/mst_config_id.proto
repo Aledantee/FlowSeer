@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+import option "buf/validate/validate.proto";
+
+// MST configuration identifier (IEEE 802.1Q 13.8). Two bridges belong to the
+// same MST region when all three values match. Each field is absent when the
+// source did not report it.
+message MstConfigId {
+  // Configuration name, up to 32 octets. Mirrors
+  // ieee8021MstpConfigurationName (IEEE8021-MSTP-MIB-202211080000Z:1363).
+  string name = 1 [(buf.validate.field).string.max_bytes = 32];
+  // Configuration revision level. Mirrors ieee8021MstpRevisionLevel
+  // (IEEE8021-MSTP-MIB-202211080000Z:1373).
+  uint32 revision_level = 2 [(buf.validate.field).uint32.lte = 65535];
+  // Configuration digest over the VLAN-to-MSTI map. Mirrors
+  // ieee8021MstpConfigurationDigest (IEEE8021-MSTP-MIB-202211080000Z:1383).
+  bytes digest = 3 [(buf.validate.field).bytes.len = 16];
+}

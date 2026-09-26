@@ -58,8 +58,9 @@ func TestLoad_CompleteModel(t *testing.T) {
 	vlanName := "vlan10"
 	vlans := []*switchingv1.Vlan{
 		switchingv1.Vlan_builder{
-			Id:   &vid10,
-			Name: &vlanName,
+			NetworkInstance: ptr("default"),
+			Id:              &vid10,
+			Name:            &vlanName,
 		}.Build(),
 	}
 
@@ -69,11 +70,12 @@ func TestLoad_CompleteModel(t *testing.T) {
 	p1Name := "1/1/1"
 	fdb := []*switchingv1.FdbEntry{
 		switchingv1.FdbEntry_builder{
-			VlanId:        &vid10,
-			InterfaceName: &p1Name,
-			Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
-			Kind:          &fdbStatic,
-			Status:        &fdbActive,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid10,
+			InterfaceName:   &p1Name,
+			Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+			Kind:            &fdbStatic,
+			Status:          &fdbActive,
 		}.Build(),
 	}
 
@@ -282,7 +284,7 @@ func TestLoad_ConflictingRows(t *testing.T) {
 	vid10 := uint32(10)
 	vlanName := "vlan10"
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlanName}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlanName}.Build(),
 	}
 
 	// Two conflicting FDB entries for the same MAC and VLAN on different ports
@@ -293,19 +295,21 @@ func TestLoad_ConflictingRows(t *testing.T) {
 	p2Name := "1/1/2"
 
 	fdb1 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid10,
-		InterfaceName: &p1Name,
-		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
-		Kind:          &fdbStatic,
-		Status:        &fdbActive,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p1Name,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+		Kind:            &fdbStatic,
+		Status:          &fdbActive,
 	}.Build()
 
 	fdb2 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid10,
-		InterfaceName: &p2Name,
-		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
-		Kind:          &fdbStatic,
-		Status:        &fdbActive,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p2Name,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+		Kind:            &fdbStatic,
+		Status:          &fdbActive,
 	}.Build()
 
 	// Conflicting STP port state rows (duplicate port 1/1/1)
@@ -369,7 +373,7 @@ func TestLoad_ErrorVersusResultSeparation(t *testing.T) {
 	pLagMember := interfacev1.Interface_builder{
 		Name: &parentBogus,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &parentBogus,
+			LagParentInterfaceName: &parentBogus,
 		}.Build(),
 	}.Build()
 	if _, err := netmodel.Load(now, src, []*interfacev1.Interface{pLagMember}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil); err == nil {
@@ -463,8 +467,8 @@ func TestLoad_ShuffledFdbRowsYieldEqualSpec(t *testing.T) {
 	vlanName10 := "vlan10"
 	vlanName20 := "vlan20"
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlanName10}.Build(),
-		switchingv1.Vlan_builder{Id: &vid20, Name: &vlanName20}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlanName10}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid20, Name: &vlanName20}.Build(),
 	}
 
 	mac1 := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -476,27 +480,30 @@ func TestLoad_ShuffledFdbRowsYieldEqualSpec(t *testing.T) {
 	p2Name := "1/1/2"
 
 	fdb1 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid10,
-		InterfaceName: &p1Name,
-		Mac:           addrv1.Eui48Address_builder{Octets: mac1}.Build(),
-		Kind:          &fdbStatic,
-		Status:        &fdbActive,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p1Name,
+		Mac:             addrv1.Eui48Address_builder{Octets: mac1}.Build(),
+		Kind:            &fdbStatic,
+		Status:          &fdbActive,
 	}.Build()
 
 	fdb2 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid20,
-		InterfaceName: &p2Name,
-		Mac:           addrv1.Eui48Address_builder{Octets: mac2}.Build(),
-		Kind:          &fdbStatic,
-		Status:        &fdbActive,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid20,
+		InterfaceName:   &p2Name,
+		Mac:             addrv1.Eui48Address_builder{Octets: mac2}.Build(),
+		Kind:            &fdbStatic,
+		Status:          &fdbActive,
 	}.Build()
 
 	fdb3 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid10,
-		InterfaceName: &p1Name,
-		Mac:           addrv1.Eui48Address_builder{Octets: mac3}.Build(),
-		Kind:          &fdbStatic,
-		Status:        &fdbActive,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p1Name,
+		Mac:             addrv1.Eui48Address_builder{Octets: mac3}.Build(),
+		Kind:            &fdbStatic,
+		Status:          &fdbActive,
 	}.Build()
 
 	src := netmodel.SourceContext{

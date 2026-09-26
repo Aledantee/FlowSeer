@@ -38,7 +38,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 
 	pvid := vlan.ID(10)
 	outputVLAN := vlan.ID(20)
-	limit := uint32(5000)
+	limit := uint64(5_000_000_000)
 	seed := vswitch.Config{
 		MAC:   netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
 		Ports: ports,

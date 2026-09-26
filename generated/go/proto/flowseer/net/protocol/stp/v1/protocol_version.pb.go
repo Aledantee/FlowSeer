@@ -30,6 +30,9 @@ const (
 	ProtocolVersion_PROTOCOL_VERSION_STP ProtocolVersion = 1
 	// Rapid Spanning Tree Protocol (IEEE 802.1D-2004; dot1dStpVersion rstp).
 	ProtocolVersion_PROTOCOL_VERSION_RSTP ProtocolVersion = 2
+	// Multiple Spanning Tree Protocol (IEEE 802.1Q; ieee8021SpanningTreeVersion
+	// mstp(3), IEEE8021-SPANNING-TREE-MIB-201412150000Z:378).
+	ProtocolVersion_PROTOCOL_VERSION_MSTP ProtocolVersion = 3
 )
 
 // Enum value maps for ProtocolVersion.
@@ -38,11 +41,13 @@ var (
 		0: "PROTOCOL_VERSION_UNSPECIFIED",
 		1: "PROTOCOL_VERSION_STP",
 		2: "PROTOCOL_VERSION_RSTP",
+		3: "PROTOCOL_VERSION_MSTP",
 	}
 	ProtocolVersion_value = map[string]int32{
 		"PROTOCOL_VERSION_UNSPECIFIED": 0,
 		"PROTOCOL_VERSION_STP":         1,
 		"PROTOCOL_VERSION_RSTP":        2,
+		"PROTOCOL_VERSION_MSTP":        3,
 	}
 )
 
@@ -72,11 +77,12 @@ var File_flowseer_net_protocol_stp_v1_protocol_version_proto protoreflect.FileDe
 
 const file_flowseer_net_protocol_stp_v1_protocol_version_proto_rawDesc = "" +
 	"\n" +
-	"3flowseer/net/protocol/stp/v1/protocol_version.proto\x12\x1cflowseer.net.protocol.stp.v1*h\n" +
+	"3flowseer/net/protocol/stp/v1/protocol_version.proto\x12\x1cflowseer.net.protocol.stp.v1*\x83\x01\n" +
 	"\x0fProtocolVersion\x12 \n" +
 	"\x1cPROTOCOL_VERSION_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14PROTOCOL_VERSION_STP\x10\x01\x12\x19\n" +
-	"\x15PROTOCOL_VERSION_RSTP\x10\x02B\x9a\x02\n" +
+	"\x15PROTOCOL_VERSION_RSTP\x10\x02\x12\x19\n" +
+	"\x15PROTOCOL_VERSION_MSTP\x10\x03B\x9a\x02\n" +
 	" com.flowseer.net.protocol.stp.v1B\x14ProtocolVersionProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_protocol_version_proto_enumTypes = make([]protoimpl.EnumInfo, 1)

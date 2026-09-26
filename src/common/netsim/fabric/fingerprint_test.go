@@ -170,17 +170,17 @@ func baseSnapshotForTest() Snapshot {
 					Allocation: phy.Allocation{
 						Ports: map[string]phy.PortAllocation{
 							"1/1/1": {
-								State:         phy.PowerDelivered,
-								MinMilliwatts: 1000,
-								MaxMilliwatts: 5000,
-								Denial:        "",
+								State:        phy.PowerDelivered,
+								MinNanowatts: 1_000_000_000,
+								MaxNanowatts: 5_000_000_000,
+								Denial:       "",
 							},
 						},
 						Groups: map[string]phy.GroupAllocation{
 							"g1": {
-								BudgetMilliwatts:    30000,
-								AllocatedMilliwatts: 5000,
-								RemainderMilliwatts: 25000,
+								BudgetNanowatts:    30_000_000_000,
+								AllocatedNanowatts: 5_000_000_000,
+								RemainderNanowatts: 25_000_000_000,
 							},
 						},
 					},
@@ -558,7 +558,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				pa := dev.Power.Ports["1/1/1"]
-				pa.MinMilliwatts = 2000
+				pa.MinNanowatts = 2_000_000_000
 				dev.Power.Ports["1/1/1"] = pa
 				s.Devices["sw1"] = dev
 			},
@@ -568,7 +568,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				pa := dev.Power.Ports["1/1/1"]
-				pa.MaxMilliwatts = 8000
+				pa.MaxNanowatts = 8_000_000_000
 				dev.Power.Ports["1/1/1"] = pa
 				s.Devices["sw1"] = dev
 			},
@@ -588,7 +588,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				ga := dev.Power.Groups["g1"]
-				ga.BudgetMilliwatts = 50000
+				ga.BudgetNanowatts = 50_000_000_000
 				dev.Power.Groups["g1"] = ga
 				s.Devices["sw1"] = dev
 			},
@@ -598,7 +598,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				ga := dev.Power.Groups["g1"]
-				ga.AllocatedMilliwatts = 10000
+				ga.AllocatedNanowatts = 10_000_000_000
 				dev.Power.Groups["g1"] = ga
 				s.Devices["sw1"] = dev
 			},
@@ -608,7 +608,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				ga := dev.Power.Groups["g1"]
-				ga.RemainderMilliwatts = 20000
+				ga.RemainderNanowatts = 20_000_000_000
 				dev.Power.Groups["g1"] = ga
 				s.Devices["sw1"] = dev
 			},
@@ -809,7 +809,7 @@ func TestFingerprintTimerInsensitive(t *testing.T) {
 	counters := cloneSnapshot(base)
 	dev := counters.Devices["sw1"]
 	dev.Counters = map[string]Counters{
-		"1/1/1": {InOctets: 100, OutOctets: 200},
+		"1/1/1": {InBytes: 100, OutBytes: 200},
 	}
 	dev.RelayCounters = bridge.Counters{Learned: 50}
 	counters.Devices["sw1"] = dev

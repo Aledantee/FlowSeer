@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.filter.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import option "buf/validate/validate.proto";
+
+// An Ethernet MAC address predicate with an optional bit mask, the address and
+// mask leaf pair of the RFC 8519 §4.2 Ethernet header match
+// (https://www.rfc-editor.org/rfc/rfc8519.html#section-4.2). Both are six
+// octets, the width of yang:mac-address.
+message MacMatch {
+  // The address compared against the frame's MAC address. Must be present.
+  flowseer.net.addr.v1.Eui48Address address = 1 [(buf.validate.field).required = true];
+  // The bits of the address that are compared. Absent compares every bit.
+  // Address bits outside the mask are ignored, not rejected.
+  flowseer.net.addr.v1.Eui48Address mask = 2;
+}

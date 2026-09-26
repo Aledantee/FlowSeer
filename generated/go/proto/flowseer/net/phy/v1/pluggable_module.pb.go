@@ -28,25 +28,25 @@ const (
 // has no medium: a direct-attach copper cable and an optical module fill
 // the same fields.
 type PluggableModule struct {
-	state                         protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Present            bool                   `protobuf:"varint,1,opt,name=present"`
-	xxx_hidden_FormFactor         ModuleFormFactor       `protobuf:"varint,2,opt,name=form_factor,json=formFactor,enum=flowseer.net.phy.v1.ModuleFormFactor"`
-	xxx_hidden_Connector          ModuleConnector        `protobuf:"varint,3,opt,name=connector,enum=flowseer.net.phy.v1.ModuleConnector"`
-	xxx_hidden_Vendor             *string                `protobuf:"bytes,4,opt,name=vendor"`
-	xxx_hidden_PartNumber         *string                `protobuf:"bytes,5,opt,name=part_number,json=partNumber"`
-	xxx_hidden_Revision           *string                `protobuf:"bytes,6,opt,name=revision"`
-	xxx_hidden_SerialNumber       *string                `protobuf:"bytes,7,opt,name=serial_number,json=serialNumber"`
-	xxx_hidden_DateCode           *string                `protobuf:"bytes,8,opt,name=date_code,json=dateCode"`
-	xxx_hidden_EncodingCode       uint32                 `protobuf:"varint,9,opt,name=encoding_code,json=encodingCode"`
-	xxx_hidden_NominalBitRateMbps uint32                 `protobuf:"varint,10,opt,name=nominal_bit_rate_mbps,json=nominalBitRateMbps"`
-	xxx_hidden_MediaCodes         []uint32               `protobuf:"varint,11,rep,packed,name=media_codes,json=mediaCodes"`
-	xxx_hidden_ApplicationCodes   []uint32               `protobuf:"varint,12,rep,packed,name=application_codes,json=applicationCodes"`
-	xxx_hidden_Diagnostics        *ModuleDiagnostics     `protobuf:"bytes,13,opt,name=diagnostics"`
-	xxx_hidden_Lanes              *[]*ModuleLane         `protobuf:"bytes,14,rep,name=lanes"`
-	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
-	XXX_presence                  [1]uint32
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	state                        protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Present           bool                   `protobuf:"varint,1,opt,name=present"`
+	xxx_hidden_FormFactor        ModuleFormFactor       `protobuf:"varint,2,opt,name=form_factor,json=formFactor,enum=flowseer.net.phy.v1.ModuleFormFactor"`
+	xxx_hidden_Connector         ModuleConnector        `protobuf:"varint,3,opt,name=connector,enum=flowseer.net.phy.v1.ModuleConnector"`
+	xxx_hidden_Vendor            *string                `protobuf:"bytes,4,opt,name=vendor"`
+	xxx_hidden_PartNumber        *string                `protobuf:"bytes,5,opt,name=part_number,json=partNumber"`
+	xxx_hidden_Revision          *string                `protobuf:"bytes,6,opt,name=revision"`
+	xxx_hidden_SerialNumber      *string                `protobuf:"bytes,7,opt,name=serial_number,json=serialNumber"`
+	xxx_hidden_DateCode          *string                `protobuf:"bytes,8,opt,name=date_code,json=dateCode"`
+	xxx_hidden_EncodingCode      uint32                 `protobuf:"varint,9,opt,name=encoding_code,json=encodingCode"`
+	xxx_hidden_NominalBitRateBps uint64                 `protobuf:"varint,15,opt,name=nominal_bit_rate_bps,json=nominalBitRateBps"`
+	xxx_hidden_MediaCodes        []uint32               `protobuf:"varint,11,rep,packed,name=media_codes,json=mediaCodes"`
+	xxx_hidden_ApplicationCodes  []uint32               `protobuf:"varint,12,rep,packed,name=application_codes,json=applicationCodes"`
+	xxx_hidden_Diagnostics       *ModuleDiagnostics     `protobuf:"bytes,13,opt,name=diagnostics"`
+	xxx_hidden_Lanes             *[]*ModuleLane         `protobuf:"bytes,14,rep,name=lanes"`
+	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
+	XXX_presence                 [1]uint32
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *PluggableModule) Reset() {
@@ -156,9 +156,9 @@ func (x *PluggableModule) GetEncodingCode() uint32 {
 	return 0
 }
 
-func (x *PluggableModule) GetNominalBitRateMbps() uint32 {
+func (x *PluggableModule) GetNominalBitRateBps() uint64 {
 	if x != nil {
-		return x.xxx_hidden_NominalBitRateMbps
+		return x.xxx_hidden_NominalBitRateBps
 	}
 	return 0
 }
@@ -238,8 +238,8 @@ func (x *PluggableModule) SetEncodingCode(v uint32) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 14)
 }
 
-func (x *PluggableModule) SetNominalBitRateMbps(v uint32) {
-	x.xxx_hidden_NominalBitRateMbps = v
+func (x *PluggableModule) SetNominalBitRateBps(v uint64) {
+	x.xxx_hidden_NominalBitRateBps = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 14)
 }
 
@@ -322,7 +322,7 @@ func (x *PluggableModule) HasEncodingCode() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 8)
 }
 
-func (x *PluggableModule) HasNominalBitRateMbps() bool {
+func (x *PluggableModule) HasNominalBitRateBps() bool {
 	if x == nil {
 		return false
 	}
@@ -381,9 +381,9 @@ func (x *PluggableModule) ClearEncodingCode() {
 	x.xxx_hidden_EncodingCode = 0
 }
 
-func (x *PluggableModule) ClearNominalBitRateMbps() {
+func (x *PluggableModule) ClearNominalBitRateBps() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
-	x.xxx_hidden_NominalBitRateMbps = 0
+	x.xxx_hidden_NominalBitRateBps = 0
 }
 
 func (x *PluggableModule) ClearDiagnostics() {
@@ -420,9 +420,9 @@ type PluggableModule_builder struct {
 	// The serial encoding code, per the SFF-8024 encoding registry. Absent
 	// means unreported; the full registry width is valid.
 	EncodingCode *uint32
-	// The nominal signalling rate in megabits per second. Absent means
+	// The nominal signalling rate in bits per second. Absent means
 	// unreported; zero is invalid when present.
-	NominalBitRateMbps *uint32
+	NominalBitRateBps *uint64
 	// Media interface codes the module supports, per the SFF-8024 media
 	// interface registries. The list is an exact set; empty means none were
 	// reported.
@@ -480,9 +480,9 @@ func (b0 PluggableModule_builder) Build() *PluggableModule {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 14)
 		x.xxx_hidden_EncodingCode = *b.EncodingCode
 	}
-	if b.NominalBitRateMbps != nil {
+	if b.NominalBitRateBps != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 14)
-		x.xxx_hidden_NominalBitRateMbps = *b.NominalBitRateMbps
+		x.xxx_hidden_NominalBitRateBps = *b.NominalBitRateBps
 	}
 	x.xxx_hidden_MediaCodes = b.MediaCodes
 	x.xxx_hidden_ApplicationCodes = b.ApplicationCodes
@@ -495,7 +495,7 @@ var File_flowseer_net_phy_v1_pluggable_module_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_pluggable_module_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/net/phy/v1/pluggable_module.proto\x12\x13flowseer.net.phy.v1\x1a*flowseer/net/phy/v1/module_connector.proto\x1a,flowseer/net/phy/v1/module_diagnostics.proto\x1a,flowseer/net/phy/v1/module_form_factor.proto\x1a%flowseer/net/phy/v1/module_lane.proto\"\xd6\n" +
+	"*flowseer/net/phy/v1/pluggable_module.proto\x12\x13flowseer.net.phy.v1\x1a*flowseer/net/phy/v1/module_connector.proto\x1a,flowseer/net/phy/v1/module_diagnostics.proto\x1a,flowseer/net/phy/v1/module_form_factor.proto\x1a%flowseer/net/phy/v1/module_lane.proto\"\xf0\n" +
 	"\n" +
 	"\x0fPluggableModule\x12 \n" +
 	"\apresent\x18\x01 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\apresent\x12F\n" +
@@ -508,16 +508,16 @@ const file_flowseer_net_phy_v1_pluggable_module_proto_rawDesc = "" +
 	"\brevision\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\brevision\x12,\n" +
 	"\rserial_number\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01R\fserialNumber\x12$\n" +
 	"\tdate_code\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bdateCode\x12-\n" +
-	"\rencoding_code\x18\t \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\fencodingCode\x12:\n" +
-	"\x15nominal_bit_rate_mbps\x18\n" +
-	" \x01(\rB\a\xbaH\x04*\x02 \x00R\x12nominalBitRateMbps\x120\n" +
+	"\rencoding_code\x18\t \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\fencodingCode\x128\n" +
+	"\x14nominal_bit_rate_bps\x18\x0f \x01(\x04B\a\xbaH\x042\x02 \x00R\x11nominalBitRateBps\x120\n" +
 	"\vmedia_codes\x18\v \x03(\rB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05*\x03\x18\xff\x01R\n" +
 	"mediaCodes\x12<\n" +
 	"\x11application_codes\x18\f \x03(\rB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05*\x03\x18\xff\x01R\x10applicationCodes\x12H\n" +
 	"\vdiagnostics\x18\r \x01(\v2&.flowseer.net.phy.v1.ModuleDiagnosticsR\vdiagnostics\x125\n" +
-	"\x05lanes\x18\x0e \x03(\v2\x1f.flowseer.net.phy.v1.ModuleLaneR\x05lanes:\xf4\x04\xbaH\xf0\x04\x1a\xf3\x03\n" +
-	"4pluggable_module.empty_cage_has_no_module_attributes\x12Dan explicitly empty cage cannot carry module identity or diagnostics\x1a\xf4\x02this.present || (!has(this.form_factor) && !has(this.connector) && !has(this.vendor) && !has(this.part_number) && !has(this.revision) && !has(this.serial_number) && !has(this.date_code) && !has(this.encoding_code) && !has(this.nominal_bit_rate_mbps) && this.media_codes.size() == 0 && this.application_codes.size() == 0 && !has(this.diagnostics) && this.lanes.size() == 0)\x1ax\n" +
-	"$pluggable_module.lane_indexes_unique\x12+lane indexes must be unique within a module\x1a#this.lanes.map(l, l.index).unique()B\xe2\x01\n" +
+	"\x05lanes\x18\x0e \x03(\v2\x1f.flowseer.net.phy.v1.ModuleLaneR\x05lanes:\xf3\x04\xbaH\xef\x04\x1a\xf2\x03\n" +
+	"4pluggable_module.empty_cage_has_no_module_attributes\x12Dan explicitly empty cage cannot carry module identity or diagnostics\x1a\xf3\x02this.present || (!has(this.form_factor) && !has(this.connector) && !has(this.vendor) && !has(this.part_number) && !has(this.revision) && !has(this.serial_number) && !has(this.date_code) && !has(this.encoding_code) && !has(this.nominal_bit_rate_bps) && this.media_codes.size() == 0 && this.application_codes.size() == 0 && !has(this.diagnostics) && this.lanes.size() == 0)\x1ax\n" +
+	"$pluggable_module.lane_indexes_unique\x12+lane indexes must be unique within a module\x1a#this.lanes.map(l, l.index).unique()J\x04\b\n" +
+	"\x10\vR\x15nominal_bit_rate_mbpsB\xe2\x01\n" +
 	"\x17com.flowseer.net.phy.v1B\x14PluggableModuleProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_pluggable_module_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

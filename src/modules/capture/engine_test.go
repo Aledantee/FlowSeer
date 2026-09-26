@@ -156,8 +156,8 @@ func TestEngine_AttributableLoss(t *testing.T) {
 	}
 
 	final := e.State()
-	if got, want := final.Counters.GetDroppedByTransport(), first.FirstSequence; got != want {
-		t.Errorf("final dropped_by_transport = %d, want %d (the sequence gap before the first delivered batch)", got, want)
+	if got, want := final.Counters.GetDroppedByTransportPackets(), first.FirstSequence; got != want {
+		t.Errorf("final dropped_by_transport_packets = %d, want %d (the sequence gap before the first delivered batch)", got, want)
 	}
 }
 
@@ -279,8 +279,8 @@ func TestEngine_RunTwiceFails(t *testing.T) {
 
 // TestEngine_MirrorReceiverOmitsInterfaceDropsCounter proves a source that
 // cannot report a real interface-level drop count (a mirror receiver) never
-// sets dropped_by_interface, per capture_counters.proto's "an absent counter
-// means the stage does not report one — never a zero".
+// sets dropped_by_interface_packets, per capture_counters.proto's "an absent
+// counter means the stage does not report one — never a zero".
 func TestEngine_MirrorReceiverOmitsInterfaceDropsCounter(t *testing.T) {
 	src := newFakeSource(10)
 	src.frames <- testFrame(1)
@@ -292,15 +292,15 @@ func TestEngine_MirrorReceiverOmitsInterfaceDropsCounter(t *testing.T) {
 	}
 	_ = drainAll(p)
 
-	if e.State().Counters.HasDroppedByInterface() {
-		t.Errorf("Counters.dropped_by_interface is set, want absent for a source with no interface-level drop counter")
+	if e.State().Counters.HasDroppedByInterfacePackets() {
+		t.Errorf("Counters.dropped_by_interface_packets is set, want absent for a source with no interface-level drop counter")
 	}
 }
 
 // TestEngine_LocalInterfaceReportsInterfaceDropsCounter is the converse of
 // TestEngine_MirrorReceiverOmitsInterfaceDropsCounter: a source that does
-// report a real counter always sets dropped_by_interface, even when the
-// value is zero.
+// report a real counter always sets dropped_by_interface_packets, even when
+// the value is zero.
 func TestEngine_LocalInterfaceReportsInterfaceDropsCounter(t *testing.T) {
 	src := newFakeSource(10)
 	src.frames <- testFrame(1)
@@ -312,8 +312,8 @@ func TestEngine_LocalInterfaceReportsInterfaceDropsCounter(t *testing.T) {
 	}
 	_ = drainAll(p)
 
-	if !e.State().Counters.HasDroppedByInterface() {
-		t.Errorf("Counters.dropped_by_interface is absent, want present (even if zero) for a local-interface source")
+	if !e.State().Counters.HasDroppedByInterfacePackets() {
+		t.Errorf("Counters.dropped_by_interface_packets is absent, want present (even if zero) for a local-interface source")
 	}
 }
 
@@ -347,8 +347,8 @@ func TestEngine_DurationStopDrainsQueuedFrames(t *testing.T) {
 	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION {
 		t.Fatalf("StopReason = %v, want DURATION", final.StopReason)
 	}
-	if final.Counters.GetDroppedByBudget() == 0 {
-		t.Errorf("dropped_by_budget = 0, want the frames still queued when the duration bound fired counted as a budget loss (increase totalFrames if this is flaky on a fast machine)")
+	if final.Counters.GetDroppedByBudgetPackets() == 0 {
+		t.Errorf("dropped_by_budget_packets = 0, want the frames still queued when the duration bound fired counted as a budget loss (increase totalFrames if this is flaky on a fast machine)")
 	}
 }
 

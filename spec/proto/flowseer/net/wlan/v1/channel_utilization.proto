@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
+
+// Channel utilization statistics for an 802.11 radio channel over an observation window.
+// Ratios are expressed in basis points (1 bp = 0.01%, 10000 bp = 100%).
+// Individual components may not sum to total depending on provider measurement methods.
+message ChannelUtilization {
+  // Total channel busy time ratio in basis points. Unset means unobserved.
+  uint32 total_avg_basis_points = 1 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+  // Transmit time ratio consumed by this radio for 802.11 frames in basis points. Unset means unobserved.
+  uint32 tx_dot11_avg_basis_points = 2 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+  // Receive time ratio consumed by valid 802.11 frames received on this BSS in basis points. Unset means unobserved.
+  uint32 rx_dot11_avg_basis_points = 3 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+  // Receive time ratio consumed by overlapping BSS (OBSS) 802.11 traffic in basis points. Unset means unobserved.
+  uint32 obss_rx_avg_basis_points = 4 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+  // Energy detect busy time ratio caused by non-802.11 interference sources in basis points. Unset means unobserved.
+  uint32 non_dot11_avg_basis_points = 5 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+  // Observation interval over which averages were calculated. Unset means the provider reported an instantaneous or moving average without a fixed window.
+  google.protobuf.Duration window = 6;
+}

@@ -1,0 +1,12 @@
+edition = "2024";
+
+package flowseer.net.protocol.dns.v1;
+
+// The origin of a configured DNS nameserver (Cisco-IOS-XE-dns-oper.yang dns-source-type).
+enum DnsServerOrigin {
+  DNS_SERVER_ORIGIN_UNSPECIFIED = 0;
+  // Configured statically by an administrator.
+  DNS_SERVER_ORIGIN_STATIC = 1;
+  // Learned dynamically via DHCP or DHCPv6.
+  DNS_SERVER_ORIGIN_DHCP = 2;
+}

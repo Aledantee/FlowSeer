@@ -91,10 +91,10 @@ var errClosed = errs.Msg("pcapng: writer is already closed")
 
 // Close appends one Interface Statistics Block carrying counters. Only the
 // three CaptureCounters fields the pcapng draft's own ISB options name have
-// a home there (isb_ifrecv, isb_ifdrop, isb_filteraccept); dropped_by_budget
-// and dropped_by_transport are FlowSeer accounting concepts the draft's
-// vocabulary has no option for, and are not forced into one that would
-// misstate their meaning. A counter CaptureCounters leaves absent is
+// a home there (isb_ifrecv, isb_ifdrop, isb_filteraccept);
+// dropped_by_budget_packets and dropped_by_transport_packets are FlowSeer
+// accounting concepts the draft's vocabulary has no option for, and are not
+// forced into one that would misstate their meaning. A counter CaptureCounters leaves absent is
 // omitted from the block rather than written as a reported zero, matching
 // the schema's own "absent means the stage does not report one — never a
 // zero" rule.
@@ -109,14 +109,14 @@ func (wr *Writer) Close(counters *capturev1.CaptureCounters) error {
 	binary.LittleEndian.PutUint32(body[4:8], uint32(micros>>32))
 	binary.LittleEndian.PutUint32(body[8:12], uint32(micros))
 
-	if counters.HasReceived() {
-		body = appendOption(body, optISBIfRecv, encodeU64(counters.GetReceived()))
+	if counters.HasReceivedPackets() {
+		body = appendOption(body, optISBIfRecv, encodeU64(counters.GetReceivedPackets()))
 	}
-	if counters.HasDroppedByInterface() {
-		body = appendOption(body, optISBIfDrop, encodeU64(counters.GetDroppedByInterface()))
+	if counters.HasDroppedByInterfacePackets() {
+		body = appendOption(body, optISBIfDrop, encodeU64(counters.GetDroppedByInterfacePackets()))
 	}
-	if counters.HasAccepted() {
-		body = appendOption(body, optISBFilterAccept, encodeU64(counters.GetAccepted()))
+	if counters.HasAcceptedPackets() {
+		body = appendOption(body, optISBFilterAccept, encodeU64(counters.GetAcceptedPackets()))
 	}
 	body = appendOption(body, optEndOfOpt, nil)
 

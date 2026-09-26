@@ -120,7 +120,7 @@ func TestLoad_LagCustomConfiguration(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagName,
+			LagParentInterfaceName: &lagName,
 		}.Build(),
 	}.Build()
 
@@ -129,7 +129,7 @@ func TestLoad_LagCustomConfiguration(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagName,
+			LagParentInterfaceName: &lagName,
 		}.Build(),
 	}.Build()
 
@@ -209,7 +209,7 @@ func TestLoad_LagDefaultBondMode(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagName,
+			LagParentInterfaceName: &lagName,
 		}.Build(),
 	}.Build()
 
@@ -442,7 +442,7 @@ func TestLacp_RoundTrip(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagName,
+				LagParentInterfaceName: &lagName,
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{
@@ -450,7 +450,7 @@ func TestLacp_RoundTrip(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagName,
+				LagParentInterfaceName: &lagName,
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{

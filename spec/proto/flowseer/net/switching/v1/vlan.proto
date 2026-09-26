@@ -4,9 +4,10 @@ package flowseer.net.switching.v1;
 
 import "flowseer/net/switching/v1/vlan_registration.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 import option "flowseer/net/switching/v1/vlan_id.proto";
 
-// A VLAN database row. Interface membership is held only by the embedding
+// A VLAN database row keyed by network instance and VLAN identifier. Interface membership is held only by the embedding
 // interface's switchport facet, so the two directions cannot drift.
 message Vlan {
   // The IEEE 802.1Q VLAN identifier
@@ -22,4 +23,9 @@ message Vlan {
   // How the VLAN was registered in the bridge. Absent means the source did
   // not report whether the entry is permanent or dynamic.
   VlanRegistration registration = 3;
+  // The network instance whose bridge holds the VLAN. Must be present.
+  string network_instance = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
 }

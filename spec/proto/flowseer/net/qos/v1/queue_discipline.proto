@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.qos.v1;
+
+// How an egress queue drops packets when it fills. Mirrors OpenConfig
+// QOS_QUEUE_TYPE (openconfig-qos-types.yang:56-92).
+enum QueueDiscipline {
+  QUEUE_DISCIPLINE_UNSPECIFIED = 0;
+  // Packets arriving at a full queue are dropped.
+  QUEUE_DISCIPLINE_DROP_TAIL = 1;
+  // Random early detection.
+  QUEUE_DISCIPLINE_RED = 2;
+  // Weighted random early detection.
+  QUEUE_DISCIPLINE_WRED = 3;
+}

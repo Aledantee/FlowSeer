@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Operating frequency band for an 802.11 radio or BSS (IEEE Std 802.11-2020).
+// Unit prefixes avoid leading numeric digits rejected by edition naming style.
+enum WifiBand {
+  // Band is unspecified or unknown.
+  WIFI_BAND_UNSPECIFIED = 0;
+  // 2.4 GHz industrial, scientific, and medical (ISM) band (802.11b/g/n/ax/be).
+  WIFI_BAND_GHZ2P4 = 1;
+  // 5 GHz unlicensed national information infrastructure (U-NII) band (802.11a/n/ac/ax/be).
+  WIFI_BAND_GHZ5 = 2;
+  // 6 GHz band (802.11ax/be, U-NII-5 through U-NII-8).
+  WIFI_BAND_GHZ6 = 3;
+  // 60 GHz millimeter wave band (802.11ad/ay).
+  WIFI_BAND_GHZ60 = 4;
+}

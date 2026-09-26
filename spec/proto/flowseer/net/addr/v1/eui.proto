@@ -28,11 +28,11 @@ message Eui64Address {
   ];
 }
 
-// An IEEE Extended Unique Identifier of either width
+// A MAC address of either width: an IEEE EUI-48 or EUI-64
 // (https://standards.ieee.org/products-programs/regauth/). The arm is the
 // width: consumers switch on it rather than inferring it from a payload
 // length, and each arm carries its own size rule.
-message EuiAddress {
+message MacAddress {
   oneof kind {
     option (buf.validate.oneof).required = true;
 

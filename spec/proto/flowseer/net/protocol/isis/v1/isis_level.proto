@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.protocol.isis.v1;
+
+// The routing level of an IS-IS instance or adjacency (ISO/IEC 10589, RFC 4444, ISIS-MIB IsisLevel).
+// Digits cannot follow an underscore under STYLE2024.
+enum IsisLevel {
+  ISIS_LEVEL_UNSPECIFIED = 0;
+  // Level 1 routing within an area (ISIS-MIB level1).
+  ISIS_LEVEL_LEVEL1 = 1;
+  // Level 2 routing between areas (ISIS-MIB level2).
+  ISIS_LEVEL_LEVEL2 = 2;
+  // Both Level 1 and Level 2 routing (ISIS-MIB level1and2).
+  ISIS_LEVEL_LEVEL1_AND_LEVEL2 = 3;
+}

@@ -1,0 +1,35 @@
+edition = "2024";
+
+package flowseer.net.cellular.v1;
+
+import option "buf/validate/validate.proto";
+
+// Signal quality a cellular modem measures on its serving cell. Each bound is
+// the union of the LTE (TS 36.133) and NR (TS 38.133) measurement report
+// mapping ranges; the report mapping saturates, so a value reported as below
+// or above the range is written as the endpoint. Every field absent means
+// unreported.
+message CellularSignal {
+  // Reference signal received power, an absolute power: LTE RSRP (TS 36.133
+  // §9.1.4, -156 to -44 dBm) or NR SS-RSRP (TS 38.133 Table 10.1.6.1-1,
+  // -156 to -30 dBm).
+  sint32 rsrp_millidbm = 1 [(buf.validate.field).sint32 = {
+    gte: -156000
+    lte: -30000
+  }];
+  // Reference signal received quality, a ratio: LTE RSRQ (TS 36.133 §9.1.7,
+  // -34 to 2.5 dB) or NR SS-RSRQ (TS 38.133, -43 to 20 dB).
+  sint32 rsrq_millidb = 2 [(buf.validate.field).sint32 = {
+    gte: -43000
+    lte: 20000
+  }];
+  // Received signal strength indicator, an absolute power. Neither clause
+  // defines a report mapping for it, so it has no bound.
+  sint32 rssi_millidbm = 3;
+  // Signal to interference and noise ratio, a ratio: NR SS-SINR (TS 38.133
+  // §10.1.16, -23 to 40 dB). The same bound applies to an LTE SINR.
+  sint32 sinr_millidb = 4 [(buf.validate.field).sint32 = {
+    gte: -23000
+    lte: 40000
+  }];
+}

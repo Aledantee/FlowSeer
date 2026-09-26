@@ -16,7 +16,10 @@
 package inventoryv1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	v13 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -31,8 +34,8 @@ const (
 )
 
 // What a component is, after the physical classes of RFC 6933 with the
-// transceiver added because a pluggable module is what a cable terminates
-// on and what carries per-lane diagnostics.
+// transceiver and radio added: a pluggable module is what a cable terminates
+// on and what carries per-lane diagnostics; a radio carries its facet.
 type ComponentKind int32
 
 const (
@@ -58,6 +61,8 @@ const (
 	ComponentKind_COMPONENT_KIND_STORAGE      ComponentKind = 12
 	// A pluggable module seated in a port; module carries its diagnostics.
 	ComponentKind_COMPONENT_KIND_TRANSCEIVER ComponentKind = 13
+	// An 802.11 radio; radio carries its facet.
+	ComponentKind_COMPONENT_KIND_RADIO ComponentKind = 14
 )
 
 // Enum value maps for ComponentKind.
@@ -77,6 +82,7 @@ var (
 		11: "COMPONENT_KIND_CPU",
 		12: "COMPONENT_KIND_STORAGE",
 		13: "COMPONENT_KIND_TRANSCEIVER",
+		14: "COMPONENT_KIND_RADIO",
 	}
 	ComponentKind_value = map[string]int32{
 		"COMPONENT_KIND_UNSPECIFIED":  0,
@@ -93,6 +99,7 @@ var (
 		"COMPONENT_KIND_CPU":          11,
 		"COMPONENT_KIND_STORAGE":      12,
 		"COMPONENT_KIND_TRANSCEIVER":  13,
+		"COMPONENT_KIND_RADIO":        14,
 	}
 )
 
@@ -115,6 +122,61 @@ func (ComponentKind) Type() protoreflect.EnumType {
 }
 
 func (x ComponentKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Operational status of a physical or logical component.
+type ComponentOperStatus int32
+
+const (
+	ComponentOperStatus_COMPONENT_OPER_STATUS_UNSPECIFIED ComponentOperStatus = 0
+	// The component is operational and available for service.
+	ComponentOperStatus_COMPONENT_OPER_STATUS_UP ComponentOperStatus = 1
+	// The component is down, disabled, or non-operational.
+	ComponentOperStatus_COMPONENT_OPER_STATUS_DOWN ComponentOperStatus = 2
+	// The component is in a testing or diagnostic state.
+	ComponentOperStatus_COMPONENT_OPER_STATUS_TESTING ComponentOperStatus = 3
+	// The operational status of the component cannot be determined.
+	ComponentOperStatus_COMPONENT_OPER_STATUS_UNKNOWN ComponentOperStatus = 4
+)
+
+// Enum value maps for ComponentOperStatus.
+var (
+	ComponentOperStatus_name = map[int32]string{
+		0: "COMPONENT_OPER_STATUS_UNSPECIFIED",
+		1: "COMPONENT_OPER_STATUS_UP",
+		2: "COMPONENT_OPER_STATUS_DOWN",
+		3: "COMPONENT_OPER_STATUS_TESTING",
+		4: "COMPONENT_OPER_STATUS_UNKNOWN",
+	}
+	ComponentOperStatus_value = map[string]int32{
+		"COMPONENT_OPER_STATUS_UNSPECIFIED": 0,
+		"COMPONENT_OPER_STATUS_UP":          1,
+		"COMPONENT_OPER_STATUS_DOWN":        2,
+		"COMPONENT_OPER_STATUS_TESTING":     3,
+		"COMPONENT_OPER_STATUS_UNKNOWN":     4,
+	}
+)
+
+func (x ComponentOperStatus) Enum() *ComponentOperStatus {
+	p := new(ComponentOperStatus)
+	*p = x
+	return p
+}
+
+func (x ComponentOperStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ComponentOperStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_model_inventory_v1_component_proto_enumTypes[1].Descriptor()
+}
+
+func (ComponentOperStatus) Type() protoreflect.EnumType {
+	return &file_flowseer_model_inventory_v1_component_proto_enumTypes[1]
+}
+
+func (x ComponentOperStatus) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
@@ -299,25 +361,30 @@ func (b0 ComponentGlobalRef_builder) Build() *ComponentGlobalRef {
 // The observed definition of one component: where it sits in the device's
 // tree, what it is, and the identity read off it.
 type ComponentState struct {
-	state                       protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ref              *ComponentGlobalRef    `protobuf:"bytes,1,opt,name=ref"`
-	xxx_hidden_Parent           *ComponentLocalRef     `protobuf:"bytes,2,opt,name=parent"`
-	xxx_hidden_Kind             ComponentKind          `protobuf:"varint,3,opt,name=kind,enum=flowseer.model.inventory.v1.ComponentKind"`
-	xxx_hidden_Description      *string                `protobuf:"bytes,4,opt,name=description"`
-	xxx_hidden_Vendor           *string                `protobuf:"bytes,5,opt,name=vendor"`
-	xxx_hidden_Model            *string                `protobuf:"bytes,6,opt,name=model"`
-	xxx_hidden_Serial           *string                `protobuf:"bytes,7,opt,name=serial"`
-	xxx_hidden_HardwareRevision *string                `protobuf:"bytes,8,opt,name=hardware_revision,json=hardwareRevision"`
-	xxx_hidden_FirmwareRevision *string                `protobuf:"bytes,9,opt,name=firmware_revision,json=firmwareRevision"`
-	xxx_hidden_SoftwareRevision *string                `protobuf:"bytes,10,opt,name=software_revision,json=softwareRevision"`
-	xxx_hidden_Position         uint32                 `protobuf:"varint,11,opt,name=position"`
-	xxx_hidden_FieldReplaceable bool                   `protobuf:"varint,12,opt,name=field_replaceable,json=fieldReplaceable"`
-	xxx_hidden_InterfaceName    *string                `protobuf:"bytes,13,opt,name=interface_name,json=interfaceName"`
-	xxx_hidden_Module           *v1.PluggableModule    `protobuf:"bytes,20,opt,name=module"`
-	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
-	XXX_presence                [1]uint32
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
+	state                           protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Ref                  *ComponentGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Parent               *ComponentLocalRef        `protobuf:"bytes,2,opt,name=parent"`
+	xxx_hidden_Kind                 ComponentKind             `protobuf:"varint,3,opt,name=kind,enum=flowseer.model.inventory.v1.ComponentKind"`
+	xxx_hidden_Description          *string                   `protobuf:"bytes,4,opt,name=description"`
+	xxx_hidden_Vendor               *string                   `protobuf:"bytes,5,opt,name=vendor"`
+	xxx_hidden_Model                *string                   `protobuf:"bytes,6,opt,name=model"`
+	xxx_hidden_Serial               *string                   `protobuf:"bytes,7,opt,name=serial"`
+	xxx_hidden_HardwareRevision     *string                   `protobuf:"bytes,8,opt,name=hardware_revision,json=hardwareRevision"`
+	xxx_hidden_FirmwareRevision     *string                   `protobuf:"bytes,9,opt,name=firmware_revision,json=firmwareRevision"`
+	xxx_hidden_SoftwareRevision     *string                   `protobuf:"bytes,10,opt,name=software_revision,json=softwareRevision"`
+	xxx_hidden_Position             uint32                    `protobuf:"varint,11,opt,name=position"`
+	xxx_hidden_FieldReplaceable     bool                      `protobuf:"varint,12,opt,name=field_replaceable,json=fieldReplaceable"`
+	xxx_hidden_InterfaceName        *string                   `protobuf:"bytes,13,opt,name=interface_name,json=interfaceName"`
+	xxx_hidden_OperStatus           ComponentOperStatus       `protobuf:"varint,14,opt,name=oper_status,json=operStatus,enum=flowseer.model.inventory.v1.ComponentOperStatus"`
+	xxx_hidden_Sensors              *[]*v1.SensorReading      `protobuf:"bytes,15,rep,name=sensors"`
+	xxx_hidden_Module               *v11.PluggableModule      `protobuf:"bytes,20,opt,name=module"`
+	xxx_hidden_Radio                *v12.RadioFacet           `protobuf:"bytes,21,opt,name=radio"`
+	xxx_hidden_ProcessorUtilization *v13.ProcessorUtilization `protobuf:"bytes,22,opt,name=processor_utilization,json=processorUtilization"`
+	xxx_hidden_StorageUtilization   *v13.StorageUtilization   `protobuf:"bytes,23,opt,name=storage_utilization,json=storageUtilization"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
 }
 
 func (x *ComponentState) Reset() {
@@ -462,9 +529,48 @@ func (x *ComponentState) GetInterfaceName() string {
 	return ""
 }
 
-func (x *ComponentState) GetModule() *v1.PluggableModule {
+func (x *ComponentState) GetOperStatus() ComponentOperStatus {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 13) {
+			return x.xxx_hidden_OperStatus
+		}
+	}
+	return ComponentOperStatus_COMPONENT_OPER_STATUS_UNSPECIFIED
+}
+
+func (x *ComponentState) GetSensors() []*v1.SensorReading {
+	if x != nil {
+		if x.xxx_hidden_Sensors != nil {
+			return *x.xxx_hidden_Sensors
+		}
+	}
+	return nil
+}
+
+func (x *ComponentState) GetModule() *v11.PluggableModule {
 	if x != nil {
 		return x.xxx_hidden_Module
+	}
+	return nil
+}
+
+func (x *ComponentState) GetRadio() *v12.RadioFacet {
+	if x != nil {
+		return x.xxx_hidden_Radio
+	}
+	return nil
+}
+
+func (x *ComponentState) GetProcessorUtilization() *v13.ProcessorUtilization {
+	if x != nil {
+		return x.xxx_hidden_ProcessorUtilization
+	}
+	return nil
+}
+
+func (x *ComponentState) GetStorageUtilization() *v13.StorageUtilization {
+	if x != nil {
+		return x.xxx_hidden_StorageUtilization
 	}
 	return nil
 }
@@ -479,61 +585,82 @@ func (x *ComponentState) SetParent(v *ComponentLocalRef) {
 
 func (x *ComponentState) SetKind(v ComponentKind) {
 	x.xxx_hidden_Kind = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 19)
 }
 
 func (x *ComponentState) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 19)
 }
 
 func (x *ComponentState) SetVendor(v string) {
 	x.xxx_hidden_Vendor = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 19)
 }
 
 func (x *ComponentState) SetModel(v string) {
 	x.xxx_hidden_Model = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 19)
 }
 
 func (x *ComponentState) SetSerial(v string) {
 	x.xxx_hidden_Serial = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 19)
 }
 
 func (x *ComponentState) SetHardwareRevision(v string) {
 	x.xxx_hidden_HardwareRevision = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 19)
 }
 
 func (x *ComponentState) SetFirmwareRevision(v string) {
 	x.xxx_hidden_FirmwareRevision = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 19)
 }
 
 func (x *ComponentState) SetSoftwareRevision(v string) {
 	x.xxx_hidden_SoftwareRevision = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 19)
 }
 
 func (x *ComponentState) SetPosition(v uint32) {
 	x.xxx_hidden_Position = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 19)
 }
 
 func (x *ComponentState) SetFieldReplaceable(v bool) {
 	x.xxx_hidden_FieldReplaceable = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 19)
 }
 
 func (x *ComponentState) SetInterfaceName(v string) {
 	x.xxx_hidden_InterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 19)
 }
 
-func (x *ComponentState) SetModule(v *v1.PluggableModule) {
+func (x *ComponentState) SetOperStatus(v ComponentOperStatus) {
+	x.xxx_hidden_OperStatus = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 19)
+}
+
+func (x *ComponentState) SetSensors(v []*v1.SensorReading) {
+	x.xxx_hidden_Sensors = &v
+}
+
+func (x *ComponentState) SetModule(v *v11.PluggableModule) {
 	x.xxx_hidden_Module = v
+}
+
+func (x *ComponentState) SetRadio(v *v12.RadioFacet) {
+	x.xxx_hidden_Radio = v
+}
+
+func (x *ComponentState) SetProcessorUtilization(v *v13.ProcessorUtilization) {
+	x.xxx_hidden_ProcessorUtilization = v
+}
+
+func (x *ComponentState) SetStorageUtilization(v *v13.StorageUtilization) {
+	x.xxx_hidden_StorageUtilization = v
 }
 
 func (x *ComponentState) HasRef() bool {
@@ -627,11 +754,39 @@ func (x *ComponentState) HasInterfaceName() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 12)
 }
 
+func (x *ComponentState) HasOperStatus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 13)
+}
+
 func (x *ComponentState) HasModule() bool {
 	if x == nil {
 		return false
 	}
 	return x.xxx_hidden_Module != nil
+}
+
+func (x *ComponentState) HasRadio() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Radio != nil
+}
+
+func (x *ComponentState) HasProcessorUtilization() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ProcessorUtilization != nil
+}
+
+func (x *ComponentState) HasStorageUtilization() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_StorageUtilization != nil
 }
 
 func (x *ComponentState) ClearRef() {
@@ -697,8 +852,25 @@ func (x *ComponentState) ClearInterfaceName() {
 	x.xxx_hidden_InterfaceName = nil
 }
 
+func (x *ComponentState) ClearOperStatus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 13)
+	x.xxx_hidden_OperStatus = ComponentOperStatus_COMPONENT_OPER_STATUS_UNSPECIFIED
+}
+
 func (x *ComponentState) ClearModule() {
 	x.xxx_hidden_Module = nil
+}
+
+func (x *ComponentState) ClearRadio() {
+	x.xxx_hidden_Radio = nil
+}
+
+func (x *ComponentState) ClearProcessorUtilization() {
+	x.xxx_hidden_ProcessorUtilization = nil
+}
+
+func (x *ComponentState) ClearStorageUtilization() {
+	x.xxx_hidden_StorageUtilization = nil
 }
 
 type ComponentState_builder struct {
@@ -740,9 +912,23 @@ type ComponentState_builder struct {
 	// it (the entAliasMappingTable join). Unset means the port fronts no
 	// interface the device exposes, or the source did not read the join.
 	InterfaceName *string
+	// Operational status of the component. Unset means not reported.
+	OperStatus *ComponentOperStatus
+	// Sensor readings observed on this component. At most one reading per
+	// quantity is permitted; a second measurement point of one quantity is
+	// reported as a child component of kind sensor.
+	Sensors []*v1.SensorReading
 	// For a transceiver, the module identity and diagnostics read from it.
 	// Set only on a transceiver; unset there means the module was not read.
-	Module *v1.PluggableModule
+	Module *v11.PluggableModule
+	// For a radio, the facet read from it. Set only on a radio; unset there
+	// means the radio was not read.
+	Radio *v12.RadioFacet
+	// Processor utilization for this CPU component. Set only on a CPU component.
+	ProcessorUtilization *v13.ProcessorUtilization
+	// Storage utilization for this storage component. Set only on a storage
+	// component; the component name identifies the storage area.
+	StorageUtilization *v13.StorageUtilization
 }
 
 func (b0 ComponentState_builder) Build() *ComponentState {
@@ -752,50 +938,58 @@ func (b0 ComponentState_builder) Build() *ComponentState {
 	x.xxx_hidden_Ref = b.Ref
 	x.xxx_hidden_Parent = b.Parent
 	if b.Kind != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 19)
 		x.xxx_hidden_Kind = *b.Kind
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 19)
 		x.xxx_hidden_Description = b.Description
 	}
 	if b.Vendor != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 19)
 		x.xxx_hidden_Vendor = b.Vendor
 	}
 	if b.Model != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 19)
 		x.xxx_hidden_Model = b.Model
 	}
 	if b.Serial != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 19)
 		x.xxx_hidden_Serial = b.Serial
 	}
 	if b.HardwareRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 19)
 		x.xxx_hidden_HardwareRevision = b.HardwareRevision
 	}
 	if b.FirmwareRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 19)
 		x.xxx_hidden_FirmwareRevision = b.FirmwareRevision
 	}
 	if b.SoftwareRevision != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 19)
 		x.xxx_hidden_SoftwareRevision = b.SoftwareRevision
 	}
 	if b.Position != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 19)
 		x.xxx_hidden_Position = *b.Position
 	}
 	if b.FieldReplaceable != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 19)
 		x.xxx_hidden_FieldReplaceable = *b.FieldReplaceable
 	}
 	if b.InterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 19)
 		x.xxx_hidden_InterfaceName = b.InterfaceName
 	}
+	if b.OperStatus != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 19)
+		x.xxx_hidden_OperStatus = *b.OperStatus
+	}
+	x.xxx_hidden_Sensors = &b.Sensors
 	x.xxx_hidden_Module = b.Module
+	x.xxx_hidden_Radio = b.Radio
+	x.xxx_hidden_ProcessorUtilization = b.ProcessorUtilization
+	x.xxx_hidden_StorageUtilization = b.StorageUtilization
 	return m0
 }
 
@@ -928,13 +1122,13 @@ var File_flowseer_model_inventory_v1_component_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/model/inventory/v1/component.proto\x12\x1bflowseer.model.inventory.v1\x1a(flowseer/model/inventory/v1/device.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\"6\n" +
+	"+flowseer/model/inventory/v1/component.proto\x12\x1bflowseer.model.inventory.v1\x1a(flowseer/model/inventory/v1/device.proto\x1a$flowseer/net/measure/v1/sensor.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\x1a2flowseer/net/system/v1/processor_utilization.proto\x1a0flowseer/net/system/v1/storage_utilization.proto\x1a&flowseer/net/wlan/v1/radio_facet.proto\"6\n" +
 	"\x11ComponentLocalRef\x12!\n" +
 	"\x04name\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\x04name\"\xb8\x01\n" +
 	"\x12ComponentGlobalRef\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12T\n" +
-	"\tcomponent\x18\x02 \x01(\v2..flowseer.model.inventory.v1.ComponentLocalRefB\x06\xbaH\x03\xc8\x01\x01R\tcomponent\"\x85\b\n" +
+	"\tcomponent\x18\x02 \x01(\v2..flowseer.model.inventory.v1.ComponentLocalRefB\x06\xbaH\x03\xc8\x01\x01R\tcomponent\"\x9a\x13\n" +
 	"\x0eComponentState\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.model.inventory.v1.ComponentGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12F\n" +
 	"\x06parent\x18\x02 \x01(\v2..flowseer.model.inventory.v1.ComponentLocalRefR\x06parent\x12M\n" +
@@ -953,17 +1147,31 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	" \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x10softwareRevision\x12\x1a\n" +
 	"\bposition\x18\v \x01(\rR\bposition\x12+\n" +
 	"\x11field_replaceable\x18\f \x01(\bR\x10fieldReplaceable\x120\n" +
-	"\x0einterface_name\x18\r \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\rinterfaceName\x12<\n" +
-	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module:\x98\x02\xbaH\x94\x02\x1a\x9b\x01\n" +
+	"\x0einterface_name\x18\r \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceName\x12]\n" +
+	"\voper_status\x18\x0e \x01(\x0e20.flowseer.model.inventory.v1.ComponentOperStatusB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\n" +
+	"operStatus\x12@\n" +
+	"\asensors\x18\x0f \x03(\v2&.flowseer.net.measure.v1.SensorReadingR\asensors\x12<\n" +
+	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module\x126\n" +
+	"\x05radio\x18\x15 \x01(\v2 .flowseer.net.wlan.v1.RadioFacetR\x05radio\x12a\n" +
+	"\x15processor_utilization\x18\x16 \x01(\v2,.flowseer.net.system.v1.ProcessorUtilizationR\x14processorUtilization\x12[\n" +
+	"\x13storage_utilization\x18\x17 \x01(\v2*.flowseer.net.system.v1.StorageUtilizationR\x12storageUtilization:\x94\n" +
+	"\xbaH\x90\n" +
+	"\x1a\x9b\x01\n" +
 	"\x1fcomponent_state.parent_not_self\x12$a component cannot be its own parent\x1aR!has(this.ref) || !has(this.parent) || this.parent.name != this.ref.component.name\x1at\n" +
-	"'component_state.module_only_transceiver\x12#module is set only on a transceiver\x1a$!has(this.module) || this.kind == 13\"\x89\a\n" +
+	"'component_state.module_only_transceiver\x12#module is set only on a transceiver\x1a$!has(this.module) || this.kind == 13\x1ae\n" +
+	" component_state.radio_only_radio\x12\x1cradio is set only on a radio\x1a#!has(this.radio) || this.kind == 14\x1a\xb6\x03\n" +
+	"(component_state.one_reading_per_quantity\x124at most one sensor reading per quantity is permitted\x1a\xd3\x02this.sensors.filter(s, has(s.temperature)).size() <= 1 && this.sensors.filter(s, has(s.voltage)).size() <= 1 && this.sensors.filter(s, has(s.current)).size() <= 1 && this.sensors.filter(s, has(s.power)).size() <= 1 && this.sensors.filter(s, has(s.rotation_speed)).size() <= 1 && this.sensors.filter(s, has(s.relative_humidity)).size() <= 1\x1a\x9b\x01\n" +
+	".component_state.processor_utilization_only_cpu\x124processor utilization is set only on a CPU component\x1a3!has(this.processor_utilization) || this.kind == 11\x1a\x9d\x01\n" +
+	"0component_state.storage_utilization_only_storage\x126storage utilization is set only on a storage component\x1a1!has(this.storage_utilization) || this.kind == 12\x1a\x9b\x01\n" +
+	"\x1fcomponent_state.storage_unnamed\x121component storage utilization must not set a name\x1aE!has(this.storage_utilization) || !has(this.storage_utilization.name)\"\x89\a\n" +
 	"\x0eComponentEvent\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.model.inventory.v1.ComponentGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12C\n" +
 	"\x06before\x18\x02 \x01(\v2+.flowseer.model.inventory.v1.ComponentStateR\x06before\x12A\n" +
 	"\x05after\x18\x03 \x01(\v2+.flowseer.model.inventory.v1.ComponentStateR\x05after:\xa3\x05\xbaH\x9f\x05\x1a\x9d\x02\n" +
 	"\"component_event.before_matches_ref\x128the before side must describe the entity the event names\x1a\xbc\x01!has(this.before) || !has(this.ref) || !has(this.before.ref) || (this.before.ref.device.device.id == this.ref.device.device.id && this.before.ref.component.name == this.ref.component.name)\x1a\x97\x02\n" +
 	"!component_event.after_matches_ref\x127the after side must describe the entity the event names\x1a\xb8\x01!has(this.after) || !has(this.ref) || !has(this.after.ref) || (this.after.ref.device.device.id == this.ref.device.device.id && this.after.ref.component.name == this.ref.component.name)\x1ac\n" +
-	"\x18component_event.one_side\x12\"an event carries at least one side\x1a#has(this.before) || has(this.after)*\x9e\x03\n" +
+	"\x18component_event.one_side\x12\"an event carries at least one side\x1a#has(this.before) || has(this.after)*\xb8\x03\n" +
 	"\rComponentKind\x12\x1e\n" +
 	"\x1aCOMPONENT_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14COMPONENT_KIND_OTHER\x10\x01\x12\x1a\n" +
@@ -979,35 +1187,52 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\x12\x16\n" +
 	"\x12COMPONENT_KIND_CPU\x10\v\x12\x1a\n" +
 	"\x16COMPONENT_KIND_STORAGE\x10\f\x12\x1e\n" +
-	"\x1aCOMPONENT_KIND_TRANSCEIVER\x10\rB\x92\x02\n" +
+	"\x1aCOMPONENT_KIND_TRANSCEIVER\x10\r\x12\x18\n" +
+	"\x14COMPONENT_KIND_RADIO\x10\x0e*\xc0\x01\n" +
+	"\x13ComponentOperStatus\x12%\n" +
+	"!COMPONENT_OPER_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18COMPONENT_OPER_STATUS_UP\x10\x01\x12\x1e\n" +
+	"\x1aCOMPONENT_OPER_STATUS_DOWN\x10\x02\x12!\n" +
+	"\x1dCOMPONENT_OPER_STATUS_TESTING\x10\x03\x12!\n" +
+	"\x1dCOMPONENT_OPER_STATUS_UNKNOWN\x10\x04B\x92\x02\n" +
 	"\x1fcom.flowseer.model.inventory.v1B\x0eComponentProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
-var file_flowseer_model_inventory_v1_component_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_model_inventory_v1_component_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_inventory_v1_component_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_flowseer_model_inventory_v1_component_proto_goTypes = []any{
-	(ComponentKind)(0),         // 0: flowseer.model.inventory.v1.ComponentKind
-	(*ComponentLocalRef)(nil),  // 1: flowseer.model.inventory.v1.ComponentLocalRef
-	(*ComponentGlobalRef)(nil), // 2: flowseer.model.inventory.v1.ComponentGlobalRef
-	(*ComponentState)(nil),     // 3: flowseer.model.inventory.v1.ComponentState
-	(*ComponentEvent)(nil),     // 4: flowseer.model.inventory.v1.ComponentEvent
-	(*DeviceGlobalRef)(nil),    // 5: flowseer.model.inventory.v1.DeviceGlobalRef
-	(*v1.PluggableModule)(nil), // 6: flowseer.net.phy.v1.PluggableModule
+	(ComponentKind)(0),               // 0: flowseer.model.inventory.v1.ComponentKind
+	(ComponentOperStatus)(0),         // 1: flowseer.model.inventory.v1.ComponentOperStatus
+	(*ComponentLocalRef)(nil),        // 2: flowseer.model.inventory.v1.ComponentLocalRef
+	(*ComponentGlobalRef)(nil),       // 3: flowseer.model.inventory.v1.ComponentGlobalRef
+	(*ComponentState)(nil),           // 4: flowseer.model.inventory.v1.ComponentState
+	(*ComponentEvent)(nil),           // 5: flowseer.model.inventory.v1.ComponentEvent
+	(*DeviceGlobalRef)(nil),          // 6: flowseer.model.inventory.v1.DeviceGlobalRef
+	(*v1.SensorReading)(nil),         // 7: flowseer.net.measure.v1.SensorReading
+	(*v11.PluggableModule)(nil),      // 8: flowseer.net.phy.v1.PluggableModule
+	(*v12.RadioFacet)(nil),           // 9: flowseer.net.wlan.v1.RadioFacet
+	(*v13.ProcessorUtilization)(nil), // 10: flowseer.net.system.v1.ProcessorUtilization
+	(*v13.StorageUtilization)(nil),   // 11: flowseer.net.system.v1.StorageUtilization
 }
 var file_flowseer_model_inventory_v1_component_proto_depIdxs = []int32{
-	5, // 0: flowseer.model.inventory.v1.ComponentGlobalRef.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	1, // 1: flowseer.model.inventory.v1.ComponentGlobalRef.component:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
-	2, // 2: flowseer.model.inventory.v1.ComponentState.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
-	1, // 3: flowseer.model.inventory.v1.ComponentState.parent:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
-	0, // 4: flowseer.model.inventory.v1.ComponentState.kind:type_name -> flowseer.model.inventory.v1.ComponentKind
-	6, // 5: flowseer.model.inventory.v1.ComponentState.module:type_name -> flowseer.net.phy.v1.PluggableModule
-	2, // 6: flowseer.model.inventory.v1.ComponentEvent.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
-	3, // 7: flowseer.model.inventory.v1.ComponentEvent.before:type_name -> flowseer.model.inventory.v1.ComponentState
-	3, // 8: flowseer.model.inventory.v1.ComponentEvent.after:type_name -> flowseer.model.inventory.v1.ComponentState
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	6,  // 0: flowseer.model.inventory.v1.ComponentGlobalRef.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
+	2,  // 1: flowseer.model.inventory.v1.ComponentGlobalRef.component:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
+	3,  // 2: flowseer.model.inventory.v1.ComponentState.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
+	2,  // 3: flowseer.model.inventory.v1.ComponentState.parent:type_name -> flowseer.model.inventory.v1.ComponentLocalRef
+	0,  // 4: flowseer.model.inventory.v1.ComponentState.kind:type_name -> flowseer.model.inventory.v1.ComponentKind
+	1,  // 5: flowseer.model.inventory.v1.ComponentState.oper_status:type_name -> flowseer.model.inventory.v1.ComponentOperStatus
+	7,  // 6: flowseer.model.inventory.v1.ComponentState.sensors:type_name -> flowseer.net.measure.v1.SensorReading
+	8,  // 7: flowseer.model.inventory.v1.ComponentState.module:type_name -> flowseer.net.phy.v1.PluggableModule
+	9,  // 8: flowseer.model.inventory.v1.ComponentState.radio:type_name -> flowseer.net.wlan.v1.RadioFacet
+	10, // 9: flowseer.model.inventory.v1.ComponentState.processor_utilization:type_name -> flowseer.net.system.v1.ProcessorUtilization
+	11, // 10: flowseer.model.inventory.v1.ComponentState.storage_utilization:type_name -> flowseer.net.system.v1.StorageUtilization
+	3,  // 11: flowseer.model.inventory.v1.ComponentEvent.ref:type_name -> flowseer.model.inventory.v1.ComponentGlobalRef
+	4,  // 12: flowseer.model.inventory.v1.ComponentEvent.before:type_name -> flowseer.model.inventory.v1.ComponentState
+	4,  // 13: flowseer.model.inventory.v1.ComponentEvent.after:type_name -> flowseer.model.inventory.v1.ComponentState
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_model_inventory_v1_component_proto_init() }
@@ -1021,7 +1246,7 @@ func file_flowseer_model_inventory_v1_component_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_inventory_v1_component_proto_rawDesc), len(file_flowseer_model_inventory_v1_component_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,

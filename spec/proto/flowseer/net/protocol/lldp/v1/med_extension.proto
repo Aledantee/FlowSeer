@@ -1,0 +1,46 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/protocol/lldp/v1/med_capability.proto";
+import "flowseer/net/protocol/lldp/v1/med_device_class.proto";
+import "flowseer/net/protocol/lldp/v1/med_inventory.proto";
+import "flowseer/net/protocol/lldp/v1/med_location.proto";
+import "flowseer/net/protocol/lldp/v1/med_network_policy.proto";
+import "flowseer/net/protocol/lldp/v1/med_power.proto";
+import option "buf/validate/validate.proto";
+
+// The LLDP-MED (ANSI/TIA-1057) TLVs a neighbor announced. Each field is
+// absent, or each list empty, when the neighbor sent no such TLV. Mirrors
+// the remote tables of LLDP-EXT-MED-MIB.
+message MedExtension {
+  option (buf.validate.message).cel = {
+    id: "med_extension.network_policies.unique_application_type"
+    message: "network_policies must not repeat an application_type"
+    expression: "this.network_policies.map(p, p.application_type).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "med_extension.locations.unique_format"
+    message: "locations must not repeat a format"
+    expression: "this.locations.map(l, l.format).unique()"
+  };
+
+  // The LLDP-MED TLV sets the neighbor supports. Mirrors
+  // lldpXMedRemCapSupported (LLDP-EXT-MED-MIB:886).
+  repeated MedCapability capabilities_supported = 1 [(buf.validate.field).repeated.unique = true];
+  // The LLDP-MED TLV sets the neighbor has enabled. Mirrors
+  // lldpXMedRemCapCurrent (LLDP-EXT-MED-MIB:901).
+  repeated MedCapability capabilities_current = 2 [(buf.validate.field).repeated.unique = true];
+  // The neighbor's device class. Mirrors lldpXMedRemDeviceClass (LLDP-EXT-MED-MIB:916).
+  MedDeviceClass device_class = 3;
+  // The network policies, at most one per application type. Mirrors
+  // lldpXMedRemMediaPolicyTable (LLDP-EXT-MED-MIB:935), indexed by application type.
+  repeated MedNetworkPolicy network_policies = 4;
+  // The inventory TLVs.
+  MedInventory inventory = 5;
+  // The locations, at most one per format. Mirrors lldpXMedRemLocationTable
+  // (LLDP-EXT-MED-MIB:1181), indexed by format.
+  repeated MedLocation locations = 6;
+  // The extended power via MDI TLV.
+  MedPower power = 7;
+}

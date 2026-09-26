@@ -1,0 +1,47 @@
+edition = "2024";
+
+package flowseer.net.qos.v1;
+
+import "flowseer/net/qos/v1/queue_discipline.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
+
+// One egress queue, identified by name, by number, or both. Mirrors
+// OpenConfig queue name and queue-id (openconfig-qos-elements.yang:609-624)
+// and EdgeSwitch's numbered queues (EdgeSwitch-QOS-COS-MIB:573-585).
+message Queue {
+  option (buf.validate.message).cel = {
+    id: "queue.identified"
+    message: "a queue must have a name or a queue id"
+    expression: "has(this.name) || has(this.queue_id)"
+  };
+  option (buf.validate.message).cel = {
+    id: "queue.rate_ordered"
+    message: "the minimum rate must not exceed the maximum rate"
+    expression: "!has(this.min_rate_bps) || !has(this.max_rate_bps) || this.min_rate_bps <= this.max_rate_bps"
+  };
+  option (buf.validate.message).cel = {
+    id: "queue.bandwidth_ordered"
+    message: "the minimum bandwidth must not exceed the maximum bandwidth"
+    expression: "!has(this.min_bandwidth_basis_points) || !has(this.max_bandwidth_basis_points) || this.min_bandwidth_basis_points <= this.max_bandwidth_basis_points"
+  };
+
+  // The queue's name. Absent means the source numbers the queue only.
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The hardware queue number. Absent means the source names the queue only.
+  uint32 queue_id = 2 [(buf.validate.field).uint32.lte = 255];
+  // How the queue drops packets when it fills. Absent means unreported.
+  QueueDiscipline discipline = 3;
+  // The guaranteed rate. Absent means unreported.
+  uint64 min_rate_bps = 4;
+  // The rate the queue is shaped to. Absent means unreported.
+  uint64 max_rate_bps = 5;
+  // The guaranteed share of the port's bandwidth. Absent means unreported.
+  uint32 min_bandwidth_basis_points = 6 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+  // The share of the port's bandwidth the queue is shaped to. Absent means
+  // unreported.
+  uint32 max_bandwidth_basis_points = 7 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+}

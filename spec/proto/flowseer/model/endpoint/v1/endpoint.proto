@@ -1,0 +1,157 @@
+edition = "2024";
+
+// The endpoint entity family — hosts seen through the network (wired, wireless,
+// or discovered). EndpointConfig is deliberately absent because endpoints are
+// machine-observed hosts discovered through the network that nobody configures
+// directly (operator labels and tags use existing inventory entities).
+package flowseer.model.endpoint.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/endpoint/v1/connection_failure_stage.proto";
+import "flowseer/net/endpoint/v1/endpoint_counters.proto";
+import "flowseer/net/endpoint/v1/endpoint_fingerprint.proto";
+import "flowseer/net/endpoint/v1/roam_reason.proto";
+import "flowseer/net/endpoint/v1/wired_attachment.proto";
+import "flowseer/net/endpoint/v1/wireless_attachment.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to an endpoint.
+message EndpointLocalRef {
+  // FlowSeer-assigned endpoint identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to an endpoint.
+message EndpointGlobalRef {
+  // The endpoint's own key. Must be present.
+  EndpointLocalRef endpoint = 1 [(buf.validate.field).required = true];
+}
+
+// The lifecycle state of an endpoint entity.
+enum EndpointLifecycle {
+  // Lifecycle state is unspecified or unknown.
+  ENDPOINT_LIFECYCLE_UNSPECIFIED = 0;
+  // The endpoint has been recently observed active on the network.
+  ENDPOINT_LIFECYCLE_ACTIVE = 1;
+  // The endpoint has not been observed within the active window but is not retired.
+  ENDPOINT_LIFECYCLE_STALE = 2;
+  // The endpoint has been retired and is no longer tracked.
+  ENDPOINT_LIFECYCLE_RETIRED = 3;
+}
+
+// The observed state of an endpoint host seen through the network.
+message EndpointState {
+  // Reference to this endpoint. Must be present.
+  EndpointGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Observed lifecycle state. Must be present; zero value is rejected.
+  EndpointLifecycle lifecycle = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Hostname reported by DHCP option 12, mDNS, or DNS reverse lookup. Max 255 characters.
+  // Unset means no hostname was reported.
+  string hostname = 3 [(buf.validate.field).string.max_len = 255];
+  // Observed MAC addresses associated with this host. Must contain at least 1 address.
+  repeated flowseer.net.addr.v1.MacAddress observed_mac_addresses = 4 [(buf.validate.field).repeated.min_items = 1];
+  // Current IPv4 address assigned to the host. Unset means no IPv4 address observed.
+  flowseer.net.addr.v1.Ipv4Address ipv4_address = 5;
+  // Current IPv6 addresses bound to the host (link-local, SLAAC privacy, and global).
+  repeated flowseer.net.addr.v1.Ipv6Address ipv6_addresses = 6;
+  // Observed client fingerprint facts.
+  flowseer.net.endpoint.v1.EndpointFingerprint fingerprint = 7;
+  // Traffic and frame counters.
+  flowseer.net.endpoint.v1.EndpointCounters counters = 8;
+
+  // Current network attachment point of the endpoint. Exactly one arm is
+  // required. Both arms set is structurally unrepresentable in protobuf memory
+  // because wire decoding is last-tag-wins and a oneof holds at most one arm.
+  oneof attachment {
+    option (buf.validate.oneof).required = true;
+
+    // Physical wired switchport attachment.
+    flowseer.net.endpoint.v1.WiredAttachment wired = 10;
+    // Wireless 802.11 BSS association attachment.
+    flowseer.net.endpoint.v1.WirelessAttachment wireless = 11;
+  }
+}
+
+// A transition in an endpoint's lifecycle state.
+message EndpointLifecycleTransition {
+  option (buf.validate.message).cel = {
+    id: "endpoint_lifecycle_transition.changes"
+    message: "lifecycle transition must change state"
+    expression: "!has(this.from) || this.from != this.to"
+  };
+
+  // State before the transition. Unset means the endpoint appeared.
+  EndpointLifecycle from = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // State after the transition. Must be present; zero value is rejected.
+  EndpointLifecycle to = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// A roam transition between wireless access points or BSSs.
+message EndpointRoam {
+  // Previous wireless BSS attachment. Unset means prior BSS is unobserved.
+  flowseer.net.endpoint.v1.WirelessAttachment from_attachment = 1;
+  // Target wireless BSS attachment. Must be present.
+  flowseer.net.endpoint.v1.WirelessAttachment to_attachment = 2 [(buf.validate.field).required = true];
+  // Reason or mechanism for the roam.
+  flowseer.net.endpoint.v1.RoamReason reason = 3 [(buf.validate.field).enum.defined_only = true];
+}
+
+// A connection or authentication failure event for an endpoint.
+message EndpointConnectionFailure {
+  // Stage at which the connection failed. Must be present; zero value is rejected.
+  flowseer.net.endpoint.v1.ConnectionFailureStage stage = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Human-readable detail or vendor failure diagnostic. Max 1024 characters.
+  // Unset means no detail was reported.
+  string detail = 2 [(buf.validate.field).string.max_len = 1024];
+
+  // The attachment attempted during the failed connection.
+  oneof attempted_attachment {
+    // Attempted wired switchport attachment.
+    flowseer.net.endpoint.v1.WiredAttachment wired = 10;
+    // Attempted wireless BSS attachment.
+    flowseer.net.endpoint.v1.WirelessAttachment wireless = 11;
+  }
+}
+
+// One transition or observation event for an endpoint.
+message EndpointEvent {
+  // Reference to the endpoint that changed. Must be present.
+  EndpointGlobalRef ref = 1 [(buf.validate.field).required = true];
+
+  // Specific transition event. Exactly one event arm is required.
+  oneof event {
+    option (buf.validate.oneof).required = true;
+
+    // Transition in endpoint lifecycle.
+    EndpointLifecycleTransition lifecycle = 10;
+    // Roam transition between wireless access points or BSSs.
+    EndpointRoam roam = 11;
+    // Connection or authentication failure.
+    EndpointConnectionFailure connection_failure = 12;
+  }
+}

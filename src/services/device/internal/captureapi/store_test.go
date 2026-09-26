@@ -22,6 +22,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+
+	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
 const (
@@ -262,8 +265,8 @@ func TestAppendPacketsAndFinalizeArtifact(t *testing.T) {
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(100),
-		Accepted: proto.Uint64(100),
+		ReceivedPackets: proto.Uint64(100),
+		AcceptedPackets: proto.Uint64(100),
 	}.Build()
 
 	expiresAt := time.Now().Add(24 * time.Hour)
@@ -360,8 +363,8 @@ func TestReadArtifactChunked(t *testing.T) {
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(1500),
-		Accepted: proto.Uint64(1500),
+		ReceivedPackets: proto.Uint64(1500),
+		AcceptedPackets: proto.Uint64(1500),
 	}.Build()
 
 	expiresAt := time.Now().Add(24 * time.Hour)
@@ -424,8 +427,8 @@ func TestSweepExpired(t *testing.T) {
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(1),
-		Accepted: proto.Uint64(1),
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
 	}.Build()
 
 	// Expired 1 hour ago.
@@ -481,8 +484,8 @@ func TestSweepExpired(t *testing.T) {
 	if rec == nil {
 		t.Fatal("session record was deleted from KV")
 	}
-	if rec.GetState().GetCounters().GetReceived() != 1 {
-		t.Errorf("got counters received %d, want 1", rec.GetState().GetCounters().GetReceived())
+	if rec.GetState().GetCounters().GetReceivedPackets() != 1 {
+		t.Errorf("got counters received %d, want 1", rec.GetState().GetCounters().GetReceivedPackets())
 	}
 	if rec.GetState().GetArtifact().GetByteSize() != artifact.GetByteSize() {
 		t.Errorf("got artifact byte size %d, want %d", rec.GetState().GetArtifact().GetByteSize(), artifact.GetByteSize())
@@ -506,7 +509,7 @@ func TestDeleteSession(t *testing.T) {
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(1),
+		ReceivedPackets: proto.Uint64(1),
 	}.Build()
 
 	if _, err := s.FinalizeArtifact(ctx, testSessionID, linkType, snapLen, counters, time.Now().Add(time.Hour)); err != nil {
@@ -588,8 +591,8 @@ func TestSweepExpiredLeavesUnexpiredArtifacts(t *testing.T) {
 			t.Fatalf("AppendPackets %s: %v", sessionID, err)
 		}
 		counters := netcapturev1.CaptureCounters_builder{
-			Received: proto.Uint64(1),
-			Accepted: proto.Uint64(1),
+			ReceivedPackets: proto.Uint64(1),
+			AcceptedPackets: proto.Uint64(1),
 		}.Build()
 		artifact, err := s.FinalizeArtifact(ctx, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, counters, expiresAt)
 		if err != nil {
@@ -653,8 +656,8 @@ func TestAppendPacketsRefusesToOverwriteAFinalizedArtifact(t *testing.T) {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 	counters := netcapturev1.CaptureCounters_builder{
-		Received: proto.Uint64(1),
-		Accepted: proto.Uint64(1),
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
 	}.Build()
 	artifact, err := s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
 	if err != nil {
@@ -768,7 +771,7 @@ func TestAppendPacketsRefusesADeletedSession(t *testing.T) {
 		t.Fatalf("AppendPackets after delete got %v, want ErrCodeNotFound", err)
 	}
 
-	counters := netcapturev1.CaptureCounters_builder{Received: proto.Uint64(1), Accepted: proto.Uint64(1)}.Build()
+	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
 	_, err = s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeNotFound {
 		t.Fatalf("FinalizeArtifact after delete got %v, want ErrCodeNotFound", err)

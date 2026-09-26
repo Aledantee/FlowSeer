@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Third octet of the IEEE 802.11 Country element (IEEE Std 802.11-2020 clause 9.4.2.9,
+// dot11CountryString in IEEE802dot11-MIB). Preserves registry octet values.
+enum CountryEnvironment {
+  // Environment is unspecified or unknown.
+  COUNTRY_ENVIRONMENT_UNSPECIFIED = 0;
+  // Environment octet 0x01: Operating classes for the United States.
+  COUNTRY_ENVIRONMENT_US_OPERATING_CLASSES = 1;
+  // Environment octet 0x02: Operating classes for Europe.
+  COUNTRY_ENVIRONMENT_EUROPE_OPERATING_CLASSES = 2;
+  // Environment octet 0x03: Operating classes for Japan.
+  COUNTRY_ENVIRONMENT_JAPAN_OPERATING_CLASSES = 3;
+  // Environment octet 0x04: Global operating classes.
+  COUNTRY_ENVIRONMENT_GLOBAL_OPERATING_CLASSES = 4;
+  // Environment octet 0x05: Sub-1 GHz (S1G) operating classes.
+  COUNTRY_ENVIRONMENT_S1G_OPERATING_CLASSES = 5;
+  // Environment octet 0x06: Operating classes for China.
+  COUNTRY_ENVIRONMENT_CHINA_OPERATING_CLASSES = 6;
+  // Environment octet 0x20 (' '): Operating in all environments (indoor and outdoor).
+  COUNTRY_ENVIRONMENT_ALL = 32;
+  // Environment octet 0x49 ('I'): Indoor environment only.
+  COUNTRY_ENVIRONMENT_INDOOR = 73;
+  // Environment octet 0x4F ('O'): Outdoor environment only.
+  COUNTRY_ENVIRONMENT_OUTDOOR = 79;
+  // Environment octet 0x58 ('X'): Non-country entity (operating class tables define behavior; country code must be "XX").
+  COUNTRY_ENVIRONMENT_NON_COUNTRY_ENTITY = 88;
+}

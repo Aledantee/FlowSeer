@@ -123,8 +123,8 @@ func TestSVINeighborMissRetainsExactLoadedIssue(t *testing.T) {
 			reportedSVI("vlan20", outsideVID, routerMAC),
 		},
 		vlans: []*switchingv1.Vlan{
-			switchingv1.Vlan_builder{Id: ptr(insideVID), Name: ptr("inside")}.Build(),
-			switchingv1.Vlan_builder{Id: ptr(outsideVID), Name: ptr("outside")}.Build(),
+			switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: ptr(insideVID), Name: ptr("inside")}.Build(),
+			switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: ptr(outsideVID), Name: ptr("outside")}.Build(),
 		},
 		addrs: []*ipv1.InterfaceAddress{
 			ipv1.InterfaceAddress_builder{InterfaceName: ptr("vlan10"), Address: protoIPv4Addr([4]byte{192, 0, 2, 1}), Prefix: protoIPv4Prefix([4]byte{192, 0, 2, 0}, 24)}.Build(),
@@ -212,9 +212,9 @@ func reportedSVI(name string, vid uint32, mac []byte) *interfacev1.Interface {
 	mtu := uint32(0)
 	return interfacev1.Interface_builder{
 		Name: &name, AdminStatus: &admin, OperStatus: &oper, Mtu: &mtu,
-		Mac:  addrv1.EuiAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: mac}.Build()}.Build(),
+		Mac:  addrv1.MacAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: mac}.Build()}.Build(),
 		Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
-		Ip:   ipv1.IpFacet_builder{Ipv4: ipv1.Ipv4Facet_builder{}.Build()}.Build(),
+		Ip:   ipv1.IpFacet_builder{NetworkInstance: ptr("default"), Ipv4: ipv1.Ipv4Facet_builder{}.Build()}.Build(),
 	}.Build()
 }
 

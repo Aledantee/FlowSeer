@@ -235,7 +235,8 @@ func routedPhysicalInterface(name string) *interfacev1.Interface {
 		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 }
@@ -244,11 +245,12 @@ func activeFDBRow(portName string, vid uint32) *switchingv1.FdbEntry {
 	active := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
 	static := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 	return switchingv1.FdbEntry_builder{
-		VlanId:        &vid,
-		InterfaceName: &portName,
-		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
-		Kind:          &static,
-		Status:        &active,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &portName,
+		Mac:             addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		Kind:            &static,
+		Status:          &active,
 	}.Build()
 }
 
@@ -261,12 +263,13 @@ func routedVLANInterface(name string, vid uint32, mac []byte) *interfacev1.Inter
 		AdminStatus: &admin,
 		OperStatus:  &oper,
 		Mtu:         &mtu,
-		Mac: addrv1.EuiAddress_builder{
+		Mac: addrv1.MacAddress_builder{
 			Eui48: addrv1.Eui48Address_builder{Octets: mac}.Build(),
 		}.Build(),
 		Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 }
@@ -290,7 +293,7 @@ func lagInterfaces() []*interfacev1.Interface {
 			AdminStatus: &admin,
 			OperStatus:  &oper,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagName,
+				LagParentInterfaceName: &lagName,
 			}.Build(),
 		}.Build(),
 	}
@@ -300,6 +303,7 @@ func validBridgeState() *stpv1.BridgeState {
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	priority := uint32(32768)
 	return stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
@@ -375,6 +379,7 @@ func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 				ProtocolVersion: test.version,
 				BridgeId:        bridgeID,
 			}.Build()
@@ -438,6 +443,7 @@ func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			builder := stpv1.BridgeState_builder{
+				NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 				ProtocolVersion: &protocol,
 				BridgeId:        bridgeID,
 			}
@@ -499,27 +505,33 @@ func TestLoadFDBRequiresAuthoritativeKindAndStatus(t *testing.T) {
 	}
 	fdb := []*switchingv1.FdbEntry{
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[0]}.Build(), Status: &active,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[1]}.Build(), Kind: &unknownKind, Status: &active,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[2]}.Build(), Kind: &dynamic,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[3]}.Build(), Kind: &dynamic, Status: &unknownStatus,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[4]}.Build(), Kind: &unspecifiedKind, Status: &active,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[5]}.Build(), Kind: &dynamic, Status: &unspecifiedStatus,
 		}.Build(),
 	}
@@ -554,7 +566,8 @@ func TestLoadKeepsExplicitActiveFDBKindsAndDeduplicatesEqualRows(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			row := switchingv1.FdbEntry_builder{
-				VlanId: &vid, InterfaceName: &portName,
+				NetworkInstance: ptr("default"),
+				VlanId:          &vid, InterfaceName: &portName,
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), Kind: &tt.kind, Status: &active,
 			}.Build()
 			input := loadInput{
@@ -579,7 +592,7 @@ func TestLoadOmitsFDBRowsTheCompletedSwitchCannotConstruct(t *testing.T) {
 	portName := "1/1/1"
 	vid10 := uint32(10)
 	vid20 := uint32(20)
-	vlan10 := switchingv1.Vlan_builder{Id: &vid10, Name: ptr("ten")}.Build()
+	vlan10 := switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: ptr("ten")}.Build()
 
 	tests := []struct {
 		name      string
@@ -694,8 +707,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName), plainPhysicalInterface(otherPortName)},
 				fdb: []*switchingv1.FdbEntry{
-					switchingv1.FdbEntry_builder{VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &portName, Kind: &static, Status: &active}.Build(),
-					switchingv1.FdbEntry_builder{VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &otherPortName, Kind: &static, Status: &active}.Build(),
+					switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &portName, Kind: &static, Status: &active}.Build(),
+					switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &otherPortName, Kind: &static, Status: &active}.Build(),
 				},
 			},
 			conflictOn: "fdb_entry",
@@ -708,8 +721,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
 				vlans: []*switchingv1.Vlan{
-					switchingv1.Vlan_builder{Id: &vid, Name: ptr("blue")}.Build(),
-					switchingv1.Vlan_builder{Id: &vid, Name: ptr("red")}.Build(),
+					switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("blue")}.Build(),
+					switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("red")}.Build(),
 				},
 				want: []port.Layer{port.LayerVLAN},
 			},
@@ -724,8 +737,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerMilliwatts: ptr(uint32(100_000))}.Build(),
-					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerMilliwatts: ptr(uint32(200_000))}.Build(),
+					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(100_000_000_000))}.Build(),
+					phyv1.PseBudget_builder{PseGroup: ptr(uint32(1)), PowerNanowatts: ptr(uint64(200_000_000_000))}.Build(),
 				},
 			},
 			conflictOn: "pse_budget",
@@ -871,7 +884,8 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 		},
 		fdb: []*switchingv1.FdbEntry{
 			switchingv1.FdbEntry_builder{
-				VlanId: &vid, InterfaceName: &portName,
+				NetworkInstance: ptr("default"),
+				VlanId:          &vid, InterfaceName: &portName,
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build(), Kind: &static, Status: &active,
 			}.Build(),
 		},
@@ -883,7 +897,7 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 			ipv1.NeighborEntry_builder{InterfaceName: &routedName, Ip: malformedIP, Mac: protoEUI48([6]byte{0, 1, 2, 3, 4, 6})}.Build(),
 			ipv1.NeighborEntry_builder{
 				InterfaceName: &routedName, Ip: protoIPv4Addr([4]byte{10, 0, 0, 2}),
-				Mac: addrv1.EuiAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build()}.Build(),
+				Mac: addrv1.MacAddress_builder{Eui48: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build()}.Build(),
 			}.Build(),
 		},
 	}
@@ -931,6 +945,7 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 		protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 		priority := uint32(32768)
 		bridgeState := stpv1.BridgeState_builder{
+			NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 			ProtocolVersion: &protocol,
 			BridgeId: stpv1.BridgeId_builder{
 				Priority: &priority,
@@ -993,6 +1008,7 @@ func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
 	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	priority := uint32(32767)
 	bridgeState := stpv1.BridgeState_builder{
+		NetworkInstance: ptr(netmodel.DefaultNetworkInstance),
 		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
@@ -1166,7 +1182,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 		oper := interfacev1.OperStatus_OPER_STATUS_UP
 		unknown := phyv1.PoePriority(99)
 		group := uint32(1)
-		power := uint32(100_000)
+		power := uint64(100_000_000_000)
 		result := (loadInput{
 			ifaces: []*interfacev1.Interface{
 				interfacev1.Interface_builder{
@@ -1182,7 +1198,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				}.Build(),
 			},
 			budgets: []*phyv1.PseBudget{
-				phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+				phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
 		assertUnsupported(t, result, netmodel.IssueInvalidPoEPriority, analysis.PortScope("sw1", name))
@@ -1301,7 +1317,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 	supported := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	delivering := phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER
 	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
@@ -1408,7 +1424,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 			input := loadInput{
 				ifaces: []*interfacev1.Interface{iface},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
 				want: []port.Layer{port.LayerPoE},
 			}
@@ -1470,7 +1486,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 	supported := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	searching := phyv1.PoeStatus_POE_STATUS_SEARCHING
 	disabled := phyv1.PoeStatus_POE_STATUS_DISABLED
@@ -1531,7 +1547,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 			input := loadInput{
 				ifaces: []*interfacev1.Interface{iface},
 				budgets: []*phyv1.PseBudget{
-					phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+					phyv1.PseBudget_builder{PseGroup: &group, PowerNanowatts: &power}.Build(),
 				},
 				want: []port.Layer{port.LayerPoE},
 			}

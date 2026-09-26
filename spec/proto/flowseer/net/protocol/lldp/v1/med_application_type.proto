@@ -1,0 +1,29 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// The application an LLDP-MED network policy applies to. Integers are the
+// application type values of the network policy TLV (ANSI/TIA-1057
+// 10.2.3.1; Wireshark epan/dissectors/packet-lldp.c:796-807 at commit
+// 16c09df25f262e2e1b432521aba7eb6a3ea4afe3), the same positions the
+// LLDP-EXT-MED-MIB PolicyAppType bits use (LLDP-EXT-MED-MIB:192-239).
+enum MedApplicationType {
+  // The application type was not reported.
+  MED_APPLICATION_TYPE_UNSPECIFIED = 0;
+  // Voice.
+  MED_APPLICATION_TYPE_VOICE = 1;
+  // Voice signaling.
+  MED_APPLICATION_TYPE_VOICE_SIGNALING = 2;
+  // Guest voice.
+  MED_APPLICATION_TYPE_GUEST_VOICE = 3;
+  // Guest voice signaling.
+  MED_APPLICATION_TYPE_GUEST_VOICE_SIGNALING = 4;
+  // Softphone voice.
+  MED_APPLICATION_TYPE_SOFTPHONE_VOICE = 5;
+  // Video conferencing.
+  MED_APPLICATION_TYPE_VIDEO_CONFERENCING = 6;
+  // Streaming video.
+  MED_APPLICATION_TYPE_STREAMING_VIDEO = 7;
+  // Video signaling.
+  MED_APPLICATION_TYPE_VIDEO_SIGNALING = 8;
+}

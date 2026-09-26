@@ -1,0 +1,45 @@
+edition = "2024";
+
+package flowseer.net.qos.v1;
+
+import "flowseer/net/qos/v1/queue.proto";
+import "flowseer/net/qos/v1/trust_mode.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// The QoS configuration of one interface. Mirrors OpenConfig's QoS interface
+// list keyed by interface-id (openconfig-qos-interfaces.yang:984-985).
+message QosInterface {
+  option (buf.validate.message).cel = {
+    id: "qos_interface.queue_ids_unique"
+    message: "queue ids must be unique within an interface"
+    expression: "this.queues.filter(q, has(q.queue_id)).map(q, q.queue_id).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "qos_interface.queue_names_unique"
+    message: "queue names must be unique within an interface"
+    expression: "this.queues.filter(q, has(q.name)).map(q, q.name).unique()"
+  };
+
+  // The interface the row describes. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The header field the port trusts on ingress. Absent means unreported.
+  TrustMode trust_mode = 2;
+  // The name of the Classifier applied to ingress traffic. Absent means none
+  // is bound.
+  string input_classifier = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The name of the Classifier applied to egress traffic. Absent means none
+  // is bound.
+  string output_classifier = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The interface's egress queues.
+  repeated Queue queues = 5;
+}

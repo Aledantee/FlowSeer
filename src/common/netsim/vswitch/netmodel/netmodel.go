@@ -231,7 +231,7 @@ func Load(
 			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 		}
 		if sub := iface.GetSub(); sub != nil {
-			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, sub.GetParent())
+			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, sub.GetParentInterfaceName())
 		}
 		return routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 	}
@@ -428,8 +428,8 @@ func Load(
 		switch {
 		case iface.GetPhysical() != nil:
 			p.Kind = port.Physical
-			if iface.GetPhysical().HasLagParent() {
-				p.LagParent = iface.GetPhysical().GetLagParent()
+			if iface.GetPhysical().HasLagParentInterfaceName() {
+				p.LagParent = iface.GetPhysical().GetLagParentInterfaceName()
 			}
 		case iface.GetLag() != nil:
 			p.Kind = port.LAG
@@ -888,9 +888,9 @@ func Load(
 					return factKey{}, "", false
 				}
 				groupStr := strconv.FormatUint(uint64(b.GetPseGroup()), 10)
-				value := "power_milliwatts=unreported"
-				if b.HasPowerMilliwatts() {
-					value = "power_milliwatts=" + strconv.FormatUint(uint64(b.GetPowerMilliwatts()), 10)
+				value := "power_nanowatts=unreported"
+				if b.HasPowerNanowatts() {
+					value = "power_nanowatts=" + strconv.FormatUint(b.GetPowerNanowatts(), 10)
 				}
 				return factKey{id: groupStr, display: groupStr, scope: rootScope}, value, true
 			})
@@ -899,14 +899,14 @@ func Load(
 			}
 			for _, groupStr := range sortedKeys(budgetRows) {
 				b := budgetRows[groupStr]
-				var power uint32
-				if b.HasPowerMilliwatts() {
-					power = b.GetPowerMilliwatts()
+				var power uint64
+				if b.HasPowerNanowatts() {
+					power = b.GetPowerNanowatts()
 				} else {
-					addDefault(groupStr, "power_milliwatts", "0")
+					addDefault(groupStr, "power_nanowatts", "0")
 				}
 				poe.Groups[groupStr] = phy.Group{
-					PowerMilliwatts: power,
+					PowerNanowatts: power,
 				}
 			}
 
@@ -943,8 +943,8 @@ func Load(
 					if ps.HasEnabled() {
 						psePort.Enabled = ps.GetEnabled()
 					}
-					if ps.HasPowerLimitMilliwatts() {
-						lim := ps.GetPowerLimitMilliwatts()
+					if ps.HasPowerLimitNanowatts() {
+						lim := ps.GetPowerLimitNanowatts()
 						psePort.Limit = &lim
 					}
 					if ps.HasPriority() {
@@ -1055,7 +1055,7 @@ func Load(
 					isMember bool
 				)
 				if iface.GetPhysical() != nil {
-					if iface.GetPhysical().HasLagParent() {
+					if iface.GetPhysical().HasLagParentInterfaceName() {
 						isMember = true
 					}
 					if iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
@@ -1693,7 +1693,7 @@ func Load(
 				sub := iface.GetSub()
 				resolvedPort, resolvedVLAN, accepted := acceptRoutedSubParent(ifaceByName, ports, sub)
 				if !accepted {
-					if _, parentOK := routedSubParentPort(ifaceByName, ports, sub.GetParent()); !parentOK {
+					if _, parentOK := routedSubParentPort(ifaceByName, ports, sub.GetParentInterfaceName()); !parentOK {
 						isSupported = false
 						break
 					}
@@ -1906,12 +1906,21 @@ func Load(
 
 	if isWanted(port.LayerFilter) {
 		setByName := make(map[string]filter.RuleSet, len(filterSets))
+		// A set the IP-layer filter cannot evaluate is left out whole:
+		// translating a rule without its L2, PCP, or DSCP terms would widen
+		// it, and dropping the rule would let a later rule decide.
+		unevaluable := make(map[string]bool)
 		for _, set := range filterSets {
 			if set == nil {
 				continue
 			}
 			name := set.GetName()
 			if name == "" {
+				continue
+			}
+			if slices.ContainsFunc(set.GetRules(), hasUnevaluableMatch) {
+				unevaluable[name] = true
+				addSkippedAt(rootScope, "", "filter", fmt.Sprintf("rule set %q carries L2, PCP, or DSCP match terms the simulator does not evaluate", name), analysis.Incomplete, IssueSkippedUnsupportedFacet)
 				continue
 			}
 			ruleSet := filter.RuleSet{
@@ -2023,7 +2032,9 @@ func Load(
 			}
 
 			if inSet != "" {
-				if _, ok := setByName[inSet]; !ok {
+				if unevaluable[inSet] {
+					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q carries match terms the simulator does not evaluate", inSet), analysis.Incomplete, IssueSkippedUnsupportedFacet)
+				} else if _, ok := setByName[inSet]; !ok {
 					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q is missing", inSet), analysis.Incomplete, IssueMissingFilterSet)
 				} else if hasIP {
 					bindings = append(bindings, filter.Binding{
@@ -2035,7 +2046,9 @@ func Load(
 			}
 
 			if outSet != "" {
-				if _, ok := setByName[outSet]; !ok {
+				if unevaluable[outSet] {
+					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q carries match terms the simulator does not evaluate", outSet), analysis.Incomplete, IssueSkippedUnsupportedFacet)
+				} else if _, ok := setByName[outSet]; !ok {
 					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q is missing", outSet), analysis.Incomplete, IssueMissingFilterSet)
 				} else if hasIP {
 					bindings = append(bindings, filter.Binding{
@@ -2254,7 +2267,7 @@ func routedSubParentPort(ifaceByName map[string]*interfacev1.Interface, ports po
 // encapsulation of exactly one customer 802.1Q tag at a usable VLAN id. It
 // returns the parent's port name and that VLAN id when accepted.
 func acceptRoutedSubParent(ifaceByName map[string]*interfacev1.Interface, ports port.Table, sub *interfacev1.Subinterface) (string, vlan.ID, bool) {
-	parent, ok := routedSubParentPort(ifaceByName, ports, sub.GetParent())
+	parent, ok := routedSubParentPort(ifaceByName, ports, sub.GetParentInterfaceName())
 	if !ok {
 		return "", 0, false
 	}
@@ -2279,11 +2292,11 @@ func routingUsesPort(cfg *routing.Config, portName string) bool {
 	return false
 }
 
-func parseMAC(eui *addrv1.EuiAddress) (netaddr.MAC, bool) {
-	if eui == nil || eui.GetEui48() == nil {
+func parseMAC(mac *addrv1.MacAddress) (netaddr.MAC, bool) {
+	if mac == nil || mac.GetEui48() == nil {
 		return netaddr.MAC{}, false
 	}
-	return parseEUI48(eui.GetEui48())
+	return parseEUI48(mac.GetEui48())
 }
 
 func parseEUI48(eui *addrv1.Eui48Address) (netaddr.MAC, bool) {
@@ -2358,6 +2371,13 @@ func parsePrefix(p *addrv1.IpPrefix, address netip.Addr) (int, bool) {
 		return int(v6.GetLength()), true
 	}
 	return 0, false
+}
+
+// hasUnevaluableMatch reports whether rule matches on a term filter.Match has
+// no counterpart for: the EtherType, a MAC address, a PCP, or a DSCP.
+func hasUnevaluableMatch(rule *filterv1.FilterRule) bool {
+	m := rule.GetMatch()
+	return m.HasEtherType() || m.HasSrcMac() || m.HasDstMac() || len(m.GetPcps()) > 0 || len(m.GetDscps()) > 0
 }
 
 func translateAction(a filterv1.FilterAction) filter.Action {

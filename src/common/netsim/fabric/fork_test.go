@@ -370,13 +370,13 @@ func probeFabricCounters(t *testing.T) {
 	fork := fab.Fork()
 
 	ep := Endpoint{Node: "sw1", Port: "1/1/1"}
-	fab.counters[ep].InOctets = 9999
-	if fork.counters[ep].InOctets == 9999 {
+	fab.counters[ep].InBytes = 9999
+	if fork.counters[ep].InBytes == 9999 {
 		t.Errorf("fork counters changed when source mutated")
 	}
 
-	fork.counters[ep].InOctets = 8888
-	if fab.counters[ep].InOctets == 8888 {
+	fork.counters[ep].InBytes = 8888
+	if fab.counters[ep].InBytes == 8888 {
 		t.Errorf("source counters changed when fork mutated")
 	}
 }
@@ -599,7 +599,7 @@ func TestSnapshotImmutability(t *testing.T) {
 		fdbMoved := len(fab.switches["sw1"].Entries()) > len(initialSw1Entries)
 		countersMoved := false
 		for _, c := range fab.counters {
-			if c.InOctets > 0 || c.OutOctets > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
+			if c.InBytes > 0 || c.OutBytes > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
 				countersMoved = true
 				break
 			}
@@ -618,7 +618,7 @@ func TestSnapshotImmutability(t *testing.T) {
 	}
 	hasCounterMoved := false
 	for _, c := range fab.counters {
-		if c.InOctets > 0 || c.OutOctets > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
+		if c.InBytes > 0 || c.OutBytes > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
 			hasCounterMoved = true
 			break
 		}

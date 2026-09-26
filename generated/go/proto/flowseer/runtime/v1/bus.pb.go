@@ -12,6 +12,7 @@ package runtimev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -493,27 +494,27 @@ func (b0 ModuleContract_builder) Build() *ModuleContract {
 
 // The complete persisted routing and broker contract for one service binary.
 type RuntimeManifest struct {
-	state                             protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ServiceNamespace       *string                `protobuf:"bytes,1,opt,name=service_namespace,json=serviceNamespace"`
-	xxx_hidden_ServiceName            *string                `protobuf:"bytes,2,opt,name=service_name,json=serviceName"`
-	xxx_hidden_Domain                 *string                `protobuf:"bytes,3,opt,name=domain"`
-	xxx_hidden_EnvelopeType           *string                `protobuf:"bytes,4,opt,name=envelope_type,json=envelopeType"`
-	xxx_hidden_EnvelopeVersion        uint32                 `protobuf:"varint,5,opt,name=envelope_version,json=envelopeVersion"`
-	xxx_hidden_SubjectVersion         uint32                 `protobuf:"varint,6,opt,name=subject_version,json=subjectVersion"`
-	xxx_hidden_NatsVersion            *string                `protobuf:"bytes,7,opt,name=nats_version,json=natsVersion"`
-	xxx_hidden_Modules                *[]*ModuleContract     `protobuf:"bytes,8,rep,name=modules"`
-	xxx_hidden_ModulePaths            []string               `protobuf:"bytes,9,rep,name=module_paths,json=modulePaths"`
-	xxx_hidden_MailboxStream          *string                `protobuf:"bytes,10,opt,name=mailbox_stream,json=mailboxStream"`
-	xxx_hidden_MetadataStream         *string                `protobuf:"bytes,11,opt,name=metadata_stream,json=metadataStream"`
-	xxx_hidden_MaxStoreBytes          uint64                 `protobuf:"varint,12,opt,name=max_store_bytes,json=maxStoreBytes"`
-	xxx_hidden_MailboxMaxBytes        uint64                 `protobuf:"varint,13,opt,name=mailbox_max_bytes,json=mailboxMaxBytes"`
-	xxx_hidden_MetadataMaxBytes       uint64                 `protobuf:"varint,14,opt,name=metadata_max_bytes,json=metadataMaxBytes"`
-	xxx_hidden_ReserveBytes           uint64                 `protobuf:"varint,15,opt,name=reserve_bytes,json=reserveBytes"`
-	xxx_hidden_DuplicateWindowSeconds uint64                 `protobuf:"varint,16,opt,name=duplicate_window_seconds,json=duplicateWindowSeconds"`
-	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
-	XXX_presence                      [1]uint32
-	unknownFields                     protoimpl.UnknownFields
-	sizeCache                         protoimpl.SizeCache
+	state                       protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ServiceNamespace *string                `protobuf:"bytes,1,opt,name=service_namespace,json=serviceNamespace"`
+	xxx_hidden_ServiceName      *string                `protobuf:"bytes,2,opt,name=service_name,json=serviceName"`
+	xxx_hidden_Domain           *string                `protobuf:"bytes,3,opt,name=domain"`
+	xxx_hidden_EnvelopeType     *string                `protobuf:"bytes,4,opt,name=envelope_type,json=envelopeType"`
+	xxx_hidden_EnvelopeVersion  uint32                 `protobuf:"varint,5,opt,name=envelope_version,json=envelopeVersion"`
+	xxx_hidden_SubjectVersion   uint32                 `protobuf:"varint,6,opt,name=subject_version,json=subjectVersion"`
+	xxx_hidden_NatsVersion      *string                `protobuf:"bytes,7,opt,name=nats_version,json=natsVersion"`
+	xxx_hidden_Modules          *[]*ModuleContract     `protobuf:"bytes,8,rep,name=modules"`
+	xxx_hidden_ModulePaths      []string               `protobuf:"bytes,9,rep,name=module_paths,json=modulePaths"`
+	xxx_hidden_MailboxStream    *string                `protobuf:"bytes,10,opt,name=mailbox_stream,json=mailboxStream"`
+	xxx_hidden_MetadataStream   *string                `protobuf:"bytes,11,opt,name=metadata_stream,json=metadataStream"`
+	xxx_hidden_MaxStoreBytes    uint64                 `protobuf:"varint,12,opt,name=max_store_bytes,json=maxStoreBytes"`
+	xxx_hidden_MailboxMaxBytes  uint64                 `protobuf:"varint,13,opt,name=mailbox_max_bytes,json=mailboxMaxBytes"`
+	xxx_hidden_MetadataMaxBytes uint64                 `protobuf:"varint,14,opt,name=metadata_max_bytes,json=metadataMaxBytes"`
+	xxx_hidden_ReserveBytes     uint64                 `protobuf:"varint,15,opt,name=reserve_bytes,json=reserveBytes"`
+	xxx_hidden_DuplicateWindow  *durationpb.Duration   `protobuf:"bytes,17,opt,name=duplicate_window,json=duplicateWindow"`
+	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
+	XXX_presence                [1]uint32
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *RuntimeManifest) Reset() {
@@ -669,11 +670,11 @@ func (x *RuntimeManifest) GetReserveBytes() uint64 {
 	return 0
 }
 
-func (x *RuntimeManifest) GetDuplicateWindowSeconds() uint64 {
+func (x *RuntimeManifest) GetDuplicateWindow() *durationpb.Duration {
 	if x != nil {
-		return x.xxx_hidden_DuplicateWindowSeconds
+		return x.xxx_hidden_DuplicateWindow
 	}
-	return 0
+	return nil
 }
 
 func (x *RuntimeManifest) SetServiceNamespace(v string) {
@@ -749,9 +750,8 @@ func (x *RuntimeManifest) SetReserveBytes(v uint64) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 14, 16)
 }
 
-func (x *RuntimeManifest) SetDuplicateWindowSeconds(v uint64) {
-	x.xxx_hidden_DuplicateWindowSeconds = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 15, 16)
+func (x *RuntimeManifest) SetDuplicateWindow(v *durationpb.Duration) {
+	x.xxx_hidden_DuplicateWindow = v
 }
 
 func (x *RuntimeManifest) HasServiceNamespace() bool {
@@ -845,11 +845,11 @@ func (x *RuntimeManifest) HasReserveBytes() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 14)
 }
 
-func (x *RuntimeManifest) HasDuplicateWindowSeconds() bool {
+func (x *RuntimeManifest) HasDuplicateWindow() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 15)
+	return x.xxx_hidden_DuplicateWindow != nil
 }
 
 func (x *RuntimeManifest) ClearServiceNamespace() {
@@ -917,9 +917,8 @@ func (x *RuntimeManifest) ClearReserveBytes() {
 	x.xxx_hidden_ReserveBytes = 0
 }
 
-func (x *RuntimeManifest) ClearDuplicateWindowSeconds() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 15)
-	x.xxx_hidden_DuplicateWindowSeconds = 0
+func (x *RuntimeManifest) ClearDuplicateWindow() {
+	x.xxx_hidden_DuplicateWindow = nil
 }
 
 type RuntimeManifest_builder struct {
@@ -958,7 +957,7 @@ type RuntimeManifest_builder struct {
 	ReserveBytes *uint64
 	// Deduplication window shared by persisted publish identities. Must be
 	// present.
-	DuplicateWindowSeconds *uint64
+	DuplicateWindow *durationpb.Duration
 }
 
 func (b0 RuntimeManifest_builder) Build() *RuntimeManifest {
@@ -1019,10 +1018,7 @@ func (b0 RuntimeManifest_builder) Build() *RuntimeManifest {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 14, 16)
 		x.xxx_hidden_ReserveBytes = *b.ReserveBytes
 	}
-	if b.DuplicateWindowSeconds != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 15, 16)
-		x.xxx_hidden_DuplicateWindowSeconds = *b.DuplicateWindowSeconds
-	}
+	x.xxx_hidden_DuplicateWindow = b.DuplicateWindow
 	return m0
 }
 
@@ -1622,7 +1618,7 @@ var File_flowseer_runtime_v1_bus_proto protoreflect.FileDescriptor
 
 const file_flowseer_runtime_v1_bus_proto_rawDesc = "" +
 	"\n" +
-	"\x1dflowseer/runtime/v1/bus.proto\x12\x13flowseer.runtime.v1\x1a!flowseer/runtime/v1/message.proto\"\xc0\x02\n" +
+	"\x1dflowseer/runtime/v1/bus.proto\x12\x13flowseer.runtime.v1\x1a!flowseer/runtime/v1/message.proto\x1a\x1egoogle/protobuf/duration.proto\"\xc0\x02\n" +
 	"\x14SubscriptionContract\x12C\n" +
 	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.runtime.v1.MessageKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12]\n" +
@@ -1635,7 +1631,7 @@ const file_flowseer_runtime_v1_bus_proto_rawDesc = "" +
 	"path_token\x18\x02 \x01(\tB\x1d\xbaH\x1a\xc8\x01\x01r\x15\x18\xd4\x022\x10^[A-Za-z0-9_-]+$R\tpathToken\x12<\n" +
 	"\fdurable_name\x18\x03 \x01(\tB\x19\xbaH\x16\xc8\x01\x01r\x11\x18@2\r^[a-z0-9_-]+$R\vdurableName\x12O\n" +
 	"\rsubscriptions\x18\x04 \x03(\v2).flowseer.runtime.v1.SubscriptionContractR\rsubscriptions\x12?\n" +
-	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\x9a\b\n" +
+	"\x14delivery_concurrency\x18\x05 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18@(\x01R\x13deliveryConcurrency\"\xc9\b\n" +
 	"\x0fRuntimeManifest\x12:\n" +
 	"\x11service_namespace\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\xff\x01R\x10serviceNamespace\x120\n" +
@@ -1660,9 +1656,9 @@ const file_flowseer_runtime_v1_bus_proto_rawDesc = "" +
 	"\x12metadata_max_bytes\x18\x0e \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\x10metadataMaxBytes\x12/\n" +
 	"\rreserve_bytes\x18\x0f \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\freserveBytes\x12D\n" +
-	"\x18duplicate_window_seconds\x18\x10 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\x16duplicateWindowSeconds\"\xa6\x02\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\freserveBytes\x12S\n" +
+	"\x10duplicate_window\x18\x11 \x01(\v2\x19.google.protobuf.DurationB\r\xbaH\n" +
+	"\xc8\x01\x01\xaa\x01\x042\x02\b\x01R\x0fduplicateWindowJ\x04\b\x10\x10\x11R\x18duplicate_window_seconds\"\xa6\x02\n" +
 	"\x14ReconciliationRecord\x12@\n" +
 	"\bprevious\x18\x01 \x01(\v2$.flowseer.runtime.v1.RuntimeManifestR\bprevious\x12F\n" +
 	"\adesired\x18\x02 \x01(\v2$.flowseer.runtime.v1.RuntimeManifestB\x06\xbaH\x03\xc8\x01\x01R\adesired\x125\n" +
@@ -1716,20 +1712,22 @@ var file_flowseer_runtime_v1_bus_proto_goTypes = []any{
 	(*StoreProvenance)(nil),      // 6: flowseer.runtime.v1.StoreProvenance
 	(*Settlement)(nil),           // 7: flowseer.runtime.v1.Settlement
 	(MessageKind)(0),             // 8: flowseer.runtime.v1.MessageKind
+	(*durationpb.Duration)(nil),  // 9: google.protobuf.Duration
 }
 var file_flowseer_runtime_v1_bus_proto_depIdxs = []int32{
 	8, // 0: flowseer.runtime.v1.SubscriptionContract.kind:type_name -> flowseer.runtime.v1.MessageKind
 	2, // 1: flowseer.runtime.v1.ModuleContract.subscriptions:type_name -> flowseer.runtime.v1.SubscriptionContract
 	3, // 2: flowseer.runtime.v1.RuntimeManifest.modules:type_name -> flowseer.runtime.v1.ModuleContract
-	4, // 3: flowseer.runtime.v1.ReconciliationRecord.previous:type_name -> flowseer.runtime.v1.RuntimeManifest
-	4, // 4: flowseer.runtime.v1.ReconciliationRecord.desired:type_name -> flowseer.runtime.v1.RuntimeManifest
-	0, // 5: flowseer.runtime.v1.ReconciliationRecord.phase:type_name -> flowseer.runtime.v1.ReconciliationPhase
-	1, // 6: flowseer.runtime.v1.Settlement.state:type_name -> flowseer.runtime.v1.SettlementState
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	9, // 3: flowseer.runtime.v1.RuntimeManifest.duplicate_window:type_name -> google.protobuf.Duration
+	4, // 4: flowseer.runtime.v1.ReconciliationRecord.previous:type_name -> flowseer.runtime.v1.RuntimeManifest
+	4, // 5: flowseer.runtime.v1.ReconciliationRecord.desired:type_name -> flowseer.runtime.v1.RuntimeManifest
+	0, // 6: flowseer.runtime.v1.ReconciliationRecord.phase:type_name -> flowseer.runtime.v1.ReconciliationPhase
+	1, // 7: flowseer.runtime.v1.Settlement.state:type_name -> flowseer.runtime.v1.SettlementState
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_runtime_v1_bus_proto_init() }

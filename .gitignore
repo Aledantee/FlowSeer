@@ -9,6 +9,7 @@
 /.compound-engineering/
 /.codex/config.toml
 /.codex/worktrees/
+/.claude/models/host.local.yaml
 
 # Fallback paths for Claude versions or sessions that do not load project hooks
 .claude/worktrees/

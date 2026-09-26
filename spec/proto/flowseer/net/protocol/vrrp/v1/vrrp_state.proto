@@ -1,0 +1,14 @@
+edition = "2024";
+
+package flowseer.net.protocol.vrrp.v1;
+
+// The operational state of a VRRP router in a virtual router group (RFC 5798 §6.4, VRRP-MIB vrrpOperState).
+enum VrrpState {
+  VRRP_STATE_UNSPECIFIED = 0;
+  // Waiting for a startup event (RFC 5798 §6.4.1).
+  VRRP_STATE_INITIALIZE = 1;
+  // Monitoring the availability and state of the Master Router (RFC 5798 §6.4.2).
+  VRRP_STATE_BACKUP = 2;
+  // Functioning as the forwarding router for the IPv4/IPv6 addresses associated with the virtual router (RFC 5798 §6.4.3).
+  VRRP_STATE_MASTER = 3;
+}

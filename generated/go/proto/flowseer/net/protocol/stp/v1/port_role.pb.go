@@ -20,7 +20,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Port role assigned by the Rapid Spanning Tree Protocol (IEEE 802.1D-2004).
+// Port role assigned by the Rapid Spanning Tree Protocol (IEEE 802.1D-2004)
+// or the Multiple Spanning Tree Protocol (IEEE 802.1Q).
 type PortRole int32
 
 const (
@@ -36,6 +37,11 @@ const (
 	PortRole_PORT_ROLE_ALTERNATE PortRole = 4
 	// Backup path to the attached LAN segment, discarded to prevent loops.
 	PortRole_PORT_ROLE_BACKUP PortRole = 5
+	// MSTI role of the boundary port through which the region's regional root
+	// reaches the CIST root outside the region. IOS-XE reports it as stp-master
+	// (Cisco-IOS-XE-spanning-tree-oper.yang:116); ieee8021MstpPortRole has no
+	// such value (IEEE8021-MSTP-MIB-202211080000Z:965).
+	PortRole_PORT_ROLE_MASTER PortRole = 6
 )
 
 // Enum value maps for PortRole.
@@ -47,6 +53,7 @@ var (
 		3: "PORT_ROLE_DESIGNATED",
 		4: "PORT_ROLE_ALTERNATE",
 		5: "PORT_ROLE_BACKUP",
+		6: "PORT_ROLE_MASTER",
 	}
 	PortRole_value = map[string]int32{
 		"PORT_ROLE_UNSPECIFIED": 0,
@@ -55,6 +62,7 @@ var (
 		"PORT_ROLE_DESIGNATED":  3,
 		"PORT_ROLE_ALTERNATE":   4,
 		"PORT_ROLE_BACKUP":      5,
+		"PORT_ROLE_MASTER":      6,
 	}
 )
 
@@ -84,14 +92,15 @@ var File_flowseer_net_protocol_stp_v1_port_role_proto protoreflect.FileDescripto
 
 const file_flowseer_net_protocol_stp_v1_port_role_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/net/protocol/stp/v1/port_role.proto\x12\x1cflowseer.net.protocol.stp.v1*\x9a\x01\n" +
+	",flowseer/net/protocol/stp/v1/port_role.proto\x12\x1cflowseer.net.protocol.stp.v1*\xb0\x01\n" +
 	"\bPortRole\x12\x19\n" +
 	"\x15PORT_ROLE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12PORT_ROLE_DISABLED\x10\x01\x12\x12\n" +
 	"\x0ePORT_ROLE_ROOT\x10\x02\x12\x18\n" +
 	"\x14PORT_ROLE_DESIGNATED\x10\x03\x12\x17\n" +
 	"\x13PORT_ROLE_ALTERNATE\x10\x04\x12\x14\n" +
-	"\x10PORT_ROLE_BACKUP\x10\x05B\x93\x02\n" +
+	"\x10PORT_ROLE_BACKUP\x10\x05\x12\x14\n" +
+	"\x10PORT_ROLE_MASTER\x10\x06B\x93\x02\n" +
 	" com.flowseer.net.protocol.stp.v1B\rPortRoleProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_port_role_proto_enumTypes = make([]protoimpl.EnumInfo, 1)

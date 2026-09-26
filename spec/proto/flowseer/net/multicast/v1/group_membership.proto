@@ -1,0 +1,86 @@
+edition = "2024";
+
+package flowseer.net.multicast.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/multicast/v1/filter_mode.proto";
+import "flowseer/net/multicast/v1/membership_kind.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// One port's membership in a multicast group as IGMP or MLD snooping holds
+// it, keyed by (network_instance, vlan_id, group, source, interface_name).
+// No standard models snooping state, so the row is FlowSeer-normalized from
+// vendor tables; the group's address family says whether IGMP or MLD
+// filled it.
+message GroupMembership {
+  option (buf.validate.message).cel = {
+    id: "group_membership.group_is_multicast"
+    message: "group must be an IPv4 (224.0.0.0/4) or IPv6 (ff00::/8) multicast address"
+    expression:
+      "!has(this.group) || "
+      "(has(this.group.v4) ? '%x'.format([this.group.v4.octets]).startsWith('e') : "
+      "!has(this.group.v6) || '%x'.format([this.group.v6.octets]).startsWith('ff'))"
+  };
+  option (buf.validate.message).cel = {
+    id: "group_membership.source_family"
+    message: "source must be of the same address family as group"
+    expression: "!has(this.group) || !has(this.source) || has(this.group.v4) == has(this.source.v4)"
+  };
+  option (buf.validate.message).cel = {
+    id: "group_membership.last_reporter_family"
+    message: "last_reporter must be of the same address family as group"
+    expression: "!has(this.group) || !has(this.last_reporter) || has(this.group.v4) == has(this.last_reporter.v4)"
+  };
+  option (buf.validate.message).cel = {
+    id: "group_membership.mld_compatibility_version"
+    message: "an IPv6 group's compatibility_version must be 1 or 2, the MLD versions"
+    expression: "!has(this.group) || !has(this.group.v6) || !has(this.compatibility_version) || this.compatibility_version <= 2u"
+  };
+
+  // The network instance whose bridge holds the VLAN. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The VLAN the membership was snooped in. Must be present.
+  uint32 vlan_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true
+  ];
+  // The multicast group. Must be present.
+  flowseer.net.addr.v1.IpAddress group = 3 [(buf.validate.field).required = true];
+  // The source of a source-specific (IGMPv3 or MLDv2) entry. Absent means
+  // the membership covers any source.
+  flowseer.net.addr.v1.IpAddress source = 4;
+  // The device-local name of the member port. Must be present.
+  string interface_name = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The group's filter mode on this port. Absent means the source did not
+  // report it.
+  FilterMode filter_mode = 6;
+  // The group compatibility mode: the IGMP version (1 to 3, RFC 3376
+  // section 7.3.2) or MLD version (1 or 2, RFC 3810 section 8.3.2) the port's
+  // members are handled as. Absent means the source did not report it.
+  uint32 compatibility_version = 7 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 3
+  ];
+  // Whether the membership was configured or learned. Absent means the
+  // source did not report it.
+  MembershipKind kind = 8;
+  // The host that sent the last membership report for the group. Absent
+  // means the source did not report it.
+  flowseer.net.addr.v1.IpAddress last_reporter = 9;
+  // How long the membership has existed. Absent means the source did not
+  // report it.
+  google.protobuf.Duration uptime = 10 [(buf.validate.field).duration.gte = {}];
+  // How long until the membership times out unless a report refreshes it
+  // (RFC 4541 section 2.1.1). Absent means the source did not report it, or
+  // the membership is static and never expires.
+  google.protobuf.Duration expires_in = 11 [(buf.validate.field).duration.gte = {}];
+}

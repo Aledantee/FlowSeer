@@ -1,0 +1,51 @@
+edition = "2024";
+
+package flowseer.net.routing.v1;
+
+// The mechanism a route was learned by. Values keep the IANAipRouteProtocol
+// integers (spec/mib/ietf/IANA-RTPROTO-MIB:48-79), which RFC 4292
+// inetCidrRouteProto reports; the registry assigns nothing at zero.
+enum RouteSourceProtocol {
+  // The source protocol was not reported.
+  ROUTE_SOURCE_PROTOCOL_UNSPECIFIED = 0;
+  // Not specified by the reporting device (other).
+  ROUTE_SOURCE_PROTOCOL_OTHER = 1;
+  // A route to a directly attached network on a local interface (local).
+  ROUTE_SOURCE_PROTOCOL_LOCAL = 2;
+  // A static route set through configuration (netmgmt).
+  ROUTE_SOURCE_PROTOCOL_NETMGMT = 3;
+  // The result of an ICMP Redirect (icmp).
+  ROUTE_SOURCE_PROTOCOL_ICMP = 4;
+  // Exterior Gateway Protocol (egp).
+  ROUTE_SOURCE_PROTOCOL_EGP = 5;
+  // Gateway-Gateway Protocol (ggp).
+  ROUTE_SOURCE_PROTOCOL_GGP = 6;
+  // FuzzBall HelloSpeak (hello).
+  ROUTE_SOURCE_PROTOCOL_HELLO = 7;
+  // Berkeley RIP or RIP-II (rip).
+  ROUTE_SOURCE_PROTOCOL_RIP = 8;
+  // Dual IS-IS (isIs).
+  ROUTE_SOURCE_PROTOCOL_ISIS = 9;
+  // ISO 9542 (esIs).
+  ROUTE_SOURCE_PROTOCOL_ESIS = 10;
+  // Cisco IGRP (ciscoIgrp).
+  ROUTE_SOURCE_PROTOCOL_CISCO_IGRP = 11;
+  // BBN SPF IGP (bbnSpfIgp).
+  ROUTE_SOURCE_PROTOCOL_BBN_SPF_IGP = 12;
+  // Open Shortest Path First (ospf).
+  ROUTE_SOURCE_PROTOCOL_OSPF = 13;
+  // Border Gateway Protocol (bgp).
+  ROUTE_SOURCE_PROTOCOL_BGP = 14;
+  // InterDomain Policy Routing (idpr).
+  ROUTE_SOURCE_PROTOCOL_IDPR = 15;
+  // Cisco EIGRP (ciscoEigrp).
+  ROUTE_SOURCE_PROTOCOL_CISCO_EIGRP = 16;
+  // DVMRP (dvmrp).
+  ROUTE_SOURCE_PROTOCOL_DVMRP = 17;
+  // RPL, RFC 6550 (rpl).
+  ROUTE_SOURCE_PROTOCOL_RPL = 18;
+  // DHCP, RFC 2132 (dhcp).
+  ROUTE_SOURCE_PROTOCOL_DHCP = 19;
+  // Train Topology Discovery Protocol, IEC 61375-2-5 (ttdp).
+  ROUTE_SOURCE_PROTOCOL_TTDP = 20;
+}

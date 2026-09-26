@@ -332,7 +332,7 @@ func mapInterface(
 	}
 
 	if r.Observed(ifmib.IfPhysAddress) {
-		if mac, ok := euiAddress(r.IfPhysAddress); ok {
+		if mac, ok := macAddress(r.IfPhysAddress); ok {
 			iface.SetMac(mac)
 		}
 	}
@@ -366,7 +366,7 @@ func setKind(
 	case ianaiftype.IANAifTypeEthernetCsmacd:
 		physical := &interfacev1.PhysicalInterface{}
 		if lag, ok := lagParent(key, names, types, stack); ok {
-			physical.SetLagParent(lag)
+			physical.SetLagParentInterfaceName(lag)
 		}
 
 		iface.SetPhysical(physical)
@@ -390,7 +390,11 @@ func setKind(
 		iface.SetVlan(vlan)
 		// An SVI is the routed presence of a VLAN, so the facet is
 		// present; the addresses on it come from an IP-MIB mapping.
-		iface.SetIp(&ipv1.IpFacet{})
+		// IF-MIB carries no network-instance context, so the SVI routes
+		// in the device's default instance.
+		ip := &ipv1.IpFacet{}
+		ip.SetNetworkInstance("default")
+		iface.SetIp(ip)
 
 	case ianaiftype.IANAifTypeSoftwareLoopback:
 		iface.SetLoopback(&interfacev1.LoopbackInterface{})
@@ -401,7 +405,7 @@ func setKind(
 	default:
 		if parent, ok := soleParent(key, names, stack); ok {
 			sub := &interfacev1.Subinterface{}
-			sub.SetParent(parent)
+			sub.SetParentInterfaceName(parent)
 			iface.SetSub(sub)
 
 			return
@@ -487,12 +491,12 @@ func vlanIDFromName(name string) (uint32, bool) {
 	return uint32(id), true
 }
 
-// euiAddress maps ifPhysAddress to the EUI variant its width names. An
+// macAddress maps ifPhysAddress to the EUI variant its width names. An
 // interface with no hardware address reports an empty string, and a
 // width that is neither EUI-48 nor EUI-64 is an address this model has
 // no arm for; both leave the address absent.
-func euiAddress(octets []byte) (*addrv1.EuiAddress, bool) {
-	addr := &addrv1.EuiAddress{}
+func macAddress(octets []byte) (*addrv1.MacAddress, bool) {
+	addr := &addrv1.MacAddress{}
 
 	switch len(octets) {
 	case 6:
@@ -586,6 +590,10 @@ func ifXTableCounter(x ifmib.IfXTableRow, col snmp.Column[uint32], value uint32)
 // without it reports none. They are never derived from
 // ifInNUcastPkts/ifOutNUcastPkts, which lump multicast and broadcast
 // together and so answer neither question.
+//
+// last_discontinuity stays unset: IF-MIB ifCounterDiscontinuityTime is
+// TimeTicks since the agent booted, and converting it needs the agent's
+// boot time from a sysUpTime read this mapper does not do.
 func interfaceCounters(r ifmib.IfTableRow, x ifmib.IfXTableRow) *interfacev1.InterfaceCounters {
 	c := &interfacev1.InterfaceCounters{}
 	reported := false
@@ -600,9 +608,9 @@ func interfaceCounters(r ifmib.IfTableRow, x ifmib.IfXTableRow) *interfacev1.Int
 		reported = true
 	}
 
-	set(c.SetInOctets, highCapacity(x, ifmib.IfHCInOctets, x.IfHCInOctets).
+	set(c.SetInBytes, highCapacity(x, ifmib.IfHCInOctets, x.IfHCInOctets).
 		or(ifTableCounter(r, ifmib.IfInOctets, r.IfInOctets)))
-	set(c.SetOutOctets, highCapacity(x, ifmib.IfHCOutOctets, x.IfHCOutOctets).
+	set(c.SetOutBytes, highCapacity(x, ifmib.IfHCOutOctets, x.IfHCOutOctets).
 		or(ifTableCounter(r, ifmib.IfOutOctets, r.IfOutOctets)))
 	set(c.SetInUnicastPackets, highCapacity(x, ifmib.IfHCInUcastPkts, x.IfHCInUcastPkts).
 		or(ifTableCounter(r, ifmib.IfInUcastPkts, r.IfInUcastPkts)))

@@ -1,0 +1,34 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/phy/v1/mau_link_mode.proto";
+import "flowseer/net/phy/v1/mau_type.proto";
+import "flowseer/net/protocol/lldp/v1/power_via_mdi.proto";
+import option "buf/validate/validate.proto";
+
+// The IEEE 802.3 organizationally specific TLVs a neighbor announced. Each
+// field is absent when the neighbor sent no such TLV or the source did not
+// report it. Mirrors the remote tables of LLDP-EXT-DOT3-MIB.
+message Ieee8023Extension {
+  // Whether the neighbor's port supports auto-negotiation. Mirrors
+  // lldpXdot3RemPortAutoNegSupported (LLDP-EXT-DOT3-MIB:500).
+  bool auto_negotiation_supported = 1;
+  // Whether auto-negotiation is enabled on the neighbor's port. Mirrors
+  // lldpXdot3RemPortAutoNegEnabled (LLDP-EXT-DOT3-MIB:511).
+  bool auto_negotiation_enabled = 2;
+  // The link modes the neighbor advertises in auto-negotiation. The TLV
+  // carries the 16-bit ifMauAutoNegCapAdvertisedBits (RFC 3636), so only
+  // positions 0 to 15 occur. Empty means none were announced. Mirrors
+  // lldpXdot3RemPortAutoNegAdvertisedCap (LLDP-EXT-DOT3-MIB:523).
+  repeated flowseer.net.phy.v1.MauLinkMode advertised_link_modes = 3 [(buf.validate.field).repeated.unique = true];
+  // The neighbor port's operational MAU type. Absent when the source reports
+  // zero, a type outside RFC 3636. Mirrors lldpXdot3RemPortOperMauType
+  // (LLDP-EXT-DOT3-MIB:536).
+  flowseer.net.phy.v1.MauType operational_mau_type = 4;
+  // The Power via MDI TLV.
+  PowerViaMdi power_via_mdi = 5;
+  // The maximum frame size the neighbor's port supports. Mirrors
+  // lldpXdot3RemMaxFrameSize (LLDP-EXT-DOT3-MIB:758).
+  uint64 max_frame_size_bytes = 6 [(buf.validate.field).uint64.lte = 65535];
+}

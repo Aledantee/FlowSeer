@@ -76,7 +76,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build(),
 	}.Build()
 
@@ -86,7 +86,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		AdminStatus: &adminUp,
 		OperStatus:  &operUp,
 		Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 			Switchport: switchingv1.SwitchportFacet_builder{
 				TaggedVlanIds:    []uint32{vid10},
 				FrameAdmission:   &frameAdmAll,
@@ -274,7 +274,7 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 // The FDB and PoE state export as net/switching and net/phy rows: one learned
 // entry becomes one FdbEntry (vlan_id 10, that MAC, interface_name 1/1/1,
 // DYNAMIC, ACTIVE); an allocation becomes a PseBudget per group and a PoeFacet
-// per port with allocated_power_milliwatts; every message passes protovalidate.
+// per port with allocated_power_nanowatts; every message passes protovalidate.
 func TestFdbAndPoeExport(t *testing.T) {
 	// An untagged frame on a port with PVID 10 learns its source under VLAN 10.
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
@@ -316,7 +316,7 @@ func TestFdbAndPoeExport(t *testing.T) {
 	vid10 := uint32(10)
 	vname10 := "vlan10"
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vname10}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vname10}.Build(),
 	}
 
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -372,7 +372,7 @@ func TestFdbAndPoeExport(t *testing.T) {
 	phyCfg := phy.Config{
 		PoE: &phy.PoE{
 			Groups: map[string]phy.Group{
-				"1": {PowerMilliwatts: 60_000},
+				"1": {PowerNanowatts: 60_000_000_000},
 			},
 			Ports: map[string]phy.PsePort{
 				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
@@ -397,8 +397,8 @@ func TestFdbAndPoeExport(t *testing.T) {
 	if b0.GetPseGroup() != 1 {
 		t.Errorf("budget pse_group = %d, want 1", b0.GetPseGroup())
 	}
-	if b0.GetPowerMilliwatts() != 60_000 {
-		t.Errorf("budget power_milliwatts = %d, want 60000", b0.GetPowerMilliwatts())
+	if b0.GetPowerNanowatts() != 60_000_000_000 {
+		t.Errorf("budget power_nanowatts = %d, want 60000000000", b0.GetPowerNanowatts())
 	}
 
 	if len(facets) != 3 {
@@ -412,24 +412,24 @@ func TestFdbAndPoeExport(t *testing.T) {
 	}
 
 	f1 := facets["1/1/1"]
-	if f1.GetAllocatedPowerMilliwatts() != 30_000 {
-		t.Errorf("1/1/1 allocated = %d, want 30000", f1.GetAllocatedPowerMilliwatts())
+	if f1.GetAllocatedPowerNanowatts() != 30_000_000_000 {
+		t.Errorf("1/1/1 allocated = %d, want 30000000000", f1.GetAllocatedPowerNanowatts())
 	}
 	if f1.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
 		t.Errorf("1/1/1 status = %v, want DELIVERING_POWER", f1.GetStatus())
 	}
 
 	f2 := facets["1/1/2"]
-	if f2.GetAllocatedPowerMilliwatts() != 30_000 {
-		t.Errorf("1/1/2 allocated = %d, want 30000", f2.GetAllocatedPowerMilliwatts())
+	if f2.GetAllocatedPowerNanowatts() != 30_000_000_000 {
+		t.Errorf("1/1/2 allocated = %d, want 30000000000", f2.GetAllocatedPowerNanowatts())
 	}
 	if f2.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
 		t.Errorf("1/1/2 status = %v, want DELIVERING_POWER", f2.GetStatus())
 	}
 
 	f3 := facets["1/1/3"]
-	if f3.HasAllocatedPowerMilliwatts() {
-		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerMilliwatts())
+	if f3.HasAllocatedPowerNanowatts() {
+		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerNanowatts())
 	}
 	if f3.HasPowerClass() {
 		t.Errorf("1/1/3 power_class should be unset, got %d", f3.GetPowerClass())
@@ -457,19 +457,21 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 	macBytes := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 	fdb1 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid,
-		InterfaceName: &ifname,
-		Status:        &statusInvalid,
-		Kind:          &kindDynamic,
-		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &ifname,
+		Status:          &statusInvalid,
+		Kind:            &kindDynamic,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
 	}.Build()
 
 	fdb2 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid,
-		InterfaceName: &ifname,
-		Status:        &statusActive,
-		Kind:          &kindDynamic,
-		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &ifname,
+		Status:          &statusActive,
+		Kind:            &kindDynamic,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
 	}.Build()
 
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -508,11 +510,11 @@ func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 	poeSup := true
 	role := phyv1.PoeRole_POE_ROLE_PSE
 	group1 := uint32(1)
-	power := uint32(100_000)
+	power := uint64(100_000_000_000)
 
 	budget := phyv1.PseBudget_builder{
-		PseGroup:        &group1,
-		PowerMilliwatts: &power,
+		PseGroup:       &group1,
+		PowerNanowatts: &power,
 	}.Build()
 
 	iface := interfacev1.Interface_builder{
@@ -576,7 +578,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("lag_parent naming non-existent", func(t *testing.T) {
+	t.Run("lag_parent_interface_name naming non-existent", func(t *testing.T) {
 		p1Name := "1/1/1"
 		lagParent := "lag99"
 		p1 := interfacev1.Interface_builder{
@@ -584,7 +586,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &lagParent,
+				LagParentInterfaceName: &lagParent,
 			}.Build(),
 		}.Build()
 		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -593,7 +595,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("lag_parent naming non-LAG", func(t *testing.T) {
+	t.Run("lag_parent_interface_name naming non-LAG", func(t *testing.T) {
 		p1Name := "1/1/1"
 		p2Name := "1/1/2"
 		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
@@ -602,7 +604,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 			AdminStatus: &adminUp,
 			OperStatus:  &operUp,
 			Physical: interfacev1.PhysicalInterface_builder{
-				LagParent: &p1Name,
+				LagParentInterfaceName: &p1Name,
 			}.Build(),
 		}.Build()
 		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -639,7 +641,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	// 3. PseBudget without power_milliwatts (loads as budget 0)
+	// 3. PseBudget without power_nanowatts (loads as budget 0)
 	grp1 := uint32(1)
 	budgetWithoutPower := phyv1.PseBudget_builder{
 		PseGroup: &grp1,
@@ -650,11 +652,12 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 	statusActive := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
 	vid10 := uint32(10)
 	fdbStatic := switchingv1.FdbEntry_builder{
-		VlanId:        &vid10,
-		InterfaceName: &p2Name,
-		Kind:          &staticKind,
-		Status:        &statusActive,
-		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p2Name,
+		Kind:            &staticKind,
+		Status:          &statusActive,
+		Mac:             addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
 	}.Build()
 
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, []*switchingv1.FdbEntry{fdbStatic}, []*phyv1.PseBudget{budgetWithoutPower}, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -678,7 +681,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		if d.Port == "1/1/1" && d.Field == "mtu" && d.Value == "0" {
 			hasMtuDefault = true
 		}
-		if d.Port == "1" && d.Field == "power_milliwatts" && d.Value == "0" {
+		if d.Port == "1" && d.Field == "power_nanowatts" && d.Value == "0" {
 			hasBudgetDefault = true
 		}
 	}
@@ -686,7 +689,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		t.Errorf("explicit MTU zero reported as a default: %+v", report.Defaults)
 	}
 	if !hasBudgetDefault {
-		t.Errorf("got defaults %+v, want power_milliwatts reported", report.Defaults)
+		t.Errorf("got defaults %+v, want power_nanowatts reported", report.Defaults)
 	}
 
 	// Switchport with multiple untagged VLANs has no PVID
@@ -718,7 +721,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 
 func TestPoeExportRefusesANonNumericGroup(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
-		Groups: map[string]phy.Group{"g1": {PowerMilliwatts: 60_000}},
+		Groups: map[string]phy.Group{"g1": {PowerNanowatts: 60_000_000_000}},
 		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "g1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
 	}}
 	if _, _, err := netmodel.Poe(cfg, cfg.Allocate()); err == nil {
@@ -728,7 +731,7 @@ func TestPoeExportRefusesANonNumericGroup(t *testing.T) {
 
 func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
-		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 30_000}},
+		Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
 		Ports: map[string]phy.PsePort{
 			"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, PD: phy.PDAttached, PDClass: phy.Class(4)},
 			"1/1/2": {Group: "1", MaxClass: 3, Enabled: true, PD: phy.PDAttached, PDClass: phy.Class(4)},
@@ -775,7 +778,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			Switchport: switchingv1.SwitchportFacet_builder{TaggedVlanIds: []uint32{10}}.Build(),
 		}.Build()}.Build(),
 		interfacev1.Interface_builder{Name: name("1/1/1"), AdminStatus: &adminUp, Physical: interfacev1.PhysicalInterface_builder{
-			LagParent: &lagParent,
+			LagParentInterfaceName: &lagParent,
 		}.Build()}.Build(),
 	}
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVLAN})
@@ -990,7 +993,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
@@ -1024,7 +1027,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
@@ -1058,7 +1061,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAbsent},
@@ -1101,7 +1104,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 100_000},
+					"1": {PowerNanowatts: 100_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDUnknown},
@@ -1135,7 +1138,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		phyCfg := phy.Config{
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{
-					"1": {PowerMilliwatts: 10_000},
+					"1": {PowerNanowatts: 10_000_000_000},
 				},
 				Ports: map[string]phy.PsePort{
 					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
@@ -1173,6 +1176,51 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
 		}
 	})
+}
+
+func TestLoad_PoeLimitInNanowatts(t *testing.T) {
+	// The requested limit reaches the loaded port in nanowatts, the unit
+	// every phy power value shares.
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+	power := uint64(100_000_000_000)
+	name := "1/1/1"
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Mtu:         &mtu0,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{
+					PoeSettings: phyv1.PoeSettings_builder{PowerLimitNanowatts: ptr(uint64(15_400_000_000))}.Build(),
+					PoeDetail:   phyv1.PoePortDetail_builder{PseGroup: &grp, PsePort: ptr(uint32(1))}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+	budget := phyv1.PseBudget_builder{PseGroup: &grp, PowerNanowatts: &power}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoE})
+	if err != nil {
+		t.Fatalf("netmodel.Load: %v", err)
+	}
+
+	p, ok := res.Spec.Config.Phy.PoE.Ports[name]
+	if !ok {
+		t.Fatalf("port %s missing from loaded config", name)
+	}
+
+	if p.Limit == nil {
+		t.Fatal("Limit is absent, want 15400000000 nanowatts")
+	}
+
+	if *p.Limit != 15_400_000_000 {
+		t.Errorf("Limit = %d, want 15400000000 nanowatts", *p.Limit)
+	}
 }
 
 func TestLoad_FilterFacetWithIPFacet(t *testing.T) {
@@ -1235,7 +1283,8 @@ func TestLoad_FilterFacetWithIPFacet(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 		Filter: filterv1.FilterFacet_builder{
 			InSet:  &inSetName,
@@ -1379,7 +1428,8 @@ func TestLoad_FilterFacetMissingSet(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 		Filter: filterv1.FilterFacet_builder{
 			InSet: &missingSetName,
@@ -1412,6 +1462,103 @@ func TestLoad_FilterFacetMissingSet(t *testing.T) {
 	}
 }
 
+// A rule set matching a destination MAC, which the IP-layer filter cannot
+// evaluate, is left out of the filter configuration rather than translated
+// wider: its ingress binding reports an unsupported facet, not a missing set,
+// while the evaluable egress set still binds.
+func TestLoad_FilterSetWithL2MatchIsSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	l2SetName := "l2-set"
+	ipSetName := "ip-set"
+	ruleName := "drop-bpdu"
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+	dropAction := filterv1.FilterAction_FILTER_ACTION_DROP
+
+	l2Set := filterv1.FilterRuleSet_builder{
+		Name:    &l2SetName,
+		Default: &acceptAction,
+		Rules: []*filterv1.FilterRule{filterv1.FilterRule_builder{
+			Name:   &ruleName,
+			Action: &dropAction,
+			Match: filterv1.FilterMatch_builder{
+				DstMac: filterv1.MacMatch_builder{
+					Address: addrv1.Eui48Address_builder{Octets: []byte{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build()},
+	}.Build()
+	ipSet := filterv1.FilterRuleSet_builder{
+		Name:    &ipSetName,
+		Default: &acceptAction,
+	}.Build()
+
+	filterSets := []*filterv1.FilterRuleSet{l2Set, ipSet}
+	for _, s := range filterSets {
+		if err := protovalidate.Validate(s); err != nil {
+			t.Fatalf("filter set validation failed: %v", err)
+		}
+	}
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet:  &l2SetName,
+			OutSet: &ipSetName,
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	cfg := res.Spec.Config
+	if cfg.Filter == nil {
+		t.Fatal("expected cfg.Filter to be non-nil for the evaluable egress set")
+	}
+	if _, ok := cfg.Filter.Sets[l2SetName]; ok {
+		t.Errorf("sets = %v, want %q left out", cfg.Filter.Sets, l2SetName)
+	}
+	var boundOut bool
+	for _, b := range cfg.Filter.Bindings {
+		if b.Set == l2SetName {
+			t.Errorf("binding %+v names the skipped set", b)
+		}
+		if b.Interface == vlan10Name && b.Direction == filter.Out && b.Set == ipSetName {
+			boundOut = true
+		}
+	}
+	if !boundOut {
+		t.Errorf("bindings = %+v, want vlan10 out->%s", cfg.Filter.Bindings, ipSetName)
+	}
+
+	wantScope := routing.OwnershipScope("sw1", routing.DefaultVRF, vlan10Name)
+	var skippedAtInterface bool
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueMissingFilterSet {
+			t.Errorf("unexpected issue %+v: the set exists but is skipped", issue)
+		}
+		if issue.Code == netmodel.IssueSkippedUnsupportedFacet && issue.Scope.Compare(wantScope) == 0 {
+			skippedAtInterface = true
+		}
+	}
+	if !skippedAtInterface {
+		t.Errorf("issues = %+v, want issue %s with scope %s", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet, wantScope)
+	}
+}
+
 func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
@@ -1433,7 +1580,8 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 		Filter: filterv1.FilterFacet_builder{
 			InSet: &inSetName,
@@ -1504,7 +1652,8 @@ func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 

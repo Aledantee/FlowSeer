@@ -1,0 +1,30 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+// Wireless security and authentication mode (Wi-Fi Alliance WPA3 Specification v3.5,
+// IEEE Std 802.11-2020 clause 12).
+enum WlanSecurity {
+  // Security mode is unspecified or unknown.
+  WLAN_SECURITY_UNSPECIFIED = 0;
+  // Open authentication with no encryption (IEEE 802.11 clause 12.3).
+  WLAN_SECURITY_OPEN = 1;
+  // Wired Equivalent Privacy (legacy pre-RSN; IEEE 802.11 clause 12.4).
+  WLAN_SECURITY_WEP = 2;
+  // Opportunistic Wireless Encryption (WPA3 v3.5 section 2.3; RFC 8110).
+  WLAN_SECURITY_OWE = 3;
+  // WPA2-Personal with pre-shared key (RSN; IEEE 802.11 clause 12.6, AKM 00-0F-AC:2).
+  WLAN_SECURITY_WPA2_PERSONAL = 4;
+  // WPA3-Personal Only Mode using SAE with mandatory PMF (WPA3 v3.5 section 2.2, AKM 00-0F-AC:8).
+  WLAN_SECURITY_WPA3_PERSONAL = 5;
+  // WPA3-Personal Transition Mode supporting SAE and WPA2 PSK (WPA3 v3.5 section 2.2, AKMs 00-0F-AC:2 and :8).
+  WLAN_SECURITY_WPA3_PERSONAL_TRANSITION = 6;
+  // WPA2-Enterprise with 802.1X authentication (IEEE 802.11 clause 12.6, AKM 00-0F-AC:1).
+  WLAN_SECURITY_WPA2_ENTERPRISE = 7;
+  // WPA3-Enterprise Only Mode with mandatory PMF (WPA3 v3.5 section 3.2, AKMs 00-0F-AC:1 and :5).
+  WLAN_SECURITY_WPA3_ENTERPRISE = 8;
+  // WPA3-Enterprise Transition Mode (WPA3 v3.5 section 3.3, AKMs 00-0F-AC:1 and :5, PMF optional).
+  WLAN_SECURITY_WPA3_ENTERPRISE_TRANSITION = 9;
+  // WPA3-Enterprise 192-bit Mode (WPA3 v3.5 section 3.5, AKM 00-0F-AC:12, Suite B cryptography).
+  WLAN_SECURITY_WPA3_ENTERPRISE192 = 10;
+}

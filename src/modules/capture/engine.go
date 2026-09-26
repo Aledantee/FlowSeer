@@ -118,7 +118,8 @@ func New(cfg Config) (*Engine, error) {
 // reports a real kernel drop count, from a mirror receiver, whose Stats
 // always returns zero for droppedByInterface because no such counter exists
 // at that layer: per capture_counters.proto, an absent counter means the
-// stage does not report one. A false value leaves dropped_by_interface unset.
+// stage does not report one. A false value leaves
+// dropped_by_interface_packets unset.
 func NewWithSource(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	return newEngine(src, budget, reportsInterfaceDrops)
 }
@@ -228,13 +229,13 @@ func (e *Engine) run(p *pump.Pump[Batch]) {
 
 	buildCounters := func() *capturev1.CaptureCounters {
 		c := &capturev1.CaptureCounters{}
-		c.SetReceived(received)
-		c.SetAccepted(acceptedPackets)
+		c.SetReceivedPackets(received)
+		c.SetAcceptedPackets(acceptedPackets)
 		if e.reportsInterfaceDrops {
-			c.SetDroppedByInterface(droppedByInterface)
+			c.SetDroppedByInterfacePackets(droppedByInterface)
 		}
-		c.SetDroppedByBudget(droppedByBudget)
-		c.SetDroppedByTransport(totalDroppedByTransport)
+		c.SetDroppedByBudgetPackets(droppedByBudget)
+		c.SetDroppedByTransportPackets(totalDroppedByTransport)
 		return c
 	}
 
@@ -249,9 +250,9 @@ func (e *Engine) run(p *pump.Pump[Batch]) {
 
 	// flush sends the current batch (or, when final, an empty trailing one)
 	// through the pump. A drop TrySendDropOldest reports is attributed to
-	// dropped_by_transport on the *next* flush's counters snapshot, per the
-	// streaming frame transport direction: this flush cannot report a drop
-	// its own send just caused.
+	// dropped_by_transport_packets on the *next* flush's counters snapshot,
+	// per the streaming frame transport direction: this flush cannot report a
+	// drop its own send just caused.
 	flush := func(final bool) {
 		if len(batch) == 0 && !final {
 			return

@@ -1,0 +1,14 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+// The allocation mechanism for a DHCP lease (RFC 2131 §1).
+enum DhcpAllocation {
+  DHCP_ALLOCATION_UNSPECIFIED = 0;
+  // Automatic allocation: the server assigns a permanent IP address to a client.
+  DHCP_ALLOCATION_AUTOMATIC = 1;
+  // Dynamic allocation: the server assigns an IP address to a client for a limited period of time.
+  DHCP_ALLOCATION_DYNAMIC = 2;
+  // Manual allocation: the server assigns a specific IP address chosen by the network administrator.
+  DHCP_ALLOCATION_MANUAL = 3;
+}

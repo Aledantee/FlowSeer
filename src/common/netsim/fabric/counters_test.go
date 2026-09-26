@@ -51,7 +51,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/1 InUnicast = %d, want %d", got, want)
 	}
 
-	exp1 := netmodel.InterfaceCounters(c1)
+	exp1 := netmodel.InterfaceCounters(c1, fab.Config().Start)
 	if got, want := exp1.GetInUnicastPackets(), uint64(1); got != want {
 		t.Errorf("sw1:1/1/1 GetInUnicastPackets() = %d, want %d", got, want)
 	}
@@ -67,7 +67,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/24 OutUnicast = %d, want %d", got, want)
 	}
 
-	exp24 := netmodel.InterfaceCounters(c24)
+	exp24 := netmodel.InterfaceCounters(c24, fab.Config().Start)
 	if got, want := exp24.GetOutUnicastPackets(), uint64(1); got != want {
 		t.Errorf("sw1:1/1/24 GetOutUnicastPackets() = %d, want %d", got, want)
 	}
@@ -141,7 +141,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Errorf("sw1:1/1/24 Discards[ReasonMTUExceeded] = %d, want %d", got, want)
 	}
 
-	expDrop := netmodel.InterfaceCounters(cEgressDrop)
+	expDrop := netmodel.InterfaceCounters(cEgressDrop, fabDrop.Config().Start)
 	if got, want := expDrop.GetOutDiscards(), uint64(1); got != want {
 		t.Errorf("exported OutDiscards = %d, want %d", got, want)
 	}
@@ -241,7 +241,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 	c1Sw1Port2 := snap1.Devices["sw1"].Counters["1/1/2"]
 	c1Sw2Port2 := snap1.Devices["sw2"].Counters["1/1/2"]
 
-	octets1 := c1Sw1Port2.InOctets + c1Sw1Port2.OutOctets + c1Sw2Port2.InOctets + c1Sw2Port2.OutOctets
+	octets1 := c1Sw1Port2.InBytes + c1Sw1Port2.OutBytes + c1Sw2Port2.InBytes + c1Sw2Port2.OutBytes
 	if octets1 == 0 {
 		t.Fatal("expected non-zero traffic on uplinks after first run")
 	}
@@ -255,14 +255,14 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 	c2Sw1Port2 := snap2.Devices["sw1"].Counters["1/1/2"]
 	c2Sw2Port2 := snap2.Devices["sw2"].Counters["1/1/2"]
 
-	octets2 := c2Sw1Port2.InOctets + c2Sw1Port2.OutOctets + c2Sw2Port2.InOctets + c2Sw2Port2.OutOctets
+	octets2 := c2Sw1Port2.InBytes + c2Sw1Port2.OutBytes + c2Sw2Port2.InBytes + c2Sw2Port2.OutBytes
 	if octets2 <= octets1 {
 		t.Errorf("traffic did not grow across runs: octets1=%d octets2=%d", octets1, octets2)
 	}
 
 	// Verify snapshot 1 remained untouched by the subsequent run.
 	c1Sw1Port2After := snap1.Devices["sw1"].Counters["1/1/2"]
-	if c1Sw1Port2After.InOctets != c1Sw1Port2.InOctets || c1Sw1Port2After.OutOctets != c1Sw1Port2.OutOctets {
+	if c1Sw1Port2After.InBytes != c1Sw1Port2.InBytes || c1Sw1Port2After.OutBytes != c1Sw1Port2.OutBytes {
 		t.Errorf("snapshot 1 was mutated by second run")
 	}
 }
@@ -493,8 +493,8 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if got, want := cBcast.InBroadcast, uint64(1); got != want {
 		t.Errorf("InBroadcast = %d, want %d", got, want)
 	}
-	if got, want := cBcast.InOctets, uint64(len(rawBcast)); got != want {
-		t.Errorf("InOctets = %d, want %d", got, want)
+	if got, want := cBcast.InBytes, uint64(len(rawBcast)); got != want {
+		t.Errorf("InBytes = %d, want %d", got, want)
 	}
 
 	// 2. Multicast frame
@@ -510,8 +510,8 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if got, want := cMcast.InMulticast, uint64(1); got != want {
 		t.Errorf("InMulticast = %d, want %d", got, want)
 	}
-	if got, want := cMcast.InOctets, uint64(len(rawBcast)+len(rawMcast)); got != want {
-		t.Errorf("InOctets = %d, want %d", got, want)
+	if got, want := cMcast.InBytes, uint64(len(rawBcast)+len(rawMcast)); got != want {
+		t.Errorf("InBytes = %d, want %d", got, want)
 	}
 
 	// 3. Corrupt arrival across a cable with FaultCorruptEveryNth: 1.
@@ -623,11 +623,11 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 	if got, want := cMem.OutUnicast, uint64(1); got != want {
 		t.Errorf("member 1/1/5 OutUnicast = %d, want %d", got, want)
 	}
-	if cLag.OutOctets == 0 || cMem.OutOctets == 0 {
-		t.Errorf("expected non-zero OutOctets: lag1=%d 1/1/5=%d", cLag.OutOctets, cMem.OutOctets)
+	if cLag.OutBytes == 0 || cMem.OutBytes == 0 {
+		t.Errorf("expected non-zero OutBytes: lag1=%d 1/1/5=%d", cLag.OutBytes, cMem.OutBytes)
 	}
-	if cLag.OutOctets != cMem.OutOctets {
-		t.Errorf("expected equal OutOctets: lag1=%d 1/1/5=%d", cLag.OutOctets, cMem.OutOctets)
+	if cLag.OutBytes != cMem.OutBytes {
+		t.Errorf("expected equal OutBytes: lag1=%d 1/1/5=%d", cLag.OutBytes, cMem.OutBytes)
 	}
 
 	// Reverse traffic ingresses on LAG member 1/1/5 towards 1/1/1.

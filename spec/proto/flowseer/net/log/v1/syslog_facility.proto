@@ -1,0 +1,58 @@
+edition = "2024";
+
+package flowseer.net.log.v1;
+
+// Syslog message facilities defined by RFC 5424 §6.2.1 Table 1.
+// This is a registry pass-through enum where numerical values 0 through 23
+// match the RFC table exactly. Value 0 (KERN) is a real registry value;
+// presence distinguishes reported values from unset.
+enum SyslogFacility {
+  // Kernel messages (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_KERN = 0;
+  // User-level messages (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_USER = 1;
+  // Mail system (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_MAIL = 2;
+  // System daemons (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_DAEMON = 3;
+  // Security/authorization messages (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_AUTH = 4;
+  // Messages generated internally by syslogd (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_SYSLOG = 5;
+  // Line printer subsystem (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LPR = 6;
+  // Network news subsystem (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_NEWS = 7;
+  // UUCP subsystem (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_UUCP = 8;
+  // Clock daemon (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_CRON = 9;
+  // Security/authorization messages (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_AUTHPRIV = 10;
+  // FTP daemon (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_FTP = 11;
+  // NTP subsystem (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_NTP = 12;
+  // Log audit (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_AUDIT = 13;
+  // Log alert (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_ALERT = 14;
+  // Clock daemon (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_CLOCK = 15;
+  // Local use 0 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL0 = 16;
+  // Local use 1 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL1 = 17;
+  // Local use 2 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL2 = 18;
+  // Local use 3 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL3 = 19;
+  // Local use 4 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL4 = 20;
+  // Local use 5 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL5 = 21;
+  // Local use 6 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL6 = 22;
+  // Local use 7 (RFC 5424 §6.2.1).
+  SYSLOG_FACILITY_LOCAL7 = 23;
+}

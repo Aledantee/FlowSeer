@@ -1,0 +1,82 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/wlan/v1/bss.proto";
+import "flowseer/net/wlan/v1/channel_utilization.proto";
+import "flowseer/net/wlan/v1/country_environment.proto";
+import "flowseer/net/wlan/v1/dot11_standard.proto";
+import "flowseer/net/wlan/v1/radio_admin_status.proto";
+import "flowseer/net/wlan/v1/radio_oper_status.proto";
+import "flowseer/net/wlan/v1/wifi_band.proto";
+import option "flowseer/net/wlan/v1/channel.proto";
+
+// Wireless radio interface facet holding observed operational and RF state (IEEE Std 802.11-2020).
+message RadioFacet {
+  option (buf.validate.message).cel = {
+    id: "radio_facet.channel_needs_band"
+    message: "a channel requires an explicit, non-zero band"
+    expression:
+      "(!has(this.primary_channel) && !has(this.secondary_channel)) || "
+      "(has(this.band) && this.band != 0)"
+  };
+  option (buf.validate.message).cel = {
+    id: "radio_facet.secondary_needs_160"
+    message: "secondary_channel is valid only at a channel width of 160 MHz"
+    expression:
+      "!has(this.secondary_channel) || "
+      "(has(this.channel_width_mhz) && this.channel_width_mhz == 160u)"
+  };
+  option (buf.validate.message).cel = {
+    id: "radio_facet.non_country_entity_code"
+    message: "country_environment of 88 (non-country entity) requires country_code 'XX'"
+    expression:
+      "!has(this.country_environment) || this.country_environment != 88 || "
+      "(has(this.country_code) && this.country_code == 'XX')"
+  };
+
+  // Device-reported zero-based or one-based radio index. Unset means unobserved.
+  uint32 radio_index = 1;
+  // Operating frequency band. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  WifiBand band = 2;
+  // Primary operating channel number (1..233). Unset means unassigned or unobserved.
+  uint32 primary_channel = 3 [(buf.validate.field).uint32.(wifi_channel) = true];
+  // Secondary channel number for 80+80 MHz bonding (1..233). Allowed only when channel_width_mhz is 160. Unset means no secondary channel.
+  uint32 secondary_channel = 4 [(buf.validate.field).uint32.(wifi_channel) = true];
+  // Operating channel width in MHz. Unset means unobserved.
+  uint32 channel_width_mhz = 5 [(buf.validate.field).uint32.(wifi_channel_width_mhz) = true];
+  // IEEE 802.11 global operating class (1..255; IEEE 802.11-2020 Annex E). Unset means unobserved.
+  uint32 operating_class = 6 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 255
+  }];
+  // Physical-layer standard active on this radio. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  Dot11Standard standard = 7;
+  // Administrative state of the radio. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  RadioAdminStatus admin_status = 8;
+  // Operational state of the radio. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  RadioOperStatus oper_status = 9;
+  // Actual configured transmit power in milli-dBm (0.001 dBm resolution). Unset means unobserved.
+  sint32 tx_power_millidbm = 10;
+  // Maximum regulatory or hardware transmit power supported on the active channel in milli-dBm. Unset means unobserved.
+  sint32 max_tx_power_millidbm = 11;
+  // Equivalent Isotropically Radiated Power (EIRP) in milli-dBm. Unset means unobserved.
+  sint32 eirp_millidbm = 12;
+  // Antenna gain in milli-dBi (0.001 dBi resolution). Unset means unobserved.
+  sint32 antenna_gain_millidbi = 13;
+  // Measured background RF noise floor in milli-dBm. Unset means unobserved.
+  sint32 noise_floor_millidbm = 14;
+  // Two-character ISO 3166-1 alpha-2 country code beaconed in the Country element. Unset means unobserved.
+  string country_code = 15 [(buf.validate.field).string.pattern = "^[A-Z]{2}$"];
+  // Third octet of the Country element specifying environment and operating class set. Unset means unobserved; non-zero values remain valid.
+  CountryEnvironment country_environment = 16 [(buf.validate.field).cel = {
+    id: "radio_facet.country_environment_octet"
+    message: "country_environment must fit in an octet (0..255)"
+    expression: "this >= 0 && this <= 255"
+  }];
+  // Channel utilization metrics for this radio's operating frequency. Unset means unmeasured.
+  ChannelUtilization channel_utilization = 17;
+  // Basic Service Sets hosted on this radio interface. An empty list means no BSS is broadcasting.
+  repeated Bss bsses = 18;
+}

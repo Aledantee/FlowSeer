@@ -578,7 +578,7 @@ type PortState_builder struct {
 	// Operational path cost in use toward the root (1..200000000). Mirrors
 	// dot1dStpPortPathCost32 (BRIDGE-MIB:725).
 	PathCost *uint32
-	// Spanning tree port role assigned by RSTP.
+	// Spanning tree port role; on an MSTP bridge, the port's CIST role.
 	Role *PortRole
 	// Current forwarding state of the port. Mirrors dot1dStpPortState (BRIDGE-MIB:611).
 	State *ForwardingState
@@ -612,8 +612,9 @@ type PortState_builder struct {
 	// Administrative auto-edge port status. Absent means the source did not report
 	// it. Mirrors ieee8021MstpCistPortAutoEdgePort (IEEE8021-MSTP-MIB:1426).
 	AutoEdge *bool
-	// Spanning tree protocol version the port transmits: STP when the port migrated
-	// to a legacy peer, RSTP otherwise. Absent means unreported.
+	// Spanning tree protocol version of the BPDUs the port transmits: STP when
+	// the port migrated to a legacy peer, otherwise the bridge's own version,
+	// RSTP or MSTP. Absent means unreported.
 	OperProtocolVersion *ProtocolVersion
 	// Number of BPDUs transmitted by this port. Absent means the source did not
 	// report the counter; zero means none. Mirrors tx_count of Open vSwitch
@@ -716,7 +717,7 @@ const file_flowseer_net_protocol_stp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
 	"-flowseer/net/protocol/stp/v1/port_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/forwarding_state.proto\x1a6flowseer/net/protocol/stp/v1/point_to_point_mode.proto\x1a,flowseer/net/protocol/stp/v1/port_role.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\"\x8e\b\n" +
 	"\tPortState\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12$\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12$\n" +
 	"\bpriority\x18\x02 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\bpriority\x122\n" +
 	"\x0fadmin_path_cost\x18\x03 \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\x80\x84\xaf_R\radminPathCost\x12)\n" +

@@ -1,0 +1,39 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/protocol/dhcp/v1/dhcpv6_message_type.proto";
+import "google/protobuf/timestamp.proto";
+
+// Server message counters for DHCPv6 (fastpath_dhcp6.mib, Cisco-IOS-XE-dhcp-oper.yang).
+message Dhcpv6ServerCounters {
+  option (buf.validate.message).cel = {
+    id: "dhcpv6_server_counters.message_type_unique"
+    message: "messages must have unique message_type values"
+    expression: "this.messages.map(m, int(m.message_type)).unique()"
+  };
+
+  // Message statistics per DHCPv6 message type.
+  repeated Dhcpv6MessageCount messages = 1;
+  // The time of the most recent discontinuity in these counters.
+  google.protobuf.Timestamp last_discontinuity = 2;
+}
+
+// Message counter for one DHCPv6 message type.
+message Dhcpv6MessageCount {
+  // The DHCPv6 message type. Must be present and within 8-bit range.
+  Dhcpv6MessageType message_type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.not_in = 0,
+    (buf.validate.field).cel = {
+      id: "dhcpv6_message_count.message_type"
+      message: "message_type must fit the 8-bit range (1 to 255)"
+      expression: "this <= 255"
+    }
+  ];
+  // Total number of messages of this type received by the server.
+  uint64 received_messages = 2;
+  // Total number of messages of this type sent by the server.
+  uint64 sent_messages = 3;
+}

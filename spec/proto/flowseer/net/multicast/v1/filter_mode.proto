@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.multicast.v1;
+
+// The filter mode of a group's membership on one port: whether the source
+// list names the sources to receive or the sources to block (RFC 3376
+// section 6.2.1, RFC 3810 section 7.2.1).
+enum FilterMode {
+  // The filter mode was not reported.
+  FILTER_MODE_UNSPECIFIED = 0;
+  // Traffic is received only from the listed sources.
+  FILTER_MODE_INCLUDE = 1;
+  // Traffic is received from every source except the listed ones.
+  FILTER_MODE_EXCLUDE = 2;
+}
