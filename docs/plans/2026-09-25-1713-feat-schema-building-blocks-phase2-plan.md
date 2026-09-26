@@ -4,14 +4,21 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 2, Network Instances and Routing - Plan
 
-> Partially implemented: U1 landed (683c171f); requirement 4 corrected on the user's ruling; resume from U2.
+> Implemented. 5 units, 2026-09-26T07:29Z to 2026-09-26T09:03Z. U1 landed in
+> an earlier worktree (its `verified_at` is its commit time). Each unit ran its
+> targeted `Verify:` command and the finish run was one targeted verifier over
+> the union of changed paths, never `--full`, which race-tests
+> `generated/go/yang` and exhausts host memory; `buf generate` leaves the
+> verifier's Bash-mutation marker set for that reason. Requirement 11 was
+> checked as `go build` and `go vet` over every non-generated package plus
+> `go test -race ./test/... ./src/modules/localnet/... ./src/common/netsim/...`.
 
 ## Goal
 
@@ -253,7 +260,7 @@ test/conformance/proto/routing_rules_test.go tests validation rules for `Route`,
 buf generate emits generated Go bindings under `generated/go/proto/flowseer/net/routing/v1/`.
 Tests: `test/conformance/proto/routing_rules_test.go` (verifies requirements 3, 4, 9,
 and 10: static default route round-trip with NETMGMT(3), NextHop missing arms, NextHop
-with both arms set, ForwardingNextHop without targets, SpecialNextHop undefined/unspecified,
+wire bytes with both arms decoding to the last, ForwardingNextHop without targets, SpecialNextHop undefined/unspecified,
 and Route network_instance / destination_prefix required).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/net/routing/v1 test/conformance/proto/routing_rules_test.go generated/go/proto/flowseer/net/routing/v1`
 
@@ -343,13 +350,17 @@ go test -race ./test/conformance/... ./src/modules/localnet/snmpmap/... ./src/co
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path with targeted paths argument.
-- [ ] `spec/proto/flowseer/net/instance/v1/` and `spec/proto/flowseer/net/routing/v1/` exist with `.proto` files and `README.md` passing `buf lint`.
-- [ ] `generated/` in sync with `spec/proto/` (`git status --porcelain generated/` empty).
-- [ ] Requirements 1 through 11 pass in conformance and netsim test suites.
-- [ ] `docs/conventions/protobuf.md`, `CONCEPTS.md`, and `spec/proto/flowseer/net/README.md` updated in the same change.
-- [ ] This plan's `status` set to `implemented` with an outcome note under its title upon completion, and no plan labels in code.
+- [x] Verifier green for every changed path with targeted paths argument.
+- [x] `spec/proto/flowseer/net/instance/v1/` and `spec/proto/flowseer/net/routing/v1/` exist with `.proto` files and `README.md` passing `buf lint`.
+- [x] `generated/` in sync with `spec/proto/` (`git status --porcelain generated/` empty).
+- [x] Requirements 1 through 11 pass in conformance and netsim test suites.
+- [x] `docs/conventions/protobuf.md`, `CONCEPTS.md`, and `spec/proto/flowseer/net/README.md` updated in the same change.
+- [x] This plan's `status` set to `implemented` with an outcome note under its title upon completion, and no plan labels in code.
 
 ## Open questions
 
-None.
+- `netmodel.Load` accepts `Vlan` and `FdbEntry` rows from any network
+  instance and builds one bridge from them, since a virtual switch models a
+  single bridge. Whether it should skip, or report as an issue, a row whose
+  `network_instance` is not the switch's one instance is undecided; no source
+  reports a second instance yet.

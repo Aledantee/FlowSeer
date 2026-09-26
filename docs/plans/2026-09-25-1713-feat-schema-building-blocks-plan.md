@@ -109,7 +109,7 @@ Landed: `68a18e63..ed9f129e`
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase2-plan.md
 After: U1
-Landed:
+Landed: `683c171f..840398c1`
 
 ### U3. Phase 3: wireless and RF
 
