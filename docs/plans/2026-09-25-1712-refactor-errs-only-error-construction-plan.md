@@ -36,6 +36,34 @@ this plan is unconfirmed.
   context to a cause, and the `errs.New()` builder (or `errs.From(err)`) where the
   error carries a code, attributes, retryability, or a `UserMsg`.
 - Test files are out of scope. `_test.go` keeps whatever it uses.
+- `errs.Wrap` and `errs.Wrapf` return a distinct, unexported wrapper type holding
+  the message, the cause, and a stack, with `Error()` and `Unwrap()` and no `As` or
+  `Is` method. The wrapper captures a stack when no cause already carries one,
+  which is `build()`'s rule today (`builder.go:130-131`), and `walk`
+  (`attr.go:80`), `anyStack` (`stack.go`) and the stack readout learn to see it.
+  `errors.As` still falls through, because the wrapper is not an `*errs.Error` and
+  defines no `As`. Why the stack: `doc.go`'s Stacks section states that `Wrap` and
+  `Wrapf` record program counters at origin, and that is live behavior — wrapping a
+  foreign, stackless error is exactly where the origin stack is worth having. A
+  wrapper with only `Error()` and `Unwrap()` would drop it silently, and a stack
+  held by a type `walk` does not visit is invisible to `anyStack` and to readout. `errors.As` then falls through it to the innermost `*errs.Error`, which
+  is what `fmt.Errorf("%w")` gave. The builder — `New`/`From` with `Msg`/`Msgf` —
+  still produces `*errs.Error`. Why: `Wrap` currently routes through
+  `From(err).build(msg)` and returns an `*errs.Error`, so wrapping a rich cause
+  makes `errors.As(err, &*errs.Error)` bind the outermost layer instead of the
+  cause. `src/services/device/internal/host/interceptor.go:113` documents the
+  opposite contract in its own comment ("Reaching past it with [errors.As] gets
+  the innermost failure that carries the chain"), and two tests in
+  `src/common/service` assert it.
+
+  The evidence, researched 2026-09-26: `fmt.wrapError` (`src/fmt/errors.go`),
+  `github.com/pkg/errors` (`withMessage`, `withStack`), `cockroachdb/errors`
+  (separate `withPrefix` and `withStack`) and `go-faster/errors` (`wrapError`) all
+  use a distinct wrapper with no `As`, so `errors.As` finds the innermost rich
+  error. `samber/oops` (`OopsError`) and `juju/errors` (`*Err`) reuse the rich
+  type for wrapping and have this bug; neither fixes it with `As`. No surveyed
+  library uses `As` to let a wrapper pose as the richer type — `go-multierror` and
+  `uber/multierr` define `As` only to delegate into their children.
 - `docs/code-style.md` Errors is amended in the same change as the conversions,
   dropping the sentence that allows plain `fmt.Errorf`. A convention that still
   permits what the gate rejects would send the next reader the wrong way.
@@ -133,8 +161,9 @@ This plan's own decisions:
 - The message text of any converted error, and any change to which errors carry a
   code. A site that should gain `errs.New().Code(…)` is a separate judgement; this
   plan moves construction, not classification.
-- `src/common/errs` itself, which is where `errors.New` and `fmt.Errorf` are
-  allowed to live.
+- Calls to `errors.New` and `fmt.Errorf` inside `src/common/errs`, which is where
+  those two belong. E0 does change that package, but to alter what `Wrap` returns,
+  not to convert its call sites.
 - The excluded files the style plan lists. They hold no violation of this rule
   today, confirmed by the user, so nothing in them needs converting; if one
   appears while they are still held by another session, it is a blocker.
@@ -144,9 +173,33 @@ This plan's own decisions:
 
 ## Units
 
+### E0. the wrapper type
+Files: `src/common/errs/wrap.go`, `src/common/errs/stack.go`,
+`src/common/errs/attr.go`, `src/common/errs/doc.go`, and their tests
+After: none
+Lane: `gemini-3.8-flash` on `google`. `src/common/errs` is not a sensitive path.
+Change: `Wrap` and `Wrapf` stop returning `From(err).build(msg)` and return a
+distinct unexported wrapper holding the message, the cause, and a stack, with
+`Error()` and `Unwrap()`. No `As`, no `Is` — those are what make a wrapper pose as
+the richer type. The wrapper captures a stack under `build()`'s existing rule: only
+when no cause already carries one. `walk`, `anyStack` and the stack readout learn
+to visit it, so the stack it holds is reachable. `doc.go`'s Stacks section says
+which of the two shapes a caller gets and that both still record an origin stack.
+Tests:
+- `errors.As` through `Wrap` reaches the innermost `*errs.Error`, not the wrapper.
+  This one **must fail against the unchanged `Wrap`**, and that failure is quoted
+  in the report.
+- A `Wrap` of a foreign, stackless error has a readable origin stack.
+- A `Wrap` of an error that already carries a stack does not capture a second one.
+- Regression guards that pass before and after: `errors.Is` through `Wrap` holds,
+  `Wrap(nil)` returns nil, and the message reads `"msg: cause"`.
+Also check what else walks the chain: `errs.CodeOf` and `errs.Is` must behave the
+same across the new wrapper, and `Wrapf` takes the same shape as `Wrap`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/errs`
+
 ### E1. common foundations
 Files: `src/common/net/`, `src/common/service/`
-After: none
+After: E0
 Change: 119 sites take the mapping — `src/common/net/pcap` 40, `src/common/service`
 67, and one or two each in `net/{arp,icmp,igmp,lacp,mld,ndp,tcp,udp}`, whose
 `ErrMalformed` and `ErrUnsupported` sentinels (`arp.go:43,45`, `mld.go:86,88`,
@@ -159,7 +212,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 
 ### E2. netsim
 Files: `src/common/netsim/`
-After: none
+After: E0
 Change: 159 sites — `internal/` 120 (the bulk in `netsimtest/comparison_cases.go`,
 42 of them the same eight-way repetition), `stream/` 38, one elsewhere. The
 repetition in `comparison_cases.go` is a helper waiting to be extracted; extract
@@ -170,7 +223,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 
 ### E3. netpen
 Files: `src/edge/netpen/`
-After: none
+After: E0
 Lane: `gemini-3.8-flash` on `google`. Never Claude while `codex` or `google` can
 run at all.
 Change: 213 sites in the nested module — `attacks/` 129, `layers/` 59, `test/` 15
@@ -183,7 +236,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpe
 
 ### E4. edge agent, netsimload, and modules
 Files: `src/edge/agent/`, `src/edge/netsimload/`, `src/modules/`
-After: none
+After: E0
 Change: 107 sites — `netsimload/` 44 (`cmd/` 18 of them), `modules/capture/` 56
 (`filter/` 23, `mirror/` 19, the package root 11, `rawsocket/` 2),
 `agent/internal/` 4, and one each in `modules/edgebus` and `modules/localnet`.
@@ -194,7 +247,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/agent
 
 ### E5. protocol and services
 Files: `src/protocol/`, `src/services/`
-After: none
+After: E0
 Change: 56 sites — `services/device/internal/` 27, `protocol/smi/internal/` 17,
 `protocol/internal/conformance/` 5, `protocol/smi/differential/` 5,
 `protocol/snmp/bench/` 2 (a nested module). `src/protocol/snmp` proper holds only
@@ -206,7 +259,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol s
 
 ### E6. the convention and the gate
 Files: `docs/code-style.md`, `test/conformance/errs/`
-After: E1, E2, E3, E4, E5. The gate fails on any `fmt.Errorf` left under `src/`,
+After: E0, E1, E2, E3, E4, E5. The gate fails on any `fmt.Errorf` left under `src/`,
 and netpen alone holds 213 of them, so it cannot land before E3.
 Change: `docs/code-style.md` Errors drops "Plain `fmt.Errorf(…)` stays fine where
 nothing structured is needed." and states the errs-only rule with the Decisions'
@@ -229,13 +282,14 @@ passes: restore `fmt.Errorf` at one converted site, quote the gate's failure in
 the report, then revert that site.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/code-style.md test/conformance/errs`
 
-Waves: E1 E2 E3 E4 E5 | E6
+Waves: E0 | E1 E2 E3 E4 E5 | E6
 
 Lanes, from the Decisions above and `delegate`'s resolution at 2026-09-25T21:5xZ
 (`codex` 85%, `synthetic` 96%, both past the cutoff; `google` 7%; `claude` 56%):
 
 | Unit | Lane | Why |
 | --- | --- | --- |
+| E0 | `gemini-3.8-flash-high` (`google`) | `src/common/errs` is not a sensitive path |
 | E1, E2 | `gemini-3.8-flash-high` (`google`) | no `sensitive_paths`, and the only prepaid pool with headroom |
 | E3 | `gemini-3.8-flash` (`google`) | netpen, and definitively off Claude. `codex` at 95% cannot carry 213 sites; `google` has headroom. Overrides the `execute-sensitive` fit set by the user's choice |
 | E4, E5 | `claude-opus-4-8` high | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`); both non-Claude models in the `execute-sensitive` fit set are out of quota. Transcript checked |
