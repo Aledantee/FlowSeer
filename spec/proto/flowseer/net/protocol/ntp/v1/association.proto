@@ -1,0 +1,50 @@
+edition = "2024";
+
+package flowseer.net.protocol.ntp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/ntp/v1/peer_selection.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An NTP peer association and its clock filter variables.
+// Keyed by (network_instance, address).
+message NtpAssociation {
+  // The network instance scoping this association. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // IP address of the NTP peer or server. Must be present.
+  flowseer.net.addr.v1.IpAddress address = 2 [(buf.validate.field).required = true];
+  // Hostname or DNS name of the configured peer. Unset means not reported.
+  string name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 253
+  }];
+  // Stratum level of the peer clock (RFC 5905 §7.3): 0 unspecified/invalid,
+  // 1 primary reference, 2-15 secondary reference, 16 unsynchronized, 17-255 reserved.
+  // Unset means not reported.
+  uint32 stratum = 4 [(buf.validate.field).uint32.lte = 255];
+  // Reference identifier (4 octets) identifying the clock source (RFC 5905 §7.3).
+  // Unset means not reported.
+  bytes reference_id = 5 [(buf.validate.field).bytes.len = 4];
+  // Reachability register (8-bit shift register, RFC 5905 §9.2). Unset means not reported.
+  uint32 reach = 6 [(buf.validate.field).uint32.lte = 255];
+  // Estimated clock offset relative to the peer. Unset means not reported.
+  google.protobuf.Duration offset = 7;
+  // Estimated round-trip delay to the peer. Unset means not reported.
+  google.protobuf.Duration delay = 8;
+  // Estimated dispersion (error bound) of the peer clock. Unset means not reported.
+  google.protobuf.Duration dispersion = 9 [(buf.validate.field).duration.gte = {}];
+  // Estimated jitter (short-term variation) of the peer clock. Unset means not reported.
+  google.protobuf.Duration jitter = 10 [(buf.validate.field).duration.gte = {}];
+  // Polling interval between successive requests. Unset means not reported.
+  google.protobuf.Duration poll_interval = 11 [(buf.validate.field).duration.gt = {}];
+  // Peer selection status in the clock discipline algorithm. Unset means not reported.
+  NtpPeerSelection selection = 12 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}

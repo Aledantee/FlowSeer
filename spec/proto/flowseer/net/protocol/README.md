@@ -32,7 +32,7 @@ packages.
 - `lldp/v1/`: Link Layer Discovery Protocol local-system, port, and neighbor observations, with the neighbors' IEEE 802.3 and LLDP-MED extensions.
 - `stp/v1/`: Spanning Tree Protocol bridge and port states and timers, MSTIs, and the VLAN-to-MSTI map.
 - `cdp/v1/`: Cisco Discovery Protocol neighbors.
-- `ntp/v1/` (planned; schema building blocks record): NTP associations.
+- `ntp/v1/`: NTP associations.
 - `dhcp/v1/` (planned; schema building blocks record): Leases, server pools, snooping bindings.
 - `dns/v1/` (planned; schema building blocks record): Resolver configuration and servers.
 - `bgp/v1/` (planned; schema building blocks record): Peers, address families, communities.
