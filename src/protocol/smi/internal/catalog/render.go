@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go/format"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // commentWidth is where a generated doc comment wraps, chosen to match
@@ -47,7 +49,7 @@ func RenderAliases(rows []Entry) ([]byte, error) {
 // from the row and the variable's name.
 func render(rows []Entry, pkg, importPath string, value func(r Entry, name string) string) ([]byte, error) {
 	if err := Validate(rows); err != nil {
-		return nil, fmt.Errorf("catalog is invalid: %w", err)
+		return nil, errs.Wrap(err, "catalog is invalid")
 	}
 
 	var b bytes.Buffer
@@ -77,7 +79,7 @@ func render(rows []Entry, pkg, importPath string, value func(r Entry, name strin
 
 	src, err := format.Source(b.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("formatting generated source: %w", err)
+		return nil, errs.Wrap(err, "formatting generated source")
 	}
 
 	return src, nil

@@ -201,4 +201,4 @@ func (s *Store) Mutate(ctx context.Context, edgeID string, fn func(current *stor
 }
 
 // ErrSkip is a Mutate fn's signal that no write is needed.
-var ErrSkip = errors.New("edgestore: no write needed")
+var ErrSkip = errs.Msg("edgestore: no write needed")
