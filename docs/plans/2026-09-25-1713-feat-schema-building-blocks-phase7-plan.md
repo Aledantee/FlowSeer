@@ -5,6 +5,8 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
+compound: no lesson
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
@@ -1051,3 +1053,12 @@ None block implementation.
   against modelling BGP databases. If review prefers no path table,
   communities lose their carrier and `BgpCommunity` goes with it, which
   the record's tree line would then need to drop.
+
+- Review (accept after fixes): `BgpPeerCounters.last_discontinuity` was
+  `required` but BGP4-MIB reports no per-peer discontinuity object, so the
+  message was unrepresentable when counters attached — fixed to optional,
+  matching every other counters message. The `OspfArea.lsa_count` comment
+  cited the wrong MIB object (`ospfAreaSpfRuns/ospfAreaBdrRtrCount`), corrected
+  to `ospfAreaLsaCount`. Compound: no new solution — the required-field case is
+  the one already captured in
+  docs/solutions/conventions/a-vendor-fixture-that-fabricates-a-required-field-proves-nothing.md.
