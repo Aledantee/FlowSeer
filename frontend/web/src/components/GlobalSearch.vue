@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from './AppTooltip.vue'
+import { UiTooltip } from '../ui'
 import ScrollArea from './ScrollArea.vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, useId } from 'vue'
 import type { Device } from '../domain/fleet'
@@ -231,12 +231,11 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                 ><small>{{ result.detail }}</small></span
               >
               <span class="search-result-actions">
-                <AppTooltip
+                <UiTooltip
                   v-if="canSplit"
                   label="Open side by side"
-                  :shortcut="{ code: 'Enter', shift: true }"
+                  hint="Shift+Enter"
                   side="left"
-                  inline
                 >
                   <button
                     tabindex="-1"
@@ -245,15 +244,14 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                   >
                     <AppIcon name="panel-right" />
                   </button>
-                </AppTooltip>
-                <AppTooltip
+                </UiTooltip>
+                <UiTooltip
                   v-if="
                     !(result.kind === 'page' && result.id.startsWith('tab:'))
                   "
                   label="Send to dock"
-                  :shortcut="{ code: 'Enter', alt: true }"
+                  hint="Alt+Enter"
                   side="left"
-                  inline
                 >
                   <button
                     tabindex="-1"
@@ -262,7 +260,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                   >
                     <AppIcon name="to-dock" />
                   </button>
-                </AppTooltip>
+                </UiTooltip>
               </span>
             </div>
           </div>

@@ -67,23 +67,15 @@ is contained in the content area.
 - `src/domain/fleet.ts` contains fixtures, tenant rollups, and site assignment rules.
   These are UI demo shapes, not protobuf message definitions.
 - `src/components/` holds shared presentation elements.
+- `src/ui/` holds design system components and headless primitives.
 - `src/style.css` defines the visual language and responsive layout.
 - `src/theme/language.css` defines shared typography, spacing, and control tokens.
-- `src/ComponentsView.vue` exposes component previews, foundations, and local drafts.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.
 The lockfile pins resolved dependencies. TypeScript stays on 6.0 because the
 installed typescript-eslint version does not support TypeScript 7.
 Prettier owns formatting; ESLint checks code and Vue semantics with the standard
 Prettier compatibility configuration.
-
-## Components workspace
-
-Open `/components` from the sidebar. Try the button variants, inspect labeled
-health states, and compare typography under **Foundations**. The page shares
-buttons, status badges, and metric cards with the fleet views. Record a component
-question and stage, then choose **Save draft** to retain it in this browser.
-Drafts are personal local storage; unsaved edits are lost when leaving the page.
 
 The [design language](design/language.md) documents spacing, control states, and
 font research. Inter Variable is the interface font; DM Sans remains available
@@ -134,6 +126,7 @@ or `data-theme="dark"`), accessibility auditing (`@storybook/addon-a11y`), and s
 - **Colors**: renders every semantic token, its active theme step, and WCAG contrast audit against gated surfaces
 - **Typography**: renders the type scale steps (`2xs` through `3xl`) across Inter, Mono, and tabular figures
 - **Shape**: renders border radii, card elevation shadows, and spacing steps 1 to 8
+- **Components**: 16 design system components under `src/ui/` (buttons, badges, spinners, cards, tooltips, separators, kbd, and form controls) with CSF 3 stories and automated WCAG 2.1 AA checks via `axe-core`
 
 To build the static Storybook bundle:
 

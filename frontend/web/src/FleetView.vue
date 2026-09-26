@@ -21,7 +21,7 @@ import GlobalSearch from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import PageHost from './navigation/PageHost.vue'
-import AppTooltip from './components/AppTooltip.vue'
+import { UiTooltip } from './ui'
 import { TooltipProvider } from 'reka-ui'
 import { SHORTCUTS, dockTabShortcut, matches } from './navigation/shortcuts'
 import { usePanes } from './navigation/panes'
@@ -277,7 +277,6 @@ const VIEW_TITLES: Record<string, string> = {
   clients: 'Clients',
   sites: 'Sites',
   topology: 'Topology',
-  components: 'Components',
 }
 const title = computed(() =>
   view.value === 'device'
@@ -557,7 +556,6 @@ const VIEW_ICONS: Record<string, string> = {
   clients: 'clients',
   sites: 'sites',
   topology: 'topology',
-  components: 'components',
 }
 function describe(location: PageLocation) {
   const { view: pageView, deviceId } = viewOf(location.path)
@@ -802,7 +800,6 @@ onUnmounted(() => clearInterval(timer))
               'topology',
               'clients',
               'sites',
-              'components',
             ]"
             :key="item"
             :aria-label="item"
@@ -825,7 +822,7 @@ onUnmounted(() => clearInterval(timer))
             }}</span></AppLink
           >
         </nav>
-        <AppTooltip
+        <UiTooltip
           :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
           side="right"
         >
@@ -849,7 +846,7 @@ onUnmounted(() => clearInterval(timer))
               <path d="m10 4-4 4 4 4" />
             </svg>
           </button>
-        </AppTooltip>
+        </UiTooltip>
       </aside>
       <div ref="mainShell" class="main-shell">
         <span class="main-notch brand-glow" aria-hidden="true"></span>
@@ -865,24 +862,22 @@ onUnmounted(() => clearInterval(timer))
                 />
                 <span class="breadcrumb-separator" aria-hidden="true">/</span>
               </template>
-              <template v-if="view !== 'components'">
-                <div class="breadcrumb-scope">
-                  <ScopeSwitcher
-                    label="Site scope"
-                    placeholder="Search sites…"
-                    :selected="query('site')"
-                    :options="[
-                      { value: '', label: 'All sites' },
-                      ...scopedSites.map((site) => ({
-                        value: site.id,
-                        label: site.name,
-                      })),
-                    ]"
-                    @change="setQuery('site', $event)"
-                  />
-                </div>
-                <span class="breadcrumb-separator" aria-hidden="true">/</span>
-              </template>
+              <div class="breadcrumb-scope">
+                <ScopeSwitcher
+                  label="Site scope"
+                  placeholder="Search sites…"
+                  :selected="query('site')"
+                  :options="[
+                    { value: '', label: 'All sites' },
+                    ...scopedSites.map((site) => ({
+                      value: site.id,
+                      label: site.name,
+                    })),
+                  ]"
+                  @change="setQuery('site', $event)"
+                />
+              </div>
+              <span class="breadcrumb-separator" aria-hidden="true">/</span>
               <template v-if="view === 'device'">
                 <AppLink
                   class="breadcrumb-link"

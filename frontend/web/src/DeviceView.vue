@@ -7,8 +7,7 @@ import { downlinks } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
-import StatusBadge from './components/StatusBadge.vue'
-import UiButton from './components/UiButton.vue'
+import { UiButton, UiField, UiSelect, UiStatusBadge } from './ui'
 
 const props = defineProps<{
   device: Device
@@ -29,6 +28,9 @@ const uplink = computed(() =>
 )
 const links = computed(() => downlinks(props.fleet, props.device))
 const clients = computed(() => clientsOf([props.device]).slice(0, 8))
+const siteOptions = computed(() =>
+  props.allowedSites.map((s) => ({ value: s.id, label: s.name })),
+)
 function to(path: string, extra: Record<string, string> = {}) {
   return { path, query: { ...scopeOf(page.location.value), ...extra } }
 }
@@ -46,7 +48,7 @@ function to(path: string, extra: Record<string, string> = {}) {
         <h1>{{ device.name }}</h1>
         <p>{{ siteName(device.siteId) }} · {{ tenantName(device.siteId) }}</p>
       </div>
-      <StatusBadge :status="device.health" />
+      <UiStatusBadge :status="device.health" />
     </header>
 
     <dl class="device-facts">
@@ -117,7 +119,7 @@ function to(path: string, extra: Record<string, string> = {}) {
               <AppLink :to="to(`/devices/${link.id}`)"
                 ><strong>{{ link.name }}</strong
                 ><small>{{ link.kind }}</small></AppLink
-              ><StatusBadge :status="link.health" />
+              ><UiStatusBadge :status="link.health" />
             </li>
           </ul>
           <p v-else class="panel-empty">
@@ -135,16 +137,10 @@ function to(path: string, extra: Record<string, string> = {}) {
               A device belongs to one site. Changing the site replaces its
               current assignment.
             </p>
-            <label for="destination">Site within this tenant</label
-            ><select id="destination" v-model="destination">
-              <option
-                v-for="site in allowedSites"
-                :key="site.id"
-                :value="site.id"
-              >
-                {{ site.name }}
-              </option></select
-            ><UiButton
+            <UiField id="destination" label="Site within this tenant">
+              <UiSelect v-model="destination" :options="siteOptions" />
+            </UiField>
+            <UiButton
               type="submit"
               variant="primary"
               :disabled="destination === device.siteId"

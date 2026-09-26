@@ -1,8 +1,8 @@
 # Console design language
 
-Open `/components` and choose **Foundations** to compare Inter with DM Sans using
-interface text, changing numbers, and addresses. Switch the console theme to
-inspect the same specimens in light and dark mode.
+Open Storybook (`pnpm storybook`) and choose **Foundations** to compare Inter
+with DM Sans using interface text, changing numbers, and addresses. Switch the
+theme toggle in Storybook to inspect the same specimens in light and dark mode.
 
 ## Typography decision
 
@@ -51,28 +51,25 @@ Health badges always include a word as well as color. Focus rings must remain
 visible on buttons, links, selects, and text fields. Motion is short action
 feedback; live values do not animate.
 
-For example, use the same button and badge in a fleet flow and its workbench
-preview:
+For example, use the design system button and status badge:
 
 ```vue
-<UiButton variant="primary" type="submit">Save assignment</UiButton>
-<StatusBadge status="Degraded" />
+<script setup>
+import { UiButton, UiStatusBadge } from '@/ui'
+</script>
+
+<template>
+  <UiButton variant="primary" type="submit">Save assignment</UiButton>
+  <UiStatusBadge status="Degraded" />
+</template>
 ```
 
-`UiButton`, `StatusBadge`, and `MetricCard` are shared by the fleet and component
-views. Inputs and empty states demonstrate the console's CSS patterns; they do
-not introduce additional wrapper components.
+Components are located under `src/ui/` and exported via `src/ui/index.ts`.
+Each component includes CSF 3 stories and unit/accessibility tests in CI.
 
 ## Working on a component
 
-Choose **Buttons**, change its variant, and try its disabled state. Record a
-question or visual decision under **Decisions & next steps**, select a stage,
-and save. Each component has a separate draft. Unsaved edits disable switching
-to another component until saved. Navigating away or reloading before saving
-can discard unsaved edits.
-
-Drafts live only in this browser's local storage. They are not synchronized,
-committed to the repository, or shared with another person. A failed save keeps
-the notes visible and asks the author to copy them. Promote agreed decisions
-into the component source and this document; draft stages are author-selected
-planning labels, not automated completion checks.
+Component development and visual review happen in Storybook (`pnpm storybook`).
+Add or update stories under `src/ui/**/*.stories.ts` to document all variants,
+sizes, and interaction states. Automated tests (`pnpm test src/ui/a11y.test.ts`)
+run `axe-core` against all component stories to enforce WCAG 2.1 AA conformance.

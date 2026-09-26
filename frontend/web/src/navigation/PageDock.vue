@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AppTooltip from '../components/AppTooltip.vue'
-import { dockTabShortcut } from './shortcuts'
+import { UiTooltip } from '../ui'
+import { dockTabShortcut, keysOf } from './shortcuts'
 import AppIcon from '../components/AppIcon.vue'
 import ScrollArea from '../components/ScrollArea.vue'
 import type { Health } from '../domain/fleet'
@@ -37,7 +37,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
           :key="tab.id"
           :class="['dock-tab', { pair: tab.beside }]"
         >
-          <AppTooltip
+          <UiTooltip
             :label="`Open ${title(tab).label}`"
             :hint="
               [
@@ -46,11 +46,11 @@ function badge(health: Health | undefined, attention: number | undefined) {
                 canSplit && !tab.beside
                   ? 'Shift-click opens it side by side'
                   : '',
+                index < 9 ? keysOf(dockTabShortcut(index + 1)).join('+') : '',
               ]
                 .filter(Boolean)
                 .join(' · ')
             "
-            :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
             side="top"
           >
             <button
@@ -77,11 +77,15 @@ function badge(health: Health | undefined, attention: number | undefined) {
                 ><small>{{ title(tab).detail }}</small></span
               >
             </button>
-          </AppTooltip>
-          <AppTooltip
+          </UiTooltip>
+          <UiTooltip
             v-if="canSplit && !tab.beside"
             label="Open side by side"
-            :shortcut="index < 9 ? dockTabShortcut(index + 1, true) : undefined"
+            :hint="
+              index < 9
+                ? keysOf(dockTabShortcut(index + 1, true)).join('+')
+                : undefined
+            "
             side="top"
           >
             <button
@@ -91,8 +95,8 @@ function badge(health: Health | undefined, attention: number | undefined) {
             >
               <AppIcon name="panel-right" />
             </button>
-          </AppTooltip>
-          <AppTooltip label="Remove from dock" side="top">
+          </UiTooltip>
+          <UiTooltip label="Remove from dock" side="top">
             <button
               class="dock-action"
               :aria-label="`Close ${title(tab).label}`"
@@ -100,7 +104,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
             >
               <AppIcon name="close" />
             </button>
-          </AppTooltip>
+          </UiTooltip>
         </li>
       </TransitionGroup>
     </ScrollArea>

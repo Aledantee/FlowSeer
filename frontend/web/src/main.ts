@@ -11,7 +11,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/dashboard' },
     {
-      path: '/:view(dashboard|devices|clients|sites|topology|components)',
+      path: '/:view(dashboard|devices|clients|sites|topology)',
       component: FleetView,
     },
     { path: '/devices/:deviceId', component: FleetView },
