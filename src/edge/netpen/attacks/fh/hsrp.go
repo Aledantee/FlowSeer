@@ -11,10 +11,11 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -41,7 +42,7 @@ func RunHSRP(ctx context.Context, deps runner.Deps) error {
 	// Arm the resign teardown before the first frame.
 	resignPkt, err := craftHSRP(src, nl.HSRPOpcodeResign, nl.HSRPStateStandby, priority, group)
 	if err != nil {
-		return fmt.Errorf("hsrp: craft resign: %w", err)
+		return errs.Wrap(err, "hsrp: craft resign")
 	}
 	deps.Teardown.Arm("hsrp-resign", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, resignPkt)
@@ -50,19 +51,19 @@ func RunHSRP(ctx context.Context, deps runner.Deps) error {
 	// Send the Coup to steal the active role.
 	coupPkt, err := craftHSRP(src, nl.HSRPOpcodeCoup, nl.HSRPStateActive, priority, group)
 	if err != nil {
-		return fmt.Errorf("hsrp: craft coup: %w", err)
+		return errs.Wrap(err, "hsrp: craft coup")
 	}
 	if err := deps.AttackLeg.Send(ctx, coupPkt); err != nil {
-		return fmt.Errorf("hsrp: send coup: %w", err)
+		return errs.Wrap(err, "hsrp: send coup")
 	}
 
 	// Send a hello to maintain the active state.
 	helloPkt, err := craftHSRP(src, nl.HSRPOpcodeHello, nl.HSRPStateActive, priority, group)
 	if err != nil {
-		return fmt.Errorf("hsrp: craft hello: %w", err)
+		return errs.Wrap(err, "hsrp: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
-		return fmt.Errorf("hsrp: send hello: %w", err)
+		return errs.Wrap(err, "hsrp: send hello")
 	}
 
 	detail, _ := json.Marshal(hsrpFinding{

@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -42,11 +43,11 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 	// Craft the ghost traversal frames (STP worst-prio + LLDP -0E).
 	stpPkt, err := craftGhostSTP()
 	if err != nil {
-		return fmt.Errorf("ghost: craft STP: %w", err)
+		return errs.Wrap(err, "ghost: craft STP")
 	}
 	lldpPkt, err := craftGhostLLDP()
 	if err != nil {
-		return fmt.Errorf("ghost: craft LLDP: %w", err)
+		return errs.Wrap(err, "ghost: craft LLDP")
 	}
 
 	frames := [][]byte{stpPkt, lldpPkt}
@@ -56,7 +57,7 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 	// Send frames from the attack leg.
 	for i, frame := range frames {
 		if err := deps.AttackLeg.Send(ctx, frame); err != nil {
-			return fmt.Errorf("ghost: send frame %d: %w", i, err)
+			return errs.Wrapf(err, "ghost: send frame %d", i)
 		}
 	}
 
@@ -74,7 +75,7 @@ func RunGhost(ctx context.Context, deps runner.Deps) error {
 				goto done
 			}
 			if frame.Err != nil {
-				return fmt.Errorf("ghost: receive watch frame: %w", frame.Err)
+				return errs.Wrap(frame.Err, "ghost: receive watch frame")
 			}
 			observed++
 			if isGhostFrame(frame.Data, ghostSABytes) {

@@ -10,10 +10,11 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // LACPActorState is the actor state byte bitfield.
@@ -76,7 +77,7 @@ const (
 func (l *LACP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 4 {
 		df.SetTruncated()
-		return fmt.Errorf("LACP: truncated at offset 0, need >=4 bytes, got %d", len(data))
+		return errs.Msgf("LACP: truncated at offset 0, need >=4 bytes, got %d", len(data))
 	}
 
 	l.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -84,12 +85,12 @@ func (l *LACP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	l.Version = data[1]
 
 	if l.Subtype != lacpSubtype {
-		return fmt.Errorf("LACP: unexpected subtype 0x%02x, want 0x%02x", l.Subtype, lacpSubtype)
+		return errs.Msgf("LACP: unexpected subtype 0x%02x, want 0x%02x", l.Subtype, lacpSubtype)
 	}
 
 	if len(data) < lacpMinLen {
 		df.SetTruncated()
-		return fmt.Errorf("LACP: truncated PDU, need >=%d bytes, got %d", lacpMinLen, len(data))
+		return errs.Msgf("LACP: truncated PDU, need >=%d bytes, got %d", lacpMinLen, len(data))
 	}
 
 	l.Actor = decodeLACPPortInfo(data[lacpActorOff:])

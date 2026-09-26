@@ -13,10 +13,11 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -37,12 +38,12 @@ func RunLLDPSpoof(ctx context.Context, deps runner.Deps) error {
 
 	pkt, err := craftLLDPSpoof(src, ttl)
 	if err != nil {
-		return fmt.Errorf("lldpspoof: craft frame: %w", err)
+		return errs.Wrap(err, "lldpspoof: craft frame")
 	}
 
 	for range count {
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("lldpspoof: send frame: %w", err)
+			return errs.Wrap(err, "lldpspoof: send frame")
 		}
 	}
 

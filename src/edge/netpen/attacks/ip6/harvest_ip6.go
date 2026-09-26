@@ -32,6 +32,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/fixtureaddr"
 )
 
@@ -682,7 +683,7 @@ func writePcap(path string, pkts ...[]byte) {
 	fullPath := filepath.Join("..", "testdata", "ip6", filepath.Base(path))
 	f, err := os.Create(fullPath)
 	if err != nil {
-		fail(fmt.Errorf("create %s: %w", fullPath, err))
+		fail(errs.Wrapf(err, "create %s", fullPath))
 		return
 	}
 	defer func() { _ = f.Close() }()
@@ -690,7 +691,7 @@ func writePcap(path string, pkts ...[]byte) {
 	w := pcapgo.NewWriter(f)
 	// LinkTypeEthernet = 1
 	if err := w.WriteFileHeader(65535, layers.LinkTypeEthernet); err != nil {
-		fail(fmt.Errorf("write header %s: %w", fullPath, err))
+		fail(errs.Wrapf(err, "write header %s", fullPath))
 		return
 	}
 
@@ -700,7 +701,7 @@ func writePcap(path string, pkts ...[]byte) {
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
 		}, pkt); err != nil {
-			fail(fmt.Errorf("write packet %s: %w", fullPath, err))
+			fail(errs.Wrapf(err, "write packet %s", fullPath))
 			return
 		}
 	}

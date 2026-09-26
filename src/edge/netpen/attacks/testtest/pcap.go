@@ -2,13 +2,14 @@ package testtest
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/gopacket/gopacket/pcapgo"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // ReadPcap reads all packets from a pcap file and returns their raw bytes.
@@ -34,7 +35,7 @@ func ReadPcap(t *testing.T, path string) [][]byte {
 func readPackets(reader io.Reader) ([][]byte, error) {
 	r, err := pcapgo.NewReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("read header: %w", err)
+		return nil, errs.Wrap(err, "read header")
 	}
 	var pkts [][]byte
 	for {
@@ -43,12 +44,12 @@ func readPackets(reader io.Reader) ([][]byte, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("read packet %d: %w", len(pkts)+1, err)
+			return nil, errs.Wrapf(err, "read packet %d", len(pkts)+1)
 		}
 		pkts = append(pkts, data)
 	}
 	if len(pkts) == 0 {
-		return nil, fmt.Errorf("capture has no packets")
+		return nil, errs.Msg("capture has no packets")
 	}
 	return pkts, nil
 }

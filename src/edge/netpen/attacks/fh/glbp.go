@@ -14,10 +14,11 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -42,7 +43,7 @@ func RunGLBP(ctx context.Context, deps runner.Deps) error {
 	// Arm the resign teardown before the first frame.
 	resignPkt, err := craftGLBPHello(src, group, 100, nl.GLBPStateInit)
 	if err != nil {
-		return fmt.Errorf("glbp: craft resign: %w", err)
+		return errs.Wrap(err, "glbp: craft resign")
 	}
 	deps.Teardown.Arm("glbp-resign", func(ctx context.Context) error {
 		return deps.AttackLeg.Send(ctx, resignPkt)
@@ -51,10 +52,10 @@ func RunGLBP(ctx context.Context, deps runner.Deps) error {
 	// Send the hello to claim the active role.
 	helloPkt, err := craftGLBPHello(src, group, priority, nl.GLBPStateActive)
 	if err != nil {
-		return fmt.Errorf("glbp: craft hello: %w", err)
+		return errs.Wrap(err, "glbp: craft hello")
 	}
 	if err := deps.AttackLeg.Send(ctx, helloPkt); err != nil {
-		return fmt.Errorf("glbp: send hello: %w", err)
+		return errs.Wrap(err, "glbp: send hello")
 	}
 
 	detail, _ := json.Marshal(glbpFinding{

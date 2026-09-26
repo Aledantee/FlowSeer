@@ -9,9 +9,10 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // PAgPCommand is a PAgP command code.
@@ -62,7 +63,7 @@ const (
 func (p *PAgP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < pagpMinLen {
 		df.SetTruncated()
-		return fmt.Errorf("PAgP: truncated at offset 0, need >=%d bytes, got %d", pagpMinLen, len(data))
+		return errs.Msgf("PAgP: truncated at offset 0, need >=%d bytes, got %d", pagpMinLen, len(data))
 	}
 
 	p.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -88,7 +89,7 @@ func (p *PAgP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	for i := uint8(0); i < p.LearnCount; i++ {
 		if offset+2 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("PAgP: truncated learn time %d at offset %d, need 2 bytes, got %d", i, offset, len(data)-offset)
+			return errs.Msgf("PAgP: truncated learn time %d at offset %d, need 2 bytes, got %d", i, offset, len(data)-offset)
 		}
 		p.LearnTimes = append(p.LearnTimes, binary.BigEndian.Uint16(data[offset:offset+2]))
 		offset += 2

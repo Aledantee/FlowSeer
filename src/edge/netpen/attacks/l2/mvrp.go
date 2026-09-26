@@ -11,7 +11,8 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -46,10 +47,10 @@ func RunMVRP(ctx context.Context, deps runner.Deps) error {
 		}
 		pkt, err := craftEtherType(mvrpDstMAC, src, ethertypeMVRP, mvrp)
 		if err != nil {
-			return fmt.Errorf("mvrp: craft frame for VLAN %d: %w", vid, err)
+			return errs.Wrapf(err, "mvrp: craft frame for VLAN %d", vid)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("mvrp: send for VLAN %d: %w", vid, err)
+			return errs.Wrapf(err, "mvrp: send for VLAN %d", vid)
 		}
 	}
 

@@ -14,11 +14,12 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -46,10 +47,10 @@ func RunLLMNR(ctx context.Context, deps runner.Deps) error {
 	// and responds; the in-memory shape sends a pre-crafted response).
 	responsePkt, err := craftLLMNRResponse(src, qname, answerIP)
 	if err != nil {
-		return fmt.Errorf("llmnr: craft response: %w", err)
+		return errs.Wrap(err, "llmnr: craft response")
 	}
 	if err := deps.AttackLeg.Send(ctx, responsePkt); err != nil {
-		return fmt.Errorf("llmnr: send response: %w", err)
+		return errs.Wrap(err, "llmnr: send response")
 	}
 
 	// Emit the finding. A credential captured by the rogue responder

@@ -13,11 +13,12 @@ package l2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -47,7 +48,7 @@ func RunCAMFlood(ctx context.Context, deps runner.Deps) error {
 	// allocation-free after pool warmup.
 	template, err := craftCAMFloodFrame(src, 0)
 	if err != nil {
-		return fmt.Errorf("camflood: craft template: %w", err)
+		return errs.Wrap(err, "camflood: craft template")
 	}
 
 	frameCount := 5
@@ -62,7 +63,7 @@ func RunCAMFlood(ctx context.Context, deps runner.Deps) error {
 		err := deps.AttackLeg.Send(ctx, pkt)
 		packetPool.Put(buf)
 		if err != nil {
-			return fmt.Errorf("camflood: send frame %d: %w", i, err)
+			return errs.Wrapf(err, "camflood: send frame %d", i)
 		}
 	}
 

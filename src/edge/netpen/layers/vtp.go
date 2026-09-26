@@ -11,9 +11,10 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // VTPCode is a VTP message type.
@@ -85,7 +86,7 @@ func (v *VTP) NextLayerType() gopacket.LayerType { return gopacket.LayerTypeZero
 func (v *VTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 4 {
 		df.SetTruncated()
-		return fmt.Errorf("VTP: truncated at offset 0, need >=4 bytes, got %d", len(data))
+		return errs.Msgf("VTP: truncated at offset 0, need >=4 bytes, got %d", len(data))
 	}
 
 	v.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -107,7 +108,7 @@ func (v *VTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	}
 	if 4+domainLen > len(data) {
 		df.SetTruncated()
-		return fmt.Errorf("VTP: truncated domain at offset 4, need %d bytes, got %d", domainLen, len(data)-4)
+		return errs.Msgf("VTP: truncated domain at offset 4, need %d bytes, got %d", domainLen, len(data)-4)
 	}
 	v.Domain = string(data[4 : 4+domainLen])
 
@@ -127,14 +128,14 @@ func (v *VTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 func (v *VTP) decodeSummary(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 40 {
 		df.SetTruncated()
-		return fmt.Errorf("VTP: truncated summary at offset %d, need >=40 bytes, got %d", 0, len(data))
+		return errs.Msgf("VTP: truncated summary at offset %d, need >=40 bytes, got %d", 0, len(data))
 	}
 
 	v.Revision = binary.BigEndian.Uint32(data[36:40])
 
 	if len(data) < 44 {
 		df.SetTruncated()
-		return fmt.Errorf("VTP: truncated summary updater at offset %d, need 44 bytes, got %d", 40, len(data))
+		return errs.Msgf("VTP: truncated summary updater at offset %d, need 44 bytes, got %d", 40, len(data))
 	}
 	v.Updater = binary.BigEndian.Uint32(data[40:44])
 
@@ -152,7 +153,7 @@ func (v *VTP) decodeSubset(data []byte, df gopacket.DecodeFeedback) error {
 	offset := 4 + 32 // version(1)+code(1)+seq(1)+domainLen(1)+domain(32, zero-padded)
 	if len(data) < offset+4 {
 		df.SetTruncated()
-		return fmt.Errorf("VTP: truncated subset revision at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
+		return errs.Msgf("VTP: truncated subset revision at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
 	}
 	v.Revision = binary.BigEndian.Uint32(data[offset : offset+4])
 	offset += 4
@@ -161,15 +162,15 @@ func (v *VTP) decodeSubset(data []byte, df gopacket.DecodeFeedback) error {
 	for offset < len(data) {
 		if offset+4 > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("VTP: truncated VLAN record header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
+			return errs.Msgf("VTP: truncated VLAN record header at offset %d, need 4 bytes, got %d", offset, len(data)-offset)
 		}
 		recLen := int(data[offset])
 		if recLen < 12 {
-			return fmt.Errorf("VTP: VLAN record at offset %d has length %d < 12 (fixed fields)", offset, recLen)
+			return errs.Msgf("VTP: VLAN record at offset %d has length %d < 12 (fixed fields)", offset, recLen)
 		}
 		if offset+recLen > len(data) {
 			df.SetTruncated()
-			return fmt.Errorf("VTP: truncated VLAN record at offset %d, need %d bytes, got %d", offset, recLen, len(data)-offset)
+			return errs.Msgf("VTP: truncated VLAN record at offset %d, need %d bytes, got %d", offset, recLen, len(data)-offset)
 		}
 
 		rec := data[offset : offset+recLen]
@@ -198,7 +199,7 @@ func (v *VTP) decodeRequest(data []byte, df gopacket.DecodeFeedback) error {
 	offset := 4 + 32
 	if len(data) < offset+2 {
 		df.SetTruncated()
-		return fmt.Errorf("VTP: truncated request start-value at offset %d, need 2 bytes, got %d", offset, len(data)-offset)
+		return errs.Msgf("VTP: truncated request start-value at offset %d, need 2 bytes, got %d", offset, len(data)-offset)
 	}
 	v.StartValue = binary.BigEndian.Uint16(data[offset : offset+2])
 	return nil
@@ -225,7 +226,7 @@ func (v *VTP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOption
 	case VTPCodeRequest:
 		body = v.serializeRequest(domainField, uint8(len(dom)))
 	default:
-		return fmt.Errorf("VTP: unknown code 0x%02x", v.Code)
+		return errs.Msgf("VTP: unknown code 0x%02x", v.Code)
 	}
 
 	buf, err := b.PrependBytes(len(body))

@@ -3,10 +3,11 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -34,10 +35,10 @@ func RunARPSweep(ctx context.Context, deps runner.Deps) error {
 	for i, target := range targets {
 		pkt, err := craftARPSweep(src, target)
 		if err != nil {
-			return fmt.Errorf("arpsweep: craft frame %d: %w", i, err)
+			return errs.Wrapf(err, "arpsweep: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("arpsweep: send frame %d: %w", i, err)
+			return errs.Wrapf(err, "arpsweep: send frame %d", i)
 		}
 	}
 

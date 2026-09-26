@@ -6,10 +6,11 @@
 package catalog
 
 import (
-	"fmt"
 	"slices"
 	"sort"
 	"sync"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Durability is the four-class safety taxonomy every (attack, mode) pair
@@ -139,10 +140,10 @@ func Register(b Behavior) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if registered {
-		return fmt.Errorf("catalog: Register(%q) called after the catalog was read; registrations must precede generation", b.Name)
+		return errs.Msgf("catalog: Register(%q) called after the catalog was read; registrations must precede generation", b.Name)
 	}
 	if err := validate(b); err != nil {
-		return fmt.Errorf("catalog: invalid registration %q: %w", b.Name, err)
+		return errs.Wrapf(err, "catalog: invalid registration %q", b.Name)
 	}
 	behaviors = append(behaviors, cloneBehavior(b))
 	return nil
@@ -171,10 +172,10 @@ func cloneBehavior(b Behavior) Behavior {
 // declares a flag and help text.
 func validate(b Behavior) error {
 	if b.Name == "" {
-		return fmt.Errorf("name is required")
+		return errs.Msg("name is required")
 	}
 	if b.Help == "" {
-		return fmt.Errorf("help text is required")
+		return errs.Msg("help text is required")
 	}
 	if err := validateClass(b.Class); err != nil {
 		return err
@@ -184,13 +185,13 @@ func validate(b Behavior) error {
 	}
 	for i, m := range b.Modes {
 		if m.Flag == "" {
-			return fmt.Errorf("mode[%d]: flag is required", i)
+			return errs.Msgf("mode[%d]: flag is required", i)
 		}
 		if m.Help == "" {
-			return fmt.Errorf("mode[%d]: help text is required", i)
+			return errs.Msgf("mode[%d]: help text is required", i)
 		}
 		if err := validateClass(m.Class); err != nil {
-			return fmt.Errorf("mode %q: %w", m.Flag, err)
+			return errs.Wrapf(err, "mode %q", m.Flag)
 		}
 	}
 	return nil
@@ -204,7 +205,7 @@ func validateClass(c Durability) error {
 	case NonDestructive, TransientDecay, TemporaryRestored, PermanentDestructive:
 		return nil
 	default:
-		return fmt.Errorf("unknown durability class %q", c)
+		return errs.Msgf("unknown durability class %q", c)
 	}
 }
 
@@ -214,7 +215,7 @@ func validateLegs(l Legs) error {
 	case AttackOnly, WatchOptional, WatchRequired:
 		return nil
 	default:
-		return fmt.Errorf("unknown legs %q", l)
+		return errs.Msgf("unknown legs %q", l)
 	}
 }
 
