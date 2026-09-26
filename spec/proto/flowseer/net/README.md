@@ -21,7 +21,7 @@ belongs in `model/`.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/device, edge/attach, model/access, model/capture, model/inventory, model/wireless, store/device
+Imported by: api/capture, api/device, edge/attach, model/access, model/capture, model/endpoint, model/inventory, model/wireless, store/device
 
 Packages under `net/` are leaves with respect to every other root: nothing here
 imports outside `net/`, and any root may import them.
@@ -42,8 +42,8 @@ imports outside `net/`, and any root may import them.
 - `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
 - `wlan/v1/`: RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
 - `cellular/v1/` (planned; schema building blocks record): Cellular radio facts and signal quality.
-- `endpoint/v1/` (planned; schema building blocks record): Wired and wireless attachment, fingerprint, per-endpoint counters.
-- `portaccess/v1/` (planned; schema building blocks record): Port-access sessions (802.1X, MAC authentication, web authentication).
+- `endpoint/v1/`: Wired and wireless attachment, fingerprint, per-endpoint counters.
+- `portaccess/v1/`: Port-access sessions (802.1X, MAC authentication, web authentication).
 - `system/v1/` (planned; schema building blocks record): Resource utilization, software images, licenses.
 - `multicast/v1/`: IGMP/MLD snooping group membership.
 - `aaa/v1/` (planned; schema building blocks record): RADIUS and TACACS+ server identity.
@@ -90,6 +90,9 @@ IETF RFCs:
 - [RFC 8349](https://www.rfc-editor.org/rfc/rfc8349.html) and
   [RFC 4292](https://www.rfc-editor.org/rfc/rfc4292.html) for routes, RIBs,
   next hops, and the IP forwarding table MIB.
+- [RFC 2132](https://www.rfc-editor.org/rfc/rfc2132.html) and
+  [RFC 4702](https://www.rfc-editor.org/rfc/rfc4702.html) for DHCP options
+  and DHCP client FQDN.
 
 IANA registries:
 
@@ -112,3 +115,7 @@ IEEE and other bodies:
   for EUI-48, EUI-64, and OUI identifier formats.
 - [SNIA SFF-8024](https://members.snia.org/document/dl/26423) for pluggable
   transceiver form-factor identifiers.
+- [IEEE 802.1X](https://standards.ieee.org/ieee/802.1X/) and
+  [IEEE8021-PAE-MIB](https://www.ieee802.org/1/files/public/MIBs/IEEE8021-PAE-MIB-202006040000Z.mib)
+  for Port Access Entity control and port-access session MIB semantics.
+- Cisco Meraki Connection Stats for wireless connection failure stages.

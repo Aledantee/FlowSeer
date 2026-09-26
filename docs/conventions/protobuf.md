@@ -50,16 +50,18 @@ never reports back.
 The triad is shaped for entities where intended and observed genuinely
 diverge — device-level configuration a human asks for and a device reports
 on. Do not apply it reflexively. A family may be **deliberately partial**: a
-machine-observed entity nobody configures has no `Config`; a projection
-nobody stores has no `Event`; and a pure-intent entity nobody observes has
-no `State` — and no `Config` suffix either, because with no observed side to
-separate from, the intent message *is* the entity and is named plain
-`<Entity>`. Such a family is `<Entity>` plus `<Entity>Event`, whose before
-and after carry `<Entity>` — the attribute families are the worked example.
-When a member is deliberately absent, say so in the family file's file-level
-doc comment, naming what is missing and why. The hook reports every missing
-member and cannot tell deliberate from forgotten, so the comment is what
-lets the next reader tell, and putting it in a predictable place is what
+machine-observed entity nobody configures has no `Config` (such as `Endpoint`
+in `model/endpoint/v1`, whose family is `EndpointState` and `EndpointEvent`,
+with `EndpointConfig` deliberately absent per its file-level doc comment); a
+projection nobody stores has no `Event`; and a pure-intent entity nobody
+observes has no `State` — and no `Config` suffix either, because with no
+observed side to separate from, the intent message *is* the entity and is named
+plain `<Entity>`. Such a family is `<Entity>` plus `<Entity>Event`, whose
+before and after carry `<Entity>` — the attribute families are the worked
+example. When a member is deliberately absent, say so in the family file's
+file-level doc comment, naming what is missing and why. The hook reports every
+missing member and cannot tell deliberate from forgotten, so the comment is
+what lets the next reader tell, and putting it in a predictable place is what
 lets them find it.
 
 ## The ref pair
@@ -153,9 +155,9 @@ Three boundaries keep it from eroding the typed refs:
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
   nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `model/inventory/v1`, and `Wlan` in
-  `model/wireless/v1`, are the same class: UUID-keyed,
-  landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
+  `Cable`, and `Link` in `model/inventory/v1`, `Wlan` in
+  `model/wireless/v1`, and `Endpoint` in `model/endpoint/v1`, are the same class:
+  UUID-keyed, landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
@@ -346,12 +348,14 @@ holds the rationale and standards grounding for each rule.
   `<Name>Settings`, carried by the
   facet ([rule 5](../architecture/2026-09-25-schema-building-blocks-direction.md#5-facets-settings-and-table-rows)).
   Device-scoped table rows are named for the thing they describe (`Vlan`, `Route`,
-  `BgpPeer`); use `<Table>Entry` only when the table name is the natural noun and
+  `BgpPeer`, `Session`); use `<Table>Entry` only when the table name is the natural noun and
   the row has none of its own (`FdbEntry`, `NeighborEntry`). `NetworkInstance`
   is the row for an instance itself, keyed by `name` with a required `kind`.
   `Route` is keyed by `(network_instance, destination_prefix)` and carries its
   next hops as a `NextHopGroup`, plus a `table_type` saying whether the row
-  came from the RIB or the FIB.
+  came from the RIB or the FIB. `Session` in `net/portaccess/v1` is the row
+  for a port-access session, keyed by `(interface_name, mac)` and scoped by the
+  interface column, so `network_instance` is omitted per Rule 4.
 
 ## Field numbering
 

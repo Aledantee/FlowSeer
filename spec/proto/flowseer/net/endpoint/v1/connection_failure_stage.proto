@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.endpoint.v1;
+
+// The stage at which an endpoint's connection attempt failed.
+// Normalized from Cisco Meraki Wireless Connection Stats API.
+enum ConnectionFailureStage {
+  // Stage is unspecified or unknown. The zero value is rejected where stage is required.
+  CONNECTION_FAILURE_STAGE_UNSPECIFIED = 0;
+  // 802.11 association or L2 link negotiation failed.
+  CONNECTION_FAILURE_STAGE_ASSOCIATION = 1;
+  // 802.1X, WPA, or port-access authentication failed.
+  CONNECTION_FAILURE_STAGE_AUTHENTICATION = 2;
+  // DHCP IP address lease acquisition failed.
+  CONNECTION_FAILURE_STAGE_DHCP = 3;
+  // DNS name resolution probe failed.
+  CONNECTION_FAILURE_STAGE_DNS = 4;
+}
