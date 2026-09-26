@@ -5,6 +5,8 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept
+compound: docs/solutions/conventions/a-oneof-both-arms-set-is-unrepresentable-so-validate-the-empty-case.md
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
