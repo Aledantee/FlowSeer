@@ -464,6 +464,10 @@ if ((${#modules[@]})); then
       targets=(./...)
       changed_pkgs=()
       for go_file in "${go_files[@]:-}"; do
+        # macOS bash 3.2 has no empty array under set -u, so the expansion
+        # above yields one empty name, which would select the root package
+        # and narrow a go.mod-only run's module-wide scope.
+        [[ -n $go_file ]] || continue
         # Route each file to its nearest go.mod: a prefix match alone
         # would hand a nested module's file to the root module, which
         # then fails with "main module does not contain package".
