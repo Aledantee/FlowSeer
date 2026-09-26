@@ -4,12 +4,18 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 3, Wireless and RF - Plan
+
+> Implemented. 4 units, 2026-09-26T08:16Z to 2026-09-26T08:38Z. The
+> Verification and Definition-of-done lines naming `--full` are replaced by
+> targeted verifier runs over the union of paths changed in each unit,
+> because `--full` builds and race-tests `generated/` and exhausts host
+> memory; all targeted runs ended `FlowSeer verification passed.`
 
 ## Goal
 
