@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FlowSeer · m3connect palette</title>
+    <link rel="stylesheet" href="../src/theme/tailwind.css" />
     <link rel="stylesheet" href="../src/style.css" />
     <style>
       .palette-header {
@@ -11,21 +12,21 @@
         top: 0;
         z-index: 3;
         background: var(--chrome);
-        color: var(--chrome-text);
+        color: var(--chrome-foreground);
         padding: 18px 5vw;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        border-bottom: 1px solid var(--chrome-line);
+        border-bottom: 1px solid var(--chrome-border);
       }
       .palette-header strong {
         font-size: 16px;
       }
       .palette-header button {
         background: var(--chrome-surface);
-        color: var(--chrome-text);
-        border-color: var(--control-border);
+        color: var(--chrome-foreground);
+        border-color: var(--input);
       }
       .palette-content {
         padding: 38px 5vw;
@@ -51,10 +52,10 @@
         margin: 20px 0;
       }
       .palette-meta a {
-        border: 1px solid var(--control-border);
+        border: 1px solid var(--input);
         padding: 8px 12px;
         border-radius: 6px;
-        background: var(--surface);
+        background: var(--card);
       }
       .palette-anchors {
         display: grid;
@@ -64,10 +65,10 @@
       }
       .palette-anchor,
       .palette-semantic {
-        border: 1px solid var(--line);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 14px;
-        background: var(--surface);
+        background: var(--card);
       }
       .palette-anchor i {
         display: block;
@@ -77,7 +78,7 @@
       }
       .palette-anchor code {
         display: block;
-        color: var(--muted);
+        color: var(--muted-foreground);
         margin-top: 4px;
       }
       .palette-family {
@@ -101,8 +102,8 @@
       .palette-tone {
         padding: 0 0 8px;
         min-width: 54px;
-        border: 1px solid var(--line);
-        background: var(--surface);
+        border: 1px solid var(--border);
+        background: var(--card);
         overflow: hidden;
       }
       .palette-tone i {
@@ -115,7 +116,7 @@
         font-size: 12px;
       }
       .palette-tone:focus-visible {
-        outline: 3px solid var(--focus);
+        outline: 3px solid var(--ring);
       }
       .palette-notes {
         display: grid;
@@ -125,8 +126,8 @@
       }
       .palette-notes article {
         padding: 16px;
-        background: var(--surface);
-        border: 1px solid var(--line);
+        background: var(--card);
+        border: 1px solid var(--border);
         border-radius: 8px;
       }
       .palette-notes h3 {
@@ -150,7 +151,7 @@
         width: 32px;
         height: 32px;
         flex-shrink: 0;
-        border: 1px solid var(--line);
+        border: 1px solid var(--border);
         border-radius: 5px;
       }
       .palette-semantic code {
@@ -161,8 +162,8 @@
         margin-top: 5px;
       }
       .palette-example {
-        background: var(--surface);
-        border: 1px solid var(--line);
+        background: var(--card);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 22px;
         margin: 25px 0;
@@ -198,15 +199,15 @@
       #palette-status {
         min-height: 24px;
         font-size: 13px;
-        color: var(--accent-text);
+        color: var(--accent-foreground);
       }
       .palette-footnote {
         margin: 36px 0;
-        border-top: 1px solid var(--line);
+        border-top: 1px solid var(--border);
         padding-top: 18px;
       }
       .palette-footnote a {
-        color: var(--accent-text);
+        color: var(--accent-foreground);
         text-decoration: underline;
       }
       @media (max-width: 760px) {
@@ -301,9 +302,11 @@
         ><span class="status healthy"><i></i>Healthy</span
         ><span class="status degraded"><i></i>Degraded</span
         ><span class="status offline"><i></i>Offline</span
-        ><span style="color: var(--accent-text)">Selected site</span
-        ><span style="color: var(--accent-orange-text)">m3 orange accent</span
-        ><span style="color: var(--muted)">Secondary information</span>
+        ><span style="color: var(--accent-foreground)">Selected site</span
+        ><span style="color: var(--primary-text)">m3 orange accent</span
+        ><span style="color: var(--muted-foreground)"
+          >Secondary information</span
+        >
       </div>
       <div class="palette-semantics" id="palette-semantics"></div>
       <h2>Charts and topology</h2>

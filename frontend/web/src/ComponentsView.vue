@@ -125,15 +125,15 @@ function editDraft() {
   saved.value = 'Unsaved changes'
 }
 const swatches = [
-  { name: 'Canvas', token: '--page', purpose: 'The quiet background' },
-  { name: 'Surface', token: '--surface', purpose: 'Content and data' },
+  { name: 'Canvas', token: '--background', purpose: 'The quiet background' },
+  { name: 'Surface', token: '--card', purpose: 'Content and data' },
   {
     name: 'Selection',
-    token: '--cyan',
+    token: '--accent',
     purpose: 'Navigation and focus context',
   },
-  { name: 'Action', token: '--coral', purpose: 'The primary next step' },
-  { name: 'Healthy', token: '--healthy-surface', purpose: 'Normal operation' },
+  { name: 'Action', token: '--primary', purpose: 'The primary next step' },
+  { name: 'Healthy', token: '--success-surface', purpose: 'Normal operation' },
   {
     name: 'Attention',
     token: '--warning-surface',

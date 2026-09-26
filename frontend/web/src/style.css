@@ -1,80 +1,14 @@
 @import './theme/scales.css';
+@import './theme/semantic.css';
 @import './theme/language.css';
 @import './theme/brand-glow.css';
 
 :root {
-  font-family: var(--font-ui);
+  font-family: var(--font-sans);
   font-optical-sizing: auto;
-  color: var(--text);
-  background: var(--page);
+  color: var(--foreground);
+  background: var(--background);
   font-synthesis: none;
-  --chrome: #cbd1d6;
-  --chrome-surface: #b8cdd2;
-  --chrome-hover: #bac4cc;
-  --chrome-line: #929da8;
-  --chrome-text: #20262d;
-  --chrome-muted: #424b55;
-  --control-border: #596570;
-  --focus: #124d5d;
-  --connection: #4f6973;
-  --coral: #ff451d;
-  --on-coral: #061518;
-  --chrome-focus: #124d5d;
-  --cyan: #5ecad8;
-  --muted: #424b55;
-  --line: #929da8;
-  color-scheme: light;
-  --text: #20262d;
-  --page: #bec3ca;
-  --surface: #dce0e4;
-  --panel-surface: #cdd3d9;
-  --surface-subtle: #d4d9de;
-  --surface-hover: #c1cbd3;
-  --accent-text: #125263;
-  --accent-orange-text: #8e2c16;
-  --healthy-surface: #c9ddd0;
-  --healthy-text: #1e5135;
-  --warning-surface: #e8d9a7;
-  --warning-border: #8d753a;
-  --warning-text: #60450f;
-  --offline-surface: #e3c9cf;
-  --offline-text: #792e3b;
-  --offline-border: #95616e;
-  --info-surface: #c7dbe0;
-  --info-border: #5b747d;
-}
-:root[data-theme='dark'] {
-  --chrome: #191b1e;
-  --chrome-surface: #2a2f34;
-  --chrome-hover: #363d43;
-  --chrome-line: #434a52;
-  --chrome-text: #d8dce0;
-  --chrome-muted: #b0b7bf;
-  --chrome-focus: #9ccbd3;
-  color-scheme: dark;
-  --control-border: #858e98;
-  --focus: #9ccbd3;
-  --connection: #8da1a8;
-  --text: #d8dadd;
-  --page: #1c1e21;
-  --surface: #222a2e;
-  --panel-surface: #20272b;
-  --surface-subtle: #283136;
-  --surface-hover: #2c383e;
-  --line: #3b4046;
-  --muted: #adb3bb;
-  --accent-text: #9ccbd3;
-  --accent-orange-text: #ffa58f;
-  --healthy-surface: #29372f;
-  --healthy-text: #b0d2bc;
-  --warning-surface: #3b321b;
-  --warning-border: #a58a39;
-  --warning-text: #f5d66f;
-  --offline-surface: #3b2c32;
-  --offline-text: #e8b1bf;
-  --offline-border: #96616e;
-  --info-surface: #28383e;
-  --info-border: #607e88;
 }
 .theme-switcher {
   position: relative;
@@ -84,7 +18,7 @@
   height: 44px;
   padding: 0;
   background: transparent;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   border-color: transparent;
 }
 .theme-icon {
@@ -136,15 +70,15 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--ring);
   outline-offset: 3px;
 }
 button,
 select,
 input {
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--input);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--card);
 }
 select {
   padding: 8px 30px 8px 10px;
@@ -153,7 +87,7 @@ select {
 }
 small {
   display: block;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   font-weight: 400;
 }
@@ -178,7 +112,7 @@ h3 {
   font-size: 15px;
 }
 p {
-  color: var(--muted);
+  color: var(--muted-foreground);
   line-height: 1.6;
 }
 html:has(.shell) {
@@ -198,7 +132,7 @@ html:has(.shell) {
   position: fixed;
   inset: 0 auto 0 0;
   width: 204px;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   display: flex;
   flex-direction: column;
   padding: 10px 18px 0;
@@ -209,7 +143,7 @@ html:has(.shell) {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   border-radius: 5px;
 }
 .flowseer-mark {
@@ -227,7 +161,7 @@ html:has(.shell) {
 .tenant-chevron {
   flex-shrink: 0;
   margin-left: auto;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 
 .operator strong {
@@ -237,14 +171,14 @@ html:has(.shell) {
 }
 .operator small {
   font-size: 11px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   margin-top: 4px;
 }
 .nav-label {
   margin-top: 28px;
   font-size: 10px;
   letter-spacing: 1.5px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   padding: 0 12px 12px;
 }
 .sidebar nav a {
@@ -256,14 +190,14 @@ html:has(.shell) {
   padding: 11px 12px;
   border-radius: 5px;
   margin-bottom: 5px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   font-weight: 500;
 }
 .sidebar nav a:hover {
   background: color-mix(in srgb, var(--chrome-hover) 35%, transparent);
 }
 .sidebar nav .active {
-  color: var(--chrome-focus);
+  color: var(--chrome-ring);
 }
 .sidebar nav .active:hover {
   background: transparent;
@@ -286,7 +220,7 @@ html:has(.shell) {
   right: 0;
   width: 3px;
   border-radius: 3px 0 0 3px;
-  background: var(--chrome-focus);
+  background: var(--chrome-ring);
 }
 .nav-count {
   margin-left: auto;
@@ -296,7 +230,7 @@ html:has(.shell) {
   font-size: 11px;
 }
 .operator {
-  border-top: 1px solid var(--chrome-line);
+  border-top: 1px solid var(--chrome-border);
   margin: 0 -18px;
   padding: 18px;
   display: flex;
@@ -316,7 +250,7 @@ html:has(.shell) {
 }
 .operator .avatar {
   background: var(--chrome-surface);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .operator-settings {
   display: grid;
@@ -343,7 +277,7 @@ html:has(.shell) {
   align-items: center;
   justify-content: space-between;
   padding: 0 34px;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .topbar::after {
   content: '';
@@ -367,11 +301,11 @@ html:has(.shell) {
   gap: 6px 12px;
   min-width: 0;
   font-size: 12px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .breadcrumb-separator {
   margin: 0;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .breadcrumb-scope {
   display: flex;
@@ -385,11 +319,11 @@ html:has(.shell) {
   font-size: 12px;
   background: transparent;
   border-color: transparent;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   color-scheme: inherit;
 }
 .breadcrumb strong {
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   font-weight: 500;
 }
 main {
@@ -414,7 +348,7 @@ main {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 1.5px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 7px;
 }
 .page-heading p {
@@ -427,7 +361,7 @@ main {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--healthy-text);
+  background: var(--success-foreground);
 }
 .paused {
   background: #8a969b;
@@ -436,28 +370,28 @@ main {
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   box-shadow: 0 2px 3px #08232b03;
   margin-bottom: var(--space-6);
 }
 .metrics article {
   padding: 22px 24px;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--border);
 }
 .metrics article:last-child {
   border: 0;
 }
 .metric-label {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .metric-label svg {
-  color: var(--muted);
+  color: var(--muted-foreground);
   width: 15px;
   height: 15px;
 }
@@ -474,19 +408,19 @@ main {
 .metric-unit {
   font-size: 12px;
   font-weight: 400;
-  color: var(--muted);
+  color: var(--muted-foreground);
   letter-spacing: 0;
 }
 .metric-note {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .metric-note b {
   font-weight: 500;
-  color: var(--healthy-text);
+  color: var(--success-foreground);
 }
 .sparkline {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   letter-spacing: 1px;
   font-size: 20px;
   margin-left: auto;
@@ -503,8 +437,8 @@ main {
   gap: 13px;
 }
 .attention-icon {
-  border: 1px solid var(--warning-text);
-  color: var(--warning-text);
+  border: 1px solid var(--warning-foreground);
+  color: var(--warning-foreground);
   font-weight: 600;
   width: 18px;
   height: 18px;
@@ -519,7 +453,7 @@ main {
 }
 .attention div > span {
   font-size: 12px;
-  color: var(--warning-text);
+  color: var(--warning-foreground);
   margin-left: 10px;
 }
 .attention button {
@@ -531,12 +465,12 @@ main {
   gap: 8px;
   font-size: 12px;
   padding: 4px;
-  color: var(--warning-text);
+  color: var(--warning-foreground);
   white-space: nowrap;
 }
 .inventory {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   overflow: hidden;
   box-shadow: 0 3px 6px #092b3403;
@@ -550,10 +484,10 @@ main {
 }
 .section-heading h2 span {
   font-size: 11px;
-  background: var(--surface-subtle);
+  background: var(--subtle);
   padding: 2px 6px;
   border-radius: 4px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-left: 6px;
 }
 .section-heading p {
@@ -576,29 +510,29 @@ main {
   position: absolute;
   left: 10px;
   width: 14px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .search input {
   width: 100%;
   padding: 9px 10px 9px 32px;
   font-size: 12px;
-  background: var(--surface);
+  background: var(--card);
   box-shadow: 0 1px 2px #0a263608;
 }
 .search input::placeholder {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .status-filter {
   display: flex;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--input);
   border-radius: var(--radius-control);
   padding-left: 10px;
   font-size: 12px;
 }
 .status-filter span {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .status-filter select {
   border: 0;
@@ -608,7 +542,7 @@ main {
 .results {
   margin-left: auto;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .table-scroll {
   position: relative;
@@ -623,15 +557,15 @@ table {
 th {
   font-size: 11px;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--muted-foreground);
   padding: 11px 15px;
-  background: var(--surface-subtle);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  background: var(--subtle);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 td {
   padding: 9px 15px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
   height: 64px;
 }
@@ -640,7 +574,7 @@ td:first-child {
   padding-left: 24px;
 }
 tbody tr:hover {
-  background: var(--surface-hover);
+  background: var(--hover);
 }
 tbody tr:last-child td {
   border-bottom: 0;
@@ -650,7 +584,7 @@ tbody tr:last-child td {
   background: none;
   padding: 0;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .device-button {
   display: flex;
@@ -667,7 +601,7 @@ tbody tr:last-child td {
   display: block;
 }
 .device-button:hover strong {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .device-button small,
 td small {
@@ -679,10 +613,10 @@ td small {
   place-items: center;
   width: 31px;
   height: 32px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--line);
+  background: var(--subtle);
+  border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .device-icon svg {
   width: 16px;
@@ -696,8 +630,8 @@ td small {
   font-weight: 500;
   padding: 4px 8px;
   border-radius: 4px;
-  background: var(--healthy-surface);
-  color: var(--healthy-text);
+  background: var(--success-surface);
+  color: var(--success-foreground);
 }
 .status i {
   width: 5px;
@@ -707,11 +641,11 @@ td small {
 }
 .status.degraded {
   background: var(--warning-surface);
-  color: var(--warning-text);
+  color: var(--warning-foreground);
 }
 .status.offline {
-  background: var(--offline-surface);
-  color: var(--offline-text);
+  background: var(--danger-surface);
+  color: var(--danger-foreground);
 }
 .site-name {
   font-weight: 450;
@@ -719,7 +653,7 @@ td small {
 .mono {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .numeric {
   text-align: right;
@@ -730,7 +664,7 @@ td small {
 }
 .traffic span {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .icon-button {
   display: grid;
@@ -738,20 +672,20 @@ td small {
   padding: 5px;
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .icon-button:hover {
-  background: var(--surface-hover);
-  color: var(--accent-text);
+  background: var(--hover);
+  color: var(--accent-foreground);
 }
 .table-footer {
   display: flex;
   justify-content: space-between;
   padding: 13px 21px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   font-size: 11px;
-  color: var(--muted);
-  background: var(--surface-subtle);
+  color: var(--muted-foreground);
+  background: var(--subtle);
 }
 .notice {
   display: flex;
@@ -775,9 +709,9 @@ td small {
 }
 .site-card {
   padding: var(--space-6);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  background: var(--surface);
+  background: var(--card);
 }
 .site-symbol {
   display: grid;
@@ -785,7 +719,7 @@ td small {
   width: 38px;
   height: 38px;
   background: var(--info-surface);
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   border-radius: var(--radius-panel);
   margin-bottom: 20px;
 }
@@ -803,25 +737,25 @@ td small {
   font-size: 12px;
 }
 .site-stats span {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .site-card a {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   padding-top: 15px;
   display: flex;
   justify-content: space-between;
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   font-size: 12px;
 }
 .topology-graph {
   position: relative;
   height: 100%;
-  background: var(--page);
+  background: var(--background);
 }
 /* The topology is a full-bleed canvas: it runs under the glass top bar and
    out to the edges of the main area. */
 .topology-canvas .vue-flow__background {
-  color: var(--control-border);
+  color: var(--input);
 }
 .topology-canvas .topology-inspector {
   top: calc(var(--topbar-height) + 14px);
@@ -855,27 +789,27 @@ td small {
 }
 .topology-graph .vue-flow__controls {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-control);
   box-shadow: none;
 }
 .topology-graph .vue-flow__controls-button {
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
   fill: currentColor;
 }
 .topology-graph .vue-flow__controls-button:hover {
-  background: var(--surface-hover);
+  background: var(--hover);
 }
 .topology-graph .vue-flow__minimap {
   transition:
     opacity 180ms ease,
     visibility 180ms;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--card);
 }
 .topology-graph .vue-flow__minimap.minimap-hidden {
   visibility: hidden;
@@ -890,9 +824,9 @@ td small {
 .topology-site-node {
   width: 100%;
   height: 100%;
-  border: 1px dashed var(--control-border);
+  border: 1px dashed var(--input);
   border-radius: var(--radius-panel);
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
 }
 .topology-site-node.solo {
   border-color: transparent;
@@ -916,7 +850,7 @@ td small {
 .topology-site-node small {
   margin-top: 4px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-site-link {
   display: grid;
@@ -924,34 +858,34 @@ td small {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-control);
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-site-link:hover {
-  background: var(--surface-hover);
-  color: var(--accent-text);
+  background: var(--hover);
+  color: var(--accent-foreground);
 }
 .topology-site-link svg {
   width: 15px;
 }
 .topology-link .vue-flow__edge-path {
-  stroke: var(--connection);
+  stroke: var(--graph-edge);
   transition: stroke 120ms ease;
 }
 .topology-link.degraded .vue-flow__edge-path {
   stroke: var(--warning-border);
 }
 .topology-link.offline .vue-flow__edge-path {
-  stroke: var(--offline-border);
+  stroke: var(--danger-border);
   stroke-dasharray: 4 5;
 }
 .topology-link.selected .vue-flow__edge-path,
 .vue-flow__edge:hover .topology-link .vue-flow__edge-path {
-  stroke: var(--accent-text);
+  stroke: var(--accent-foreground);
 }
 /* Moving dashes show traffic direction, from uplink down to the device. */
 .topology-link-flow {
   fill: none;
-  stroke: var(--cyan);
+  stroke: var(--accent);
   stroke-dasharray: 3 14;
   stroke-linecap: round;
   opacity: 0.7;
@@ -972,10 +906,10 @@ td small {
   position: absolute;
   z-index: 1;
   padding: 2px 7px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--card);
+  color: var(--muted-foreground);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   pointer-events: all;
@@ -983,16 +917,16 @@ td small {
 }
 .topology-link-label:hover,
 .topology-link-label.selected {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
+  border-color: var(--accent-foreground);
+  color: var(--accent-foreground);
 }
 .topology-link-label.degraded {
   border-color: var(--warning-border);
-  color: var(--warning-text);
+  color: var(--warning-foreground);
 }
 .topology-link-label.offline {
-  border-color: var(--offline-border);
-  color: var(--offline-text);
+  border-color: var(--danger-border);
+  color: var(--danger-foreground);
 }
 .topology-inspector {
   position: absolute;
@@ -1005,9 +939,9 @@ td small {
   flex-direction: column;
   max-height: calc(100% - 28px);
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: blur(16px);
   box-shadow: 0 12px 32px #00000026;
 }
@@ -1016,7 +950,7 @@ td small {
   align-items: center;
   gap: 10px;
   padding: 14px 12px 12px 16px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 .topology-inspector header > span:not(.device-icon) {
   flex: 1;
@@ -1036,7 +970,7 @@ td small {
 .topology-inspector header small {
   margin-top: 3px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-inspector dl {
   display: grid;
@@ -1047,7 +981,7 @@ td small {
 }
 .topology-inspector dt {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-inspector dd {
   margin: 4px 0 0;
@@ -1061,16 +995,16 @@ td small {
   display: grid;
   gap: 10px;
   padding: 14px 16px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .topology-inspector-section h3 {
   font-size: 11px;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-inspector-note {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .resource-meter {
   display: grid;
@@ -1079,7 +1013,7 @@ td small {
   font-size: 12px;
 }
 .resource-meter-label {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .resource-meter-value {
   white-space: nowrap;
@@ -1088,27 +1022,27 @@ td small {
 }
 .resource-meter-value small {
   font-weight: 400;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .resource-meter-track {
   grid-column: 1 / -1;
   height: 5px;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--surface-subtle);
+  background: var(--subtle);
 }
 .resource-meter-track i {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent-text);
+  background: var(--accent-foreground);
   transition: width 300ms ease;
 }
 .resource-meter.warning .resource-meter-track i {
-  background: var(--warning-text);
+  background: var(--warning-foreground);
 }
 .resource-meter.critical .resource-meter-track i {
-  background: var(--offline-text);
+  background: var(--danger-foreground);
 }
 .radio-list,
 .port-list,
@@ -1132,7 +1066,7 @@ td small {
 .port-rate,
 .port-endpoint {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 .port-list li {
@@ -1149,31 +1083,31 @@ td small {
 }
 .port {
   aspect-ratio: 1;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--input);
   border-radius: 3px;
   background: transparent;
 }
 .port.up {
-  border-color: var(--healthy-text);
-  background: color-mix(in srgb, var(--healthy-text) 55%, transparent);
+  border-color: var(--success-foreground);
+  background: color-mix(in srgb, var(--success-foreground) 55%, transparent);
 }
 .port.disabled {
   border-style: dashed;
   opacity: 0.5;
 }
 .port.poe {
-  box-shadow: inset 0 -3px 0 var(--cyan);
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 .port-summary {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .port-neighbor {
   justify-self: start;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   font-size: 12px;
   font-weight: 550;
   text-align: left;
@@ -1186,10 +1120,10 @@ td small {
 }
 .port-state {
   font-size: 11px;
-  color: var(--healthy-text);
+  color: var(--success-foreground);
 }
 .port-state.down {
-  color: var(--offline-text);
+  color: var(--danger-foreground);
 }
 .topology-port-label {
   position: absolute;
@@ -1198,7 +1132,7 @@ td small {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: var(--font-mono);
   font-size: 9px;
   white-space: nowrap;
@@ -1215,9 +1149,9 @@ td small {
   visibility: visible;
 }
 .topology-port-label:hover {
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--accent-text);
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--accent-foreground);
 }
 .port-map button {
   display: block;
@@ -1226,18 +1160,18 @@ td small {
   cursor: pointer;
 }
 .port-map button:hover {
-  border-color: var(--accent-text);
+  border-color: var(--accent-foreground);
 }
 .port-name {
   justify-self: start;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--foreground);
   text-align: left;
 }
 .port-name:hover {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   text-decoration: underline;
 }
 .topology-inspector footer {
@@ -1245,13 +1179,13 @@ td small {
   flex-wrap: wrap;
   gap: 8px 16px;
   padding: 12px 16px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .topology-error {
   position: absolute;
   inset: auto 16px 16px;
   font-size: 12px;
-  color: var(--offline-text);
+  color: var(--danger-foreground);
 }
 .sparkline {
   display: block;
@@ -1260,12 +1194,12 @@ td small {
 }
 .sparkline-line {
   fill: none;
-  stroke: var(--accent-text);
+  stroke: var(--accent-foreground);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
 .sparkline-area {
-  fill: color-mix(in srgb, var(--accent-text) 14%, transparent);
+  fill: color-mix(in srgb, var(--accent-foreground) 14%, transparent);
 }
 .topology-node {
   height: 86px;
@@ -1275,10 +1209,10 @@ td small {
   gap: 10px;
   width: 212px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--card);
+  color: var(--foreground);
   box-shadow: 0 2px 4px #103a4206;
   transition:
     border-color 120ms ease,
@@ -1287,18 +1221,18 @@ td small {
 .topology-node:hover,
 .topology-node.selected {
   border-color: var(--info-border);
-  background: var(--surface-hover);
+  background: var(--hover);
 }
 .topology-node .device-icon {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .topology-node.degraded .device-icon {
   border-color: var(--warning-border);
-  color: var(--warning-text);
+  color: var(--warning-foreground);
 }
 .topology-node.offline .device-icon {
-  border-color: var(--offline-border);
-  color: var(--offline-text);
+  border-color: var(--danger-border);
+  color: var(--danger-foreground);
 }
 .topology-node-text {
   min-width: 0;
@@ -1317,7 +1251,7 @@ td small {
 .topology-node-text small {
   margin-top: 3px;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-status {
   align-self: start;
@@ -1325,13 +1259,13 @@ td small {
   height: 7px;
   margin-top: 4px;
   border-radius: 50%;
-  background: var(--healthy-text);
+  background: var(--success-foreground);
 }
 .topology-node.degraded .topology-status {
-  background: var(--warning-text);
+  background: var(--warning-foreground);
 }
 .topology-node.offline .topology-status {
-  background: var(--offline-text);
+  background: var(--danger-foreground);
 }
 .topology-node-stats {
   grid-column: 1 / -1;
@@ -1339,9 +1273,9 @@ td small {
   justify-content: space-between;
   gap: 10px;
   padding-top: 8px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topology-node-stats span:only-child {
   margin-left: auto;
@@ -1351,7 +1285,7 @@ td small {
   padding: 55px 20px;
 }
 .empty svg {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .empty h3 {
   margin: 15px 0 6px;
@@ -1360,10 +1294,10 @@ td small {
   margin-bottom: 18px;
 }
 .primary {
-  background: var(--coral);
-  color: var(--on-coral);
+  background: var(--primary);
+  color: var(--primary-foreground);
   font-weight: 600;
-  border-color: var(--coral);
+  border-color: var(--primary);
   width: 100%;
   margin: 20px 0 12px;
   padding: 11px;
@@ -1454,7 +1388,7 @@ td small {
     border-right: 0;
   }
   .metrics article:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
   .page-heading {
     align-items: flex-start;
@@ -1547,7 +1481,7 @@ td small {
   top: -60px;
   left: 20px;
   z-index: 10;
-  background: var(--surface);
+  background: var(--card);
   padding: 12px;
   border-radius: var(--radius-control);
 }
@@ -1573,7 +1507,7 @@ td small {
   height: 64px;
   padding: 0;
   background: transparent;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   border: 0;
   border-radius: 0;
 }
@@ -1592,7 +1526,7 @@ td small {
   transform: rotate(180deg);
 }
 .sidebar-toggle:hover {
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 @media (max-width: 800px) {
   .sidebar {
@@ -1635,10 +1569,10 @@ td small {
     top: 50%;
     left: calc(100% + 12px);
     padding: 5px 9px;
-    border: 1px solid var(--chrome-line);
+    border: 1px solid var(--chrome-border);
     border-radius: 5px;
     background: var(--chrome-surface);
-    color: var(--chrome-text);
+    color: var(--chrome-foreground);
     font-size: 12px;
     white-space: nowrap;
     pointer-events: none;
@@ -1690,7 +1624,7 @@ td small {
     padding: 0 14px;
   }
   .mobile-devices li + li {
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
   }
   .mobile-devices a {
     display: grid;
@@ -1710,13 +1644,13 @@ td small {
   }
   .mobile-devices small {
     grid-column: 1 / -1;
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
   .mobile-device-action {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--accent-text);
+    color: var(--accent-foreground);
     font-size: 12px;
   }
   .sidebar-toggle,
@@ -1783,7 +1717,7 @@ td small {
   padding: 0;
   background: transparent;
   border-color: transparent;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .help-button:hover {
   background: var(--chrome-hover);
@@ -1793,10 +1727,10 @@ td small {
   max-width: calc(100% - 32px);
   max-height: calc(100dvh - 32px);
   padding: 24px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--card);
+  color: var(--foreground);
 }
 .help-dialog::backdrop {
   background: #09232b45;
@@ -1846,9 +1780,9 @@ td small {
   width: 100%;
   padding: 10px;
   font: inherit;
-  color: var(--text);
-  background: var(--surface-subtle);
-  border: 1px solid var(--control-border);
+  color: var(--foreground);
+  background: var(--subtle);
+  border: 1px solid var(--input);
   border-radius: var(--radius-control);
 }
 .bug-report-form textarea {
@@ -1863,7 +1797,7 @@ td small {
   height: 44px;
   margin-left: auto;
   padding: 0;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   border-color: transparent;
   background: transparent;
 }
@@ -1895,7 +1829,7 @@ td small {
 .metrics,
 .inventory > .section-heading,
 .inventory > .toolbar {
-  background: var(--panel-surface);
+  background: var(--card-header);
 }
 @media (min-width: 801px) {
   .sidebar nav {
@@ -1923,7 +1857,7 @@ td small {
   padding: 7px 4px;
   border: 0;
   background: transparent;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   text-align: left;
   font-size: 12px;
   border-radius: 5px;
@@ -1940,7 +1874,7 @@ td small {
   flex-shrink: 0;
   width: 14px;
   margin-left: auto;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   transition: transform 120ms ease;
 }
 .scope-trigger[aria-expanded='true'] .scope-chevron {
@@ -1950,24 +1884,24 @@ td small {
   position: fixed;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--chrome) 88%, transparent);
   backdrop-filter: blur(24px) saturate(140%);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   box-shadow: 0 12px 32px #00000033;
 }
 .scope-search {
   position: relative;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--chrome-line);
+  border-bottom: 1px solid var(--chrome-border);
 }
 .scope-search svg {
   position: absolute;
   left: 12px;
   width: 14px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   pointer-events: none;
 }
 .scope-search input {
@@ -1981,7 +1915,7 @@ td small {
   outline: none;
 }
 .scope-search input::placeholder {
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .scope-viewport {
   height: auto;
@@ -2004,7 +1938,7 @@ td small {
   background: var(--chrome-hover);
 }
 .scope-option[aria-selected='true'] {
-  color: var(--chrome-focus);
+  color: var(--chrome-ring);
   font-weight: 550;
 }
 .scope-option.scope-nested {
@@ -2019,12 +1953,12 @@ td small {
   flex-shrink: 0;
   width: 14px;
   margin-left: auto;
-  color: var(--chrome-focus);
+  color: var(--chrome-ring);
 }
 .scope-empty {
   padding: 12px 10px;
   font-size: 12px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 
 .tenant-switcher .scope-trigger span:first-child,
@@ -2040,7 +1974,7 @@ td small {
 
 .account-control {
   flex-shrink: 0;
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .account-trigger {
   display: grid;
@@ -2069,8 +2003,8 @@ td small {
   max-width: calc(100vw - 24px);
   padding: 5px;
   background: var(--chrome);
-  color: var(--chrome-text);
-  border: 1px solid var(--chrome-line);
+  color: var(--chrome-foreground);
+  border: 1px solid var(--chrome-border);
   border-radius: var(--radius-panel);
   box-shadow: 0 12px 32px #00000026;
 }
@@ -2082,7 +2016,7 @@ td small {
   padding: 10px;
   border: 0;
   background: transparent;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   font-size: 12px;
 }
 .account-logout svg {
@@ -2162,7 +2096,7 @@ td small {
 }
 
 .breadcrumb-link:hover {
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .client-name,
 .table-link {
@@ -2175,14 +2109,14 @@ td small {
 .table-link:hover,
 .link-button:hover,
 .panel-link:hover {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   text-decoration: underline;
 }
 .link-button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   font-size: 11px;
 }
 .filter-chip {
@@ -2193,7 +2127,7 @@ td small {
   border: 1px solid var(--info-border);
   border-radius: 999px;
   background: var(--info-surface);
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   font-size: 12px;
 }
 .filter-chip svg {
@@ -2208,13 +2142,13 @@ td small {
 }
 .signal small {
   font-weight: 400;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .signal.fair {
-  color: var(--warning-text);
+  color: var(--warning-foreground);
 }
 .signal.weak {
-  color: var(--offline-text);
+  color: var(--danger-foreground);
 }
 
 .device-page {
@@ -2227,13 +2161,13 @@ td small {
   gap: 6px;
   justify-self: start;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .back-link svg {
   width: 14px;
 }
 .back-link:hover {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .device-header {
   display: flex;
@@ -2243,7 +2177,7 @@ td small {
 .device-header .device-icon {
   width: 48px;
   height: 48px;
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .device-header .device-icon svg {
   width: 22px;
@@ -2262,19 +2196,19 @@ td small {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  background: var(--panel-surface);
+  background: var(--card-header);
 }
 .device-facts div {
   padding: 16px 20px;
 }
 .device-facts div + div {
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--border);
 }
 .device-facts dt {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .device-facts dd {
   margin: 6px 0 0;
@@ -2283,16 +2217,16 @@ td small {
 }
 .device-facts dd.mono {
   font-size: 15px;
-  color: var(--text);
+  color: var(--foreground);
 }
 .device-facts dd small {
   display: inline;
   font-size: 11px;
   font-weight: 400;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .device-facts dd a:hover {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .device-sections {
   display: grid;
@@ -2306,9 +2240,9 @@ td small {
 }
 .device-panel {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  background: var(--surface);
+  background: var(--card);
 }
 .device-panel .section-heading {
   padding: 18px 20px 12px;
@@ -2318,7 +2252,7 @@ td small {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .panel-link svg {
   width: 14px;
@@ -2334,7 +2268,7 @@ td small {
   justify-content: space-between;
   gap: 12px;
   padding: 11px 20px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   font-size: 12px;
 }
 .device-list strong,
@@ -2347,19 +2281,19 @@ td small {
 .device-list small {
   margin-top: 3px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .device-list a:hover strong {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .device-list-meta {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .panel-empty {
   padding: 4px 20px 20px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .assignment {
   padding: 18px 20px 20px;
@@ -2394,7 +2328,7 @@ td small {
     border-left: 0;
   }
   .device-facts div:nth-child(n + 3) {
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
   }
 }
 
@@ -2430,15 +2364,15 @@ td small {
   height: 34px;
   margin-right: 8px;
   padding: 0 8px 0 10px;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--chrome-surface) 60%, transparent);
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   font-size: 12px;
 }
 .search-trigger:hover {
-  border-color: var(--chrome-muted);
-  color: var(--chrome-text);
+  border-color: var(--chrome-muted-foreground);
+  color: var(--chrome-foreground);
 }
 .search-trigger svg {
   width: 14px;
@@ -2450,11 +2384,11 @@ td small {
 .search-trigger kbd,
 .search-hints kbd {
   padding: 1px 5px;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: 4px;
   font-family: inherit;
   font-size: 10px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-dialog {
   width: min(640px, calc(100vw - 32px));
@@ -2462,11 +2396,11 @@ td small {
   margin: 12dvh auto auto;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--chrome) 94%, transparent);
   backdrop-filter: blur(24px) saturate(140%);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   box-shadow: 0 24px 60px #00000055;
 }
 .search-dialog::backdrop {
@@ -2496,13 +2430,13 @@ td small {
   position: relative;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--chrome-line);
+  border-bottom: 1px solid var(--chrome-border);
 }
 .search-field svg {
   position: absolute;
   left: 16px;
   width: 16px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   pointer-events: none;
 }
 .search-field input {
@@ -2515,7 +2449,7 @@ td small {
   outline: none;
 }
 .search-field input::placeholder {
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-scroll {
   flex: 1;
@@ -2535,7 +2469,7 @@ td small {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.4px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-result {
   display: flex;
@@ -2551,7 +2485,7 @@ td small {
 .search-result svg {
   flex-shrink: 0;
   width: 16px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-result span {
   min-width: 0;
@@ -2570,21 +2504,21 @@ td small {
 .search-result small {
   margin-top: 2px;
   font-size: 11px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-empty {
   padding: 22px 12px;
   font-size: 12px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   text-align: center;
 }
 .search-hints {
   display: flex;
   gap: 16px;
   padding: 10px 14px;
-  border-top: 1px solid var(--chrome-line);
+  border-top: 1px solid var(--chrome-border);
   font-size: 11px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-hints kbd {
   margin-right: 3px;
@@ -2609,11 +2543,11 @@ td small {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
   font-size: 10px;
 }
 .search-clear:hover {
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   text-decoration: underline;
 }
 
@@ -2707,13 +2641,13 @@ td small {
   content: '';
   position: absolute;
   inset: var(--topbar-height) 4px 0;
-  background: var(--line);
+  background: var(--border);
   transition: background 120ms ease;
 }
 .pane-divider:hover::after,
 .pane-divider:focus-visible::after,
 .resizing-panes .pane-divider::after {
-  background: var(--accent-text);
+  background: var(--accent-foreground);
 }
 .resizing-panes {
   cursor: col-resize;
@@ -2733,15 +2667,15 @@ td small {
   gap: 8px;
   height: 36px;
   padding: 0 8px 0 16px;
-  border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--page) 82%, transparent);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--background) 82%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   transition: border-color 120ms ease;
 }
 .split-pane.active-pane .pane-header {
-  border-bottom-color: var(--accent-text);
+  border-bottom-color: var(--accent-foreground);
 }
 .pane-header > svg {
   flex-shrink: 0;
@@ -2756,7 +2690,7 @@ td small {
 }
 .pane-title strong {
   font-weight: 550;
-  color: var(--text);
+  color: var(--foreground);
 }
 .pane-title small {
   display: inline;
@@ -2775,12 +2709,12 @@ td small {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .pane-tools button:hover,
 .pane-tools button:focus-visible {
-  background: var(--surface-hover);
-  color: var(--text);
+  background: var(--hover);
+  color: var(--foreground);
 }
 .pane-header svg {
   width: 14px;
@@ -2788,11 +2722,11 @@ td small {
 .minimize-page {
   flex-shrink: 0;
   margin-left: 8px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .minimize-page:hover {
   background: color-mix(in srgb, var(--chrome-hover) 45%, transparent);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 
 .page-dock {
@@ -2808,7 +2742,7 @@ td small {
 .dock-scroll {
   max-width: 100%;
   pointer-events: auto;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--chrome) 88%, transparent);
   backdrop-filter: blur(24px) saturate(140%);
@@ -2830,7 +2764,7 @@ td small {
   align-items: center;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .dock-tab:hover {
   background: var(--chrome-hover);
@@ -2849,7 +2783,7 @@ td small {
 .dock-open svg {
   flex-shrink: 0;
   width: 15px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .dock-open span {
   min-width: 0;
@@ -2867,7 +2801,7 @@ td small {
 }
 .dock-open small {
   font-size: 10px;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .dock-action {
   display: grid;
@@ -2878,7 +2812,7 @@ td small {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .dock-action:last-child {
   margin-right: 4px;
@@ -2886,7 +2820,7 @@ td small {
 .dock-action:hover,
 .dock-action[aria-pressed='true'] {
   background: color-mix(in srgb, var(--chrome-surface) 80%, transparent);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .dock-action svg {
   width: 13px;
@@ -2939,7 +2873,7 @@ td small {
   right: 0;
   left: 0;
   height: 2px;
-  background: color-mix(in srgb, var(--accent-text) 70%, transparent);
+  background: color-mix(in srgb, var(--accent-foreground) 70%, transparent);
   pointer-events: none;
 }
 .split-pane.active-pane::before {
@@ -2955,11 +2889,11 @@ td small {
   width: 1px;
   height: 14px;
   margin: 0 4px;
-  background: var(--line);
+  background: var(--border);
 }
 .pane-tools button[aria-pressed='true'] {
   background: var(--info-surface);
-  color: var(--accent-text);
+  color: var(--accent-foreground);
 }
 .row-actions {
   white-space: nowrap;
@@ -2969,11 +2903,12 @@ td small {
 }
 tbody tr.peeked {
   background: color-mix(in srgb, var(--info-surface) 60%, transparent);
-  box-shadow: inset 3px 0 0 var(--accent-text);
+  box-shadow: inset 3px 0 0 var(--accent-foreground);
 }
 .topology-node.peeked {
-  border-color: var(--accent-text);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-text) 25%, transparent);
+  border-color: var(--accent-foreground);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--accent-foreground) 25%, transparent);
 }
 .panes.docked .canvas-view .vue-flow__panel.bottom {
   bottom: 70px;
@@ -2990,7 +2925,7 @@ tbody tr.peeked {
   height: 13px;
   padding: 0 3px;
   border-radius: 999px;
-  background: var(--warning-text);
+  background: var(--warning-foreground);
   color: var(--chrome);
   font-size: 9px;
   font-style: normal;
@@ -2999,7 +2934,7 @@ tbody tr.peeked {
   text-align: center;
 }
 .dock-badge.offline {
-  background: var(--offline-text);
+  background: var(--danger-foreground);
 }
 .dock-badge:empty {
   min-width: 8px;
@@ -3036,11 +2971,11 @@ tbody tr.peeked {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .search-result-actions button:hover {
   background: var(--chrome-surface);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
 }
 .search-result-actions svg {
   width: 14px;
@@ -3079,12 +3014,12 @@ tbody tr.peeked {
   position: relative;
   flex: 1;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  background: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
   transition: background 120ms ease;
 }
 .scroll-bar:hover .scroll-thumb,
 .scroll-thumb:active {
-  background: color-mix(in srgb, var(--muted) 75%, transparent);
+  background: color-mix(in srgb, var(--muted-foreground) 75%, transparent);
 }
 .scroll-bar[data-orientation='vertical']:hover {
   width: 10px;
@@ -3102,7 +3037,8 @@ tbody tr.peeked {
 /* Anything still using a native bar gets a thin one in our colours. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent)
+    transparent;
 }
 ::-webkit-scrollbar {
   width: 6px;
@@ -3110,7 +3046,7 @@ tbody tr.peeked {
 }
 ::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  background: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -3133,10 +3069,10 @@ tbody tr.peeked {
   gap: 4px 8px;
   max-width: 280px;
   padding: 5px 8px;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: 6px;
   background: var(--chrome);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   font-size: 11px;
   line-height: 1.4;
   box-shadow: 0 6px 18px #00000033;
@@ -3155,7 +3091,7 @@ tbody tr.peeked {
 }
 .tooltip-hint {
   flex-basis: 100%;
-  color: var(--chrome-muted);
+  color: var(--chrome-muted-foreground);
 }
 .tooltip-keys {
   display: inline-flex;
@@ -3164,10 +3100,10 @@ tbody tr.peeked {
 .tooltip-keys kbd {
   min-width: 16px;
   padding: 0 4px;
-  border: 1px solid var(--chrome-line);
+  border: 1px solid var(--chrome-border);
   border-radius: 4px;
   background: var(--chrome-surface);
-  color: var(--chrome-text);
+  color: var(--chrome-foreground);
   font-family: inherit;
   font-size: 10px;
   line-height: 15px;
@@ -3196,15 +3132,15 @@ tbody tr.peeked {
 .pane-header .scope-trigger {
   gap: 6px;
   padding: 4px 6px;
-  color: var(--text);
+  color: var(--foreground);
 }
 .pane-header .scope-trigger:hover,
 .pane-header .scope-trigger[aria-expanded='true'] {
-  background: var(--surface-hover);
+  background: var(--hover);
 }
 .pane-header .scope-chevron,
 .pane-header .breadcrumb-separator {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .pane-header .pane-title {
   flex: 0 0 auto;

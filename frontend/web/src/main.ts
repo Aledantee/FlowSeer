@@ -4,6 +4,7 @@ import App from './App.vue'
 import FleetView from './FleetView.vue'
 import '@fontsource-variable/inter/standard.css'
 import '@fontsource-variable/dm-sans'
+import './theme/tailwind.css'
 import './style.css'
 const router = createRouter({
   history: createWebHistory(),

@@ -1,7 +1,7 @@
 :root {
   --glow-base: var(--chrome, #191b1e);
-  --glow-teal: var(--cyan, #5ecad8);
-  --glow-orange: var(--coral, #ff451d);
+  --glow-teal: var(--accent, #5ecad8);
+  --glow-orange: var(--primary, #ff451d);
   --glow-strength: 30%;
   --glow-height: 560px;
   --glow-ribbon-angle: 112deg;

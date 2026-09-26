@@ -91,7 +91,7 @@ collapse.
 ### U1. Token foundations and Storybook
 Files: `docs/plans/2026-09-26-2329-feat-web-design-system-phase1-plan.md`
 After: none
-Landed:
+Landed: `37453a31..810273e4`
 
 ### U2. Basic components
 Files: `docs/plans/2026-09-26-2329-feat-web-design-system-phase2-plan.md`

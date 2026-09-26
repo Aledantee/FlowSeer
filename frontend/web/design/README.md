@@ -30,8 +30,8 @@ not supplied as an official brand manual:
 | Deep teal         | `#061518` | Dark foreground on vivid brand fills                 |
 | Dark teal         | `#0A1E22` | Brand reference; large console surfaces use charcoal |
 
-The m3 orange is the coral anchor `#FF451D`. Use `--coral` for solid accents
-and `--accent-orange-text` for readable warm text in each theme. The navigation frame uses the reusable CSS glow described below.
+The m3 orange is the coral anchor `#FF451D`. Use `--primary` for solid accents
+and `--primary-text` for readable warm text in each theme. The navigation frame uses the reusable CSS glow described below.
 
 White text on coral is only 3.43:1; white on cyan is 1.92:1. Neither is suitable
 for normal-size white text. Deep teal text on coral reaches 5.43:1 and on cyan
@@ -41,6 +41,55 @@ The eight families are coral, cyan, neutral, green, amber, rose, violet, and blu
 Each has twelve light and twelve dark tones: 192 tones in total. The supporting
 families are proposed UI extensions, not additional official m3connect colors.
 The chart families complement the brand without conflating coral with errors.
+
+### Semantic step table
+
+| Token                     | Light             | Dark             |
+| ------------------------- | ----------------- | ---------------- |
+| `background`              | neutral-5         | neutral-1        |
+| `foreground`              | neutral-12        | neutral-12       |
+| `muted-foreground`        | neutral-11        | neutral-11       |
+| `card`                    | neutral-2         | neutral-2        |
+| `card-header`             | neutral-4         | neutral-2        |
+| `subtle`                  | neutral-3         | neutral-3        |
+| `hover`                   | neutral-5         | neutral-4        |
+| `popover`                 | neutral-1         | neutral-3        |
+| `border`                  | neutral-8         | neutral-6        |
+| `input`                   | neutral-11        | neutral-10       |
+| `ring`                    | cyan-12           | cyan-11          |
+| `graph-edge`              | neutral-11        | neutral-11       |
+| `primary`                 | coral-9           | coral-9          |
+| `primary-foreground`      | neutral-12        | neutral-1        |
+| `primary-text`            | coral-12          | coral-11         |
+| `accent`                  | cyan-7            | cyan-9           |
+| `accent-foreground`       | cyan-12           | cyan-11          |
+| `success-surface`         | green-4           | green-3          |
+| `success-foreground`      | green-12          | green-11         |
+| `success-border`          | green-9           | green-8          |
+| `warning-surface`         | amber-4           | amber-4          |
+| `warning-foreground`      | amber-11          | amber-12         |
+| `warning-border`          | amber-11          | amber-9          |
+| `danger-surface`          | rose-5            | rose-3           |
+| `danger-foreground`       | rose-12           | rose-11          |
+| `danger-border`           | rose-9            | rose-11          |
+| `info-surface`            | cyan-4            | cyan-3           |
+| `info-foreground`         | cyan-12           | cyan-11          |
+| `info-border`             | neutral-10        | neutral-10       |
+| `chrome`                  | neutral-4         | neutral-1        |
+| `chrome-surface`          | cyan-4            | neutral-3        |
+| `chrome-hover`            | neutral-6         | neutral-4        |
+| `chrome-border`           | neutral-8         | neutral-7        |
+| `chrome-foreground`       | neutral-12        | neutral-12       |
+| `chrome-muted-foreground` | neutral-11        | neutral-11       |
+| `chrome-ring`             | cyan-12           | cyan-11          |
+| `chart-1`                 | cyan-10           | cyan-9           |
+| `chart-2`                 | coral-10          | coral-9          |
+| `chart-3`                 | violet-9          | violet-9         |
+| `chart-4`                 | green-9           | green-11         |
+| `chart-5`                 | amber-10          | amber-9          |
+| `chart-6`                 | blue-9            | blue-9           |
+| `overlay`                 | neutral-12 at 45% | neutral-1 at 70% |
+| `shadow-color`            | neutral-12        | neutral-1        |
 
 ## How the scales were produced
 
@@ -80,12 +129,11 @@ Some OKLCH values extend beyond sRGB, so gamut mapping can affect the result.
 Never assume that arbitrary steps work together or that white text works on step 9.
 
 The JSON export includes the source scales, seeds, exact brand anchors, and both
-sets of semantic hex tokens. After editing source scales or semantic tokens:
+sets of semantic OKLCH tokens. After editing source scales or semantic tokens:
 
 ```sh
 cd frontend/web
-node scripts/build-palette.mjs
-pnpm format
+node --experimental-strip-types scripts/build-palette.ts
 pnpm test
 pnpm build
 ```
@@ -147,10 +195,7 @@ bands, not only against the base background token.
 
 ## Light-mode comfort
 
-The light palette uses a slate-gray canvas `#BEC3CA`, lifted card surfaces
-`#DCE0E4`, and navigation `#CBD1D6`. Panel headers use `#CDD3D9` to separate
-controls from data rows. These semantic colors reduce glare while keeping the
-surfaces distinct. Primary text is `#20262D`; secondary text is `#424B55`.
+The light palette uses `neutral-5` for the canvas, `neutral-2` for cards, and `neutral-4` for navigation and panel headers. These semantic colors reduce glare while keeping the surfaces distinct. Primary text is `neutral-12`; secondary text is `neutral-11`.
 Darkening backgrounds requires darkening text and focus colors alongside them:
 otherwise small accent labels lose contrast first.
 
@@ -165,10 +210,11 @@ pnpm exec vitest run src/theme/palette.test.ts
 The [Radix review capture](light-palette-review.json) is a historical ramp
 reference, not the current semantic role mapping. The eight-family primitive
 export is also a reference palette; components use the contrast-tested semantic
-tokens in `src/style.css`.
+tokens in `src/style.css`. Foundation tokens, typography, shape, and active contrast
+pairs can also be inspected interactively in Storybook (`pnpm storybook`).
 
 The connected frame keeps its shared ribbons and rounded inner corner. Content
 scrolls behind a translucent top-bar layer with 24px backdrop blur. Its measured
 height reserves content spacing on desktop and mobile. Required control outlines
-use `--control-border`; decorative panel separators use `--line` and do not carry
+use `--input`; decorative panel separators use `--border` and do not carry
 interaction or state meaning. Status badges retain explicit text labels.

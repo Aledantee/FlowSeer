@@ -1,92 +1,84 @@
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import prettier from 'prettier'
 import { describe, expect, it } from 'vitest'
+import {
+  contrast,
+  pairs,
+  renderScales,
+  renderSemantic,
+  resolve,
+  toSrgb,
+  type PaletteSource,
+} from './palette.ts'
 
-const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8')
+const sourcePath = path.resolve(__dirname, '../../design/palette-source.json')
+const source: PaletteSource = JSON.parse(readFileSync(sourcePath, 'utf8'))
+const scalesPath = path.resolve(__dirname, 'scales.css')
+const semanticPath = path.resolve(__dirname, 'semantic.css')
 
-function tokens(selector: string): Record<string, string> {
-  const start = css.indexOf(selector)
-  if (start < 0) throw new Error(`Missing palette: ${selector}`)
-  const block = css.slice(start, css.indexOf('}', start))
-  return Object.fromEntries(
-    [...block.matchAll(/(--[\w-]+):\s*(#[\da-f]{6});/gi)].map((match) => [
-      match[1],
-      match[2],
-    ]),
-  )
-}
-function luminance(hex: string): number {
-  const channels = [1, 3, 5].map(
-    (offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255,
-  )
-  const [r = 0, g = 0, b = 0] = channels.map((value) =>
-    value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
-  )
-  return r * 0.2126 + g * 0.7152 + b * 0.0722
-}
-const pairs: [string, string, number][] = [
-  ...[
-    '--page',
-    '--surface',
-    '--surface-subtle',
-    '--surface-hover',
-    '--panel-surface',
-  ].flatMap((background) => [
-    ['--text', background, 7] satisfies [string, string, number],
-    ['--muted', background, 4.5] satisfies [string, string, number],
-    ['--accent-text', background, 4.5] satisfies [string, string, number],
-    ['--accent-orange-text', background, 4.5] satisfies [
-      string,
-      string,
-      number,
-    ],
-    ['--focus', background, 3] satisfies [string, string, number],
-    ['--control-border', background, 3] satisfies [string, string, number],
-    ['--connection', background, 3] satisfies [string, string, number],
-  ]),
-  ['--on-coral', '--coral', 4.5],
-  ['--text', '--warning-surface', 4.5],
-  ['--healthy-text', '--healthy-surface', 4.5],
-  ['--warning-text', '--warning-surface', 4.5],
-  ['--offline-text', '--offline-surface', 4.5],
-  ['--text', '--info-surface', 4.5],
-  ['--muted', '--info-surface', 4.5],
-  ...['--chrome', '--chrome-surface', '--chrome-hover'].flatMap(
-    (background) => [
-      ['--chrome-focus', background, 4.5] satisfies [string, string, number],
-      ['--chrome-text', background, 4.5] satisfies [string, string, number],
-      ['--chrome-muted', background, 4.5] satisfies [string, string, number],
-      ['--control-border', background, 3] satisfies [string, string, number],
-    ],
-  ),
-]
-const light = tokens(':root {')
-for (const [theme, palette] of Object.entries({
-  light,
-  dark: { ...light, ...tokens(":root[data-theme='dark'] {") },
-})) {
-  describe(`${theme} palette contrast`, () => {
-    const themePairs: [string, string, number][] =
-      theme === 'light'
-        ? [
-            ...pairs,
-            ['--warning-border', '--warning-surface', 3],
-            ['--offline-border', '--offline-surface', 3],
-            ['--info-border', '--info-surface', 3],
-          ]
-        : pairs
-    it.each(themePairs)(
-      '%s on %s meets %s:1',
-      (foreground, background, minimum) => {
-        const fg = palette[foreground],
-          bg = palette[background]
-        if (!fg || !bg)
-          throw new Error(`Missing color: ${foreground} / ${background}`)
-        const a = luminance(fg),
-          b = luminance(bg)
-        expect(
-          (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
-        ).toBeGreaterThanOrEqual(minimum)
-      },
-    )
+describe('palette module and contrast gate', () => {
+  describe('WCAG contrast thresholds', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      describe(`${theme} theme`, () => {
+        it.each(pairs)(
+          '%s on %s meets %s:1',
+          (foreground, background, minimum) => {
+            const fgOklch = resolve(source, foreground, theme)
+            const bgOklch = resolve(source, background, theme)
+            const ratio = contrast(toSrgb(fgOklch), toSrgb(bgOklch))
+            expect(ratio).toBeGreaterThanOrEqual(minimum)
+          },
+        )
+      })
+    }
   })
-}
+
+  it('matches generated files on disk after prettier formatting', async () => {
+    const scalesDisk = readFileSync(scalesPath, 'utf8')
+    const semanticDisk = readFileSync(semanticPath, 'utf8')
+
+    const scalesConfig = await prettier.resolveConfig(scalesPath)
+    const formattedScales = await prettier.format(renderScales(source), {
+      ...scalesConfig,
+      filepath: scalesPath,
+    })
+    expect(formattedScales).toBe(scalesDisk)
+
+    const semanticConfig = await prettier.resolveConfig(semanticPath)
+    const formattedSemantic = await prettier.format(renderSemantic(source), {
+      ...semanticConfig,
+      filepath: semanticPath,
+    })
+    expect(formattedSemantic).toBe(semanticDisk)
+  })
+
+  it('declares only valid var(--m3-*) or color-mix values in semantic CSS', () => {
+    const css = renderSemantic(source)
+    const pattern =
+      /^(var\(--m3-[a-z]+-(1[0-2]|[1-9])\)|color-mix\(in oklch, var\(--m3-[a-z]+-(1[0-2]|[1-9])\) \d{1,3}%, transparent\))$/
+    const matches = [...css.matchAll(/--[\w-]+:\s*([^;]+);/g)]
+    expect(matches.length).toBeGreaterThan(0)
+    for (const [, value] of matches) {
+      expect(value.trim()).toMatch(pattern)
+    }
+  })
+
+  it('throws on unknown family, step out of bounds, or unmapped token', () => {
+    expect(() => resolve(source, 'neutral-13', 'light')).toThrow()
+    expect(() => resolve(source, 'teal-3', 'light')).toThrow()
+    expect(() => resolve(source, 'unknown-token', 'light')).toThrow()
+  })
+
+  it('pins coral-9 toSrgb within 0.004 of anchor #FF451D', () => {
+    const coral9 = resolve(source, 'primary', 'light')
+    const [r, g, b] = toSrgb(coral9)
+    expect(Math.abs(r - 1)).toBeLessThanOrEqual(0.004)
+    expect(Math.abs(g - 0.271)).toBeLessThanOrEqual(0.004)
+    expect(Math.abs(b - 0.114)).toBeLessThanOrEqual(0.004)
+  })
+
+  it('computes contrast([1, 1, 1], [0, 0, 0]) as 21', () => {
+    expect(contrast([1, 1, 1], [0, 0, 0])).toBe(21)
+  })
+})

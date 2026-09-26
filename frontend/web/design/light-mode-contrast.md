@@ -1,5 +1,7 @@
 # Light-mode contrast audit
 
+> Note: The measured ratios, hex values, and audit observations in this document predate the migration to semantic scale-step tokens and the lighter neutral-5 canvas.
+
 Audited on 7 September 2026. The light theme uses darker neutral surfaces with
 stronger foreground colors to reduce glare without sacrificing small-text
 legibility. The shared glass frame and rounded inner corner retain their layout.
