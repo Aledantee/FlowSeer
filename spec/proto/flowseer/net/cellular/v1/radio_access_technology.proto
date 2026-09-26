@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.net.cellular.v1;
+
+// The generation of cellular radio access a modem is attached with. A mapper
+// folds its source's values into these: IOS-XE rat-technology
+// (Cisco-IOS-XE-cellwan-oper.yang:387-527) folds GPRS and EDGE into GSM, the
+// HSPA and DC-HSPA variants into UMTS, EV-DO into CDMA2000, LTE FDD, TDD,
+// and eHRPD into LTE, and nr5g-sa into NR; HH3C hh3cWirelessCardCurNetConn
+// (HH3C-3GMODEM-MIB:251-274) folds the same way, with TD-SCDMA into UMTS and
+// 1xRTT into CDMA2000.
+enum RadioAccessTechnology {
+  RADIO_ACCESS_TECHNOLOGY_UNSPECIFIED = 0;
+  // 2G GSM, including GPRS and EDGE.
+  RADIO_ACCESS_TECHNOLOGY_GSM = 1;
+  // 3G UMTS, including HSPA and TD-SCDMA.
+  RADIO_ACCESS_TECHNOLOGY_UMTS = 2;
+  // 3GPP2 CDMA2000, including 1xRTT and EV-DO.
+  RADIO_ACCESS_TECHNOLOGY_CDMA2000 = 3;
+  // 4G LTE (E-UTRA).
+  RADIO_ACCESS_TECHNOLOGY_LTE = 4;
+  // 5G NR.
+  RADIO_ACCESS_TECHNOLOGY_NR = 5;
+}

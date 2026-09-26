@@ -41,7 +41,7 @@ imports outside `net/`, and any root may import them.
 - `qos/v1/`: Trust mode, classifiers with their terms and policers, and per-interface queues.
 - `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
 - `wlan/v1/`: RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
-- `cellular/v1/` (planned; schema building blocks record): Cellular radio facts and signal quality.
+- `cellular/v1/`: Cellular interface technology, identifiers, serving cell, and signal quality.
 - `endpoint/v1/`: Wired and wireless attachment, fingerprint, per-endpoint counters.
 - `portaccess/v1/`: Port-access sessions (802.1X, MAC authentication, web authentication).
 - `system/v1/`: Resource utilization, software images, licenses.

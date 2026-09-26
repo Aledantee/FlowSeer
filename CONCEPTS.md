@@ -179,6 +179,10 @@ The header field a port believes when it classifies an incoming frame: the PCP, 
 
 A RADIUS or TACACS+ server a device is configured to use, identified by its address and protocol. Its shared secret is a credential held in the secret store, never part of the row.
 
+### Cellular interface
+
+The cellular side of a WAN interface: its modem, SIM, serving cell, and signal, keyed by the interface name. Unlike an 802.11 radio, which is a component, every cellular source presents the modem as an interface.
+
 ## Capture
 
 ### Capture Session

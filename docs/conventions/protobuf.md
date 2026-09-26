@@ -364,8 +364,9 @@ holds the rationale and standards grounding for each rule.
   came from the RIB or the FIB. `Session` in `net/portaccess/v1` is the row
   for a port-access session, keyed by `(interface_name, mac)` and scoped by the
   interface column, so `network_instance` is omitted per Rule 4.
-  `QosInterface` in `net/qos/v1` is a per-interface row keyed by
-  `interface_name` that omits `network_instance` the same way.
+  `QosInterface` in `net/qos/v1` and `CellularInterface` in
+  `net/cellular/v1` are per-interface rows keyed by `interface_name` that omit
+  `network_instance` the same way.
 
 ## Field numbering
 
