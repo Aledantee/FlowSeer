@@ -316,7 +316,7 @@ func TestFdbAndPoeExport(t *testing.T) {
 	vid10 := uint32(10)
 	vname10 := "vlan10"
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vname10}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vname10}.Build(),
 	}
 
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -457,19 +457,21 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 	macBytes := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 	fdb1 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid,
-		InterfaceName: &ifname,
-		Status:        &statusInvalid,
-		Kind:          &kindDynamic,
-		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &ifname,
+		Status:          &statusInvalid,
+		Kind:            &kindDynamic,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
 	}.Build()
 
 	fdb2 := switchingv1.FdbEntry_builder{
-		VlanId:        &vid,
-		InterfaceName: &ifname,
-		Status:        &statusActive,
-		Kind:          &kindDynamic,
-		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &ifname,
+		Status:          &statusActive,
+		Kind:            &kindDynamic,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
 	}.Build()
 
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -650,11 +652,12 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 	statusActive := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
 	vid10 := uint32(10)
 	fdbStatic := switchingv1.FdbEntry_builder{
-		VlanId:        &vid10,
-		InterfaceName: &p2Name,
-		Kind:          &staticKind,
-		Status:        &statusActive,
-		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p2Name,
+		Kind:            &staticKind,
+		Status:          &statusActive,
+		Mac:             addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
 	}.Build()
 
 	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, []*switchingv1.FdbEntry{fdbStatic}, []*phyv1.PseBudget{budgetWithoutPower}, nil, nil, nil, nil, nil, nil, nil, nil)
@@ -1280,7 +1283,8 @@ func TestLoad_FilterFacetWithIPFacet(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 		Filter: filterv1.FilterFacet_builder{
 			InSet:  &inSetName,
@@ -1424,7 +1428,8 @@ func TestLoad_FilterFacetMissingSet(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 		Filter: filterv1.FilterFacet_builder{
 			InSet: &missingSetName,
@@ -1478,7 +1483,8 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 		Filter: filterv1.FilterFacet_builder{
 			InSet: &inSetName,
@@ -1549,7 +1555,8 @@ func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
 			VlanId: &vid10,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 

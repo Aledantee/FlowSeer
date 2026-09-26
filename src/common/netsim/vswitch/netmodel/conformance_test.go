@@ -166,7 +166,7 @@ func TestDeterministicReportAndMetadataOrdering(t *testing.T) {
 		vid10 := uint32(10)
 		vname10 := "prod"
 		vlans := []*switchingv1.Vlan{
-			switchingv1.Vlan_builder{Id: &vid10, Name: &vname10}.Build(),
+			switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vname10}.Build(),
 		}
 		return []*interfacev1.Interface{p1, p2}, vlans
 	}

@@ -235,7 +235,8 @@ func routedPhysicalInterface(name string) *interfacev1.Interface {
 		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 }
@@ -244,11 +245,12 @@ func activeFDBRow(portName string, vid uint32) *switchingv1.FdbEntry {
 	active := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
 	static := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 	return switchingv1.FdbEntry_builder{
-		VlanId:        &vid,
-		InterfaceName: &portName,
-		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
-		Kind:          &static,
-		Status:        &active,
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &portName,
+		Mac:             addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		Kind:            &static,
+		Status:          &active,
 	}.Build()
 }
 
@@ -266,7 +268,8 @@ func routedVLANInterface(name string, vid uint32, mac []byte) *interfacev1.Inter
 		}.Build(),
 		Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 }
@@ -499,27 +502,33 @@ func TestLoadFDBRequiresAuthoritativeKindAndStatus(t *testing.T) {
 	}
 	fdb := []*switchingv1.FdbEntry{
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[0]}.Build(), Status: &active,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[1]}.Build(), Kind: &unknownKind, Status: &active,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[2]}.Build(), Kind: &dynamic,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[3]}.Build(), Kind: &dynamic, Status: &unknownStatus,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[4]}.Build(), Kind: &unspecifiedKind, Status: &active,
 		}.Build(),
 		switchingv1.FdbEntry_builder{
-			VlanId: &vid, InterfaceName: &portName,
+			NetworkInstance: ptr("default"),
+			VlanId:          &vid, InterfaceName: &portName,
 			Mac: addrv1.Eui48Address_builder{Octets: macs[5]}.Build(), Kind: &dynamic, Status: &unspecifiedStatus,
 		}.Build(),
 	}
@@ -554,7 +563,8 @@ func TestLoadKeepsExplicitActiveFDBKindsAndDeduplicatesEqualRows(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			row := switchingv1.FdbEntry_builder{
-				VlanId: &vid, InterfaceName: &portName,
+				NetworkInstance: ptr("default"),
+				VlanId:          &vid, InterfaceName: &portName,
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), Kind: &tt.kind, Status: &active,
 			}.Build()
 			input := loadInput{
@@ -579,7 +589,7 @@ func TestLoadOmitsFDBRowsTheCompletedSwitchCannotConstruct(t *testing.T) {
 	portName := "1/1/1"
 	vid10 := uint32(10)
 	vid20 := uint32(20)
-	vlan10 := switchingv1.Vlan_builder{Id: &vid10, Name: ptr("ten")}.Build()
+	vlan10 := switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: ptr("ten")}.Build()
 
 	tests := []struct {
 		name      string
@@ -694,8 +704,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName), plainPhysicalInterface(otherPortName)},
 				fdb: []*switchingv1.FdbEntry{
-					switchingv1.FdbEntry_builder{VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &portName, Kind: &static, Status: &active}.Build(),
-					switchingv1.FdbEntry_builder{VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &otherPortName, Kind: &static, Status: &active}.Build(),
+					switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &portName, Kind: &static, Status: &active}.Build(),
+					switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), InterfaceName: &otherPortName, Kind: &static, Status: &active}.Build(),
 				},
 			},
 			conflictOn: "fdb_entry",
@@ -708,8 +718,8 @@ func TestLoadConflictsAreOrderIndependent(t *testing.T) {
 			forward: loadInput{
 				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
 				vlans: []*switchingv1.Vlan{
-					switchingv1.Vlan_builder{Id: &vid, Name: ptr("blue")}.Build(),
-					switchingv1.Vlan_builder{Id: &vid, Name: ptr("red")}.Build(),
+					switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("blue")}.Build(),
+					switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("red")}.Build(),
 				},
 				want: []port.Layer{port.LayerVlan},
 			},
@@ -871,7 +881,8 @@ func TestLoadMalformedNetworkValuesAreScopedPartialRows(t *testing.T) {
 		},
 		fdb: []*switchingv1.FdbEntry{
 			switchingv1.FdbEntry_builder{
-				VlanId: &vid, InterfaceName: &portName,
+				NetworkInstance: ptr("default"),
+				VlanId:          &vid, InterfaceName: &portName,
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build(), Kind: &static, Status: &active,
 			}.Build(),
 		},

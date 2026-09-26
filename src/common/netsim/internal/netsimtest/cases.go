@@ -472,8 +472,9 @@ func CaseShadowingPartialUnknownPort() Case {
 
 			vid10 := uint32(10)
 			vname10 := "prod"
+			instance := netmodel.DefaultNetworkInstance
 			vlans := []*switchingv1.Vlan{
-				switchingv1.Vlan_builder{Id: &vid10, Name: &vname10}.Build(),
+				switchingv1.Vlan_builder{Id: &vid10, Name: &vname10, NetworkInstance: &instance}.Build(),
 			}
 
 			loadRes, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)

@@ -140,10 +140,10 @@ func TestForwardIncludesOnlyTheConsultedFDBConflict(t *testing.T) {
 			reportedAccess(portB, vid),
 			reportedAccess(portC, vid),
 		},
-		vlans: []*switchingv1.Vlan{switchingv1.Vlan_builder{Id: &vid, Name: ptr("ten")}.Build()},
+		vlans: []*switchingv1.Vlan{switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid, Name: ptr("ten")}.Build()},
 		fdb: []*switchingv1.FdbEntry{
-			switchingv1.FdbEntry_builder{VlanId: &vid, InterfaceName: &portB, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
-			switchingv1.FdbEntry_builder{VlanId: &vid, InterfaceName: &portC, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
+			switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, InterfaceName: &portB, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
+			switchingv1.FdbEntry_builder{NetworkInstance: ptr("default"), VlanId: &vid, InterfaceName: &portC, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
 		},
 	}
 	input.validate(t)

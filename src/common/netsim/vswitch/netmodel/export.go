@@ -1,6 +1,7 @@
 package netmodel
 
 import (
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	instancev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/instance/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
@@ -23,6 +25,58 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
+// DefaultNetworkInstance names the one network instance a virtual switch
+// has. A switch models a single bridge and no VRFs, so every row it exports
+// belongs to this instance.
+const DefaultNetworkInstance = "default"
+
+// NetworkInstances exports the switch's network instances: the one
+// [instancev1.NetworkInstanceKind_NETWORK_INSTANCE_KIND_DEFAULT] instance named
+// [DefaultNetworkInstance]. It returns nil for a nil switch.
+func NetworkInstances(sw *vswitch.Switch) []*instancev1.NetworkInstance {
+	if sw == nil {
+		return nil
+	}
+	name := DefaultNetworkInstance
+	return []*instancev1.NetworkInstance{instancev1.NetworkInstance_builder{
+		Name: &name,
+		Kind: instancev1.NetworkInstanceKind_NETWORK_INSTANCE_KIND_DEFAULT.Enum(),
+	}.Build()}
+}
+
+// Vlans exports the switch's bridge VLAN table as [switchingv1.Vlan] rows in
+// [DefaultNetworkInstance], ordered by VLAN id. A configured VLAN is
+// [switchingv1.VlanRegistration_VLAN_REGISTRATION_PERMANENT], and a VLAN with
+// an empty name exports without one. Vlans returns nil when the switch has no
+// VLAN-aware bridge.
+func Vlans(sw *vswitch.Switch) []*switchingv1.Vlan {
+	if sw == nil {
+		return nil
+	}
+	cfg := sw.Config()
+	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil || len(cfg.Bridge.VLAN.Table) == 0 {
+		return nil
+	}
+	table := cfg.Bridge.VLAN.Table
+	vids := slices.Sorted(maps.Keys(table))
+	res := make([]*switchingv1.Vlan, 0, len(vids))
+	for _, vid := range vids {
+		id := uint32(vid)
+		instance := DefaultNetworkInstance
+		b := switchingv1.Vlan_builder{
+			Id:              &id,
+			NetworkInstance: &instance,
+			Registration:    switchingv1.VlanRegistration_VLAN_REGISTRATION_PERMANENT.Enum(),
+		}
+		if name := table[vid]; name != "" {
+			b.Name = &name
+		}
+		res = append(res, b.Build())
+	}
+
+	return res
+}
+
 // FdbEntries converts active bridge forwarding database entries into typed network model
 // [switchingv1.FdbEntry] messages.
 //
@@ -31,7 +85,8 @@ import (
 // an error rather than a message the schema refuses. Dynamic entries map to
 // [switchingv1.FdbEntryKind_FDB_ENTRY_KIND_DYNAMIC] and static entries to
 // [switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC]; the status is always
-// [switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE].
+// [switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE]. Every row names
+// [DefaultNetworkInstance].
 func FdbEntries(entries []bridge.Entry) ([]*switchingv1.FdbEntry, error) {
 	if len(entries) == 0 {
 		return nil, nil
@@ -53,11 +108,13 @@ func FdbEntries(entries []bridge.Entry) ([]*switchingv1.FdbEntry, error) {
 			kind = switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 		}
 		status := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
+		instance := DefaultNetworkInstance
 
 		b := switchingv1.FdbEntry_builder{
-			Mac:    eui48,
-			Kind:   &kind,
-			Status: &status,
+			Mac:             eui48,
+			Kind:            &kind,
+			Status:          &status,
+			NetworkInstance: &instance,
 		}
 		if e.Port != "" {
 			p := e.Port

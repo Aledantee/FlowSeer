@@ -269,9 +269,9 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 	vid4000 := uint32(4000)
 	vname4000 := "DEFAULT-VLAN"
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid666, Name: &vname666}.Build(),
-		switchingv1.Vlan_builder{Id: &vid1000, Name: &vname1000}.Build(),
-		switchingv1.Vlan_builder{Id: &vid4000, Name: &vname4000}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid666, Name: &vname666}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid1000, Name: &vname1000}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid4000, Name: &vname4000}.Build(),
 	}
 	for _, v := range vlans {
 		if err := protovalidate.Validate(v); err != nil {
