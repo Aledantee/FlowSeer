@@ -145,7 +145,7 @@ Landed:
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase8-plan.md
 After: U1
-Landed:
+Landed: `3466848d..0920748a`
 
 Waves: U1 | U2 U3 U6 U8 | U4 U5 U7
 

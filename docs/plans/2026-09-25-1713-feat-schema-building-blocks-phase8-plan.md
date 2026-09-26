@@ -4,12 +4,20 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 8, QoS, AAA, Flow Export, and Cellular - Plan
+
+> Implemented. 5 units, 2026-09-26T12:03Z to 2026-09-26T12:11Z. Each unit
+> ran its targeted `Verify:` command, and the phase closed with one
+> targeted run over the union of the five units' paths against `main`; no
+> `--full` run, which builds and race-tests `generated/go/yang` and
+> exhausts host memory. The verification-dirty marker still holds the
+> Bash-mutation line `buf generate` leaves, which only `--full` clears;
+> every targeted run regenerated `generated/go/proto` and diffed it clean.
 
 ## Goal
 
@@ -302,6 +310,15 @@ The re-plan starts from a tree holding phases 1 to 6: phase 8's only
   `test/conformance/proto/stp_rules_test.go`, asserting the violated field
   path or the CEL rule id, as phase 6 did. Why: a message failing another
   rule would otherwise pass for the rule under test.
+- Ruled: `TestAaaCarriesNoSecret` walks every file the registry holds for
+  the `flowseer.net.aaa.v1` package rather than a list of the generated
+  `File_flowseer_net_aaa_v1_*` variables, and fails when it finds none.
+  Why: a file added to the package later is walked without editing the
+  test. Cost if wrong: one test body.
+- Ruled: the rule tests share one `testNet1(host)` helper for
+  `192.0.2.host` (RFC 5737) instead of a four-octet `ipv4`. Why: `unparam`
+  rejects a parameter every caller passes as 192. Cost if wrong: one
+  helper.
 
 ## Requirements
 
