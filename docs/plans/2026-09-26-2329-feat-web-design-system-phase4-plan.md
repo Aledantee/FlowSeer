@@ -16,7 +16,7 @@ parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
 ## Goal
 
 `src/ui/` gains the data display components, each with stories:
-`UiTable` (dense, sortable header, sticky header, row selection), 
+`UiTable` (dense, sortable header, sticky header, row selection),
 `UiEmptyState`, `UiSkeleton`, `UiMeter` (replacing `ResourceMeter` and
 `HealthBar`), `UiProgress`, and `UiPagination`. `TrafficChart`,
 `TrafficSparkline`, and the topology link colors read `chart-1` to
