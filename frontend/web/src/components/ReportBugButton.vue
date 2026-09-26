@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from './AppTooltip.vue'
+import { UiTooltip } from '../ui'
 import { ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import { useMotionFeedback } from '../motion/useMotionFeedback'
@@ -36,7 +36,7 @@ async function copyReport() {
 </script>
 
 <template>
-  <AppTooltip label="Report a bug">
+  <UiTooltip label="Report a bug">
     <button
       class="help-button"
       type="button"
@@ -45,7 +45,7 @@ async function copyReport() {
     >
       <AppIcon name="bug" />
     </button>
-  </AppTooltip>
+  </UiTooltip>
   <dialog ref="dialog" class="help-dialog" aria-labelledby="report-bug-title">
     <div class="help-heading">
       <h2 id="report-bug-title">Report a bug</h2>

@@ -6,7 +6,7 @@ import { scopeOf, usePage } from '../../navigation/page'
 import AppIcon from '../AppIcon.vue'
 import DeviceIcon from '../DeviceIcon.vue'
 import TrafficSparkline from '../TrafficSparkline.vue'
-import StatusBadge from '../StatusBadge.vue'
+import { UiStatusBadge } from '../../ui'
 import DevicePorts from '../DevicePorts.vue'
 import ResourceMeter from '../ResourceMeter.vue'
 import {
@@ -145,7 +145,7 @@ function deviceLink(id: string) {
         <dl>
           <div>
             <dt>Status</dt>
-            <dd><StatusBadge :status="device.health" /></dd>
+            <dd><UiStatusBadge :status="device.health" /></dd>
           </div>
           <div>
             <dt>Uptime</dt>
@@ -254,7 +254,7 @@ function deviceLink(id: string) {
         <dl>
           <div>
             <dt>Status</dt>
-            <dd><StatusBadge :status="link.health" /></dd>
+            <dd><UiStatusBadge :status="link.health" /></dd>
           </div>
           <div>
             <dt>Speed</dt>

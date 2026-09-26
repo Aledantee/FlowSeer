@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from './AppTooltip.vue'
+import { UiTooltip } from '../ui'
 import { ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import { useMotionFeedback } from '../motion/useMotionFeedback'
@@ -16,7 +16,7 @@ function openHelp() {
 </script>
 
 <template>
-  <AppTooltip label="Help">
+  <UiTooltip label="Help">
     <button
       class="help-button"
       type="button"
@@ -25,7 +25,7 @@ function openHelp() {
     >
       <AppIcon name="help" />
     </button>
-  </AppTooltip>
+  </UiTooltip>
   <dialog ref="dialog" class="help-dialog" aria-labelledby="help-title">
     <div class="help-heading">
       <h2 id="help-title">Workspace help</h2>

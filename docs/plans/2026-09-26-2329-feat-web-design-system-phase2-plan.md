@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
 ---
 
 # Web Design System Phase 2, Basic Components - Plan
+
+> Implemented. 5 units, 2026-09-26T22:37Z to 2026-09-26T23:01Z. All checks green, 16 components with stories and axe-core tests, views migrated, and legacy components removed.
 
 ## Goal
 
@@ -475,15 +477,15 @@ Manual and browser checks:
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path, and all verification commands pass.
-- [ ] All 15 `Ui*` components created under `src/ui/` with CSF 3 stories and
+- [x] Verifier green for every changed path, and all verification commands pass.
+- [x] All 15 `Ui*` components created under `src/ui/` with CSF 3 stories and
       passing axe accessibility checks.
-- [ ] Views migrated from legacy components to `src/ui` barrel imports.
-- [ ] `/components` route, `ComponentsView.vue`, its test, and `workbench.css`
+- [x] Views migrated from legacy components to `src/ui` barrel imports.
+- [x] `/components` route, `ComponentsView.vue`, its test, and `workbench.css`
       removed.
-- [ ] `frontend/web/README.md` and `frontend/web/design/language.md` updated.
-- [ ] This plan's `status` is set to `planned` with `artifact_readiness: implementation-ready`.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] `frontend/web/README.md` and `frontend/web/design/language.md` updated.
+- [x] This plan's `status` is set to `implemented`.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 

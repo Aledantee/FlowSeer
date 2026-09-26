@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import AppTooltip from './components/AppTooltip.vue'
 import ScrollArea from './components/ScrollArea.vue'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
-import ComponentsView from './ComponentsView.vue'
 import DashboardView from './DashboardView.vue'
 import DeviceView from './DeviceView.vue'
 import ClientsView from './ClientsView.vue'
-import StatusBadge from './components/StatusBadge.vue'
-import MetricCard from './components/MetricCard.vue'
+import { UiMetricCard, UiStatusBadge, UiTooltip } from './ui'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import AppLink from './navigation/AppLink.vue'
@@ -46,7 +43,6 @@ const title = computed(
       clients: 'Clients',
       sites: 'Sites',
       topology: 'Topology',
-      components: 'Components',
       device: selected.value?.name ?? 'Unknown device',
     })[view.value],
 )
@@ -154,9 +150,8 @@ function rememberList(event: MouseEvent) {
 </script>
 
 <template>
-  <ComponentsView v-if="view === 'components'" />
   <TopologyGraph
-    v-else-if="view === 'topology'"
+    v-if="view === 'topology'"
     :focus="query('focus')"
     class="topology-canvas"
     :fleet="fleet"
@@ -212,34 +207,32 @@ function rememberList(event: MouseEvent) {
       </button>
     </div>
     <section class="metrics" aria-label="Fleet summary">
-      <MetricCard
+      <UiMetricCard
         label="Devices in scope"
         :value="scope.length"
         unit="devices"
-        icon="devices"
       >
+        <template #icon><AppIcon name="devices" /></template>
         Across {{ visibleSites.length }}
         {{ visibleSites.length === 1 ? 'site' : 'sites' }}
-      </MetricCard>
-      <MetricCard
+      </UiMetricCard>
+      <UiMetricCard
         label="Fleet health"
         :value="scope.length ? Math.round((healthy / scope.length) * 100) : 0"
         unit="%"
-        icon="pulse"
       >
+        <template #icon><AppIcon name="pulse" /></template>
         <b>{{ healthy }} healthy</b> · {{ scope.length - healthy }} need
         attention
-      </MetricCard>
-      <MetricCard label="Connected clients" :value="clients" icon="topology"
-        >Reported by access points</MetricCard
-      >
-      <MetricCard
-        label="Device traffic"
-        :value="throughput"
-        unit="Mbps"
-        icon="pulse"
-        >Updates every 2.5s</MetricCard
-      >
+      </UiMetricCard>
+      <UiMetricCard label="Connected clients" :value="clients">
+        <template #icon><AppIcon name="topology" /></template>
+        Reported by access points
+      </UiMetricCard>
+      <UiMetricCard label="Device traffic" :value="throughput" unit="Mbps">
+        <template #icon><AppIcon name="pulse" /></template>
+        Updates every 2.5s
+      </UiMetricCard>
     </section>
     <template v-if="view === 'devices'">
       <div
@@ -303,7 +296,7 @@ function rememberList(event: MouseEvent) {
               :aria-label="`View status for ${device.name}`"
             >
               <strong>{{ device.name }}</strong>
-              <StatusBadge :status="device.health" />
+              <UiStatusBadge :status="device.health" />
               <small
                 >{{ siteName(device.siteId) }} · {{ device.address }}</small
               >
@@ -347,7 +340,7 @@ function rememberList(event: MouseEvent) {
                   </AppLink>
                 </td>
                 <td>
-                  <StatusBadge :status="device.health" />
+                  <UiStatusBadge :status="device.health" />
                 </td>
                 <td>
                   <span class="site-name">{{ siteName(device.siteId) }}</span
@@ -359,7 +352,7 @@ function rememberList(event: MouseEvent) {
                   {{ device.throughput }} <span>Mbps</span>
                 </td>
                 <td class="row-actions">
-                  <AppTooltip
+                  <UiTooltip
                     label="Peek beside"
                     hint="Shift-click a name does the same; ↑ ↓ step through the list, Esc closes."
                   >
@@ -370,7 +363,7 @@ function rememberList(event: MouseEvent) {
                     >
                       <AppIcon name="panel-right" />
                     </button>
-                  </AppTooltip>
+                  </UiTooltip>
                   <AppLink
                     class="icon-button"
                     :to="deviceLink(device)"

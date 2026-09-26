@@ -5,7 +5,7 @@ import AppIcon from './components/AppIcon.vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import HealthBar from './components/HealthBar.vue'
-import StatusBadge from './components/StatusBadge.vue'
+import { UiStatusBadge } from './ui'
 import TrafficChart from './components/TrafficChart.vue'
 import type { Device, Site } from './domain/fleet'
 import {
@@ -107,7 +107,7 @@ const roles = computed(() => {
                   ></small
                 ></span
               >
-              <StatusBadge :status="device.health" />
+              <UiStatusBadge :status="device.health" />
             </AppLink>
           </li>
         </ul>
@@ -206,7 +206,7 @@ const roles = computed(() => {
                 ></small
               ></span
             >
-            <StatusBadge :status="device.health" />
+            <UiStatusBadge :status="device.health" />
           </AppLink>
         </div>
       </div>

@@ -92,6 +92,7 @@ describe('page locations', () => {
       deviceId: 'dev-2',
     })
     expect(viewOf('/nowhere').view).toBe('dashboard')
+    expect(viewOf('/components')).toEqual({ view: 'dashboard' })
   })
   it('keeps the path when a target names none and drops cleared keys', () => {
     expect(

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from '../AppTooltip.vue'
+import { UiTooltip } from '../../ui'
 import {
   computed,
   nextTick,
@@ -364,11 +364,11 @@ function edgesChanged(changes: EdgeChange[]) {
         :show-fit-view="false"
         position="bottom-left"
       >
-        <AppTooltip label="Fit to view" side="right">
+        <UiTooltip label="Fit to view" side="right">
           <ControlButton aria-label="Fit view" @click="frameGraph(true)">
             <AppIcon name="expand" />
           </ControlButton>
-        </AppTooltip>
+        </UiTooltip>
       </Controls>
       <MiniMap
         :class="{ 'minimap-hidden': everythingVisible }"

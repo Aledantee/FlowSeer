@@ -14,13 +14,7 @@ export interface PageTarget {
   query?: Record<string, string | undefined>
 }
 export type PageView =
-  | 'dashboard'
-  | 'devices'
-  | 'clients'
-  | 'sites'
-  | 'topology'
-  | 'components'
-  | 'device'
+  'dashboard' | 'devices' | 'clients' | 'sites' | 'topology' | 'device'
 export interface PageContext {
   location: ComputedRef<PageLocation>
   view: ComputedRef<PageView>
@@ -39,7 +33,6 @@ const VIEWS: PageView[] = [
   'clients',
   'sites',
   'topology',
-  'components',
 ]
 export function viewOf(path: string): { view: PageView; deviceId?: string } {
   const device = /^\/devices\/([^/]+)$/.exec(path)

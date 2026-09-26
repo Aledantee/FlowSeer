@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from './AppTooltip.vue'
+import { UiTooltip } from '../ui'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMotionFeedback } from '../motion/useMotionFeedback'
 import AppIcon from './AppIcon.vue'
@@ -76,7 +76,7 @@ onUnmounted(() => systemTheme.removeEventListener('change', syncSystemTheme))
 </script>
 
 <template>
-  <AppTooltip :label="`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`">
+  <UiTooltip :label="`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`">
     <button
       class="theme-switcher"
       type="button"
@@ -100,6 +100,6 @@ onUnmounted(() => systemTheme.removeEventListener('change', syncSystemTheme))
         ><AppIcon name="moon"
       /></span>
     </button>
-  </AppTooltip>
+  </UiTooltip>
   <span class="sr-only" role="status">{{ announcement }}</span>
 </template>
