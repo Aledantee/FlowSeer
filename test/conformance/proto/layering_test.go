@@ -43,7 +43,7 @@ var importOrder = map[string][]string{
 	"net/measure": nil,
 	"net/log":     nil,
 
-	"net/instance":   {"net/key"},
+	"net/instance":   {"net/addr", "net/key"},
 	"net/switching":  {"net/addr", "net/packet", "net/key"},
 	"net/ip":         {"net/addr", "net/key"},
 	"net/routing":    {"net/addr", "net/key"},

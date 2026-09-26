@@ -1,0 +1,58 @@
+edition = "2024";
+
+package flowseer.net.instance.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import option "buf/validate/validate.proto";
+
+// A Type 0 route distinguisher (RFC 4364 §4.2) with a 2-octet Autonomous
+// System number and a 4-octet assigned number.
+message As2RouteDistinguisher {
+  // The 2-octet Autonomous System number. Must be present; must not exceed 65535.
+  uint32 asn = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // The 4-octet assigned number. Must be present.
+  uint32 assigned_number = 2 [(buf.validate.field).required = true];
+}
+
+// A Type 1 route distinguisher (RFC 4364 §4.2) with a 4-octet IPv4 address and
+// a 2-octet assigned number.
+message Ipv4RouteDistinguisher {
+  // The IPv4 address. Must be present.
+  flowseer.net.addr.v1.Ipv4Address ip = 1 [(buf.validate.field).required = true];
+  // The 2-octet assigned number. Must be present; must not exceed 65535.
+  uint32 assigned_number = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+}
+
+// A Type 2 route distinguisher (RFC 4364 §4.2) with a 4-octet Autonomous
+// System number and a 2-octet assigned number.
+message As4RouteDistinguisher {
+  // The 4-octet Autonomous System number. Must be present.
+  uint32 asn = 1 [(buf.validate.field).required = true];
+  // The 2-octet assigned number. Must be present; must not exceed 65535.
+  uint32 assigned_number = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+}
+
+// A BGP/MPLS IP VPN route distinguisher (RFC 4364 §4.2). The arm identifies the
+// binary structure (Type 0, Type 1, or Type 2), each enforcing its own numeric
+// bounds.
+message RouteDistinguisher {
+  oneof format {
+    option (buf.validate.oneof).required = true;
+
+    // Type 0: 2-octet ASN, 4-octet assigned number.
+    As2RouteDistinguisher as2 = 1;
+    // Type 1: 4-octet IPv4 address, 2-octet assigned number.
+    Ipv4RouteDistinguisher ipv4 = 2;
+    // Type 2: 4-octet ASN, 2-octet assigned number.
+    As4RouteDistinguisher as4 = 3;
+  }
+}
