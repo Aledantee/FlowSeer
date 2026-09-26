@@ -21,24 +21,28 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A device-local unicast forwarding-database row keyed by VLAN identifier and
-// EUI-48 address. Bridge-domain scoping belongs to a future instance model.
+// A device-local unicast forwarding-database row keyed by network instance,
+// VLAN identifier, and EUI-48 address. The key assumes independent VLAN
+// learning, where each VLAN has its own filtering database
+// (https://standards.ieee.org/ieee/802.1Q/10323/); the network instance
+// scopes the row to one bridge domain.
 // The unicast constraint checks the IEEE 802 individual/group (I/G) bit, the
 // least significant bit of the first octet, which is zero for an individual
 // (unicast) address
 // (https://www.rfc-editor.org/rfc/rfc9542.html#section-2.1); the CEL rule
 // verifies an even low nibble in the first octet's hex form.
 type FdbEntry struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_VlanId        uint32                 `protobuf:"varint,1,opt,name=vlan_id,json=vlanId"`
-	xxx_hidden_Mac           *v1.Eui48Address       `protobuf:"bytes,2,opt,name=mac"`
-	xxx_hidden_InterfaceName *string                `protobuf:"bytes,3,opt,name=interface_name,json=interfaceName"`
-	xxx_hidden_Kind          FdbEntryKind           `protobuf:"varint,4,opt,name=kind,enum=flowseer.net.switching.v1.FdbEntryKind"`
-	xxx_hidden_Status        FdbEntryStatus         `protobuf:"varint,5,opt,name=status,enum=flowseer.net.switching.v1.FdbEntryStatus"`
-	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
-	XXX_presence             [1]uint32
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_VlanId          uint32                 `protobuf:"varint,1,opt,name=vlan_id,json=vlanId"`
+	xxx_hidden_Mac             *v1.Eui48Address       `protobuf:"bytes,2,opt,name=mac"`
+	xxx_hidden_InterfaceName   *string                `protobuf:"bytes,3,opt,name=interface_name,json=interfaceName"`
+	xxx_hidden_Kind            FdbEntryKind           `protobuf:"varint,4,opt,name=kind,enum=flowseer.net.switching.v1.FdbEntryKind"`
+	xxx_hidden_Status          FdbEntryStatus         `protobuf:"varint,5,opt,name=status,enum=flowseer.net.switching.v1.FdbEntryStatus"`
+	xxx_hidden_NetworkInstance *string                `protobuf:"bytes,6,opt,name=network_instance,json=networkInstance"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *FdbEntry) Reset() {
@@ -108,9 +112,19 @@ func (x *FdbEntry) GetStatus() FdbEntryStatus {
 	return FdbEntryStatus_FDB_ENTRY_STATUS_UNSPECIFIED
 }
 
+func (x *FdbEntry) GetNetworkInstance() string {
+	if x != nil {
+		if x.xxx_hidden_NetworkInstance != nil {
+			return *x.xxx_hidden_NetworkInstance
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *FdbEntry) SetVlanId(v uint32) {
 	x.xxx_hidden_VlanId = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *FdbEntry) SetMac(v *v1.Eui48Address) {
@@ -119,17 +133,22 @@ func (x *FdbEntry) SetMac(v *v1.Eui48Address) {
 
 func (x *FdbEntry) SetInterfaceName(v string) {
 	x.xxx_hidden_InterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *FdbEntry) SetKind(v FdbEntryKind) {
 	x.xxx_hidden_Kind = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
 func (x *FdbEntry) SetStatus(v FdbEntryStatus) {
 	x.xxx_hidden_Status = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *FdbEntry) SetNetworkInstance(v string) {
+	x.xxx_hidden_NetworkInstance = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *FdbEntry) HasVlanId() bool {
@@ -167,6 +186,13 @@ func (x *FdbEntry) HasStatus() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *FdbEntry) HasNetworkInstance() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *FdbEntry) ClearVlanId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_VlanId = 0
@@ -191,6 +217,11 @@ func (x *FdbEntry) ClearStatus() {
 	x.xxx_hidden_Status = FdbEntryStatus_FDB_ENTRY_STATUS_UNSPECIFIED
 }
 
+func (x *FdbEntry) ClearNetworkInstance() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_NetworkInstance = nil
+}
+
 type FdbEntry_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -205,6 +236,8 @@ type FdbEntry_builder struct {
 	Kind *FdbEntryKind
 	// Current forwarding usability. Absent means unreported.
 	Status *FdbEntryStatus
+	// The network instance whose bridge holds the entry. Must be present.
+	NetworkInstance *string
 }
 
 func (b0 FdbEntry_builder) Build() *FdbEntry {
@@ -212,21 +245,25 @@ func (b0 FdbEntry_builder) Build() *FdbEntry {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.VlanId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_VlanId = *b.VlanId
 	}
 	x.xxx_hidden_Mac = b.Mac
 	if b.InterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_InterfaceName = b.InterfaceName
 	}
 	if b.Kind != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_Kind = *b.Kind
 	}
 	if b.Status != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_Status = *b.Status
+	}
+	if b.NetworkInstance != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_NetworkInstance = b.NetworkInstance
 	}
 	return m0
 }
@@ -235,13 +272,14 @@ var File_flowseer_net_switching_v1_fdb_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_switching_v1_fdb_entry_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/net/switching/v1/fdb_entry.proto\x12\x19flowseer.net.switching.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a.flowseer/net/switching/v1/fdb_entry_kind.proto\x1a0flowseer/net/switching/v1/fdb_entry_status.proto\"\xcf\x03\n" +
+	")flowseer/net/switching/v1/fdb_entry.proto\x12\x19flowseer.net.switching.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a.flowseer/net/switching/v1/fdb_entry_kind.proto\x1a0flowseer/net/switching/v1/fdb_entry_status.proto\"\x88\x04\n" +
 	"\bFdbEntry\x12%\n" +
 	"\avlan_id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x06vlanId\x12<\n" +
 	"\x03mac\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\x03mac\x120\n" +
 	"\x0einterface_name\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceName\x12;\n" +
 	"\x04kind\x18\x04 \x01(\x0e2'.flowseer.net.switching.v1.FdbEntryKindR\x04kind\x12A\n" +
-	"\x06status\x18\x05 \x01(\x0e2).flowseer.net.switching.v1.FdbEntryStatusR\x06status:\xab\x01\xbaH\xa7\x01\x1a\xa4\x01\n" +
+	"\x06status\x18\x05 \x01(\x0e2).flowseer.net.switching.v1.FdbEntryStatusR\x06status\x127\n" +
+	"\x10network_instance\x18\x06 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x90\xb5\x18\x01R\x0fnetworkInstance:\xab\x01\xbaH\xa7\x01\x1a\xa4\x01\n" +
 	"\x18fdb_entry.mac_is_unicast\x12>the FDB address must be an individual (unicast) EUI-48 address\x1aH!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')B\x85\x02\n" +
 	"\x1dcom.flowseer.net.switching.v1B\rFdbEntryProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
