@@ -11,7 +11,7 @@ parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 
 # Schema Building Blocks Phase 2, Network Instances and Routing - Plan
 
-> Partially implemented: U1 passed (683c171f), U2 blocked by Requirement 4. 1 unit, 2026-09-26T07:31:17Z.
+> Partially implemented: U1 landed (683c171f); requirement 4 corrected on the user's ruling; resume from U2.
 
 ## Goal
 
@@ -82,10 +82,18 @@ from dossiers 05 and 06:
   `NextHopGroup` holds `repeated NextHop next_hops` (min_items = 1). Why: RFC
   8349 (`ietf-routing.yang` §5.2) cleanly separates forwarding next hops from
   the four special next-hop actions (`blackhole`, `unreachable`, `prohibit`,
-  `receive`). Setting both an egress forwarding target and a discard/receive
-  action is a semantic contradiction rejected by the required `oneof`.
+  `receive`). An egress forwarding target and a discard/receive
+  action are mutually exclusive by construction: the `oneof` holds at most one
+  arm, so both cannot be represented at once, and `required` fails the empty case.
   `NextHopGroup` models multi-path ECMP groups as an ordered set of next hops
   (RFC 8349 `next-hop-list`).
+- Ruled (drive, on the user's decision): requirement 4 asserts the enforceable
+  invariant, not the impossible "both arms set" state. A protobuf `oneof` holds
+  at most one arm in memory, and decoding wire bytes carrying both tags keeps
+  only the last (last-tag-wins), so `protovalidate` can reject a `NextHop` only
+  when no arm is set. `required` enforces at-least-one; the oneof enforces
+  at-most-one. A comment on `NextHop` records that both arms are structurally
+  unrepresentable.
 - `Route` carries `RouteTableType table_type = 8` (`ROUTE_TABLE_TYPE_UNSPECIFIED = 0`,
   `_RIB = 1`, `_FIB = 2`) as an explicit discriminator. Why: Network domain atlas
   04 §3.7 and dossier 06 note that standard SNMP routing tables (RFC 1213
@@ -124,10 +132,13 @@ from dossiers 05 and 06:
    and `next_hop_group` containing a forwarding next hop with gateway `192.0.2.1`
    passes `protovalidate.Validate`, marshals to protobuf wire bytes, unmarshals
    back, and preserves `GetSourceProtocol() == routingv1.RouteSourceProtocol_ROUTE_SOURCE_PROTOCOL_NETMGMT`.
-4. A `NextHop` with both arms set fails `oneof` validation.
-   Example: A `NextHop` with both `forwarding` and `special` populated
-   (unmarshaled from wire bytes containing both field tags 1 and 2) fails
-   `protovalidate.Validate` with `oneof: exactly one field is required`.
+4. A `NextHop` with no arm set fails the required `oneof`; a `NextHop` with
+   exactly one arm passes. Example: `NextHop_builder{}.Build()` fails
+   `protovalidate.Validate` with `oneof: exactly one field is required`, and a
+   `NextHop` with only `forwarding` (or only `special`) set passes. The `oneof`
+   makes both arms structurally unrepresentable in memory (proto decoding is
+   last-tag-wins, so wire bytes carrying both tags leave only the last arm set);
+   a comment on `NextHop` states this.
 5. An `IpFacet` without `network_instance` fails validation.
    Example: `ipv1.IpFacet_builder{ Ipv4: ipv1.Ipv4Facet_builder{Enabled: proto.Bool(true)}.Build() }.Build()`
    fails `protovalidate.Validate` with violation path `network_instance` and
@@ -335,20 +346,4 @@ go test -race ./test/conformance/... ./src/modules/localnet/snmpmap/... ./src/co
 
 ## Open questions
 
-- **Requirement 4 satisfiability with `protovalidate`**:
-  Requirement 4 specifies:
-  > "A `NextHop` with both arms set fails `oneof` validation. Example: A `NextHop` with both `forwarding` and `special` populated (unmarshaled from wire bytes containing both field tags 1 and 2) fails `protovalidate.Validate` with `oneof: exactly one field is required`."
-  Under the Protocol Buffers wire encoding specification and Google's Go protobuf runtime (`google.golang.org/protobuf`), unmarshaling wire bytes containing multiple fields for the same oneof applies "last tag wins" — the later tag overwrites the earlier tag and leaves no unknown fields. In Go's opaque API runtime, a oneof is represented in-memory by an interface holding at most one concrete variant; it cannot hold both arms simultaneously.
-  When `protovalidate.Validate` evaluates the unmarshaled message, `msg.WhichOneof(descriptor)` returns the single populated arm, satisfying `(buf.validate.oneof).required = true`. Protovalidate's `oneof.go` only emits `"exactly one field is required in oneof"` when `WhichOneof` is nil (no arm set). It is therefore impossible for `protovalidate.Validate` on an unmarshaled message to reject wire bytes containing multiple oneof tags without rejecting valid messages.
-  Per brief rule 19 ("a requirement you believe the code cannot satisfy is a blocker: record it in the plan's Open questions, commit what passed, state the blocker, stop"), execution stops here for re-planning or requirement clarification.
-
-- Parked by drive: requirement 4 ("a NextHop with both arms set fails oneof
-  validation") tests a structurally impossible state — protobuf oneof decoding
-  is last-tag-wins, so an unmarshaled message never holds both arms, and
-  protovalidate rejects only when no arm is set. U1 (network instance) landed;
-  U2 (routing/NextHop) is blocked on this. Options: (a) rewrite requirement 4 to
-  assert the enforceable invariant — a NextHop with no arm set fails the required
-  oneof, exactly-one passes, and a comment on NextHop notes the oneof makes
-  both-arms unrepresentable | (b) keep the wording and drop the impossible "both
-  arms" test as structurally covered. Recommended: (a), because it tests the real
-  contract instead of a state the wire format cannot produce, and documents why.
+None.
