@@ -163,6 +163,28 @@ func TestEmitAugmentModule(t *testing.T) {
 	}
 }
 
+// TestEmitGroupingInstantiatingModule asserts that nodes instantiated from
+// a grouping in another module take the instantiating module's name.
+func TestEmitGroupingInstantiatingModule(t *testing.T) {
+	vs := fixtureVendor(t)
+	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(mainSrc, `"fixture-grp"`) {
+		t.Error("emitted fixture-main unexpectedly contains defining module fixture-grp")
+	}
+
+	// Each instance's schema/field literal names fixture-main.
+	for _, schema := range []string{"PrimaryGroupItemSchema", "SecondaryGroupItemSchema"} {
+		pat := schema + `\s*=\s*&yang\.Schema\{[\s\S]*?Module:\s+(?:"fixture-main"|moduleFixtureMain)`
+		if !regexp.MustCompile(pat).MatchString(mainSrc) {
+			t.Errorf("emitted fixture-main missing fixture-main Module on %s", schema)
+		}
+	}
+}
+
 // TestGoldenPackagesBuild compiles the committed golden packages, so
 // the emitted code is known to type-check against the runtime — the
 // go tool skips testdata in wildcard walks, so each package is built

@@ -213,3 +213,44 @@ func TestGeneratedVisitLeaves(t *testing.T) {
 		}
 	}
 }
+
+// TestGroupingInstantiatingModuleRoundTrip asserts that nodes instantiated
+// from another module's grouping decode JSON with the instantiating module's
+// qualification and XML in its namespace through both instances.
+func TestGroupingInstantiatingModuleRoundTrip(t *testing.T) {
+	jsonPayload := []byte(`{"fixture-main:buffer-size":4096}`)
+
+	var primaryJSON fixturemain.PrimaryGroupItem
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.PrimaryGroupItemSchema, jsonPayload, &primaryJSON); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct primary: %v", err)
+	}
+	if primaryJSON.BufferSize == nil || *primaryJSON.BufferSize != 4096 {
+		t.Errorf("primary JSON BufferSize = %v, want 4096", primaryJSON.BufferSize)
+	}
+
+	var secondaryJSON fixturemain.SecondaryGroupItem
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.SecondaryGroupItemSchema, jsonPayload, &secondaryJSON); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct secondary: %v", err)
+	}
+	if secondaryJSON.BufferSize == nil || *secondaryJSON.BufferSize != 4096 {
+		t.Errorf("secondary JSON BufferSize = %v, want 4096", secondaryJSON.BufferSize)
+	}
+
+	xmlPayload := []byte(`<item xmlns="urn:flowseer:fixture-main"><buffer-size>8192</buffer-size></item>`)
+
+	var primaryXML fixturemain.PrimaryGroupItem
+	if err := yang.UnmarshalXMLStruct(fixturemain.PrimaryGroupItemSchema, xmlPayload, &primaryXML); err != nil {
+		t.Fatalf("UnmarshalXMLStruct primary: %v", err)
+	}
+	if primaryXML.BufferSize == nil || *primaryXML.BufferSize != 8192 {
+		t.Errorf("primary XML BufferSize = %v, want 8192", primaryXML.BufferSize)
+	}
+
+	var secondaryXML fixturemain.SecondaryGroupItem
+	if err := yang.UnmarshalXMLStruct(fixturemain.SecondaryGroupItemSchema, xmlPayload, &secondaryXML); err != nil {
+		t.Fatalf("UnmarshalXMLStruct secondary: %v", err)
+	}
+	if secondaryXML.BufferSize == nil || *secondaryXML.BufferSize != 8192 {
+		t.Errorf("secondary XML BufferSize = %v, want 8192", secondaryXML.BufferSize)
+	}
+}

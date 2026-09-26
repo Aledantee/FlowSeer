@@ -551,13 +551,12 @@ func (em *moduleEmitter) pathExpr(path []pathSeg) *jen.Statement {
 	})
 }
 
-// moduleOf returns the defining module's name for an entry.
+// moduleOf returns the instantiating module's name for an entry.
 func (em *moduleEmitter) moduleOf(e *goyang.Entry) string {
-	if e == nil || e.Node == nil {
-		return em.m.Name
-	}
-	if root := goyang.RootNode(e.Node); root != nil {
-		return root.Name
+	if e != nil {
+		if mod, err := e.InstantiatingModule(); err == nil && mod != "" {
+			return mod
+		}
 	}
 	return em.m.Name
 }
