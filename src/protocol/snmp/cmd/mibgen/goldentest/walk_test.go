@@ -239,16 +239,16 @@ func TestHomeTable_IsTheHomeDescriptor(t *testing.T) {
 	}
 }
 
-// TestWalk_NamedWalkerAssignment pins explicit named-walker variable assignment
-// and walk execution over the embedded TableWalker.
+// TestWalk_NamedWalkerAssignment pins the exact named-walker return type and
+// walk execution over the embedded TableWalker.
 func TestWalk_NamedWalkerAssignment(t *testing.T) {
 	col := fakemib.FakeName.OID()
 	sess := scriptedSession{instances: []snmp.VarBind{
 		snmp.OctetStringVar{Header: snmp.Header{OID: col.Append(1), Kind: snmp.KindOctetString}, Value: []byte("one")},
 	}}
 
-	var w *fakemib.FakeTableWalker
-	w = fakemib.FakeTable.Walk(context.Background(), sess, fakemib.FakeName)
+	requireNamedWalker := func(w *fakemib.FakeTableWalker) *fakemib.FakeTableWalker { return w }
+	w := requireNamedWalker(fakemib.FakeTable.Walk(context.Background(), sess, fakemib.FakeName))
 	var count int
 	for _, row := range w.Iter() {
 		if row.FakeName != "one" {
