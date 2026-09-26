@@ -11,10 +11,13 @@
 // one Go package per module under generated/go/yang/<vendor>/,
 // consuming only src/protocol/yang's public API.
 //
-// Identifiers are MixedCaps with no separator between ancestry names.
-// Companion names derive from the struct (the schema var, list key
-// type, descriptor function, and flat row), and clashes resolve to X
-// plus six hex digits of the schema path.
+// Struct identifiers are MixedCaps derived from the shortest unique
+// suffix of ancestry names, resolved through fair-growth collision
+// resolution. Structurally identical container subtrees share a
+// single struct type and Schema across instances. Companion names
+// derive from the struct (the schema var, list key type, descriptor
+// function, and flat row), and clashes resolve to X plus six hex
+// digits of the schema path or shape key.
 //
 // A lockfile (yanggen.lock.json) records, per module, its newest
 // revision, source hash, and a closure hash covering every source in

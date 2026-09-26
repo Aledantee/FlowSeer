@@ -13,7 +13,7 @@ type AlarmState struct {
 	Count *uint32
 }
 
-// AlarmStateSchema describes /fixture-main/alarm-state for the generic codecs.
+// AlarmStateSchema describes AlarmState for the generic codecs.
 var AlarmStateSchema = &yang.Schema{
 	Fields: []yang.Field{{
 		GoName: "Count",
@@ -25,22 +25,13 @@ var AlarmStateSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// AlarmStateDescriptor watches the AlarmState subtree as one synthetic row.
-func AlarmStateDescriptor() yang.ListDescriptor[AlarmState, struct{}] {
-	return yang.SubtreeDescriptor[AlarmState](AlarmStateSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "alarm-state",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
-}
-
-// AlarmStateXbfcb9c is the fixture-main node /fixture-main/alarmState.
-type AlarmStateXbfcb9c struct {
+// AlarmStateXa0728a is the fixture-main node /fixture-main/alarmState.
+type AlarmStateXa0728a struct {
 	Count *uint32
 }
 
-// AlarmStateXbfcb9cSchema describes /fixture-main/alarmState for the generic codecs.
-var AlarmStateXbfcb9cSchema = &yang.Schema{
+// AlarmStateSchemaXa270cf describes AlarmStateXa0728a for the generic codecs.
+var AlarmStateSchemaXa270cf = &yang.Schema{
 	Fields: []yang.Field{{
 		GoName: "Count",
 		Name:   "count",
@@ -51,50 +42,14 @@ var AlarmStateXbfcb9cSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// AlarmStateXbfcb9cDescriptor watches the AlarmStateXbfcb9c subtree as one synthetic row.
-func AlarmStateXbfcb9cDescriptor() yang.ListDescriptor[AlarmStateXbfcb9c, struct{}] {
-	return yang.SubtreeDescriptor[AlarmStateXbfcb9c](AlarmStateXbfcb9cSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "alarmState",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
-}
-
-// Bindings is the fixture-main node /fixture-main/bindings.
-type Bindings struct {
-	Binding []BindingsBinding
-}
-
-// BindingsSchema describes /fixture-main/bindings for the generic codecs.
-var BindingsSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		Child:  BindingsBindingSchema,
-		GoName: "Binding",
-		List:   true,
-		Name:   "binding",
-	}},
-	Module:    "fixture-main",
-	Name:      "bindings",
-	Namespace: "urn:flowseer:fixture-main",
-}
-
-// BindingsDescriptor watches the Bindings subtree as one synthetic row.
-func BindingsDescriptor() yang.ListDescriptor[Bindings, struct{}] {
-	return yang.SubtreeDescriptor[Bindings](BindingsSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "bindings",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
-}
-
-// BindingsBinding is the fixture-main node /fixture-main/bindings/binding.
-type BindingsBinding struct {
+// Binding is the fixture-main node /fixture-main/bindings/binding.
+type Binding struct {
 	ServerRef *string
 	Weight    *uint8
 }
 
-// BindingsBindingSchema describes /fixture-main/bindings/binding for the generic codecs.
-var BindingsBindingSchema = &yang.Schema{
+// BindingSchema describes Binding for the generic codecs.
+var BindingSchema = &yang.Schema{
 	Fields: []yang.Field{{
 		GoName: "ServerRef",
 		Name:   "server-ref",
@@ -110,27 +65,50 @@ var BindingsBindingSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// BindingsBindingKey is BindingsBinding's row identity (ancestor keys in canonical form).
-type BindingsBindingKey struct {
-	ServerRef string
+// Bindings is the fixture-main node /fixture-main/bindings.
+type Bindings struct {
+	Binding []Binding
 }
 
-// BindingsBindingDescriptor is the list descriptor callers hand to a protocol library.
-func BindingsBindingDescriptor() yang.ListDescriptor[BindingsBinding, BindingsBindingKey] {
-	return yang.ListDescriptor[BindingsBinding, BindingsBindingKey]{
-		Codec: yang.StructRowCodec(BindingsBindingSchema, func(r *BindingsBinding) BindingsBindingKey {
-			var k BindingsBindingKey
-			if r.ServerRef != nil {
-				k.ServerRef = *r.ServerRef
-			}
-			return k
-		}),
-		Path: yang.Path{Segments: []yang.Segment{{
-			Module:    "fixture-main",
-			Name:      "bindings",
-			Namespace: "urn:flowseer:fixture-main",
-		}, {Name: "binding"}}},
-	}
+// BindingsSchema describes Bindings for the generic codecs.
+var BindingsSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		Child:  BindingSchema,
+		GoName: "Binding",
+		List:   true,
+		Name:   "binding",
+	}},
+	Module:    "fixture-main",
+	Name:      "bindings",
+	Namespace: "urn:flowseer:fixture-main",
+}
+
+// Endpoint is the fixture-main node /fixture-main/servers/server/endpoint.
+type Endpoint struct {
+	Address *string
+	Enabled *bool
+	Port    *uint16
+}
+
+// EndpointSchema describes Endpoint for the generic codecs.
+var EndpointSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Address",
+		Name:   "address",
+		Type:   yang.TString,
+	}, {
+		GoName: "Enabled",
+		Name:   "enabled",
+		Type:   yang.TBool,
+	}, {
+		GoName: "Port",
+		Name:   "port",
+		Type:   yang.TUint16,
+	}},
+	Keys:      []string{"address", "port"},
+	Module:    "fixture-main",
+	Name:      "endpoint",
+	Namespace: "urn:flowseer:fixture-main",
 }
 
 // FromSubmodule is the fixture-main node /fixture-main/from-submodule.
@@ -138,7 +116,7 @@ type FromSubmodule struct {
 	Label *string
 }
 
-// FromSubmoduleSchema describes /fixture-main/from-submodule for the generic codecs.
+// FromSubmoduleSchema describes FromSubmodule for the generic codecs.
 var FromSubmoduleSchema = &yang.Schema{
 	Fields: []yang.Field{{
 		GoName: "Label",
@@ -150,24 +128,49 @@ var FromSubmoduleSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// FromSubmoduleDescriptor watches the FromSubmodule subtree as one synthetic row.
-func FromSubmoduleDescriptor() yang.ListDescriptor[FromSubmodule, struct{}] {
-	return yang.SubtreeDescriptor[FromSubmodule](FromSubmoduleSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "from-submodule",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
+// Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main/primary-group/item.
+type Item struct {
+	BufferSize *uint32
+}
+
+// ItemSchema describes Item for the generic codecs.
+var ItemSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "BufferSize",
+		Name:   "buffer-size",
+		Type:   yang.TUint32,
+	}},
+	Module:    "fixture-main",
+	Name:      "item",
+	Namespace: "urn:flowseer:fixture-main",
+}
+
+// Key is the fixture-main node /fixture-main/servers/server/key.
+type Key struct {
+	ID *string
+}
+
+// KeySchema describes Key for the generic codecs.
+var KeySchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "ID",
+		Name:   "id",
+		Type:   yang.TString,
+	}},
+	Module:    "fixture-main",
+	Name:      "key",
+	Namespace: "urn:flowseer:fixture-main",
 }
 
 // PrimaryGroup is the fixture-main node /fixture-main/primary-group.
 type PrimaryGroup struct {
-	Item *PrimaryGroupItem
+	Item *Item
 }
 
-// PrimaryGroupSchema describes /fixture-main/primary-group for the generic codecs.
+// PrimaryGroupSchema describes PrimaryGroup for the generic codecs.
 var PrimaryGroupSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		Child:  PrimaryGroupItemSchema,
+		Child:  ItemSchema,
 		GoName: "Item",
 		Name:   "item",
 	}},
@@ -176,41 +179,32 @@ var PrimaryGroupSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// PrimaryGroupDescriptor watches the PrimaryGroup subtree as one synthetic row.
-func PrimaryGroupDescriptor() yang.ListDescriptor[PrimaryGroup, struct{}] {
-	return yang.SubtreeDescriptor[PrimaryGroup](PrimaryGroupSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "primary-group",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
+// Schema is the fixture-main node /fixture-main/servers/schema.
+type Schema struct {
+	Version *string
 }
 
-// PrimaryGroupItem is the fixture-main node /fixture-main/primary-group/item.
-type PrimaryGroupItem struct {
-	BufferSize *uint32
-}
-
-// PrimaryGroupItemSchema describes /fixture-main/primary-group/item for the generic codecs.
-var PrimaryGroupItemSchema = &yang.Schema{
+// SchemaSchema describes Schema for the generic codecs.
+var SchemaSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		GoName: "BufferSize",
-		Name:   "buffer-size",
-		Type:   yang.TUint32,
+		GoName: "Version",
+		Name:   "version",
+		Type:   yang.TString,
 	}},
 	Module:    "fixture-main",
-	Name:      "item",
+	Name:      "schema",
 	Namespace: "urn:flowseer:fixture-main",
 }
 
 // SecondaryGroup is the fixture-main node /fixture-main/secondary-group.
 type SecondaryGroup struct {
-	Item *SecondaryGroupItem
+	Item *Item
 }
 
-// SecondaryGroupSchema describes /fixture-main/secondary-group for the generic codecs.
+// SecondaryGroupSchema describes SecondaryGroup for the generic codecs.
 var SecondaryGroupSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		Child:  SecondaryGroupItemSchema,
+		Child:  ItemSchema,
 		GoName: "Item",
 		Name:   "item",
 	}},
@@ -219,47 +213,21 @@ var SecondaryGroupSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// SecondaryGroupDescriptor watches the SecondaryGroup subtree as one synthetic row.
-func SecondaryGroupDescriptor() yang.ListDescriptor[SecondaryGroup, struct{}] {
-	return yang.SubtreeDescriptor[SecondaryGroup](SecondaryGroupSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "secondary-group",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
-}
-
-// SecondaryGroupItem is the fixture-main node /fixture-main/secondary-group/item.
-type SecondaryGroupItem struct {
-	BufferSize *uint32
-}
-
-// SecondaryGroupItemSchema describes /fixture-main/secondary-group/item for the generic codecs.
-var SecondaryGroupItemSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "BufferSize",
-		Name:   "buffer-size",
-		Type:   yang.TUint32,
-	}},
-	Module:    "fixture-main",
-	Name:      "item",
-	Namespace: "urn:flowseer:fixture-main",
-}
-
 // Servers is the fixture-main node /fixture-main/servers.
 type Servers struct {
-	Schema       *ServersSchemaX60a08e
+	Schema       *Schema
 	Server       []ServersServer
 	ServerSchema *ServersServerSchema
 }
 
-// ServersSchema describes /fixture-main/servers for the generic codecs.
+// ServersSchema describes Servers for the generic codecs.
 var ServersSchema = &yang.Schema{
 	Fields: []yang.Field{{
-		Child:  ServersSchemaX60a08eSchema,
+		Child:  SchemaSchema,
 		GoName: "Schema",
 		Name:   "schema",
 	}, {
-		Child:  ServersServerSchemaX4d76e3,
+		Child:  ServersServerSchemaX9bc561,
 		GoName: "Server",
 		List:   true,
 		Name:   "server",
@@ -273,54 +241,28 @@ var ServersSchema = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// ServersDescriptor watches the Servers subtree as one synthetic row.
-func ServersDescriptor() yang.ListDescriptor[Servers, struct{}] {
-	return yang.SubtreeDescriptor[Servers](ServersSchema, yang.Path{Segments: []yang.Segment{{
-		Module:    "fixture-main",
-		Name:      "servers",
-		Namespace: "urn:flowseer:fixture-main",
-	}}})
-}
-
-// ServersSchemaX60a08e is the fixture-main node /fixture-main/servers/schema.
-type ServersSchemaX60a08e struct {
-	Version *string
-}
-
-// ServersSchemaX60a08eSchema describes /fixture-main/servers/schema for the generic codecs.
-var ServersSchemaX60a08eSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Version",
-		Name:   "version",
-		Type:   yang.TString,
-	}},
-	Module:    "fixture-main",
-	Name:      "schema",
-	Namespace: "urn:flowseer:fixture-main",
-}
-
 // ServersServer is the fixture-main node /fixture-main/servers/server.
 type ServersServer struct {
-	Endpoint []ServersServerEndpoint
-	Key      *ServersServerKeyX6905f1
+	Endpoint []Endpoint
+	Key      *Key
 	Listen   *yang.Value
 	Name     *string
 	Owner    *string
 	Port     *uint16
 	Proto    *yang.Identity
 	Ratio    *yang.Value
-	TLS      *ServersServerTLS
+	TLS      *TLS
 }
 
-// ServersServerSchemaX4d76e3 describes /fixture-main/servers/server for the generic codecs.
-var ServersServerSchemaX4d76e3 = &yang.Schema{
+// ServersServerSchemaX9bc561 describes ServersServer for the generic codecs.
+var ServersServerSchemaX9bc561 = &yang.Schema{
 	Fields: []yang.Field{{
-		Child:  ServersServerEndpointSchema,
+		Child:  EndpointSchema,
 		GoName: "Endpoint",
 		List:   true,
 		Name:   "endpoint",
 	}, {
-		Child:  ServersServerKeyX6905f1Schema,
+		Child:  KeySchema,
 		GoName: "Key",
 		Name:   "key",
 	}, {
@@ -356,7 +298,7 @@ var ServersServerSchemaX4d76e3 = &yang.Schema{
 			Kind:           yang.TypeDecimal64,
 		},
 	}, {
-		Child:  ServersServerTLSSchema,
+		Child:  TLSSchema,
 		GoName: "TLS",
 		Name:   "tls",
 	}},
@@ -366,16 +308,74 @@ var ServersServerSchemaX4d76e3 = &yang.Schema{
 	Namespace: "urn:flowseer:fixture-main",
 }
 
-// ServersServerKey is ServersServer's row identity (ancestor keys in canonical form).
-type ServersServerKey struct {
+// ServersServerSchema is the fixture-main node /fixture-main/servers/server-schema.
+type ServersServerSchema struct {
+	Note *string
+}
+
+// ServersServerSchemaSchema describes ServersServerSchema for the generic codecs.
+var ServersServerSchemaSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "Note",
+		Name:   "note",
+		Type:   yang.TString,
+	}},
+	Module:    "fixture-main",
+	Name:      "server-schema",
+	Namespace: "urn:flowseer:fixture-main",
+}
+
+// TLS is the fixture-main node /fixture-main/servers/server/tls.
+type TLS struct {
+	MinVersion *string
+}
+
+// TLSSchema describes TLS for the generic codecs.
+var TLSSchema = &yang.Schema{
+	Fields: []yang.Field{{
+		GoName: "MinVersion",
+		Name:   "min-version",
+		Type:   yang.TEnum,
+	}},
+	Module:    "fixture-main",
+	Name:      "tls",
+	Namespace: "urn:flowseer:fixture-main",
+	Presence:  true,
+}
+
+// BindingKey is Binding's row identity (ancestor keys in canonical form).
+type BindingKey struct {
+	ServerRef string
+}
+
+// BindingDescriptor is the list descriptor callers hand to a protocol library.
+func BindingDescriptor() yang.ListDescriptor[Binding, BindingKey] {
+	return yang.ListDescriptor[Binding, BindingKey]{
+		Codec: yang.StructRowCodec(BindingSchema, func(r *Binding) BindingKey {
+			var k BindingKey
+			if r.ServerRef != nil {
+				k.ServerRef = *r.ServerRef
+			}
+			return k
+		}),
+		Path: yang.Path{Segments: []yang.Segment{{
+			Module:    "fixture-main",
+			Name:      "bindings",
+			Namespace: "urn:flowseer:fixture-main",
+		}, {Name: "binding"}}},
+	}
+}
+
+// ServerKey is ServersServer's row identity (ancestor keys in canonical form).
+type ServerKey struct {
 	Name string
 }
 
-// ServersServerDescriptor is the list descriptor callers hand to a protocol library.
-func ServersServerDescriptor() yang.ListDescriptor[ServersServer, ServersServerKey] {
-	return yang.ListDescriptor[ServersServer, ServersServerKey]{
-		Codec: yang.StructRowCodec(ServersServerSchemaX4d76e3, func(r *ServersServer) ServersServerKey {
-			var k ServersServerKey
+// ServerDescriptor is the list descriptor callers hand to a protocol library.
+func ServerDescriptor() yang.ListDescriptor[ServersServer, ServerKey] {
+	return yang.ListDescriptor[ServersServer, ServerKey]{
+		Codec: yang.StructRowCodec(ServersServerSchemaX9bc561, func(r *ServersServer) ServerKey {
+			var k ServerKey
 			if r.Name != nil {
 				k.Name = *r.Name
 			}
@@ -389,84 +389,56 @@ func ServersServerDescriptor() yang.ListDescriptor[ServersServer, ServersServerK
 	}
 }
 
-// ServersServerEndpoint is the fixture-main node /fixture-main/servers/server/endpoint.
-type ServersServerEndpoint struct {
-	Address *string
-	Enabled *bool
-	Port    *uint16
-}
-
-// ServersServerEndpointSchema describes /fixture-main/servers/server/endpoint for the generic codecs.
-var ServersServerEndpointSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Address",
-		Name:   "address",
-		Type:   yang.TString,
-	}, {
-		GoName: "Enabled",
-		Name:   "enabled",
-		Type:   yang.TBool,
-	}, {
-		GoName: "Port",
-		Name:   "port",
-		Type:   yang.TUint16,
-	}},
-	Keys:      []string{"address", "port"},
-	Module:    "fixture-main",
-	Name:      "endpoint",
-	Namespace: "urn:flowseer:fixture-main",
-}
-
-// ServersServerEndpointKey is ServersServerEndpoint's row identity (ancestor keys in canonical form).
-type ServersServerEndpointKey struct {
+// EndpointKey is Endpoint's row identity (ancestor keys in canonical form).
+type EndpointKey struct {
 	ServerName string
 	Address    string
 	Port       uint16
 }
 
-// ServersServerEndpointFlatRow flattens one ServersServerEndpoint entry with its ancestor list keys.
-type ServersServerEndpointFlatRow struct {
+// EndpointFlatRow flattens one Endpoint entry with its ancestor list keys.
+type EndpointFlatRow struct {
 	ServerName string
-	Entry      ServersServerEndpoint
+	Entry      Endpoint
 }
 
-// ServersServerEndpointDescriptor is the flattened-row descriptor for the nested list ServersServerEndpoint.
-func ServersServerEndpointDescriptor() yang.ListDescriptor[ServersServerEndpointFlatRow, ServersServerEndpointKey] {
-	return yang.ListDescriptor[ServersServerEndpointFlatRow, ServersServerEndpointKey]{
-		Codec: yang.RowCodec[ServersServerEndpointFlatRow, ServersServerEndpointKey]{
-			DecodeJSON: func(data []byte) ([]ServersServerEndpointFlatRow, error) {
-				chain := []*yang.Schema{ServersServerSchemaX4d76e3, ServersServerEndpointSchema}
-				entries, err := yang.DecodeJSONNested[ServersServerEndpoint](chain, data)
+// EndpointDescriptor is the flattened-row descriptor for the nested list Endpoint.
+func EndpointDescriptor() yang.ListDescriptor[EndpointFlatRow, EndpointKey] {
+	return yang.ListDescriptor[EndpointFlatRow, EndpointKey]{
+		Codec: yang.RowCodec[EndpointFlatRow, EndpointKey]{
+			DecodeJSON: func(data []byte) ([]EndpointFlatRow, error) {
+				chain := []*yang.Schema{ServersServerSchemaX9bc561, EndpointSchema}
+				entries, err := yang.DecodeJSONNested[Endpoint](chain, data)
 				if err != nil {
 					return nil, err
 				}
-				rows := make([]ServersServerEndpointFlatRow, 0, len(entries))
+				rows := make([]EndpointFlatRow, 0, len(entries))
 				for _, en := range entries {
-					rows = append(rows, ServersServerEndpointFlatRow{
+					rows = append(rows, EndpointFlatRow{
 						Entry:      en.Entry,
 						ServerName: yang.AncestorKey(en.AncestorKeys, 0, "name"),
 					})
 				}
 				return rows, nil
 			},
-			DecodeXML: func(data []byte) ([]ServersServerEndpointFlatRow, error) {
-				chain := []*yang.Schema{ServersServerSchemaX4d76e3, ServersServerEndpointSchema}
-				entries, err := yang.DecodeXMLNested[ServersServerEndpoint](chain, data)
+			DecodeXML: func(data []byte) ([]EndpointFlatRow, error) {
+				chain := []*yang.Schema{ServersServerSchemaX9bc561, EndpointSchema}
+				entries, err := yang.DecodeXMLNested[Endpoint](chain, data)
 				if err != nil {
 					return nil, err
 				}
-				rows := make([]ServersServerEndpointFlatRow, 0, len(entries))
+				rows := make([]EndpointFlatRow, 0, len(entries))
 				for _, en := range entries {
-					rows = append(rows, ServersServerEndpointFlatRow{
+					rows = append(rows, EndpointFlatRow{
 						Entry:      en.Entry,
 						ServerName: yang.AncestorKey(en.AncestorKeys, 0, "name"),
 					})
 				}
 				return rows, nil
 			},
-			Equal: yang.EqualStructs[ServersServerEndpointFlatRow],
-			Key: func(r ServersServerEndpointFlatRow) ServersServerEndpointKey {
-				var k ServersServerEndpointKey
+			Equal: yang.EqualStructs[EndpointFlatRow],
+			Key: func(r EndpointFlatRow) EndpointKey {
+				var k EndpointKey
 				k.ServerName = r.ServerName
 				if r.Entry.Address != nil {
 					k.Address = *r.Entry.Address
@@ -476,8 +448,8 @@ func ServersServerEndpointDescriptor() yang.ListDescriptor[ServersServerEndpoint
 				}
 				return k
 			},
-			Merge: func(base, update ServersServerEndpointFlatRow) ServersServerEndpointFlatRow {
-				base.Entry = yang.MergeStructs(ServersServerEndpointSchema, base.Entry, update.Entry)
+			Merge: func(base, update EndpointFlatRow) EndpointFlatRow {
+				base.Entry = yang.MergeStructs(EndpointSchema, base.Entry, update.Entry)
 				return base
 			},
 		},
@@ -489,54 +461,65 @@ func ServersServerEndpointDescriptor() yang.ListDescriptor[ServersServerEndpoint
 	}
 }
 
-// ServersServerKeyX6905f1 is the fixture-main node /fixture-main/servers/server/key.
-type ServersServerKeyX6905f1 struct {
-	ID *string
+// AlarmStateDescriptor watches the AlarmState subtree as one synthetic row.
+func AlarmStateDescriptor() yang.ListDescriptor[AlarmState, struct{}] {
+	return yang.SubtreeDescriptor[AlarmState](AlarmStateSchema, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "alarm-state",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
 }
 
-// ServersServerKeyX6905f1Schema describes /fixture-main/servers/server/key for the generic codecs.
-var ServersServerKeyX6905f1Schema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "ID",
-		Name:   "id",
-		Type:   yang.TString,
-	}},
-	Module:    "fixture-main",
-	Name:      "key",
-	Namespace: "urn:flowseer:fixture-main",
+// AlarmStateDescriptorX665c35 watches the AlarmStateXa0728a subtree as one synthetic row.
+func AlarmStateDescriptorX665c35() yang.ListDescriptor[AlarmStateXa0728a, struct{}] {
+	return yang.SubtreeDescriptor[AlarmStateXa0728a](AlarmStateSchemaXa270cf, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "alarmState",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
 }
 
-// ServersServerTLS is the fixture-main node /fixture-main/servers/server/tls.
-type ServersServerTLS struct {
-	MinVersion *string
+// BindingsDescriptor watches the Bindings subtree as one synthetic row.
+func BindingsDescriptor() yang.ListDescriptor[Bindings, struct{}] {
+	return yang.SubtreeDescriptor[Bindings](BindingsSchema, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "bindings",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
 }
 
-// ServersServerTLSSchema describes /fixture-main/servers/server/tls for the generic codecs.
-var ServersServerTLSSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "MinVersion",
-		Name:   "min-version",
-		Type:   yang.TEnum,
-	}},
-	Module:    "fixture-main",
-	Name:      "tls",
-	Namespace: "urn:flowseer:fixture-main",
-	Presence:  true,
+// FromSubmoduleDescriptor watches the FromSubmodule subtree as one synthetic row.
+func FromSubmoduleDescriptor() yang.ListDescriptor[FromSubmodule, struct{}] {
+	return yang.SubtreeDescriptor[FromSubmodule](FromSubmoduleSchema, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "from-submodule",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
 }
 
-// ServersServerSchema is the fixture-main node /fixture-main/servers/server-schema.
-type ServersServerSchema struct {
-	Note *string
+// PrimaryGroupDescriptor watches the PrimaryGroup subtree as one synthetic row.
+func PrimaryGroupDescriptor() yang.ListDescriptor[PrimaryGroup, struct{}] {
+	return yang.SubtreeDescriptor[PrimaryGroup](PrimaryGroupSchema, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "primary-group",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
 }
 
-// ServersServerSchemaSchema describes /fixture-main/servers/server-schema for the generic codecs.
-var ServersServerSchemaSchema = &yang.Schema{
-	Fields: []yang.Field{{
-		GoName: "Note",
-		Name:   "note",
-		Type:   yang.TString,
-	}},
-	Module:    "fixture-main",
-	Name:      "server-schema",
-	Namespace: "urn:flowseer:fixture-main",
+// SecondaryGroupDescriptor watches the SecondaryGroup subtree as one synthetic row.
+func SecondaryGroupDescriptor() yang.ListDescriptor[SecondaryGroup, struct{}] {
+	return yang.SubtreeDescriptor[SecondaryGroup](SecondaryGroupSchema, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "secondary-group",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
+}
+
+// ServersDescriptor watches the Servers subtree as one synthetic row.
+func ServersDescriptor() yang.ListDescriptor[Servers, struct{}] {
+	return yang.SubtreeDescriptor[Servers](ServersSchema, yang.Path{Segments: []yang.Segment{{
+		Module:    "fixture-main",
+		Name:      "servers",
+		Namespace: "urn:flowseer:fixture-main",
+	}}})
 }

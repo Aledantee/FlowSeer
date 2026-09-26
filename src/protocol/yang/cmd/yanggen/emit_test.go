@@ -93,15 +93,15 @@ func TestEmitFixtureSurface(t *testing.T) {
 		// Structs, schemas, and descriptors.
 		"type Servers struct",
 		"type ServersServer struct",
-		"var ServersServerSchemaX4d76e3 =",
-		"type ServersServerKey struct",
-		"func ServersServerDescriptor() yang.ListDescriptor",
+		"var ServersServerSchemaX",
+		"type ServerKey struct",
+		"func ServerDescriptor() yang.ListDescriptor",
 		// Nested list: flat row with the ancestor key, schema chain,
 		// nested decode.
-		"type ServersServerEndpoint struct",
-		"type ServersServerEndpointFlatRow struct",
-		"yang.DecodeXMLNested[ServersServerEndpoint]",
-		"yang.DecodeJSONNested[ServersServerEndpoint]",
+		"type Endpoint struct",
+		"type EndpointFlatRow struct",
+		"yang.DecodeXMLNested[Endpoint]",
+		"yang.DecodeJSONNested[Endpoint]",
 		// Deviation applied: the deviated leaf is gone (asserted via
 		// notWant below); presence, unions, identityref, and the
 		// leafref key are asserted by wantRE above.
@@ -176,12 +176,31 @@ func TestEmitGroupingInstantiatingModule(t *testing.T) {
 		t.Error("emitted fixture-main unexpectedly contains defining module fixture-grp")
 	}
 
-	// Each instance's schema/field literal names fixture-main.
-	for _, schema := range []string{"PrimaryGroupItemSchema", "SecondaryGroupItemSchema"} {
-		pat := schema + `\s*=\s*&yang\.Schema\{[\s\S]*?Module:\s+(?:"fixture-main"|moduleFixtureMain)`
-		if !regexp.MustCompile(pat).MatchString(mainSrc) {
-			t.Errorf("emitted fixture-main missing fixture-main Module on %s", schema)
-		}
+	// The shared item schema literal names fixture-main.
+	pat := `ItemSchema\s*=\s*&yang\.Schema\{[\s\S]*?Module:\s+(?:"fixture-main"|moduleFixtureMain)`
+	if !regexp.MustCompile(pat).MatchString(mainSrc) {
+		t.Errorf("emitted fixture-main missing fixture-main Module on ItemSchema")
+	}
+}
+
+// TestEmitGroupingSharedShape verifies Requirement 4: a grouping used under
+// two containers of fixture-main generates one struct for the two instances.
+func TestEmitGroupingSharedShape(t *testing.T) {
+	vs := fixtureVendor(t)
+	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(mainSrc, "type Item struct") {
+		t.Error("type Item struct not found in emitted fixture-main")
+	}
+	if strings.Contains(mainSrc, "PrimaryGroupItem") || strings.Contains(mainSrc, "SecondaryGroupItem") {
+		t.Error("emitted separate structs for grouping instances instead of shared Item")
+	}
+	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main/primary-group/item."
+	if !strings.Contains(mainSrc, wantComment) {
+		t.Errorf("emitted fixture-main missing doc comment %q", wantComment)
 	}
 }
 
@@ -223,14 +242,12 @@ func TestEmitNoUnderscores(t *testing.T) {
 
 	foundServersServer := false
 	foundServersSchema := false
-	foundServersServerKey := false
-	foundSchemaChildClash := false
-	foundKeyChildClash := false
+	foundServerKey := false
+	foundSchemaChild := false
+	foundKeyChild := false
 	foundSiblingStruct := false
 	foundSchemaSiblingClash := false
 
-	schemaChildRE := regexp.MustCompile(`^ServersSchemaX[0-9a-f]{6}$`)
-	keyChildRE := regexp.MustCompile(`^ServersServerKeyX[0-9a-f]{6}$`)
 	schemaSiblingRE := regexp.MustCompile(`^ServersServerSchemaX[0-9a-f]{6}$`)
 
 	fset := token.NewFileSet()
@@ -265,14 +282,14 @@ func TestEmitNoUnderscores(t *testing.T) {
 							if name == "ServersServer" {
 								foundServersServer = true
 							}
-							if schemaChildRE.MatchString(name) {
-								foundSchemaChildClash = true
+							if name == "Schema" {
+								foundSchemaChild = true
 							}
-							if keyChildRE.MatchString(name) {
-								foundKeyChildClash = true
+							if name == "Key" {
+								foundKeyChild = true
 							}
-							if name == "ServersServerKey" {
-								foundServersServerKey = true
+							if name == "ServerKey" {
+								foundServerKey = true
 							}
 							if name == "ServersServerSchema" {
 								foundSiblingStruct = true
@@ -320,14 +337,14 @@ func TestEmitNoUnderscores(t *testing.T) {
 	if !foundServersSchema {
 		t.Error("var ServersSchema companion not found in golden fixtures")
 	}
-	if !foundServersServerKey {
-		t.Error("type ServersServerKey companion not found in golden fixtures")
+	if !foundServerKey {
+		t.Error("type ServerKey companion not found in golden fixtures")
 	}
-	if !foundSchemaChildClash {
-		t.Error("child container ServersSchemaX<hex> not found in golden fixtures")
+	if !foundSchemaChild {
+		t.Error("child container Schema not found in golden fixtures")
 	}
-	if !foundKeyChildClash {
-		t.Error("child container ServersServerKeyX<hex> not found in golden fixtures")
+	if !foundKeyChild {
+		t.Error("child container Key not found in golden fixtures")
 	}
 	if !foundSiblingStruct {
 		t.Error("sibling container type ServersServerSchema not found in golden fixtures")

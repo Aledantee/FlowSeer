@@ -52,74 +52,74 @@ both map to the same Go identifier in the package.
 
 ## Working Example
 
-In `src/protocol/yang/cmd/yanggen/emit_module.go:156-172`, `emitNode` claims the
-node's struct name, claims its companions, and only then claims its children:
+In `src/protocol/yang/cmd/yanggen/naming.go:470-602`, `resolvePackageNaming`
+registers all shapes, list instances, top containers, and identities as claimant
+entities, and resolves names through fair growth:
 
 ```go
-func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []pathSeg, ancestors []ancestorList) error {
-	structName := em.structName(e, parentStruct)
-	nodePath := append(append([]pathSeg{}, path...), em.segFor(e))
-
-	em.claimCompanions(e, structName, nodePath, ancestors)
-
-	children := dataChildren(e)
-	fieldScope := newNameScope()
-
-	childStructs := make(map[string]string)
-	for _, c := range children {
-		if isDataDir(c) {
-			childStructs[c.Name] = em.structName(c, structName)
+ent := &claimantEntity{
+	id:         "shape:" + sCopy.key,
+	candidates: sCopy.candidates,
+	getSymbols: func(base string) []claimSpec {
+		return []claimSpec{
+			{
+				wanted:        base,
+				kind:          kindStruct,
+				depth:         len(sCopy.instances[0].segments),
+				tieBreak:      sCopy.instances[0].entry.Path(),
+				discriminator: sCopy.key,
+			},
+			{
+				wanted:        base + "Schema",
+				kind:          kindSchema,
+				depth:         len(sCopy.instances[0].segments),
+				tieBreak:      sCopy.instances[0].entry.Path(),
+				discriminator: "schema:" + sCopy.key,
+			},
 		}
-	}
-	// ...
-```
-
-In `src/protocol/yang/cmd/yanggen/emit_module.go:501-512`, `claimCompanions`
-reserves companion names:
-
-```go
-func (em *moduleEmitter) claimCompanions(e *goyang.Entry, structName string, nodePath []pathSeg, ancestors []ancestorList) {
-	em.schemaVar(structName)
-	if e.IsList() && len(strings.Fields(e.Key)) > 0 {
-		em.scope.claim(structName+"Key", "key:"+structName)
-		em.scope.claim(structName+"Descriptor", "desc:"+structName)
-		if len(ancestors) > 0 {
-			em.scope.claim(structName+"FlatRow", "flat:"+structName)
-		}
-	} else if !e.IsList() && len(nodePath) == 1 {
-		em.scope.claim(structName+"Descriptor", "desc:"+structName)
-	}
+	},
 }
 ```
 
-The helper `schemaVar` (`emit_module.go:526-528`) returns
-`em.scope.claim(structName+"Schema", "schema:"+structName)`. When emitting the
-`var` declaration and all downstream references, callers invoke
-`em.schemaVar(structName)` instead of formatting `structName + "Schema"`.
+In `src/protocol/yang/cmd/yanggen/naming.go:190-205`, `resolveFairGrowth` sorts all
+candidate symbols by `kind` prior to claiming into the package `nameScope`. Struct
+types (`kindStruct`) take precedence over companion schema variables
+(`kindSchema`).
 
-If a sibling container named `server-schema` claims `ServersServerSchema` first
-as a struct type, `em.schemaVar` receives a deterministic disambiguation suffix
-(such as `ServersServerSchemaX4d76e3`). Both compile cleanly without
-redeclaration errors:
+When emitting Go code, `moduleEmitter` queries the pre-resolved table via helper
+methods in `src/protocol/yang/cmd/yanggen/emit_module.go:475-495`:
+
+```go
+func (em *moduleEmitter) schemaVar(shapeKey string) string {
+	return em.names.structToSchema[shapeKey]
+}
+```
+
+If a sibling container named `server-schema` claims `ServersServerSchema` as a
+struct type, the companion schema variable for `ServersServer` yields and receives
+a deterministic disambiguation suffix (such as `ServersServerSchemaX9bc561`). Both
+compile cleanly without redeclaration errors:
 
 ```go
 type ServersServerSchema struct {
 	Note *string
 }
 
-var ServersServerSchemaX4d76e3 = yang.NewSchema( /* ... */ )
+var ServersServerSchemaX9bc561 = &yang.Schema{ /* ... */ }
 ```
 
 ## Evidence
 
-- `src/protocol/yang/cmd/yanggen/emit_module.go:160`: `claimCompanions` is
-  invoked prior to inspecting and claiming `childStructs`.
-- `src/protocol/yang/cmd/yanggen/emit_module.go:526-528`: `schemaVar` claims
-  `structName+"Schema"` through `em.scope.claim`.
-- `src/protocol/yang/cmd/yanggen/emit_test.go:195-283`: `TestEmitNoUnderscores`
+- `src/protocol/yang/cmd/yanggen/naming.go:190-205`: `resolveFairGrowth` orders
+  claims by kind (`kindStruct` before `kindSchema`).
+- `src/protocol/yang/cmd/yanggen/naming.go:500-517`: `resolvePackageNaming` registers
+  shapes and their companion schemas.
+- `src/protocol/yang/cmd/yanggen/emit_module.go:475-495`: `schemaVar` and list
+  descriptor helpers look up claimed names through `em.names`.
+- `src/protocol/yang/cmd/yanggen/emit_test.go:200-280`: `TestEmitNoUnderscores`
   parses generated golden output and confirms `ServersServerKey` and
   `ServersSchema` exist, while verifying that sibling collision resolves
-  deterministically (`var ServersServerSchema` does not overwrite
+  deterministically (`var ServersServerSchemaX` does not overwrite
   `type ServersServerSchema`).
 - `src/protocol/yang/cmd/yanggen/testdata/modules/fixture-main.yang:73-83`:
   `container server-schema` and `container schema` verify companion/child
