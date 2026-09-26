@@ -1,0 +1,104 @@
+edition = "2024";
+
+package flowseer.net.protocol.bfd.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/bfd/v1/bfd_diagnostic.proto";
+import "flowseer/net/protocol/bfd/v1/bfd_session_state.proto";
+import "flowseer/net/protocol/bfd/v1/bfd_session_type.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A Bidirectional Forwarding Detection session (RFC 5880, RFC 7330, BFD-STD-MIB).
+message BfdSession {
+  option (buf.validate.message).cel = {
+    id: "bfd_session.address_family"
+    message: "local_address and remote_address must belong to the same address family"
+    expression:
+      "!has(this.local_address) || "
+      "!has(this.remote_address) || "
+      "(has(this.local_address.v4) == has(this.remote_address.v4))"
+  };
+
+  // The network instance this BFD session runs within. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The local discriminator uniquely identifying this session on the system (RFC 5880 §6.8.1). Must be nonzero.
+  uint32 local_discriminator = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gte = 1
+  ];
+  // The discriminator received from the remote system (0 if not yet learned).
+  uint32 remote_discriminator = 3;
+  // The type of BFD session (single hop or multi-hop variant).
+  BfdSessionType session_type = 4;
+  // The local interface name bound to this session. Absent for multihop sessions.
+  string interface_name = 5 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+  // The local IP address of this session.
+  flowseer.net.addr.v1.IpAddress local_address = 6;
+  // The remote IP address of the peer. Must be present.
+  flowseer.net.addr.v1.IpAddress remote_address = 7 [(buf.validate.field).required = true];
+  // The operational state of the local session.
+  BfdSessionState state = 8 [(buf.validate.field).enum.defined_only = true];
+  // The operational state of the remote session as reported by the peer.
+  BfdSessionState remote_state = 9 [(buf.validate.field).enum.defined_only = true];
+  // The local diagnostic code for the last transition.
+  BfdDiagnostic local_diagnostic = 10 [(buf.validate.field).cel = {
+    id: "bfd_session.local_diagnostic"
+    message: "local_diagnostic must fit the 5-bit range (0 to 31)"
+    expression: "this <= 31"
+  }];
+  // The remote diagnostic code reported by the peer.
+  BfdDiagnostic remote_diagnostic = 11 [(buf.validate.field).cel = {
+    id: "bfd_session.remote_diagnostic"
+    message: "remote_diagnostic must fit the 5-bit range (0 to 31)"
+    expression: "this <= 31"
+  }];
+  // The minimum interval between transmitting BFD Control packets desired by the local system.
+  google.protobuf.Duration desired_min_tx_interval = 12 [
+    (buf.validate.field).duration.gte = {seconds: 0},
+    (buf.validate.field).duration.lte = {
+      seconds: 4294
+      nanos: 967295000
+    }
+  ];
+  // The minimum interval between receiving BFD Control packets required by the local system.
+  google.protobuf.Duration required_min_rx_interval = 13 [
+    (buf.validate.field).duration.gte = {seconds: 0},
+    (buf.validate.field).duration.lte = {
+      seconds: 4294
+      nanos: 967295000
+    }
+  ];
+  // The minimum interval between receiving BFD Control packets required by the remote system.
+  google.protobuf.Duration remote_min_rx_interval = 14 [
+    (buf.validate.field).duration.gte = {seconds: 0},
+    (buf.validate.field).duration.lte = {
+      seconds: 4294
+      nanos: 967295000
+    }
+  ];
+  // The detect time multiplier (RFC 5880 §4.1, 1 to 255).
+  uint32 detect_multiplier = 15 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 255
+  ];
+  // Operational counters for this BFD session.
+  BfdSessionCounters counters = 16;
+}
+
+// Operational counters for a BFD session (BFD-STD-MIB bfdSessPerfTable).
+message BfdSessionCounters {
+  // Number of BFD Control packets received on this session.
+  uint64 in_packets = 1;
+  // Number of BFD Control packets transmitted on this session.
+  uint64 out_packets = 2;
+  // Number of transitions to Up state on this session.
+  uint64 up_transitions = 3;
+  // The time of the most recent discontinuity in these counters.
+  google.protobuf.Timestamp last_discontinuity = 4;
+}

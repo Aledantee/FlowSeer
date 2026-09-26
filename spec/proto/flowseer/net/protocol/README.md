@@ -38,5 +38,5 @@ packages.
 - `bgp/v1/`: Instances, peers, address families, and paths with communities.
 - `ospf/v1/`: Instances, areas, interfaces, and neighbors (v2 and v3).
 - `isis/v1/`: Instances, adjacencies, and levels.
-- `vrrp/v1/` (planned; schema building blocks record): VRRP groups (v2 and v3).
-- `bfd/v1/` (planned; schema building blocks record): Sessions and diagnostics.
+- `vrrp/v1/`: VRRP groups (v2 and v3).
+- `bfd/v1/`: Sessions and diagnostics.

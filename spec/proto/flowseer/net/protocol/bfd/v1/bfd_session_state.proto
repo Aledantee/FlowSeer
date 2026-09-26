@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.bfd.v1;
+
+// The state of a BFD session (RFC 5880 §4.1).
+// Zero is a real value (ADMIN_DOWN); presence carries "unreported".
+enum BfdSessionState {
+  // The session is administratively down (RFC 5880 §4.1 Sta 0).
+  BFD_SESSION_STATE_ADMIN_DOWN = 0;
+  // The session is down (RFC 5880 §4.1 Sta 1).
+  BFD_SESSION_STATE_DOWN = 1;
+  // The session is initializing (RFC 5880 §4.1 Sta 2).
+  BFD_SESSION_STATE_INIT = 2;
+  // The session is up and operational (RFC 5880 §4.1 Sta 3).
+  BFD_SESSION_STATE_UP = 3;
+}

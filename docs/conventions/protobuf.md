@@ -231,15 +231,17 @@ receive values it does not know and must handle them.
 Enums fall into two classes. A FlowSeer-normalized taxonomy numbers its own
 values and uses `<ENUM_NAME>_UNSPECIFIED = 0`. A registry pass-through enum
 keeps the external registry's integers exactly, including a real assignment at
-zero such as `IP_PROTOCOL_HOPOPT`, `IP_DSCP_CS0`, or `IP_ECN_NON_ECT`.
+zero such as `IP_PROTOCOL_HOPOPT`, `IP_DSCP_CS0`, `IP_ECN_NON_ECT`,
+`BFD_SESSION_STATE_ADMIN_DOWN`, or `BFD_DIAGNOSTIC_NO_DIAGNOSTIC`.
 Presence carries "not observed" for both classes. Consumers of a pass-through
 enum whose registry owns zero must check presence before reading the generated
 getter, because the getter's absent default is also that registry's real zero
 value. Open pass-through enums preserve unknown registry values, but they do
 not enforce the registry's numeric width by themselves. Every field using
-`IpDscp`, `IpEcn`, or `IpProtocol` therefore validates the complete numeric
-domain at the use site: `0..63`, `0..3`, or `0..255`, respectively. These
-packet-header registries live in `net/packet/v1`, not the address package.
+`IpDscp`, `IpEcn`, `IpProtocol`, or `BfdDiagnostic` therefore validates the
+complete numeric domain at the use site: `0..63`, `0..3`, `0..255`, or `0..31`,
+respectively. These packet-header registries live in `net/packet/v1`, not the
+address package.
 `SyslogSeverity` and `SyslogFacility` in `net/log/v1` define every registry
 value, so `enum.defined_only` is their complete domain rule.
 
