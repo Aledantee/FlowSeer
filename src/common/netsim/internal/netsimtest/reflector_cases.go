@@ -1,9 +1,10 @@
 package netsimtest
 
 import (
-	"fmt"
 	"net/netip"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -213,7 +214,7 @@ func CaseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 				}
 			}
 			if matches != 1 {
-				return ExecutionResult{}, fmt.Errorf("%d journeys have query %d as their reflected copy, want exactly one", matches, queryID)
+				return ExecutionResult{}, errs.Msgf("%d journeys have query %d as their reflected copy, want exactly one", matches, queryID)
 			}
 
 			return ExecutionResult{
@@ -346,7 +347,7 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 			}
 			steps := fab.Run(reflectorLoopBudget).Steps
 			if steps != reflectorLoopBudget || len(fab.Snapshot().Queue) == 0 {
-				return ExecutionResult{}, fmt.Errorf(
+				return ExecutionResult{}, errs.Msgf(
 					"fabric.Run(%d) = %d steps with %d arrivals queued, want the budget exhausted with work still queued",
 					reflectorLoopBudget, steps, len(fab.Snapshot().Queue))
 			}
@@ -359,7 +360,7 @@ func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
 				}
 			}
 			if loopJourney.FrameID == 0 {
-				return ExecutionResult{}, fmt.Errorf("no journey carries an EntryLoop entry")
+				return ExecutionResult{}, errs.Msg("no journey carries an EntryLoop entry")
 			}
 
 			return ExecutionResult{

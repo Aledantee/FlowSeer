@@ -8,7 +8,7 @@ with metadata that explains which scope is affected.
 ```go
 func analyze(validity analysis.InputValidity) (analysis.Metadata, error) {
 	if validity == analysis.InputInvalid {
-		return analysis.Metadata{}, errors.New("invalid input")
+		return analysis.Metadata{}, errs.Msg("invalid input")
 	}
 
 	port := analysis.PortScope("switch-a", "1/1")

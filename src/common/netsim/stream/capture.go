@@ -2,10 +2,10 @@ package stream
 
 import (
 	"bytes"
-	"fmt"
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/pcap"
 )
@@ -35,25 +35,25 @@ func NewCaptureSource(records []pcap.Record) (Source, error) {
 	previous := start
 	for i, record := range records {
 		if record.LinkType != 1 {
-			return nil, fmt.Errorf("capture record %d: link type %d is not Ethernet", i, record.LinkType)
+			return nil, errs.Msgf("capture record %d: link type %d is not Ethernet", i, record.LinkType)
 		}
 		if uint64(len(record.Data)) != uint64(record.OrigLen) {
-			return nil, fmt.Errorf("capture record %d: original length %d differs from captured length %d", i, record.OrigLen, len(record.Data))
+			return nil, errs.Msgf("capture record %d: original length %d differs from captured length %d", i, record.OrigLen, len(record.Data))
 		}
 		if record.HasFCS {
-			return nil, fmt.Errorf("capture record %d: declared FCS cannot be replayed", i)
+			return nil, errs.Msgf("capture record %d: declared FCS cannot be replayed", i)
 		}
 		frame, err := ethernet.Decode(bytes.Clone(record.Data))
 		if err != nil {
-			return nil, fmt.Errorf("capture record %d: Ethernet frame: %w", i, err)
+			return nil, errs.Wrapf(err, "capture record %d: Ethernet frame", i)
 		}
 		at := record.At.UTC()
 		if at.Before(previous) {
-			return nil, fmt.Errorf("capture record %d: timestamp decreases", i)
+			return nil, errs.Msgf("capture record %d: timestamp decreases", i)
 		}
 		offset := at.Sub(start)
 		if !start.Add(offset).Equal(at) {
-			return nil, fmt.Errorf("capture record %d: offset exceeds time.Duration", i)
+			return nil, errs.Msgf("capture record %d: offset exceeds time.Duration", i)
 		}
 		source.frames = append(source.frames, capturedFrame{at: offset, frame: frame})
 		previous = at

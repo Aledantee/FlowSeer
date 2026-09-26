@@ -1,7 +1,6 @@
 package netsimtest
 
 import (
-	"fmt"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -12,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Group identifies an invariant conformance group tested across the netsim packages.
@@ -103,7 +104,7 @@ func CollectClaims(root string) (map[Group][]string, error) {
 
 		f, err := parser.ParseFile(fset, path, nil, parser.ParseComments|parser.SkipObjectResolution)
 		if err != nil {
-			return fmt.Errorf("parsing %s: %w", path, err)
+			return errs.Wrapf(err, "parsing %s", path)
 		}
 
 		for _, cg := range f.Comments {
@@ -138,17 +139,17 @@ func ValidateClaims(declared []Group, claims map[Group][]string) error {
 
 	for g, pkgs := range claims {
 		if !declaredSet[g] {
-			return fmt.Errorf("unknown conformance group claimed: %q by %v", g, pkgs)
+			return errs.Msgf("unknown conformance group claimed: %q by %v", g, pkgs)
 		}
 	}
 
 	for _, g := range declared {
 		pkgs := claims[g]
 		if len(pkgs) == 0 {
-			return fmt.Errorf("unclaimed conformance group: %q (must be claimed by exactly one package)", g)
+			return errs.Msgf("unclaimed conformance group: %q (must be claimed by exactly one package)", g)
 		}
 		if len(pkgs) > 1 {
-			return fmt.Errorf("conformance group %q claimed by multiple packages: %v", g, pkgs)
+			return errs.Msgf("conformance group %q claimed by multiple packages: %v", g, pkgs)
 		}
 	}
 

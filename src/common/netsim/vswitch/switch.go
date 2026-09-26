@@ -416,7 +416,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		for name, policer := range norm.Traffic.Policers {
 			bucket, err := traffic.NewBucket(policer)
 			if err != nil {
-				return nil, fmt.Errorf("create policer bucket for %q: %w", name, err)
+				return nil, errs.Wrapf(err, "create policer bucket for %q", name)
 			}
 			sw.buckets[name] = bucket
 		}

@@ -1,11 +1,11 @@
 package stream
 
 import (
-	"fmt"
 	"math"
 	"math/bits"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 )
 
@@ -41,25 +41,25 @@ type Spec struct {
 // that cannot fit in a time.Duration. A zero Burst means one frame per burst.
 func (s Spec) Validate() error {
 	if (s.Rate.FramesPerSecond == 0) == (s.Rate.BitsPerSecond == 0) {
-		return fmt.Errorf("stream rate must specify exactly one unit")
+		return errs.Msg("stream rate must specify exactly one unit")
 	}
 	if s.Burst < 0 || s.Gap < 0 {
-		return fmt.Errorf("stream burst and gap must be nonnegative")
+		return errs.Msg("stream burst and gap must be nonnegative")
 	}
 	if s.Count < 0 || s.Duration < 0 || (s.Count == 0) == (s.Duration == 0) {
-		return fmt.Errorf("stream end must specify exactly one positive count or duration")
+		return errs.Msg("stream end must specify exactly one positive count or duration")
 	}
 	if _, err := s.Frame.Encode(); err != nil {
-		return fmt.Errorf("encode stream frame: %w", err)
+		return errs.Wrap(err, "encode stream frame")
 	}
 	minEarlierSize := math.MaxInt
 	customEarlierVariation := false
 	for i, variation := range s.Variations {
 		if variation == nil {
-			return fmt.Errorf("variation %d is nil", i)
+			return errs.Msgf("variation %d is nil", i)
 		}
 		if err := variation.Validate(); err != nil {
-			return fmt.Errorf("variation %d: %w", i, err)
+			return errs.Wrapf(err, "variation %d", i)
 		}
 		var sizes []int
 		switch v := variation.(type) {
@@ -69,34 +69,34 @@ func (s Spec) Validate() error {
 			sizes = v.Sizes
 		case UDPPortVariation, *UDPPortVariation:
 			if customEarlierVariation {
-				return fmt.Errorf("variation %d: UDP port variation cannot follow a custom variation", i)
+				return errs.Msgf("variation %d: UDP port variation cannot follow a custom variation", i)
 			}
 			ipHeader, udpHeader, payload, err := decodeUDPFrame(s.Frame)
 			if err != nil {
-				return fmt.Errorf("variation %d: %w", i, err)
+				return errs.Wrapf(err, "variation %d", i)
 			}
 			encoded, err := encodeUDPFrame(s.Frame, ipHeader, udpHeader, payload)
 			if err != nil {
-				return fmt.Errorf("variation %d: %w", i, err)
+				return errs.Wrapf(err, "variation %d", i)
 			}
 			packetLen := ipPacketLength(s.Frame.Payload, ipHeader)
 			if encodedLen := ipPacketLength(encoded.Payload, ipHeader); encodedLen != packetLen {
-				return fmt.Errorf("variation %d: UDP variation changes IP packet length from %d to %d", i, packetLen, encodedLen)
+				return errs.Msgf("variation %d: UDP variation changes IP packet length from %d to %d", i, packetLen, encodedLen)
 			}
 			packetSize := 18 + 4*len(s.Frame.Tags) + packetLen
 			if minEarlierSize < packetSize {
-				return fmt.Errorf("variation %d: earlier frame size %d truncates the IP packet of %d octets", i, minEarlierSize, packetSize)
+				return errs.Msgf("variation %d: earlier frame size %d truncates the IP packet of %d octets", i, minEarlierSize, packetSize)
 			}
 		case MACVariation, *MACVariation:
 		default:
 			customEarlierVariation = true
 		}
 		if len(sizes) > 0 && s.Rate.BitsPerSecond != 0 {
-			return fmt.Errorf("variation %d: size variation requires a frames-per-second rate", i)
+			return errs.Msgf("variation %d: size variation requires a frames-per-second rate", i)
 		}
 		for _, size := range sizes {
 			if size < 18+4*len(s.Frame.Tags) {
-				return fmt.Errorf("variation %d: frame size %d is smaller than tagged Ethernet header and FCS", i, size)
+				return errs.Msgf("variation %d: frame size %d is smaller than tagged Ethernet header and FCS", i, size)
 			}
 			minEarlierSize = min(minEarlierSize, size)
 		}
@@ -121,15 +121,15 @@ func (s Spec) Validate() error {
 	last := uint64(count - 1)
 	hi, lo := bits.Mul64(last, numerator)
 	if hi >= rate {
-		return fmt.Errorf("stream last offset exceeds time.Duration")
+		return errs.Msg("stream last offset exceeds time.Duration")
 	}
 	base, _ := bits.Div64(hi, lo, rate)
 	if base > math.MaxInt64 {
-		return fmt.Errorf("stream last offset exceeds time.Duration")
+		return errs.Msg("stream last offset exceeds time.Duration")
 	}
 	bursts := last / uint64(burst)
 	if bursts != 0 && uint64(s.Gap) > (math.MaxInt64-base)/bursts {
-		return fmt.Errorf("stream last offset exceeds time.Duration")
+		return errs.Msg("stream last offset exceeds time.Duration")
 	}
 	return nil
 }
@@ -185,7 +185,7 @@ func (s Spec) spacing() (numerator, rate uint64, err error) {
 	}
 	wireOctets := uint64(s.Frame.WireOctets())
 	if wireOctets > math.MaxUint64/(8*uint64(time.Second)) {
-		return 0, 0, fmt.Errorf("stream frame is too large for wire-bit timing")
+		return 0, 0, errs.Msg("stream frame is too large for wire-bit timing")
 	}
 	return wireOctets * 8 * uint64(time.Second), s.Rate.BitsPerSecond, nil
 }
@@ -193,12 +193,12 @@ func (s Spec) spacing() (numerator, rate uint64, err error) {
 func durationCount(duration time.Duration, rate, numerator uint64) (int, error) {
 	hi, lo := bits.Mul64(uint64(duration), rate)
 	if hi >= numerator {
-		return 0, fmt.Errorf("stream duration yields too many frames")
+		return 0, errs.Msg("stream duration yields too many frames")
 	}
 	count, remainder := bits.Div64(hi, lo, numerator)
 	maxCount := uint64(int(^uint(0) >> 1))
 	if count > maxCount || (count == maxCount && remainder != 0) {
-		return 0, fmt.Errorf("stream duration yields too many frames")
+		return 0, errs.Msg("stream duration yields too many frames")
 	}
 	if remainder != 0 {
 		count++
