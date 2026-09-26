@@ -1,0 +1,38 @@
+edition = "2024";
+
+package flowseer.net.routing.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/routing/v1/next_hop_group.proto";
+import "flowseer/net/routing/v1/route_source_protocol.proto";
+import "flowseer/net/routing/v1/route_table_type.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A device-local routing-table row keyed by network instance and destination
+// prefix (RFC 8349 §5.1).
+message Route {
+  // The network instance whose table holds the route. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The destination prefix. Must be present.
+  flowseer.net.addr.v1.IpPrefix destination_prefix = 2 [(buf.validate.field).required = true];
+  // How the route was learned. Absent means unreported.
+  RouteSourceProtocol source_protocol = 3;
+  // The route preference (administrative distance); a lower value is
+  // preferred across source protocols (RFC 8349 §5.1). Absent means
+  // unreported.
+  uint32 preference = 4;
+  // The source protocol's metric, comparable only between routes from the
+  // same protocol. Absent means unreported.
+  uint32 metric = 5;
+  // Where the route forwards. Absent means the source reported no next hop.
+  NextHopGroup next_hop_group = 6;
+  // Whether the route is selected for forwarding (RFC 8349 §7, active).
+  // Absent means unreported.
+  bool active = 7;
+  // The table the row was read from. Absent means unreported.
+  RouteTableType table_type = 8;
+}

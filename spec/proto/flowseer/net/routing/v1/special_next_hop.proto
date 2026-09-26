@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.routing.v1;
+
+// A next-hop action other than forwarding, from the RFC 8349 §7
+// special-next-hop enumeration.
+enum SpecialNextHop {
+  // The action was not reported.
+  SPECIAL_NEXT_HOP_UNSPECIFIED = 0;
+  // Silently discard the packet (blackhole).
+  SPECIAL_NEXT_HOP_BLACKHOLE = 1;
+  // Discard the packet and notify the sender that the destination host is
+  // unreachable (unreachable).
+  SPECIAL_NEXT_HOP_UNREACHABLE = 2;
+  // Discard the packet and notify the sender that the communication is
+  // administratively prohibited (prohibit).
+  SPECIAL_NEXT_HOP_PROHIBIT = 3;
+  // Deliver the packet to the local system (receive).
+  SPECIAL_NEXT_HOP_RECEIVE = 4;
+}

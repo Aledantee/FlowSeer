@@ -94,6 +94,12 @@ from dossiers 05 and 06:
   when no arm is set. `required` enforces at-least-one; the oneof enforces
   at-most-one. A comment on `NextHop` records that both arms are structurally
   unrepresentable.
+- Ruled: the routing schema cites RFC 8349 §7 (the `ietf-routing` module) for
+  `special-next-hop`, `next-hop-list`, and `active`, §5.1 for routes and
+  preference, and §5.2 for the RIB; the vendored
+  `spec/yang/cisco/iosxe/2611/ietf-routing.yang` is the 2015 draft, so no line
+  citation is taken from it. Why: §5.2 covers RIBs, not next hops (checked
+  against the RFC text). Cost if wrong: comment and README edits only.
 - `Route` carries `RouteTableType table_type = 8` (`ROUTE_TABLE_TYPE_UNSPECIFIED = 0`,
   `_RIB = 1`, `_FIB = 2`) as an explicit discriminator. Why: Network domain atlas
   04 §3.7 and dossier 06 note that standard SNMP routing tables (RFC 1213

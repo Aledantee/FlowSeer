@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.routing.v1;
+
+import "flowseer/net/routing/v1/next_hop.proto";
+import option "buf/validate/validate.proto";
+
+// The next hops a route forwards over, one for a single path and several for
+// equal-cost multipath (RFC 8349 §7, next-hop-list).
+message NextHopGroup {
+  // The next hops in reported order. Must hold at least one.
+  repeated NextHop next_hops = 1 [(buf.validate.field).repeated.min_items = 1];
+}
