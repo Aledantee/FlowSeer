@@ -5,6 +5,7 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
@@ -575,3 +576,12 @@ reason phase 1 recorded.
 ## Open questions
 
 None.
+
+- Review (accept) left two style-only notes, no defect: the
+  `net/wlan/v1/README.md` "Deliberately absent" line says "bitmasks" where the
+  design calls the deferred raw AKM/cipher pass-throughs "enums" (trivial
+  wording drift), and the Ruckus fixture maps `isRadioEnabled` to `oper_status`
+  (an explicit U2 decision quoting the vendor comment; test-local). Non-blocking
+  coverage gap: no conformance case exercises `beacon_interval` at its upper
+  bound, `antenna_gain_millidbi`, `standard`/`admin_status`, or a `RadioFacet`
+  carrying `bsses` — none is a plan requirement. For compound to weigh.
