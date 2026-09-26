@@ -125,21 +125,46 @@ cli, raw, lane, model, effort, wall, code, out = sys.argv[1:]
 usage = {"input": 0, "output": 0, "cache_read": 0, "reasoning": 0}
 cost = error = finish = tools = None
 
+def add(k, v):
+    usage[k] += int(v or 0)
+
 try:
     text = open(raw, errors="replace").read()
 except OSError:
     text = None
 
-if text is None or (text == "" and int(code) != 0):
-    usage = None
+if cli == "opencode":
+    # Step-finish parts, not message infos: a message's info may hold only
+    # its last step's tokens. Parse steps independently of the message response
+    # so a failed final request preserves token and cost data from completed steps.
     try:
-        error = open(raw + ".err", errors="replace").read().strip() or None
-    except OSError:
-        pass
+        steps = json.load(open(raw + ".steps"))
+        if not isinstance(steps, list):
+            raise ValueError("steps must be a list")
+        for p in steps:
+            t = p.get("tokens") or {}
+            add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
+            add("cache_read", (t.get("cache") or {}).get("read"))
+            if isinstance(p.get("cost"), (int, float)):
+                cost = (cost or 0) + p["cost"]
+    except (OSError, json.JSONDecodeError, ValueError):
+        steps, usage = [], None
+    if text:
+        try:
+            d = json.loads(text)
+        except json.JSONDecodeError:
+            d = {}
+        if isinstance(d, dict) and "name" in d and "info" not in d:
+            # The server answered with an error object instead of a message.
+            error = "%s: %s" % (d["name"], (d.get("data") or {}).get("message", ""))
+        info = d.get("info") if isinstance(d, dict) else None
+        if isinstance(info, dict):
+            finish = info.get("finish")
+            parts = d.get("parts") or []
+            tools = sum(1 for p in parts if p.get("type") == "tool")
+elif text is None or (text == "" and int(code) != 0):
+    usage = None
 else:
-    def add(k, v):
-        usage[k] += int(v or 0)
-
     if cli == "claude":
         try:
             d = json.loads(text)
@@ -167,37 +192,12 @@ else:
             add("cache_read", u.get("cache_read_tokens")); add("reasoning", u.get("thinking_tokens"))
         except json.JSONDecodeError:
             pass
-    elif cli == "opencode":
-        try:
-            d = json.loads(text)
-        except json.JSONDecodeError:
-            d = {}
-        if isinstance(d, dict) and "name" in d and "info" not in d:
-            # The server answered with an error object instead of a message.
-            error = "%s: %s" % (d["name"], (d.get("data") or {}).get("message", ""))
-        info = d.get("info") if isinstance(d, dict) else None
-        if isinstance(info, dict):
-            finish = info.get("finish")
-            parts = d.get("parts") or []
-            tools = sum(1 for p in parts if p.get("type") == "tool")
-        # Step-finish parts, not message infos: a message's info may hold only
-        # its last step's tokens.
-        try:
-            steps = json.load(open(raw + ".steps"))
-        except (OSError, json.JSONDecodeError):
-            steps, usage = [], None
-        for p in steps:
-            t = p.get("tokens") or {}
-            add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
-            add("cache_read", (t.get("cache") or {}).get("read"))
-            if isinstance(p.get("cost"), (int, float)):
-                cost = (cost or 0) + p["cost"]
 
-    if error is None and int(code) != 0:
-        try:
-            error = open(raw + ".err", errors="replace").read().strip() or None
-        except OSError:
-            pass
+if error is None and int(code) != 0:
+    try:
+        error = open(raw + ".err", errors="replace").read().strip() or None
+    except OSError:
+        pass
 
 result = {"lane": lane, "cli": cli, "model": model, "effort": effort or None,
           "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost}
