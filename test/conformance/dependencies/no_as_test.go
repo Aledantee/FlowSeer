@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -86,9 +85,22 @@ func TestImportsModule(t *testing.T) {
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locating dependency conformance test")
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getting working directory: %v", err)
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
+
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil && strings.Contains(string(data), "module go.aledante.io/FlowSeer\n") {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("repo root not found above the conformance package")
+		}
+
+		dir = parent
+	}
 }

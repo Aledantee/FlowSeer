@@ -175,3 +175,39 @@ func TestAMappingWithNoMessageFallsBackToTheGenericOne(t *testing.T) {
 		t.Errorf("message = %q, want the generic %q", got, generic)
 	}
 }
+
+// WrapRefused limits wire output to the public message and preserves the cause
+// chain for server-side inspection.
+func TestWrapRefusedCarriesNoDetailsAndPreservesCause(t *testing.T) {
+	internal := refused()
+	err := connecterr.WrapRefused("the call is not authenticated", internal)
+
+	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+		t.Errorf("code = %v, want unauthenticated", got)
+	}
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("WrapRefused returned %T, want *connect.Error", err)
+	}
+	if got, want := connectErr.Message(), "the call is not authenticated"; got != want {
+		t.Errorf("message = %q, want %q", got, want)
+	}
+	if len(connectErr.Details()) != 0 {
+		t.Errorf("details = %d, want 0", len(connectErr.Details()))
+	}
+	if strings.Contains(err.Error(), internalDetail) {
+		t.Errorf("the caller's error carries the cause chain: %q", err.Error())
+	}
+	if !errors.Is(err, internal) {
+		t.Error("the wrapped error does not unwrap to the failure it stands for")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != errCodeRefused {
+		t.Errorf("errs.CodeOf = %q, %v; want %q", code, ok, errCodeRefused)
+	}
+}
+
+func TestWrapRefusedReturnsNilForNil(t *testing.T) {
+	if err := connecterr.WrapRefused("the call is not authenticated", nil); err != nil {
+		t.Errorf("WrapRefused(..., nil) = %v, want nil", err)
+	}
+}

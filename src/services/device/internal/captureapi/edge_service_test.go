@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -444,6 +445,12 @@ func TestUploadCapture_ReAssertionLapseTerminatesStream(t *testing.T) {
 	}
 	if connectErr.Code() != connect.CodeUnauthenticated {
 		t.Fatalf("got code %v, want CodeUnauthenticated", connectErr.Code())
+	}
+	if got, want := connectErr.Message(), "the call is not authorized as an enrolled edge"; got != want {
+		t.Errorf("message = %q, want %q", got, want)
+	}
+	if len(connectErr.Details()) != 0 {
+		t.Fatalf("got %d details, want 0", len(connectErr.Details()))
 	}
 
 	// Verify session marked FAILED with STOP_REASON_ERROR
@@ -999,4 +1006,105 @@ func TestUploadCapture_CancellationBeforeTheFirstChunkStillOwesAStop(t *testing.
 
 	cancel()
 	_, _ = upload.CloseAndReceive()
+}
+
+// A refused assertion limits wire output to the public unauthenticated message
+// and keeps the cause chain for server-side logging.
+func TestUploadCapture_RefusedAssertionExposesNoVerificationDetails(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{})
+
+	path, handler := capturev1connect.NewCaptureEdgeServiceHandler(edgeSvc)
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := capturev1connect.NewCaptureEdgeServiceClient(srv.Client(), srv.URL)
+
+	t.Run("OpeningAssertionBadSignature", func(t *testing.T) {
+		stream := client.UploadCapture(ctx)
+
+		invalidSigned := h.signAssertion(t, testEdge1ID, h.privKey2)
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Assertion: invalidSigned}.Build()); err != nil {
+			t.Fatalf("send assertion: %v", err)
+		}
+
+		_, err := stream.CloseAndReceive()
+		if err == nil {
+			t.Fatal("expected Unauthenticated error, got nil")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("got error %T, want *connect.Error", err)
+		}
+		if got := connectErr.Code(); got != connect.CodeUnauthenticated {
+			t.Errorf("code = %v, want CodeUnauthenticated", got)
+		}
+		if got, want := connectErr.Message(), "the call is not authorized as an enrolled edge"; got != want {
+			t.Errorf("message = %q, want %q", got, want)
+		}
+		if len(connectErr.Details()) != 0 {
+			t.Fatalf("got %d details, want 0; details disclose verification failure code", len(connectErr.Details()))
+		}
+		if strings.Contains(err.Error(), "signature") || strings.Contains(err.Error(), "verify") {
+			t.Errorf("error string discloses verification internals: %q", err.Error())
+		}
+	})
+
+	t.Run("MidStreamAssertionBadSignature", func(t *testing.T) {
+		sessID := "0192e6a0-0000-7000-8000-00000000001e"
+		cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
+		if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+
+		stream := client.UploadCapture(ctx)
+
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+			Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+		}.Build()); err != nil {
+			t.Fatalf("send opening assertion: %v", err)
+		}
+
+		chunk := modelcapturev1.CapturePacketChunk_builder{
+			Session:       cfg.GetRef(),
+			FirstSequence: proto.Uint64(1),
+			Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte("packet 1"))},
+		}.Build()
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: chunk}.Build()); err != nil {
+			t.Fatalf("send chunk: %v", err)
+		}
+
+		invalidSigned := h.signAssertion(t, testEdge1ID, h.privKey2)
+		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Assertion: invalidSigned}.Build()); err != nil {
+			t.Fatalf("send invalid re-assertion: %v", err)
+		}
+
+		_, err := stream.CloseAndReceive()
+		if err == nil {
+			t.Fatal("expected Unauthenticated error, got nil")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("got error %T, want *connect.Error", err)
+		}
+		if got := connectErr.Code(); got != connect.CodeUnauthenticated {
+			t.Errorf("code = %v, want CodeUnauthenticated", got)
+		}
+		if got, want := connectErr.Message(), "the call is not authorized as an enrolled edge"; got != want {
+			t.Errorf("message = %q, want %q", got, want)
+		}
+		if len(connectErr.Details()) != 0 {
+			t.Fatalf("got %d details, want 0; details disclose verification failure code", len(connectErr.Details()))
+		}
+		if strings.Contains(err.Error(), "signature") || strings.Contains(err.Error(), "verify") {
+			t.Errorf("error string discloses verification internals: %q", err.Error())
+		}
+	})
 }

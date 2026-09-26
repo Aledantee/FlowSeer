@@ -66,14 +66,16 @@ type entry struct {
 // admission, verification and
 // release occupies one entry rather than three, and the queue's size tracks
 // outstanding operations rather than reports ever made.
-// A Queue is safe for concurrent use.
+//
+// Queue operations are safe for concurrent use, but callers must run at most
+// one [Queue.Run] loop at a time.
 type Queue struct {
 	client  Reporter
 	confirm Confirmer
 	ceiling int
 	log     *slog.Logger
 
-	mu       sync.Mutex // guards pending, sequence, woken, and overCeiling
+	mu       sync.Mutex // guards pending, sequence, and overCeiling
 	pending  map[key]entry
 	sequence uint64
 	woken    chan struct{}

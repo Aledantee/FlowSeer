@@ -59,9 +59,9 @@ type Pump[T any] struct {
 // from ctx. A zero buf creates an unbuffered channel. buf must be non-negative;
 // a negative value panics. The proven handling answer is enforced by
 // TestNewTickWatcherRejectsNegativeBuffer in src/protocol/yang/watch_test.go and
-// TestNegativeBuffersAreRejected in src/protocol/gnmi/session_test.go, covering
-// yang.NewTickWatcher, gnmi.Watch, and gnmi.Session.Subscribe before they reach
-// New. Callers choose their own default capacity.
+// TestNegativeBuffersAreRejected in src/protocol/gnmi/session_test.go. They
+// cover yang.NewTickWatcher, gnmi.Watch, and gnmi.Session.Subscribe before
+// those calls reach New. Callers choose their own default capacity.
 //
 // If ctx is nil, [context.Background] is used.
 //

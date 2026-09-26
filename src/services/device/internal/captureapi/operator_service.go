@@ -29,7 +29,8 @@ type OperatorServiceConfig struct {
 }
 
 // OperatorService serves operator capture requests. An OperatorService is safe
-// for concurrent use when NotifyChange is safe for concurrent use.
+// for concurrent use when both its configured NotifyChange and Clock callbacks
+// are safe for concurrent use.
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
