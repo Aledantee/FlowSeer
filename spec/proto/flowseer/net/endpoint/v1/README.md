@@ -8,7 +8,7 @@ stages, and roam reasons for FlowSeer-owned schemas.
 
 Imports: net/addr, net/key, net/switching, net/wlan
 
-Imported by: nothing
+Imported by: model/endpoint
 
 Deliberately absent:
 
