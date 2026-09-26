@@ -9,6 +9,7 @@ import (
 
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	wlanv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1"
 )
 
 const (
@@ -141,6 +142,22 @@ func TestComponentRules(t *testing.T) {
 		Kind:   inventoryv1.ComponentKind_COMPONENT_KIND_PORT.Enum(),
 		Module: phyv1.PluggableModule_builder{Present: proto.Bool(false)}.Build(),
 	}
+	radio := inventoryv1.ComponentState_builder{
+		Ref:    componentRef(topologyDevA, "wifi0"),
+		Parent: inventoryv1.ComponentLocalRef_builder{Name: proto.String("chassis")}.Build(),
+		Kind:   inventoryv1.ComponentKind_COMPONENT_KIND_RADIO.Enum(),
+		Radio:  wlanv1.RadioFacet_builder{}.Build(),
+	}
+	radioBare := inventoryv1.ComponentState_builder{
+		Ref:    componentRef(topologyDevA, "wifi1"),
+		Parent: inventoryv1.ComponentLocalRef_builder{Name: proto.String("chassis")}.Build(),
+		Kind:   inventoryv1.ComponentKind_COMPONENT_KIND_RADIO.Enum(),
+	}
+	radioOnPort := inventoryv1.ComponentState_builder{
+		Ref:   componentRef(topologyDevA, "1/1/1"),
+		Kind:  inventoryv1.ComponentKind_COMPONENT_KIND_PORT.Enum(),
+		Radio: wlanv1.RadioFacet_builder{}.Build(),
+	}
 	selfParent := inventoryv1.ComponentState_builder{
 		Ref:    componentRef(topologyDevA, "chassis"),
 		Parent: inventoryv1.ComponentLocalRef_builder{Name: proto.String("chassis")}.Build(),
@@ -151,6 +168,9 @@ func TestComponentRules(t *testing.T) {
 		{name: "a port under the chassis is valid", message: port.Build(), wantValid: true},
 		{name: "a transceiver with its module is valid", message: transceiver.Build(), wantValid: true},
 		{name: "a module reading belongs only to a transceiver", message: moduleOnPort.Build()},
+		{name: "a radio with its facet is valid", message: radio.Build(), wantValid: true},
+		{name: "a radio component without a facet passes", message: radioBare.Build(), wantValid: true},
+		{name: "a radio facet belongs only to a radio", message: radioOnPort.Build()},
 		{name: "a component cannot be its own parent", message: selfParent.Build()},
 		{name: "kind is required", message: inventoryv1.ComponentState_builder{Ref: componentRef(topologyDevA, "x")}.Build()},
 		{

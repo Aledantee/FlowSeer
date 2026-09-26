@@ -112,7 +112,11 @@ Managed Device state that differs from the centrally recorded baseline without a
 
 ### Facet
 
-A bundle of per-layer attributes for one interface — switchport membership, IP enablement, Ethernet link facts — embedded by value in the interface message. A facet's presence is its own discriminator: a routed interface is one whose IP facet is set, with no boolean beside it to disagree.
+A bundle of per-layer attributes for one interface — switchport membership, IP enablement, Ethernet link facts — embedded by value in the interface or component it describes. A facet's presence is its own discriminator: a routed interface is one whose IP facet is set, with no boolean beside it to disagree.
+
+### Radio
+
+A component of kind radio carrying a radio facet with its BSSs. An access point hosting radios is a Device.
 
 ### Table
 
