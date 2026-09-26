@@ -90,22 +90,28 @@ commit belongs to the run with the fewest commits in its `start` `base`
 to `end` `head` range that still holds it, since a `drive` stage's range
 holds the commits of the lanes it merged; a commit in no range belongs
 to the coordinator's model. This prints each commit of the review range
-with its writer:
+with its writer, `$coordinator` being the coordinator's registry model id,
+and exits nonzero on a revision git cannot resolve:
 
 ```bash
-python3 -B -c 'import subprocess, sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True).stdout.split(); events = list(runlog.read()); grade = {e["run"]: e.get("outcome") for e in events if e.get("event") == "grade"}; head = {e["run"]: e["head"] for e in events if e.get("event") == "end"}; runs = [(set(git("rev-list", e["base"] + ".." + head[e["run"]])), e.get("model") or e.get("agent")) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grade.get(e["run"]) in {"accepted", "amended"} and e["run"] in head]; [print(c[:12], min((r for r in runs if c in r[0]), key=lambda r: len(r[0]), default=(None, "coordinator"))[1]) for c in git("rev-list", "--no-merges", sys.argv[2])]' "$plan" "$base..$head"
+python3 -B -c 'import subprocess, sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.split(); events = list(runlog.read()); grade = {e["run"]: e.get("outcome") for e in events if e.get("event") == "grade"}; head = {e["run"]: e["head"] for e in events if e.get("event") == "end"}; runs = [(set(git("rev-list", e["base"] + ".." + head[e["run"]])), e.get("model") or e.get("agent")) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grade.get(e["run"]) in {"accepted", "amended"} and e["run"] in head]; [print(c[:12], min((r for r in runs if c in r[0]), key=lambda r: len(r[0]), default=(None, sys.argv[3]))[1]) for c in git("rev-list", "--no-merges", sys.argv[2])]' "$plan" "$base..$head" "$coordinator"
 ```
 
 A fix commit often rewrites lines an earlier writer added, so the split
-is by the lines that survive at head, not by commit: each changed hunk
-goes to the writer of the commit `git blame <base>..<head> -- <file>`
-names for its lines. Group the hunks by writer (by vendor for
-`review-unit`), and resolve one lane per group, with step 3 dropping
-only that group's writer. Each lane gets the whole `<base>..<head>` diff
-for context and reviews its group's hunks report-only. The coordinator
-reads the seams between the groups itself, as `review` does for units,
-and records the one verdict; under `drive`, that is the review-stage
-worker. The report names the split and each lane's hunks.
+is by the added lines that survive at head, not by commit: each goes to
+the writer of the commit `git blame <base>..<head> -- <file>` names for
+it. Context lines and boundary lines (blamed to a commit before
+`<base>`, marked `^`) belong to no writer. Group the lines by writer (by
+vendor for `review-unit`), and resolve one lane per group, with step 3
+dropping only that group's writer; a hunk whose lines have several
+writers is in each of their groups, each lane reviewing its own lines.
+A hunk that only deletes has no surviving line to blame, and the
+coordinator reviews it with the seams. Each lane gets the whole
+`<base>..<head>` diff for context and reviews its group's lines
+report-only. The coordinator reads the seams between the groups itself,
+as `review` does for units, and records the one verdict; under `drive`,
+that is the review-stage worker. The report names the split and each
+lane's lines.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
