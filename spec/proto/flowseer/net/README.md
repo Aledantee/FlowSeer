@@ -40,7 +40,7 @@ imports outside `net/`, and any root may import them.
 - `filter/v1/`: L2 match terms.
 - `qos/v1/` (planned; schema building blocks record): Trust mode, classifier terms, queues.
 - `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
-- `wlan/v1/` (planned; schema building blocks record): RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
+- `wlan/v1/`: RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
 - `cellular/v1/` (planned; schema building blocks record): Cellular radio facts and signal quality.
 - `endpoint/v1/` (planned; schema building blocks record): Wired and wireless attachment, fingerprint, per-endpoint counters.
 - `portaccess/v1/` (planned; schema building blocks record): Port-access sessions (802.1X, MAC authentication, web authentication).

@@ -375,6 +375,8 @@ a third package from taking a number already used on the same message.
 | `UInt32Rules` | 50001 | `vlan_tag_vid` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
 | `UInt32Rules` | 50002 | `vlan_pcp` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
 | `UInt32Rules` | 50003 | `basis_points` | `spec/proto/flowseer/net/measure/v1/basis_points.proto` |
+| `UInt32Rules` | 50004 | `wifi_channel` | `spec/proto/flowseer/net/wlan/v1/channel.proto` |
+| `UInt32Rules` | 50005 | `wifi_channel_width_mhz` | `spec/proto/flowseer/net/wlan/v1/channel.proto` |
 | `EnumRules` | 50000 | `ether_type` | `spec/proto/flowseer/net/packet/v1/ether_type.proto` |
 | `EnumRules` | 50001 | `tcp_flag` | `spec/proto/flowseer/net/packet/v1/tcp_flags.proto` |
 | `EnumRules` | 50002 | `ip_protocol` | `spec/proto/flowseer/net/packet/v1/ip_protocol.proto` |

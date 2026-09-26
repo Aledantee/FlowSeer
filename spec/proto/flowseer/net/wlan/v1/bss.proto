@@ -1,0 +1,43 @@
+edition = "2024";
+
+package flowseer.net.wlan.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/wlan/v1/pmf_mode.proto";
+import "flowseer/net/wlan/v1/wlan_security.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// Basic Service Set (BSS) hosted on a wireless radio interface (IEEE Std 802.11-2020).
+// Nests within the radio that serves it.
+message Bss {
+  // Basic Service Set Identifier (BSSID), the hardware MAC address of this BSS. Must be present.
+  flowseer.net.addr.v1.MacAddress bssid = 1 [(buf.validate.field).required = true];
+  // Service Set Identifier (SSID) beaconed by this BSS, up to 32 octets (IEEE 802.11 clause 9.4.2.2).
+  // Zero-length bytes indicates a hidden network broadcasting a zero-length SSID.
+  bytes ssid = 2 [(buf.validate.field).bytes.max_len = 32];
+  // Active wireless security mode. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  WlanSecurity security = 3;
+  // Protected Management Frames mode. Unset or zero means unobserved or unknown; unknown non-zero values remain valid.
+  PmfMode pmf = 4;
+  // VLAN identifier mapped to this BSS. Unset means untagged or unmapped.
+  uint32 vlan_id = 5 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true];
+  // Whether this BSS suppresses broadcasting its SSID in beacon frames.
+  bool hidden = 6;
+  // Beacon transmission interval. Bounded by 1 to 65535 Time Units (1 TU = 1024 microseconds; 1024 us to 67.10784 s). Unset means unobserved.
+  google.protobuf.Duration beacon_interval = 7 [(buf.validate.field).duration = {
+    gte: {nanos: 1024000}
+    lte: {
+      seconds: 67
+      nanos: 107840000
+    }
+  }];
+  // Delivery Traffic Indication Message (DTIM) period in beacon intervals, 1 to 255 (IEEE 802.11 clause 9.4.2.4). Unset means unobserved.
+  uint32 dtim_period = 8 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 255
+  }];
+  // Number of wireless client stations currently associated with this BSS. Unset means unobserved.
+  uint32 associated_client_count = 9;
+}
