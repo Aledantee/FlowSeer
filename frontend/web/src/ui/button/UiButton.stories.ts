@@ -106,7 +106,7 @@ export const Medium: Story = {
 export const Icon: Story = {
   args: {
     size: 'icon',
-    'aria-label': 'Settings',
+    ariaLabel: 'Settings',
   },
   render: (args) => ({
     components: { UiButton },
