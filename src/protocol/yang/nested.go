@@ -79,7 +79,7 @@ func scanXMLLevel[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyValue
 				return nil
 			}
 		case xml.StartElement:
-			if !xmlNameMatches(t.Name, level.Name, level.Namespace) {
+			if !xmlNameMatches(t.Name, level.Name, level.namespaceURI()) {
 				// Descend transparently: the matching elements may sit
 				// under wrapper elements (rpc-reply/data, parent
 				// containers). A non-matching element just opens a new
@@ -142,7 +142,7 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 				continue
 			}
 			next := chain[1]
-			if xmlNameMatches(t.Name, next.Name, next.Namespace) {
+			if xmlNameMatches(t.Name, next.Name, next.namespaceURI()) {
 				if err := dispatchXMLMatch(dec, chain[1:], append(slices.Clone(anc), orderKeys(level, keys)), out); err != nil {
 					return err
 				}
@@ -225,7 +225,7 @@ func DecodeJSONNested[Inner any](chain []*Schema, data []byte) ([]NestedEntry[In
 		return nil, errs.From(err).Code(ErrCodeValueParse).Msgf("nested %s payload is not a JSON object", chain[0].Name)
 	}
 
-	arr, ok := lookupMember(obj, chain[0].Module, chain[0].Name)
+	arr, ok := lookupMember(obj, chain[0].moduleName(), chain[0].Name)
 	if !ok {
 		return nil, nil
 	}
@@ -302,7 +302,7 @@ func jsonLevelKeys(level *Schema, obj map[string]json.RawMessage) ([]KeyValue, e
 // ancestor entry: directly as a member, or one intermediate container
 // object down (lists nested under a wrapper container).
 func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (json.RawMessage, bool) {
-	if arr, ok := lookupMember(obj, next.Module, next.Name); ok {
+	if arr, ok := lookupMember(obj, next.moduleName(), next.Name); ok {
 		return arr, true
 	}
 	for i := range level.Fields {
@@ -358,7 +358,7 @@ func ContainerRowCodec[Row any](s *Schema) RowCodec[Row, struct{}] {
 				}
 				return []Row{row}, nil
 			}
-			raw, ok := lookupMember(obj, s.Module, s.Name)
+			raw, ok := lookupMember(obj, s.moduleName(), s.Name)
 			if !ok {
 				return nil, nil
 			}

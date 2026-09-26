@@ -362,3 +362,38 @@ func (p Path) SubtreeFilterXML() ([]byte, error) {
 	}
 	return []byte(b.String()), nil
 }
+
+// In returns a sequence of path segments for names, with the first
+// segment qualified by m's module name and XML namespace URI, and
+// subsequent segments inheriting the qualification with empty module
+// and namespace strings. When names is empty, In returns nil.
+func In(m *Module, names ...string) []Segment {
+	if len(names) == 0 {
+		return nil
+	}
+	segs := make([]Segment, len(names))
+	for i, name := range names {
+		segs[i].Name = name
+	}
+	if m != nil {
+		segs[0].Module = m.Name
+		segs[0].Namespace = m.Namespace
+	}
+	return segs
+}
+
+// JoinPath concatenates segment sequences into a single [Path].
+func JoinPath(parts ...[]Segment) Path {
+	var total int
+	for _, p := range parts {
+		total += len(p)
+	}
+	if total == 0 {
+		return Path{}
+	}
+	segs := make([]Segment, 0, total)
+	for _, p := range parts {
+		segs = append(segs, p...)
+	}
+	return Path{Segments: segs}
+}

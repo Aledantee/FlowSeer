@@ -47,7 +47,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		if mod := f.qualifiedModule(s); mod != s.Module {
+		if mod := f.qualifiedModule(s); mod != s.moduleName() {
 			name = mod + ":" + name
 		}
 		key, err := json.Marshal(name)
@@ -163,7 +163,7 @@ func DecodeJSONList[Row any](s *Schema, data []byte) ([]Row, error) {
 		if err := json.Unmarshal(data, &obj); err != nil {
 			return nil, errs.From(err).Code(ErrCodeValueParse).Msgf("list %s payload is not a JSON object", s.Name)
 		}
-		found, ok := lookupMember(obj, s.Module, s.Name)
+		found, ok := lookupMember(obj, s.moduleName(), s.Name)
 		if !ok {
 			return nil, nil
 		}

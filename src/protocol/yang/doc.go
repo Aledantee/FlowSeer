@@ -57,10 +57,18 @@
 // (errors.go). Codes are a wire contract: never renamed, never
 // reused.
 //
+// # Modules and schemas
+//
+// [Module] identifies a YANG module by its name and XML namespace URI.
+// A [Schema] references its defining module as a [*Module], and a [Field]
+// may reference an overriding [*Module] for augmented nodes or nil to
+// inherit the schema's module. Packages share one [*Module] value per
+// module across all schema nodes, avoiding string duplication.
+//
 // # Concurrency
 //
 // Everything in this package is immutable after construction:
-// [Path], [Type], [Value], and descriptor values are safe for
+// [Module], [Path], [Type], [Value], and descriptor values are safe for
 // concurrent use by multiple goroutines as long as callers do not
 // mutate shared slices in place. Generated binding structs are plain
 // data and follow the usual rule — concurrent reads are safe,
