@@ -119,8 +119,9 @@ and `src/theme/semantic.css` via:
 node --experimental-strip-types scripts/build-palette.ts
 ```
 
-Semantic tokens replace legacy custom properties (`--background`, `--foreground`, `--card`, `--primary`,
-`--accent`, etc.), with light mode using a comfortable `neutral-5` background canvas.
+Semantic tokens (`--background`, `--foreground`, `--card`, `--primary`, `--accent`, etc.) replace
+legacy custom properties (`--page`, `--text`, `--surface`, `--coral`, etc.), with light mode using
+a comfortable `neutral-5` background canvas.
 
 Foundation tokens and components are documented and visually audited in Storybook:
 

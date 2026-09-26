@@ -10,7 +10,7 @@ import {
   type PaletteSource,
 } from '../../theme/palette.ts'
 
-const source = sourceData as unknown as PaletteSource
+const source: PaletteSource = sourceData
 const currentTheme = ref<Theme>('light')
 let observer: MutationObserver | null = null
 
@@ -86,17 +86,15 @@ const tokens = computed<TokenInfo[]>(() => {
 
 <template>
   <div
-    class="color-table-wrapper p-6 max-w-5xl mx-auto font-sans text-sm text-[var(--foreground)] bg-[var(--background)]"
+    class="color-table-wrapper p-6 max-w-5xl mx-auto font-sans text-sm text-foreground bg-background"
   >
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-[var(--foreground)]">
-          Semantic Colors
-        </h1>
-        <p class="text-sm text-[var(--muted-foreground)] mt-1">
+        <h1 class="text-2xl font-bold text-foreground">Semantic Colors</h1>
+        <p class="text-sm text-muted-foreground mt-1">
           Active theme:
           <span
-            class="font-semibold uppercase tracking-wider text-[var(--foreground)]"
+            class="font-semibold uppercase tracking-wider text-foreground"
             >{{ currentTheme }}</span
           >
         </p>
@@ -104,16 +102,14 @@ const tokens = computed<TokenInfo[]>(() => {
     </div>
 
     <div
-      class="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card)] shadow-xs"
+      class="border border-border rounded-panel overflow-hidden bg-card shadow-xs"
     >
       <table class="w-full text-left border-collapse">
         <caption class="sr-only">
           Semantic token palette and contrast audit
         </caption>
         <thead>
-          <tr
-            class="border-b border-[var(--border)] bg-[var(--subtle)] text-[var(--foreground)]"
-          >
+          <tr class="border-b border-border bg-subtle text-foreground">
             <th
               scope="col"
               class="py-3 px-4 font-semibold text-xs uppercase tracking-wider"
@@ -140,23 +136,21 @@ const tokens = computed<TokenInfo[]>(() => {
             </th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-[var(--border)]">
+        <tbody class="divide-y divide-border">
           <tr
             v-for="token in tokens"
             :key="token.name"
-            class="hover:bg-[var(--hover)] transition-colors"
+            class="hover:bg-hover transition-colors"
           >
             <td class="py-3 px-4 font-mono text-xs">--{{ token.name }}</td>
             <td class="py-3 px-4">
               <div
-                class="w-8 h-8 rounded-md border border-[var(--border)] shadow-xs"
+                class="w-8 h-8 rounded-control border border-border shadow-xs"
                 :style="{ backgroundColor: `var(--${token.name})` }"
                 aria-hidden="true"
               />
             </td>
-            <td
-              class="py-3 px-4 font-mono text-xs text-[var(--muted-foreground)]"
-            >
+            <td class="py-3 px-4 font-mono text-xs text-muted-foreground">
               {{ token.step }}
             </td>
             <td class="py-3 px-4 text-xs">
@@ -170,20 +164,20 @@ const tokens = computed<TokenInfo[]>(() => {
                   class="flex items-center gap-2"
                 >
                   <span
-                    class="inline-block px-1.5 py-0.5 rounded font-mono text-2xs"
+                    class="inline-block px-1.5 py-0.5 rounded-sm font-mono text-2xs"
                     :class="
                       pair.passes
-                        ? 'bg-[var(--success-surface)] text-[var(--success-foreground)] border border-[var(--success-border)]'
-                        : 'bg-[var(--danger-surface)] text-[var(--danger-foreground)] border border-[var(--danger-border)]'
+                        ? 'bg-success-surface text-success-foreground border border-success-border'
+                        : 'bg-danger-surface text-danger-foreground border border-danger-border'
                     "
                   >
                     {{ pair.ratio }}:1
                   </span>
-                  <span class="text-[var(--muted-foreground)]">
+                  <span class="text-muted-foreground">
                     <span
                       :class="
                         pair.fg === token.name
-                          ? 'font-bold text-[var(--foreground)]'
+                          ? 'font-bold text-foreground'
                           : ''
                       "
                       >{{ pair.fg }}</span
@@ -192,7 +186,7 @@ const tokens = computed<TokenInfo[]>(() => {
                     <span
                       :class="
                         pair.bg === token.name
-                          ? 'font-bold text-[var(--foreground)]'
+                          ? 'font-bold text-foreground'
                           : ''
                       "
                       >{{ pair.bg }}</span
@@ -201,9 +195,7 @@ const tokens = computed<TokenInfo[]>(() => {
                   </span>
                 </li>
               </ul>
-              <span v-else class="text-[var(--muted-foreground)] italic">
-                None
-              </span>
+              <span v-else class="text-muted-foreground italic"> None </span>
             </td>
           </tr>
         </tbody>

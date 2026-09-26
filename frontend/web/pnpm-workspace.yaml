@@ -1,4 +1,6 @@
 allowBuilds:
+  # esbuild resolves its binary via optional platform packages; its postinstall is a fallback.
+  esbuild: false
   # vue-demi's install script only switches between its Vue 2 and Vue 3
   # builds; the default already targets Vue 3.
   vue-demi: false

@@ -11,12 +11,17 @@ export default meta
 type Story = StoryObj
 
 const radii = [
-  { name: 'xs', value: '2px', className: 'rounded-xs' },
   { name: 'sm', value: '4px', className: 'rounded-sm' },
-  { name: 'md', value: '6px', className: 'rounded-md' },
-  { name: 'lg', value: '8px', className: 'rounded-lg' },
-  { name: 'xl', value: '12px', className: 'rounded-xl' },
-  { name: 'full', value: '9999px', className: 'rounded-full' },
+  { name: 'control', value: '8px', className: 'rounded-control' },
+  { name: 'panel', value: '12px', className: 'rounded-panel' },
+]
+
+const shadows = [
+  { name: 'xs', elevation: '0 1px 2px (6%)', className: 'shadow-xs' },
+  { name: 'sm', elevation: '0 2px 4px (8%)', className: 'shadow-sm' },
+  { name: 'md', elevation: '0 4px 12px (12%)', className: 'shadow-md' },
+  { name: 'lg', elevation: '0 12px 32px (20%)', className: 'shadow-lg' },
+  { name: 'xl', elevation: '0 24px 60px (33%)', className: 'shadow-xl' },
 ]
 
 const spacing = [
@@ -33,49 +38,48 @@ const spacing = [
 export const Default: Story = {
   render: () => ({
     setup() {
-      return { radii, spacing }
+      return { radii, shadows, spacing }
     },
     template: `
-      <div class="p-6 max-w-5xl mx-auto font-sans text-[var(--foreground)] bg-[var(--background)] space-y-10">
+      <div class="p-6 max-w-5xl mx-auto font-sans text-foreground bg-background space-y-10">
         <div>
           <h1 class="text-2xl font-bold mb-2">Shape &amp; Spacing</h1>
-          <p class="text-sm text-[var(--muted-foreground)]">Border radii, card shadows, and spacing scale steps 1 to 8.</p>
+          <p class="text-sm text-muted-foreground">Border radii, card shadows, and spacing scale steps 1 to 8.</p>
         </div>
 
         <!-- Radii -->
         <section>
-          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-[var(--border)]">Corner Radii</h2>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-border">Corner Radii</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div
               v-for="r in radii"
               :key="r.name"
-              class="flex flex-col items-center p-4 border border-[var(--border)] bg-[var(--card)] rounded-lg shadow-xs"
+              class="flex flex-col items-center p-4 border border-border bg-card rounded-panel shadow-xs"
             >
               <div
-                class="w-16 h-16 border-2 border-[var(--primary)] bg-[var(--subtle)] mb-3"
+                class="w-16 h-16 border-2 border-primary bg-subtle mb-3"
                 :class="r.className"
                 aria-hidden="true"
               />
               <span class="font-mono text-xs font-semibold">radius-{{ r.name }}</span>
-              <span class="text-2xs text-[var(--muted-foreground)]">{{ r.value }}</span>
+              <span class="text-2xs text-muted-foreground">{{ r.value }}</span>
             </div>
           </div>
         </section>
 
         <!-- Shadows -->
         <section>
-          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-[var(--border)]">Card Shadows</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div class="p-6 bg-[var(--card)] rounded-lg border border-[var(--border)] shadow-[var(--shadow-card)]">
-              <span class="font-mono text-xs font-semibold block mb-1">--shadow-card</span>
-              <p class="text-xs text-[var(--muted-foreground)]">
-                Subtle elevation for cards and panels against the background canvas.
-              </p>
-            </div>
-            <div class="p-6 bg-[var(--card)] rounded-lg border border-[var(--border)] shadow-[var(--shadow-popover)]">
-              <span class="font-mono text-xs font-semibold block mb-1">--shadow-popover</span>
-              <p class="text-xs text-[var(--muted-foreground)]">
-                Higher elevation for menus, popovers, and elevated overlays.
+          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-border">Card Shadows</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div
+              v-for="s in shadows"
+              :key="s.name"
+              class="p-6 bg-card rounded-panel border border-border"
+              :class="s.className"
+            >
+              <span class="font-mono text-xs font-semibold block mb-1">shadow-{{ s.name }}</span>
+              <p class="text-xs text-muted-foreground">
+                {{ s.elevation }}
               </p>
             </div>
           </div>
@@ -83,23 +87,23 @@ export const Default: Story = {
 
         <!-- Spacing -->
         <section>
-          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-[var(--border)]">Spacing (Steps 1 to 8)</h2>
-          <div class="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card)] shadow-xs">
+          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-border">Spacing (Steps 1 to 8)</h2>
+          <div class="border border-border rounded-panel overflow-hidden bg-card shadow-xs">
             <table class="w-full text-left border-collapse">
               <caption class="sr-only">Spacing scale steps 1 through 8</caption>
               <thead>
-                <tr class="border-b border-[var(--border)] bg-[var(--subtle)] text-[var(--foreground)]">
+                <tr class="border-b border-border bg-subtle text-foreground">
                   <th scope="col" class="py-2.5 px-4 font-semibold text-xs uppercase tracking-wider">Step</th>
                   <th scope="col" class="py-2.5 px-4 font-semibold text-xs uppercase tracking-wider">Size (rem / px)</th>
                   <th scope="col" class="py-2.5 px-4 font-semibold text-xs uppercase tracking-wider">Visual</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-[var(--border)]">
-                <tr v-for="s in spacing" :key="s.step" class="hover:bg-[var(--hover)] transition-colors">
+              <tbody class="divide-y divide-border">
+                <tr v-for="s in spacing" :key="s.step" class="hover:bg-hover transition-colors">
                   <td class="py-2.5 px-4 font-mono text-xs font-semibold">{{ s.step }}</td>
-                  <td class="py-2.5 px-4 font-mono text-xs text-[var(--muted-foreground)]">{{ s.rem }} ({{ s.px }})</td>
+                  <td class="py-2.5 px-4 font-mono text-xs text-muted-foreground">{{ s.rem }} ({{ s.px }})</td>
                   <td class="py-2.5 px-4">
-                    <div class="h-4 bg-[var(--accent)] rounded-xs" :class="s.className" aria-hidden="true" />
+                    <div class="h-4 bg-accent rounded-sm" :class="s.className" aria-hidden="true" />
                   </td>
                 </tr>
               </tbody>
