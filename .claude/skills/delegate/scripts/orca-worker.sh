@@ -159,10 +159,14 @@ case "$cmd" in
     # exited.
     orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1
 
-    # Codex startup dialog: the hooks review for a repository with
-    # .codex/hooks.json. A prompt sent into it is lost. The update offer is
-    # off on the launch line rather than answered: its option numbering is
-    # not stable across versions, and a wrong answer runs the upgrade and
+    # Codex startup dialog: "Hooks need review", shown when a hook in
+    # .codex/hooks.json or ~/.codex/hooks.json is new or changed. A prompt
+    # sent into it is lost, and its Enter picks "Review hooks", which opens a
+    # detail view. The answer is "Trust all and continue", picked by the
+    # number its line carries rather than a fixed one, since the numbering
+    # is not stable across versions: the digit moves the selection and Enter
+    # confirms it. The update offer is off on the launch line rather than
+    # answered, for the same reason: a wrong answer runs the upgrade and
     # leaves the terminal at a shell. An offer that shows anyway fails the
     # start before the brief pointer's Enter can pick an option.
     if [[ $cli == codex ]]; then
@@ -170,17 +174,16 @@ case "$cmd" in
         sleep 2; s=$(screen "$term")
         grep -q 'restart Codex' <<<"$s" && undo "Codex updated itself and exited at startup for $lane"
         grep -q 'Skip until next version' <<<"$s" && undo "Codex showed its update offer despite check_for_update_on_startup=false for $lane"
-        if grep -q 'hook needs review' <<<"$s"; then
-          orca terminal send --terminal "$term" --text t --json >/dev/null \
-            || undo "cannot dismiss Codex hooks review for $lane"
-          sleep 1
-          orca terminal send --terminal "$term" --text $'\e' --json >/dev/null \
-            || undo "cannot dismiss Codex hooks review for $lane"
-        else
-          break
-        fi
+        grep -q -i 'hooks need review' <<<"$s" || break
+        n=$(sed -n 's/.*\([0-9]\)\. Trust all and continue.*/\1/p' <<<"$s" | head -1)
+        [[ -n $n ]] || undo "Codex hooks review for $lane has no \"Trust all and continue\" option: $(tail -8 <<<"$s")"
+        orca terminal send --terminal "$term" --text "$n" --json >/dev/null \
+          || undo "cannot answer Codex hooks review for $lane"
+        sleep 1
+        orca terminal send --terminal "$term" --text '' --enter --json >/dev/null \
+          || undo "cannot answer Codex hooks review for $lane"
       done
-      grep -q 'hook needs review' <<<"$(screen "$term")" && undo "$lane still shows the hooks review after four rounds"
+      grep -q -i 'hooks need review' <<<"$(screen "$term")" && undo "$lane still shows the hooks review after four rounds"
     fi
     st=$(orca terminal show --terminal "$term" --json 2>/dev/null | json 'd["result"]["terminal"].get("status") or d["result"].get("status")') \
       || undo "terminal show failed for $lane"

@@ -23,12 +23,15 @@ names the lane; this file is the procedure.
   under the coordinator's child-session variables runs with transcript
   saving off.
 - For Codex, launches with `-c check_for_update_on_startup=false` and
-  answers the hooks review for a repository with `.codex/hooks.json` (`t`,
-  then escape). Answering the update offer broke when its option numbering
-  changed in 0.157.0: the answer ran the upgrade and left the terminal at
-  a shell. A prompt sent into the review is lost, so the start fails if
-  the review remains, the update offer shows, or the screen asks to
-  restart Codex.
+  answers "Hooks need review", which shows when a hook in
+  `.codex/hooks.json` or `~/.codex/hooks.json` is new or changed, with
+  "Trust all and continue": the number on that option's line, then Enter.
+  The number is read from the screen because Codex renumbers its dialogs:
+  answering the update offer broke that way in 0.157.0, running the
+  upgrade and leaving the terminal at a shell. A prompt sent into the
+  review is lost, and its Enter opens a hook's detail view, so the start
+  fails if the review remains or has no trust option, the update offer
+  shows, or the screen asks to restart Codex.
 - Copies the brief to `.orca-brief.md` in the child and sends a one-line
   pointer to it. A long paragraph through `orca terminal send` arrives as
   stray characters at the prompt, and the loss is silent at both ends. The
@@ -66,7 +69,8 @@ names the lane; this file is the procedure.
 
 Measured on 2026-09-19 on the `opencode` lane (Orca 1.4.203). The run log
 has `codex`, `agy`, and `claude` lanes started through this script since
-2026-09-23; the Codex launch with the update check off has not yet run.
+2026-09-23. The Codex launch and its hooks-review answer were measured
+on codex 0.157.1 on 2026-09-26.
 
 ## When a step fails
 
@@ -95,9 +99,10 @@ has `codex`, `agy`, and `claude` lanes started through this script since
   worker that left files uncommitted is left in place.
 - `stop` says the lane has no grade event: grade the lane with `orca-worker.sh grade`
   before stopping it.
-- A codex worker still stops at the hooks review: Orca reports "Agent
-  startup blocked: codex-hooks-review-prompt". Use another pool unless
-  that dialog has been answered on this host.
+- `start` says the hooks review remains or has no "Trust all and
+  continue" option: Codex changed the dialog again. Its screen is in the
+  error; update the match in `orca-worker.sh`, or run `codex` in the
+  child once by hand and trust the hooks, then start the lane again.
 - `start` says Codex updated itself and exited, or showed its update
   offer despite `check_for_update_on_startup=false`: run `codex` by hand
   once to finish or dismiss the update, or set

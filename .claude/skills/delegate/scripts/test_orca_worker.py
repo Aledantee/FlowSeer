@@ -54,6 +54,8 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
         print("esc to interrupt")
     elif failure == "terminal-read":
         sys.exit(1)
+    elif os.environ.get("ORCA_STUB_DIALOG") and Path(os.environ["ORCA_STUB_DIALOG"]).exists():
+        print(Path(os.environ["ORCA_STUB_DIALOG"]).read_text())
     elif os.environ.get("ORCA_STUB_SCREEN"):
         print(os.environ["ORCA_STUB_SCREEN"])
     else:
@@ -105,7 +107,18 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "send":
     if failure == "pointer":
         print("injected pointer failure", file=sys.stderr)
         sys.exit(1)
-    pointer_file.write_text(args[args.index("--text") + 1])
+    text = args[args.index("--text") + 1]
+    dialog = Path(os.environ.get("ORCA_STUB_DIALOG") or "/nonexistent")
+    if dialog.exists():
+        # A digit selects an option; Enter on an empty text confirms it.
+        selected = Path(str(dialog) + ".selected")
+        if text and "--enter" not in args:
+            selected.write_text(text)
+        elif not text and "--enter" in args and selected.exists():
+            dialog.unlink()
+        print(json.dumps({{"result": {{"status": "ok"}}}}))
+        sys.exit(0)
+    pointer_file.write_text(text)
     if failure == "state-mkdir":
         Path(os.environ["ORCA_STUB_STATE_DIR"]).write_text("occupied")
     print(json.dumps({{"result": {{"status": "ok"}}}}))
@@ -209,6 +222,49 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         if not terminal:
             self.assertIn(f"l1 codex unavailable-terminal {state['path']}", status.stdout)
             self.assertNotIn("terminal read --terminal  --screen", self.orca_calls())
+
+    def codex_dialog(self, text):
+        dialog = self.root / "dialog"
+        dialog.write_text(text)
+        self.env["ORCA_STUB_DIALOG"] = str(dialog)
+        return dialog
+
+    def test_start_launches_codex_with_the_update_check_off(self):
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("-c check_for_update_on_startup=false", self.orca_calls())
+
+    def test_start_trusts_codex_hooks_by_the_option_number_on_screen(self):
+        dialog = self.codex_dialog(
+            "  Hooks need review\n"
+            "› 1. Review hooks\n"
+            "  2. Continue without trusting (hooks won't run)\n"
+            "  3. Trust all and continue\n"
+            "  enter confirm · esc skip\n"
+        )
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(dialog.exists())
+        calls = self.orca_calls()
+        self.assertIn("terminal send --terminal term-1 --text 3 --json", calls)
+        self.assertLess(calls.index("--text 3 --json"), calls.index("--text  --enter --json"))
+        self.assertLess(calls.index("--text  --enter --json"), calls.index("--text Read .orca-brief.md"))
+
+    def test_start_rolls_back_codex_dialogs_it_cannot_answer_before_logging(self):
+        for screen, message in (
+            ("  Hooks need review\n› 1. Review hooks\n  2. Quit\n", 'has no "Trust all and continue" option'),
+            ("  Update available!\n› 1. Update now\n  2. Skip\n  3. Skip until next version\n", "showed its update offer"),
+            ("Update ran successfully! Please restart Codex.\n$ ", "Codex updated itself"),
+        ):
+            with self.subTest(message=message):
+                self.codex_dialog(screen)
+                result = self.start()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+                self.assertNotIn("--text Read .orca-brief.md", self.orca_calls())
+                self.assertFalse(self.runlog.exists())
+                self.assertFalse((self.root / "child-l1").exists())
+                self.assertFalse((self.state_dir / "l1.json").exists())
 
     def test_start_requires_role_before_worktree_create(self):
         brief = self.repo / "brief.md"
