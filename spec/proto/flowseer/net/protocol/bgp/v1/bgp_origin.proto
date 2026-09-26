@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+// The origin of BGP route path information (BGP4-MIB bgp4PathAttrOrigin, RFC 4271 §4.3).
+// Values keep the MIB integers (1 to 3); wire values 0 to 2 are offset by +1.
+enum BgpOrigin {
+  // The path origin was not reported.
+  BGP_ORIGIN_UNSPECIFIED = 0;
+  // Interior Gateway Protocol (igp, 1).
+  BGP_ORIGIN_IGP = 1;
+  // Exterior Gateway Protocol (egp, 2).
+  BGP_ORIGIN_EGP = 2;
+  // Incomplete (incomplete, 3).
+  BGP_ORIGIN_INCOMPLETE = 3;
+}

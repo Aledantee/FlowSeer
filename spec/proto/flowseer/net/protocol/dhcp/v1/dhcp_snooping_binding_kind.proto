@@ -1,0 +1,12 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+// The origin kind of a DHCP snooping binding.
+enum DhcpSnoopingBindingKind {
+  DHCP_SNOOPING_BINDING_KIND_UNSPECIFIED = 0;
+  // A statically configured snooping binding that does not expire.
+  DHCP_SNOOPING_BINDING_KIND_STATIC = 1;
+  // A dynamically snooped binding learned from DHCP transactions.
+  DHCP_SNOOPING_BINDING_KIND_DYNAMIC = 2;
+}

@@ -1,0 +1,49 @@
+edition = "2024";
+
+package flowseer.net.protocol.isis.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/isis/v1/isis_adjacency_state.proto";
+import "flowseer/net/protocol/isis/v1/isis_level.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An IS-IS adjacency established over a circuit or interface (RFC 4444, ISIS-MIB isisISAdjEntry).
+message IsisAdjacency {
+  // The local interface name this adjacency is formed over. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The protocol instance name. Must be present.
+  string protocol_instance = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The 6-octet system identifier of the neighboring IS (ISIS-MIB isisISAdjNeighSysID). Must be present.
+  bytes neighbor_system_id = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 6
+  ];
+  // The level of this adjacency. Must be present.
+  IsisLevel usage = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  // The operational state of this adjacency.
+  IsisAdjacencyState state = 5;
+  // The Subnetwork Point of Attachment (SNPA) / MAC address of the neighbor. Absent on point-to-point circuits.
+  flowseer.net.addr.v1.MacAddress neighbor_snpa = 6;
+  // The IP addresses advertised by the neighbor (ISIS-MIB isisISAdjIPAddrEntry).
+  repeated flowseer.net.addr.v1.IpAddress neighbor_addresses = 7;
+  // The remaining hold time before the adjacency is declared dead (ISIS-MIB isisISAdjHoldTimer).
+  google.protobuf.Duration hold_time = 8 [
+    (buf.validate.field).duration.gte = {seconds: 0},
+    (buf.validate.field).duration.lte = {seconds: 65535}
+  ];
+  // The priority of the neighbor for Designated Intermediate System election (ISIS-MIB isisISAdjNeighPriority, 0 to 127).
+  uint32 priority = 9 [(buf.validate.field).uint32.lte = 127];
+}

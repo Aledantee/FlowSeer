@@ -9,7 +9,7 @@ unicast forwarding database rows.
 
 Imports: net/addr, net/key, net/packet
 
-Imported by: model/wireless, net/capture, net/endpoint, net/filter, net/interface, net/multicast, net/portaccess, net/protocol/cdp, net/protocol/lldp, net/protocol/stp, net/qos, net/wlan
+Imported by: model/wireless, net/capture, net/endpoint, net/filter, net/interface, net/multicast, net/portaccess, net/protocol/cdp, net/protocol/dhcp, net/protocol/lldp, net/protocol/stp, net/qos, net/wlan
 
 Deliberately absent:
 

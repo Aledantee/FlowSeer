@@ -1,0 +1,38 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/dhcp/v1/dhcp_snooping_binding_kind.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/key/v1/key.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// A DHCP snooping database binding (HUAWEI-DHCP-SNOOPING-MIB, HH3C-DHCP-SNOOP2-MIB).
+message DhcpSnoopingBinding {
+  // The network instance this snooping binding belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The VLAN identifier (1 to 4094). Must be present.
+  uint32 vlan_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true
+  ];
+  // The client MAC address. Must be present.
+  flowseer.net.addr.v1.MacAddress mac = 3 [(buf.validate.field).required = true];
+  // The leased IP address (IPv4 or IPv6). Must be present.
+  flowseer.net.addr.v1.IpAddress address = 4 [(buf.validate.field).required = true];
+  // The local interface this binding was learned or configured on. Must be present.
+  string interface_name = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // The origin kind of this binding (static or dynamic).
+  DhcpSnoopingBindingKind kind = 6;
+  // Remaining lease time before this dynamic binding expires. Absent for static bindings or if unreported.
+  google.protobuf.Duration expires_in = 7 [(buf.validate.field).duration.gte = {seconds: 0}];
+}

@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+// The segment type of an AS_PATH attribute (RFC 4271 §4.3, RFC 5065 §3).
+enum BgpAsPathSegmentType {
+  // The segment type was not reported.
+  BGP_AS_PATH_SEGMENT_TYPE_UNSPECIFIED = 0;
+  // Unordered set of ASes (AS_SET, 1).
+  BGP_AS_PATH_SEGMENT_TYPE_AS_SET = 1;
+  // Ordered sequence of ASes (AS_SEQUENCE, 2).
+  BGP_AS_PATH_SEGMENT_TYPE_AS_SEQUENCE = 2;
+  // Ordered sequence of ASes in a confederation (AS_CONFED_SEQUENCE, 3).
+  BGP_AS_PATH_SEGMENT_TYPE_AS_CONFED_SEQUENCE = 3;
+  // Unordered set of ASes in a confederation (AS_CONFED_SET, 4).
+  BGP_AS_PATH_SEGMENT_TYPE_AS_CONFED_SET = 4;
+}

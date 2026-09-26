@@ -28,7 +28,7 @@ imports outside `net/`, and any root may import them.
 
 ## Packages
 
-- `key/v1/`: Predefined rules for device-local keys: interface_name, network_instance_name.
+- `key/v1/`: Predefined rules for device-local keys: interface_name, network_instance_name, protocol_instance_name.
 - `measure/v1/`: Sensor readings, percentages, and path quality.
 - `addr/v1/`: Canonical IP, prefix, range, lifetime, MAC, EUI, and OUI value types.
 - `packet/v1/`: Packet-header registries, exact header values, and small reusable match atoms.
@@ -39,7 +39,7 @@ imports outside `net/`, and any root may import them.
 - `routing/v1/`: Route row, NextHop, NextHopGroup, SpecialNextHop, RouteSourceProtocol, and the RouteTableType RIB/FIB discriminator.
 - `filter/v1/`: Packet filter rule sets, rules, L2 to L4 match terms, and the interface filter facet.
 - `qos/v1/`: Trust mode, classifiers with their terms and policers, and per-interface queues.
-- `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
+- `nat/v1/`: NAT mappings and sessions.
 - `wlan/v1/`: RadioFacet, Bss, WlanSecurity, channel utilization, neighbor-scan rows.
 - `cellular/v1/`: Cellular interface technology, identifiers, serving cell, and signal quality.
 - `endpoint/v1/`: Wired and wireless attachment, fingerprint, per-endpoint counters.

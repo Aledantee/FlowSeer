@@ -139,7 +139,7 @@ Landed: `d6548fcf..a6e39988`
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase7-plan.md
 After: U2
-Landed:
+Landed: `e6802376..8d53dbc6`
 
 ### U8. Phase 8: QoS, AAA, flow export, and cellular
 
@@ -188,6 +188,9 @@ schema-language tests from phase 1 pass over every package.
   the record if it renames.
 - Whether HSRP gets a package in phase 7. It is Cisco-only; the record's
   rule gives it its own package if it comes.
+  Closed in phase 7: HSRP is Cisco-only and will be introduced in its own
+  package under `net/protocol/hsrp` in a future phase if needed; VRRP
+  models standard first-hop redundancy.
 - Which source each string bound outside `net/` comes from. The record's
   rule is that a bound names its source; 142 bounds in `model/`, `api/`,
   `edge/`, `store/`, and `runtime/` use ten different values, several with

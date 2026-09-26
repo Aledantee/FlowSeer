@@ -1,0 +1,12 @@
+edition = "2024";
+
+package flowseer.net.nat.v1;
+
+// The origin kind of a NAT address or port mapping (RFC 4008 NatAssociationType).
+enum NatMappingKind {
+  NAT_MAPPING_KIND_UNSPECIFIED = 0;
+  // A static, administratively configured NAT mapping (RFC 4008 static(1)).
+  NAT_MAPPING_KIND_STATIC = 1;
+  // A dynamic, automatically allocated NAT mapping (RFC 4008 dynamic(2)).
+  NAT_MAPPING_KIND_DYNAMIC = 2;
+}

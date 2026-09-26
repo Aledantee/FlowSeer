@@ -43,6 +43,20 @@ func TestShellSafeInterfaceNameRule(t *testing.T) {
 	})
 }
 
+// TestProtocolInstanceNameRule exercises the rule a device-reported protocol
+// instance carries: 1 to 255 characters and no character-class restriction.
+func TestProtocolInstanceNameRule(t *testing.T) {
+	candidate := stringRuleCarrier(t, keyv1.E_ProtocolInstanceName)
+
+	runValidationCases(t, []validationCase{
+		{name: "an empty name is rejected", message: candidate(""), wantValid: false},
+		{name: "a name of 256 characters is rejected", message: candidate(strings.Repeat("a", 256)), wantValid: false},
+		{name: "a single character name is accepted", message: candidate("1"), wantValid: true},
+		{name: "a process id name is accepted", message: candidate("10"), wantValid: true},
+		{name: "a name of 255 characters is accepted", message: candidate(strings.Repeat("a", 255)), wantValid: true},
+	})
+}
+
 // stringRuleCarrier returns a constructor for values of a synthetic message
 // carrying one string field whose only rule is the predefined rule ext. The
 // key rules live on no message of their own, so a carrier is what gives

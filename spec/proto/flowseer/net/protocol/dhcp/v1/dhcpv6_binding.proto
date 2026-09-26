@@ -1,0 +1,76 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A DHCPv6 client binding consisting of Identity Associations (RFC 8415 §21, Cisco-IOS-XE-dhcp-oper.yang).
+message Dhcpv6Binding {
+  option (buf.validate.message).cel = {
+    id: "dhcpv6_binding.has_ia"
+    message: "binding must carry at least one ia_na or ia_pd entry"
+    expression: "size(this.ia_na) > 0 || size(this.ia_pd) > 0"
+  };
+  option (buf.validate.message).cel = {
+    id: "dhcpv6_binding.ia_na_iaid_unique"
+    message: "ia_na entries must have unique iaid values"
+    expression: "this.ia_na.map(na, na.iaid).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "dhcpv6_binding.ia_pd_iaid_unique"
+    message: "ia_pd entries must have unique iaid values"
+    expression: "this.ia_pd.map(pd, pd.iaid).unique()"
+  };
+
+  // The network instance this binding belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The DHCP Unique Identifier (DUID) of the client (RFC 8415 §11, 3 to 130 octets). Must be present.
+  bytes duid = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.min_len = 3,
+    (buf.validate.field).bytes.max_len = 130
+  ];
+  // The name of the DHCPv6 pool this binding was allocated from.
+  string pool_name = 3;
+  // Identity Associations for Non-temporary Addresses (IA_NA, RFC 8415 §21.4).
+  repeated Dhcpv6IaNa ia_na = 4;
+  // Identity Associations for Prefix Delegation (IA_PD, RFC 8415 §21.21).
+  repeated Dhcpv6IaPd ia_pd = 5;
+}
+
+// An Identity Association for Non-temporary Addresses (RFC 8415 §21.4).
+message Dhcpv6IaNa {
+  // The IAID (Identity Association Identifier) chosen by the client. Must be present.
+  uint32 iaid = 1 [(buf.validate.field).required = true];
+  // The non-temporary IPv6 addresses assigned to this IA.
+  repeated Dhcpv6IaAddress addresses = 2;
+}
+
+// An Identity Association for Prefix Delegation (RFC 8415 §21.21).
+message Dhcpv6IaPd {
+  // The IAID (Identity Association Identifier) chosen by the client. Must be present.
+  uint32 iaid = 1 [(buf.validate.field).required = true];
+  // The delegated IPv6 prefixes assigned to this IA.
+  repeated Dhcpv6IaPrefix prefixes = 2;
+}
+
+// An IPv6 address assigned within an IA_NA (RFC 8415 §21.6).
+message Dhcpv6IaAddress {
+  // The assigned IPv6 address. Must be present.
+  flowseer.net.addr.v1.Ipv6Address address = 1 [(buf.validate.field).required = true];
+  // The preferred and valid lifetimes of this address binding.
+  flowseer.net.addr.v1.IpLifetime lifetime = 2;
+}
+
+// An IPv6 prefix assigned within an IA_PD (RFC 8415 §21.22).
+message Dhcpv6IaPrefix {
+  // The delegated IPv6 prefix. Must be present.
+  flowseer.net.addr.v1.Ipv6Prefix prefix = 1 [(buf.validate.field).required = true];
+  // The preferred and valid lifetimes of this prefix binding.
+  flowseer.net.addr.v1.IpLifetime lifetime = 2;
+}

@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 7, L3 Protocols and IP Services - Plan
+
+> Implemented. 6 units, 2026-09-26T11:54:05Z to 2026-09-26T12:43:40Z. Targeted verification run over union of changed paths per directive (replacing --full).
 
 ## Goal
 
@@ -246,8 +248,9 @@ the vendored specs cited per decision.
   explicit ones. IOS-XE reports `standby` where the others say failed
   (`Cisco-IOS-XE-isis-oper.yang:66-91`); a mapper leaves that state
   absent rather than guess.
-- **`IsisLevel` is pass-through of the `IsisLevel` TC: `LEVEL_1 = 1`,
-  `LEVEL_2 = 2`, `LEVEL_1_2 = 3`** (`ISIS-MIB:249-262`), used by the
+- **`IsisLevel` is pass-through of the `IsisLevel` TC: `LEVEL1 = 1`,
+  `LEVEL2 = 2`, `LEVEL1_AND_LEVEL2 = 3`** (`ISIS-MIB:249-262`; digits
+  cannot follow an underscore under STYLE2024), used by the
   instance's `level_type` (`isisSysLevelType`, `:351-367`) and the
   adjacency's `usage` (`isisISAdjUsage`, `:2379-2389`), which is part of
   the adjacency key as it is in IOS-XE's (`system-id level if-name`,
@@ -480,8 +483,8 @@ the vendored specs cited per decision.
 4. A community is exactly one of its two shapes. Example:
    `BgpCommunity{}` fails at oneof `kind`; `{standard: 0xFFFFFF01}`
    passes; `{large: {global_administrator 4200000000,
-   local_data_part_1 1, local_data_part_2 2}}` passes; a large community
-   without `local_data_part_2` fails. A `BgpAsPathSegment` with no ASNs
+   local_data_part1 1, local_data_part2 2}}` passes; a large community
+   without `local_data_part2` fails. A `BgpAsPathSegment` with no ASNs
    fails; a `BgpPath` without `prefix` fails.
 5. OSPF keeps the registry gap and the key split. Example:
    `OspfInterfaceType.Descriptor().Values().ByNumber(4)` is nil;
@@ -494,7 +497,7 @@ the vendored specs cited per decision.
 6. IS-IS adjacency state has four values and the adjacency key is
    complete. Example: `IsisAdjacencyState` names exactly 1 to 4 beside
    `_UNSPECIFIED`; an `IsisAdjacency` without `usage` fails; `usage`
-   `LEVEL_1_2` passes; a 5-octet `neighbor_system_id` fails; an
+   `LEVEL1_AND_LEVEL2` passes; a 5-octet `neighbor_system_id` fails; an
    `IsisInstance` area address of 0 or 21 octets fails.
 7. VRRP bounds its key and converts no interval ambiguously. Example:
    `vrid` 0 and 256 fail, 1 and 255 pass; `priority` 256 fails, 0 and 255
@@ -660,8 +663,9 @@ Change:
   Decisions, each value commented with its registry label.
 - `bgp_community.proto` declares `BgpCommunity` (required oneof `kind`:
   `uint32 standard = 1`, `BgpLargeCommunity large = 2`) and
-  `BgpLargeCommunity` (`global_administrator = 1`, `local_data_part_1 =
-  2`, `local_data_part_2 = 3`, each required uint32, RFC 8092 §3). The
+  `BgpLargeCommunity` (`global_administrator = 1`, `local_data_part1 =
+  2`, `local_data_part2 = 3`, each required uint32, RFC 8092 §3;
+  digits cannot follow an underscore under STYLE2024). The
   oneof's comment carries the both-arms sentence from the solution.
 - `bgp_path.proto` declares `BgpPath` and `BgpAsPathSegment`.
   `BgpPath`: `network_instance = 1`, `protocol_instance = 2` (required,
@@ -1013,17 +1017,17 @@ check: no mapper fills these rows in this phase.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit.
-- [ ] The eight package READMEs, `net/README.md`,
+- [x] Verifier green for every changed path of every unit.
+- [x] The eight package READMEs, `net/README.md`,
       `net/protocol/README.md`, the `addr`, `key`, `packet`, and
       `switching` READMEs, `CONCEPTS.md`, `docs/conventions/protobuf.md`,
       and the predefined-rule table in `docs/code-style-proto.md` match
       the tree in the unit that changed them.
-- [ ] Every requirement above has its test case, each failing case
+- [x] Every requirement above has its test case, each failing case
       asserting its field path or rule id.
-- [ ] No plan label appears in schema, code, comments, or commit
+- [x] No plan label appears in schema, code, comments, or commit
       messages.
-- [ ] This plan's `status` is `implemented` with an outcome note under
+- [x] This plan's `status` is `implemented` with an outcome note under
       the title; the parent's U7 `Landed:` line carries the commit range,
       and the parent's HSRP open question is closed with a pointer to
       this plan's HSRP decision.

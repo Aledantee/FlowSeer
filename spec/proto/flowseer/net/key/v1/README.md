@@ -1,15 +1,15 @@
 # Device-Local Key Rules
 
 The `flowseer.net.key.v1` package defines the predefined protovalidate rules
-that validate device-local names: interface names and network-instance names.
-The package holds rules only, no messages — any package that needs a name
-applies the rule to its own string field.
+that validate device-local names: interface names, network-instance names,
+and protocol-instance names. The package holds rules only, no messages — any
+package that needs a name applies the rule to its own string field.
 
 ## Boundaries
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/device, model/access, model/alarm, model/capture, model/inventory, net/cellular, net/endpoint, net/flow, net/instance, net/interface, net/ip, net/multicast, net/portaccess, net/protocol/cdp, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/stp, net/qos, net/routing, net/switching, net/system
+Imported by: api/device, model/access, model/alarm, model/capture, model/inventory, net/cellular, net/endpoint, net/flow, net/instance, net/interface, net/ip, net/multicast, net/nat, net/portaccess, net/protocol/bfd, net/protocol/bgp, net/protocol/cdp, net/protocol/dhcp, net/protocol/dns, net/protocol/isis, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/ospf, net/protocol/stp, net/protocol/vrrp, net/qos, net/routing, net/switching, net/system
 
 Deliberately absent:
 
@@ -20,7 +20,7 @@ Deliberately absent:
 
 ## Contents
 
-The three rules share the 1-to-255-character bound of SNMPv2-TC
+The four rules share the 1-to-255-character bound of SNMPv2-TC
 `DisplayString`, which IF-MIB `ifName` uses:
 
 - `interface_name` accepts what a device reports. Nothing stricter is
@@ -31,6 +31,9 @@ The three rules share the 1-to-255-character bound of SNMPv2-TC
   device, because the adapter interpolates it into a shell command line.
 - `network_instance_name` takes the same bounds as `interface_name`: the
   instance name is device-supplied free text subject to the same size.
+- `protocol_instance_name` takes the same bounds: routing protocols can run
+  multiple instances per network instance (OSPF processes, IS-IS tags),
+  and the instance name is device-supplied free text.
 
 A binary that validates a message carrying one of these rules blank-imports
 the generated `flowseer/net/key/v1` package so the registry resolves the

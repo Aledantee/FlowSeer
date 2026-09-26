@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+// Address family numbers for BGP (IANA Address Family Numbers, RFC 4760 §3).
+// Values keep the IANA integers; the registry reserves 0.
+enum BgpAfi {
+  // The address family was not reported.
+  BGP_AFI_UNSPECIFIED = 0;
+  // Internet Protocol version 4, IPv4 (1).
+  BGP_AFI_IPV4 = 1;
+  // Internet Protocol version 6, IPv6 (2).
+  BGP_AFI_IPV6 = 2;
+  // Layer 2 Virtual Private Network, L2VPN (25).
+  BGP_AFI_L2VPN = 25;
+  // BGP Link-State, BGP-LS (16388).
+  BGP_AFI_BGP_LS = 16388;
+}

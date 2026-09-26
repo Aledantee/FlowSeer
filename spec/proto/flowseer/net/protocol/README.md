@@ -33,10 +33,10 @@ packages.
 - `stp/v1/`: Spanning Tree Protocol bridge and port states and timers, MSTIs, and the VLAN-to-MSTI map.
 - `cdp/v1/`: Cisco Discovery Protocol neighbors.
 - `ntp/v1/`: NTP associations.
-- `dhcp/v1/` (planned; schema building blocks record): Leases, server pools, snooping bindings.
-- `dns/v1/` (planned; schema building blocks record): Resolver configuration and servers.
-- `bgp/v1/` (planned; schema building blocks record): Peers, address families, communities.
-- `ospf/v1/` (planned; schema building blocks record): Neighbors, areas, interface types (v2 and v3).
-- `isis/v1/` (planned; schema building blocks record): Adjacencies and levels.
-- `vrrp/v1/` (planned; schema building blocks record): VRRP groups (v2 and v3).
-- `bfd/v1/` (planned; schema building blocks record): Sessions and diagnostics.
+- `dhcp/v1/`: Leases, server pools, snooping bindings, and counters.
+- `dns/v1/`: Resolver configuration and servers.
+- `bgp/v1/`: Instances, peers, address families, and paths with communities.
+- `ospf/v1/`: Instances, areas, interfaces, and neighbors (v2 and v3).
+- `isis/v1/`: Instances, adjacencies, and levels.
+- `vrrp/v1/`: VRRP groups (v2 and v3).
+- `bfd/v1/`: Sessions and diagnostics.

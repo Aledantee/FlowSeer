@@ -1,0 +1,40 @@
+edition = "2024";
+
+package flowseer.net.protocol.dns.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/protocol/dns/v1/dns_server_origin.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A DNS client resolver configuration and operational state for a network instance (openconfig-system.yang, Cisco-IOS-XE-dns-oper.yang).
+message DnsResolver {
+  // The network instance this resolver configuration applies to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // Configured DNS nameservers in order of preference.
+  repeated DnsServer servers = 2;
+  // Domain search list in search order (RFC 1035, max 253 characters per domain).
+  repeated string search_domains = 3 [
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.string.min_len = 1,
+    (buf.validate.field).repeated.items.string.max_len = 253
+  ];
+}
+
+// A DNS nameserver entry.
+message DnsServer {
+  // The IP address of the DNS server. Must be present.
+  flowseer.net.addr.v1.IpAddress address = 1 [(buf.validate.field).required = true];
+  // The transport port number for DNS queries (1 to 65535). Unset indicates standard port 53.
+  uint32 port = 2 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // The origin of this nameserver entry.
+  DnsServerOrigin origin = 3;
+  // The interface name used to scope link-local IPv6 server addresses.
+  string interface_name = 4 [(buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true];
+}

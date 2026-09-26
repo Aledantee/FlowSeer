@@ -1,0 +1,24 @@
+edition = "2024";
+
+package flowseer.net.protocol.ospf.v1;
+
+// The operational state of an OSPF interface (RFC 2328 §9.1, OSPF-MIB ospfIfState, OSPFV3-MIB ospfv3IfState).
+enum OspfInterfaceState {
+  OSPF_INTERFACE_STATE_UNSPECIFIED = 0;
+  // The interface is down and cannot pass protocol traffic.
+  OSPF_INTERFACE_STATE_DOWN = 1;
+  // The interface is looped back.
+  OSPF_INTERFACE_STATE_LOOPBACK = 2;
+  // The router is waiting to see if there is another DR on the network.
+  OSPF_INTERFACE_STATE_WAITING = 3;
+  // The interface is operational on a point-to-point network.
+  OSPF_INTERFACE_STATE_POINT_TO_POINT = 4;
+  // The router is the designated router on this network.
+  OSPF_INTERFACE_STATE_DESIGNATED_ROUTER = 5;
+  // The router is the backup designated router on this network.
+  OSPF_INTERFACE_STATE_BACKUP_DESIGNATED_ROUTER = 6;
+  // The router is neither DR nor BDR on this network.
+  OSPF_INTERFACE_STATE_OTHER_DESIGNATED_ROUTER = 7;
+  // The interface is in standby state (OSPFv3 only, OSPFV3-MIB ospfv3IfState standby).
+  OSPF_INTERFACE_STATE_STANDBY = 8;
+}

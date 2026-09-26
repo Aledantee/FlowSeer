@@ -143,6 +143,10 @@ Device-scoped state whose rows reference interfaces by name — the FDB, the nei
 
 A device's routing or bridging domain: its default instance, a VRF, or a Layer 2 switch instance. Every forwarding table names the instance it belongs to, so two domains that reuse a VLAN id or a prefix stay apart; a routed interface names its instance once in its IP facet, and rows keyed by that interface inherit it. A device with no instance concept reports one of kind `DEFAULT`, named `default` unless the device has its own name for it.
 
+### Protocol instance
+
+One running instance of a routing protocol inside a network instance, such as an OSPF process or an IS-IS tag, named as the device names it; its rows name both, and rows keyed by an interface name only the protocol instance.
+
 ### Route
 
 One row of a network instance's routing table: a destination prefix, how it was learned, and the next hops it forwards over, or a special action that discards or receives the packet locally. A route also says whether it came from the RIB or the FIB, because the standard SNMP routing tables do not.
@@ -182,6 +186,10 @@ A RADIUS or TACACS+ server a device is configured to use, identified by its addr
 ### Cellular interface
 
 The cellular side of a WAN interface: its modem, SIM, serving cell, and signal, keyed by the interface name. Unlike an 802.11 radio, which is a component, every cellular source presents the modem as an interface.
+
+### NAT mapping and session
+
+A mapping is a configured rule that says which addresses and ports translate to which; a session is one live translation, the same conversation seen in the private and the public realm.
 
 ## Capture
 

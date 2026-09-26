@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.bfd.v1;
+
+// The type of BFD session (RFC 7330, IANAbfdSessTypeTC).
+enum BfdSessionType {
+  BFD_SESSION_TYPE_UNSPECIFIED = 0;
+  // A single hop session over a single physical or logical link.
+  BFD_SESSION_TYPE_SINGLE_HOP = 1;
+  // A multi-hop session over arbitrary paths.
+  BFD_SESSION_TYPE_MULTI_HOP_TOTALLY_ARBITRARY_PATHS = 2;
+  // A multi-hop session with out-of-band signaling.
+  BFD_SESSION_TYPE_MULTI_HOP_OUT_OF_BAND_SIGNALING = 3;
+  // A multi-hop session over unidirectional links.
+  BFD_SESSION_TYPE_MULTI_HOP_UNIDIRECTIONAL_LINKS = 4;
+}

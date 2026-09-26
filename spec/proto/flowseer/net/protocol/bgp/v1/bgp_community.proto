@@ -1,0 +1,29 @@
+edition = "2024";
+
+package flowseer.net.protocol.bgp.v1;
+
+import "buf/validate/validate.proto";
+
+// A BGP community attribute value (RFC 1997, RFC 8092).
+message BgpCommunity {
+  // Both arms at once cannot be represented (a oneof keeps at most one arm;
+  // decoding keeps the last on the wire), so the empty case is what validation rejects.
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    // Standard 32-bit community value (RFC 1997).
+    uint32 standard = 1;
+    // BGP Large Community with three 4-octet fields (RFC 8092).
+    BgpLargeCommunity large = 2;
+  }
+}
+
+// A BGP Large Community attribute value (RFC 8092 §3).
+message BgpLargeCommunity {
+  // Global Administrator (4 octets, RFC 8092 §3). Must be present.
+  uint32 global_administrator = 1 [(buf.validate.field).required = true];
+  // Local Data Part 1 (4 octets, RFC 8092 §3). Must be present.
+  uint32 local_data_part1 = 2 [(buf.validate.field).required = true];
+  // Local Data Part 2 (4 octets, RFC 8092 §3). Must be present.
+  uint32 local_data_part2 = 3 [(buf.validate.field).required = true];
+}

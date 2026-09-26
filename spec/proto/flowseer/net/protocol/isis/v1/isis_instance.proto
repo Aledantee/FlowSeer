@@ -1,0 +1,31 @@
+edition = "2024";
+
+package flowseer.net.protocol.isis.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/protocol/isis/v1/isis_level.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// An IS-IS routing protocol instance on a device (ISO/IEC 10589, RFC 1195, RFC 4444, ISIS-MIB).
+message IsisInstance {
+  // The network instance this IS-IS instance runs within. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The protocol instance name (e.g. IS-IS tag or process name). Must be present.
+  string protocol_instance = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.protocol_instance_name) = true
+  ];
+  // The 6-octet system identifier of this IS-IS node (ISIS-MIB isisSysID).
+  bytes system_id = 3 [(buf.validate.field).bytes.len = 6];
+  // The configured routing level of this IS-IS instance.
+  IsisLevel level_type = 4;
+  // The manual area addresses configured on this IS-IS instance (1 to 20 octets each).
+  repeated bytes area_addresses = 5 [
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.bytes.min_len = 1,
+    (buf.validate.field).repeated.items.bytes.max_len = 20
+  ];
+}
