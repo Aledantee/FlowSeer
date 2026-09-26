@@ -16,8 +16,8 @@ export interface FamilyDefinition {
   seed: string
   role: string
   hue: number
-  light: [number, number][]
-  dark: [number, number][]
+  light: number[][]
+  dark: number[][]
 }
 
 export interface PaletteSource {
@@ -131,7 +131,12 @@ export function resolve(
     throw new Error(`Missing step ${step} for ${familyName} in ${theme}`)
   }
 
-  const [l, c] = steps[step - 1]
+  const stepData = steps[step - 1]
+  const l = stepData?.[0]
+  const c = stepData?.[1]
+  if (l === undefined || c === undefined) {
+    throw new Error(`Missing step ${step} for ${familyName} in ${theme}`)
+  }
   return { l, c, h: family.hue, alpha }
 }
 
@@ -193,13 +198,50 @@ export function renderScales(source: PaletteSource): string {
       if (family[theme].length !== 12) {
         throw new Error(`${name} needs 12 ${theme} steps`)
       }
-      family[theme].forEach(([l, c], index) => {
+      family[theme].forEach((stepData, index) => {
+        const l = stepData[0]
+        const c = stepData[1]
+        if (l === undefined || c === undefined) {
+          throw new Error(`Missing step data for ${name} step ${index + 1}`)
+        }
         css += `  --m3-${name}-${index + 1}: oklch(${l} ${c} ${family.hue});\n`
       })
     }
     css += '}\n'
   }
   return css
+}
+
+export function computePalette(source: PaletteSource): PaletteSource & {
+  semantics: { light: Record<string, string>; dark: Record<string, string> }
+} {
+  const semantics = {
+    light: Object.fromEntries(
+      Object.keys(source.semantic).map((token) => {
+        const res = resolve(source, token, 'light')
+        const val =
+          res.alpha < 1
+            ? `oklch(${res.l} ${res.c} ${res.h} / ${res.alpha})`
+            : `oklch(${res.l} ${res.c} ${res.h})`
+        return [`--${token}`, val]
+      }),
+    ),
+    dark: Object.fromEntries(
+      Object.keys(source.semantic).map((token) => {
+        const res = resolve(source, token, 'dark')
+        const val =
+          res.alpha < 1
+            ? `oklch(${res.l} ${res.c} ${res.h} / ${res.alpha})`
+            : `oklch(${res.l} ${res.c} ${res.h})`
+        return [`--${token}`, val]
+      }),
+    ),
+  }
+
+  return {
+    ...source,
+    semantics,
+  }
 }
 
 export function renderSemantic(source: PaletteSource): string {

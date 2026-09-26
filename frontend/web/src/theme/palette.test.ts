@@ -3,6 +3,7 @@ import path from 'node:path'
 import prettier from 'prettier'
 import { describe, expect, it } from 'vitest'
 import {
+  computePalette,
   contrast,
   pairs,
   renderScales,
@@ -34,23 +35,55 @@ describe('palette module and contrast gate', () => {
     }
   })
 
-  it('matches generated files on disk after prettier formatting', async () => {
-    const scalesDisk = readFileSync(scalesPath, 'utf8')
-    const semanticDisk = readFileSync(semanticPath, 'utf8')
+  it('resolves every semantic token in both themes without throwing', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const token of Object.keys(source.semantic)) {
+        expect(() => resolve(source, token, theme)).not.toThrow()
+      }
+    }
+  })
 
+  it('matches src/theme/scales.css on disk', async () => {
+    const scalesDisk = readFileSync(scalesPath, 'utf8')
     const scalesConfig = await prettier.resolveConfig(scalesPath)
     const formattedScales = await prettier.format(renderScales(source), {
       ...scalesConfig,
       filepath: scalesPath,
     })
-    expect(formattedScales).toBe(scalesDisk)
+    expect(
+      formattedScales,
+      'src/theme/scales.css is out of date; regenerate with: node --experimental-strip-types scripts/build-palette.ts',
+    ).toBe(scalesDisk)
+  })
 
+  it('matches src/theme/semantic.css on disk', async () => {
+    const semanticDisk = readFileSync(semanticPath, 'utf8')
     const semanticConfig = await prettier.resolveConfig(semanticPath)
     const formattedSemantic = await prettier.format(renderSemantic(source), {
       ...semanticConfig,
       filepath: semanticPath,
     })
-    expect(formattedSemantic).toBe(semanticDisk)
+    expect(
+      formattedSemantic,
+      'src/theme/semantic.css is out of date; regenerate with: node --experimental-strip-types scripts/build-palette.ts',
+    ).toBe(semanticDisk)
+  })
+
+  it('matches design/palette.json on disk', async () => {
+    const palettePath = path.resolve(__dirname, '../../design/palette.json')
+    const paletteDisk = readFileSync(palettePath, 'utf8')
+    const paletteConfig = await prettier.resolveConfig(palettePath)
+    const formattedPalette = await prettier.format(
+      JSON.stringify(computePalette(source), null, 2) + '\n',
+      {
+        ...paletteConfig,
+        filepath: palettePath,
+      },
+    )
+    expect(
+      formattedPalette,
+      'design/palette.json is out of date; regenerate with: node --experimental-strip-types scripts/build-palette.ts',
+    ).toBe(paletteDisk)
   })
 
   it('declares only valid var(--m3-*) or color-mix values in semantic CSS', () => {
