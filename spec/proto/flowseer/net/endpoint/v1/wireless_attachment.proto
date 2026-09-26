@@ -22,9 +22,23 @@ message WirelessAttachment {
     min_len: 1
     max_len: 256
   }];
-  // Basic Service Set Identifier (BSSID) hardware address of the radio interface.
-  // Must be present.
-  flowseer.net.addr.v1.MacAddress bssid = 2 [(buf.validate.field).required = true];
+  // The serving BSS, identified by its 802.11 BSSID when the source reports it,
+  // or by the source's own stable identifier for the serving AP/BSS otherwise
+  // (e.g. UniFi reports the AP by id but never the BSSID). Exactly one is set:
+  // a oneof holds at most one arm and decoding is last-tag-wins, so both cannot
+  // coexist, and the required constraint rejects the empty case.
+  oneof serving_bss {
+    option (buf.validate.oneof).required = true;
+    // Basic Service Set Identifier (BSSID) hardware address of the radio interface.
+    flowseer.net.addr.v1.MacAddress bssid = 2;
+    // The source integration's own stable identifier for the serving AP or BSS,
+    // when it does not expose the BSSID. Unique within the integration named by
+    // the record envelope's provenance. 1 to 256 characters.
+    string vendor_bss_id = 12 [(buf.validate.field).string = {
+      min_len: 1
+      max_len: 256
+    }];
+  }
   // Service Set Identifier (SSID) octets (IEEE Std 802.11-2020, 0..32 octets).
   // Unset means the SSID was not reported.
   bytes ssid = 3 [(buf.validate.field).bytes.max_len = 32];

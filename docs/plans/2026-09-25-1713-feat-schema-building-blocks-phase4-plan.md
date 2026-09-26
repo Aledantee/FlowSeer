@@ -86,7 +86,9 @@ and the conventions doc govern. The research dossiers are
   `uplinkDeviceId` (dossier 03 §2, §4). Primitives name peers by device-local
   key, not refs.
 - A wireless attachment is `WirelessAttachment` (`net/endpoint/v1`): holds
-  `string ap_name` (1..256), `flowseer.net.addr.v1.MacAddress bssid` (required),
+  `string ap_name` (1..256), a required `oneof serving_bss` holding either
+  `flowseer.net.addr.v1.MacAddress bssid = 2` or `string vendor_bss_id = 12`
+  (1..256, the source's own AP/BSS id, scoped by the envelope's provenance),
   `bytes ssid` (max_len 32, Rule 8), `flowseer.net.wlan.v1.WifiBand band`,
   `uint32 channel` (validated with `flowseer.net.wlan.v1.wifi_channel`),
   `sint32 rssi_millidbm` (Rule 1), `sint32 snr_millidb` (Rule 1),
@@ -197,7 +199,10 @@ and the conventions doc govern. The research dossiers are
    valid `EndpointState` with `ref.endpoint.id =
    "11111111-2222-3333-4444-555555555555"`, `hostname = "Alice-Laptop"`,
    `observed_mac_addresses[0]` matching the MAC, `ipv4_address` matching
-   `192.0.2.42`, and `wireless.ap_name = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"`.
+   `192.0.2.42`, `wireless.ap_name = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"`,
+   and `wireless.vendor_bss_id` equal to the same `uplinkDeviceId` with no
+   `bssid` set. The UniFi schema reports no BSSID, so the fixture maps only
+   fields the schema has.
 3. A port-access session without `interface_name` or without `mac` fails
    validation. Example: `Session_builder{Mac: mac}.Build()` fails with
    violation path `interface_name` and message `value is required`;
@@ -294,7 +299,8 @@ code in 1..254". `connection_failure_stage.proto` defines
 (1..256), `string interface_name` using `flowseer.net.key.v1.interface_name`,
 and `uint32 vlan_id` using `flowseer.net.switching.v1.vlan_id`.
 `wireless_attachment.proto` defines `WirelessAttachment` with `string ap_name`
-(1..256), required `flowseer.net.addr.v1.MacAddress bssid`, `bytes ssid` with
+(1..256), a required `oneof serving_bss` of `flowseer.net.addr.v1.MacAddress
+bssid = 2` or `string vendor_bss_id = 12` (1..256), `bytes ssid` with
 `max_len: 32`, `flowseer.net.wlan.v1.WifiBand band`, `uint32 channel` with
 `flowseer.net.wlan.v1.wifi_channel`, `sint32 rssi_millidbm`,
 `sint32 snr_millidb`, `uint64 negotiated_rate_bps`, `uint32 mcs` with

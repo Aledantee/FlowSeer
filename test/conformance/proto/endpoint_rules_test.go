@@ -87,11 +87,27 @@ func TestWirelessAttachmentBandAndChannelRules(t *testing.T) {
 	})
 }
 
-func TestWirelessAttachmentBoundsAndParameters(t *testing.T) {
-	// BSSID is required.
-	noBssid := validWirelessAttachment()
-	noBssid.Bssid = nil
+// TestWirelessAttachmentServingBss asserts the required serving_bss oneof
+// rejects the empty case and accepts either arm alone. Both arms at once is
+// unrepresentable, so no case asserts it.
+func TestWirelessAttachmentServingBss(t *testing.T) {
+	t.Run("no arm fails naming the oneof", func(t *testing.T) {
+		noArm := validWirelessAttachment()
+		noArm.Bssid = nil
+		errsAtField(t, noArm.Build(), "serving_bss", "exactly one field is required")
+	})
 
+	vendorOnly := validWirelessAttachment()
+	vendorOnly.Bssid = nil
+	vendorOnly.VendorBssId = proto.String("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
+	runValidationCases(t, []validationCase{
+		{name: "only bssid set passes", message: validWirelessAttachment().Build(), wantValid: true},
+		{name: "only vendor_bss_id set passes", message: vendorOnly.Build(), wantValid: true},
+	})
+}
+
+func TestWirelessAttachmentBoundsAndParameters(t *testing.T) {
 	// SSID bounds: 32 bytes max, non-UTF-8 permitted.
 	ssid32 := validWirelessAttachment()
 	ssid32.Ssid = []byte("12345678901234567890123456789012")
@@ -138,7 +154,6 @@ func TestWirelessAttachmentBoundsAndParameters(t *testing.T) {
 
 	runValidationCases(t, []validationCase{
 		{name: "valid wireless attachment passes", message: validWirelessAttachment().Build(), wantValid: true},
-		{name: "missing bssid fails", message: noBssid.Build(), wantValid: false},
 		{name: "32-byte ssid passes", message: ssid32.Build(), wantValid: true},
 		{name: "non-UTF-8 ssid passes", message: ssidNonUTF8.Build(), wantValid: true},
 		{name: "33-byte ssid fails", message: ssid33.Build(), wantValid: false},

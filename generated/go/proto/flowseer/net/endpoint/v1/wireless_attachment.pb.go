@@ -7,8 +7,8 @@
 package endpointv1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -25,18 +25,18 @@ const (
 
 // An observed wireless attachment of an endpoint to an 802.11 BSS.
 type WirelessAttachment struct {
-	state                        protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ApName            *string                `protobuf:"bytes,1,opt,name=ap_name,json=apName"`
-	xxx_hidden_Bssid             *v1.MacAddress         `protobuf:"bytes,2,opt,name=bssid"`
-	xxx_hidden_Ssid              []byte                 `protobuf:"bytes,3,opt,name=ssid"`
-	xxx_hidden_Band              v11.WifiBand           `protobuf:"varint,4,opt,name=band,enum=flowseer.net.wlan.v1.WifiBand"`
-	xxx_hidden_Channel           uint32                 `protobuf:"varint,5,opt,name=channel"`
-	xxx_hidden_RssiMillidbm      int32                  `protobuf:"zigzag32,6,opt,name=rssi_millidbm,json=rssiMillidbm"`
-	xxx_hidden_SnrMillidb        int32                  `protobuf:"zigzag32,7,opt,name=snr_millidb,json=snrMillidb"`
-	xxx_hidden_NegotiatedRateBps uint64                 `protobuf:"varint,8,opt,name=negotiated_rate_bps,json=negotiatedRateBps"`
-	xxx_hidden_Mcs               uint32                 `protobuf:"varint,9,opt,name=mcs"`
-	xxx_hidden_Nss               uint32                 `protobuf:"varint,10,opt,name=nss"`
-	xxx_hidden_GuardInterval     *durationpb.Duration   `protobuf:"bytes,11,opt,name=guard_interval,json=guardInterval"`
+	state                        protoimpl.MessageState          `protogen:"opaque.v1"`
+	xxx_hidden_ApName            *string                         `protobuf:"bytes,1,opt,name=ap_name,json=apName"`
+	xxx_hidden_ServingBss        isWirelessAttachment_ServingBss `protobuf_oneof:"serving_bss"`
+	xxx_hidden_Ssid              []byte                          `protobuf:"bytes,3,opt,name=ssid"`
+	xxx_hidden_Band              v1.WifiBand                     `protobuf:"varint,4,opt,name=band,enum=flowseer.net.wlan.v1.WifiBand"`
+	xxx_hidden_Channel           uint32                          `protobuf:"varint,5,opt,name=channel"`
+	xxx_hidden_RssiMillidbm      int32                           `protobuf:"zigzag32,6,opt,name=rssi_millidbm,json=rssiMillidbm"`
+	xxx_hidden_SnrMillidb        int32                           `protobuf:"zigzag32,7,opt,name=snr_millidb,json=snrMillidb"`
+	xxx_hidden_NegotiatedRateBps uint64                          `protobuf:"varint,8,opt,name=negotiated_rate_bps,json=negotiatedRateBps"`
+	xxx_hidden_Mcs               uint32                          `protobuf:"varint,9,opt,name=mcs"`
+	xxx_hidden_Nss               uint32                          `protobuf:"varint,10,opt,name=nss"`
+	xxx_hidden_GuardInterval     *durationpb.Duration            `protobuf:"bytes,11,opt,name=guard_interval,json=guardInterval"`
 	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
 	XXX_presence                 [1]uint32
 	unknownFields                protoimpl.UnknownFields
@@ -78,11 +78,22 @@ func (x *WirelessAttachment) GetApName() string {
 	return ""
 }
 
-func (x *WirelessAttachment) GetBssid() *v1.MacAddress {
+func (x *WirelessAttachment) GetBssid() *v11.MacAddress {
 	if x != nil {
-		return x.xxx_hidden_Bssid
+		if x, ok := x.xxx_hidden_ServingBss.(*wirelessAttachment_Bssid); ok {
+			return x.Bssid
+		}
 	}
 	return nil
+}
+
+func (x *WirelessAttachment) GetVendorBssId() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_ServingBss.(*wirelessAttachment_VendorBssId); ok {
+			return x.VendorBssId
+		}
+	}
+	return ""
 }
 
 func (x *WirelessAttachment) GetSsid() []byte {
@@ -92,13 +103,13 @@ func (x *WirelessAttachment) GetSsid() []byte {
 	return nil
 }
 
-func (x *WirelessAttachment) GetBand() v11.WifiBand {
+func (x *WirelessAttachment) GetBand() v1.WifiBand {
 	if x != nil {
 		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
 			return x.xxx_hidden_Band
 		}
 	}
-	return v11.WifiBand(0)
+	return v1.WifiBand(0)
 }
 
 func (x *WirelessAttachment) GetChannel() uint32 {
@@ -155,8 +166,16 @@ func (x *WirelessAttachment) SetApName(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 11)
 }
 
-func (x *WirelessAttachment) SetBssid(v *v1.MacAddress) {
-	x.xxx_hidden_Bssid = v
+func (x *WirelessAttachment) SetBssid(v *v11.MacAddress) {
+	if v == nil {
+		x.xxx_hidden_ServingBss = nil
+		return
+	}
+	x.xxx_hidden_ServingBss = &wirelessAttachment_Bssid{v}
+}
+
+func (x *WirelessAttachment) SetVendorBssId(v string) {
+	x.xxx_hidden_ServingBss = &wirelessAttachment_VendorBssId{v}
 }
 
 func (x *WirelessAttachment) SetSsid(v []byte) {
@@ -167,7 +186,7 @@ func (x *WirelessAttachment) SetSsid(v []byte) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 11)
 }
 
-func (x *WirelessAttachment) SetBand(v v11.WifiBand) {
+func (x *WirelessAttachment) SetBand(v v1.WifiBand) {
 	x.xxx_hidden_Band = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 11)
 }
@@ -213,11 +232,27 @@ func (x *WirelessAttachment) HasApName() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *WirelessAttachment) HasServingBss() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ServingBss != nil
+}
+
 func (x *WirelessAttachment) HasBssid() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Bssid != nil
+	_, ok := x.xxx_hidden_ServingBss.(*wirelessAttachment_Bssid)
+	return ok
+}
+
+func (x *WirelessAttachment) HasVendorBssId() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_ServingBss.(*wirelessAttachment_VendorBssId)
+	return ok
 }
 
 func (x *WirelessAttachment) HasSsid() bool {
@@ -288,8 +323,20 @@ func (x *WirelessAttachment) ClearApName() {
 	x.xxx_hidden_ApName = nil
 }
 
+func (x *WirelessAttachment) ClearServingBss() {
+	x.xxx_hidden_ServingBss = nil
+}
+
 func (x *WirelessAttachment) ClearBssid() {
-	x.xxx_hidden_Bssid = nil
+	if _, ok := x.xxx_hidden_ServingBss.(*wirelessAttachment_Bssid); ok {
+		x.xxx_hidden_ServingBss = nil
+	}
+}
+
+func (x *WirelessAttachment) ClearVendorBssId() {
+	if _, ok := x.xxx_hidden_ServingBss.(*wirelessAttachment_VendorBssId); ok {
+		x.xxx_hidden_ServingBss = nil
+	}
 }
 
 func (x *WirelessAttachment) ClearSsid() {
@@ -299,7 +346,7 @@ func (x *WirelessAttachment) ClearSsid() {
 
 func (x *WirelessAttachment) ClearBand() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_Band = v11.WifiBand_WIFI_BAND_UNSPECIFIED
+	x.xxx_hidden_Band = v1.WifiBand_WIFI_BAND_UNSPECIFIED
 }
 
 func (x *WirelessAttachment) ClearChannel() {
@@ -336,20 +383,49 @@ func (x *WirelessAttachment) ClearGuardInterval() {
 	x.xxx_hidden_GuardInterval = nil
 }
 
+const WirelessAttachment_ServingBss_not_set_case case_WirelessAttachment_ServingBss = 0
+const WirelessAttachment_Bssid_case case_WirelessAttachment_ServingBss = 2
+const WirelessAttachment_VendorBssId_case case_WirelessAttachment_ServingBss = 12
+
+func (x *WirelessAttachment) WhichServingBss() case_WirelessAttachment_ServingBss {
+	if x == nil {
+		return WirelessAttachment_ServingBss_not_set_case
+	}
+	switch x.xxx_hidden_ServingBss.(type) {
+	case *wirelessAttachment_Bssid:
+		return WirelessAttachment_Bssid_case
+	case *wirelessAttachment_VendorBssId:
+		return WirelessAttachment_VendorBssId_case
+	default:
+		return WirelessAttachment_ServingBss_not_set_case
+	}
+}
+
 type WirelessAttachment_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Device-local name or identifier of the access point hosting the BSS.
 	// 1 to 256 characters. Unset means the AP name was not reported.
 	ApName *string
+	// The serving BSS, identified by its 802.11 BSSID when the source reports it,
+	// or by the source's own stable identifier for the serving AP/BSS otherwise
+	// (e.g. UniFi reports the AP by id but never the BSSID). Exactly one is set:
+	// a oneof holds at most one arm and decoding is last-tag-wins, so both cannot
+	// coexist, and the required constraint rejects the empty case.
+
+	// Fields of oneof xxx_hidden_ServingBss:
 	// Basic Service Set Identifier (BSSID) hardware address of the radio interface.
-	// Must be present.
-	Bssid *v1.MacAddress
+	Bssid *v11.MacAddress
+	// The source integration's own stable identifier for the serving AP or BSS,
+	// when it does not expose the BSSID. Unique within the integration named by
+	// the record envelope's provenance. 1 to 256 characters.
+	VendorBssId *string
+	// -- end of xxx_hidden_ServingBss
 	// Service Set Identifier (SSID) octets (IEEE Std 802.11-2020, 0..32 octets).
 	// Unset means the SSID was not reported.
 	Ssid []byte
 	// Operating frequency band of the BSS.
-	Band *v11.WifiBand
+	Band *v1.WifiBand
 	// Primary operating channel number (IEEE Std 802.11-2020 Annex E, 1..233).
 	// Validated against flowseer.net.wlan.v1.wifi_channel.
 	Channel *uint32
@@ -375,7 +451,12 @@ func (b0 WirelessAttachment_builder) Build() *WirelessAttachment {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 11)
 		x.xxx_hidden_ApName = b.ApName
 	}
-	x.xxx_hidden_Bssid = b.Bssid
+	if b.Bssid != nil {
+		x.xxx_hidden_ServingBss = &wirelessAttachment_Bssid{b.Bssid}
+	}
+	if b.VendorBssId != nil {
+		x.xxx_hidden_ServingBss = &wirelessAttachment_VendorBssId{*b.VendorBssId}
+	}
 	if b.Ssid != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 11)
 		x.xxx_hidden_Ssid = b.Ssid
@@ -412,15 +493,47 @@ func (b0 WirelessAttachment_builder) Build() *WirelessAttachment {
 	return m0
 }
 
+type case_WirelessAttachment_ServingBss protoreflect.FieldNumber
+
+func (x case_WirelessAttachment_ServingBss) String() string {
+	md := file_flowseer_net_endpoint_v1_wireless_attachment_proto_msgTypes[0].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isWirelessAttachment_ServingBss interface {
+	isWirelessAttachment_ServingBss()
+}
+
+type wirelessAttachment_Bssid struct {
+	// Basic Service Set Identifier (BSSID) hardware address of the radio interface.
+	Bssid *v11.MacAddress `protobuf:"bytes,2,opt,name=bssid,oneof"`
+}
+
+type wirelessAttachment_VendorBssId struct {
+	// The source integration's own stable identifier for the serving AP or BSS,
+	// when it does not expose the BSSID. Unique within the integration named by
+	// the record envelope's provenance. 1 to 256 characters.
+	VendorBssId string `protobuf:"bytes,12,opt,name=vendor_bss_id,json=vendorBssId,oneof"`
+}
+
+func (*wirelessAttachment_Bssid) isWirelessAttachment_ServingBss() {}
+
+func (*wirelessAttachment_VendorBssId) isWirelessAttachment_ServingBss() {}
+
 var File_flowseer_net_endpoint_v1_wireless_attachment_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_endpoint_v1_wireless_attachment_proto_rawDesc = "" +
 	"\n" +
-	"2flowseer/net/endpoint/v1/wireless_attachment.proto\x12\x18flowseer.net.endpoint.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a$flowseer/net/wlan/v1/wifi_band.proto\x1a\x1egoogle/protobuf/duration.proto\"\xf2\x04\n" +
+	"2flowseer/net/endpoint/v1/wireless_attachment.proto\x12\x18flowseer.net.endpoint.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a$flowseer/net/wlan/v1/wifi_band.proto\x1a\x1egoogle/protobuf/duration.proto\"\xb4\x05\n" +
 	"\x12WirelessAttachment\x12#\n" +
 	"\aap_name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x06apName\x12>\n" +
-	"\x05bssid\x18\x02 \x01(\v2 .flowseer.net.addr.v1.MacAddressB\x06\xbaH\x03\xc8\x01\x01R\x05bssid\x12\x1b\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x06apName\x128\n" +
+	"\x05bssid\x18\x02 \x01(\v2 .flowseer.net.addr.v1.MacAddressH\x00R\x05bssid\x120\n" +
+	"\rvendor_bss_id\x18\f \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02H\x00R\vvendorBssId\x12\x1b\n" +
 	"\x04ssid\x18\x03 \x01(\fB\a\xbaH\x04z\x02\x18 R\x04ssid\x122\n" +
 	"\x04band\x18\x04 \x01(\x0e2\x1e.flowseer.net.wlan.v1.WifiBandR\x04band\x12#\n" +
 	"\achannel\x18\x05 \x01(\rB\t\xbaH\x06*\x04\xa0\xb5\x18\x01R\achannel\x12#\n" +
@@ -432,14 +545,15 @@ const file_flowseer_net_endpoint_v1_wireless_attachment_proto_rawDesc = "" +
 	"\x03nss\x18\n" +
 	" \x01(\rB\t\xbaH\x06*\x04\x18\b(\x01R\x03nss\x12@\n" +
 	"\x0eguard_interval\x18\v \x01(\v2\x19.google.protobuf.DurationR\rguardInterval:\x90\x01\xbaH\x8c\x01\x1a\x89\x01\n" +
-	"&wireless_attachment.channel_needs_band\x12%channel requires band to be specified\x1a8!has(this.channel) || (has(this.band) && this.band != 0)B\x88\x02\n" +
+	"&wireless_attachment.channel_needs_band\x12%channel requires band to be specified\x1a8!has(this.channel) || (has(this.band) && this.band != 0)B\x14\n" +
+	"\vserving_bss\x12\x05\xbaH\x02\b\x01B\x88\x02\n" +
 	"\x1ccom.flowseer.net.endpoint.v1B\x17WirelessAttachmentProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_wireless_attachment_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_endpoint_v1_wireless_attachment_proto_goTypes = []any{
 	(*WirelessAttachment)(nil),  // 0: flowseer.net.endpoint.v1.WirelessAttachment
-	(*v1.MacAddress)(nil),       // 1: flowseer.net.addr.v1.MacAddress
-	(v11.WifiBand)(0),           // 2: flowseer.net.wlan.v1.WifiBand
+	(*v11.MacAddress)(nil),      // 1: flowseer.net.addr.v1.MacAddress
+	(v1.WifiBand)(0),            // 2: flowseer.net.wlan.v1.WifiBand
 	(*durationpb.Duration)(nil), // 3: google.protobuf.Duration
 }
 var file_flowseer_net_endpoint_v1_wireless_attachment_proto_depIdxs = []int32{
@@ -457,6 +571,10 @@ func init() { file_flowseer_net_endpoint_v1_wireless_attachment_proto_init() }
 func file_flowseer_net_endpoint_v1_wireless_attachment_proto_init() {
 	if File_flowseer_net_endpoint_v1_wireless_attachment_proto != nil {
 		return
+	}
+	file_flowseer_net_endpoint_v1_wireless_attachment_proto_msgTypes[0].OneofWrappers = []any{
+		(*wirelessAttachment_Bssid)(nil),
+		(*wirelessAttachment_VendorBssId)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

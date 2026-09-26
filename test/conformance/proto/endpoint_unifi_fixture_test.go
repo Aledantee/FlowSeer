@@ -39,7 +39,6 @@ type unifiClientPayload struct {
 	IPAddress      string `json:"ipAddress"`
 	ConnectedAt    string `json:"connectedAt"`
 	UplinkDeviceID string `json:"uplinkDeviceId"`
-	BSSID          string `json:"bssid,omitempty"`
 	Access         struct {
 		Type string `json:"type"`
 	} `json:"access"`
@@ -94,29 +93,10 @@ func endpointStateFromUniFi(in []byte) (*endpointv1.EndpointState, error) {
 
 	switch payload.Type {
 	case "WIRELESS":
-		var bssidMac *addrv1.MacAddress
-		if payload.BSSID != "" {
-			if bssidHw, err := net.ParseMAC(payload.BSSID); err == nil && len(bssidHw) == 6 {
-				bssidMac = addrv1.MacAddress_builder{
-					Eui48: addrv1.Eui48Address_builder{
-						Octets: bssidHw,
-					}.Build(),
-				}.Build()
-			}
-		}
-		if bssidMac == nil {
-			// FlowSeer requires a BSSID on WirelessAttachment. When the UniFi client
-			// record schema does not supply a BSSID, synthesize a locally-administered BSSID.
-			bssidMac = addrv1.MacAddress_builder{
-				Eui48: addrv1.Eui48Address_builder{
-					Octets: []byte{0x02, 0x11, 0x22, 0x33, 0x44, 0x55},
-				}.Build(),
-			}.Build()
-		}
-
+		// UniFi names the serving AP by device id and never reports a BSSID.
 		b.Wireless = endpointnetv1.WirelessAttachment_builder{
-			ApName: proto.String(payload.UplinkDeviceID),
-			Bssid:  bssidMac,
+			ApName:      proto.String(payload.UplinkDeviceID),
+			VendorBssId: proto.String(payload.UplinkDeviceID),
 		}.Build()
 	case "WIRED":
 		b.Wired = endpointnetv1.WiredAttachment_builder{
@@ -180,6 +160,12 @@ func TestUniFiWirelessClientFixture(t *testing.T) {
 	}
 	if got, want := state.GetWireless().GetApName(), "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"; got != want {
 		t.Errorf("state wireless.ap_name = %q, want %q", got, want)
+	}
+	if got, want := state.GetWireless().GetVendorBssId(), "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"; got != want {
+		t.Errorf("state wireless.vendor_bss_id = %q, want %q", got, want)
+	}
+	if state.GetWireless().HasBssid() {
+		t.Errorf("state wireless.bssid is set, want unset: UniFi reports no BSSID")
 	}
 	if state.GetWired() != nil {
 		t.Errorf("state wired attachment is populated, want nil")
