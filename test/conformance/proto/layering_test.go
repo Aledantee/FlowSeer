@@ -47,7 +47,7 @@ var importOrder = map[string][]string{
 	"net/switching":  {"net/addr", "net/packet", "net/key"},
 	"net/ip":         {"net/addr", "net/key"},
 	"net/routing":    {"net/addr", "net/key"},
-	"net/filter":     {"net/addr", "net/packet", "net/key"},
+	"net/filter":     {"net/addr", "net/packet", "net/key", "net/switching"},
 	"net/qos":        {"net/addr", "net/packet", "net/filter", "net/key", "net/measure"},
 	"net/nat":        {"net/addr", "net/packet", "net/key"},
 	"net/wlan":       {"net/addr", "net/key", "net/measure", "net/switching"},

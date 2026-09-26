@@ -1462,6 +1462,103 @@ func TestLoad_FilterFacetMissingSet(t *testing.T) {
 	}
 }
 
+// A rule set matching a destination MAC, which the IP-layer filter cannot
+// evaluate, is left out of the filter configuration rather than translated
+// wider: its ingress binding reports an unsupported facet, not a missing set,
+// while the evaluable egress set still binds.
+func TestLoad_FilterSetWithL2MatchIsSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	l2SetName := "l2-set"
+	ipSetName := "ip-set"
+	ruleName := "drop-bpdu"
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+	dropAction := filterv1.FilterAction_FILTER_ACTION_DROP
+
+	l2Set := filterv1.FilterRuleSet_builder{
+		Name:    &l2SetName,
+		Default: &acceptAction,
+		Rules: []*filterv1.FilterRule{filterv1.FilterRule_builder{
+			Name:   &ruleName,
+			Action: &dropAction,
+			Match: filterv1.FilterMatch_builder{
+				DstMac: filterv1.MacMatch_builder{
+					Address: addrv1.Eui48Address_builder{Octets: []byte{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build()},
+	}.Build()
+	ipSet := filterv1.FilterRuleSet_builder{
+		Name:    &ipSetName,
+		Default: &acceptAction,
+	}.Build()
+
+	filterSets := []*filterv1.FilterRuleSet{l2Set, ipSet}
+	for _, s := range filterSets {
+		if err := protovalidate.Validate(s); err != nil {
+			t.Fatalf("filter set validation failed: %v", err)
+		}
+	}
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet:  &l2SetName,
+			OutSet: &ipSetName,
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	cfg := res.Spec.Config
+	if cfg.Filter == nil {
+		t.Fatal("expected cfg.Filter to be non-nil for the evaluable egress set")
+	}
+	if _, ok := cfg.Filter.Sets[l2SetName]; ok {
+		t.Errorf("sets = %v, want %q left out", cfg.Filter.Sets, l2SetName)
+	}
+	var boundOut bool
+	for _, b := range cfg.Filter.Bindings {
+		if b.Set == l2SetName {
+			t.Errorf("binding %+v names the skipped set", b)
+		}
+		if b.Interface == vlan10Name && b.Direction == filter.Out && b.Set == ipSetName {
+			boundOut = true
+		}
+	}
+	if !boundOut {
+		t.Errorf("bindings = %+v, want vlan10 out->%s", cfg.Filter.Bindings, ipSetName)
+	}
+
+	wantScope := routing.OwnershipScope("sw1", routing.DefaultVRF, vlan10Name)
+	var skippedAtInterface bool
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueMissingFilterSet {
+			t.Errorf("unexpected issue %+v: the set exists but is skipped", issue)
+		}
+		if issue.Code == netmodel.IssueSkippedUnsupportedFacet && issue.Scope.Compare(wantScope) == 0 {
+			skippedAtInterface = true
+		}
+	}
+	if !skippedAtInterface {
+		t.Errorf("issues = %+v, want issue %s with scope %s", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet, wantScope)
+	}
+}
+
 func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP

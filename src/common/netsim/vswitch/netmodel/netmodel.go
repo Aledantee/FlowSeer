@@ -1906,12 +1906,21 @@ func Load(
 
 	if isWanted(port.LayerFilter) {
 		setByName := make(map[string]filter.RuleSet, len(filterSets))
+		// A set the IP-layer filter cannot evaluate is left out whole:
+		// translating a rule without its L2, PCP, or DSCP terms would widen
+		// it, and dropping the rule would let a later rule decide.
+		unevaluable := make(map[string]bool)
 		for _, set := range filterSets {
 			if set == nil {
 				continue
 			}
 			name := set.GetName()
 			if name == "" {
+				continue
+			}
+			if slices.ContainsFunc(set.GetRules(), hasUnevaluableMatch) {
+				unevaluable[name] = true
+				addSkippedAt(rootScope, "", "filter", fmt.Sprintf("rule set %q carries L2, PCP, or DSCP match terms the simulator does not evaluate", name), analysis.Incomplete, IssueSkippedUnsupportedFacet)
 				continue
 			}
 			ruleSet := filter.RuleSet{
@@ -2023,7 +2032,9 @@ func Load(
 			}
 
 			if inSet != "" {
-				if _, ok := setByName[inSet]; !ok {
+				if unevaluable[inSet] {
+					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q carries match terms the simulator does not evaluate", inSet), analysis.Incomplete, IssueSkippedUnsupportedFacet)
+				} else if _, ok := setByName[inSet]; !ok {
 					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q is missing", inSet), analysis.Incomplete, IssueMissingFilterSet)
 				} else if hasIP {
 					bindings = append(bindings, filter.Binding{
@@ -2035,7 +2046,9 @@ func Load(
 			}
 
 			if outSet != "" {
-				if _, ok := setByName[outSet]; !ok {
+				if unevaluable[outSet] {
+					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q carries match terms the simulator does not evaluate", outSet), analysis.Incomplete, IssueSkippedUnsupportedFacet)
+				} else if _, ok := setByName[outSet]; !ok {
 					addSkippedAt(scope, iface.GetName(), "filter", fmt.Sprintf("rule set %q is missing", outSet), analysis.Incomplete, IssueMissingFilterSet)
 				} else if hasIP {
 					bindings = append(bindings, filter.Binding{
@@ -2358,6 +2371,13 @@ func parsePrefix(p *addrv1.IpPrefix, address netip.Addr) (int, bool) {
 		return int(v6.GetLength()), true
 	}
 	return 0, false
+}
+
+// hasUnevaluableMatch reports whether rule matches on a term filter.Match has
+// no counterpart for: the EtherType, a MAC address, a PCP, or a DSCP.
+func hasUnevaluableMatch(rule *filterv1.FilterRule) bool {
+	m := rule.GetMatch()
+	return m.HasEtherType() || m.HasSrcMac() || m.HasDstMac() || len(m.GetPcps()) > 0 || len(m.GetDscps()) > 0
 }
 
 func translateAction(a filterv1.FilterAction) filter.Action {
