@@ -4,12 +4,19 @@ type: refactor
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/code-style.md
 ---
 
 # Errs-Only Error Construction - Plan
+
+> Implemented. Seven units, 2026-09-26. 654 sites converted. `errs.Wrap` and
+> `errs.Wrapf` now return a plain wrapper carrying an origin stack, so
+> `errors.As` reaches the innermost `*errs.Error`; no `errors.New` or
+> `fmt.Errorf` remains in non-test Go outside `src/common/errs`; and
+> `test/conformance/errs` fails the build on a new one, scanning 603 files.
+> `docs/code-style.md` Errors states the rule the gate enforces.
 
 ## Goal
 
@@ -304,12 +311,22 @@ order E6 comes last in.
 # per unit
 .claude/skills/verify-change/scripts/verify-change.sh -- <the unit's paths>
 
-# after the last merge, over the union
-.claude/skills/verify-change/scripts/verify-change.sh -- \
-  src/common/net src/common/service src/common/netsim src/edge/netpen \
-  src/edge/agent src/edge/netsimload src/modules src/protocol src/services \
-  docs/code-style.md test/conformance/errs
+# after the last merge, over the files the units changed
+git diff --name-only <base>..HEAD -- src test docs | grep -v '/testdata/' > /tmp/changed.txt
+.claude/skills/verify-change/scripts/verify-change.sh -- $(cat /tmp/changed.txt)
 ```
+
+Drop `testdata` paths from that list. `go list ./...` ignores a directory named
+`testdata`, so the repository's own gates never lint one; a list built from
+`git diff --name-only` does include it, and lint then flags the fixtures under
+`test/conformance/errs/testdata/` and `src/common/errs/testdata/scan/` for the
+dot-imports, aliased imports and undocumented exported functions they exist to
+carry. Fifteen such findings failed a run of this plan's own last unit, every one
+of them inside those fixtures.
+
+Pass files rather than directory names for the same family of reason: a directory
+expands into build-tag-gated packages and multi-package `testdata` directories
+that untagged `go vet` cannot build.
 
 Not `--full`: it builds and race-tests `generated/go/yang`, which is large enough
 to exhaust host memory, and a run that dies is not a gate. A targeted run already
