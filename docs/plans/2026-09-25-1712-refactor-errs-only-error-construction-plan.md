@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept
+compound: docs/solutions/architecture-patterns/an-error-wrapper-must-not-reuse-the-rich-error-type.md
 execution: code
 amends: docs/code-style.md
 ---
