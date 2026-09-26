@@ -142,6 +142,14 @@ Every physical quantity has one canonical unit, named in the field suffix, in in
 
 A device the simulator under `src/common/netsim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
 
+### Endpoint
+
+A client device connected to the network by a wired switchport or wireless BSS association. An Endpoint carries a UUID-keyed identity in `model/endpoint/v1` with an active/stale/retired lifecycle, observed MAC and IP addresses, optional fingerprint and counters, and an attachment oneof (`wired` or `wireless`). Endpoints are observed clients rather than configured infrastructure, so the family is deliberately partial: `EndpointState` and `EndpointEvent` without an `EndpointConfig`.
+
+### Port-access session
+
+A device-scoped table row in `net/portaccess/v1.Session` representing an authenticated access session on a physical switchport. It is keyed by interface name and client MAC address to support multi-supplicant ports across 802.1X, MAC authentication bypass, and web authentication. Scoped by interface name, the network instance is inherited and omitted per Rule 4.
+
 ## Capture
 
 ### Capture Session
