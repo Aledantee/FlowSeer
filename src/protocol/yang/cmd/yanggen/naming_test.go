@@ -31,10 +31,10 @@ func TestNameScopeClash(t *testing.T) {
 	}
 }
 
-// TestFairGrowthRequirement5 verifies Requirement 5: two nodes whose own names
+// TestFairGrowthGrowsClashingNames asserts that two nodes whose own names
 // clash ("config" under two different parents) receive distinct names grown by
 // one ancestor segment each ("InterfaceConfig" and "SubinterfaceConfig").
-func TestFairGrowthRequirement5(t *testing.T) {
+func TestFairGrowthGrowsClashingNames(t *testing.T) {
 	node1 := &claimantEntity{
 		id:         "node1",
 		candidates: candidateSuffixes([]string{"Interface", "Config"}),

@@ -183,7 +183,7 @@ func TestEmitGroupingInstantiatingModule(t *testing.T) {
 	}
 }
 
-// TestEmitGroupingSharedShape verifies Requirement 4: a grouping used under
+// TestEmitGroupingSharedShape asserts that a grouping used under
 // two containers of fixture-main generates one struct for the two instances.
 func TestEmitGroupingSharedShape(t *testing.T) {
 	vs := fixtureVendor(t)
@@ -354,10 +354,10 @@ func TestEmitNoUnderscores(t *testing.T) {
 	}
 }
 
-// TestRequirement6AndSingleLineFields ensures every exported identifier has
+// TestGoldenCompanionCommentsAndSingleLineFields ensures every exported identifier has
 // a doc comment, no companion comment contains a /-separated path, and simple
 // field literals in Schema.Fields sit on a single line.
-func TestRequirement6AndSingleLineFields(t *testing.T) {
+func TestGoldenCompanionCommentsAndSingleLineFields(t *testing.T) {
 	goldenDir := filepath.Join("testdata", "golden", "fixture")
 	entries, err := os.ReadDir(goldenDir)
 	if err != nil {
@@ -388,27 +388,52 @@ func TestRequirement6AndSingleLineFields(t *testing.T) {
 				t.Fatalf("%s does not parse: %v", filePath, err)
 			}
 
-			companionTypes := make(map[string]bool)
+			// Companions are selected by declaration kind, not by name, so a
+			// hash-suffixed companion (FooDescriptorX1a2b3c) is still checked:
+			// funcs returning yang.ListDescriptor, the Key index of that
+			// result, the Row index when it is a flat row (a struct with an
+			// Entry field), and vars whose value is a &yang.Schema literal.
+			flatRows := make(map[string]bool)
 			for _, decl := range file.Decls {
-				if fn, ok := decl.(*ast.FuncDecl); ok && strings.HasSuffix(fn.Name.Name, "Descriptor") {
-					if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
-						switch ret := fn.Type.Results.List[0].Type.(type) {
-						case *ast.IndexListExpr:
-							for _, idx := range ret.Indices {
-								if id, ok := idx.(*ast.Ident); ok {
-									if strings.HasSuffix(id.Name, "Key") || strings.HasSuffix(id.Name, "FlatRow") {
-										companionTypes[id.Name] = true
-									}
-								}
-							}
-						case *ast.IndexExpr:
-							if id, ok := ret.Index.(*ast.Ident); ok {
-								if strings.HasSuffix(id.Name, "Key") || strings.HasSuffix(id.Name, "FlatRow") {
-									companionTypes[id.Name] = true
-								}
+				gd, ok := decl.(*ast.GenDecl)
+				if !ok {
+					continue
+				}
+				for _, spec := range gd.Specs {
+					ts, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					st, ok := ts.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					for _, fld := range st.Fields.List {
+						for _, n := range fld.Names {
+							if n.Name == "Entry" {
+								flatRows[ts.Name.Name] = true
 							}
 						}
 					}
+				}
+			}
+			companionFuncs := make(map[string]bool)
+			companionTypes := make(map[string]bool)
+			for _, decl := range file.Decls {
+				fn, ok := decl.(*ast.FuncDecl)
+				if !ok || fn.Type.Results == nil || len(fn.Type.Results.List) != 1 {
+					continue
+				}
+				ret, ok := fn.Type.Results.List[0].Type.(*ast.IndexListExpr)
+				if !ok || !isYangSelector(ret.X, "ListDescriptor") || len(ret.Indices) != 2 {
+					continue
+				}
+				companionFuncs[fn.Name.Name] = true
+				if row, ok := ret.Indices[0].(*ast.Ident); ok && flatRows[row.Name] {
+					companionTypes[row.Name] = true
+				}
+				if key, ok := ret.Indices[1].(*ast.Ident); ok {
+					companionTypes[key.Name] = true
 				}
 			}
 
@@ -428,13 +453,11 @@ func TestRequirement6AndSingleLineFields(t *testing.T) {
 							if strings.TrimSpace(doc) == "" {
 								t.Errorf("%s: exported type %s missing doc comment", f.Name(), s.Name.Name)
 							}
-							if companionTypes[s.Name.Name] {
-								if strings.Contains(doc, "/") {
-									t.Errorf("%s: companion type %s comment contains '/': %q", f.Name(), s.Name.Name, doc)
-								}
+							if companionTypes[s.Name.Name] && strings.Contains(doc, "/") {
+								t.Errorf("%s: companion type %s comment contains '/': %q", f.Name(), s.Name.Name, doc)
 							}
 						case *ast.ValueSpec:
-							for _, id := range s.Names {
+							for i, id := range s.Names {
 								if !ast.IsExported(id.Name) {
 									continue
 								}
@@ -445,10 +468,8 @@ func TestRequirement6AndSingleLineFields(t *testing.T) {
 								if strings.TrimSpace(doc) == "" {
 									t.Errorf("%s: exported var %s missing doc comment", f.Name(), id.Name)
 								}
-								if strings.Contains(id.Name, "Schema") {
-									if strings.Contains(doc, "/") {
-										t.Errorf("%s: companion var %s comment contains '/': %q", f.Name(), id.Name, doc)
-									}
+								if i < len(s.Values) && isSchemaLiteral(s.Values[i]) && strings.Contains(doc, "/") {
+									t.Errorf("%s: companion var %s comment contains '/': %q", f.Name(), id.Name, doc)
 								}
 							}
 						}
@@ -461,10 +482,8 @@ func TestRequirement6AndSingleLineFields(t *testing.T) {
 					if strings.TrimSpace(doc) == "" {
 						t.Errorf("%s: exported func %s missing doc comment", f.Name(), d.Name.Name)
 					}
-					if strings.HasSuffix(d.Name.Name, "Descriptor") {
-						if strings.Contains(doc, "/") {
-							t.Errorf("%s: companion func %s comment contains '/': %q", f.Name(), d.Name.Name, doc)
-						}
+					if companionFuncs[d.Name.Name] && strings.Contains(doc, "/") {
+						t.Errorf("%s: companion func %s comment contains '/': %q", f.Name(), d.Name.Name, doc)
 					}
 				}
 			}
@@ -508,4 +527,24 @@ func TestRequirement6AndSingleLineFields(t *testing.T) {
 			})
 		}
 	}
+}
+
+// isYangSelector reports whether e is the selector yang.<name>.
+func isYangSelector(e ast.Expr, name string) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != name {
+		return false
+	}
+	pkg, ok := sel.X.(*ast.Ident)
+	return ok && pkg.Name == "yang"
+}
+
+// isSchemaLiteral reports whether e is a &yang.Schema{...} literal.
+func isSchemaLiteral(e ast.Expr) bool {
+	u, ok := e.(*ast.UnaryExpr)
+	if !ok || u.Op != token.AND {
+		return false
+	}
+	cl, ok := u.X.(*ast.CompositeLit)
+	return ok && isYangSelector(cl.Type, "Schema")
 }

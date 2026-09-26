@@ -216,41 +216,50 @@ func TestGeneratedVisitLeaves(t *testing.T) {
 
 // TestGroupingInstantiatingModuleRoundTrip asserts that nodes instantiated
 // from another module's grouping decode JSON with the instantiating module's
-// qualification and XML in its namespace through both instances.
+// qualification and XML in its namespace, through each container that uses
+// the grouping.
 func TestGroupingInstantiatingModuleRoundTrip(t *testing.T) {
-	jsonPayload := []byte(`{"fixture-main:buffer-size":4096}`)
+	for _, tc := range []struct {
+		container string
+		decode    func(json bool, data []byte) (*fixturemain.Item, error)
+	}{
+		{"primary-group", func(json bool, data []byte) (*fixturemain.Item, error) {
+			var got fixturemain.PrimaryGroup
+			if json {
+				err := yang.UnmarshalJSON7951Struct(fixturemain.PrimaryGroupSchema, data, &got)
+				return got.Item, err
+			}
+			err := yang.UnmarshalXMLStruct(fixturemain.PrimaryGroupSchema, data, &got)
+			return got.Item, err
+		}},
+		{"secondary-group", func(json bool, data []byte) (*fixturemain.Item, error) {
+			var got fixturemain.SecondaryGroup
+			if json {
+				err := yang.UnmarshalJSON7951Struct(fixturemain.SecondaryGroupSchema, data, &got)
+				return got.Item, err
+			}
+			err := yang.UnmarshalXMLStruct(fixturemain.SecondaryGroupSchema, data, &got)
+			return got.Item, err
+		}},
+	} {
+		t.Run(tc.container, func(t *testing.T) {
+			jsonPayload := []byte(`{"fixture-main:item":{"fixture-main:buffer-size":4096}}`)
+			item, err := tc.decode(true, jsonPayload)
+			if err != nil {
+				t.Fatalf("decode JSON: %v", err)
+			}
+			if item == nil || item.BufferSize == nil || *item.BufferSize != 4096 {
+				t.Errorf("JSON item = %+v, want BufferSize 4096", item)
+			}
 
-	var primaryJSON fixturemain.Item
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ItemSchema, jsonPayload, &primaryJSON); err != nil {
-		t.Fatalf("UnmarshalJSON7951Struct primary: %v", err)
-	}
-	if primaryJSON.BufferSize == nil || *primaryJSON.BufferSize != 4096 {
-		t.Errorf("primary JSON BufferSize = %v, want 4096", primaryJSON.BufferSize)
-	}
-
-	var secondaryJSON fixturemain.Item
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ItemSchema, jsonPayload, &secondaryJSON); err != nil {
-		t.Fatalf("UnmarshalJSON7951Struct secondary: %v", err)
-	}
-	if secondaryJSON.BufferSize == nil || *secondaryJSON.BufferSize != 4096 {
-		t.Errorf("secondary JSON BufferSize = %v, want 4096", secondaryJSON.BufferSize)
-	}
-
-	xmlPayload := []byte(`<item xmlns="urn:flowseer:fixture-main"><buffer-size>8192</buffer-size></item>`)
-
-	var primaryXML fixturemain.Item
-	if err := yang.UnmarshalXMLStruct(fixturemain.ItemSchema, xmlPayload, &primaryXML); err != nil {
-		t.Fatalf("UnmarshalXMLStruct primary: %v", err)
-	}
-	if primaryXML.BufferSize == nil || *primaryXML.BufferSize != 8192 {
-		t.Errorf("primary XML BufferSize = %v, want 8192", primaryXML.BufferSize)
-	}
-
-	var secondaryXML fixturemain.Item
-	if err := yang.UnmarshalXMLStruct(fixturemain.ItemSchema, xmlPayload, &secondaryXML); err != nil {
-		t.Fatalf("UnmarshalXMLStruct secondary: %v", err)
-	}
-	if secondaryXML.BufferSize == nil || *secondaryXML.BufferSize != 8192 {
-		t.Errorf("secondary XML BufferSize = %v, want 8192", secondaryXML.BufferSize)
+			xmlPayload := []byte(`<` + tc.container + ` xmlns="urn:flowseer:fixture-main"><item><buffer-size>8192</buffer-size></item></` + tc.container + `>`)
+			item, err = tc.decode(false, xmlPayload)
+			if err != nil {
+				t.Fatalf("decode XML: %v", err)
+			}
+			if item == nil || item.BufferSize == nil || *item.BufferSize != 8192 {
+				t.Errorf("XML item = %+v, want BufferSize 8192", item)
+			}
+		})
 	}
 }

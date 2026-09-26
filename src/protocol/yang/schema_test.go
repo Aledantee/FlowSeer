@@ -15,8 +15,7 @@ func TestSchemaModuleResolution(t *testing.T) {
 	modAug := &yang.Module{Name: "aug", Namespace: "urn:aug"}
 
 	// A schema whose Module is &Module{Name: "m", Namespace: "urn:m"}, with a
-	// field whose Module is nil, decodes <c xmlns="urn:m"><leaf>1</leaf></c>
-	// as before.
+	// field whose Module is nil, decodes <c xmlns="urn:m"><leaf>1</leaf></c>.
 	schemaInherited := &yang.Schema{
 		Module: modM,
 		Name:   "c",
@@ -37,7 +36,7 @@ func TestSchemaModuleResolution(t *testing.T) {
 	})
 
 	// A field whose Module is &Module{Name: "aug", Namespace: "urn:aug"}
-	// decodes JSON member aug:leaf and, as today, bare leaf. It does not
+	// decodes both JSON member aug:leaf and bare leaf. It does not
 	// match an XML element in urn:m.
 	schemaAug := &yang.Schema{
 		Module: modM,
