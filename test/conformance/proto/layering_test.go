@@ -54,7 +54,7 @@ var importOrder = map[string][]string{
 	"net/cellular":   {"net/key", "net/measure"},
 	"net/endpoint":   {"net/addr", "net/key", "net/measure", "net/switching", "net/wlan"},
 	"net/portaccess": {"net/addr", "net/key", "net/switching"},
-	"net/system":     {"net/measure"},
+	"net/system":     {"net/key", "net/measure"},
 	"net/multicast":  {"net/addr", "net/key", "net/switching"},
 	"net/aaa":        {"net/addr"},
 	"net/flow":       {"net/addr", "net/packet"},

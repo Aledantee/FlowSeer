@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.net.system.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
+
+// Average processor utilization over an observation window.
+message ProcessorUtilization {
+  // Average processor utilization in basis points (0 to 10000). Must be present.
+  uint32 utilization_avg_basis_points = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true
+  ];
+  // Observation window over which the average was calculated. Unset means the
+  // source did not state its averaging window.
+  google.protobuf.Duration window = 2 [(buf.validate.field).duration.gt = {}];
+}

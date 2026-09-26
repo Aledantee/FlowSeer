@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.system.v1;
+
+// The class of storage medium reported by a device or host.
+enum StorageKind {
+  STORAGE_KIND_UNSPECIFIED = 0;
+  // Other or unclassified storage, including optical, tape, and network-attached media.
+  STORAGE_KIND_OTHER = 1;
+  // Physical random-access memory (RAM).
+  STORAGE_KIND_RAM = 2;
+  // Virtual memory or swap space.
+  STORAGE_KIND_VIRTUAL_MEMORY = 3;
+  // Fixed magnetic or solid-state disk storage.
+  STORAGE_KIND_FIXED_DISK = 4;
+  // Removable disk storage.
+  STORAGE_KIND_REMOVABLE_DISK = 5;
+  // Non-volatile flash memory.
+  STORAGE_KIND_FLASH_MEMORY = 6;
+}

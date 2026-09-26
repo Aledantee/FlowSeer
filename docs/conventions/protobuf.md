@@ -240,6 +240,8 @@ not enforce the registry's numeric width by themselves. Every field using
 `IpDscp`, `IpEcn`, or `IpProtocol` therefore validates the complete numeric
 domain at the use site: `0..63`, `0..3`, or `0..255`, respectively. These
 packet-header registries live in `net/packet/v1`, not the address package.
+`SyslogSeverity` and `SyslogFacility` in `net/log/v1` define every registry
+value, so `enum.defined_only` is their complete domain rule.
 
 ## Typed variants
 
