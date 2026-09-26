@@ -11,7 +11,7 @@ FlowSeer-assigned UUID.
 
 Imports: model/edge, model/policy, net/addr, net/key, net/measure, net/phy, net/system, net/wlan
 
-Imported by: api/device, event/access, model/access, model/wireless, store/device
+Imported by: api/device, event/access, event/log, model/access, model/wireless, store/device
 
 Deliberately absent:
 

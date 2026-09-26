@@ -1,0 +1,107 @@
+edition = "2024";
+
+// A stream of syslog records received from managed devices. Deliberately
+// partial: there is no SyslogRecordConfig, SyslogRecordState, or entity
+// transition, because this package represents an append-only event stream
+// with no queryable current-state entity or configuration of its own.
+package flowseer.event.log.v1;
+
+import "flowseer/model/inventory/v1/device.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/log/v1/syslog_facility.proto";
+import "flowseer/net/log/v1/syslog_severity.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// One syslog message received from a device, parsed into RFC 5424 fields.
+message SyslogRecord {
+  option (buf.validate.message).cel = {
+    id: "syslog_record.sd_ids_unique"
+    message: "structured data IDs must be unique"
+    expression: "this.structured_data.map(e, e.id).unique()"
+  };
+
+  // The device that emitted this log record. Must be present.
+  flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // FlowSeer-assigned UUID identifying this record, for deduplication. Must
+  // be present.
+  string record_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // Timestamp when the record was received by the collector. Must be present.
+  google.protobuf.Timestamp received_at = 3 [(buf.validate.field).required = true];
+  // Timestamp from the message header (RFC 5424 TIMESTAMP). Unset when the
+  // sender emitted NILVALUE.
+  google.protobuf.Timestamp sent_at = 4;
+  // Severity of the record (RFC 5424 severity). Must be present.
+  flowseer.net.log.v1.SyslogSeverity severity = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.defined_only = true
+  ];
+  // Facility that generated the record (RFC 5424 facility). Must be present.
+  flowseer.net.log.v1.SyslogFacility facility = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum.defined_only = true
+  ];
+  // Hostname from the message header (RFC 5424 HOSTNAME). Unset when omitted
+  // or sent as NILVALUE.
+  string hostname = 7 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // Application name from the header (RFC 5424 APP-NAME). Unset when omitted
+  // or sent as NILVALUE.
+  string app_name = 8 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 48
+  ];
+  // Process identifier from the header (RFC 5424 PROCID). Unset when omitted
+  // or sent as NILVALUE.
+  string proc_id = 9 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Message identifier from the header (RFC 5424 MSGID). Unset when omitted
+  // or sent as NILVALUE.
+  string msg_id = 10 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // Structured data elements (RFC 5424 STRUCTURED-DATA).
+  repeated SyslogStructuredDataElement structured_data = 11;
+  // Raw message payload (RFC 5424 MSG). Carried as bytes because MSG may be
+  // UTF-8 or any character encoding. Bounded at 65527 octets.
+  bytes message = 12 [(buf.validate.field).bytes.max_len = 65527];
+  // Source IP address the collector saw when receiving the message.
+  flowseer.net.addr.v1.IpAddress source_address = 13;
+  // True when the raw message was truncated by the collector to fit the bound.
+  bool message_truncated = 14;
+}
+
+// One structured data element within a syslog record (RFC 5424 SD-ELEMENT).
+message SyslogStructuredDataElement {
+  // Structured data ID (RFC 5424 SD-ID). Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // Parameters contained in this structured data element.
+  repeated SyslogStructuredDataParam params = 2;
+}
+
+// One key-value parameter in a structured data element (RFC 5424 SD-PARAM).
+message SyslogStructuredDataParam {
+  // Parameter name (RFC 5424 PARAM-NAME). Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 32
+  ];
+  // Parameter value (RFC 5424 PARAM-VALUE). Must be present; may be empty.
+  string value = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
