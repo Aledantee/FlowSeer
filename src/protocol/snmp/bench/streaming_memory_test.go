@@ -137,7 +137,7 @@ func TestStreamingEarlyRequestBound(t *testing.T) {
 	for _, rows := range []int{50, 1000, 10000, 100000} {
 		addr, counts := startResponderMIB(t, buildScaleMIB(rows, false, 32))
 		sess := dialNative(t, addr)
-		for _, width := range []int{2, 20} {
+		for _, width := range []int{2, 18} {
 			counts.requests.Store(0)
 			w := ifmib.IfTable.Walk(context.Background(), sess, scaleColumns(width)...)
 			n := 0

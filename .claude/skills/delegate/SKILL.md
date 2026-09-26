@@ -42,9 +42,14 @@ Resolve a role to a lane in this order, once per lane:
 4. Move a pool that already holds a running lane of this wave to the back
    until that lane settles.
 5. Take the model whose pool has the most headroom, and within ten points
-   the one with the lower registry price. A signed-in pool whose source
+   the one with the lower registry price; `price: null` marks a
+   subscription pool and counts as the lower. A signed-in pool whose source
    failed (`windows: null`) counts as full headroom until it answers with a
    429.
+
+When steps 1–3 leave no `fit` model, apply them to the role's
+`last_resort` list, when it has one, and take a survivor by step 5; the
+report names the lane as a last resort and the pools that were out.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
@@ -164,7 +169,12 @@ removes what it created and says why. Its JSON line names the branch,
 which Orca prefixes with the git user. `wait` prints `idle` when the turn
 ended: check the tree, then read the report. A permission dialog also
 reads as idle, which is why the screen follows: answer a dialog the brief
-anticipated with `$s keys <slug> <text>`, otherwise report it. Then merge
+anticipated with `$s keys <slug> <text>`, otherwise report it. A Claude
+worker whose request a safety classifier flagged stops at a prompt to
+switch models or edit the prompt, because `orca-worker.sh` turns automatic
+switching off. Never pick switch: report the flag and dispatch the unit
+again as `execute-sensitive`, or on another vendor's pool when it already
+was. Then merge
 the branch here, run the verifier on the changed paths, and `$s stop
 <slug>`. `stop` refuses a lane that is mid-turn, dirty, or not merged
 here, because removing the worktree deletes its branch.

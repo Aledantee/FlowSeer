@@ -51,7 +51,7 @@ func BenchmarkTableWalkScale(b *testing.B) {
 	for _, rows := range []int{50, 1000, 10000, 100000} {
 		b.Run(fmt.Sprintf("rows=%d", rows), func(b *testing.B) {
 			addr, counts := startResponderMIB(b, buildScaleMIB(rows, false, 32))
-			for _, width := range []int{2, 20} {
+			for _, width := range []int{2, 18} {
 				b.Run(fmt.Sprintf("cols=%d", width), func(b *testing.B) {
 					cols := scaleColumns(width)
 					for _, stop := range []int{0, 1, 100} {
@@ -101,5 +101,33 @@ func scaleColumns(width int) []snmp.AnyColumn {
 	if width == 2 {
 		return []snmp.AnyColumn{ifmib.IfInOctets, ifmib.IfOutOctets}
 	}
-	return []snmp.AnyColumn{ifmib.IfIndex, ifmib.IfDescr, ifmib.IfType, ifmib.IfMtu, ifmib.IfSpeed, ifmib.IfAdminStatus, ifmib.IfOperStatus, ifmib.IfLastChange, ifmib.IfInOctets, ifmib.IfInUcastPkts, ifmib.IfInNUcastPkts, ifmib.IfInDiscards, ifmib.IfInErrors, ifmib.IfInUnknownProtos, ifmib.IfOutOctets, ifmib.IfOutUcastPkts, ifmib.IfOutNUcastPkts, ifmib.IfOutDiscards, ifmib.IfOutErrors, ifmib.IfOutQLen}
+	return []snmp.AnyColumn{ifmib.IfIndex, ifmib.IfDescr, ifmib.IfType, ifmib.IfMTU, ifmib.IfSpeed, ifmib.IfPhysAddress, ifmib.IfAdminStatus, ifmib.IfOperStatus, ifmib.IfLastChange, ifmib.IfInOctets, ifmib.IfInUcastPkts, ifmib.IfInDiscards, ifmib.IfInErrors, ifmib.IfInUnknownProtos, ifmib.IfOutOctets, ifmib.IfOutUcastPkts, ifmib.IfOutDiscards, ifmib.IfOutErrors}
+}
+
+func TestScaleColumnsWideFixtureServesEveryColumn(t *testing.T) {
+	cols := scaleColumns(18)
+	if len(cols) != 18 {
+		t.Fatalf("wide scale columns = %d, want 18", len(cols))
+	}
+
+	addr, _ := startResponderMIB(t, buildScaleMIB(1, false, 32))
+	sess := dialNative(t, addr)
+	t.Cleanup(func() { _ = sess.Close() })
+
+	w := ifmib.IfTable.Walk(context.Background(), sess, cols...)
+	rows := 0
+	for _, row := range w.Iter() {
+		rows++
+		for _, col := range cols {
+			if !row.Observed(col) {
+				t.Errorf("column %s was not observed", col.OID())
+			}
+		}
+	}
+	if err := w.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Fatalf("rows = %d, want 1", rows)
+	}
 }

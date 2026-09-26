@@ -7,6 +7,7 @@ import (
 
 	"github.com/dave/jennifer/jen"
 
+	"go.aledante.io/FlowSeer/src/protocol/internal/goname"
 	"go.aledante.io/FlowSeer/src/protocol/smi"
 )
 
@@ -540,13 +541,10 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 }
 
 // unexported turns an emitted UpperCamelCase name into the
-// package-private spelling of its companion identifier.
+// package-private spelling of its companion identifier under the
+// shared [goname.Unexported] rules, so a leading initialism stays
+// whole (LLDPPortConfigTable becomes lldpPortConfigTableT, not
+// lLDPPortConfigTableT).
 func unexported(s string) string {
-	runes := []rune(s)
-	if len(runes) == 0 {
-		return s
-	}
-	runes[0] = lowerFirst(runes[0])
-
-	return string(runes)
+	return goname.Unexported(s)
 }

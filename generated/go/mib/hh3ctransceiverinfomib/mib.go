@@ -129,40 +129,28 @@ func Hh3cTransceiverExtrAlarmEnableGet(ctx context.Context, sess snmp.Session) (
 		return false, errs.Msg("empty Get response for hh3cTransceiverExtrAlarmEnable")
 	}
 
-	return func(vb snmp.VarBind) (bool, error) {
-		return snmp.DecodeTruthValue(vb)
-	}(vbs[0])
+	return snmp.DecodeTruthValue(vbs[0])
 }
 
 // Hh3cTransceiverHardwareType is the column hh3cTransceiverHardwareType of table hh3cTransceiverInfoTable.
 // Hardware type of the interface, such as SM(single mode).
-var Hh3cTransceiverHardwareType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverHardwareType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverType is the column hh3cTransceiverType of table hh3cTransceiverInfoTable.
 // Type of the interface, such as SFP/XFP/GBIC.
-var Hh3cTransceiverType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverType = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverWaveLength is the column hh3cTransceiverWaveLength of table hh3cTransceiverInfoTable.
 // Wave length of the interface, measured in nanometer. The unit is nm.
-var Hh3cTransceiverWaveLength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverWaveLength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverVendorName is the column hh3cTransceiverVendorName of table hh3cTransceiverInfoTable.
 // Vendor name of the interface.
-var Hh3cTransceiverVendorName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverVendorName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverSerialNumber is the column hh3cTransceiverSerialNumber of table hh3cTransceiverInfoTable.
 // Serial number of the interface.
-var Hh3cTransceiverSerialNumber = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverSerialNumber = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverFiberDiameterType is the column hh3cTransceiverFiberDiameterType of table hh3cTransceiverInfoTable.
 // The diameter of the fiber, measured in micron. fiber9 - 9 micron
@@ -179,213 +167,151 @@ var Hh3cTransceiverFiberDiameterType = snmp.NewColumn[Hh3cTransceiverFiberDiamet
 // Hh3cTransceiverTransferDistance is the column hh3cTransceiverTransferDistance of table hh3cTransceiverInfoTable.
 // The maximum distance which the interface can transmit, measured in
 // meter.
-var Hh3cTransceiverTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverTransferDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverDiagnostic is the column hh3cTransceiverDiagnostic of table hh3cTransceiverInfoTable.
 // Indicating the digital diagnostic monitoring function.
-var Hh3cTransceiverDiagnostic = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var Hh3cTransceiverDiagnostic = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 8), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // Hh3cTransceiverCurTXPower is the column hh3cTransceiverCurTXPower of table hh3cTransceiverInfoTable.
 // Indicating the current transmitted power. The unit is in hundredths of
 // dBm.
-var Hh3cTransceiverCurTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverCurTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverMaxTXPower is the column hh3cTransceiverMaxTXPower of table hh3cTransceiverInfoTable.
 // Indicating the maximum transmitted power. The unit is in hundredths of
 // dBm.
-var Hh3cTransceiverMaxTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverMaxTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverMinTXPower is the column hh3cTransceiverMinTXPower of table hh3cTransceiverInfoTable.
 // Indicating the minimum transmitted power. The unit is in hundredths of
 // dBm.
-var Hh3cTransceiverMinTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverMinTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverCurRXPower is the column hh3cTransceiverCurRXPower of table hh3cTransceiverInfoTable.
 // Indicating the current received power. The unit is in hundredths of dBm.
-var Hh3cTransceiverCurRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverCurRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverMaxRXPower is the column hh3cTransceiverMaxRXPower of table hh3cTransceiverInfoTable.
 // Indicating the maximum received power. The unit is in hundredths of dBm.
-var Hh3cTransceiverMaxRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverMaxRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 13), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverMinRXPower is the column hh3cTransceiverMinRXPower of table hh3cTransceiverInfoTable.
 // Indicating the minimum received power. The unit is in hundredths of dBm.
-var Hh3cTransceiverMinRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 14), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverMinRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 14), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverTemperature is the column hh3cTransceiverTemperature of table hh3cTransceiverInfoTable.
 // Indicating the current temperature. The unit is Celsius centigrade.
-var Hh3cTransceiverTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverVoltage is the column hh3cTransceiverVoltage of table hh3cTransceiverInfoTable.
 // Indicating the current voltage. The unit is in hundredths of V
-var Hh3cTransceiverVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverBiasCurrent is the column hh3cTransceiverBiasCurrent of table hh3cTransceiverInfoTable.
 // Indicating the current bias electric current. The unit is in hundredths
 // of mA
-var Hh3cTransceiverBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 17), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverTempHiAlarm is the column hh3cTransceiverTempHiAlarm of table hh3cTransceiverInfoTable.
 // Transceiver temperature high alarm threshold in thousandths of degrees
 // Celsius. As an example: 49120 is 49.120 degrees Celsius.
-var Hh3cTransceiverTempHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 18), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverTempHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverTempLoAlarm is the column hh3cTransceiverTempLoAlarm of table hh3cTransceiverInfoTable.
 // Transceiver temperature low alarm threshold in thousandths of degrees
 // Celsius. As an example: 49120 is 49.120 degrees Celsius.
-var Hh3cTransceiverTempLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 19), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverTempLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverTempHiWarn is the column hh3cTransceiverTempHiWarn of table hh3cTransceiverInfoTable.
 // Transceiver temperature high warning threshold in thousandths of degrees
 // Celsius. As an example: 49120 is 49.120 degrees Celsius.
-var Hh3cTransceiverTempHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 20), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverTempHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 20), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverTempLoWarn is the column hh3cTransceiverTempLoWarn of table hh3cTransceiverInfoTable.
 // Transceiver temperature low warning threshold in thousandths of degrees
 // Celsius. As an example: 49120 is 49.120 degrees Celsius.
-var Hh3cTransceiverTempLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 21), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverTempLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverVccHiAlarm is the column hh3cTransceiverVccHiAlarm of table hh3cTransceiverInfoTable.
 // Transceiver VCC high alarm threshold in hundreds of microvolts. As an
 // example: 32928 is 3.2928 volts. Returns zero if not supported on the
 // transceiver.
-var Hh3cTransceiverVccHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 22), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverVccHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverVccLoAlarm is the column hh3cTransceiverVccLoAlarm of table hh3cTransceiverInfoTable.
 // Transceiver VCC low alarm threshold in hundreds of microvolts. As an
 // example: 32928 is 3.2928 volts. Returns zero if not supported on the
 // transceiver.
-var Hh3cTransceiverVccLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 23), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverVccLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverVccHiWarn is the column hh3cTransceiverVccHiWarn of table hh3cTransceiverInfoTable.
 // Transceiver VCC high warning threshold in hundreds of microvolts. As an
 // example: 32928 is 3.2928 volts. Returns zero if not supported on the
 // transceiver.
-var Hh3cTransceiverVccHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 24), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverVccHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverVccLoWarn is the column hh3cTransceiverVccLoWarn of table hh3cTransceiverInfoTable.
 // Transceiver VCC low warning threshold in hundreds of microvolts. As an
 // example: 32928 is 3.2928 volts. Returns zero if not supported on the
 // transceiver.
-var Hh3cTransceiverVccLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 25), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverVccLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverBiasHiAlarm is the column hh3cTransceiverBiasHiAlarm of table hh3cTransceiverInfoTable.
 // Transceiver bias high alarm threshold in microamps.
-var Hh3cTransceiverBiasHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 26), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverBiasHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 26), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverBiasLoAlarm is the column hh3cTransceiverBiasLoAlarm of table hh3cTransceiverInfoTable.
 // Transceiver bias low alarm threshold in microamps.
-var Hh3cTransceiverBiasLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 27), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverBiasLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 27), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverBiasHiWarn is the column hh3cTransceiverBiasHiWarn of table hh3cTransceiverInfoTable.
 // Transceiver bias high warning threshold in microamps.
-var Hh3cTransceiverBiasHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 28), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverBiasHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 28), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverBiasLoWarn is the column hh3cTransceiverBiasLoWarn of table hh3cTransceiverInfoTable.
 // Transceiver bias low warning threshold in microamps.
-var Hh3cTransceiverBiasLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 29), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverBiasLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 29), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutHiAlarm is the column hh3cTransceiverPwrOutHiAlarm of table hh3cTransceiverInfoTable.
 // Transceiver transmit power high alarm threshold in tenths of microwatts.
 // As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverPwrOutHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 30), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 30), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutLoAlarm is the column hh3cTransceiverPwrOutLoAlarm of table hh3cTransceiverInfoTable.
 // Transceiver transmit power low alarm threshold in tenths of microwatts.
 // As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverPwrOutLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 31), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 31), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutHiWarn is the column hh3cTransceiverPwrOutHiWarn of table hh3cTransceiverInfoTable.
 // Transceiver transmit power high warning threshold in tenths of
 // microwatts As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverPwrOutHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 32), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 32), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutLoWarn is the column hh3cTransceiverPwrOutLoWarn of table hh3cTransceiverInfoTable.
 // Transceiver transmit power low warning threshold in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverPwrOutLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 33), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 33), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrHiAlarm is the column hh3cTransceiverRcvPwrHiAlarm of table hh3cTransceiverInfoTable.
 // Transceiver receive power high alarm threshold in tenths of microwatts.
 // As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverRcvPwrHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 34), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 34), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrLoAlarm is the column hh3cTransceiverRcvPwrLoAlarm of table hh3cTransceiverInfoTable.
 // Transceiver receive power low alarm threshold in tenths of microwatts.
 // As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverRcvPwrLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 35), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 35), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrHiWarn is the column hh3cTransceiverRcvPwrHiWarn of table hh3cTransceiverInfoTable.
 // Transceiver receive power high warning threshold in tenths of
 // microwatts. As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverRcvPwrHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 36), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrHiWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 36), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrLoWarn is the column hh3cTransceiverRcvPwrLoWarn of table hh3cTransceiverInfoTable.
 // Transceiver receive power low warning threshold in tenths of microwatts.
 // As an example: 10000 is 1 milliwatt.
-var Hh3cTransceiverRcvPwrLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 37), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 37), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverErrors is the column hh3cTransceiverErrors of table hh3cTransceiverInfoTable.
 // Bitmask indicating transceiver errors. Transceiver information I/O
@@ -398,28 +324,20 @@ var Hh3cTransceiverRcvPwrLoWarn = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1,
 // PCS transmit local fault(14) PHY XS Transmit Local Fault(15) RX loss of
 // signal(16) TEC error(17) Wavelength unlocked(18) Tx is not ready due to
 // tuning(19) Unused(20-31)
-var Hh3cTransceiverErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 38), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var Hh3cTransceiverErrors = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 38), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // Hh3cTransceiverVendorOUI is the column hh3cTransceiverVendorOUI of table hh3cTransceiverInfoTable.
 // Vendor OUI of the interface.
-var Hh3cTransceiverVendorOUI = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 39), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverVendorOUI = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 39), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverRevisionNumber is the column hh3cTransceiverRevisionNumber of table hh3cTransceiverInfoTable.
 // Revision number of the interface.
-var Hh3cTransceiverRevisionNumber = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 40), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverRevisionNumber = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 40), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverFrequency is the column hh3cTransceiverFrequency of table hh3cTransceiverInfoTable.
 // The frequency of the current ITU channel on the connected transceiver.
 // The unit is hundredths of THz.
-var Hh3cTransceiverFrequency = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 41), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverFrequency = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 41), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverActiveITUChannel is the column hh3cTransceiverActiveITUChannel of table hh3cTransceiverInfoTable.
 // The index of the current ITU channel on the connected transceiver. The
@@ -427,137 +345,97 @@ var Hh3cTransceiverFrequency = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4,
 // model. The value of this node depends on the hh3cTransceiverITUChanIdx
 // node of hh3cTransceiverITUChanTable. The value of this node affects the
 // frequency or wavelength.
-var Hh3cTransceiverActiveITUChannel = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 42), snmp.KindUinteger32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Hh3cTransceiverActiveITUChannel = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 42), snmp.KindUinteger32, snmp.DecodeUint32)
 
 // Hh3cTransceiverCurWaveErr is the column hh3cTransceiverCurWaveErr of table hh3cTransceiverInfoTable.
 // The current wavelength error of the current ITU channel on the connected
 // transceiver. The unit is thousandths of nm.
-var Hh3cTransceiverCurWaveErr = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 43), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverCurWaveErr = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 43), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverWaveErrHiAlarm is the column hh3cTransceiverWaveErrHiAlarm of table hh3cTransceiverInfoTable.
 // The high wavelength error alarm threshold of the current ITU channel on
 // the connected transceiver. The unit is thousandths of nm.
-var Hh3cTransceiverWaveErrHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 44), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverWaveErrHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 44), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverWaveErrLoAlarm is the column hh3cTransceiverWaveErrLoAlarm of table hh3cTransceiverInfoTable.
 // The low wavelength error alarm threshold of the current ITU channel on
 // the connected transceiver. The unit is thousandths of nm.
-var Hh3cTransceiverWaveErrLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 45), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverWaveErrLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 45), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverCurFreqErr is the column hh3cTransceiverCurFreqErr of table hh3cTransceiverInfoTable.
 // The current frequency error of the current ITU channel on the connected
 // transceiver. The unit is tenths of GHz.
-var Hh3cTransceiverCurFreqErr = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 46), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverCurFreqErr = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 46), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverFreqErrHiAlarm is the column hh3cTransceiverFreqErrHiAlarm of table hh3cTransceiverInfoTable.
 // The high frequency error alarm threshold of the current ITU channel on
 // the connected transceiver. The unit is tenths of GHz.
-var Hh3cTransceiverFreqErrHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 47), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverFreqErrHiAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 47), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverFreqErrLoAlarm is the column hh3cTransceiverFreqErrLoAlarm of table hh3cTransceiverInfoTable.
 // The low frequency error alarm threshold of the current ITU channel on
 // the connected transceiver. The unit is tenths of GHz.
-var Hh3cTransceiverFreqErrLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 48), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverFreqErrLoAlarm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 48), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPartNumber is the column hh3cTransceiverPartNumber of table hh3cTransceiverInfoTable.
 // PartNumber of the interface. As an example: 1110409083.
-var Hh3cTransceiverPartNumber = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 49), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverPartNumber = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 49), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverProductCode is the column hh3cTransceiverProductCode of table hh3cTransceiverInfoTable.
 // Product Code of the interface. As an example: MRC00CD.
-var Hh3cTransceiverProductCode = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 50), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverProductCode = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 50), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverOriginalSN is the column hh3cTransceiverOriginalSN of table hh3cTransceiverInfoTable.
 // Orginal serial number of the interface.
-var Hh3cTransceiverOriginalSN = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 51), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverOriginalSN = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 51), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverPwrOutHiAlarmDbm is the column hh3cTransceiverPwrOutHiAlarmDbm of table hh3cTransceiverInfoTable.
 // Transceiver transmit power high alarm threshold in hundredths of dBm. As
 // an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverPwrOutHiAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 52), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutHiAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 52), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutLoAlarmDbm is the column hh3cTransceiverPwrOutLoAlarmDbm of table hh3cTransceiverInfoTable.
 // Transceiver transmit power low alarm threshold in hundredths of dBm. As
 // an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverPwrOutLoAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 53), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutLoAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 53), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutHiWarnDbm is the column hh3cTransceiverPwrOutHiWarnDbm of table hh3cTransceiverInfoTable.
 // Transceiver transmit power high warning threshold in hundredths of dBm.
 // As an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverPwrOutHiWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 54), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutHiWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 54), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverPwrOutLoWarnDbm is the column hh3cTransceiverPwrOutLoWarnDbm of table hh3cTransceiverInfoTable.
 // Transceiver transmit power low warning threshold in hundredths of dBm.
 // As an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverPwrOutLoWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 55), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverPwrOutLoWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 55), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrHiAlarmDbm is the column hh3cTransceiverRcvPwrHiAlarmDbm of table hh3cTransceiverInfoTable.
 // Transceiver receive power high alarm threshold in hundredths of dBm. As
 // an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverRcvPwrHiAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 56), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrHiAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 56), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrLoAlarmDbm is the column hh3cTransceiverRcvPwrLoAlarmDbm of table hh3cTransceiverInfoTable.
 // Transceiver receive power low alarm threshold in hundredths of dBm. As
 // an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverRcvPwrLoAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 57), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrLoAlarmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 57), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrHiWarnDbm is the column hh3cTransceiverRcvPwrHiWarnDbm of table hh3cTransceiverInfoTable.
 // Transceiver receive power high warning threshold in hundredths of dBm.
 // As an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverRcvPwrHiWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 58), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrHiWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 58), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRcvPwrLoWarnDbm is the column hh3cTransceiverRcvPwrLoWarnDbm of table hh3cTransceiverInfoTable.
 // Transceiver receive power low warning threshold in hundredths of dBm. As
 // an example: 100 milliwatts is 20 dBms.
-var Hh3cTransceiverRcvPwrLoWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 59), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverRcvPwrLoWarnDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 59), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverRelySlotMfgName is the column hh3cTransceiverRelySlotMfgName of table hh3cTransceiverInfoTable.
 // Vendor name of the card on which the transceiver is installed.
-var Hh3cTransceiverRelySlotMfgName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 60), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverRelySlotMfgName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 60), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverRelySlotMfgDate is the column hh3cTransceiverRelySlotMfgDate of table hh3cTransceiverInfoTable.
 // Manufacturing date of the card on which the transceiver is installed.
-var Hh3cTransceiverRelySlotMfgDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 61), snmp.KindOctetString, func(vb snmp.VarBind) (time.Time, error) {
-	return snmp.DecodeDateAndTime(vb)
-})
+var Hh3cTransceiverRelySlotMfgDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 1, 1, 61), snmp.KindOctetString, snmp.DecodeDateAndTime)
 
 // Hh3cTransceiverInfoTableKey is the decoded INDEX of one hh3cTransceiverInfoTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -847,7 +725,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverWaveLength.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverWaveLength = int32(v)
+						row.Hh3cTransceiverWaveLength = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -909,7 +787,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverTransferDistance.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverTransferDistance = int32(v)
+						row.Hh3cTransceiverTransferDistance = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -940,7 +818,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverCurTXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverCurTXPower = int32(v)
+						row.Hh3cTransceiverCurTXPower = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -958,7 +836,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverMaxTXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverMaxTXPower = int32(v)
+						row.Hh3cTransceiverMaxTXPower = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -976,7 +854,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverMinTXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverMinTXPower = int32(v)
+						row.Hh3cTransceiverMinTXPower = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -994,7 +872,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverCurRXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverCurRXPower = int32(v)
+						row.Hh3cTransceiverCurRXPower = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1012,7 +890,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverMaxRXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverMaxRXPower = int32(v)
+						row.Hh3cTransceiverMaxRXPower = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1030,7 +908,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverMinRXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverMinRXPower = int32(v)
+						row.Hh3cTransceiverMinRXPower = v
 						row.observed[0] |= 1 << 13
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1048,7 +926,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverTemperature = int32(v)
+						row.Hh3cTransceiverTemperature = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1066,7 +944,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverVoltage.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverVoltage = int32(v)
+						row.Hh3cTransceiverVoltage = v
 						row.observed[0] |= 1 << 15
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1084,7 +962,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverBiasCurrent = int32(v)
+						row.Hh3cTransceiverBiasCurrent = v
 						row.observed[0] |= 1 << 16
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1102,7 +980,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverTempHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverTempHiAlarm = int32(v)
+						row.Hh3cTransceiverTempHiAlarm = v
 						row.observed[0] |= 1 << 17
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1120,7 +998,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverTempLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverTempLoAlarm = int32(v)
+						row.Hh3cTransceiverTempLoAlarm = v
 						row.observed[0] |= 1 << 18
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1138,7 +1016,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverTempHiWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverTempHiWarn = int32(v)
+						row.Hh3cTransceiverTempHiWarn = v
 						row.observed[0] |= 1 << 19
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1156,7 +1034,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverTempLoWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverTempLoWarn = int32(v)
+						row.Hh3cTransceiverTempLoWarn = v
 						row.observed[0] |= 1 << 20
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1174,7 +1052,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverVccHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverVccHiAlarm = int32(v)
+						row.Hh3cTransceiverVccHiAlarm = v
 						row.observed[0] |= 1 << 21
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1192,7 +1070,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverVccLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverVccLoAlarm = int32(v)
+						row.Hh3cTransceiverVccLoAlarm = v
 						row.observed[0] |= 1 << 22
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1210,7 +1088,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverVccHiWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverVccHiWarn = int32(v)
+						row.Hh3cTransceiverVccHiWarn = v
 						row.observed[0] |= 1 << 23
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1228,7 +1106,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverVccLoWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverVccLoWarn = int32(v)
+						row.Hh3cTransceiverVccLoWarn = v
 						row.observed[0] |= 1 << 24
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1246,7 +1124,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverBiasHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverBiasHiAlarm = int32(v)
+						row.Hh3cTransceiverBiasHiAlarm = v
 						row.observed[0] |= 1 << 25
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1264,7 +1142,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverBiasLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverBiasLoAlarm = int32(v)
+						row.Hh3cTransceiverBiasLoAlarm = v
 						row.observed[0] |= 1 << 26
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1282,7 +1160,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverBiasHiWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverBiasHiWarn = int32(v)
+						row.Hh3cTransceiverBiasHiWarn = v
 						row.observed[0] |= 1 << 27
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1300,7 +1178,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverBiasLoWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverBiasLoWarn = int32(v)
+						row.Hh3cTransceiverBiasLoWarn = v
 						row.observed[0] |= 1 << 28
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1318,7 +1196,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutHiAlarm = int32(v)
+						row.Hh3cTransceiverPwrOutHiAlarm = v
 						row.observed[0] |= 1 << 29
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1336,7 +1214,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutLoAlarm = int32(v)
+						row.Hh3cTransceiverPwrOutLoAlarm = v
 						row.observed[0] |= 1 << 30
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1354,7 +1232,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutHiWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutHiWarn = int32(v)
+						row.Hh3cTransceiverPwrOutHiWarn = v
 						row.observed[0] |= 1 << 31
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1372,7 +1250,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutLoWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutLoWarn = int32(v)
+						row.Hh3cTransceiverPwrOutLoWarn = v
 						row.observed[0] |= 1 << 32
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1390,7 +1268,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrHiAlarm = int32(v)
+						row.Hh3cTransceiverRcvPwrHiAlarm = v
 						row.observed[0] |= 1 << 33
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1408,7 +1286,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrLoAlarm = int32(v)
+						row.Hh3cTransceiverRcvPwrLoAlarm = v
 						row.observed[0] |= 1 << 34
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1426,7 +1304,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrHiWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrHiWarn = int32(v)
+						row.Hh3cTransceiverRcvPwrHiWarn = v
 						row.observed[0] |= 1 << 35
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1444,7 +1322,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrLoWarn.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrLoWarn = int32(v)
+						row.Hh3cTransceiverRcvPwrLoWarn = v
 						row.observed[0] |= 1 << 36
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1501,7 +1379,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverFrequency.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverFrequency = int32(v)
+						row.Hh3cTransceiverFrequency = v
 						row.observed[0] |= 1 << 40
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1519,7 +1397,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverActiveITUChannel.Key():
 					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Hh3cTransceiverActiveITUChannel = uint32(v)
+						row.Hh3cTransceiverActiveITUChannel = v
 						row.observed[0] |= 1 << 41
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1537,7 +1415,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverCurWaveErr.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverCurWaveErr = int32(v)
+						row.Hh3cTransceiverCurWaveErr = v
 						row.observed[0] |= 1 << 42
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1555,7 +1433,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverWaveErrHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverWaveErrHiAlarm = int32(v)
+						row.Hh3cTransceiverWaveErrHiAlarm = v
 						row.observed[0] |= 1 << 43
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1573,7 +1451,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverWaveErrLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverWaveErrLoAlarm = int32(v)
+						row.Hh3cTransceiverWaveErrLoAlarm = v
 						row.observed[0] |= 1 << 44
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1591,7 +1469,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverCurFreqErr.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverCurFreqErr = int32(v)
+						row.Hh3cTransceiverCurFreqErr = v
 						row.observed[0] |= 1 << 45
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1609,7 +1487,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverFreqErrHiAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverFreqErrHiAlarm = int32(v)
+						row.Hh3cTransceiverFreqErrHiAlarm = v
 						row.observed[0] |= 1 << 46
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1627,7 +1505,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverFreqErrLoAlarm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverFreqErrLoAlarm = int32(v)
+						row.Hh3cTransceiverFreqErrLoAlarm = v
 						row.observed[0] |= 1 << 47
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1684,7 +1562,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutHiAlarmDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutHiAlarmDbm = int32(v)
+						row.Hh3cTransceiverPwrOutHiAlarmDbm = v
 						row.observed[0] |= 1 << 51
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1702,7 +1580,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutLoAlarmDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutLoAlarmDbm = int32(v)
+						row.Hh3cTransceiverPwrOutLoAlarmDbm = v
 						row.observed[0] |= 1 << 52
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1720,7 +1598,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutHiWarnDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutHiWarnDbm = int32(v)
+						row.Hh3cTransceiverPwrOutHiWarnDbm = v
 						row.observed[0] |= 1 << 53
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1738,7 +1616,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverPwrOutLoWarnDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverPwrOutLoWarnDbm = int32(v)
+						row.Hh3cTransceiverPwrOutLoWarnDbm = v
 						row.observed[0] |= 1 << 54
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1756,7 +1634,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrHiAlarmDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrHiAlarmDbm = int32(v)
+						row.Hh3cTransceiverRcvPwrHiAlarmDbm = v
 						row.observed[0] |= 1 << 55
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1774,7 +1652,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrLoAlarmDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrLoAlarmDbm = int32(v)
+						row.Hh3cTransceiverRcvPwrLoAlarmDbm = v
 						row.observed[0] |= 1 << 56
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1792,7 +1670,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrHiWarnDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrHiWarnDbm = int32(v)
+						row.Hh3cTransceiverRcvPwrHiWarnDbm = v
 						row.observed[0] |= 1 << 57
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1810,7 +1688,7 @@ func (tw *Hh3cTransceiverInfoTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTransce
 					}
 				case Hh3cTransceiverRcvPwrLoWarnDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverRcvPwrLoWarnDbm = int32(v)
+						row.Hh3cTransceiverRcvPwrLoWarnDbm = v
 						row.observed[0] |= 1 << 58
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1931,64 +1809,44 @@ func (hh3cTransceiverInfoTableT) WalkWithOptions(ctx context.Context, sess snmp.
 // Hh3cTransceiverChannelCurTXPower is the column hh3cTransceiverChannelCurTXPower of table hh3cTransceiverChannelTable.
 // Indicating the current transmission power. The unit is in hundredths of
 // dBm.
-var Hh3cTransceiverChannelCurTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelCurTXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelCurRXPower is the column hh3cTransceiverChannelCurRXPower of table hh3cTransceiverChannelTable.
 // Indicating the current received power. The unit is in hundredths of dBm.
-var Hh3cTransceiverChannelCurRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelCurRXPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelTemperature is the column hh3cTransceiverChannelTemperature of table hh3cTransceiverChannelTable.
 // Indicating the current temperature. The unit is Celsius centigrade.
-var Hh3cTransceiverChannelTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelBiasCurrent is the column hh3cTransceiverChannelBiasCurrent of table hh3cTransceiverChannelTable.
 // Indicating the current bias electric current. The unit is in hundredths
 // of mA.
-var Hh3cTransceiverChannelBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelBiasHiAm is the column hh3cTransceiverChannelBiasHiAm of table hh3cTransceiverChannelTable.
 // Transceiver bias high alarm threshold in microamps.
-var Hh3cTransceiverChannelBiasHiAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelBiasHiAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelBiasLoAm is the column hh3cTransceiverChannelBiasLoAm of table hh3cTransceiverChannelTable.
 // Transceiver bias low alarm threshold in microamps.
-var Hh3cTransceiverChannelBiasLoAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelBiasLoAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelTXPwrHiAm is the column hh3cTransceiverChannelTXPwrHiAm of table hh3cTransceiverChannelTable.
 // Transceiver transmit power high alarm threshold in tenths of microwatts.
-var Hh3cTransceiverChannelTXPwrHiAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelTXPwrHiAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelTXPwrLoAm is the column hh3cTransceiverChannelTXPwrLoAm of table hh3cTransceiverChannelTable.
 // Transceiver transmit power low alarm threshold in tenths of microwatts.
-var Hh3cTransceiverChannelTXPwrLoAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 9), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChannelTXPwrLoAm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChanTXPwrHiAmDbm is the column hh3cTransceiverChanTXPwrHiAmDbm of table hh3cTransceiverChannelTable.
 // Transceiver transmit power high alarm threshold in hundredths of dBm.
-var Hh3cTransceiverChanTXPwrHiAmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 10), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChanTXPwrHiAmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChanTXPwrLoAmDbm is the column hh3cTransceiverChanTXPwrLoAmDbm of table hh3cTransceiverChannelTable.
 // Transceiver transmit power low alarm threshold in hundredths of dBm.
-var Hh3cTransceiverChanTXPwrLoAmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 11), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverChanTXPwrLoAmDbm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 2, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverChannelTableKey is the decoded INDEX of one hh3cTransceiverChannelTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2100,7 +1958,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 				switch tw.cols[cell.Column].Key() {
 				case Hh3cTransceiverChannelCurTXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelCurTXPower = int32(v)
+						row.Hh3cTransceiverChannelCurTXPower = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2118,7 +1976,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelCurRXPower.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelCurRXPower = int32(v)
+						row.Hh3cTransceiverChannelCurRXPower = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2136,7 +1994,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelTemperature.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelTemperature = int32(v)
+						row.Hh3cTransceiverChannelTemperature = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2154,7 +2012,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelBiasCurrent.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelBiasCurrent = int32(v)
+						row.Hh3cTransceiverChannelBiasCurrent = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2172,7 +2030,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelBiasHiAm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelBiasHiAm = int32(v)
+						row.Hh3cTransceiverChannelBiasHiAm = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2190,7 +2048,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelBiasLoAm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelBiasLoAm = int32(v)
+						row.Hh3cTransceiverChannelBiasLoAm = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2208,7 +2066,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelTXPwrHiAm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelTXPwrHiAm = int32(v)
+						row.Hh3cTransceiverChannelTXPwrHiAm = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2226,7 +2084,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChannelTXPwrLoAm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChannelTXPwrLoAm = int32(v)
+						row.Hh3cTransceiverChannelTXPwrLoAm = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2244,7 +2102,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChanTXPwrHiAmDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChanTXPwrHiAmDbm = int32(v)
+						row.Hh3cTransceiverChanTXPwrHiAmDbm = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2262,7 +2120,7 @@ func (tw *Hh3cTransceiverChannelTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverChanTXPwrLoAmDbm.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverChanTXPwrLoAmDbm = int32(v)
+						row.Hh3cTransceiverChanTXPwrLoAmDbm = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2357,16 +2215,12 @@ func (hh3cTransceiverChannelTableT) WalkWithOptions(ctx context.Context, sess sn
 // Hh3cTransceiverITUChanFreq is the column hh3cTransceiverITUChanFreq of table hh3cTransceiverITUChanTable.
 // The frequency of the specified ITU channel on the transceiver that is
 // connected to this interface. The unit is hundredths of THz.
-var Hh3cTransceiverITUChanFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 3, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverITUChanFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverITUChanWaveLth is the column hh3cTransceiverITUChanWaveLth of table hh3cTransceiverITUChanTable.
 // The wave length of the specified ITU channel on the transceiver that is
 // connected to this interface. The unit is pm.
-var Hh3cTransceiverITUChanWaveLth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 3, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var Hh3cTransceiverITUChanWaveLth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 3, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
 
 // Hh3cTransceiverITUChanTableKey is the decoded INDEX of one hh3cTransceiverITUChanTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2454,7 +2308,7 @@ func (tw *Hh3cTransceiverITUChanTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 				switch tw.cols[cell.Column].Key() {
 				case Hh3cTransceiverITUChanFreq.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverITUChanFreq = int32(v)
+						row.Hh3cTransceiverITUChanFreq = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2472,7 +2326,7 @@ func (tw *Hh3cTransceiverITUChanTableWalker) Iter() iter.Seq2[snmp.OID, Hh3cTran
 					}
 				case Hh3cTransceiverITUChanWaveLth.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Hh3cTransceiverITUChanWaveLth = int32(v)
+						row.Hh3cTransceiverITUChanWaveLth = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2567,22 +2421,16 @@ func (hh3cTransceiverITUChanTableT) WalkWithOptions(ctx context.Context, sess sn
 // Hh3cTransceiverLaneCurTxPower is the column hh3cTransceiverLaneCurTxPower of table hh3cTransceiverLaneTable.
 // Indicating the current transmitted power. The unit is in hundredths of
 // dBm.
-var Hh3cTransceiverLaneCurTxPower = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverLaneCurTxPower = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverLaneCurRxPower is the column hh3cTransceiverLaneCurRxPower of table hh3cTransceiverLaneTable.
 // Indicating the current received power. The unit is in hundredths of dBm.
-var Hh3cTransceiverLaneCurRxPower = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverLaneCurRxPower = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverLaneBiasCurrent is the column hh3cTransceiverLaneBiasCurrent of table hh3cTransceiverLaneTable.
 // Indicating the current bias electric current. The unit is in hundredths
 // of mA.
-var Hh3cTransceiverLaneBiasCurrent = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var Hh3cTransceiverLaneBiasCurrent = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 25506, 2, 70, 1, 4, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // Hh3cTransceiverLaneTableKey is the decoded INDEX of one hh3cTransceiverLaneTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.

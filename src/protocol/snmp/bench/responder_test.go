@@ -403,12 +403,12 @@ func startResponderWithHandler(b testing.TB, respond func([]byte) []byte) string
 	return conn.LocalAddr().String()
 }
 
-// buildScaleMIB constructs twenty readable ifTable columns before measurement.
+// buildScaleMIB constructs readable ifTable columns before measurement.
 // Sparse mode separates the counters' indexes and leaves ifOutErrors absent.
 func buildScaleMIB(rows int, sparse bool, payload int) []mibEntry {
 	var entries []mibEntry
 	for col := uint32(1); col <= 22; col++ {
-		if col == 6 || col == 22 || (sparse && col == 20) {
+		if col == 22 || (sparse && col == 20) {
 			continue
 		}
 		for row := 1; row <= rows; row++ {
@@ -424,6 +424,8 @@ func buildScaleMIB(rows int, sparse bool, payload int) []mibEntry {
 			switch {
 			case col == 2:
 				value = octetTLV(strings.Repeat("x", payload))
+			case col == 6:
+				value = octetTLV("abcdef")
 			case col == 5 || col == 21:
 				value = tlv(0x42, []byte{1})
 			case col == 9:

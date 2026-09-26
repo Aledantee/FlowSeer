@@ -224,9 +224,7 @@ var Dot3StatsIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsAlignmentErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 2), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsAlignmentErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsFCSErrors is the column dot3StatsFCSErrors of table dot3StatsTable.
 // A count of frames received on a particular interface that are an
@@ -247,9 +245,7 @@ var Dot3StatsAlignmentErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2
 // or faster interfaces. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsFCSErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 3), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsFCSErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsSingleCollisionFrames is the column dot3StatsSingleCollisionFrames of table dot3StatsTable.
 // A count of frames that are involved in a single collision, and are
@@ -262,9 +258,7 @@ var Dot3StatsFCSErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ifCounterDiscontinuityTime.
-var Dot3StatsSingleCollisionFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsSingleCollisionFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsMultipleCollisionFrames is the column dot3StatsMultipleCollisionFrames of table dot3StatsTable.
 // A count of frames that are involved in more than one collision and are
@@ -277,9 +271,7 @@ var Dot3StatsSingleCollisionFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6
 // the value of this counter can occur at re-initialization of the
 // management system, and at other times as indicated by the value of
 // ifCounterDiscontinuityTime.
-var Dot3StatsMultipleCollisionFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 5), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsMultipleCollisionFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsSQETestErrors is the column dot3StatsSQETestErrors of table dot3StatsTable.
 // A count of times that the SQE TEST ERROR is received on a particular
@@ -291,9 +283,7 @@ var Dot3StatsMultipleCollisionFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3,
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsSQETestErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsSQETestErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsDeferredTransmissions is the column dot3StatsDeferredTransmissions of table dot3StatsTable.
 // A count of frames for which the first transmission attempt on a
@@ -304,9 +294,7 @@ var Dot3StatsSQETestErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 
 // of this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ifCounterDiscontinuityTime.
-var Dot3StatsDeferredTransmissions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 7), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsDeferredTransmissions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsLateCollisions is the column dot3StatsLateCollisions of table dot3StatsTable.
 // The number of times that a collision is detected on a particular
@@ -318,9 +306,7 @@ var Dot3StatsDeferredTransmissions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6
 // of this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ifCounterDiscontinuityTime.
-var Dot3StatsLateCollisions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 8), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsLateCollisions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsExcessiveCollisions is the column dot3StatsExcessiveCollisions of table dot3StatsTable.
 // A count of frames for which transmission on a particular interface fails
@@ -329,11 +315,9 @@ var Dot3StatsLateCollisions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2,
 // of this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ifCounterDiscontinuityTime.
-var Dot3StatsExcessiveCollisions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 9), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsExcessiveCollisions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
 
-// Dot3StatsInternalMacTransmitErrors is the column dot3StatsInternalMacTransmitErrors of table dot3StatsTable.
+// Dot3StatsInternalMACTransmitErrors is the column dot3StatsInternalMacTransmitErrors of table dot3StatsTable.
 // A count of frames for which transmission on a particular interface fails
 // due to an internal MAC sublayer transmit error. A frame is only counted
 // by an instance of this object if it is not counted by the corresponding
@@ -351,9 +335,7 @@ var Dot3StatsExcessiveCollisions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 
 // interfaces. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsInternalMacTransmitErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 10), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsInternalMACTransmitErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsCarrierSenseErrors is the column dot3StatsCarrierSenseErrors of table dot3StatsTable.
 // The number of times that the carrier sense condition was lost or never
@@ -365,9 +347,7 @@ var Dot3StatsInternalMacTransmitErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsCarrierSenseErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 11), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsCarrierSenseErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsFrameTooLongs is the column dot3StatsFrameTooLongs of table dot3StatsTable.
 // A count of frames received on a particular interface that exceed the
@@ -385,11 +365,9 @@ var Dot3StatsCarrierSenseErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsFrameTooLongs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 13), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsFrameTooLongs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 13), snmp.KindCounter32, snmp.DecodeUint32)
 
-// Dot3StatsInternalMacReceiveErrors is the column dot3StatsInternalMacReceiveErrors of table dot3StatsTable.
+// Dot3StatsInternalMACReceiveErrors is the column dot3StatsInternalMacReceiveErrors of table dot3StatsTable.
 // A count of frames for which reception on a particular interface fails
 // due to an internal MAC sublayer receive error. A frame is only counted
 // by an instance of this object if it is not counted by the corresponding
@@ -407,9 +385,7 @@ var Dot3StatsFrameTooLongs = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 
 // interfaces. Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsInternalMacReceiveErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 16), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsInternalMACReceiveErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 16), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsEtherChipSet is the column dot3StatsEtherChipSet of table dot3StatsTable.
 // ******** THIS OBJECT IS DEPRECATED ******** This object contains an
@@ -422,14 +398,13 @@ var Dot3StatsInternalMacReceiveErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3
 // chip which actually gathers the transmit and receive statistics and
 // error indications. This would allow a manager station to correlate the
 // statistics and the chip generating them, giving it the ability to take
-// into account any known anomalies in the chip. This object has been
-// deprecated. Implementation feedback indicates that it is of limited use
-// for debugging network problems in the field, and the administrative
-// overhead involved in maintaining a registry of chipset OIDs is not
-// justified.
-var Dot3StatsEtherChipSet = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 17), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+// into account any known anomalies in the chip. This object has been deprecated.
+// Implementation feedback indicates that it is of limited use for
+// debugging network problems in the field, and the administrative overhead
+// involved in maintaining a registry of chipset OIDs is not justified.
+//
+// Deprecated: dot3StatsEtherChipSet is STATUS deprecated in EtherLike-MIB.
+var Dot3StatsEtherChipSet = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 17), snmp.KindObjectID, snmp.DecodeOID)
 
 // Dot3StatsSymbolErrors is the column dot3StatsSymbolErrors of table dot3StatsTable.
 // For an interface operating at 100 Mb/s, the number of times there was an
@@ -460,9 +435,7 @@ var Dot3StatsEtherChipSet = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2,
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3StatsSymbolErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 18), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3StatsSymbolErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 18), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3StatsDuplexStatus is the column dot3StatsDuplexStatus of table dot3StatsTable.
 // The current mode of operation of the MAC entity. 'unknown' indicates
@@ -490,9 +463,7 @@ var Dot3StatsDuplexStatus = snmp.NewColumn[Dot3StatsDuplexStatusValue](snmp.Must
 // 'true' for interfaces operating at speeds above 1000 Mb/s that support
 // Rate Control through lowering the average data rate of the MAC sublayer,
 // with frame granularity, and 'false' otherwise.
-var Dot3StatsRateControlAbility = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 20), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var Dot3StatsRateControlAbility = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 20), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // Dot3StatsRateControlStatus is the column dot3StatsRateControlStatus of table dot3StatsTable.
 // The current Rate Control mode of operation of the MAC sublayer of this
@@ -543,10 +514,10 @@ type Dot3StatsTableRow struct {
 	Dot3StatsDeferredTransmissions     uint32
 	Dot3StatsLateCollisions            uint32
 	Dot3StatsExcessiveCollisions       uint32
-	Dot3StatsInternalMacTransmitErrors uint32
+	Dot3StatsInternalMACTransmitErrors uint32
 	Dot3StatsCarrierSenseErrors        uint32
 	Dot3StatsFrameTooLongs             uint32
-	Dot3StatsInternalMacReceiveErrors  uint32
+	Dot3StatsInternalMACReceiveErrors  uint32
 	Dot3StatsEtherChipSet              snmp.OID
 	Dot3StatsSymbolErrors              uint32
 	Dot3StatsDuplexStatus              Dot3StatsDuplexStatusValue
@@ -590,13 +561,13 @@ func (r Dot3StatsTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<7) != 0
 	case Dot3StatsExcessiveCollisions.Key():
 		return r.observed[0]&(1<<8) != 0
-	case Dot3StatsInternalMacTransmitErrors.Key():
+	case Dot3StatsInternalMACTransmitErrors.Key():
 		return r.observed[0]&(1<<9) != 0
 	case Dot3StatsCarrierSenseErrors.Key():
 		return r.observed[0]&(1<<10) != 0
 	case Dot3StatsFrameTooLongs.Key():
 		return r.observed[0]&(1<<11) != 0
-	case Dot3StatsInternalMacReceiveErrors.Key():
+	case Dot3StatsInternalMACReceiveErrors.Key():
 		return r.observed[0]&(1<<12) != 0
 	case Dot3StatsEtherChipSet.Key():
 		return r.observed[0]&(1<<13) != 0
@@ -656,7 +627,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsAlignmentErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsAlignmentErrors = uint32(v)
+						row.Dot3StatsAlignmentErrors = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -674,7 +645,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsFCSErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsFCSErrors = uint32(v)
+						row.Dot3StatsFCSErrors = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -692,7 +663,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsSingleCollisionFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsSingleCollisionFrames = uint32(v)
+						row.Dot3StatsSingleCollisionFrames = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -710,7 +681,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsMultipleCollisionFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsMultipleCollisionFrames = uint32(v)
+						row.Dot3StatsMultipleCollisionFrames = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -728,7 +699,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsSQETestErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsSQETestErrors = uint32(v)
+						row.Dot3StatsSQETestErrors = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -746,7 +717,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsDeferredTransmissions.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsDeferredTransmissions = uint32(v)
+						row.Dot3StatsDeferredTransmissions = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -764,7 +735,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsLateCollisions.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsLateCollisions = uint32(v)
+						row.Dot3StatsLateCollisions = v
 						row.observed[0] |= 1 << 7
 					} else {
 						vb, vbErr := rv.Decode()
@@ -782,7 +753,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsExcessiveCollisions.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsExcessiveCollisions = uint32(v)
+						row.Dot3StatsExcessiveCollisions = v
 						row.observed[0] |= 1 << 8
 					} else {
 						vb, vbErr := rv.Decode()
@@ -798,27 +769,27 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 							}
 						}
 					}
-				case Dot3StatsInternalMacTransmitErrors.Key():
+				case Dot3StatsInternalMACTransmitErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsInternalMacTransmitErrors = uint32(v)
+						row.Dot3StatsInternalMACTransmitErrors = v
 						row.observed[0] |= 1 << 9
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Dot3StatsInternalMacTransmitErrors.Decode(vb)
+							dv, dErr := Dot3StatsInternalMACTransmitErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Dot3StatsInternalMacTransmitErrors = dv
+								row.Dot3StatsInternalMACTransmitErrors = dv
 								row.observed[0] |= 1 << 9
 							}
 						}
 					}
 				case Dot3StatsCarrierSenseErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsCarrierSenseErrors = uint32(v)
+						row.Dot3StatsCarrierSenseErrors = v
 						row.observed[0] |= 1 << 10
 					} else {
 						vb, vbErr := rv.Decode()
@@ -836,7 +807,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsFrameTooLongs.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsFrameTooLongs = uint32(v)
+						row.Dot3StatsFrameTooLongs = v
 						row.observed[0] |= 1 << 11
 					} else {
 						vb, vbErr := rv.Decode()
@@ -852,20 +823,20 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 							}
 						}
 					}
-				case Dot3StatsInternalMacReceiveErrors.Key():
+				case Dot3StatsInternalMACReceiveErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsInternalMacReceiveErrors = uint32(v)
+						row.Dot3StatsInternalMACReceiveErrors = v
 						row.observed[0] |= 1 << 12
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Dot3StatsInternalMacReceiveErrors.Decode(vb)
+							dv, dErr := Dot3StatsInternalMACReceiveErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Dot3StatsInternalMacReceiveErrors = dv
+								row.Dot3StatsInternalMACReceiveErrors = dv
 								row.observed[0] |= 1 << 12
 							}
 						}
@@ -885,7 +856,7 @@ func (tw *Dot3StatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3StatsTableRow] {
 					}
 				case Dot3StatsSymbolErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3StatsSymbolErrors = uint32(v)
+						row.Dot3StatsSymbolErrors = v
 						row.observed[0] |= 1 << 14
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1007,7 +978,7 @@ func (dot3StatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Dot3StatsIndex.Key(), Dot3StatsAlignmentErrors.Key(), Dot3StatsFCSErrors.Key(), Dot3StatsSingleCollisionFrames.Key(), Dot3StatsMultipleCollisionFrames.Key(), Dot3StatsSQETestErrors.Key(), Dot3StatsDeferredTransmissions.Key(), Dot3StatsLateCollisions.Key(), Dot3StatsExcessiveCollisions.Key(), Dot3StatsInternalMacTransmitErrors.Key(), Dot3StatsCarrierSenseErrors.Key(), Dot3StatsFrameTooLongs.Key(), Dot3StatsInternalMacReceiveErrors.Key(), Dot3StatsEtherChipSet.Key(), Dot3StatsSymbolErrors.Key(), Dot3StatsDuplexStatus.Key(), Dot3StatsRateControlAbility.Key(), Dot3StatsRateControlStatus.Key():
+		case Dot3StatsIndex.Key(), Dot3StatsAlignmentErrors.Key(), Dot3StatsFCSErrors.Key(), Dot3StatsSingleCollisionFrames.Key(), Dot3StatsMultipleCollisionFrames.Key(), Dot3StatsSQETestErrors.Key(), Dot3StatsDeferredTransmissions.Key(), Dot3StatsLateCollisions.Key(), Dot3StatsExcessiveCollisions.Key(), Dot3StatsInternalMACTransmitErrors.Key(), Dot3StatsCarrierSenseErrors.Key(), Dot3StatsFrameTooLongs.Key(), Dot3StatsInternalMACReceiveErrors.Key(), Dot3StatsEtherChipSet.Key(), Dot3StatsSymbolErrors.Key(), Dot3StatsDuplexStatus.Key(), Dot3StatsRateControlAbility.Key(), Dot3StatsRateControlStatus.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot3StatsTable.Walk: column %s", c.OID()))
@@ -1038,9 +1009,7 @@ func (dot3StatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3CollFrequencies = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 5, 1, 3), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3CollFrequencies = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 5, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3CollTableKey is the decoded INDEX of one dot3CollTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1092,8 +1061,7 @@ func (r Dot3CollTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r Dot3CollTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot3CollFrequencies.Key():
+	if col.Key() == Dot3CollFrequencies.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -1122,10 +1090,9 @@ func (tw *Dot3CollTableWalker) Iter() iter.Seq2[snmp.OID, Dot3CollTableRow] {
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot3CollFrequencies.Key():
+				if tw.cols[cell.Column].Key() == Dot3CollFrequencies.Key() {
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3CollFrequencies = uint32(v)
+						row.Dot3CollFrequencies = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1220,9 +1187,7 @@ func (dot3CollTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, op
 // Dot3ControlFunctionsSupported is the column dot3ControlFunctionsSupported of table dot3ControlTable.
 // A list of the possible MAC Control functions implemented for this
 // interface.
-var Dot3ControlFunctionsSupported = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9, 1, 1), snmp.KindOctetString, func(vb snmp.VarBind) (snmp.BitSet, error) {
-	return snmp.DecodeBitSet(vb)
-})
+var Dot3ControlFunctionsSupported = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9, 1, 1), snmp.KindOctetString, snmp.DecodeBitSet)
 
 // Dot3ControlInUnknownOpcodes is the column dot3ControlInUnknownOpcodes of table dot3ControlTable.
 // A count of MAC Control frames received on this interface that contain an
@@ -1235,9 +1200,7 @@ var Dot3ControlFunctionsSupported = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3ControlInUnknownOpcodes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9, 1, 2), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3ControlInUnknownOpcodes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3HCControlInUnknownOpcodes is the column dot3HCControlInUnknownOpcodes of table dot3ControlTable.
 // A count of MAC Control frames received on this interface that contain an
@@ -1246,9 +1209,7 @@ var Dot3ControlInUnknownOpcodes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // operating at 10 Gb/s or faster. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCControlInUnknownOpcodes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9, 1, 3), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCControlInUnknownOpcodes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 9, 1, 3), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3ControlTableKey is the decoded INDEX of one dot3ControlTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1351,7 +1312,7 @@ func (tw *Dot3ControlTableWalker) Iter() iter.Seq2[snmp.OID, Dot3ControlTableRow
 					}
 				case Dot3ControlInUnknownOpcodes.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3ControlInUnknownOpcodes = uint32(v)
+						row.Dot3ControlInUnknownOpcodes = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1369,7 +1330,7 @@ func (tw *Dot3ControlTableWalker) Iter() iter.Seq2[snmp.OID, Dot3ControlTableRow
 					}
 				case Dot3HCControlInUnknownOpcodes.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCControlInUnknownOpcodes = uint64(v)
+						row.Dot3HCControlInUnknownOpcodes = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1518,9 +1479,7 @@ var Dot3PauseOperMode = snmp.NewColumn[Dot3PauseOperModeValue](snmp.MustOID(1, 3
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3InPauseFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 3), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3InPauseFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3OutPauseFrames is the column dot3OutPauseFrames of table dot3PauseTable.
 // A count of MAC Control frames transmitted on this interface with an
@@ -1534,9 +1493,7 @@ var Dot3InPauseFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3OutPauseFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 4), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var Dot3OutPauseFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
 
 // Dot3HCInPauseFrames is the column dot3HCInPauseFrames of table dot3PauseTable.
 // A count of MAC Control frames received on this interface with an opcode
@@ -1546,9 +1503,7 @@ var Dot3OutPauseFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1
 // at 10 Gb/s or faster. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCInPauseFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 5), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCInPauseFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 5), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3HCOutPauseFrames is the column dot3HCOutPauseFrames of table dot3PauseTable.
 // A count of MAC Control frames transmitted on this interface with an
@@ -1558,9 +1513,7 @@ var Dot3HCInPauseFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // operating at 10 Gb/s or faster. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCOutPauseFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 6), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCOutPauseFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 6), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3PauseTableKey is the decoded INDEX of one dot3PauseTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1695,7 +1648,7 @@ func (tw *Dot3PauseTableWalker) Iter() iter.Seq2[snmp.OID, Dot3PauseTableRow] {
 					}
 				case Dot3InPauseFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3InPauseFrames = uint32(v)
+						row.Dot3InPauseFrames = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1713,7 +1666,7 @@ func (tw *Dot3PauseTableWalker) Iter() iter.Seq2[snmp.OID, Dot3PauseTableRow] {
 					}
 				case Dot3OutPauseFrames.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot3OutPauseFrames = uint32(v)
+						row.Dot3OutPauseFrames = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1731,7 +1684,7 @@ func (tw *Dot3PauseTableWalker) Iter() iter.Seq2[snmp.OID, Dot3PauseTableRow] {
 					}
 				case Dot3HCInPauseFrames.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCInPauseFrames = uint64(v)
+						row.Dot3HCInPauseFrames = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1749,7 +1702,7 @@ func (tw *Dot3PauseTableWalker) Iter() iter.Seq2[snmp.OID, Dot3PauseTableRow] {
 					}
 				case Dot3HCOutPauseFrames.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCOutPauseFrames = uint64(v)
+						row.Dot3HCOutPauseFrames = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1855,9 +1808,7 @@ func (dot3PauseTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 // 10 Gb/s or faster. Discontinuities in the value of this counter can
 // occur at re-initialization of the management system, and at other times
 // as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCStatsAlignmentErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 1), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCStatsAlignmentErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 1), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3HCStatsFCSErrors is the column dot3HCStatsFCSErrors of table dot3HCStatsTable.
 // A count of frames received on a particular interface that are an
@@ -1875,11 +1826,9 @@ var Dot3HCStatsAlignmentErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1,
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system, and at other times as
 // indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCStatsFCSErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 2), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCStatsFCSErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 2), snmp.KindCounter64, snmp.DecodeUint64)
 
-// Dot3HCStatsInternalMacTransmitErrors is the column dot3HCStatsInternalMacTransmitErrors of table dot3HCStatsTable.
+// Dot3HCStatsInternalMACTransmitErrors is the column dot3HCStatsInternalMacTransmitErrors of table dot3HCStatsTable.
 // A count of frames for which transmission on a particular interface fails
 // due to an internal MAC sublayer transmit error. A frame is only counted
 // by an instance of this object if it is not counted by the corresponding
@@ -1894,9 +1843,7 @@ var Dot3HCStatsFCSErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // of this counter can occur at re-initialization of the management system,
 // and at other times as indicated by the value of
 // ifCounterDiscontinuityTime.
-var Dot3HCStatsInternalMacTransmitErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 3), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCStatsInternalMACTransmitErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 3), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3HCStatsFrameTooLongs is the column dot3HCStatsFrameTooLongs of table dot3HCStatsTable.
 // A count of frames received on a particular interface that exceed the
@@ -1910,11 +1857,9 @@ var Dot3HCStatsInternalMacTransmitErrors = snmp.NewColumn[uint64](snmp.MustOID(1
 // operating at 10 Gb/s or faster. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCStatsFrameTooLongs = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 4), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCStatsFrameTooLongs = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 4), snmp.KindCounter64, snmp.DecodeUint64)
 
-// Dot3HCStatsInternalMacReceiveErrors is the column dot3HCStatsInternalMacReceiveErrors of table dot3HCStatsTable.
+// Dot3HCStatsInternalMACReceiveErrors is the column dot3HCStatsInternalMacReceiveErrors of table dot3HCStatsTable.
 // A count of frames for which reception on a particular interface fails
 // due to an internal MAC sublayer receive error. A frame is only counted
 // by an instance of this object if it is not counted by the corresponding
@@ -1928,9 +1873,7 @@ var Dot3HCStatsFrameTooLongs = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2
 // operating at 10 Gb/s or faster. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCStatsInternalMacReceiveErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 5), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCStatsInternalMACReceiveErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 5), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3HCStatsSymbolErrors is the column dot3HCStatsSymbolErrors of table dot3HCStatsTable.
 // For an interface operating at 100 Mb/s, the number of times there was an
@@ -1956,9 +1899,7 @@ var Dot3HCStatsInternalMacReceiveErrors = snmp.NewColumn[uint64](snmp.MustOID(1,
 // operating at 10 Gb/s or faster. Discontinuities in the value of this
 // counter can occur at re-initialization of the management system, and at
 // other times as indicated by the value of ifCounterDiscontinuityTime.
-var Dot3HCStatsSymbolErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 6), snmp.KindCounter64, func(vb snmp.VarBind) (uint64, error) {
-	return snmp.DecodeUint64(vb)
-})
+var Dot3HCStatsSymbolErrors = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 6), snmp.KindCounter64, snmp.DecodeUint64)
 
 // Dot3HCStatsTableKey is the decoded INDEX of one dot3HCStatsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1991,9 +1932,9 @@ type Dot3HCStatsTableRow struct {
 	keyValid                             bool
 	Dot3HCStatsAlignmentErrors           uint64
 	Dot3HCStatsFCSErrors                 uint64
-	Dot3HCStatsInternalMacTransmitErrors uint64
+	Dot3HCStatsInternalMACTransmitErrors uint64
 	Dot3HCStatsFrameTooLongs             uint64
-	Dot3HCStatsInternalMacReceiveErrors  uint64
+	Dot3HCStatsInternalMACReceiveErrors  uint64
 	Dot3HCStatsSymbolErrors              uint64
 
 	// observed carries one bit per column of this table, in
@@ -2019,11 +1960,11 @@ func (r Dot3HCStatsTableRow) Observed(col snmp.AnyColumn) bool {
 		return r.observed[0]&(1<<0) != 0
 	case Dot3HCStatsFCSErrors.Key():
 		return r.observed[0]&(1<<1) != 0
-	case Dot3HCStatsInternalMacTransmitErrors.Key():
+	case Dot3HCStatsInternalMACTransmitErrors.Key():
 		return r.observed[0]&(1<<2) != 0
 	case Dot3HCStatsFrameTooLongs.Key():
 		return r.observed[0]&(1<<3) != 0
-	case Dot3HCStatsInternalMacReceiveErrors.Key():
+	case Dot3HCStatsInternalMACReceiveErrors.Key():
 		return r.observed[0]&(1<<4) != 0
 	case Dot3HCStatsSymbolErrors.Key():
 		return r.observed[0]&(1<<5) != 0
@@ -2057,7 +1998,7 @@ func (tw *Dot3HCStatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3HCStatsTableRow
 				switch tw.cols[cell.Column].Key() {
 				case Dot3HCStatsAlignmentErrors.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCStatsAlignmentErrors = uint64(v)
+						row.Dot3HCStatsAlignmentErrors = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2075,7 +2016,7 @@ func (tw *Dot3HCStatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3HCStatsTableRow
 					}
 				case Dot3HCStatsFCSErrors.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCStatsFCSErrors = uint64(v)
+						row.Dot3HCStatsFCSErrors = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2091,27 +2032,27 @@ func (tw *Dot3HCStatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3HCStatsTableRow
 							}
 						}
 					}
-				case Dot3HCStatsInternalMacTransmitErrors.Key():
+				case Dot3HCStatsInternalMACTransmitErrors.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCStatsInternalMacTransmitErrors = uint64(v)
+						row.Dot3HCStatsInternalMACTransmitErrors = v
 						row.observed[0] |= 1 << 2
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Dot3HCStatsInternalMacTransmitErrors.Decode(vb)
+							dv, dErr := Dot3HCStatsInternalMACTransmitErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Dot3HCStatsInternalMacTransmitErrors = dv
+								row.Dot3HCStatsInternalMACTransmitErrors = dv
 								row.observed[0] |= 1 << 2
 							}
 						}
 					}
 				case Dot3HCStatsFrameTooLongs.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCStatsFrameTooLongs = uint64(v)
+						row.Dot3HCStatsFrameTooLongs = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2127,27 +2068,27 @@ func (tw *Dot3HCStatsTableWalker) Iter() iter.Seq2[snmp.OID, Dot3HCStatsTableRow
 							}
 						}
 					}
-				case Dot3HCStatsInternalMacReceiveErrors.Key():
+				case Dot3HCStatsInternalMACReceiveErrors.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCStatsInternalMacReceiveErrors = uint64(v)
+						row.Dot3HCStatsInternalMACReceiveErrors = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
 						if vbErr != nil {
 							derr = vbErr
 						} else {
-							dv, dErr := Dot3HCStatsInternalMacReceiveErrors.Decode(vb)
+							dv, dErr := Dot3HCStatsInternalMACReceiveErrors.Decode(vb)
 							if dErr != nil {
 								derr = dErr
 							} else {
-								row.Dot3HCStatsInternalMacReceiveErrors = dv
+								row.Dot3HCStatsInternalMACReceiveErrors = dv
 								row.observed[0] |= 1 << 4
 							}
 						}
 					}
 				case Dot3HCStatsSymbolErrors.Key():
 					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot3HCStatsSymbolErrors = uint64(v)
+						row.Dot3HCStatsSymbolErrors = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2220,7 +2161,7 @@ func (dot3HCStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 	var roots []snmp.OID
 	for _, c := range cols {
 		switch c.Key() {
-		case Dot3HCStatsAlignmentErrors.Key(), Dot3HCStatsFCSErrors.Key(), Dot3HCStatsInternalMacTransmitErrors.Key(), Dot3HCStatsFrameTooLongs.Key(), Dot3HCStatsInternalMacReceiveErrors.Key(), Dot3HCStatsSymbolErrors.Key():
+		case Dot3HCStatsAlignmentErrors.Key(), Dot3HCStatsFCSErrors.Key(), Dot3HCStatsInternalMACTransmitErrors.Key(), Dot3HCStatsFrameTooLongs.Key(), Dot3HCStatsInternalMACReceiveErrors.Key(), Dot3HCStatsSymbolErrors.Key():
 		default:
 			w := snmp.WalkColumns(ctx, sess, nil, options)
 			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot3HCStatsTable.Walk: column %s", c.OID()))
@@ -2252,15 +2193,15 @@ var etherLikeMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 10, 1, 6).WireKey(): Dot3HCOutPauseFrames,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 1).WireKey(): Dot3HCStatsAlignmentErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 2).WireKey(): Dot3HCStatsFCSErrors,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 3).WireKey(): Dot3HCStatsInternalMacTransmitErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 3).WireKey(): Dot3HCStatsInternalMACTransmitErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 4).WireKey(): Dot3HCStatsFrameTooLongs,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 5).WireKey(): Dot3HCStatsInternalMacReceiveErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 5).WireKey(): Dot3HCStatsInternalMACReceiveErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 11, 1, 6).WireKey(): Dot3HCStatsSymbolErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 1).WireKey():  Dot3StatsIndex,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 10).WireKey(): Dot3StatsInternalMacTransmitErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 10).WireKey(): Dot3StatsInternalMACTransmitErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 11).WireKey(): Dot3StatsCarrierSenseErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 13).WireKey(): Dot3StatsFrameTooLongs,
-	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 16).WireKey(): Dot3StatsInternalMacReceiveErrors,
+	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 16).WireKey(): Dot3StatsInternalMACReceiveErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 17).WireKey(): Dot3StatsEtherChipSet,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 18).WireKey(): Dot3StatsSymbolErrors,
 	snmp.MustOID(1, 3, 6, 1, 2, 1, 10, 7, 2, 1, 19).WireKey(): Dot3StatsDuplexStatus,

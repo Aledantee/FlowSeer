@@ -43,7 +43,7 @@
 // # Streaming walks
 //
 // BenchmarkTableWalkScale measures typed row assembly at 50 through 100,000
-// rows, selecting 2 or 20 columns and stopping after 1, 100, or all rows. Its
+// rows, selecting 2 or 18 columns and stopping after 1, 100, or all rows. Its
 // wire-B/op includes requests and responses; B/op also includes local responder
 // work, but excludes fixture construction. Responses truncate at 7,000 varbind
 // bytes to fit the host's UDP limit, exercising partial repetitions.

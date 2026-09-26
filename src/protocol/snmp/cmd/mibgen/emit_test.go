@@ -162,6 +162,110 @@ func TestEmit_GeneratedParses(t *testing.T) {
 	}
 }
 
+// TestEmit_FakeMIB_UsesIdiomaticGeneratedShapes pins the code-style-sensitive
+// shapes that are otherwise easy to obscure in a large golden diff.
+func TestEmit_FakeMIB_UsesIdiomaticGeneratedShapes(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, nil, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments := []string{
+		"return snmp.DecodeMacAddress(vbs[0])",
+		"snmp.KindCounter32, snmp.DecodeUint32)",
+		"var FakeRef = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)",
+		"row.FakeSoloLastChange = v",
+		"row.FakeMode = FakeModeValue(v)",
+		"if col.Key() == FakeSoloLastChange.Key()",
+		"if tw.cols[cell.Column].Key() == FakeSoloLastChange.Key()",
+		"if v == FakeModeValueOnly",
+	}
+	for _, want := range wantFragments {
+		if !strings.Contains(src, want) {
+			t.Errorf("emitted source missing fragment %q", want)
+		}
+	}
+	if got := strings.Count(src, "if colID == 2 {"); got != 4 {
+		t.Errorf("one-column watch branches = %d, want 4", got)
+	}
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "fakemib_mib.go", out, parser.AllErrors|parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse: %v\n--- emitted ---\n%s", err, src)
+	}
+
+	docs := make(map[string]string)
+	for _, decl := range file.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			if d.Doc != nil {
+				docs[d.Name.Name] = d.Doc.Text()
+			}
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				value, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				doc := d.Doc
+				if value.Doc != nil {
+					doc = value.Doc
+				}
+				if doc == nil {
+					continue
+				}
+				for _, name := range value.Names {
+					docs[name.Name] = doc.Text()
+				}
+			}
+		}
+	}
+	wantDocs := map[string]string{
+		"FakeLegacyMACGet": "Deprecated: fakeLegacyMac is STATUS obsolete in FAKE-MIB.",
+		"FakeDeprecated":   "Deprecated: fakeDeprecated is STATUS deprecated in FAKE-MIB.",
+		"FakeSoloTable":    "Deprecated: fakeSoloTable is STATUS deprecated in FAKE-MIB.",
+	}
+	for name, want := range wantDocs {
+		if !strings.Contains(docs[name], want) {
+			t.Errorf("%s doc = %q, want paragraph %q", name, docs[name], want)
+		}
+	}
+	if strings.Contains(docs["FakeMAC"], "Deprecated:") {
+		t.Errorf("FakeMAC doc = %q, want no deprecation paragraph", docs["FakeMAC"])
+	}
+
+	checkName := func(kind, name string) {
+		if strings.Contains(name, "_") {
+			t.Errorf("generated %s identifier %q contains an underscore", kind, name)
+		}
+	}
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.FuncDecl:
+			checkName("function", n.Name.Name)
+		case *ast.TypeSpec:
+			checkName("type", n.Name.Name)
+		case *ast.ValueSpec:
+			for _, name := range n.Names {
+				checkName("value", name.Name)
+			}
+		case *ast.StructType:
+			for _, field := range n.Fields.List {
+				for _, name := range field.Names {
+					checkName("field", name.Name)
+				}
+			}
+		}
+
+		return true
+	})
+}
+
 // TestEmit_GeneratedFormatting ensures the emitter returns source that already
 // satisfies the repository's gofumpt and goimports gates. Generated files must
 // not require a caller-side formatting pass after renderModule returns.
@@ -218,7 +322,7 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"FakeStatusValueDown",
 		"FakeStatusValueTesting",
 		"var FakeName =",
-		"var FakeMac =",
+		"var FakeMAC =",
 		"var FakeOctets =",
 		"var FakeLastChange =",
 		"type FakeTableRow struct",
@@ -272,7 +376,7 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"snmp.NewWatcher[FakeTableRow]",
 		// equal helper uses the type-appropriate comparator
 		// (bytes.Equal for the MacAddress []byte field).
-		"bytes.Equal(a.FakeMac, b.FakeMac)",
+		"bytes.Equal(a.FakeMAC, b.FakeMAC)",
 		// Per-column observation: the row carries one bit per column
 		// and answers by column identity, so a mapper can tell a
 		// reported zero from a column the agent never answered.
@@ -282,7 +386,7 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		// per bit the MIB names.
 		"FakeCapabilitiesAlpha snmp.BitPos = 0",
 		"FakeCapabilitiesGamma snmp.BitPos = 2",
-		"snmp.DecodeBitSet(vb)",
+		"snmp.KindOctetString, snmp.DecodeBitSet)",
 		"var FakeFlags = snmp.NewColumn[snmp.BitSet]",
 		"a.FakeFlags.Equal(b.FakeFlags)",
 	}

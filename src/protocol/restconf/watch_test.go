@@ -36,17 +36,17 @@ func TestWatchOverRESTCONF(t *testing.T) {
 		_, _ = w.Write([]byte(body))
 	})))
 
-	desc := fixturemain.Servers_ServerDescriptor()
+	desc := fixturemain.ServersServerDescriptor()
 	w := restconf.Watch(context.Background(), s, desc, yang.WatchConfig{Interval: 20 * time.Millisecond})
 	defer func() { _ = w.Close() }()
 
-	ch := make(chan yang.WatchEvent[fixturemain.Servers_Server, fixturemain.Servers_ServerKey], 32)
+	ch := make(chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey], 32)
 	go func() {
 		for ev := range w.Iter() {
 			ch <- ev
 		}
 	}()
-	var events []yang.WatchEvent[fixturemain.Servers_Server, fixturemain.Servers_ServerKey]
+	var events []yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey]
 	deadline := time.After(10 * time.Second)
 	for len(events) < 3 {
 		select {

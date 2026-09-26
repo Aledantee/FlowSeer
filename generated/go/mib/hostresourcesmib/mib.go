@@ -119,8 +119,8 @@ const (
 	HrDiskStorageMediaValueOpticalDiskWORM HrDiskStorageMediaValue = 6
 	// HrDiskStorageMediaValueOpticalDiskRW represents the SMI value opticalDiskRW.
 	HrDiskStorageMediaValueOpticalDiskRW HrDiskStorageMediaValue = 7
-	// HrDiskStorageMediaValueRamDisk represents the SMI value ramDisk.
-	HrDiskStorageMediaValueRamDisk HrDiskStorageMediaValue = 8
+	// HrDiskStorageMediaValueRAMDisk represents the SMI value ramDisk.
+	HrDiskStorageMediaValueRAMDisk HrDiskStorageMediaValue = 8
 )
 
 // String returns the SMI label, or HrDiskStorageMediaValue(n) for an unrecognized value n.
@@ -140,7 +140,7 @@ func (v HrDiskStorageMediaValue) String() string {
 		return "opticalDiskWORM"
 	case HrDiskStorageMediaValueOpticalDiskRW:
 		return "opticalDiskRW"
-	case HrDiskStorageMediaValueRamDisk:
+	case HrDiskStorageMediaValueRAMDisk:
 		return "ramDisk"
 	}
 
@@ -334,9 +334,7 @@ func HrSystemUptimeGet(ctx context.Context, sess snmp.Session) (uint32, error) {
 		return 0, errs.Msg("empty Get response for hrSystemUptime")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // HrSystemDateGet reads the SMIv2 scalar hrSystemDate.
@@ -353,9 +351,7 @@ func HrSystemDateGet(ctx context.Context, sess snmp.Session) (time.Time, error) 
 		return time.Time{}, errs.Msg("empty Get response for hrSystemDate")
 	}
 
-	return func(vb snmp.VarBind) (time.Time, error) {
-		return snmp.DecodeDateAndTime(vb)
-	}(vbs[0])
+	return snmp.DecodeDateAndTime(vbs[0])
 }
 
 // HrSystemInitialLoadDeviceGet reads the SMIv2 scalar hrSystemInitialLoadDevice.
@@ -377,9 +373,7 @@ func HrSystemInitialLoadDeviceGet(ctx context.Context, sess snmp.Session) (int32
 		return 0, errs.Msg("empty Get response for hrSystemInitialLoadDevice")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // HrSystemInitialLoadParametersGet reads the SMIv2 scalar hrSystemInitialLoadParameters.
@@ -400,9 +394,7 @@ func HrSystemInitialLoadParametersGet(ctx context.Context, sess snmp.Session) ([
 		return nil, errs.Msg("empty Get response for hrSystemInitialLoadParameters")
 	}
 
-	return func(vb snmp.VarBind) ([]byte, error) {
-		return snmp.DecodeBytes(vb)
-	}(vbs[0])
+	return snmp.DecodeBytes(vbs[0])
 }
 
 // HrSystemNumUsersGet reads the SMIv2 scalar hrSystemNumUsers.
@@ -422,9 +414,7 @@ func HrSystemNumUsersGet(ctx context.Context, sess snmp.Session) (uint32, error)
 		return 0, errs.Msg("empty Get response for hrSystemNumUsers")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // HrSystemProcessesGet reads the SMIv2 scalar hrSystemProcesses.
@@ -442,9 +432,7 @@ func HrSystemProcessesGet(ctx context.Context, sess snmp.Session) (uint32, error
 		return 0, errs.Msg("empty Get response for hrSystemProcesses")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // HrSystemMaxProcessesGet reads the SMIv2 scalar hrSystemMaxProcesses.
@@ -464,9 +452,7 @@ func HrSystemMaxProcessesGet(ctx context.Context, sess snmp.Session) (int32, err
 		return 0, errs.Msg("empty Get response for hrSystemMaxProcesses")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // HrMemorySizeGet reads the SMIv2 scalar hrMemorySize.
@@ -484,9 +470,7 @@ func HrMemorySizeGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for hrMemorySize")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // HrSWOSIndexGet reads the SMIv2 scalar hrSWOSIndex.
@@ -505,9 +489,7 @@ func HrSWOSIndexGet(ctx context.Context, sess snmp.Session) (int32, error) {
 		return 0, errs.Msg("empty Get response for hrSWOSIndex")
 	}
 
-	return func(vb snmp.VarBind) (int32, error) {
-		return snmp.DecodeInt32(vb)
-	}(vbs[0])
+	return snmp.DecodeInt32(vbs[0])
 }
 
 // HrSWInstalledLastChangeGet reads the SMIv2 scalar hrSWInstalledLastChange.
@@ -527,9 +509,7 @@ func HrSWInstalledLastChangeGet(ctx context.Context, sess snmp.Session) (uint32,
 		return 0, errs.Msg("empty Get response for hrSWInstalledLastChange")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // HrSWInstalledLastUpdateTimeGet reads the SMIv2 scalar hrSWInstalledLastUpdateTime.
@@ -549,38 +529,28 @@ func HrSWInstalledLastUpdateTimeGet(ctx context.Context, sess snmp.Session) (uin
 		return 0, errs.Msg("empty Get response for hrSWInstalledLastUpdateTime")
 	}
 
-	return func(vb snmp.VarBind) (uint32, error) {
-		return snmp.DecodeUint32(vb)
-	}(vbs[0])
+	return snmp.DecodeUint32(vbs[0])
 }
 
 // HrStorageIndex is the column hrStorageIndex of table hrStorageTable.
 // A unique value for each logical storage area contained by the host.
-var HrStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrStorageType is the column hrStorageType of table hrStorageTable.
 // The type of storage represented by this entry.
-var HrStorageType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 2), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrStorageType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrStorageDescr is the column hrStorageDescr of table hrStorageTable.
 // A description of the type and instance of the storage described by this
 // entry.
-var HrStorageDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var HrStorageDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // HrStorageAllocationUnits is the column hrStorageAllocationUnits of table hrStorageTable.
 // The size, in bytes, of the data objects allocated from this pool. If
 // this entry is monitoring sectors, blocks, buffers, or packets, for
 // example, this number will commonly be greater than one. Otherwise this
 // number will typically be one.
-var HrStorageAllocationUnits = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrStorageAllocationUnits = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrStorageSize is the column hrStorageSize of table hrStorageTable.
 // The size of the storage represented by this entry, in units of
@@ -590,16 +560,12 @@ var HrStorageAllocationUnits = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2,
 // example, the amount of main memory allocated to a buffer pool might be
 // modified or the amount of disk space allocated to virtual memory might
 // be modified.
-var HrStorageSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrStorageSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrStorageUsed is the column hrStorageUsed of table hrStorageTable.
 // The amount of the storage represented by this entry that is allocated,
 // in units of hrStorageAllocationUnits.
-var HrStorageUsed = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrStorageUsed = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrStorageAllocationFailures is the column hrStorageAllocationFailures of table hrStorageTable.
 // The number of requests for storage represented by this entry that could
@@ -608,9 +574,7 @@ var HrStorageUsed = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 
 // initial value. However, it is recommended that this object be
 // initialized to zero, even though management stations must not depend on
 // such an initialization.
-var HrStorageAllocationFailures = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 7), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HrStorageAllocationFailures = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
 
 // HrStorageTableKey is the decoded INDEX of one hrStorageTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -712,7 +676,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 				switch tw.cols[cell.Column].Key() {
 				case HrStorageIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageIndex = int32(v)
+						row.HrStorageIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -756,7 +720,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 					}
 				case HrStorageAllocationUnits.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageAllocationUnits = int32(v)
+						row.HrStorageAllocationUnits = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -774,7 +738,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 					}
 				case HrStorageSize.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageSize = int32(v)
+						row.HrStorageSize = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -792,7 +756,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 					}
 				case HrStorageUsed.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageUsed = int32(v)
+						row.HrStorageUsed = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -810,7 +774,7 @@ func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 					}
 				case HrStorageAllocationFailures.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.HrStorageAllocationFailures = uint32(v)
+						row.HrStorageAllocationFailures = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -906,9 +870,7 @@ func (hrStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 // A unique value for each device contained by the host. The value for each
 // device must remain constant at least from one re-initialization of the
 // agent to the next re-initialization.
-var HrDeviceIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrDeviceIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrDeviceType is the column hrDeviceType of table hrDeviceTable.
 // An indication of the type of device. If this value is `hrDeviceProcessor
@@ -920,22 +882,16 @@ var HrDeviceIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 
 // corresponds to this device. If this value is `hrDeviceDiskStorage {
 // hrDeviceTypes 6 }', then an entry exists in the hrDiskStorageTable which
 // corresponds to this device.
-var HrDeviceType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 2), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrDeviceType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrDeviceDescr is the column hrDeviceDescr of table hrDeviceTable.
 // A textual description of this device, including the device's
 // manufacturer and revision, and optionally, its serial number.
-var HrDeviceDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) (string, error) {
-	return snmp.DecodeDisplayString(vb)
-})
+var HrDeviceDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
 
 // HrDeviceID is the column hrDeviceID of table hrDeviceTable.
 // The product ID for this device.
-var HrDeviceID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 4), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrDeviceID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 4), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrDeviceStatus is the column hrDeviceStatus of table hrDeviceTable.
 // The current operational state of the device described by this row of the
@@ -963,9 +919,7 @@ var HrDeviceStatus = snmp.NewColumn[HrDeviceStatusValue](snmp.MustOID(1, 3, 6, 1
 // initial value. However, it is recommended that this object be
 // initialized to zero, even though management stations must not depend on
 // such an initialization.
-var HrDeviceErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 6), snmp.KindCounter32, func(vb snmp.VarBind) (uint32, error) {
-	return snmp.DecodeUint32(vb)
-})
+var HrDeviceErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
 
 // HrDeviceTableKey is the decoded INDEX of one hrDeviceTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1064,7 +1018,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 				switch tw.cols[cell.Column].Key() {
 				case HrDeviceIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDeviceIndex = int32(v)
+						row.HrDeviceIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1139,7 +1093,7 @@ func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 					}
 				case HrDeviceErrors.Key():
 					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.HrDeviceErrors = uint32(v)
+						row.HrDeviceErrors = v
 						row.observed[0] |= 1 << 5
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1233,17 +1187,13 @@ func (hrDeviceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, op
 
 // HrProcessorFrwID is the column hrProcessorFrwID of table hrProcessorTable.
 // The product ID of the firmware associated with the processor.
-var HrProcessorFrwID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 1), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrProcessorFrwID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 1), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrProcessorLoad is the column hrProcessorLoad of table hrProcessorTable.
 // The average, over the last minute, of the percentage of time that this
 // processor was not idle. Implementations may approximate this one minute
 // smoothing period if necessary.
-var HrProcessorLoad = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrProcessorLoad = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrProcessorTableKey is the decoded INDEX of one hrProcessorTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1343,7 +1293,7 @@ func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow
 					}
 				case HrProcessorLoad.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrProcessorLoad = int32(v)
+						row.HrProcessorLoad = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1438,9 +1388,7 @@ func (hrProcessorTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 // HrNetworkIfIndex is the column hrNetworkIfIndex of table hrNetworkTable.
 // The value of ifIndex which corresponds to this network device. If this
 // device is not represented in the ifTable, then this value shall be zero.
-var HrNetworkIfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrNetworkIfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrNetworkTableKey is the decoded INDEX of one hrNetworkTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1491,8 +1439,7 @@ func (r HrNetworkTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r HrNetworkTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrNetworkIfIndex.Key():
+	if col.Key() == HrNetworkIfIndex.Key() {
 		return r.observed[0]&(1<<0) != 0
 	}
 
@@ -1521,10 +1468,9 @@ func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrNetworkIfIndex.Key():
+				if tw.cols[cell.Column].Key() == HrNetworkIfIndex.Key() {
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrNetworkIfIndex = int32(v)
+						row.HrNetworkIfIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1640,9 +1586,7 @@ var HrPrinterStatus = snmp.NewColumn[HrPrinterStatusValue](snmp.MustOID(1, 3, 6,
 // encodes that the condition was not detected. This object is useful for
 // alerting an operator to specific warning or error conditions that may
 // occur, especially those requiring human intervention.
-var HrPrinterDetectedErrorState = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrPrinterDetectedErrorState = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrPrinterTableKey is the decoded INDEX of one hrPrinterTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1859,16 +1803,12 @@ var HrDiskStorageMedia = snmp.NewColumn[HrDiskStorageMediaValue](snmp.MustOID(1,
 
 // HrDiskStorageRemoveble is the column hrDiskStorageRemoveble of table hrDiskStorageTable.
 // Denotes whether or not the disk media may be removed from the drive.
-var HrDiskStorageRemoveble = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var HrDiskStorageRemoveble = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // HrDiskStorageCapacity is the column hrDiskStorageCapacity of table hrDiskStorageTable.
 // The total size for this long-term storage device. If the media is
 // removable and is currently removed, this value should be zero.
-var HrDiskStorageCapacity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrDiskStorageCapacity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrDiskStorageTableKey is the decoded INDEX of one hrDiskStorageTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2010,7 +1950,7 @@ func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTabl
 					}
 				case HrDiskStorageCapacity.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDiskStorageCapacity = int32(v)
+						row.HrDiskStorageCapacity = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2106,29 +2046,21 @@ func (hrDiskStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 // A unique value for each partition on this long-term storage device. The
 // value for each long-term storage device must remain constant at least
 // from one re- initialization of the agent to the next re- initialization.
-var HrPartitionIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrPartitionIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrPartitionLabel is the column hrPartitionLabel of table hrPartitionTable.
 // A textual description of this partition.
-var HrPartitionLabel = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrPartitionLabel = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrPartitionID is the column hrPartitionID of table hrPartitionTable.
 // A descriptor which uniquely represents this partition to the responsible
 // operating system. On some systems, this might take on a binary
 // representation.
-var HrPartitionID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrPartitionID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrPartitionSize is the column hrPartitionSize of table hrPartitionTable.
 // The size of this partition.
-var HrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrPartitionFSIndex is the column hrPartitionFSIndex of table hrPartitionTable.
 // The index of the file system mounted on this partition. If no file
@@ -2136,9 +2068,7 @@ var HrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 // that multiple partitions may point to one file system, denoting that
 // that file system resides on those partitions. Multiple file systems may
 // not reside on one partition.
-var HrPartitionFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrPartitionFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrPartitionTableKey is the decoded INDEX of one hrPartitionTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2235,7 +2165,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 				switch tw.cols[cell.Column].Key() {
 				case HrPartitionIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPartitionIndex = int32(v)
+						row.HrPartitionIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2279,7 +2209,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 					}
 				case HrPartitionSize.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPartitionSize = int32(v)
+						row.HrPartitionSize = v
 						row.observed[0] |= 1 << 3
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2297,7 +2227,7 @@ func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow
 					}
 				case HrPartitionFSIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPartitionFSIndex = int32(v)
+						row.HrPartitionFSIndex = v
 						row.observed[0] |= 1 << 4
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2393,30 +2323,22 @@ func (hrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 // A unique value for each file system local to this host. The value for
 // each file system must remain constant at least from one
 // re-initialization of the agent to the next re-initialization.
-var HrFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrFSMountPoint is the column hrFSMountPoint of table hrFSTable.
 // The path name of the root of this file system.
-var HrFSMountPoint = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrFSMountPoint = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrFSRemoteMountPoint is the column hrFSRemoteMountPoint of table hrFSTable.
 // A description of the name and/or address of the server that this file
 // system is mounted from. This may also include parameters such as the
 // mount point on the remote file system. If this is not a remote file
 // system, this string should have a length of zero.
-var HrFSRemoteMountPoint = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 3), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrFSRemoteMountPoint = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrFSType is the column hrFSType of table hrFSTable.
 // The value of this object identifies the type of this file system.
-var HrFSType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 4), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrFSType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 4), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrFSAccess is the column hrFSAccess of table hrFSTable.
 // An indication if this file system is logically configured by the
@@ -2433,9 +2355,7 @@ var HrFSAccess = snmp.NewColumn[HrFSAccessValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 
 // HrFSBootable is the column hrFSBootable of table hrFSTable.
 // A flag indicating whether this file system is bootable.
-var HrFSBootable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (bool, error) {
-	return snmp.DecodeTruthValue(vb)
-})
+var HrFSBootable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue)
 
 // HrFSStorageIndex is the column hrFSStorageIndex of table hrFSTable.
 // The index of the hrStorageEntry that represents information about this
@@ -2443,9 +2363,7 @@ var HrFSBootable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8,
 // shall be zero. The relevant storage entry will be useful in tracking the
 // percent usage of this file system and diagnosing errors that may occur
 // when it runs out of space.
-var HrFSStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrFSStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrFSLastFullBackupDate is the column hrFSLastFullBackupDate of table hrFSTable.
 // The last date at which this complete file system was copied to another
@@ -2453,9 +2371,7 @@ var HrFSStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 
 // backups are being performed regularly. If this information is not known,
 // then this variable shall have the value corresponding to January 1, year
 // 0000, 00:00:00.0, which is encoded as (hex)'00 00 01 01 00 00 00 00'.
-var HrFSLastFullBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 8), snmp.KindOctetString, func(vb snmp.VarBind) (time.Time, error) {
-	return snmp.DecodeDateAndTime(vb)
-})
+var HrFSLastFullBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 8), snmp.KindOctetString, snmp.DecodeDateAndTime)
 
 // HrFSLastPartialBackupDate is the column hrFSLastPartialBackupDate of table hrFSTable.
 // The last date at which a portion of this file system was copied to
@@ -2464,9 +2380,7 @@ var HrFSLastFullBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 
 // is not known, then this variable shall have the value corresponding to
 // January 1, year 0000, 00:00:00.0, which is encoded as (hex)'00 00 01 01
 // 00 00 00 00'.
-var HrFSLastPartialBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 9), snmp.KindOctetString, func(vb snmp.VarBind) (time.Time, error) {
-	return snmp.DecodeDateAndTime(vb)
-})
+var HrFSLastPartialBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 9), snmp.KindOctetString, snmp.DecodeDateAndTime)
 
 // HrFSTableKey is the decoded INDEX of one hrFSTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2574,7 +2488,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 				switch tw.cols[cell.Column].Key() {
 				case HrFSIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrFSIndex = int32(v)
+						row.HrFSIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2662,7 +2576,7 @@ func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 					}
 				case HrFSStorageIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrFSStorageIndex = int32(v)
+						row.HrFSStorageIndex = v
 						row.observed[0] |= 1 << 6
 					} else {
 						vb, vbErr := rv.Decode()
@@ -2784,38 +2698,28 @@ func (hrFSTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, option
 // A unique value for each piece of software running on the host. Wherever
 // possible, this should be the system's native, unique identification
 // number.
-var HrSWRunIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrSWRunIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrSWRunName is the column hrSWRunName of table hrSWRunTable.
 // A textual description of this running piece of software, including the
 // manufacturer, revision, and the name by which it is commonly known. If
 // this software was installed locally, this should be the same string as
 // used in the corresponding hrSWInstalledName.
-var HrSWRunName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrSWRunName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrSWRunID is the column hrSWRunID of table hrSWRunTable.
 // The product ID of this running piece of software.
-var HrSWRunID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 3), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrSWRunID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrSWRunPath is the column hrSWRunPath of table hrSWRunTable.
 // A description of the location on long-term storage (e.g. a disk drive)
 // from which this software was loaded.
-var HrSWRunPath = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 4), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrSWRunPath = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrSWRunParameters is the column hrSWRunParameters of table hrSWRunTable.
 // A description of the parameters supplied to this software when it was
 // initially loaded.
-var HrSWRunParameters = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrSWRunParameters = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrSWRunType is the column hrSWRunType of table hrSWRunTable.
 // The type of this software.
@@ -2939,7 +2843,7 @@ func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 				switch tw.cols[cell.Column].Key() {
 				case HrSWRunIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunIndex = int32(v)
+						row.HrSWRunIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3124,16 +3028,14 @@ func (hrSWRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opt
 // by this process. Note that on a multi-processor system, this value may
 // increment by more than one centi-second in one centi-second of real
 // (wall clock) time.
-var HrSWRunPerfCPU = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrSWRunPerfCPU = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrSWRunPerfMem is the column hrSWRunPerfMem of table hrSWRunPerfTable.
 // The total amount of real system memory allocated to this process.
-var HrSWRunPerfMem = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
-var hrSWRunPerfTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+var (
+	HrSWRunPerfMem              = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+	hrSWRunPerfTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+)
 
 // decodeHrSWRunPerfTableKey decodes the instance suffix of one hrSWRunPerfTable row. ok is false
 // when the suffix does not match the declared INDEX; the key is then zero.
@@ -3212,7 +3114,7 @@ func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow
 				switch tw.cols[cell.Column].Key() {
 				case HrSWRunPerfCPU.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunPerfCPU = int32(v)
+						row.HrSWRunPerfCPU = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3230,7 +3132,7 @@ func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow
 					}
 				case HrSWRunPerfMem.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunPerfMem = int32(v)
+						row.HrSWRunPerfMem = v
 						row.observed[0] |= 1 << 1
 					} else {
 						vb, vbErr := rv.Decode()
@@ -3326,23 +3228,17 @@ func (hrSWRunPerfTableT) WalkWithOptions(ctx context.Context, sess snmp.Session,
 // A unique value for each piece of software installed on the host. This
 // value shall be in the range from 1 to the number of pieces of software
 // installed on the host.
-var HrSWInstalledIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
-})
+var HrSWInstalledIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
 
 // HrSWInstalledName is the column hrSWInstalledName of table hrSWInstalledTable.
 // A textual description of this installed piece of software, including the
 // manufacturer, revision, the name by which it is commonly known, and
 // optionally, its serial number.
-var HrSWInstalledName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 2), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
-	return snmp.DecodeBytes(vb)
-})
+var HrSWInstalledName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
 
 // HrSWInstalledID is the column hrSWInstalledID of table hrSWInstalledTable.
 // The product ID of this installed piece of software.
-var HrSWInstalledID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 3), snmp.KindObjectID, func(vb snmp.VarBind) (snmp.OID, error) {
-	return snmp.DecodeOID(vb)
-})
+var HrSWInstalledID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
 
 // HrSWInstalledType is the column hrSWInstalledType of table hrSWInstalledTable.
 // The type of this software.
@@ -3359,9 +3255,7 @@ var HrSWInstalledType = snmp.NewColumn[HrSWInstalledTypeValue](snmp.MustOID(1, 3
 // directory listing. If this information is not known, then this variable
 // shall have the value corresponding to January 1, year 0000, 00:00:00.0,
 // which is encoded as (hex)'00 00 01 01 00 00 00 00'.
-var HrSWInstalledDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 5), snmp.KindOctetString, func(vb snmp.VarBind) (time.Time, error) {
-	return snmp.DecodeDateAndTime(vb)
-})
+var HrSWInstalledDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 5), snmp.KindOctetString, snmp.DecodeDateAndTime)
 
 // HrSWInstalledTableKey is the decoded INDEX of one hrSWInstalledTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3457,7 +3351,7 @@ func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTabl
 				switch tw.cols[cell.Column].Key() {
 				case HrSWInstalledIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWInstalledIndex = int32(v)
+						row.HrSWInstalledIndex = v
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()

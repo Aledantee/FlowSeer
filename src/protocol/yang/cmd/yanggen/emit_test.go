@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -83,7 +84,7 @@ func TestEmitFixtureSurface(t *testing.T) {
 		`Proto\s+\*yang\.Identity`,
 		`Ratio\s+\*yang\.Value`,
 		`ServerRef\s+\*string`,
-		`Server_Name\s+string`,
+		`ServerName\s+string`,
 		`Presence:\s+true`,
 	}
 	want := []string{
@@ -91,16 +92,16 @@ func TestEmitFixtureSurface(t *testing.T) {
 		"module: fixture-main revision: 2026-01-02",
 		// Structs, schemas, and descriptors.
 		"type Servers struct",
-		"type Servers_Server struct",
-		"var Servers_ServerSchema =",
-		"type Servers_ServerKey struct",
-		"func Servers_ServerDescriptor() yang.ListDescriptor",
+		"type ServersServer struct",
+		"var ServersServerSchemaX4d76e3 =",
+		"type ServersServerKey struct",
+		"func ServersServerDescriptor() yang.ListDescriptor",
 		// Nested list: flat row with the ancestor key, schema chain,
 		// nested decode.
-		"type Servers_Server_Endpoint struct",
-		"type Servers_Server_EndpointFlatRow struct",
-		"yang.DecodeXMLNested[Servers_Server_Endpoint]",
-		"yang.DecodeJSONNested[Servers_Server_Endpoint]",
+		"type ServersServerEndpoint struct",
+		"type ServersServerEndpointFlatRow struct",
+		"yang.DecodeXMLNested[ServersServerEndpoint]",
+		"yang.DecodeJSONNested[ServersServerEndpoint]",
 		// Deviation applied: the deviated leaf is gone (asserted via
 		// notWant below); presence, unions, identityref, and the
 		// leafref key are asserted by wantRE above.
@@ -110,7 +111,7 @@ func TestEmitFixtureSurface(t *testing.T) {
 		// Name collision resolved deterministically with a hash
 		// suffix, not silently merged.
 		"type AlarmState",
-		"type AlarmState_",
+		"type AlarmStateX",
 	}
 	notWant := []string{
 		"LegacyFlag", // removed by fixture-dev's deviate not-supported
@@ -155,7 +156,7 @@ func TestEmitAugmentModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, w := range []string{"Identity_Tcp", "Identity_Udp", "Identity_Protocol"} {
+	for _, w := range []string{"IdentityTCP", "IdentityUDP", "IdentityProtocol"} {
 		if !strings.Contains(typesSrc, w) {
 			t.Errorf("fixture-types missing identity value %s", w)
 		}
@@ -184,5 +185,132 @@ func TestGoldenPackagesBuild(t *testing.T) {
 		if err != nil {
 			t.Errorf("go build %s: %v\n%s", dir, err, out)
 		}
+	}
+}
+
+// TestEmitNoUnderscores parses the golden fixture output with go/parser and
+// walks every declaration, asserting: no identifier or struct field contains '_',
+// Servers_Server is now ServersServer, and companion/child clash resolution holds,
+// including a sibling struct (server-schema) whose name equals a list's schema var.
+func TestEmitNoUnderscores(t *testing.T) {
+	goldenRoot := filepath.Join("testdata", "golden", "fixture")
+	entries, err := os.ReadDir(goldenRoot)
+	if err != nil {
+		t.Fatalf("read golden dir: %v", err)
+	}
+
+	foundServersServer := false
+	foundServersSchema := false
+	foundServersServerKey := false
+	foundSchemaChildClash := false
+	foundKeyChildClash := false
+	foundSiblingStruct := false
+	foundSchemaSiblingClash := false
+
+	schemaChildRE := regexp.MustCompile(`^ServersSchemaX[0-9a-f]{6}$`)
+	keyChildRE := regexp.MustCompile(`^ServersServerKeyX[0-9a-f]{6}$`)
+	schemaSiblingRE := regexp.MustCompile(`^ServersServerSchemaX[0-9a-f]{6}$`)
+
+	fset := token.NewFileSet()
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		pkgDir := filepath.Join(goldenRoot, e.Name())
+		files, err := os.ReadDir(pkgDir)
+		if err != nil {
+			t.Fatalf("read %s: %v", pkgDir, err)
+		}
+		for _, f := range files {
+			if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") {
+				continue
+			}
+			filePath := filepath.Join(pkgDir, f.Name())
+			file, err := parser.ParseFile(fset, filePath, nil, 0)
+			if err != nil {
+				t.Fatalf("parse %s: %v", filePath, err)
+			}
+			for _, decl := range file.Decls {
+				switch d := decl.(type) {
+				case *ast.GenDecl:
+					for _, spec := range d.Specs {
+						switch s := spec.(type) {
+						case *ast.TypeSpec:
+							name := s.Name.Name
+							if strings.Contains(name, "_") {
+								t.Errorf("%s: type %q contains underscore", f.Name(), name)
+							}
+							if name == "ServersServer" {
+								foundServersServer = true
+							}
+							if schemaChildRE.MatchString(name) {
+								foundSchemaChildClash = true
+							}
+							if keyChildRE.MatchString(name) {
+								foundKeyChildClash = true
+							}
+							if name == "ServersServerKey" {
+								foundServersServerKey = true
+							}
+							if name == "ServersServerSchema" {
+								foundSiblingStruct = true
+							}
+							if st, ok := s.Type.(*ast.StructType); ok {
+								for _, field := range st.Fields.List {
+									for _, id := range field.Names {
+										if strings.Contains(id.Name, "_") {
+											t.Errorf("%s: struct %s field %q contains underscore", f.Name(), name, id.Name)
+										}
+									}
+								}
+							}
+						case *ast.ValueSpec:
+							for _, id := range s.Names {
+								name := id.Name
+								if strings.Contains(name, "_") {
+									t.Errorf("%s: var/const %q contains underscore", f.Name(), name)
+								}
+								if name == "ServersSchema" {
+									foundServersSchema = true
+								}
+								if schemaSiblingRE.MatchString(name) {
+									foundSchemaSiblingClash = true
+								}
+								if name == "ServersServerSchema" {
+									t.Errorf("%s: var %q takes the sibling struct's name", f.Name(), name)
+								}
+							}
+						}
+					}
+				case *ast.FuncDecl:
+					name := d.Name.Name
+					if strings.Contains(name, "_") {
+						t.Errorf("%s: func %q contains underscore", f.Name(), name)
+					}
+				}
+			}
+		}
+	}
+
+	if !foundServersServer {
+		t.Error("type ServersServer not found in golden fixtures")
+	}
+	if !foundServersSchema {
+		t.Error("var ServersSchema companion not found in golden fixtures")
+	}
+	if !foundServersServerKey {
+		t.Error("type ServersServerKey companion not found in golden fixtures")
+	}
+	if !foundSchemaChildClash {
+		t.Error("child container ServersSchemaX<hex> not found in golden fixtures")
+	}
+	if !foundKeyChildClash {
+		t.Error("child container ServersServerKeyX<hex> not found in golden fixtures")
+	}
+	if !foundSiblingStruct {
+		t.Error("sibling container type ServersServerSchema not found in golden fixtures")
+	}
+	if !foundSchemaSiblingClash {
+		t.Error("list schema var ServersServerSchemaX<hex> not found in golden fixtures")
 	}
 }

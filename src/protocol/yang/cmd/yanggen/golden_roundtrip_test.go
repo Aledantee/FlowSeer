@@ -14,7 +14,7 @@ import (
 // merges changes, and nested flat rows carry
 // ancestor keys.
 
-func sampleGenServer() fixturemain.Servers_Server {
+func sampleGenServer() fixturemain.ServersServer {
 	name := "edge-1"
 	var port uint16 = 8080
 	listen := yang.Value{Type: yang.Type{Kind: yang.TypeUint16}, Uint: 8080}
@@ -24,14 +24,14 @@ func sampleGenServer() fixturemain.Servers_Server {
 	addr := "10.0.0.1"
 	var epPort uint16 = 443
 	enabled := true
-	return fixturemain.Servers_Server{
+	return fixturemain.ServersServer{
 		Name:   &name,
 		Port:   &port,
 		Listen: &listen,
 		Proto:  &proto,
 		Ratio:  &ratio,
-		Tls:    &fixturemain.Servers_Server_Tls{MinVersion: &tlsMin},
-		Endpoint: []fixturemain.Servers_Server_Endpoint{
+		TLS:    &fixturemain.ServersServerTLS{MinVersion: &tlsMin},
+		Endpoint: []fixturemain.ServersServerEndpoint{
 			{Address: &addr, Port: &epPort, Enabled: &enabled},
 		},
 	}
@@ -39,7 +39,7 @@ func sampleGenServer() fixturemain.Servers_Server {
 
 func TestGeneratedXMLRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalXMLStruct(fixturemain.Servers_ServerSchema, in)
+	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX4d76e3, in)
 	if err != nil {
 		t.Fatalf("MarshalXMLStruct: %v", err)
 	}
@@ -55,8 +55,8 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 			t.Errorf("XML missing %q in %s", frag, data)
 		}
 	}
-	var out fixturemain.Servers_Server
-	if err := yang.UnmarshalXMLStruct(fixturemain.Servers_ServerSchema, data, &out); err != nil {
+	var out fixturemain.ServersServer
+	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX4d76e3, data, &out); err != nil {
 		t.Fatalf("UnmarshalXMLStruct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -66,7 +66,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 
 func TestGeneratedJSONRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalJSON7951Struct(fixturemain.Servers_ServerSchema, in)
+	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX4d76e3, in)
 	if err != nil {
 		t.Fatalf("MarshalJSON7951Struct: %v", err)
 	}
@@ -80,8 +80,8 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 			t.Errorf("JSON missing %q in %s", frag, data)
 		}
 	}
-	var out fixturemain.Servers_Server
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.Servers_ServerSchema, data, &out); err != nil {
+	var out fixturemain.ServersServer
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX4d76e3, data, &out); err != nil {
 		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -93,7 +93,7 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 // a single leaf change in a keyed row, merge preserves unchanged
 // fields, and the key extractor produces the composite identity.
 func TestGeneratedRowMachinery(t *testing.T) {
-	codec := fixturemain.Servers_ServerDescriptor().Codec
+	codec := fixturemain.ServersServerDescriptor().Codec
 	base := sampleGenServer()
 
 	if !codec.Equal(base, sampleGenServer()) {
@@ -106,16 +106,16 @@ func TestGeneratedRowMachinery(t *testing.T) {
 		t.Error("single-leaf change not detected")
 	}
 
-	update := fixturemain.Servers_Server{Port: &newPort}
+	update := fixturemain.ServersServer{Port: &newPort}
 	merged := codec.Merge(base, update)
 	if merged.Port == nil || *merged.Port != 9090 {
 		t.Errorf("merged port = %v, want 9090", merged.Port)
 	}
-	if merged.Name == nil || *merged.Name != "edge-1" || merged.Tls == nil {
+	if merged.Name == nil || *merged.Name != "edge-1" || merged.TLS == nil {
 		t.Errorf("merge dropped unchanged fields: %+v", merged)
 	}
 
-	if key := codec.Key(base); key != (fixturemain.Servers_ServerKey{Name: "edge-1"}) {
+	if key := codec.Key(base); key != (fixturemain.ServersServerKey{Name: "edge-1"}) {
 		t.Errorf("key = %+v", key)
 	}
 }
@@ -134,18 +134,18 @@ func TestGeneratedNestedFlatRows(t *testing.T) {
 		`</server>` +
 		`</servers></data>`
 
-	rows, err := fixturemain.Servers_Server_EndpointDescriptor().Codec.DecodeXML([]byte(payload))
+	rows, err := fixturemain.ServersServerEndpointDescriptor().Codec.DecodeXML([]byte(payload))
 	if err != nil {
 		t.Fatalf("DecodeXML: %v", err)
 	}
 	if len(rows) != 3 {
 		t.Fatalf("decoded %d flat rows, want 3", len(rows))
 	}
-	keyOf := fixturemain.Servers_Server_EndpointDescriptor().Codec.Key
-	want := []fixturemain.Servers_Server_EndpointKey{
-		{Server_Name: "a", Address: "10.0.0.1", Port: 443},
-		{Server_Name: "a", Address: "10.0.0.2", Port: 444},
-		{Server_Name: "b", Address: "10.0.1.1", Port: 443},
+	keyOf := fixturemain.ServersServerEndpointDescriptor().Codec.Key
+	want := []fixturemain.ServersServerEndpointKey{
+		{ServerName: "a", Address: "10.0.0.1", Port: 443},
+		{ServerName: "a", Address: "10.0.0.2", Port: 444},
+		{ServerName: "b", Address: "10.0.1.1", Port: 443},
 	}
 	for i, w := range want {
 		if got := keyOf(rows[i]); got != w {
@@ -156,11 +156,11 @@ func TestGeneratedNestedFlatRows(t *testing.T) {
 	jsonPayload := `{"fixture-main:server":[` +
 		`{"name":"a","endpoint":[{"address":"10.0.0.1","port":443}]},` +
 		`{"name":"b","endpoint":[{"address":"10.0.1.1","port":443}]}]}`
-	jrows, err := fixturemain.Servers_Server_EndpointDescriptor().Codec.DecodeJSON([]byte(jsonPayload))
+	jrows, err := fixturemain.ServersServerEndpointDescriptor().Codec.DecodeJSON([]byte(jsonPayload))
 	if err != nil {
 		t.Fatalf("DecodeJSON: %v", err)
 	}
-	if len(jrows) != 2 || keyOf(jrows[0]).Server_Name != "a" || keyOf(jrows[1]).Server_Name != "b" {
+	if len(jrows) != 2 || keyOf(jrows[0]).ServerName != "a" || keyOf(jrows[1]).ServerName != "b" {
 		t.Errorf("JSON flat rows = %+v", jrows)
 	}
 }
@@ -168,7 +168,7 @@ func TestGeneratedNestedFlatRows(t *testing.T) {
 // TestGeneratedDescriptorPaths asserts the descriptor paths render to
 // the three wire forms.
 func TestGeneratedDescriptorPaths(t *testing.T) {
-	p := fixturemain.Servers_ServerDescriptor().Path
+	p := fixturemain.ServersServerDescriptor().Path
 	if got := p.String(); got != "/fixture-main:servers/server" {
 		t.Errorf("gNMI path = %q", got)
 	}
@@ -190,7 +190,7 @@ func TestGeneratedDescriptorPaths(t *testing.T) {
 func TestGeneratedVisitLeaves(t *testing.T) {
 	v := sampleGenServer()
 	var leaves []string
-	err := yang.VisitStructLeaves(fixturemain.Servers_ServerSchema, v, func(p yang.Path, val yang.Value) bool {
+	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX4d76e3, v, func(p yang.Path, val yang.Value) bool {
 		canon, cerr := val.Canonical()
 		if cerr != nil {
 			t.Fatal(cerr)

@@ -134,15 +134,15 @@ func runTableWalkRegressions(ctx context.Context, t *testing.T, sess snmp.Sessio
 		// halts at the first row's emission. Both must succeed; an
 		// empty table is acceptable (some routers don't expose any
 		// IP addresses to SNMP).
-		w := ipmib.IpAddrTable.Walk(ctx, sess,
-			ipmib.IpAdEntAddr, ipmib.IpAdEntIfIndex, ipmib.IpAdEntNetMask,
+		w := ipmib.IPAddrTable.Walk(ctx, sess,
+			ipmib.IPAdEntAddr, ipmib.IPAdEntIfIndex, ipmib.IPAdEntNetMask,
 		)
 		rows := 0
 		for _, row := range w.Iter() {
 			rows++
 			if rows <= 4 {
 				t.Logf("  ipAdEntAddr=%s ifIndex=%d netMask=%s",
-					row.IpAdEntAddr, row.IpAdEntIfIndex, row.IpAdEntNetMask)
+					row.IPAdEntAddr, row.IPAdEntIfIndex, row.IPAdEntNetMask)
 			}
 		}
 		if err := w.Err(); err != nil {
@@ -183,15 +183,15 @@ func runTableWalkRegressions(ctx context.Context, t *testing.T, sess snmp.Sessio
 		// LLDP-MIB is RouterOS-only on MikroTik; SwOS doesn't ship a
 		// MIB-side implementation. Same skip-on-ErrException pattern
 		// as hrStorageTable.
-		w := lldpmib.LldpLocPortTable.Walk(ctx, sess,
-			lldpmib.LldpLocPortIdSubtype, lldpmib.LldpLocPortId, lldpmib.LldpLocPortDesc,
+		w := lldpmib.LLDPLocPortTable.Walk(ctx, sess,
+			lldpmib.LLDPLocPortIDSubtype, lldpmib.LLDPLocPortID, lldpmib.LLDPLocPortDesc,
 		)
 		rows := 0
 		for _, row := range w.Iter() {
 			rows++
 			if rows <= 4 {
 				t.Logf("  lldpLocPort[%d] subtype=%v id=%v desc=%q",
-					rows, row.LldpLocPortIdSubtype, row.LldpLocPortId, row.LldpLocPortDesc)
+					rows, row.LLDPLocPortIDSubtype, row.LLDPLocPortID, row.LLDPLocPortDesc)
 			}
 		}
 		if err := w.Err(); err != nil {
