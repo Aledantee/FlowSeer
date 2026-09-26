@@ -68,6 +68,13 @@ One received log line tied to its device, captured as an append-only timeline
 fact. A syslog record is never diffed, reconciled, or tracked through a
 lifecycle, and is never an alarm.
 
+### Alarm
+
+A named, clearable fault condition a device raises on one of its resources,
+keyed by resource and alarm type. An Alarm is managed as an observed state
+and transition (`AlarmState`, `AlarmEvent`), distinct from an append-only
+syslog record.
+
 ## Runtime
 
 ### Service Module
