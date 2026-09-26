@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 7, L3 Protocols and IP Services - Plan
+
+> Implemented. 6 units, 2026-09-26T11:54:05Z to 2026-09-26T12:43:40Z. Targeted verification run over union of changed paths per directive (replacing --full).
 
 ## Goal
 
@@ -1015,17 +1017,17 @@ check: no mapper fills these rows in this phase.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit.
-- [ ] The eight package READMEs, `net/README.md`,
+- [x] Verifier green for every changed path of every unit.
+- [x] The eight package READMEs, `net/README.md`,
       `net/protocol/README.md`, the `addr`, `key`, `packet`, and
       `switching` READMEs, `CONCEPTS.md`, `docs/conventions/protobuf.md`,
       and the predefined-rule table in `docs/code-style-proto.md` match
       the tree in the unit that changed them.
-- [ ] Every requirement above has its test case, each failing case
+- [x] Every requirement above has its test case, each failing case
       asserting its field path or rule id.
-- [ ] No plan label appears in schema, code, comments, or commit
+- [x] No plan label appears in schema, code, comments, or commit
       messages.
-- [ ] This plan's `status` is `implemented` with an outcome note under
+- [x] This plan's `status` is `implemented` with an outcome note under
       the title; the parent's U7 `Landed:` line carries the commit range,
       and the parent's HSRP open question is closed with a pointer to
       this plan's HSRP decision.
