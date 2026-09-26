@@ -140,6 +140,60 @@ func rawUint32(rv RawVarBind, tag byte) (uint32, bool) {
 	return uint32(v), true
 }
 
+// RawInteger32As decodes an INTEGER value varbind into T.
+func RawInteger32As[T ~int32](rv RawVarBind) (T, bool) {
+	v, ok := RawInteger32(rv)
+	if !ok {
+		return 0, false
+	}
+	return T(v), true
+}
+
+// RawCounter32As decodes a Counter32 value varbind into T.
+func RawCounter32As[T ~uint32](rv RawVarBind) (T, bool) {
+	v, ok := RawCounter32(rv)
+	if !ok {
+		return 0, false
+	}
+	return T(v), true
+}
+
+// RawGauge32As decodes a Gauge32 value varbind into T.
+func RawGauge32As[T ~uint32](rv RawVarBind) (T, bool) {
+	v, ok := RawGauge32(rv)
+	if !ok {
+		return 0, false
+	}
+	return T(v), true
+}
+
+// RawUnsigned32As decodes an Unsigned32 value varbind into T.
+func RawUnsigned32As[T ~uint32](rv RawVarBind) (T, bool) {
+	v, ok := RawUnsigned32(rv)
+	if !ok {
+		return 0, false
+	}
+	return T(v), true
+}
+
+// RawTimeTicksAs decodes a TimeTicks value varbind into T.
+func RawTimeTicksAs[T ~uint32](rv RawVarBind) (T, bool) {
+	v, ok := RawTimeTicks(rv)
+	if !ok {
+		return 0, false
+	}
+	return T(v), true
+}
+
+// RawCounter64As decodes a Counter64 value varbind into T.
+func RawCounter64As[T ~uint64](rv RawVarBind) (T, bool) {
+	v, ok := RawCounter64(rv)
+	if !ok {
+		return 0, false
+	}
+	return T(v), true
+}
+
 // RawFirstArc reads the first sub-identifier from a mid-OID byte suffix
 // (no X.690 first-octet folding — that applies only at the start of a
 // full OID). Returns the arc value, the number of octets consumed, and
