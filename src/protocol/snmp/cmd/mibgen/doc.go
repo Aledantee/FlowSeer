@@ -3,10 +3,10 @@
 // Each loaded MIB module produces one Go package under -out/<package>/
 // containing a single mib.go file. The generated code consumes only
 // the public API of common/snmp: typed scalar Get-accessors,
-// column values built via [snmp.NewColumn], per-table
-// row structs and Walkers, SMI enum types, and a
-// per-package OID → AnyColumn dispatch map. Well-known SMIv2
-// textual conventions delegate to [snmp.Decode*] helpers.
+// column values built via [snmp.NewTableColumn] and
+// [snmp.NewFusedTableColumn], per-table row structs and Walkers,
+// SMI enum types, and a per-package OID → AnyColumn dispatch map.
+// Well-known SMIv2 textual conventions delegate to [snmp.Decode*] helpers.
 //
 // Generated identifiers derive from the SMI names they bind under the
 // shared goname rules (src/protocol/internal/goname): words split at
@@ -19,23 +19,33 @@
 // generation error naming both SMI names; mibgen fails rather than
 // rename one of the pair.
 //
-// Two generated shapes carry more than the MIB's field list:
+// Generated shapes carry table lifecycle, presence, indexing, and enum behavior:
 //
-//   - Each row type has an Observed(snmp.AnyColumn) bool method. A
-//     zero-valued field is ambiguous on its own — the agent may have
-//     answered zero or may not have answered at all — so the row records
-//     which requested columns actually landed and answers by column
-//     identity.
+//   - SMI enum types define named integer types, typed constants, sorted
+//     package-level value ([]int32) and name ([]string) slices, and a
+//     String() method delegating to [snmp.EnumString].
+//   - Each table emits a singleton struct embedding [snmp.Table] initialized
+//     via [snmp.NewTable]. The named walker embeds [snmp.TableWalker] by value,
+//     providing the walk and iteration lifecycle (Walk, WalkWithOptions,
+//     Iter, Err, Close).
+//   - Table columns are declared with [snmp.NewTableColumn] or
+//     [snmp.NewFusedTableColumn] carrying typed raw adapters and stable
+//     observed-bit ordinals. Per-row column decoding delegates to
+//     [snmp.DecodeColumn] through a numeric ordinal switch.
+//   - Each row type has an Observed(snmp.AnyColumn) bool method delegating
+//     to [snmp.ColumnObserved] over a compact bitset to distinguish
+//     a reported zero from a column the agent never answered.
 //   - BITS-valued objects decode to [snmp.BitSet], the set of positions
 //     the agent reported, and the module gets one [snmp.BitPos] constant
 //     per named bit (see emit_bits.go for how positions are recovered).
 //   - Each row type carries its decoded INDEX as a comparable key struct
 //     with one field per part, decoded through [snmp.DecodeIndexInto]; a
 //     suffix that does not match the declared shape leaves the key zero
-//     and KeyValid false without ending the walk. A textual convention
-//     that solely indexes a table of its own module becomes a named key
-//     type in that module's package, with a HomeTable method naming the
-//     table, and every column of that type is a reference to a row of it
+//     and KeyValid false without ending the walk. Tables with single
+//     unkeyed indices bind the instance suffix directly to Index. A textual
+//     convention that solely indexes a table of its own module becomes a
+//     named key type in that module's package, with a HomeTable method naming
+//     the table, and every column of that type is a reference to a row of it
 //     (see emit_key.go for the keyed-convention rule and the home-table
 //     tiebreak). A reference to a key type whose module is not
 //     configured is emitted in its base type and listed on stdout.

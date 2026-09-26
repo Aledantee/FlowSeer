@@ -176,13 +176,12 @@ func TestEmit_FakeMIB_UsesIdiomaticGeneratedShapes(t *testing.T) {
 
 	wantFragments := []string{
 		"return snmp.DecodeMacAddress(vbs[0])",
-		"snmp.KindCounter32, snmp.DecodeUint32)",
-		"var FakeRef = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)",
-		"row.FakeSoloLastChange = v",
-		"row.FakeMode = FakeModeValue(v)",
-		"if col.Key() == FakeSoloLastChange.Key()",
-		"if tw.cols[cell.Column].Key() == FakeSoloLastChange.Key()",
-		"if v == FakeModeValueOnly",
+		"snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 0)",
+		"var FakeRef = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)",
+		"return snmp.DecodeColumn(rv, FakeSoloLastChange, &row.FakeSoloLastChange, row.observed[:])",
+		"return snmp.DecodeColumn(rv, FakeMode, &row.FakeMode, row.observed[:])",
+		"return snmp.ColumnObserved(r.observed[:], fakeSoloTableColumns, col)",
+		"return snmp.EnumString(int32(v), \"FakeModeValue\", fakeModeValueValues, fakeModeValueNames)",
 	}
 	for _, want := range wantFragments {
 		if !strings.Contains(src, want) {
@@ -327,14 +326,9 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"var FakeLastChange =",
 		"type FakeTableRow struct",
 		"type FakeTableWalker struct",
-		"func (tw *FakeTableWalker) Iter()",
-		"func (tw *FakeTableWalker) Err()",
-		"func (fakeTableT) Walk",
-		"func (fakeTableT) WalkWithOptions",
-		"func (tw *FakeTableWalker) Close()",
-		"snmp.WalkColumns(ctx, sess, roots, options)",
-		"snmp.ErrForeignColumn",
-		"var FakeTable fakeTableT",
+		"snmp.TableWalker[FakeTableRow]",
+		"snmp.Table[FakeTableRow, *FakeTableWalker]",
+		"var FakeTable = fakeTableT{",
 		// Module-prefixed dispatch map: FAKE-MIB → fAKEMIBOIDDispatch
 		// (camelCase upper-cases letters following hyphens, then the
 		// first rune is lower-cased to keep the symbol package-private).
@@ -381,13 +375,13 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		// and answers by column identity, so a mapper can tell a
 		// reported zero from a column the agent never answered.
 		"func (r FakeTableRow) Observed(col snmp.AnyColumn) bool",
-		"case FakeName.Key():",
+		"return snmp.ColumnObserved(r.observed[:], fakeTableColumns, col)",
 		// BITS decodes to a set of positions, with one named constant
 		// per bit the MIB names.
 		"FakeCapabilitiesAlpha snmp.BitPos = 0",
 		"FakeCapabilitiesGamma snmp.BitPos = 2",
-		"snmp.KindOctetString, snmp.DecodeBitSet)",
-		"var FakeFlags = snmp.NewColumn[snmp.BitSet]",
+		"snmp.KindOctetString, snmp.DecodeBitSet, 4)",
+		"var FakeFlags = snmp.NewTableColumn[snmp.BitSet]",
 		"a.FakeFlags.Equal(b.FakeFlags)",
 	}
 	notWantFragments := []string{
@@ -398,6 +392,12 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		// int32 constant per bit can carry neither the wire OCTET
 		// STRING nor a two-bits-set answer.
 		"type FakeCapabilities int32",
+		"func (tw *FakeTableWalker) Iter()",
+		"func (tw *FakeTableWalker) Err()",
+		"func (tw *FakeTableWalker) Close()",
+		"func (fakeTableT) Walk(",
+		"func (fakeTableT) WalkWithOptions(",
+		"case FakeName.Key():",
 	}
 	for _, w := range wantFragments {
 		if !strings.Contains(src, w) {
@@ -409,4 +409,129 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 			t.Errorf("emitted source contains forbidden fragment %q\n--- src ---\n%s", w, src)
 		}
 	}
+}
+
+// TestEmit_TableBoundAndFusedConstructors asserts that accessible columns are
+// emitted with bound ordinals and typed fast-path raw decoders where applicable.
+func TestEmit_TableBoundAndFusedConstructors(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"var FakeName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)",
+		"var FakeMAC = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress, 1)",
+		"var FakeOctets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 2)",
+		"var FakeLastChange = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 5), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 3)",
+		"var FakeRef = snmp.NewFusedTableColumn[fakekeysmib.FakeKeyIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (fakekeysmib.FakeKeyIndex, error)",
+		"snmp.RawInteger32As[fakekeysmib.FakeKeyIndex], 5)",
+		"var FakeMode = snmp.NewFusedTableColumn[FakeModeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (FakeModeValue, error)",
+		"snmp.RawInteger32As[FakeModeValue], 6)",
+	)
+}
+
+// TestEmit_TableNumericOrdinalDecoder asserts that the ordinal decoder switch
+// emits one snmp.DecodeColumn call per accessible column.
+func TestEmit_TableNumericOrdinalDecoder(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"case 0:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeName, &row.FakeName, row.observed[:])",
+		"case 1:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeMAC, &row.FakeMAC, row.observed[:])",
+		"case 2:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeOctets, &row.FakeOctets, row.observed[:])",
+		"case 3:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeLastChange, &row.FakeLastChange, row.observed[:])",
+		"case 4:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeFlags, &row.FakeFlags, row.observed[:])",
+		"case 5:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeRef, &row.FakeRef, row.observed[:])",
+		"case 6:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeMode, &row.FakeMode, row.observed[:])",
+	)
+}
+
+// TestEmit_TableOneCallColumnObserved asserts that Observed delegates directly
+// to snmp.ColumnObserved against the package-level column slice.
+func TestEmit_TableOneCallColumnObserved(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"func (r FakeTableRow) Observed(col snmp.AnyColumn) bool {\n\treturn snmp.ColumnObserved(r.observed[:], fakeTableColumns, col)\n}",
+	)
+}
+
+// TestEmit_TableEmbeddedRuntimeTypes asserts that the singleton embeds
+// snmp.Table and the named walker embeds snmp.TableWalker.
+func TestEmit_TableEmbeddedRuntimeTypes(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"type FakeTableWalker struct {\n\tsnmp.TableWalker[FakeTableRow]\n}",
+		"type fakeTableT struct {\n\tsnmp.Table[FakeTableRow, *FakeTableWalker]\n}",
+		"var FakeTable = fakeTableT{Table: snmp.NewTable(\"fakeTable\", fakeTableColumns,",
+		"func(tw snmp.TableWalker[FakeTableRow]) *FakeTableWalker {\n\treturn &FakeTableWalker{TableWalker: tw}\n})}",
+	)
+}
+
+// TestEmit_EnumStaticArraysAndHelper asserts that each enum generates static
+// value and name slices and a one-call String implementation.
+func TestEmit_EnumStaticArraysAndHelper(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"fakeStatusValueValues = []int32{1, 2, 3}",
+		"fakeStatusValueNames = []string{\"up\", \"down\", \"testing\"}",
+		"func (v FakeStatusValue) String() string {\n\treturn snmp.EnumString(int32(v), \"FakeStatusValue\", fakeStatusValueValues, fakeStatusValueNames)\n}",
+		"fakeModeValueValues = []int32{1}",
+		"fakeModeValueNames = []string{\"only\"}",
+		"func (v FakeModeValue) String() string {\n\treturn snmp.EnumString(int32(v), \"FakeModeValue\", fakeModeValueValues, fakeModeValueNames)\n}",
+	)
+}
+
+// TestEmit_RejectsRemovedInlineShapes verifies that generated output does not
+// declare per-table lifecycle methods, inline decode arms, or enum switches.
+func TestEmit_RejectsRemovedInlineShapes(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	rejectFragments(t, src,
+		"func (tw *FakeTableWalker) Iter()",
+		"func (tw *FakeTableWalker) Err()",
+		"func (tw *FakeTableWalker) Close()",
+		"func (fakeTableT) Walk(",
+		"func (fakeTableT) WalkWithOptions(",
+		"if col.Key() == FakeSoloLastChange.Key()",
+		"if tw.cols[cell.Column].Key() == FakeSoloLastChange.Key()",
+		"if v == FakeModeValueOnly",
+		"switch v {",
+	)
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"sort"
-
 	"github.com/dave/jennifer/jen"
 
 	"go.aledante.io/FlowSeer/src/protocol/smi"
@@ -10,20 +8,22 @@ import (
 
 // emitTable expands one MIB table node into a suite of declarations:
 //
-//   - `var <Column> = snmp.NewColumn[T](...)` for every accessible
-//     column. The column is registered with [emitCtx.dispatch]
+//   - `var <Column> = snmp.NewTableColumn[T](...)` or `snmp.NewFusedTableColumn[T](...)`
+//     for every accessible column. The column is registered with [emitCtx.dispatch]
 //     so emitDispatch can later wire the per-package OID map.
+//   - `var <table>Columns = []snmp.AnyColumn{...}` in observed-bit order.
 //   - `type <Table>Key struct { … }` with one field per INDEX part,
 //     plus the shapes and decode helper that read it from the instance
 //     suffix (see [emitTableKey]).
 //   - `type <Table>Row struct { Key <Table>Key; … }` with one field
 //     per column (named after the column). A table whose key does not
 //     resolve carries the raw suffix as `Index snmp.OID` instead.
-//   - `type <Table>Walker struct{...}` and its `Iter` / `Err` methods.
-//   - `type <table>T struct{}` plus `var <Table> <table>T` and a
-//     `Walk(ctx, sess, cols ...snmp.AnyColumn) *<Table>Walker` method.
+//   - `type <Table>Walker struct{ snmp.TableWalker[<TableRow>] }`.
+//   - `type <table>T struct{ snmp.Table[<TableRow>, *<TableWalker>] }`
+//     plus `var <Table> = <table>T{ Table: snmp.NewTable(...) }`.
 //
-// Iter decodes rows assembled by the shared bounded selected-column merge.
+// Table walks and iteration are coordinated by the shared runtime types
+// [snmp.Table] and [snmp.TableWalker].
 //
 // emitTable assumes [emitEnums] has already run so [emitCtx.enumNames]
 // is populated. It returns an error when a column's type cannot be
@@ -89,11 +89,29 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 			f.Comment(line)
 		}
 		emitDeprecationParagraph(f, c.Node)
-		f.Var().Id(c.GoName).Op("=").Qual(snmpImport, "NewColumn").Types(c.Res.GoType.Clone()).Call(
-			newOIDCall(c.ColumnOID),
-			c.Res.Kind.Clone(),
-			c.Res.DecodeFunc(),
-		)
+		if c.Res.RawFuse == "" {
+			f.Var().Id(c.GoName).Op("=").Qual(snmpImport, "NewTableColumn").Types(c.Res.GoType.Clone()).Call(
+				newOIDCall(c.ColumnOID),
+				c.Res.Kind.Clone(),
+				c.Res.DecodeFunc(),
+				jen.Lit(c.Bit),
+			)
+		} else {
+			_, result, ok := decoderHelperFor(c.Res.Variant)
+			var fused jen.Code
+			if !ok || renderGoType(c.Res.GoType) == renderGoType(result) {
+				fused = jen.Qual(snmpImport, c.Res.RawFuse)
+			} else {
+				fused = jen.Qual(snmpImport, c.Res.RawFuse+"As").Types(c.Res.GoType.Clone())
+			}
+			f.Var().Id(c.GoName).Op("=").Qual(snmpImport, "NewFusedTableColumn").Types(c.Res.GoType.Clone()).Call(
+				newOIDCall(c.ColumnOID),
+				c.Res.Kind.Clone(),
+				c.Res.DecodeFunc(),
+				fused,
+				jen.Lit(c.Bit),
+			)
+		}
 		ec.dispatch = append(ec.dispatch, dispatchEntry{OID: c.ColumnOID, Name: c.GoName})
 
 		// Record the column's tier classification for the per-
@@ -108,6 +126,13 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 			Name: c.GoName,
 		})
 	}
+
+	colsVar := unexported(tableName) + "Columns"
+	f.Var().Id(colsVar).Op("=").Index().Qual(snmpImport, "AnyColumn").ValuesFunc(func(g *jen.Group) {
+		for _, c := range cols {
+			g.Id(c.GoName)
+		}
+	})
 
 	key := emitTableKey(f, ec, t, tableName)
 
@@ -161,64 +186,70 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	f.Comment("to Walk, and any column of another table all read false.")
 	f.Func().Params(jen.Id("r").Id(rowTypeName)).Id("Observed").Params(
 		jen.Id("col").Qual(snmpImport, "AnyColumn"),
-	).Bool().BlockFunc(func(g *jen.Group) {
-		// Keyed on the column's OID wire key rather than its last
-		// sub-id: sub-ids collide across tables constantly, and a
-		// caller passing another table's column must read false.
-		if len(cols) == 1 {
-			c := cols[0]
-			g.If(jen.Id("col").Dot("Key").Call().Op("==").Id(c.GoName).Dot("Key").Call()).Block(
-				jen.Return(observedTest(jen.Id("r"), c.Bit)),
-			)
-		} else {
-			g.Switch(jen.Id("col").Dot("Key").Call()).BlockFunc(func(sg *jen.Group) {
-				for _, c := range cols {
-					sg.Case(jen.Id(c.GoName).Dot("Key").Call()).Block(
-						jen.Return(observedTest(jen.Id("r"), c.Bit)),
-					)
-				}
-			})
-		}
-		g.Line()
-		g.Return(jen.False())
-	})
+	).Bool().Block(
+		jen.Return(jen.Qual(snmpImport, "ColumnObserved").Call(
+			jen.Id("r").Dot("observed").Index(jen.Op(":")),
+			jen.Id(colsVar),
+			jen.Id("col"),
+		)),
+	)
 
 	f.Comment(walkerTypeName + " streams selected columns of " + table.Name + ".")
 	f.Comment("The zero value is not usable; construct via " + tableName + ".Walk(ctx, sess, cols...).")
 	f.Comment("Iteration is single-use and single-consumer; Close and Err are safe concurrently.")
 	f.Type().Id(walkerTypeName).Struct(
-		jen.Id("rw").Op("*").Qual(snmpImport, "ColumnWalker"),
-		jen.Id("cols").Index().Qual(snmpImport, "AnyColumn"),
-	)
-
-	emitTableIter(f, walkerTypeName, rowTypeName, key, cols)
-
-	f.Comment("Err returns the underlying walker's terminal error, or nil if")
-	f.Comment("the walk completed naturally.")
-	f.Func().Params(jen.Id("tw").Op("*").Id(walkerTypeName)).Id("Err").Params().Error().Block(
-		jen.Return(jen.Id("tw").Dot("rw").Dot("Err").Call()),
+		jen.Qual(snmpImport, "TableWalker").Types(jen.Id(rowTypeName)),
 	)
 
 	f.Comment(descriptorTypeName + " is the singleton type of " + tableName + ".")
-	f.Type().Id(descriptorTypeName).Struct()
+	f.Type().Id(descriptorTypeName).Struct(
+		jen.Qual(snmpImport, "Table").Types(jen.Id(rowTypeName), jen.Op("*").Id(walkerTypeName)),
+	)
 	f.Comment(tableName + " is the descriptor for the " + table.Name + " table.")
 	emitDeprecationParagraph(f, table)
-	f.Var().Id(tableName).Id(descriptorTypeName)
+	f.Var().Id(tableName).Op("=").Id(descriptorTypeName).Values(jen.Dict{
+		jen.Id("Table"): jen.Qual(snmpImport, "NewTable").Call(
+			jen.Lit(table.Name),
+			jen.Id(colsVar),
+			jen.Func().Params(
+				jen.Id("idx").Qual(snmpImport, "OID"),
+				jen.Id("row").Op("*").Id(rowTypeName),
+			).BlockFunc(func(g *jen.Group) {
+				if key.raw() {
+					g.Id("row").Dot("Index").Op("=").Id("idx")
+				} else {
+					g.List(jen.Id("row").Dot("Key"), jen.Id("row").Dot("keyValid")).Op("=").Id(key.DecodeFn).Call(jen.Id("idx"))
+				}
+			}),
+			jen.Func().Params(
+				jen.Id("row").Op("*").Id(rowTypeName),
+				jen.Id("ordinal").Int(),
+				jen.Id("rv").Qual(snmpImport, "RawVarBind"),
+			).Error().BlockFunc(func(g *jen.Group) {
+				g.Switch(jen.Id("ordinal")).BlockFunc(func(sg *jen.Group) {
+					for _, c := range cols {
+						sg.Case(jen.Lit(c.Bit)).Block(
+							jen.Return(jen.Qual(snmpImport, "DecodeColumn").Call(
+								jen.Id("rv"),
+								jen.Id(c.GoName),
+								jen.Op("&").Id("row").Dot(c.FieldName),
+								jen.Id("row").Dot("observed").Index(jen.Op(":")),
+							)),
+						)
+					}
+				})
+				g.Return(jen.Nil())
+			}),
+			jen.Func().Params(
+				jen.Id("tw").Qual(snmpImport, "TableWalker").Types(jen.Id(rowTypeName)),
+			).Op("*").Id(walkerTypeName).Block(
+				jen.Return(jen.Op("&").Id(walkerTypeName).Values(jen.Dict{
+					jen.Id("TableWalker"): jen.Id("tw"),
+				})),
+			),
+		),
+	})
 
-	f.Comment("Close stops retrieval. It is idempotent and safe during iteration.")
-	f.Func().Params(jen.Id("tw").Op("*").Id(walkerTypeName)).Id("Close").Params().Block(
-		jen.Id("tw").Dot("rw").Dot("Close").Call(),
-	)
-	f.Comment("Walk lazily retrieves only selected columns with bounded defaults.")
-	f.Comment("Rows are the union of selected values in numeric OID index order.")
-	f.Comment("No columns means no rows or requests. Duplicate selections are ignored.")
-	f.Comment("Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].")
-	f.Func().Params(jen.Id("t").Id(descriptorTypeName)).Id("Walk").Params(
-		jen.Id("ctx").Qual("context", "Context"), jen.Id("sess").Qual(snmpImport, "Session"),
-		jen.Id("cols").Op("...").Qual(snmpImport, "AnyColumn"),
-	).Op("*").Id(walkerTypeName).Block(
-		jen.Return(jen.Id("t").Dot("WalkWithOptions").Call(jen.Id("ctx"), jen.Id("sess"), jen.Qual(snmpImport, "TableWalkOptions").Values(), jen.Id("cols").Op("..."))),
-	)
 	// The descriptor names the indicator var emitIndicators writes at
 	// the end of the file; a method body may refer to a package-level
 	// var declared after it, so emission order does not matter here.
@@ -235,38 +266,6 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 			d[jen.Id("KeyType")] = jen.Lit(key.descriptorKeyType())
 		}))),
 	)
-	f.Comment("WalkWithOptions is Walk with request sizing and per-call controls.")
-	f.Comment("SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.")
-	f.Func().Params(jen.Id(descriptorTypeName)).Id("WalkWithOptions").Params(
-		jen.Id("ctx").Qual("context", "Context"), jen.Id("sess").Qual(snmpImport, "Session"),
-		jen.Id("options").Qual(snmpImport, "TableWalkOptions"), jen.Id("cols").Op("...").Qual(snmpImport, "AnyColumn"),
-	).Op("*").Id(walkerTypeName).BlockFunc(func(g *jen.Group) {
-		g.Id("seen").Op(":=").Make(jen.Map(jen.String()).Bool())
-		g.Var().Id("selected").Index().Qual(snmpImport, "AnyColumn")
-		g.Var().Id("roots").Index().Qual(snmpImport, "OID")
-		g.For(jen.List(jen.Id("_"), jen.Id("c")).Op(":=").Range().Id("cols")).BlockFunc(func(cg *jen.Group) {
-			cg.Switch(jen.Id("c").Dot("Key").Call()).BlockFunc(func(sg *jen.Group) {
-				cases := make([]jen.Code, 0, len(cols))
-				for _, c := range cols {
-					cases = append(cases, jen.Id(c.GoName).Dot("Key").Call())
-				}
-				sg.Case(cases...)
-				sg.Default().Block(
-					jen.Id("w").Op(":=").Qual(snmpImport, "WalkColumns").Call(jen.Id("ctx"), jen.Id("sess"), jen.Nil(), jen.Id("options")),
-					jen.Id("w").Dot("Fail").Call(jen.Qual(errsImport, "Wrapf").Call(jen.Qual(snmpImport, "ErrForeignColumn"), jen.Lit(table.Name+".Walk: column %s"), jen.Id("c").Dot("OID").Call())),
-					jen.Return(jen.Op("&").Id(walkerTypeName).Values(jen.Dict{jen.Id("rw"): jen.Id("w")})),
-				)
-			})
-			cg.If(jen.Id("seen").Index(jen.Id("c").Dot("Key").Call())).Block(jen.Continue())
-			cg.Id("seen").Index(jen.Id("c").Dot("Key").Call()).Op("=").True()
-			cg.Id("selected").Op("=").Append(jen.Id("selected"), jen.Id("c"))
-			cg.Id("roots").Op("=").Append(jen.Id("roots"), jen.Id("c").Dot("OID").Call())
-		})
-		g.Return(jen.Op("&").Id(walkerTypeName).Values(jen.Dict{
-			jen.Id("rw"):   jen.Qual(snmpImport, "WalkColumns").Call(jen.Id("ctx"), jen.Id("sess"), jen.Id("roots"), jen.Id("options")),
-			jen.Id("cols"): jen.Id("selected"),
-		}))
-	})
 
 	// The Watch machinery is emitted only for tables that have a
 	// discovered or declared indicator; the emit_watch.go gate consults
@@ -281,90 +280,6 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	})
 
 	return nil
-}
-
-// emitTableIter leaves protocol ordering and buffering to the runtime. Decoding
-// happens only for the row about to be delivered, preserving the error prefix.
-func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, key rowKey, cols []colInfo) {
-	sortedCols := append([]colInfo(nil), cols...)
-	sort.Slice(sortedCols, func(i, j int) bool { return sortedCols[i].Sub < sortedCols[j].Sub })
-	f.Comment("Iter yields complete selected-column rows in numeric OID suffix order")
-	f.Comment("(192.168.0.2 precedes 192.168.0.10). It retains one batch per selected")
-	f.Comment("column. Breaking iteration stops retrieval. A decode error omits the")
-	f.Comment("failing row and later rows; already delivered rows remain valid. Check Err.")
-	if !key.raw() {
-		f.Comment("A row whose suffix does not decode as the declared INDEX is still yielded,")
-		f.Comment("with a zero Key and KeyValid false; the yielded OID is its raw suffix.")
-	}
-	f.Func().Params(jen.Id("tw").Op("*").Id(walkerTypeName)).Id("Iter").Params().Qual("iter", "Seq2").Types(jen.Qual(snmpImport, "OID"), jen.Id(rowTypeName)).Block(
-		jen.Return(jen.Func().Params(jen.Id("yield").Func().Params(jen.Qual(snmpImport, "OID"), jen.Id(rowTypeName)).Bool()).BlockFunc(func(g *jen.Group) {
-			g.For(jen.List(jen.Id("idx"), jen.Id("cells")).Op(":=").Range().Id("tw").Dot("rw").Dot("Iter").Call()).BlockFunc(func(rg *jen.Group) {
-				key.declareRow(rg, rowTypeName)
-				rg.For(jen.List(jen.Id("_"), jen.Id("cell")).Op(":=").Range().Id("cells")).BlockFunc(func(lg *jen.Group) {
-					lg.Id("rv").Op(":=").Id("cell").Dot("Value")
-					lg.Var().Id("derr").Error()
-					emitArm := func(cg *jen.Group, c colInfo) {
-						genericArm := func(ag *jen.Group) {
-							ag.List(jen.Id("vb"), jen.Id("vbErr")).Op(":=").Id("rv").Dot("Decode").Call()
-							ag.If(jen.Id("vbErr").Op("!=").Nil()).Block(
-								jen.Id("derr").Op("=").Id("vbErr"),
-							).Else().BlockFunc(func(bg *jen.Group) {
-								bg.List(jen.Id("dv"), jen.Id("dErr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
-								bg.If(jen.Id("dErr").Op("!=").Nil()).Block(
-									jen.Id("derr").Op("=").Id("dErr"),
-								).Else().Block(
-									jen.Id("row").Dot(c.FieldName).Op("=").Id("dv"),
-									observedMark(jen.Id("row"), c.Bit),
-								)
-							})
-						}
-						if c.Res.RawFuse == "" {
-							genericArm(cg)
-							return
-						}
-
-						rawValue := jen.Id("v")
-						_, result, ok := decoderHelperFor(c.Res.Variant)
-						if !ok || renderGoType(c.Res.GoType) != renderGoType(result) {
-							rawValue = c.Res.GoType.Clone().Call(jen.Id("v"))
-						}
-						cg.If(jen.List(jen.Id("v"), jen.Id("okRaw")).Op(":=").Qual(snmpImport, c.Res.RawFuse).Call(jen.Id("rv")), jen.Id("okRaw")).Block(
-							jen.Id("row").Dot(c.FieldName).Op("=").Add(rawValue),
-							observedMark(jen.Id("row"), c.Bit),
-						).Else().BlockFunc(genericArm)
-					}
-
-					columnKey := jen.Id("tw").Dot("cols").Index(jen.Id("cell").Dot("Column")).Dot("Key").Call()
-					if len(sortedCols) == 1 {
-						c := sortedCols[0]
-						lg.If(columnKey.Op("==").Id(c.GoName).Dot("Key").Call()).BlockFunc(func(cg *jen.Group) {
-							emitArm(cg, c)
-						})
-					} else {
-						lg.Switch(columnKey).BlockFunc(func(sg *jen.Group) {
-							for _, c := range sortedCols {
-								sg.Case(jen.Id(c.GoName).Dot("Key").Call()).BlockFunc(func(cg *jen.Group) {
-									emitArm(cg, c)
-								})
-							}
-						})
-					}
-
-					lg.If(jen.Id("derr").Op("!=").Nil()).Block(
-						jen.Id("tw").Dot("rw").Dot("Fail").Call(jen.Id("derr")), jen.Return(),
-					)
-				})
-				rg.If(jen.Op("!").Id("yield").Call(jen.Id("idx"), jen.Id("row"))).Block(jen.Return())
-			})
-		})),
-	)
-}
-
-// observedTest renders the expression that reads column bit from a
-// row value's observation set, e.g. `r.observed[0]&(1<<3) != 0`.
-func observedTest(rowExpr *jen.Statement, bit int) *jen.Statement {
-	return rowExpr.Clone().Dot("observed").Index(jen.Lit(bit / 64)).
-		Op("&").Parens(jen.Lit(1).Op("<<").Lit(bit % 64)).Op("!=").Lit(0)
 }
 
 // observedMark renders the statement that records column bit as

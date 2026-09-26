@@ -9,13 +9,7 @@
 // Package fakekeysmib binds the SMI objects declared by FAKE-KEYS-MIB.
 package fakekeysmib
 
-import (
-	"context"
-	"iter"
-
-	errs "go.aledante.io/FlowSeer/src/common/errs"
-	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
-)
+import snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 
 // FakeKeyIndex is the textual convention FakeKeyIndex. A value identifies one row of
 // fakeKeyTable, and a column of this type in any table refers to that row.
@@ -31,7 +25,10 @@ func (FakeKeyIndex) HomeTable() snmp.TableDescriptor {
 
 // FakeKeyName is the column fakeKeyName of table fakeKeyTable.
 // Name.
-var FakeKeyName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+var (
+	FakeKeyName         = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
+	fakeKeyTableColumns = []snmp.AnyColumn{FakeKeyName}
+)
 
 // FakeKeyTableKey is the decoded INDEX of one fakeKeyTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -82,85 +79,33 @@ func (r FakeKeyTableRow) KeyValid() bool {
 // a column that was requested but never landed, one that was not passed
 // to Walk, and any column of another table all read false.
 func (r FakeKeyTableRow) Observed(col snmp.AnyColumn) bool {
-	if col.Key() == FakeKeyName.Key() {
-		return r.observed[0]&(1<<0) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], fakeKeyTableColumns, col)
 }
 
 // FakeKeyTableWalker streams selected columns of fakeKeyTable.
 // The zero value is not usable; construct via FakeKeyTable.Walk(ctx, sess, cols...).
 // Iteration is single-use and single-consumer; Close and Err are safe concurrently.
 type FakeKeyTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
-}
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *FakeKeyTableWalker) Iter() iter.Seq2[snmp.OID, FakeKeyTableRow] {
-	return func(yield func(snmp.OID, FakeKeyTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row FakeKeyTableRow
-			row.Key, row.keyValid = decodeFakeKeyTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				if tw.cols[cell.Column].Key() == FakeKeyName.Key() {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := FakeKeyName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.FakeKeyName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
-}
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *FakeKeyTableWalker) Err() error {
-	return tw.rw.Err()
+	snmp.TableWalker[FakeKeyTableRow]
 }
 
 // fakeKeyTableT is the singleton type of FakeKeyTable.
-type fakeKeyTableT struct{}
+type fakeKeyTableT struct {
+	snmp.Table[FakeKeyTableRow, *FakeKeyTableWalker]
+}
 
 // FakeKeyTable is the descriptor for the fakeKeyTable table.
-var FakeKeyTable fakeKeyTableT
-
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *FakeKeyTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t fakeKeyTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeKeyTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
+var FakeKeyTable = fakeKeyTableT{Table: snmp.NewTable("fakeKeyTable", fakeKeyTableColumns, func(idx snmp.OID, row *FakeKeyTableRow) {
+	row.Key, row.keyValid = decodeFakeKeyTableKey(idx)
+}, func(row *FakeKeyTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, FakeKeyName, &row.FakeKeyName, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[FakeKeyTableRow]) *FakeKeyTableWalker {
+	return &FakeKeyTableWalker{TableWalker: tw}
+})}
 
 // Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
 // change indicator when the MIB declares one, and the Go type of its row key.
@@ -170,33 +115,6 @@ func (fakeKeyTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "FakeKeyTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (fakeKeyTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeKeyTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case FakeKeyName.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "fakeKeyTable.Walk: column %s", c.OID()))
-			return &FakeKeyTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &FakeKeyTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
