@@ -139,4 +139,3 @@ Suggested change: Update `verify-change.sh` to filter out any `**/testdata/**` p
 Skill or agent: `.claude/skills/implement/SKILL.md` and `.claude/skills/review/SKILL.md`.
 What happened: A worker ran `tools/hooks/stop-check.sh` manually to test a newly added conformance gate. `stop-check.sh` executes `go test -race -p 5 -timeout 30m ./...` over the root module, which includes `generated/go/yang`. The full race-test suite of `generated/go/yang` exhausts host memory and has previously caused background shell processes to be killed on this machine.
 Suggested change: Add an explicit warning in `implement` and `review` workflows instructing workers never to invoke `tools/hooks/stop-check.sh` manually, directing them instead to run `verify-change.sh` or targeted `go test` on the specific packages under development.
-
