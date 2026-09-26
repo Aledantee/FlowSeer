@@ -3,7 +3,9 @@ edition = "2024";
 package flowseer.net.protocol.lldp.v1;
 
 import "flowseer/net/protocol/lldp/v1/chassis_id.proto";
+import "flowseer/net/protocol/lldp/v1/ieee8023_extension.proto";
 import "flowseer/net/protocol/lldp/v1/management_address.proto";
+import "flowseer/net/protocol/lldp/v1/med_extension.proto";
 import "flowseer/net/protocol/lldp/v1/port_id.proto";
 import "flowseer/net/protocol/lldp/v1/system_capability.proto";
 import "google/protobuf/duration.proto";
@@ -58,4 +60,9 @@ message Neighbor {
     (buf.validate.field).duration.gte = {},
     (buf.validate.field).duration.lte = {seconds: 65535}
   ];
+  // The IEEE 802.3 organizationally specific TLVs. Absent means the neighbor
+  // sent none of them.
+  Ieee8023Extension ieee8023 = 12;
+  // The LLDP-MED TLVs. Absent means the neighbor sent none of them.
+  MedExtension med = 13;
 }

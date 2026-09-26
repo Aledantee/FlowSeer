@@ -9,7 +9,7 @@ values, so callers do not have to infer which meaning a source supplied.
 
 Imports: net/measure
 
-Imported by: model/inventory, net/interface
+Imported by: model/inventory, net/interface, net/protocol/lldp
 
 Deliberately absent:
 

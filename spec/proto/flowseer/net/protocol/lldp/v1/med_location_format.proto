@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// The format of an LLDP-MED location. Integers are the location data format
+// octet of the location identification TLV (ANSI/TIA-1057 10.2.4.2;
+// Wireshark epan/dissectors/packet-lldp.c:1074-1080 at commit
+// 16c09df25f262e2e1b432521aba7eb6a3ea4afe3). The LLDP-EXT-MED-MIB LocationSubtype
+// numbers the same formats one higher (LLDP-EXT-MED-MIB:164-188).
+enum MedLocationFormat {
+  // The format was not reported.
+  MED_LOCATION_FORMAT_UNSPECIFIED = 0;
+  // Coordinate-based LCI (RFC 6225).
+  MED_LOCATION_FORMAT_COORDINATE_BASED = 1;
+  // Civic address LCI (RFC 4776).
+  MED_LOCATION_FORMAT_CIVIC_ADDRESS = 2;
+  // Emergency location identification number.
+  MED_LOCATION_FORMAT_ELIN = 3;
+}

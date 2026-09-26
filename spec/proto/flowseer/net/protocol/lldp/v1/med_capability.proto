@@ -1,0 +1,23 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+// An LLDP-MED TLV set a system announces it supports. Integers are the bit
+// positions of the LLDP-EXT-MED-MIB LldpXMedCapabilities textual convention
+// (LLDP-EXT-MED-MIB:119-159), which the capabilities TLV carries. Unnamed positions
+// remain valid. Zero is a real capability, so a capability list is empty
+// rather than zero-filled when nothing was announced.
+enum MedCapability {
+  // The LLDP-MED capabilities TLV.
+  MED_CAPABILITY_CAPABILITIES = 0;
+  // The network policy TLV.
+  MED_CAPABILITY_NETWORK_POLICY = 1;
+  // The location identification TLV.
+  MED_CAPABILITY_LOCATION = 2;
+  // The extended power via MDI TLV, sent as power sourcing equipment.
+  MED_CAPABILITY_EXTENDED_PSE = 3;
+  // The extended power via MDI TLV, sent as a powered device.
+  MED_CAPABILITY_EXTENDED_PD = 4;
+  // The inventory TLVs.
+  MED_CAPABILITY_INVENTORY = 5;
+}

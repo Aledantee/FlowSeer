@@ -1,0 +1,28 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/phy/v1/poe_priority.proto";
+import "flowseer/net/phy/v1/poe_role.proto";
+import "flowseer/net/protocol/lldp/v1/med_power_source.proto";
+import option "buf/validate/validate.proto";
+
+// The LLDP-MED extended power via MDI TLV a neighbor announced. Mirrors
+// lldpXMedRemXPoEEntry (LLDP-EXT-MED-MIB:1253) and the PSE and PD tables below it.
+message MedPower {
+  // Whether the neighbor announced itself as power sourcing equipment or a
+  // powered device. Absent when the source reports unknown or none. Mirrors
+  // lldpXMedRemXPoEDeviceType (LLDP-EXT-MED-MIB:1270).
+  flowseer.net.phy.v1.PoeRole role = 1;
+  // The power source. Mirrors lldpXMedRemXPoEPSEPowerSource (LLDP-EXT-MED-MIB:1344) and
+  // lldpXMedRemXPoEPDPowerSource (LLDP-EXT-MED-MIB:1442).
+  MedPowerSource source = 2;
+  // The power priority. Mirrors lldpXMedRemXPoEPSEPowerPriority (LLDP-EXT-MED-MIB:1365)
+  // and lldpXMedRemXPoEPDPowerPriority (LLDP-EXT-MED-MIB:1467).
+  flowseer.net.phy.v1.PoePriority priority = 3;
+  // The power value: available from power sourcing equipment, requested by
+  // a powered device. The TLV and the MIB carry 0 to 1023 tenths of a watt,
+  // so the largest value is 102.3 W. Mirrors lldpXMedRemXPoEPSEPowerAv
+  // (LLDP-EXT-MED-MIB:1331) and lldpXMedRemXPoEPDPowerReq (LLDP-EXT-MED-MIB:1429).
+  uint64 power_nanowatts = 4 [(buf.validate.field).uint64.lte = 102300000000];
+}

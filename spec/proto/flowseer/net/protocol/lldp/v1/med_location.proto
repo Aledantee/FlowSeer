@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.lldp.v1;
+
+import "flowseer/net/protocol/lldp/v1/med_location_format.proto";
+import option "buf/validate/validate.proto";
+
+// One LLDP-MED location a neighbor announced. Mirrors
+// lldpXMedRemLocationEntry (LLDP-EXT-MED-MIB:1195).
+message MedLocation {
+  // The format of info. Must be present.
+  MedLocationFormat format = 1 [(buf.validate.field).required = true];
+  // The location data after the format octet, undecoded; format says how it
+  // reads. Mirrors lldpXMedRemLocationInfo (LLDP-EXT-MED-MIB:1225).
+  bytes info = 2 [(buf.validate.field).bytes.max_len = 256];
+}
