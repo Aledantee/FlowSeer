@@ -5,6 +5,8 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept
+compound: no lesson
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
@@ -637,3 +639,12 @@ No lab check: no mapper fills these rows in this phase.
   only the four tables the record names, drop the field from
   `BridgeState` and keep it on `MstInstance` and `MstVlanMap`; the only
   other change is that U1 then leaves `netmodel` untouched.
+
+- Resolved (phase-6 review ruling): `BridgeState` carries the required
+  `network_instance` and `PortState` does not. The CIST row is not
+  interface-scoped, so rule 4 applies to it like the MSTI rows; `PortState`
+  is interface-scoped and inherits the instance, so it does not repeat the
+  key. The wire break to the landed `BridgeState` is the right design under
+  the pre-release breaking-changes rule. Review verdict: accept. Compound: no
+  lesson (CDP cited-not-vendored follows the spec-vendor-layout convention;
+  CIST keying follows rule 4; the wire break follows the evolution rule).
