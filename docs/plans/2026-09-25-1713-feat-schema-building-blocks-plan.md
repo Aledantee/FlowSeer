@@ -121,7 +121,7 @@ Landed: `2844b9fb..f4259ff5`
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase4-plan.md
 After: U3
-Landed:
+Landed: `f8374c58..83ddc89b`
 
 ### U5. Phase 5: platform, system, and operations
 

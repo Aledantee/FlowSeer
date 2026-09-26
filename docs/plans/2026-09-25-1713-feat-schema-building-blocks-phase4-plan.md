@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 4, Endpoints and Port Access - Plan
+
+> Implemented. 5 units, 2026-09-26T09:34:11Z to 2026-09-26T10:27:10Z. Targeted verification run over union of changed paths per directive (replacing --full).
 
 ## Goal
 
@@ -464,17 +466,17 @@ phases 1 and 3.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path (targeted, as above).
-- [ ] `spec/proto/flowseer/net/endpoint/v1/`,
+- [x] Verifier green for every changed path (targeted, as above).
+- [x] `spec/proto/flowseer/net/endpoint/v1/`,
       `spec/proto/flowseer/net/portaccess/v1/`, and
       `spec/proto/flowseer/model/endpoint/v1/` exist with `.proto` files and a
       README; `buf lint` passes; `generated/` matches.
-- [ ] Requirements 1 to 12 pass in `test/conformance/proto`.
-- [ ] The hook command prints no "Message sync" line for `endpoint.proto`.
-- [ ] `docs/code-style-proto.md` registers `UInt32Rules` 50006 `dhcp_option_code`.
-- [ ] Package READMEs, root `net/` and `model/` READMEs,
+- [x] Requirements 1 to 12 pass in `test/conformance/proto`.
+- [x] The hook command prints no "Message sync" line for `endpoint.proto`.
+- [x] `docs/code-style-proto.md` registers `UInt32Rules` 50006 `dhcp_option_code`.
+- [x] Package READMEs, root `net/` and `model/` READMEs,
       `docs/conventions/protobuf.md`, and `CONCEPTS.md` match the tree.
-- [ ] This plan's `status` is `implemented` with an outcome note under its
+- [x] This plan's `status` is `implemented` with an outcome note under its
       title, the parent's U4 `Landed:` line carries the commit range, and no
       plan label appears in code, comments, or commit messages.
 
