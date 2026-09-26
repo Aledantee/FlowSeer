@@ -5,6 +5,8 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept
+compound: no lesson
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
@@ -737,3 +739,14 @@ the phase gate.
   `AlarmGlobalRef` messages compares them as protobuf messages and correctly
   flags field mismatches (verified in `TestAlarmEventRules` with `type_qualifier`
   mismatch).
+
+- Review (accept) confirmed the CEL `==` on `AlarmGlobalRef` does deep message
+  equality (the `type_qualifier` mismatch test fires), so the open note is
+  resolved; no field-by-field fallback needed. Non-blocking residual test gaps
+  for a follow-up: `alarm_event.before/after_matches_ref` is pinned only by a
+  scalar `type_qualifier` mismatch — a resource-arm swap and a device-id
+  mismatch ride the same proven mechanism but are not individually exercised;
+  `component_state.one_reading_per_quantity` runs only the duplicate-voltage
+  case. Compound: no solution (the real-zero enum and seam-safety patterns are
+  already established; the CEL deep-equality is a cel-go behavior, not a
+  FlowSeer-specific lesson).
