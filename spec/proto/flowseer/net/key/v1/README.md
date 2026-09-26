@@ -9,7 +9,7 @@ applies the rule to its own string field.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/device, model/access, model/alarm, model/capture, model/inventory, net/endpoint, net/instance, net/interface, net/ip, net/multicast, net/portaccess, net/protocol/cdp, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/stp, net/qos, net/routing, net/switching, net/system
+Imported by: api/device, model/access, model/alarm, model/capture, model/inventory, net/endpoint, net/flow, net/instance, net/interface, net/ip, net/multicast, net/portaccess, net/protocol/cdp, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/stp, net/qos, net/routing, net/switching, net/system
 
 Deliberately absent:
 

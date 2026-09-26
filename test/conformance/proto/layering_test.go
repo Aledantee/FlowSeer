@@ -57,7 +57,7 @@ var importOrder = map[string][]string{
 	"net/system":     {"net/key", "net/measure"},
 	"net/multicast":  {"net/addr", "net/key", "net/switching"},
 	"net/aaa":        {"net/addr"},
-	"net/flow":       {"net/addr", "net/packet"},
+	"net/flow":       {"net/addr", "net/packet", "net/key"},
 	"net/capture":    {"net/addr", "net/packet", "net/switching"},
 
 	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/filter", "net/key"},

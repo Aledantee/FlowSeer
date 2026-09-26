@@ -47,7 +47,7 @@ imports outside `net/`, and any root may import them.
 - `system/v1/`: Resource utilization, software images, licenses.
 - `multicast/v1/`: IGMP/MLD snooping group membership.
 - `aaa/v1/`: RADIUS and TACACS+ server identity.
-- `flow/v1/` (planned; schema building blocks record): Flow-export settings (sFlow, NetFlow, IPFIX).
+- `flow/v1/`: Flow-export settings (sFlow, NetFlow, IPFIX).
 - `log/v1/`: Syslog severity and facility (RFC 5424 registries).
 - `interface/v1/`: Normalized interface message with kind-specific oneof arms and routed facet.
 - `capture/v1/`: Ref-free packet capture values, counters, filter clauses, mirror encapsulation, and packet records.

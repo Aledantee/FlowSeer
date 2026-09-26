@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.flow.v1;
+
+// The record format a flow exporter sends. Mirrors IOS-XE export-protocol
+// (Cisco-IOS-XE-flow.yang:4462-4470).
+enum FlowExportProtocol {
+  FLOW_EXPORT_PROTOCOL_UNSPECIFIED = 0;
+  // NetFlow version 5.
+  FLOW_EXPORT_PROTOCOL_NETFLOW_V5 = 1;
+  // NetFlow version 9 (RFC 3954, https://www.rfc-editor.org/rfc/rfc3954.html).
+  FLOW_EXPORT_PROTOCOL_NETFLOW_V9 = 2;
+  // IPFIX (RFC 7011, https://www.rfc-editor.org/rfc/rfc7011.html).
+  FLOW_EXPORT_PROTOCOL_IPFIX = 3;
+}
