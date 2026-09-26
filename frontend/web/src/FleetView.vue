@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMotionFeedback } from './motion/useMotionFeedback'
 import ComponentsView from './ComponentsView.vue'
+import DashboardView from './DashboardView.vue'
 import UiButton from './components/UiButton.vue'
 import StatusBadge from './components/StatusBadge.vue'
 import MetricCard from './components/MetricCard.vue'
@@ -51,15 +52,16 @@ const detail = ref<HTMLDialogElement>()
 const selected = ref<Device>()
 const destination = ref('')
 const ascending = ref(true)
-const view = computed(() => String(route.params.view || 'devices'))
+const view = computed(() => String(route.params.view || 'dashboard'))
 const title = computed(
   () =>
     ({
+      dashboard: 'Dashboard',
       devices: 'Devices',
       sites: 'Sites',
       topology: 'Topology',
       components: 'Components',
-    })[view.value] || 'Devices',
+    })[view.value] || 'Dashboard',
 )
 watch(view, async (page) => {
   const previous = navigation.value
@@ -150,6 +152,13 @@ const visibleSites = computed(() =>
     (site) => !query('site') || site.id === query('site'),
   ),
 )
+const scopeSummary = computed(() => {
+  const site = sites.find((item) => item.id === query('site'))
+  if (site) return `${site.name} · ${site.location}`
+  const tenant = tenants.find((item) => item.id === query('tenant'))
+  const count = visibleSites.value.length
+  return `${count} ${count === 1 ? 'site' : 'sites'} across ${tenant ? tenant.name : 'all tenants'}`
+})
 const healthy = computed(
   () => scope.value.filter((device) => device.health === 'Healthy').length,
 )
@@ -293,7 +302,13 @@ onUnmounted(() => clearInterval(timer))
       <div class="nav-label">WORKSPACE</div>
       <nav ref="navigation" aria-label="Main navigation">
         <RouterLink
-          v-for="item in ['devices', 'sites', 'topology', 'components']"
+          v-for="item in [
+            'dashboard',
+            'devices',
+            'sites',
+            'topology',
+            'components',
+          ]"
           :key="item"
           :aria-label="item"
           :title="item.charAt(0).toUpperCase() + item.slice(1)"
@@ -390,11 +405,13 @@ onUnmounted(() => clearInterval(timer))
               <h1>{{ title }}</h1>
               <p>
                 {{
-                  view === 'devices'
-                    ? 'Monitor health and keep your fleet connected.'
-                    : view === 'sites'
-                      ? 'A clear view of every location in your network.'
-                      : 'Explore the devices connected at each site.'
+                  view === 'dashboard'
+                    ? scopeSummary
+                    : view === 'devices'
+                      ? 'Monitor health and keep your fleet connected.'
+                      : view === 'sites'
+                        ? 'A clear view of every location in your network.'
+                        : 'Explore the devices connected at each site.'
                 }}
               </p>
             </div>
@@ -601,6 +618,15 @@ onUnmounted(() => clearInterval(timer))
               </footer>
             </section>
           </template>
+          <DashboardView
+            v-else-if="view === 'dashboard'"
+            :scope="scope"
+            :sites="visibleSites"
+            :site="sites.find((site) => site.id === query('site'))"
+            :tenant-name="tenantName"
+            @open="openDevice"
+            @site="setQuery('site', $event)"
+          />
           <section
             v-else-if="view === 'sites'"
             class="site-grid"
