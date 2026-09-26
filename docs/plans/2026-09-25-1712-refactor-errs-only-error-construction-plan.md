@@ -37,8 +37,16 @@ this plan is unconfirmed.
   error carries a code, attributes, retryability, or a `UserMsg`.
 - Test files are out of scope. `_test.go` keeps whatever it uses.
 - `errs.Wrap` and `errs.Wrapf` return a distinct, unexported wrapper type holding
-  the message and the cause, with `Error()` and `Unwrap()` and no `As` or `Is`
-  method. `errors.As` then falls through it to the innermost `*errs.Error`, which
+  the message, the cause, and a stack, with `Error()` and `Unwrap()` and no `As` or
+  `Is` method. The wrapper captures a stack when no cause already carries one,
+  which is `build()`'s rule today (`builder.go:130-131`), and `walk`
+  (`attr.go:80`), `anyStack` (`stack.go`) and the stack readout learn to see it.
+  `errors.As` still falls through, because the wrapper is not an `*errs.Error` and
+  defines no `As`. Why the stack: `doc.go`'s Stacks section states that `Wrap` and
+  `Wrapf` record program counters at origin, and that is live behavior — wrapping a
+  foreign, stackless error is exactly where the origin stack is worth having. A
+  wrapper with only `Error()` and `Unwrap()` would drop it silently, and a stack
+  held by a type `walk` does not visit is invisible to `anyStack` and to readout. `errors.As` then falls through it to the innermost `*errs.Error`, which
   is what `fmt.Errorf("%w")` gave. The builder — `New`/`From` with `Msg`/`Msgf` —
   still produces `*errs.Error`. Why: `Wrap` currently routes through
   `From(err).build(msg)` and returns an `*errs.Error`, so wrapping a rich cause
@@ -166,21 +174,25 @@ This plan's own decisions:
 ## Units
 
 ### E0. the wrapper type
-Files: `src/common/errs/wrap.go`, its tests, `src/common/errs/doc.go`
+Files: `src/common/errs/wrap.go`, `src/common/errs/stack.go`,
+`src/common/errs/attr.go`, `src/common/errs/doc.go`, and their tests
 After: none
 Lane: `gemini-3.8-flash` on `google`. `src/common/errs` is not a sensitive path.
 Change: `Wrap` and `Wrapf` stop returning `From(err).build(msg)` and return a
-distinct unexported wrapper holding the message and the cause, with `Error()` and
-`Unwrap()` and nothing else. No `As`, no `Is` — those are what make a wrapper pose
-as the richer type. `doc.go` says which of the two shapes a caller gets, since it
-is now the difference between `errors.As` reaching the cause and stopping at the
-wrapper.
-Tests: four, each of which must fail against the current `Wrap` before it is
-changed — quote the failures in the report:
+distinct unexported wrapper holding the message, the cause, and a stack, with
+`Error()` and `Unwrap()`. No `As`, no `Is` — those are what make a wrapper pose as
+the richer type. The wrapper captures a stack under `build()`'s existing rule: only
+when no cause already carries one. `walk`, `anyStack` and the stack readout learn
+to visit it, so the stack it holds is reachable. `doc.go`'s Stacks section says
+which of the two shapes a caller gets and that both still record an origin stack.
+Tests:
 - `errors.As` through `Wrap` reaches the innermost `*errs.Error`, not the wrapper.
-- `errors.Is` through `Wrap` still holds; `wrap.go`'s doc comment promises it.
-- `Wrap(nil)` returns nil, so an unconditional call site stays safe.
-- The message reads `"msg: cause"`, in that order.
+  This one **must fail against the unchanged `Wrap`**, and that failure is quoted
+  in the report.
+- A `Wrap` of a foreign, stackless error has a readable origin stack.
+- A `Wrap` of an error that already carries a stack does not capture a second one.
+- Regression guards that pass before and after: `errors.Is` through `Wrap` holds,
+  `Wrap(nil)` returns nil, and the message reads `"msg: cause"`.
 Also check what else walks the chain: `errs.CodeOf` and `errs.Is` must behave the
 same across the new wrapper, and `Wrapf` takes the same shape as `Wrap`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/errs`
