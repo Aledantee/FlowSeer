@@ -109,17 +109,17 @@ switches 3.8 MB, enum consts 6.4 MB, and comments 11.9 MB.
 
 ## Units
 
-### P1. yanggen output size
+### U1. yanggen output size
 Files: `docs/plans/2026-09-26-1113-perf-generated-binding-size-phase1-plan.md`
 After: none
 Landed:
 
-### P2. mibgen output size
+### U2. mibgen output size
 Files: `docs/plans/2026-09-26-1113-perf-generated-binding-size-phase2-plan.md`
 After: none
 Landed:
 
-Waves: P1 P2
+Waves: U1 U2
 
 ## Verification
 
