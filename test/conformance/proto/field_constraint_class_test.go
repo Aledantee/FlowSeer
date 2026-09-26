@@ -260,8 +260,8 @@ func TestTheClassWalkReadsEveryCarrierShape(t *testing.T) {
 			}
 			for _, fragment := range fragments {
 				if !slices.ContainsFunc(reported, func(v string) bool { return strings.Contains(v, fragment) }) {
-					t.Errorf("got no violation containing %q, want one in:\n  %s",
-						fragment, strings.Join(reported, "\n  "))
+					t.Errorf("got violations:\n  %s\nwant one containing %q",
+						strings.Join(reported, "\n  "), fragment)
 				}
 			}
 		})
