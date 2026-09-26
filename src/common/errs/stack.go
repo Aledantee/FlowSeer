@@ -14,9 +14,9 @@ const maxStackDepth = 32
 type stack []uintptr
 
 // capture records the program counters of the call site that owns the error.
-// It is called only from [Builder.build], which every public constructor
-// reaches through exactly one frame — capture, build, the constructor, then
-// the site the stack should name.
+// It is called only from [Builder.build] and [wrap], which every public
+// constructor reaches through exactly one frame — capture, build or wrap, the
+// constructor, then the site the stack should name.
 func capture() stack {
 	pcs := make([]uintptr, maxStackDepth)
 	n := runtime.Callers(4, pcs)
@@ -56,20 +56,37 @@ func formatFrame(f runtime.Frame) string {
 	return name + " (" + f.File + ":" + strconv.Itoa(f.Line) + ")"
 }
 
+// errorStack returns the stack captured by an [*Error] or [*wrapError], or nil
+// if err is nil or carries no stack.
+func errorStack(err error) stack {
+	switch e := err.(type) {
+	case *Error:
+		if e != nil {
+			return e.stack
+		}
+	case *wrapError:
+		if e != nil {
+			return e.stack
+		}
+	}
+
+	return nil
+}
+
 // anyStack reports whether any error in the given causes already carries a
 // stack, which is what makes a wrap skip capture.
 func anyStack(causes []error) bool {
 	for _, cause := range causes {
 		found := false
 
-		walk(cause, func(e *Error) bool {
-			if len(e.stack) == 0 {
-				return true
+		walk(cause, func(e error) bool {
+			if len(errorStack(e)) > 0 {
+				found = true
+
+				return false
 			}
 
-			found = true
-
-			return false
+			return true
 		})
 
 		if found {
@@ -85,9 +102,9 @@ func anyStack(causes []error) bool {
 func stacks(err error) []stack {
 	var out []stack
 
-	walk(err, func(e *Error) bool {
-		if len(e.stack) > 0 {
-			out = append(out, e.stack)
+	walk(err, func(e error) bool {
+		if s := errorStack(e); len(s) > 0 {
+			out = append(out, s)
 		}
 
 		return true

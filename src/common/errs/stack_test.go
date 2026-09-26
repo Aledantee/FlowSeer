@@ -46,7 +46,7 @@ func TestJoinedOriginsKeepTheirStacks(t *testing.T) {
 	if got, want := len(stacks(err)), 2; got != want {
 		t.Errorf("joined tree holds %d stacks, want %d", got, want)
 	}
-	if got := len(err.(*Error).stack); got != 0 {
+	if got := len(err.(*wrapError).stack); got != 0 {
 		t.Errorf("wrapper captured %d program counters, want 0", got)
 	}
 }

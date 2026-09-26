@@ -73,14 +73,13 @@ func eachAttr(err error, fn func(attr)) {
 	})
 }
 
-// walk visits every [Error] in err's tree outermost first, joined branches
-// left to right, and stops early when fn returns false. Errors from other
-// packages are unwrapped through but not visited. It reports whether the
-// traversal completed without fn stopping it.
-func walk(err error, fn func(*Error) bool) bool {
+// walk visits every node in err's tree matching type T, outermost first, joined
+// branches left to right, and stops early when fn returns false. Errors from other
+// packages are unwrapped through but not visited unless T matches them. It reports
+// whether the traversal completed without fn stopping it.
+func walk[T any](err error, fn func(T) bool) bool {
 	for err != nil {
-		//goland:noinspection GoTypeAssertionOnErrors
-		if e, ok := err.(*Error); ok && e != nil && !fn(e) {
+		if v, ok := err.(T); ok && !isNil(v) && !fn(v) {
 			return false
 		}
 
@@ -101,4 +100,15 @@ func walk(err error, fn func(*Error) bool) bool {
 	}
 
 	return true
+}
+
+func isNil(v any) bool {
+	switch x := v.(type) {
+	case *Error:
+		return x == nil
+	case *wrapError:
+		return x == nil
+	default:
+		return v == nil
+	}
 }
