@@ -186,6 +186,12 @@ once inside a value rather than across three messages, because a Primitive
 has no identity to diff against and no event to carry. `Config` and `State`
 stay reserved for Entities so that the hook's family check means one thing.
 
+A Primitive never carries credential material. The shared secret, key, or
+password a device uses with a peer is held in the secret store behind a
+credential ref and carried only as `model/credential` material, so a `net/`
+message names the peer and never the secret. `AaaServer` in `net/aaa/v1`
+names a RADIUS or TACACS+ server by address and has no field for its secret.
+
 ## Tenancy is ambient
 
 The landed `model/inventory/v1/tenant.proto` defines a deliberately keyless

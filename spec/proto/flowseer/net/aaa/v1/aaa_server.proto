@@ -1,0 +1,47 @@
+edition = "2024";
+
+package flowseer.net.aaa.v1;
+
+import "flowseer/net/aaa/v1/aaa_server_status.proto";
+import "flowseer/net/aaa/v1/radius_server.proto";
+import "flowseer/net/aaa/v1/tacacs_server.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+// A RADIUS or TACACS+ server a device is configured to use. Mirrors
+// OpenConfig's server list (openconfig-aaa.yang:254-301). The server's shared
+// secret is credential material and is not part of this message.
+message AaaServer {
+  // The server's address. Must be present.
+  flowseer.net.addr.v1.IpAddress address = 1 [(buf.validate.field).required = true];
+  // The server's configured name. Absent means unreported.
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The server group the server belongs to. Absent means unreported.
+  string group_name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The order the device tries servers in; lower is tried first. Absent means
+  // the source reports no order.
+  uint32 priority = 4;
+  // How long the device waits for a response. Absent means unreported.
+  google.protobuf.Duration timeout = 5 [(buf.validate.field).duration.gte = {}];
+  // The address the device sends requests from. Absent means unreported.
+  flowseer.net.addr.v1.IpAddress source_address = 6;
+  // Whether the device reports the server reachable. Absent means unreported.
+  AaaServerStatus status = 7;
+
+  // The protocol and its settings. A oneof holds at most one arm and wire
+  // decoding is last-tag-wins, so both arms cannot coexist; required rejects
+  // the empty case.
+  oneof protocol {
+    option (buf.validate.oneof).required = true;
+
+    RadiusServer radius = 10;
+    TacacsServer tacacs = 11;
+  }
+}

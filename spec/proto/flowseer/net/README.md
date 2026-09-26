@@ -46,7 +46,7 @@ imports outside `net/`, and any root may import them.
 - `portaccess/v1/`: Port-access sessions (802.1X, MAC authentication, web authentication).
 - `system/v1/`: Resource utilization, software images, licenses.
 - `multicast/v1/`: IGMP/MLD snooping group membership.
-- `aaa/v1/` (planned; schema building blocks record): RADIUS and TACACS+ server identity.
+- `aaa/v1/`: RADIUS and TACACS+ server identity.
 - `flow/v1/` (planned; schema building blocks record): Flow-export settings (sFlow, NetFlow, IPFIX).
 - `log/v1/`: Syslog severity and facility (RFC 5424 registries).
 - `interface/v1/`: Normalized interface message with kind-specific oneof arms and routed facet.

@@ -175,6 +175,10 @@ A device-scoped table row in `net/portaccess/v1.Session` representing an authent
 
 The header field a port believes when it classifies an incoming frame: the PCP, the DSCP, the IP precedence, or the PCP for L2 traffic and the DSCP for L3 traffic. An untrusted port believes none and applies its default class.
 
+### AAA server
+
+A RADIUS or TACACS+ server a device is configured to use, identified by its address and protocol. Its shared secret is a credential held in the secret store, never part of the row.
+
 ## Capture
 
 ### Capture Session
