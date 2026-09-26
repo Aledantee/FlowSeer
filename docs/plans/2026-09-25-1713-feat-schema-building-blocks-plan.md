@@ -127,7 +127,7 @@ Landed: `f8374c58..83ddc89b`
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase5-plan.md
 After: U3
-Landed:
+Landed: `fec49dc1..bc5d052f`
 
 ### U6. Phase 6: L2 protocols
 

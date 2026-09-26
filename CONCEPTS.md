@@ -62,6 +62,19 @@ A reference to one entity whose kind is decided at runtime, as a kind plus an id
 
 A logical 802.11 network defined by its SSID, security settings, and broadcast state. A WLAN is UUID-identified and managed as a full Config/State/Event triad: an SSID can be configured without being broadcast by any radio, and its broadcast state tracks which radio components and BSSIDs currently beacon it.
 
+### Syslog Record
+
+One received log line tied to its device, captured as an append-only timeline
+fact. A syslog record is never diffed, reconciled, or tracked through a
+lifecycle, and is never an alarm.
+
+### Alarm
+
+A named, clearable fault condition a device raises on one of its resources,
+keyed by resource and alarm type. An Alarm is managed as an observed state
+and transition (`AlarmState`, `AlarmEvent`), distinct from an append-only
+syslog record.
+
 ## Runtime
 
 ### Service Module

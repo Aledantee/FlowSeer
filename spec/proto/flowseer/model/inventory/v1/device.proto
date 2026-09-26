@@ -7,6 +7,9 @@ package flowseer.model.inventory.v1;
 import "flowseer/model/inventory/v1/location.proto";
 import "flowseer/model/policy/v1/handle.proto";
 import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/system/v1/processor_utilization.proto";
+import "flowseer/net/system/v1/storage_utilization.proto";
+import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
 
 // The local reference to a device.
@@ -117,6 +120,17 @@ message DeviceConfig {
 // Vendor, model, and software version are the whole-box reading; the
 // per-part reading is the component tree in component.proto.
 message DeviceState {
+  option (buf.validate.message).cel = {
+    id: "device_state.storage_named"
+    message: "device storage utilization rows must specify a name"
+    expression: "this.storage_utilization.all(s, has(s.name))"
+  };
+  option (buf.validate.message).cel = {
+    id: "device_state.storage_names_unique"
+    message: "device storage utilization names must be unique"
+    expression: "this.storage_utilization.map(s, s.name).unique()"
+  };
+
   // The ref to this device. Must be present.
   DeviceGlobalRef ref = 1 [(buf.validate.field).required = true];
   // Vendor serial number as the device reports it. Unset means no identity
@@ -176,6 +190,30 @@ message DeviceState {
     (buf.validate.field).string.max_len = 256,
     (buf.validate.field).string.pattern = "^[0-9]+(\\.[0-9]+)*$"
   ];
+  // The contact person for this managed node as reported by the device
+  // (sysContact in RFC 3418). Unset means no read has yielded one.
+  string system_contact = 11 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // The physical location of this node as reported by the device
+  // (sysLocation in RFC 3418). Distinct from FlowSeer's location model.
+  // Unset means no read has yielded one.
+  string system_location = 12 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // The elapsed time since the device's management subsystem was re-initialized,
+  // measured relative to the envelope's observation time. In SNMP, sysUpTime
+  // wraps at about 497 days and can reset on an agent restart; a reboot is
+  // not inferred from it.
+  google.protobuf.Duration uptime = 13 [(buf.validate.field).duration.gte = {}];
+  // Whole-box processor utilization when the device reports utilization as an
+  // aggregate rather than per-CPU component.
+  flowseer.net.system.v1.ProcessorUtilization processor_utilization = 14;
+  // Whole-box storage utilization rows when the device reports storage as an
+  // aggregate table rather than per-storage component.
+  repeated flowseer.net.system.v1.StorageUtilization storage_utilization = 15;
 }
 
 // One transition of a device's lifecycle.

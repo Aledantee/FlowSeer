@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 5, Platform, System, and Operations - Plan
+
+> Implemented. 5 units, 2026-09-26T10:44:34Z to 2026-09-26T11:11:15Z. Targeted verification run over union of changed paths per directive (replacing --full).
 
 ## Goal
 
@@ -695,16 +697,16 @@ the phase gate.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path, with the targeted union run
+- [x] Verifier green for every changed path, with the targeted union run
       above.
-- [ ] Every new package has a README whose `Imports:` and `Imported by:`
+- [x] Every new package has a README whose `Imports:` and `Imported by:`
       lines pass `TestProtoReadmeImports`; `net/README.md`,
       `net/protocol/README.md`, `model/README.md`, and `event/README.md`
       list their packages without a "planned" marker.
-- [ ] `docs/conventions/protobuf.md` names the syslog registries;
+- [x] `docs/conventions/protobuf.md` names the syslog registries;
       `CONCEPTS.md` has Alarm and Syslog record.
-- [ ] No plan label (R1, U2) in code, comments, or commit messages.
-- [ ] This plan's `status` is `implemented` with an outcome note under the
+- [x] No plan label (R1, U2) in code, comments, or commit messages.
+- [x] This plan's `status` is `implemented` with an outcome note under the
       title, and the parent's phase 5 `Landed:` line carries the commit
       range; the parent's `net/system` open question is answered by the
       Decision above.
@@ -726,11 +728,12 @@ the phase gate.
   store that first does keeps the observation time beside it, or a later
   plan replaces `uptime` with a boot time and accepts its wrap and reset
   faults.
-
 - Whether protovalidate's CEL `==` on two `AlarmGlobalRef` messages
   compares them as protobuf messages. The plan relies on it and the
   `type_qualifier` test pins it; if the test shows it does not, the
   implementer writes the comparison field by field, as `ComponentEvent`
   does, including the resource arm, and records that here.
-</content>
-</invoke>
+  Resolved during implementation: protovalidate's CEL `==` on two
+  `AlarmGlobalRef` messages compares them as protobuf messages and correctly
+  flags field mismatches (verified in `TestAlarmEventRules` with `type_qualifier`
+  mismatch).

@@ -1,0 +1,34 @@
+edition = "2024";
+
+package flowseer.net.system.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/system/v1/storage_kind.proto";
+import option "flowseer/net/measure/v1/basis_points.proto";
+
+// Capacity and utilization of a storage area or memory pool.
+message StorageUtilization {
+  option (buf.validate.message).cel = {
+    id: "storage_utilization.used_within_total"
+    message: "used_bytes must not exceed total_bytes"
+    expression: "!has(this.used_bytes) || !has(this.total_bytes) || this.used_bytes <= this.total_bytes"
+  };
+
+  // Human-readable description or mount point of the storage area. Unset on a
+  // component, which names itself.
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  // The class of storage medium. Unset means not reported.
+  StorageKind kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Total capacity in bytes. Unset means not reported.
+  uint64 total_bytes = 3;
+  // Amount of used storage in bytes. Unset means not reported.
+  uint64 used_bytes = 4;
+  // Proportion of storage used in basis points (0 to 10000). Unset means not reported.
+  uint32 used_basis_points = 5 [(buf.validate.field).uint32.(flowseer.net.measure.v1.basis_points) = true];
+}

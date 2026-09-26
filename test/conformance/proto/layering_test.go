@@ -54,7 +54,7 @@ var importOrder = map[string][]string{
 	"net/cellular":   {"net/key", "net/measure"},
 	"net/endpoint":   {"net/addr", "net/key", "net/measure", "net/switching", "net/wlan"},
 	"net/portaccess": {"net/addr", "net/key", "net/switching"},
-	"net/system":     {"net/measure"},
+	"net/system":     {"net/key", "net/measure"},
 	"net/multicast":  {"net/addr", "net/key", "net/switching"},
 	"net/aaa":        {"net/addr"},
 	"net/flow":       {"net/addr", "net/packet"},
@@ -127,7 +127,7 @@ var importOrder = map[string][]string{
 	// is what that boundary first cites.
 	"model/wireless": {"model/inventory", "net/addr", "net/key", "net/switching", "net/wlan"},
 	"model/endpoint": {"model/inventory", "net/addr", "net/key", "net/measure", "net/switching", "net/wlan", "net/endpoint"},
-	"model/alarm":    {"model/inventory", "net/log"},
+	"model/alarm":    {"model/inventory", "net/key"},
 
 	// The operation values every device-access boundary shares. They reach
 	// model/edge for the responsible edge, so a boundary that imports them

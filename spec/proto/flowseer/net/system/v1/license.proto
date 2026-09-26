@@ -1,0 +1,41 @@
+edition = "2024";
+
+package flowseer.net.system.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/system/v1/license_status.proto";
+import "google/protobuf/timestamp.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A software license, feature entitlement, or capacity grant.
+message License {
+  // The network instance scoping this license entry. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The license feature name or entitlement identifier. Must be present.
+  string name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 1024
+    }
+  ];
+  // Human-readable description of the license. Unset means not reported.
+  string description = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The operational status of the license. Unset means not reported.
+  LicenseStatus status = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Time when the license was issued or activated. Unset means not reported.
+  google.protobuf.Timestamp issued_at = 5;
+  // Time when the license expires. Unset means never or not reported.
+  google.protobuf.Timestamp expires_at = 6;
+  // Number of licensed units or entitlements granted. Unset means not reported.
+  uint32 entitlement_count = 7;
+}

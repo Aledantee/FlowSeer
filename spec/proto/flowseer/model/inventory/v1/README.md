@@ -9,9 +9,9 @@ FlowSeer-assigned UUID.
 
 ## Boundaries
 
-Imports: model/edge, model/policy, net/addr, net/key, net/phy, net/wlan
+Imports: model/edge, model/policy, net/addr, net/key, net/measure, net/phy, net/system, net/wlan
 
-Imported by: api/device, event/access, model/access, model/wireless, store/device
+Imported by: api/device, event/access, event/log, model/access, model/alarm, model/wireless, store/device
 
 Deliberately absent:
 
@@ -111,7 +111,8 @@ The family is a full triad. `DeviceConfig` is what the operator intends
 the operator says the box is: a location, and within a rack the lowest
 unit and face), `DeviceState` is what the platform holds (the identity
 read, the whole-box platform reading of host name, vendor, model, hardware
-revision, software version, and sysObjectID, plus the lifecycle), and
+revision, software version, sysObjectID, system contact, system location,
+uptime, processor utilization, and storage utilization, plus the lifecycle), and
 `DeviceEvent` carries one lifecycle transition, with an unset `from`
 meaning the device entered the inventory. The platform reading is the
 box's own account of what it is; the vendor identity tables the MIB
@@ -254,9 +255,38 @@ A component is owned by its device and keyed by a device-local name, so
 `entPhysicalIndex` is never the key: it renumbers on a reboot. The family
 is `ComponentState` plus `ComponentEvent` with no `ComponentConfig`,
 because nothing about the tree is intended; a component that stops being
-reported leaves as an event with `after` unset. Which sensor readings are
-worth carrying, and whether a sensor's value belongs here or on a live
-read, is not decided yet; `SENSOR` names the part, not its reading.
+reported leaves as an event with `after` unset. Sensor readings carry up to
+one reading per physical quantity directly on the component; a second
+measurement point for the same quantity (such as intake and exhaust
+temperatures) is represented as a child component of kind sensor.
+
+## Platform health
+
+`ComponentOperStatus` models whether a physical or logical component is
+available for service (`UP`, `DOWN`, `TESTING`, `UNKNOWN`). Mappers translate
+source operational states (such as RFC 2737/RFC 6933 `entPhysicalOperStatus`
+or vendor-specific sensor and power-supply statuses) into these four states; an
+unset status means the source does not report operational status for that part.
+
+Sensor readings attach directly to the component that hosts the physical
+measurement point. At most one reading per physical quantity (voltage, current,
+power, temperature, rotation speed, relative humidity) is permitted on a single
+component. When a part exposes multiple measurement points of the same physical
+quantity, the second and subsequent measurement points are represented as child
+components of kind `COMPONENT_KIND_SENSOR`.
+
+Processor and storage utilization are observed either per-component or as
+whole-box aggregates:
+- On `ComponentState`, `processor_utilization` is populated only on a component of
+  kind `CPU`, and `storage_utilization` is populated only on kind `STORAGE`. The
+  component's own name identifies the processor or storage area, so component-level
+  `StorageUtilization` leaves `name` unset.
+- On `DeviceState`, `processor_utilization` and `storage_utilization` hold aggregate
+  readings for devices that report system-level tables rather than discrete
+  physical components (such as UniFi or MikroTik). Each row in `DeviceState.storage_utilization`
+  must provide a unique `name` (for example, partition name or mount point).
+Consumers read per-component utilization rows when the device populates them, and fall
+back to whole-box device-level rows otherwise.
 
 ## Locations, cabling, and links
 

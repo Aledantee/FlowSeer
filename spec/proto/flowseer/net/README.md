@@ -21,7 +21,7 @@ belongs in `model/`.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/device, edge/attach, model/access, model/capture, model/endpoint, model/inventory, model/wireless, store/device
+Imported by: api/capture, api/device, edge/attach, event/log, model/access, model/alarm, model/capture, model/endpoint, model/inventory, model/wireless, store/device
 
 Packages under `net/` are leaves with respect to every other root: nothing here
 imports outside `net/`, and any root may import them.
@@ -44,11 +44,11 @@ imports outside `net/`, and any root may import them.
 - `cellular/v1/` (planned; schema building blocks record): Cellular radio facts and signal quality.
 - `endpoint/v1/`: Wired and wireless attachment, fingerprint, per-endpoint counters.
 - `portaccess/v1/`: Port-access sessions (802.1X, MAC authentication, web authentication).
-- `system/v1/` (planned; schema building blocks record): Resource utilization, software images, licenses.
+- `system/v1/`: Resource utilization, software images, licenses.
 - `multicast/v1/`: IGMP/MLD snooping group membership.
 - `aaa/v1/` (planned; schema building blocks record): RADIUS and TACACS+ server identity.
 - `flow/v1/` (planned; schema building blocks record): Flow-export settings (sFlow, NetFlow, IPFIX).
-- `log/v1/` (planned; schema building blocks record): Syslog severity and facility (RFC 5424 registries).
+- `log/v1/`: Syslog severity and facility (RFC 5424 registries).
 - `interface/v1/`: Normalized interface message with kind-specific oneof arms and routed facet.
 - `capture/v1/`: Ref-free packet capture values, counters, filter clauses, mirror encapsulation, and packet records.
 - `protocol/`: Protocol-specific observation tables and state machines.

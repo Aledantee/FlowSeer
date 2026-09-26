@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.system.v1;
+
+// The operational status of a software license or entitlement.
+enum LicenseStatus {
+  LICENSE_STATUS_UNSPECIFIED = 0;
+  // The license is installed or registered but not currently active.
+  LICENSE_STATUS_INACTIVE = 1;
+  // The license is active and in normal use.
+  LICENSE_STATUS_IN_USE = 2;
+  // The license is operating under a trial or evaluation period.
+  LICENSE_STATUS_EVALUATION = 3;
+  // The license has expired and is no longer valid.
+  LICENSE_STATUS_EXPIRED = 4;
+  // The license is active but exceeds permitted capacity or entitlement count.
+  LICENSE_STATUS_OUT_OF_COMPLIANCE = 5;
+}

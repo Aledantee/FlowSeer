@@ -1,0 +1,26 @@
+edition = "2024";
+
+package flowseer.net.log.v1;
+
+// Syslog message severities defined by RFC 5424 §6.2.1 Table 2.
+// This is a registry pass-through enum where numerical values 0 through 7
+// match the RFC table exactly. Value 0 (EMERGENCY) is a real registry value;
+// presence distinguishes reported values from unset.
+enum SyslogSeverity {
+  // Emergency: system is unusable (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_EMERGENCY = 0;
+  // Alert: action must be taken immediately (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_ALERT = 1;
+  // Critical: critical conditions (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_CRITICAL = 2;
+  // Error: error conditions (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_ERROR = 3;
+  // Warning: warning conditions (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_WARNING = 4;
+  // Notice: normal but significant condition (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_NOTICE = 5;
+  // Informational: informational messages (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_INFORMATIONAL = 6;
+  // Debug: debug-level messages (RFC 5424 §6.2.1).
+  SYSLOG_SEVERITY_DEBUG = 7;
+}
