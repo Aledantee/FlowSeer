@@ -39,17 +39,20 @@ These are the user's rulings, not this plan's proposals.
   permits what the gate rejects would send the next reader the wrong way.
 - The gate lands last, after every conversion. A gate that lands first fails the
   build for as long as the migration runs.
-- Keeping netpen off Claude is a preference, not a rule. When no non-Claude lane
-  with a fitting model has quota, the work runs on Claude rather than waiting.
-  Lanes are chosen in this order: `gpt-5.6-sol` on `codex` while it is under its
-  limit and sparingly, because its remaining quota is nearly spent; then
-  `gemini-3.8-flash` on `google` wherever the role's fit set includes it; then
-  Claude. On netpen or any `sensitive_paths` unit, Claude is pinned to
-  `claude-opus-4-8` from the start — not Opus 5.x, whose cyber flags produce the
-  silent fallback that cost this work its first review.
-- E3, the `src/edge/netpen` unit, therefore runs now on `claude-opus-4-8` rather
-  than waiting for `codex` to reset: `codex` is at 95%, `kimi-k3`'s pool is at 96%,
-  and `google` is not in the `execute-sensitive` fit set.
+- `src/edge/netpen` stays off Claude definitively. Claude runs there only when
+  nothing else can run at all. The order for the netpen unit and for any netpen
+  fix is `gpt-5.6-sol` on `codex` while it has quota and spent carefully, since it
+  is at 95%; then `gemini-3.8-flash` on `google`; then `claude-opus-4-8`, and only
+  when neither of the first two can run.
+- E3, the `src/edge/netpen` unit, therefore runs now on `gemini-3.8-flash` and is
+  not parked for the `codex` reset. `codex` at 95% cannot carry the largest unit in
+  the plan — 213 of its 654 sites — without running dry mid-unit, and `google` has
+  headroom. This overrides the registry: `gemini-3.8-flash` is in the `execute` fit
+  set but not in `execute-sensitive`, and netpen is a `sensitive_paths` tree. The
+  user chose the pool over the fit set here, so a refusal or a weak result on this
+  unit is a lane problem to report, not a surprise.
+- Elsewhere Claude is still the last choice rather than a reason to wait, pinned to
+  `claude-opus-4-8` from the start on any `sensitive_paths` unit, never Opus 5.x.
 - No unit that touches `src/edge/netpen` runs on a Claude model. A Claude lane can
   fall back from its pinned model on a cyber refusal without failing, and the
   fallback is silent in the lane's own output. It has already happened here:
@@ -58,10 +61,6 @@ These are the user's rulings, not this plan's proposals.
   `docs/agent-observations.md` on the coordinator branch at `5a3114b7`. E6 also
   avoids Claude: it does not edit netpen files, but the gate it builds parses them
   on every run, which is the same material in front of the same classifier.
-- Claude is the last choice on a sensitive unit, not a peer one, but it is a real
-  choice rather than a reason to stop: it runs when every non-Claude model in the
-  role's fit set is out of quota, on `claude-opus-4-8` at high effort. Never Opus
-  5.x there.
 - Every Claude lane's transcript is read before its work is accepted, at
   `~/.claude/projects/<worktree path with / replaced by ->/<session>.jsonl`. A
   `{"type":"system","subtype":"model_refusal_fallback"}` event, or any `model`
@@ -170,8 +169,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 ### E3. netpen
 Files: `src/edge/netpen/`
 After: none
-Lane: `claude-opus-4-8` at high effort, pinned from the start. Its transcript is
-read before the work is accepted.
+Lane: `gemini-3.8-flash` on `google`. Never Claude while `codex` or `google` can
+run at all.
 Change: 213 sites in the nested module — `attacks/` 129, `layers/` 59, `test/` 15
 (non-test files only), `catalog/` 9, one elsewhere. The module already imports
 `errs`, so no `go.mod` changes; if one does, that is a blocker.
@@ -236,7 +235,7 @@ Lanes, from the Decisions above and `delegate`'s resolution at 2026-09-25T21:5xZ
 | Unit | Lane | Why |
 | --- | --- | --- |
 | E1, E2 | `gemini-3.8-flash-high` (`google`) | no `sensitive_paths`, and the only prepaid pool with headroom |
-| E3 | `claude-opus-4-8` high | netpen; `codex` 95%, `kimi-k3` 96%, `google` not in the fit set. Pinned Opus 4.8 from the start; transcript checked |
+| E3 | `gemini-3.8-flash` (`google`) | netpen, and definitively off Claude. `codex` at 95% cannot carry 213 sites; `google` has headroom. Overrides the `execute-sensitive` fit set by the user's choice |
 | E4, E5 | `claude-opus-4-8` high | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`); both non-Claude models in the `execute-sensitive` fit set are out of quota. Transcript checked |
 | E6 | `gemini-3.8-flash-high` (`google`) | the gate parses netpen on every run |
 
