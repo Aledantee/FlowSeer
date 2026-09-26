@@ -45,7 +45,7 @@ func TestT1SubscribeOnceWalk(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	walker := gnmi.Walk(ctx, s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+	walker := gnmi.Walk(ctx, s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 	rows := map[string]uint16{}
 	for row := range walker.Iter() {
 		if row.Name != nil && row.Port != nil {
@@ -69,13 +69,13 @@ func TestT1SubscribeStreamWatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	w, err := gnmi.Watch(ctx, s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+	w, err := gnmi.Watch(ctx, s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
 	defer func() { _ = w.Close() }()
 
-	ch := make(chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey], 64)
+	ch := make(chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServerKey], 64)
 	go func() {
 		defer close(ch)
 		for ev := range w.Iter() {
@@ -83,7 +83,7 @@ func TestT1SubscribeStreamWatch(t *testing.T) {
 		}
 	}()
 
-	next := func() yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey] {
+	next := func() yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServerKey] {
 		select {
 		case ev, ok := <-ch:
 			if !ok {
@@ -140,7 +140,7 @@ func TestT1SetRoundTrips(t *testing.T) {
 		t.Fatalf("Set: %v", err)
 	}
 
-	walker := gnmi.Walk(ctx, s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+	walker := gnmi.Walk(ctx, s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 	rows := map[string]uint16{}
 	for row := range walker.Iter() {
 		if row.Name != nil && row.Port != nil {

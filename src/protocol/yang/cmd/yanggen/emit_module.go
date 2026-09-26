@@ -370,7 +370,11 @@ func (em *moduleEmitter) emitOneList(li *listInstance) error {
 	keyStructName := em.listKey(e.Path())
 	keyScope := newNameScope()
 
-	type ancKeyField struct{ goName, listName, keyName string }
+	type ancKeyField struct {
+		goName  string
+		level   int
+		keyName string
+	}
 	type ownKeyField struct {
 		goName, leafName string
 		lt               leafType
@@ -379,10 +383,10 @@ func (em *moduleEmitter) emitOneList(li *listInstance) error {
 	var ancFields []ancKeyField
 	var ownFields []ownKeyField
 
-	for _, a := range li.ancestors {
+	for i, a := range li.ancestors {
 		for _, k := range a.keys {
-			goName := keyScope.claim(camel(a.entryName)+camel(k), "anc:"+a.entryName+":"+k)
-			ancFields = append(ancFields, ancKeyField{goName: goName, listName: a.entryName, keyName: k})
+			goName := keyScope.claim(camel(a.entryName)+camel(k), fmt.Sprintf("anc:%d:%s:%s", i, a.entryName, k))
+			ancFields = append(ancFields, ancKeyField{goName: goName, level: i, keyName: k})
 		}
 	}
 
@@ -486,19 +490,10 @@ func (em *moduleEmitter) emitOneList(li *listInstance) error {
 		return jen.Index().Op("*").Qual(yangPkg, "Schema").Values(chainElems...)
 	}
 
-	levelOf := func(af ancKeyField) int {
-		for i, a := range li.ancestors {
-			if a.entryName == af.listName {
-				return i
-			}
-		}
-		return 0
-	}
-
 	flatAssigns := jen.Dict{jen.Id("Entry"): jen.Id("e")}
 	for _, af := range ancFields {
 		flatAssigns[jen.Id(af.goName)] = jen.Qual(yangPkg, "AncestorKey").Call(
-			jen.Id("anc"), jen.Lit(levelOf(af)), jen.Lit(af.keyName))
+			jen.Id("anc"), jen.Lit(af.level), jen.Lit(af.keyName))
 	}
 
 	keyFnStmts := []jen.Code{jen.Var().Id("k").Id(keyStructName)}
