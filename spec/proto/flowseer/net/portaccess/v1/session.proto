@@ -1,0 +1,37 @@
+edition = "2024";
+
+package flowseer.net.portaccess.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/portaccess/v1/port_access_auth_state.proto";
+import "flowseer/net/portaccess/v1/port_access_method.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// An access-layer authentication and authorization session on a device port.
+// Scoped by device and interface name; multi-supplicant ports allow multiple
+// sessions per interface keyed by MAC address.
+message Session {
+  // Device-local interface name hosting the access session.
+  // Validated against flowseer.net.key.v1.interface_name. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.interface_name) = true
+  ];
+  // MAC address of the supplicant or client. Must be present.
+  flowseer.net.addr.v1.MacAddress mac = 2 [(buf.validate.field).required = true];
+  // Authentication method. Unset means not reported.
+  PortAccessMethod method = 3 [(buf.validate.field).enum.defined_only = true];
+  // Authorization state. Unset means not reported.
+  PortAccessAuthState auth_state = 4 [(buf.validate.field).enum.defined_only = true];
+  // Assigned VLAN identifier (1..4094). Validated against flowseer.net.switching.v1.vlan_id.
+  // Unset means no VLAN was assigned.
+  uint32 assigned_vlan_id = 5 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_id) = true];
+  // Operator-assigned or RADIUS-downloaded role name. Max 256 characters.
+  // Unset means no role was assigned.
+  string role_name = 6 [(buf.validate.field).string.max_len = 256];
+  // Authenticated user identity or client username. Max 256 characters.
+  // Unset means username was not reported.
+  string user_name = 7 [(buf.validate.field).string.max_len = 256];
+}
