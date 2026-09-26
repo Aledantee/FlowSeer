@@ -76,7 +76,7 @@ type Runner struct {
 	// Run's return value. The dispatch loop's own runTeardown call is a
 	// no-op when Interrupt ran first (runOnce), so without this the
 	// teardown-partial error would be lost.
-	interruptErrMu sync.Mutex
+	interruptErrMu sync.Mutex // guards interruptErr
 	interruptErr   error
 
 	// interruptOnce guards the interrupt entry point so a second

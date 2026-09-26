@@ -77,7 +77,7 @@ type HubConfig struct {
 // edge-account connection for the per-edge source streams the forwarder
 // reads. The two accounts are the security boundary: an edge
 // credential lives in the edge account and cannot address a central stream
-// even through a server-reflected publish.
+// even through a server-reflected publish. A Hub is safe for concurrent use.
 type Hub struct {
 	log        *quietLogger
 	cfg        HubConfig
@@ -90,8 +90,8 @@ type Hub struct {
 	central   *nats.Conn
 	centralJS jetstream.JetStream
 
-	mu       sync.Mutex
-	attachMu sync.Mutex
+	mu       sync.Mutex // guards edges and closed
+	attachMu sync.Mutex // serializes edge-account construction
 	edges    map[string]*edgeAccount
 	closed   bool
 }
@@ -607,7 +607,7 @@ func parseURLs(raw []string) ([]*url.URL, error) {
 // error instead of a log the host never sees.
 type quietLogger struct {
 	host  *slog.Logger
-	mu    sync.Mutex
+	mu    sync.Mutex // guards last and lines
 	last  string
 	lines []string
 }

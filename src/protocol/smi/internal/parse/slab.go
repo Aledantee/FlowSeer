@@ -15,6 +15,8 @@ import (
 // frames the framer cut before any of them is filled, so a module of a
 // thousand declarations costs a dozen allocations rather than a growth
 // curve per kind.
+// A Module may be read concurrently after parsing; it must not be
+// mutated while any goroutine is reading it.
 type Module struct {
 	Name string
 	Span Span

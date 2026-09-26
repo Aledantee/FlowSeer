@@ -244,8 +244,10 @@ func (s *Session) latch(err error) {
 	s.mu.Unlock()
 }
 
-// Close tears the session down. Idempotent; safe concurrently with
-// in-flight RPCs, which fail with their transport's close error.
+// Close is idempotent and safe concurrently with in-flight RPCs. ctx
+// bounds transport teardown, but not the wait for the keepalive
+// goroutine to exit. A transport close failure is returned with
+// [ErrCodeTransport].
 func (s *Session) Close(ctx context.Context) error {
 	s.mu.Lock()
 	if s.closed {

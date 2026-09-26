@@ -1,7 +1,5 @@
 //go:build netpen_t2
 
-// Package lab supplies live-lab configuration and remote injection for the
-// netpen vendor-validation tier.
 package lab
 
 import (
@@ -10,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -19,6 +16,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 )
@@ -96,15 +94,15 @@ func ConfigFromEnv() (Config, error) {
 	for _, variable := range values {
 		value := os.Getenv(variable.name)
 		if value == "" {
-			return Config{}, fmt.Errorf("%s is required", variable.name)
+			return Config{}, errs.Msgf("%s is required", variable.name)
 		}
 		variable.set(value)
 	}
 	if err := validateHostKeyPin(cfg.InjectorHostKeySHA256); err != nil {
-		return Config{}, fmt.Errorf("%s: %w", envInjectorHostKeySHA256, err)
+		return Config{}, errs.Wrapf(err, "%s", envInjectorHostKeySHA256)
 	}
 	if err := validateHostKeyPin(cfg.TargetHostKeySHA256); err != nil {
-		return Config{}, fmt.Errorf("%s: %w", envTargetHostKeySHA256, err)
+		return Config{}, errs.Wrapf(err, "%s", envTargetHostKeySHA256)
 	}
 
 	return cfg, nil
@@ -123,24 +121,24 @@ func (c Config) InjectCommand(attack string, duration, timeout time.Duration) []
 // and stderr separately and returns context cancellation without wrapping it.
 func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult, error) {
 	if len(argv) == 0 {
-		return InjectorResult{}, fmt.Errorf("injector command is empty")
+		return InjectorResult{}, errs.Msg("injector command is empty")
 	}
 
 	privateKey, err := os.ReadFile(cfg.InjectorPrivateKeyPath)
 	if err != nil {
-		return InjectorResult{}, fmt.Errorf("read injector private key: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "read injector private key")
 	}
 	signer, err := ssh.ParsePrivateKey(privateKey)
 	if err != nil {
-		return InjectorResult{}, fmt.Errorf("parse injector private key: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "parse injector private key")
 	}
 	if err := validateHostKeyPin(cfg.InjectorHostKeySHA256); err != nil {
-		return InjectorResult{}, fmt.Errorf("injector host-key pin: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "injector host-key pin")
 	}
 	address := SSHAddress(cfg.InjectorHost)
 	transport, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	if err != nil {
-		return InjectorResult{}, fmt.Errorf("dial injector: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "dial injector")
 	}
 
 	connection, channels, requests, err := ssh.NewClientConn(transport, address, &ssh.ClientConfig{
@@ -150,14 +148,14 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	})
 	if err != nil {
 		_ = transport.Close()
-		return InjectorResult{}, fmt.Errorf("open injector SSH connection: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "open injector SSH connection")
 	}
 	client := ssh.NewClient(connection, channels, requests)
 	defer func() { _ = client.Close() }()
 
 	session, err := client.NewSession()
 	if err != nil {
-		return InjectorResult{}, fmt.Errorf("open injector SSH session: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "open injector SSH session")
 	}
 	defer func() { _ = session.Close() }()
 
@@ -166,7 +164,7 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 	session.Stdout = &stdout
 	session.Stderr = &stderr
 	if err := session.Start(shellCommand(argv)); err != nil {
-		return InjectorResult{}, fmt.Errorf("start injector command: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "start injector command")
 	}
 
 	wait := make(chan error, 1)
@@ -185,18 +183,18 @@ func RunInjector(ctx context.Context, cfg Config, argv []string) (InjectorResult
 			result.ExitCode = exitErr.ExitStatus()
 			return result, nil
 		}
-		return InjectorResult{}, fmt.Errorf("wait for injector command: %w", err)
+		return InjectorResult{}, errs.Wrap(err, "wait for injector command")
 	}
 }
 
 func validateHostKeyPin(pin string) error {
 	const prefix = "SHA256:"
 	if !strings.HasPrefix(pin, prefix) {
-		return fmt.Errorf("fingerprint must start with %s", prefix)
+		return errs.Msgf("fingerprint must start with %s", prefix)
 	}
 	digest, err := base64.RawStdEncoding.DecodeString(strings.TrimPrefix(pin, prefix))
 	if err != nil || len(digest) != sha256.Size {
-		return fmt.Errorf("fingerprint is not a SHA-256 digest")
+		return errs.Msg("fingerprint is not a SHA-256 digest")
 	}
 	return nil
 }
@@ -204,7 +202,7 @@ func validateHostKeyPin(pin string) error {
 func pinnedHostKey(pin string) ssh.HostKeyCallback {
 	return func(hostname string, _ net.Addr, key ssh.PublicKey) error {
 		if ssh.FingerprintSHA256(key) != pin {
-			return fmt.Errorf("host key of %s does not match the pinned fingerprint", hostname)
+			return errs.Msgf("host key of %s does not match the pinned fingerprint", hostname)
 		}
 		return nil
 	}

@@ -3,7 +3,6 @@ package edgebus
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -36,7 +35,7 @@ const (
 // non-protobuf body. An agent host therefore pins Protocol http/protobuf
 // and leaves compression off rather than letting OTEL_EXPORTER_OTLP_*
 // environment variables choose gzip or grpc, which would make every export
-// fail against this receiver.
+// fail against this receiver. A Receiver is safe for concurrent use.
 type Receiver struct {
 	leaf     *Leaf
 	server   *http.Server
@@ -138,7 +137,7 @@ func (r *Receiver) Close(ctx context.Context) error {
 		return errs.From(err).Code(ErrCodeReceiver).Msg("stop loopback receiver")
 	}
 	if r.err != nil {
-		return fmt.Errorf("loopback receiver: %w", r.err)
+		return errs.Wrap(r.err, "loopback receiver")
 	}
 	return nil
 }

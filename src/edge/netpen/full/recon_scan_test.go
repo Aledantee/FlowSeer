@@ -183,7 +183,7 @@ func TestParseReconFrame_ARPReply(t *testing.T) {
 	parseReconFrame(ev, pkts[0])
 	macs := ev.MACs()
 	if len(macs) != 1 {
-		t.Fatalf("expected 1 MAC, got %d: %v", len(macs), macs)
+		t.Fatalf("got %d MACs %v, want 1", len(macs), macs)
 	}
 	want := "aa:bb:cc:dd:ee:ff"
 	if macs[0] != want {
@@ -198,7 +198,7 @@ func TestParseReconFrame_VRRP(t *testing.T) {
 	parseReconFrame(ev, pkts[0])
 	vrids := ev.VRIDs()
 	if len(vrids) != 1 {
-		t.Fatalf("expected 1 vrid, got %d: %v", len(vrids), vrids)
+		t.Fatalf("got %d VRIDs %v, want 1", len(vrids), vrids)
 	}
 	if vrids[0] != 42 {
 		t.Errorf("vrid = %d, want 42", vrids[0])
@@ -222,7 +222,7 @@ func TestParseReconFrame_Dot1Q(t *testing.T) {
 	parseReconFrame(ev, pkts[0])
 	vlans := ev.VLANs()
 	if len(vlans) != 1 {
-		t.Fatalf("expected 1 VLAN, got %d: %v", len(vlans), vlans)
+		t.Fatalf("got %d VLANs %v, want 1", len(vlans), vlans)
 	}
 	if vlans[0] != 100 {
 		t.Errorf("VLAN = %d, want 100", vlans[0])
@@ -373,7 +373,7 @@ func TestEmitScanFinding_Classes(t *testing.T) {
 				}
 			}
 			if !found {
-				t.Errorf("expected finding class %q, got classes: %v", tc.wantCls, classesOf(recs))
+				t.Errorf("got finding classes %v, want %q", classesOf(recs), tc.wantCls)
 			}
 		})
 	}

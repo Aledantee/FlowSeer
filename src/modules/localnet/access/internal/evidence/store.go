@@ -68,26 +68,18 @@ type entry struct {
 }
 
 // Store is the route-evidence cache for every device this edge serves. The
-// zero value is not usable; construct one with [NewStore].
+// zero value is not usable; construct one with [NewStore]. A Store is safe for
+// concurrent use.
 //
-// Nothing reads it yet. access.Lane calls Record after every complete
-// observation and InvalidateFingerprint when a device's firmware epoch
-// changes, but Consult has no caller outside this package's own tests, so
-// the cache answers no question and removing the invalidation would fail no
-// test. It is maintained rather than deleted because recording under the
-// correct epoch, and invalidating when that epoch moves, is the half that is
-// hard to get right and easy to break silently later; the reader is the
-// straightforward half. Wiring Consult into route selection is a named
-// follow-up on the lane host contract plan.
-//
-// This paragraph is here rather than only in the module README because the
-// person who comes to add that reader will be reading this file, and a
-// mechanism documented as not yet alive is a different thing from one that
-// is quietly dead.
+// access.Lane records every complete observation and invalidates evidence when
+// a device's firmware epoch changes. Consult has no production caller, so the
+// cache does not influence route selection. Recording under the correct epoch
+// is kept here because that write-side invariant is the part a reader must be
+// able to trust.
 type Store struct {
 	policy Policy
 
-	mu      sync.Mutex
+	mu      sync.Mutex // guards entries
 	entries map[key]entry
 }
 

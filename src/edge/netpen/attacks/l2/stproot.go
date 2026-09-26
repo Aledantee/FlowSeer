@@ -13,12 +13,13 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -46,7 +47,7 @@ func RunSTPRoot(ctx context.Context, deps runner.Deps) error {
 	// from the pooled buffer.
 	bpduPkt, err := craftSTPBPDU(src, rootPriority, maxAge, helloTime, forwardDelay, msgAge)
 	if err != nil {
-		return fmt.Errorf("stproot: craft BPDU: %w", err)
+		return errs.Wrap(err, "stproot: craft BPDU")
 	}
 
 	// Send a bounded burst of BPDUs. The baseline sends continuously;
@@ -54,7 +55,7 @@ func RunSTPRoot(ctx context.Context, deps runner.Deps) error {
 	burstCount := 3
 	for i := 0; i < burstCount; i++ {
 		if err := deps.AttackLeg.Send(ctx, bpduPkt); err != nil {
-			return fmt.Errorf("stproot: send BPDU %d: %w", i, err)
+			return errs.Wrapf(err, "stproot: send BPDU %d", i)
 		}
 		// Honor rate if set; otherwise no delay.
 		if deps.Rate > 0 {

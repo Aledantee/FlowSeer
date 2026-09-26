@@ -1,8 +1,9 @@
 package netsimtest
 
 import (
-	"fmt"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -205,14 +206,14 @@ func CaseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				return ExecutionResult{}, err
 			}
 			if !blocked {
-				return ExecutionResult{}, fmt.Errorf("loopprotect corpus fixture: port 1/1/1 was not blocked after one probe interval")
+				return ExecutionResult{}, errs.Msg("loopprotect corpus fixture: port 1/1/1 was not blocked after one probe interval")
 			}
 			clean, err := loopProtectCaseIngressBlocked(fab, "1/1/2")
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 			if clean {
-				return ExecutionResult{}, fmt.Errorf("loopprotect corpus fixture: port 1/1/2 was also blocked, want exactly one of the two looped ports acted on")
+				return ExecutionResult{}, errs.Msg("loopprotect corpus fixture: port 1/1/2 was also blocked, want exactly one of the two looped ports acted on")
 			}
 
 			broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
@@ -238,7 +239,7 @@ func CaseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				}
 			}
 			if deliveries != 1 {
-				return ExecutionResult{}, fmt.Errorf("loopprotect corpus fixture: h2 received %d copies of the broadcast, want exactly 1", deliveries)
+				return ExecutionResult{}, errs.Msgf("loopprotect corpus fixture: h2 received %d copies of the broadcast, want exactly 1", deliveries)
 			}
 
 			// The decisive journey: a frame injected directly on the blocked

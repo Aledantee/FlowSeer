@@ -692,7 +692,7 @@ func extractProtoPayload(t *testing.T, raw []byte, proto string) []byte {
 	case "dtp", "vtp", "pagp":
 		// 802.3/LLC/SNAP: length field ≤ 1500, LLC=3 (ctrl=3, 1 byte), SNAP=5
 		if etherType > 1500 {
-			t.Fatalf("expected 802.3 frame for %s, got EtherType 0x%04x", proto, etherType)
+			t.Fatalf("got EtherType 0x%04x for %s, want an 802.3 length field", etherType, proto)
 		}
 		offset := 14 + 3 + 5 // Ethernet(14) + LLC(3) + SNAP(5)
 		if offset > len(raw) {

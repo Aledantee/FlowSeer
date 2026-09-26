@@ -387,7 +387,7 @@ func readExpectations(t *testing.T, path string) ([]expectation, map[string]int)
 		if e.what == "allow-diagnostic" {
 			n, err := strconv.Atoi(e.value)
 			if err != nil {
-				t.Fatalf("%s:%d: allow-diagnostic wants a count, got %q", path, i+1, e.value)
+				t.Fatalf("%s:%d: got allow-diagnostic count %q, want an integer", path, i+1, e.value)
 			}
 			allowed[e.subject] = n
 

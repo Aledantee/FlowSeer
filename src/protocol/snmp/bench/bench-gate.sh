@@ -1,5 +1,5 @@
 #!/bin/sh
-# Local SNMP perf-gate (plan 003, U5). Runs the FlowSeer-arm micro benchmarks
+# Local SNMP performance gate. Runs the FlowSeer-arm micro benchmarks
 # and benchstat-compares them against the committed baseline
 # (testdata/baseline-micro.txt), HARD-FAILING only on a statistically
 # significant regression in the deterministic metrics allocs/op and B/op.
@@ -35,7 +35,7 @@ GATE_NS="${GATE_NS:-0}"
 BASELINE="testdata/baseline-micro.txt"
 
 if [ ! -f "$BASELINE" ]; then
-	echo "perf-gate: missing baseline $BASELINE (capture it per U1)" >&2
+	echo "perf-gate: missing baseline $BASELINE (run task bench:micro COUNT=10, keep the FlowSeer rows and preamble, and commit them as $BASELINE)" >&2
 	exit 2
 fi
 if ! command -v benchstat >/dev/null 2>&1; then

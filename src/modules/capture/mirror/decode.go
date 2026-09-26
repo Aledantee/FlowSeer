@@ -2,12 +2,12 @@ package mirror
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 	"slices"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // GRE payload protocol types the ERSPAN draft and RFC 1701 assign.
@@ -36,11 +36,11 @@ type greHeader struct {
 
 func parseGRE(b []byte) (*greHeader, error) {
 	if len(b) < 4 {
-		return nil, fmt.Errorf("GRE header truncated: %d bytes", len(b))
+		return nil, errs.Msgf("GRE header truncated: %d bytes", len(b))
 	}
 	flags := b[0]
 	if flags&0x40 != 0 { // R (routing) bit
-		return nil, fmt.Errorf("GRE routing (R bit) is not supported")
+		return nil, errs.Msg("GRE routing (R bit) is not supported")
 	}
 	h := &greHeader{
 		keyPresent:   flags&0x20 != 0,
@@ -51,20 +51,20 @@ func parseGRE(b []byte) (*greHeader, error) {
 	rest := b[4:]
 	if flags&0x80 != 0 { // C (checksum) bit: checksum + reserved1 word
 		if len(rest) < 4 {
-			return nil, fmt.Errorf("GRE checksum word truncated")
+			return nil, errs.Msg("GRE checksum word truncated")
 		}
 		rest = rest[4:]
 	}
 	if h.keyPresent {
 		if len(rest) < 4 {
-			return nil, fmt.Errorf("GRE key word truncated")
+			return nil, errs.Msg("GRE key word truncated")
 		}
 		h.key = binary.BigEndian.Uint32(rest[:4])
 		rest = rest[4:]
 	}
 	if h.seqPresent {
 		if len(rest) < 4 {
-			return nil, fmt.Errorf("GRE sequence number word truncated")
+			return nil, errs.Msg("GRE sequence number word truncated")
 		}
 		h.sequenceNumber = binary.BigEndian.Uint32(rest[:4])
 		rest = rest[4:]
@@ -168,13 +168,13 @@ func nilIfEmpty(b []byte) []byte {
 // fields plus whatever follows the header.
 func ParseErspanTypeII(b []byte) (*capturev1.ErspanTypeIiFields, []byte, error) {
 	if len(b) < 8 {
-		return nil, nil, fmt.Errorf("ERSPAN Type II header truncated: %d bytes", len(b))
+		return nil, nil, errs.Msgf("ERSPAN Type II header truncated: %d bytes", len(b))
 	}
 	w0 := binary.BigEndian.Uint32(b[0:4])
 	w1 := binary.BigEndian.Uint32(b[4:8])
 
 	if ver := (w0 >> 28) & 0xF; ver != 1 {
-		return nil, nil, fmt.Errorf("ERSPAN Type II header has Ver %d, want 1", ver)
+		return nil, nil, errs.Msgf("ERSPAN Type II header has Ver %d, want 1", ver)
 	}
 
 	f := &capturev1.ErspanTypeIiFields{}
@@ -195,14 +195,14 @@ func ParseErspanTypeII(b []byte) (*capturev1.ErspanTypeIiFields, []byte, error) 
 // receiver here interprets it).
 func ParseErspanTypeIII(b []byte) (*capturev1.ErspanTypeIiiFields, []byte, error) {
 	if len(b) < 12 {
-		return nil, nil, fmt.Errorf("ERSPAN Type III header truncated: %d bytes", len(b))
+		return nil, nil, errs.Msgf("ERSPAN Type III header truncated: %d bytes", len(b))
 	}
 	w0 := binary.BigEndian.Uint32(b[0:4])
 	w1 := binary.BigEndian.Uint32(b[4:8])
 	w2 := binary.BigEndian.Uint32(b[8:12])
 
 	if ver := (w0 >> 28) & 0xF; ver != 2 {
-		return nil, nil, fmt.Errorf("ERSPAN Type III header has Ver %d, want 2", ver)
+		return nil, nil, errs.Msgf("ERSPAN Type III header has Ver %d, want 2", ver)
 	}
 
 	f := &capturev1.ErspanTypeIiiFields{}
@@ -222,7 +222,7 @@ func ParseErspanTypeIII(b []byte) (*capturev1.ErspanTypeIiiFields, []byte, error
 	rest := b[12:]
 	if w2&0x1 != 0 { // O bit: optional platform subheader present
 		if len(rest) < 8 {
-			return nil, nil, fmt.Errorf("ERSPAN Type III platform subheader truncated")
+			return nil, nil, errs.Msg("ERSPAN Type III platform subheader truncated")
 		}
 		rest = rest[8:]
 	}
@@ -231,10 +231,10 @@ func ParseErspanTypeIII(b []byte) (*capturev1.ErspanTypeIiiFields, []byte, error
 
 func decodeVXLAN(b []byte) (*capturev1.VxlanFields, []byte, error) {
 	if len(b) < 8 {
-		return nil, nil, fmt.Errorf("VXLAN header truncated: %d bytes", len(b))
+		return nil, nil, errs.Msgf("VXLAN header truncated: %d bytes", len(b))
 	}
 	if b[0]&0x08 == 0 { // I flag: VNI valid
-		return nil, nil, fmt.Errorf("VXLAN header I flag is not set: no VNI")
+		return nil, nil, errs.Msg("VXLAN header I flag is not set: no VNI")
 	}
 	vni := uint32(b[4])<<16 | uint32(b[5])<<8 | uint32(b[6])
 	f := &capturev1.VxlanFields{}
@@ -255,20 +255,20 @@ const (
 
 func decodeTZSP(b []byte) (*capturev1.TzspFields, []byte, error) {
 	if len(b) < 4 {
-		return nil, nil, fmt.Errorf("TZSP header truncated: %d bytes", len(b))
+		return nil, nil, errs.Msgf("TZSP header truncated: %d bytes", len(b))
 	}
 	if b[0] != tzspVersion1 {
-		return nil, nil, fmt.Errorf("TZSP version %d is not supported", b[0])
+		return nil, nil, errs.Msgf("TZSP version %d is not supported", b[0])
 	}
 	if b[1] != tzspTypeReceivedTagList {
-		return nil, nil, fmt.Errorf("TZSP type %d carries no received packet", b[1])
+		return nil, nil, errs.Msgf("TZSP type %d carries no received packet", b[1])
 	}
 	encapsulatedProtocol := binary.BigEndian.Uint16(b[2:4])
 
 	rest := b[4:]
 	for {
 		if len(rest) < 1 {
-			return nil, nil, fmt.Errorf("TZSP tag list truncated")
+			return nil, nil, errs.Msg("TZSP tag list truncated")
 		}
 		tag := rest[0]
 		switch tag {
@@ -281,11 +281,11 @@ func decodeTZSP(b []byte) (*capturev1.TzspFields, []byte, error) {
 			rest = rest[1:]
 		default:
 			if len(rest) < 2 {
-				return nil, nil, fmt.Errorf("TZSP tag %d truncated", tag)
+				return nil, nil, errs.Msgf("TZSP tag %d truncated", tag)
 			}
 			length := int(rest[1])
 			if len(rest) < 2+length {
-				return nil, nil, fmt.Errorf("TZSP tag %d value truncated", tag)
+				return nil, nil, errs.Msgf("TZSP tag %d value truncated", tag)
 			}
 			rest = rest[2+length:]
 		}
@@ -323,5 +323,5 @@ func DecodeUDP(payload []byte, srcIP, dstIP net.IP, candidates []capturev1.Mirro
 			return env, rest, nil
 		}
 	}
-	return nil, nil, fmt.Errorf("no candidate encapsulation matched the UDP payload")
+	return nil, nil, errs.Msg("no candidate encapsulation matched the UDP payload")
 }

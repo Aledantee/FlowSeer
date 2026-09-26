@@ -7,17 +7,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// Wire-type leniency helpers
-//
 // The helpers in this file (DecodeInt32, DecodeUint32, DecodeUint64,
 // DecodeBytes, DecodeOID, DecodeIP) implement a runtime coercion policy
 // that lets generated decoders accept any [VarBind] variant whose value
 // is losslessly convertible to the target Go type. Real SNMP agents
 // routinely emit slightly off-spec variants — a Gauge32 column comes
 // back as Integer32, a sysServices INTEGER (0..127) comes back as
-// Uinteger32 — and the strict per-variant assertions previously
-// generated into every decoder treat that as a hard mismatch even
-// though the wire value fits cleanly.
+// Uinteger32 — and generated decoders use these helpers so a wire value
+// that fits cleanly does not become a hard mismatch.
 //
 // Coercion table (target Go type → accepted wire variants → lossy when):
 //

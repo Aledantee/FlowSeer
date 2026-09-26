@@ -11,10 +11,11 @@
 package layers
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // HSRPOpcode is an HSRP message opcode.
@@ -77,7 +78,7 @@ const (
 func (h *HSRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < hsrpMinLen {
 		df.SetTruncated()
-		return fmt.Errorf("HSRP: truncated at offset 0, need >=%d bytes, got %d", hsrpMinLen, len(data))
+		return errs.Msgf("HSRP: truncated at offset 0, need >=%d bytes, got %d", hsrpMinLen, len(data))
 	}
 
 	h.BaseLayer = BaseLayer{Contents: data, Payload: nil}
@@ -101,7 +102,7 @@ func (h *HSRP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 func (h *HSRP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptions) error {
 	vip := h.VirtualIP.To4()
 	if vip == nil && len(h.VirtualIP) != 0 {
-		return fmt.Errorf("HSRP: virtual IP must be IPv4")
+		return errs.Msg("HSRP: virtual IP must be IPv4")
 	}
 
 	buf, err := b.PrependBytes(hsrpMinLen)

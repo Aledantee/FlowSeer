@@ -7,10 +7,11 @@ package fh
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -32,10 +33,10 @@ func RunGratARP(ctx context.Context, deps runner.Deps) error {
 	for i := range count {
 		pkt, err := craftGratARP(src, ip)
 		if err != nil {
-			return fmt.Errorf("gratarp: craft frame %d: %w", i, err)
+			return errs.Wrapf(err, "gratarp: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("gratarp: send frame %d: %w", i, err)
+			return errs.Wrapf(err, "gratarp: send frame %d", i)
 		}
 	}
 

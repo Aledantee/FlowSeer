@@ -225,7 +225,7 @@ func TestV3Inform_OutOfWindowReport(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 	if out, isR := classifyReport(&dec.msg.scoped.pdu); !isR || out != reportNotInTimeWindow {
-		t.Fatalf("expected notInTimeWindow Report, got %v isReport=%v", out, isR)
+		t.Fatalf("got %v isReport=%v, want notInTimeWindow Report", out, isR)
 	}
 	if _, ok := nextTrap(ts, 300*time.Millisecond); ok {
 		t.Fatal("out-of-window inform should not be surfaced")

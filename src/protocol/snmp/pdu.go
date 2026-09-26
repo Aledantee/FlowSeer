@@ -462,8 +462,8 @@ func decodeVarBind(buf []byte, depth int) (VarBind, int, error) {
 // prefix-matches name OIDs as bytes, which is order-correct only for
 // minimal base-128 arcs. A response with a padded (non-canonical) arc —
 // off-spec but decodable — returns an error here and the read loop
-// falls back to eager decode, preserving today's semantics for that
-// agent. The mirror is pinned by TestValidateRawVarBindList_Mirrors in
+// falls back to eager decode so that agent receives the tolerant decode
+// behavior. The mirror is pinned by TestValidateRawVarBindList_Mirrors in
 // pdu_test.go form.
 func validateRawVarBindList(buf []byte, depth int) error {
 	listContent, _, err := parseSequence(buf, tagSequence, depth)

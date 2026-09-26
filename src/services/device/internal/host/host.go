@@ -286,7 +286,7 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the captures bucket")
 	}
 	capturesDir := filepath.Join(h.cfg.StateDir(), "captures")
-	captureStore, err := captureapi.NewStore(capturesBucket, capturesDir)
+	captureStore, err := captureapi.NewStore(capturesBucket, capturesDir, time.Now)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("initialize the capture store")
 	}

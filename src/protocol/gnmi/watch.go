@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
@@ -27,7 +28,8 @@ type WatchOptions struct {
 	SampleInterval time.Duration
 	// Origin sets the gNMI path origin for peers that require one.
 	Origin string
-	// Buffer sizes the event channel. <= 0 uses the default.
+	// Buffer sizes the event channel. Zero uses the default; negative
+	// values are rejected.
 	Buffer int
 }
 
@@ -90,6 +92,10 @@ type Watcher[Row any, Key comparable] struct {
 // emit as Added at sync (the SNMP cold-start contract); afterwards
 // each notification batch emits at most one event per affected row.
 func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yang.ListDescriptor[Row, Key], opts WatchOptions) (*Watcher[Row, Key], error) {
+	if opts.Buffer < 0 {
+		return nil, errs.New().Code(ErrCodeRPC).Attr("buffer", opts.Buffer).
+			Msg("watch buffer must be non-negative")
+	}
 	stream, err := sess.Subscribe(ctx, SubscribeOptions{
 		Mode:           ModeStream,
 		Paths:          []yang.Path{desc.Path},
@@ -102,7 +108,7 @@ func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yan
 	}
 
 	buf := opts.Buffer
-	if buf <= 0 {
+	if buf == 0 {
 		buf = defaultEventBuffer
 	}
 	w := &Watcher[Row, Key]{pump: pump.New[yang.WatchEvent[Row, Key]](ctx, buf), stream: stream}

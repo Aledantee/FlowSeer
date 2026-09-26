@@ -65,7 +65,8 @@ func Dial(ctx context.Context, base string, opts Options) (*Session, error) {
 	return s, nil
 }
 
-// Root returns the discovered API root path.
+// Root returns the API root fixed during [Dial]. Every data-resource URL
+// is prefixed with this path.
 func (s *Session) Root() string { return s.root }
 
 // Close releases pooled connections. Idempotent.
@@ -123,8 +124,8 @@ func (s *Session) dataURL(p yang.Path) string {
 }
 
 // Get reads a data resource as RFC 7951 JSON. A 404 on a data
-// resource yields (nil, nil): an absent optional subtree is data, not
-// an error — the Watcher turns it into row removal.
+// resource yields (nil, nil), which represents an absent optional
+// subtree. The Watcher turns that state into row removal.
 func (s *Session) Get(ctx context.Context, p yang.Path, opts GetOptions) ([]byte, error) {
 	body, status, _, err := s.do(ctx, http.MethodGet, s.dataURL(p)+opts.query(), nil, nil)
 	if err != nil {
@@ -286,8 +287,8 @@ func (s *Session) do(ctx context.Context, method, url string, body []byte, heade
 	return respBody, resp.StatusCode, resp.Header, nil
 }
 
-// transportError maps client-level failures, keeping caller context
-// cancellation unwrapped.
+// transportError maps client-level failures. Caller context
+// cancellation remains unwrapped.
 func (s *Session) transportError(method string, err error) error {
 	if errors.Is(err, context.Canceled) {
 		return context.Canceled

@@ -4,7 +4,6 @@ package ndp
 
 import (
 	"encoding/binary"
-	"errors"
 	"math"
 	"net/netip"
 
@@ -51,9 +50,9 @@ type Message struct {
 
 var (
 	// ErrMalformed identifies invalid fields, lengths, and checksums.
-	ErrMalformed = errors.New("malformed NDP message")
+	ErrMalformed = errs.Msg("malformed NDP message")
 	// ErrUnsupported identifies well-formed wire formats the package does not support.
-	ErrUnsupported = errors.New("unsupported NDP message")
+	ErrUnsupported = errs.Msg("unsupported NDP message")
 )
 
 // Encode serializes m as an ICMPv6 message and writes its checksum using

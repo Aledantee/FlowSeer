@@ -187,7 +187,7 @@ func TestCorpusFixturePins(t *testing.T) {
 	}
 
 	if len(corpusFixtures) != 2 {
-		t.Fatalf("expected the two extremes, got %d fixtures", len(corpusFixtures))
+		t.Fatalf("got %d fixtures, want the two extremes", len(corpusFixtures))
 	}
 
 	small, large := corpusFixtures[0], corpusFixtures[1]

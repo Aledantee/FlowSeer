@@ -247,7 +247,7 @@ func TestAggregatorDependencyExcludedBeforePhysicalShortCircuit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ports := mustTable(t, port.NewBuilder().
 				Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Down}).
-				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 			cfg := vswitch.Config{
 				Ports: ports,
@@ -286,7 +286,7 @@ func TestAggregatorDependencyExcludedBeforeAggregateEgressSelection(t *testing.T
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Down}))
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Down}))
 	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 		Config: vswitch.Config{
 			Ports: ports,
@@ -316,7 +316,7 @@ func TestLACPConsultsAggregatorAfterPhysicalAdmission(t *testing.T) {
 	}}, analysis.EvidenceCatalog{}, nil)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Down}))
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Down}))
 	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 		Config: vswitch.Config{
 			Ports: ports,
@@ -342,7 +342,7 @@ func TestLACPConsultsAggregatorAfterPhysicalAdmission(t *testing.T) {
 
 func exactAggregatorScope() analysis.Scope {
 	return analysis.FieldScope(
-		analysis.ProtocolScope("sw1", string(port.LayerLag), "0"),
+		analysis.ProtocolScope("sw1", string(port.LayerLAG), "0"),
 		"aggregators", "lag1",
 	)
 }
@@ -358,7 +358,7 @@ func newAggregatorDependencySwitch(
 	t.Helper()
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: aggregate, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: aggregate, Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: aggregate, Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 	cfg := vswitch.Config{

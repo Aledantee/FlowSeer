@@ -10,14 +10,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported lag.Config field reaches
+// TestDiffCoversEveryConfigField verifies that every exported lag.Config field reaches
 // lag.Diff. lag.Config.Normalize takes the port table and the switch's base MAC, unlike
 // its niladic siblings, so the normalize closure fixes both to the table this test
 // builds; lag.Diff itself does not self-normalize, per its own doc comment putting
 // normalization on the caller, which is what this closure stands in for.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	ports, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Build()
 	if err != nil {

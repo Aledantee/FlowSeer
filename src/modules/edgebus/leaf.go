@@ -79,7 +79,7 @@ type Leaf struct {
 	tenant string
 	js     jetstream.JetStream
 
-	mu     sync.Mutex
+	mu     sync.Mutex // guards closed, server, and conn
 	closed bool
 	server *server.Server
 	conn   *nats.Conn

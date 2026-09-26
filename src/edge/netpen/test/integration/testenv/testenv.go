@@ -23,8 +23,8 @@ func SetTarget(addr string) {
 	target.Store(addr)
 }
 
-// Target returns the lab target previously set by [SetTarget], or "".
-// It is safe for concurrent use.
+// Target returns the lab target address set by [SetTarget]. It returns an empty
+// string before a target is set and is safe for concurrent use.
 func Target() string {
 	if v, ok := target.Load().(string); ok {
 		return v

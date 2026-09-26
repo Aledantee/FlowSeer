@@ -300,21 +300,18 @@ func NewWatcher[Row any](
 			"(cadence has no library default)"))
 	}
 
-	// Apply step-policy defaults when the caller did not set them
-	// explicitly, using conservative starting values.
 	if !cfg.CadenceStepPolicySet {
+		// Doubling with a 16x ceiling adapts without reacting sharply to
+		// one quiet interval.
 		cfg.CadenceStepFactor = 2.0
 		cfg.CadenceStepCeiling = 16
 	}
-	// Conservative probe-window default.
 	if !cfg.ProbeWindowSet {
 		cfg.ProbeWindow = 5
 	}
-	// Forced-walk default: 4 × CadenceMax once bounds are known.
 	if !cfg.ForcedWalkIntervalSet {
 		cfg.ForcedWalkInterval = 4 * cfg.CadenceMax
 	}
-	// BulkWalk fallback threshold default.
 	if !cfg.BulkWalkFallbackThresholdSet {
 		cfg.BulkWalkFallbackThreshold = 4
 	}
@@ -671,9 +668,8 @@ func (w *Watcher[Row]) coldStart() bool {
 		return false
 	}
 
-	// Decode each row and emit an Added event. For the per-row
-	// indicator path, also extract the row's indicator VarBind from
-	// the grouped VarBinds.
+	// The per-row path retains each indicator VarBind for the next
+	// change comparison.
 	pending := make([]WatchEvent[Row], 0, len(order))
 	for _, key := range order {
 		acc := groups[key]

@@ -75,7 +75,7 @@ type Verifier struct {
 	lookup   KeyLookup
 	now      func() time.Time
 
-	mu        sync.Mutex
+	mu        sync.Mutex // guards seen and nextSweep
 	seen      map[string]time.Time
 	nextSweep time.Time
 }
@@ -129,8 +129,8 @@ func (v *Verifier) VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAs
 		return nil, errs.From(err).Code(ErrCodeBadHeader).Msg("validate signed assertion envelope")
 	}
 
-	// Step 2: read the edge ref from the payload. Every other claim in it
-	// is untrusted input until the signature verifies below.
+	// Every claim after the edge ref is untrusted input until the signature
+	// verifies below.
 	assertion := &edgev1.EdgeAssertion{}
 	if err := proto.Unmarshal(signed.GetPayload(), assertion); err != nil {
 		return nil, errs.From(err).Code(ErrCodeBadHeader).Msg("unmarshal assertion payload")
@@ -140,7 +140,7 @@ func (v *Verifier) VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAs
 		return nil, errs.New().Code(ErrCodeBadHeader).Msg("assertion payload names no edge")
 	}
 
-	// Step 3: verify the signature over the raw payload bytes.
+	// The signature covers the raw payload bytes.
 	publicKey, lifecycle, lookupErr := v.lookup(ctx, edgeID)
 	switch {
 	case lookupErr != nil:
@@ -157,34 +157,28 @@ func (v *Verifier) VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAs
 		return nil, errs.New().Code(ErrCodeBadSignature).Attr("edge_id", edgeID).Msg("assertion signature does not verify")
 	}
 
-	// Step 4: the parsed assertion passes its own validation.
 	if err := protovalidate.Validate(assertion); err != nil {
 		return nil, errs.From(err).Code(ErrCodeMalformedAssertion).Attr("edge_id", edgeID).Msg("assertion payload fails validation")
 	}
 
-	// Step 5: the procedure binds to the call in progress.
 	if assertion.GetProcedure() != procedure {
 		return nil, errs.New().Code(ErrCodeWrongProcedure).Attr("edge_id", edgeID).Msg("assertion procedure does not match the invoked RPC")
 	}
 
-	// Step 6: the body hash binds to the request in progress.
 	bodyHash := sha256.Sum256(body)
 	if !bytes.Equal(assertion.GetBodySha256(), bodyHash[:]) {
 		return nil, errs.New().Code(ErrCodeWrongBodyHash).Attr("edge_id", edgeID).Msg("assertion body hash does not match the request")
 	}
 
-	// Step 7: the edge's lifecycle is enrolled.
 	if lifecycle != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
 		return nil, errs.New().Code(ErrCodeRetiredEdge).Attr("edge_id", edgeID).Msg("edge is not enrolled")
 	}
 
-	// Step 8: the audience matches this deployment.
 	if assertion.GetAudience() != v.audience {
 		return nil, errs.New().Code(ErrCodeWrongAudience).Attr("edge_id", edgeID).Msg("assertion audience does not match this deployment")
 	}
 
-	// Steps 9 and 10: the assertion sits inside its clock window. A skewed
-	// issued_at and a genuinely expired assertion get different codes,
+	// A skewed issued_at and a genuinely expired assertion get different codes,
 	// because the remedy differs: the edge adopts server_time for the
 	// first and mints a fresh assertion for the second.
 	now := v.now()
@@ -196,8 +190,7 @@ func (v *Verifier) VerifySigned(ctx context.Context, signed *edgev1.SignedEdgeAs
 		return nil, errs.New().Code(ErrCodeExpired).Attr("edge_id", edgeID).Msg("assertion has expired")
 	}
 
-	// Step 11: the nonce has not been seen for this edge within the
-	// validity window.
+	// The nonce stays unique for this edge within the validity window.
 	if !v.recordNonce(edgeID, assertion.GetNonce(), assertion.GetExpiresAt().AsTime()) {
 		return nil, errs.New().Code(ErrCodeReplayedNonce).Attr("edge_id", edgeID).Msg("assertion nonce was already used")
 	}

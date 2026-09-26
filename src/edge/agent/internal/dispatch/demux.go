@@ -28,7 +28,9 @@ type Outbound interface {
 }
 
 // Demux turns each message on the dispatch stream into a lane call, and
-// answers central for the ones it cannot make.
+// answers central for the ones it cannot make. Confirmed and operation
+// completions may run concurrently. The stream reader must serialize Handle
+// calls and stop calling Handle before Wait starts.
 type Demux struct {
 	lane     Lane
 	out      Outbound

@@ -104,7 +104,7 @@ func TestUSM_DowngradePlaintext(t *testing.T) {
 	}
 	dec, _ := decodeV3Message(raw)
 	if _, err := recv.verifyInbound(dec); !errors.Is(err, ErrUSMDowngrade) {
-		t.Fatalf("expected downgrade error, got %v", err)
+		t.Fatalf("got %v, want downgrade error", err)
 	}
 }
 
@@ -120,7 +120,7 @@ func TestUSM_DowngradeUnauthenticated(t *testing.T) {
 	}
 	dec, _ := decodeV3Message(raw)
 	if _, err := recv.verifyInbound(dec); !errors.Is(err, ErrUSMDowngrade) {
-		t.Fatalf("expected downgrade error for unauthenticated reply, got %v", err)
+		t.Fatalf("got %v, want downgrade error for unauthenticated reply", err)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestUSM_TamperedDigest(t *testing.T) {
 		t.Fatalf("decode after tamper: %v", err)
 	}
 	if _, err := u.verifyInbound(dec2); !errors.Is(err, ErrAuthFailed) {
-		t.Fatalf("expected auth failure, got %v", err)
+		t.Fatalf("got %v, want auth failure", err)
 	}
 }
 
@@ -169,7 +169,7 @@ func TestUSM_WrongPrivKeyBERFails(t *testing.T) {
 		t.Fatalf("newUSMContext: %v", err)
 	}
 	if _, err := recv.verifyInbound(dec); !errors.Is(err, ErrPrivDecrypt) {
-		t.Fatalf("expected decryption error, got %v", err)
+		t.Fatalf("got %v, want decryption error", err)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestUSM_NoKeysBeforeDiscovery(t *testing.T) {
 		t.Fatalf("should have no engine yet")
 	}
 	if _, err := u.buildOutbound(1, sampleResponsePDU(), 0, 0, true); !errors.Is(err, ErrUSMNoKeys) {
-		t.Fatalf("expected ErrUSMNoKeys, got %v", err)
+		t.Fatalf("got %v, want ErrUSMNoKeys", err)
 	}
 	if err := u.setEngine(secTestEngine); err != nil {
 		t.Fatalf("setEngine: %v", err)

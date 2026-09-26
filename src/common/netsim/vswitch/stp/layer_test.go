@@ -2428,8 +2428,8 @@ func rowSSTPBPDU(t *testing.T, addr string) stp.BPDU {
 	return b
 }
 
-// TestReceiveSSTPRunsTheLinkHalfForEveryOutcome is evidence for R1 and the
-// Decisions' outcome order: the link half of a receive — the loop-guard clear
+// TestReceiveSSTPRunsTheLinkHalfForEveryOutcome verifies the receive outcome order:
+// the link half of a receive — the loop-guard clear
 // above all, since it is the one link property every row here can carry a
 // precondition for — runs whatever the tree half of the same receive goes on
 // to decide. Every row but bpdu-guard preconditions the port loop-inconsistent
@@ -2903,8 +2903,8 @@ func TestMcheckSyncsSendRSTPToEveryTree(t *testing.T) {
 	}
 }
 
-// TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST pins both halves of R2: a
-// PVST layer with no tree for VLAN 30 answers the zero PortInfo and says it
+// TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST verifies that a PVST layer with no
+// tree for VLAN 30 answers the zero PortInfo and says it
 // does not track the VLAN, while an RSTP layer, which runs no PVST tree
 // table at all, still answers VLAN 30 with the CIST's own state because the
 // CIST carries every VLAN there.
@@ -2934,8 +2934,8 @@ func TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST(t *testing.T) {
 	}
 }
 
-// TestEveryReaderOfALinkPropertyReadsTheCISTsCopy is evidence for R4: a
-// link-on-cist field answers the same value through every tree's own
+// TestEveryReaderOfALinkPropertyReadsTheCISTsCopy verifies that a link-on-cist field
+// answers the same value through every tree's own
 // PortInfo, because every reader resolves it through the CIST rather than
 // through its own copy. BPDU guard firing on a PVST bridge's trunk is what
 // exercises this: the guard and the received-frame counter both live on the
@@ -2984,8 +2984,8 @@ func TestEveryReaderOfALinkPropertyReadsTheCISTsCopy(t *testing.T) {
 	}
 }
 
-// TestPVSTMigrationReachesEveryTreeAndSilencesSSTP is evidence for R5: a
-// legacy Configuration BPDU received IEEE-addressed migrates every tree, not
+// TestPVSTMigrationReachesEveryTreeAndSilencesSSTP verifies that a legacy
+// Configuration BPDU received IEEE-addressed migrates every tree, not
 // only the CIST's, and a migrated port sends VLAN 1's untagged Configuration
 // BPDU alone: SSTP has no legacy shape to carry a per-VLAN downgrade in, so
 // every other VLAN's tree falls silent on the port instead.
@@ -3049,8 +3049,8 @@ func TestPVSTMigrationReachesEveryTreeAndSilencesSSTP(t *testing.T) {
 	}
 }
 
-// TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing is evidence for
-// R8: a LinkChange that only changes the link-derived path cost reaches
+// TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing verifies that a
+// LinkChange that only changes the link-derived path cost reaches
 // every tree's own path cost, but does not restart the port's handshake the
 // way a role, point-to-point, or admin cost change would.
 func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
@@ -3103,8 +3103,8 @@ func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
 	}
 }
 
-// TestATreesPortStartsAtTheBridgePortsConfiguredCost is evidence for R9: an
-// MSTI or PVST tree with no per-instance path cost override starts at the
+// TestATreesPortStartsAtTheBridgePortsConfiguredCost verifies that an MSTI or PVST tree
+// with no per-instance path cost override starts at the
 // bridge port's own configured cost, the same fallback the CIST itself
 // derives from, rather than at DefaultPathCost(0) until the first LinkChange
 // overwrites it.

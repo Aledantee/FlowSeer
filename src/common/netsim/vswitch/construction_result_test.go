@@ -157,7 +157,7 @@ func TestConstructionSpecIdentityAndSeedDifferences(t *testing.T) {
 	spec2 := sw2.Spec()
 
 	if !spec1.Equal(spec2) {
-		t.Errorf("expected identical construction specs for identical input, got unequal")
+		t.Errorf("got unequal construction specs, want identical specs for identical input")
 	}
 
 	// Now add different static seeds
@@ -191,7 +191,7 @@ func TestConstructionSpecValidatesAndNormalizesSeeds(t *testing.T) {
 	vid10 := vlan.ID(10)
 	vid20 := vlan.ID(20)
 	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "access", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "outside", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))

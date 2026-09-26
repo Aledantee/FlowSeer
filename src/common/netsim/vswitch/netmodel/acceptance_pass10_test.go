@@ -22,7 +22,7 @@ import (
 func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
 	input := loadInput{
 		ifaces: []*interfacev1.Interface{reportedPhysical("in"), reportedPhysical("out")},
-		want:   []port.Layer{port.LayerRelay, port.LayerStp},
+		want:   []port.Layer{port.LayerRelay, port.LayerSTP},
 	}
 	input.validate(t)
 	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})

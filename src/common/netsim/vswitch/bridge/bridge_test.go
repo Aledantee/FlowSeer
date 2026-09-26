@@ -114,7 +114,7 @@ func TestSeedNamingALagMemberIsStoredUnderTheLag(t *testing.T) {
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Range("1/1/%d", 5, 6, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 	tbl, err := b.Build()
 	if err != nil {
@@ -684,7 +684,7 @@ func TestLAGMemberResolutionAndForwarding(t *testing.T) {
 	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	builder.Add(port.Port{Name: "1/1/5", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 	builder.Add(port.Port{Name: "1/1/6", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
-	builder.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	builder.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	ports, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build ports: %v", err)
@@ -754,7 +754,7 @@ func TestSelectorOnLAGEgress(t *testing.T) {
 	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	builder.Add(port.Port{Name: "1/1/5", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 	builder.Add(port.Port{Name: "1/1/6", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
-	builder.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	builder.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	ports, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build ports: %v", err)
@@ -881,7 +881,7 @@ func TestValidationRules(t *testing.T) {
 	builder := port.NewBuilder()
 	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	builder.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
-	builder.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	builder.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 	ports, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build ports: %v", err)
@@ -2202,8 +2202,8 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 	}
 }
 
-// TestAgeActsOnLifetimeNotOrigin is R4's acceptance example: Origin and Lifetime are
-// independent axes, so Age removes exactly the Aging entries regardless of who installed
+// TestAgeActsOnLifetimeNotOrigin verifies that Origin and Lifetime are independent axes,
+// so Age removes exactly the Aging entries regardless of who installed
 // them, and a Configured, Aging entry ages while an Observed, Static one does not — a
 // combination the old Static boolean could not express, since it answered both questions at
 // once.
@@ -2527,7 +2527,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 	t.Run("protected port naming a LAG member is refused", func(t *testing.T) {
 		b := port.NewBuilder()
 		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-		b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
 		tbl, err := b.Build()
 		if err != nil {
@@ -2954,8 +2954,8 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "tunnel" || ch.Layer != port.LayerVlan {
-			t.Errorf("change = %+v, want field tunnel at LayerVlan", ch)
+		if ch.Field != "tunnel" || ch.Layer != port.LayerVLAN {
+			t.Errorf("change = %+v, want field tunnel at LayerVLAN", ch)
 		}
 		if ch.From != nil {
 			t.Errorf("From = %v, want nil", ch.From)

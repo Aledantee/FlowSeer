@@ -47,7 +47,7 @@ type Sender struct {
 	transport  Transport
 	options    SenderOptions
 	busy       atomic.Bool
-	mu         sync.Mutex
+	mu         sync.Mutex // guards closed, raw, conn, cancel, and activeDone
 	closed     bool
 	raw, conn  net.Conn
 	cancel     context.CancelFunc

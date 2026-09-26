@@ -150,7 +150,8 @@ func Class(c uint8) *uint8 {
 }
 
 // PoE is the power-sourcing configuration of a virtual switch: its groups
-// with their budgets and its PSE ports by port name.
+// with their budgets and its PSE ports by port name. PoE values are safe for
+// concurrent reads but not for concurrent mutation.
 type PoE struct {
 	Groups map[string]Group
 	Ports  map[string]PsePort

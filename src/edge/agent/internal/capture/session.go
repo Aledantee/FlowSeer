@@ -2,7 +2,6 @@ package capture
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -12,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/capture"
 )
@@ -54,7 +54,7 @@ type Handler struct {
 	reassertInterval  time.Duration
 	logger            *slog.Logger
 
-	mu       sync.Mutex
+	mu       sync.Mutex // guards sessions and closed
 	sessions map[string]*activeSession
 	closed   bool
 }
@@ -62,10 +62,10 @@ type Handler struct {
 // NewHandler constructs a Handler from cfg.
 func NewHandler(cfg HandlerConfig) (*Handler, error) {
 	if cfg.Client == nil {
-		return nil, fmt.Errorf("capture: Client is required")
+		return nil, errs.Msg("capture: Client is required")
 	}
 	if cfg.SignAssertion == nil {
-		return nil, fmt.Errorf("capture: SignAssertion is required")
+		return nil, errs.Msg("capture: SignAssertion is required")
 	}
 	logger := cfg.Logger
 	if logger == nil {
@@ -112,11 +112,11 @@ func (h *Handler) Handle(ctx context.Context, msg *captureedgev1.SubscribeCaptur
 func (h *Handler) handleStart(_ context.Context, cfg *modelcapturev1.CaptureSessionConfig) error {
 	ref := cfg.GetRef()
 	if ref == nil || ref.GetCaptureSession() == nil {
-		return fmt.Errorf("start assignment missing session ref")
+		return errs.Msg("start assignment missing session ref")
 	}
 	sessionID := ref.GetCaptureSession().GetId()
 	if sessionID == "" {
-		return fmt.Errorf("start assignment missing session ID")
+		return errs.Msg("start assignment missing session ID")
 	}
 
 	h.mu.Lock()

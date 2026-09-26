@@ -256,8 +256,8 @@ func distinctValue(t *testing.T, typ reflect.Type, seed int) reflect.Value {
 	return v
 }
 
-// TestSyncInstancePortsReplicatesEveryLinkReplicatedField is evidence for the
-// classLinkReplicated rule (R3), driven from portStateFieldClasses instead of
+// TestSyncInstancePortsReplicatesEveryLinkReplicatedField exercises the
+// classLinkReplicated rule, driven from portStateFieldClasses instead of
 // a hand-written field list: for every field the table classifies
 // classLinkReplicated, zeroing the MSTI's own copy, setting the CIST's to a
 // value distinct from that zero, and calling syncInstancePorts leaves the
@@ -307,8 +307,8 @@ func TestSyncInstancePortsReplicatesEveryLinkReplicatedField(t *testing.T) {
 	}
 }
 
-// TestSyncInstancePortsLeavesLinkOnCISTFieldsUntouched is evidence for the
-// classLinkOnCIST rule (R4's other half), driven from portStateFieldClasses:
+// TestSyncInstancePortsLeavesLinkOnCISTFieldsUntouched exercises the
+// classLinkOnCIST rule, driven from portStateFieldClasses:
 // for every field the table classifies classLinkOnCIST, changing the CIST's
 // copy and calling syncInstancePorts leaves the MSTI's own copy exactly as it
 // was, since every reader is expected to read the CIST's copy instead.

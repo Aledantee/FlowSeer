@@ -25,35 +25,25 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
+
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/fixtureaddr"
 )
 
 const srcMAC = "00:11:22:33:44:55"
 
 var (
 	ciscoOUI     = []byte{0x00, 0x00, 0x0C}
-	dtpDst       = mustMAC("01:00:0c:cc:cc:cc")
-	vtpDst       = mustMAC("01:00:0c:cc:cc:cc")
-	mvrpDst      = mustMAC("01:80:c2:00:00:21")
-	lacpDst      = mustMAC("01:80:c2:00:00:02")
-	pagpDst      = mustMAC("01:00:0c:cc:cc:cc")
-	stpDst       = mustMAC("01:80:c2:00:00:00")
-	partnerMAC   = mustMAC("00:aa:bb:cc:dd:ee")
-	broadcastMAC = mustMAC("ff:ff:ff:ff:ff:ff")
+	dtpDst       = fixtureaddr.MustMAC("01:00:0c:cc:cc:cc")
+	vtpDst       = fixtureaddr.MustMAC("01:00:0c:cc:cc:cc")
+	mvrpDst      = fixtureaddr.MustMAC("01:80:c2:00:00:21")
+	lacpDst      = fixtureaddr.MustMAC("01:80:c2:00:00:02")
+	pagpDst      = fixtureaddr.MustMAC("01:00:0c:cc:cc:cc")
+	stpDst       = fixtureaddr.MustMAC("01:80:c2:00:00:00")
+	partnerMAC   = fixtureaddr.MustMAC("00:aa:bb:cc:dd:ee")
+	broadcastMAC = fixtureaddr.MustMAC("ff:ff:ff:ff:ff:ff")
 )
 
-// mustMAC parses a compile-time-constant MAC literal. Every argument is a
-// string constant in this file, so a parse failure is a typo caught the first
-// time the script runs, not a runtime condition — the init-time answer the
-// style guide's Panics section sanctions for a must-prefixed helper.
-func mustMAC(s string) net.HardwareAddr {
-	m, err := net.ParseMAC(s)
-	if err != nil {
-		panic(err)
-	}
-	return m
-}
-
-func srcBytes() net.HardwareAddr { return mustMAC(srcMAC) }
+func srcBytes() net.HardwareAddr { return fixtureaddr.MustMAC(srcMAC) }
 
 // genErr holds the first packet-assembly or write failure. The builders and
 // [writePcap] record into it instead of panicking, and [run] returns it, so a
@@ -192,7 +182,7 @@ func dtpTLV(t uint16, v []byte) []byte {
 func doubleTagFrame(outerVLAN, innerVLAN uint16) []byte {
 	// Outer Ethernet + outer 802.1Q tag + inner 802.1Q tag + payload.
 	eth := layers.Ethernet{
-		DstMAC:       mustMAC("00:11:22:33:44:55"), // target on outer VLAN
+		DstMAC:       fixtureaddr.MustMAC("00:11:22:33:44:55"), // target on outer VLAN
 		SrcMAC:       srcBytes(),
 		EthernetType: layers.EthernetTypeDot1Q,
 	}
@@ -256,7 +246,7 @@ func dot1qFrame(vlan uint16, payload []byte) []byte {
 
 func lldpVoiceFrame() []byte {
 	eth := layers.Ethernet{
-		DstMAC:       mustMAC("01:80:c2:00:00:0e"), // LLDP multicast
+		DstMAC:       fixtureaddr.MustMAC("01:80:c2:00:00:0e"), // LLDP multicast
 		SrcMAC:       srcBytes(),
 		EthernetType: layers.EthernetTypeLinkLayerDiscovery,
 	}
@@ -382,7 +372,7 @@ func camFloodFrame(seq int) []byte {
 	src := fmt.Sprintf("00:00:00:00:%02x:%02x", (seq>>8)&0xFF, seq&0xFF)
 	eth := layers.Ethernet{
 		DstMAC:       broadcastMAC,
-		SrcMAC:       mustMAC(src),
+		SrcMAC:       fixtureaddr.MustMAC(src),
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := layers.IPv4{

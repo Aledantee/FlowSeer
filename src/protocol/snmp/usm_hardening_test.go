@@ -111,7 +111,7 @@ func TestUSM_InboundGateAllowsAuthNoPrivReport(t *testing.T) {
 		t.Fatalf("inboundGate rejected an authenticated authNoPriv Report on an authPriv session: %v", err)
 	}
 	if !isReport || sp == nil {
-		t.Fatalf("expected isReport=true with a scoped PDU, got isReport=%v sp=%v", isReport, sp)
+		t.Fatalf("got isReport=%v sp=%v, want isReport=true with a scoped PDU", isReport, sp)
 	}
 }
 
@@ -161,6 +161,6 @@ func TestReactorV3_MismatchedReportDropped(t *testing.T) {
 		t.Fatalf("v3RoundTrip err = %v — a mismatched-msgID Report must not abort the op", err)
 	}
 	if res.isReport || res.scoped == nil {
-		t.Fatalf("expected the genuine data reply, got %+v", res)
+		t.Fatalf("got %+v, want the genuine data reply", res)
 	}
 }

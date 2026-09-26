@@ -51,7 +51,8 @@ type State struct {
 // Source is what Engine reads frames from. rawsocket.OpenLocalInterface and
 // rawsocket.OpenMirrorReceiver both return types satisfying it structurally;
 // this package never imports rawsocket.Source itself, so a test can supply
-// a fake without touching a real socket.
+// a fake without touching a real socket. An implementation must make Receive,
+// Stats, and Close safe for concurrent use.
 type Source interface {
 	// Receive returns a channel that delivers frames until ctx is canceled
 	// or the source is closed, at which point the channel is closed.

@@ -267,23 +267,11 @@ func isRecoveringTransition(e *eventaccessv1.DeviceOperationEvent) bool {
 	return e.GetPhaseTransitioned().GetTo() == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING
 }
 
-// A mutation whose recovery transition central will not take still ends up
-// with something scheduled to look at it.
-//
-// This is the half TestARefusedRecordCostsTheMutationNeitherItsPollNorItsAccount
-// does not reach. That test refuses the lane-blocked record, which
-// EnterRecovering delivers after the phase has already moved. The phase
-// transition itself is delivered first, and it used to be strict: a refused
-// transition left the phase where it was, so the mutation was not in recovery
-// and enterRecovery returned without starting a poll. Nothing came back to it
-// afterwards, and a refusal that lasted a moment cost the mutation its
-// recovery permanently — it rested INDETERMINATE on a device that may have
-// been written to, and only an operator could end it.
-//
-// The transition now retains its record and moves the phase, on the same
-// terms as the two records after it. So the two waits below are the two
-// halves of that: a poll runs despite the refusal, and the account is not
-// short the record once the stream takes it again.
+// A refused recovery transition must still schedule a poll and retain its audit
+// record. The transition is delivered before the lane-blocked record; leaving
+// the phase unchanged on refusal would make enterRecovery return without a
+// poll and strand a possibly applied mutation. The two waits below prove the
+// poll runs and the retained record reaches the account after delivery resumes.
 func TestARefusedRecoveryTransitionDoesNotStrandTheMutation(t *testing.T) {
 	var refuseTransition atomic.Bool
 	refuseTransition.Store(true)

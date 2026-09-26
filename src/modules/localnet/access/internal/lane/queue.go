@@ -63,9 +63,8 @@ type Item struct {
 	Payload any
 }
 
-// heapItem is Item plus the insertion order container/heap needs to break
-// ties between equal priorities; Position already provides that order, so
-// this is Item's own Position reused as the heap key.
+// itemHeap orders higher priorities first and preserves admission order between
+// items with equal priority by comparing their Position values.
 type itemHeap []*Item
 
 func (h itemHeap) Len() int { return len(h) }
@@ -98,7 +97,7 @@ func (h *itemHeap) Pop() any {
 type Queue struct {
 	capacity int
 
-	mu           sync.Mutex
+	mu           sync.Mutex // guards nextPosition and heap
 	nextPosition uint64
 	heap         itemHeap
 }

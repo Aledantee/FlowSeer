@@ -1,8 +1,9 @@
 package service
 
 import (
-	"fmt"
 	"regexp"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const maxIdentityLength = 128
@@ -30,10 +31,10 @@ func validateIdentity(identity Identity) error {
 		return err
 	}
 	if identity.Version == "" {
-		return fmt.Errorf("service version is empty")
+		return errs.Msg("service version is empty")
 	}
 	if len(identity.Version) > maxIdentityLength {
-		return fmt.Errorf("service version exceeds %d bytes", maxIdentityLength)
+		return errs.Msgf("service version exceeds %d bytes", maxIdentityLength)
 	}
 
 	return nil
@@ -41,10 +42,10 @@ func validateIdentity(identity Identity) error {
 
 func validateIdentitySegment(label, value string) error {
 	if !identityPattern.MatchString(value) {
-		return fmt.Errorf("service %s %q is not lower snake case", label, value)
+		return errs.Msgf("service %s %q is not lower snake case", label, value)
 	}
 	if len(value) > maxIdentityLength {
-		return fmt.Errorf("service %s exceeds %d bytes", label, maxIdentityLength)
+		return errs.Msgf("service %s exceeds %d bytes", label, maxIdentityLength)
 	}
 
 	return nil

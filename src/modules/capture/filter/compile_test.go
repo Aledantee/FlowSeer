@@ -289,7 +289,7 @@ func TestCompile_InstructionCeiling(t *testing.T) {
 
 	_, err := filter.Compile(f)
 	if err == nil {
-		t.Fatalf("Compile: want an instruction-ceiling error, got nil")
+		t.Fatalf("Compile: got nil error, want an instruction-ceiling error")
 	}
 	if !strings.Contains(err.Error(), "classic BPF ceiling") {
 		t.Errorf("Compile error = %q, want it to name the classic BPF ceiling", err.Error())
@@ -300,7 +300,7 @@ func TestCompile_ClauseWithNoField(t *testing.T) {
 	f := &capturev1.CaptureFilter{}
 	f.SetAnyOf([]*capturev1.CaptureFilterClause{{}})
 	if _, err := filter.Compile(f); err == nil {
-		t.Fatalf("Compile: want an error for a clause with no populated field, got nil")
+		t.Fatalf("Compile: got nil error, want an error for a clause with no populated field")
 	}
 }
 
@@ -402,7 +402,7 @@ func TestCompile_TcpFlagsMatchRequiresSetOrClear(t *testing.T) {
 	f := &capturev1.CaptureFilter{}
 	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
 	if _, err := filter.Compile(f); err == nil {
-		t.Fatal("Compile: want an error for a TcpFlagsMatch with no set or clear flags, got nil")
+		t.Fatal("Compile: got nil error, want an error for a TcpFlagsMatch with no set or clear flags")
 	}
 }
 
@@ -445,6 +445,6 @@ func TestCompile_IcmpMatchRequiresTypeOrCode(t *testing.T) {
 	f := &capturev1.CaptureFilter{}
 	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
 	if _, err := filter.Compile(f); err == nil {
-		t.Fatal("Compile: want an error for an IcmpMatch with no type or code, got nil")
+		t.Fatal("Compile: got nil error, want an error for an IcmpMatch with no type or code")
 	}
 }

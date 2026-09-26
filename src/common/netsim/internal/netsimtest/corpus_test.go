@@ -349,7 +349,7 @@ func TestAdmissionValidation(t *testing.T) {
 			tc.mutate(&c)
 			err := netsimtest.ValidateCase(c)
 			if err == nil {
-				t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+				t.Fatalf("got nil error, want one containing %q", tc.wantErr)
 			}
 			if tc.wantErr != "" && !containsSubstring(err.Error(), tc.wantErr) {
 				t.Errorf("error %q does not contain %q", err.Error(), tc.wantErr)

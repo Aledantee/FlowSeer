@@ -97,6 +97,7 @@ func (e Events) validate(withResync bool) error {
 // is a loop degrading quietly. Neither number is wrong, and a watcher that
 // needs to tell them apart wants Messages, which stays at zero there and does
 // not for a working caller.
+// A Contact is safe for concurrent use.
 type Contact struct {
 	connections atomic.Int64
 	failures    atomic.Int64

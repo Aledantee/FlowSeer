@@ -4,13 +4,13 @@ package netsimtest
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -535,65 +535,65 @@ func cloneComparisonExpectation(expectation ComparisonExpectation) ComparisonExp
 // ValidateCase validates that an admitted case satisfies all required corpus fields and invariants.
 func ValidateCase(c Case) error {
 	if strings.TrimSpace(c.ID) == "" {
-		return errors.New("corpus case ID cannot be empty")
+		return errs.Msg("corpus case ID cannot be empty")
 	}
 	switch c.UseCase {
 	case UseCasePlanning, UseCaseTopologyShadowing, UseCaseTroubleshooting:
 	default:
-		return fmt.Errorf("corpus case %q has unspecified or invalid use case class %q", c.ID, c.UseCase)
+		return errs.Msgf("corpus case %q has unspecified or invalid use case class %q", c.ID, c.UseCase)
 	}
 	if strings.TrimSpace(c.Question) == "" {
-		return fmt.Errorf("corpus case %q has empty question", c.ID)
+		return errs.Msgf("corpus case %q has empty question", c.ID)
 	}
 	if strings.TrimSpace(c.FalseAnswer) == "" {
-		return fmt.Errorf("corpus case %q has empty false answer", c.ID)
+		return errs.Msgf("corpus case %q has empty false answer", c.ID)
 	}
 	if strings.TrimSpace(c.CurrentResult) == "" {
-		return fmt.Errorf("corpus case %q has empty current result description", c.ID)
+		return errs.Msgf("corpus case %q has empty current result description", c.ID)
 	}
 	if c.ExpectedOutcome == "" {
-		return fmt.Errorf("corpus case %q has empty expected outcome", c.ID)
+		return errs.Msgf("corpus case %q has empty expected outcome", c.ID)
 	}
 	if c.ExpectedMetadata == nil {
-		return fmt.Errorf("corpus case %q has unspecified expected metadata", c.ID)
+		return errs.Msgf("corpus case %q has unspecified expected metadata", c.ID)
 	}
 	if err := validateMetadataExpectation(c.ID, "result", *c.ExpectedMetadata); err != nil {
 		return err
 	}
 	if len(c.ExpectedRules) == 0 {
-		return fmt.Errorf("corpus case %q must define at least one expected trace rule", c.ID)
+		return errs.Msgf("corpus case %q must define at least one expected trace rule", c.ID)
 	}
 	if len(c.ExpectedSubjects) == 0 {
-		return fmt.Errorf("corpus case %q must define at least one expected trace subject", c.ID)
+		return errs.Msgf("corpus case %q must define at least one expected trace subject", c.ID)
 	}
 	if len(c.ExpectedFacts) == 0 {
-		return fmt.Errorf("corpus case %q must define at least one expected semantic fact", c.ID)
+		return errs.Msgf("corpus case %q must define at least one expected semantic fact", c.ID)
 	}
 	if len(c.ExpectedSteps) == 0 {
-		return fmt.Errorf("corpus case %q must define its ordered expected trace steps", c.ID)
+		return errs.Msgf("corpus case %q must define its ordered expected trace steps", c.ID)
 	}
 	for _, rule := range c.ExpectedRules {
 		if strings.TrimSpace(string(rule)) == "" {
-			return fmt.Errorf("corpus case %q has empty expected rule ID", c.ID)
+			return errs.Msgf("corpus case %q has empty expected rule ID", c.ID)
 		}
 		if !stepsContainRule(c.ExpectedSteps, rule) {
-			return fmt.Errorf("corpus case %q has expected rule %q without a matching step expectation", c.ID, rule)
+			return errs.Msgf("corpus case %q has expected rule %q without a matching step expectation", c.ID, rule)
 		}
 	}
 	for _, subject := range c.ExpectedSubjects {
 		if strings.TrimSpace(subject.Kind) == "" {
-			return fmt.Errorf("corpus case %q has empty expected subject", c.ID)
+			return errs.Msgf("corpus case %q has empty expected subject", c.ID)
 		}
 		if !expectationsContainSubject(c.ExpectedSteps, c.ExpectedChanges, subject) {
-			return fmt.Errorf("corpus case %q has expected subject %s without a matching step or change expectation", c.ID, subject)
+			return errs.Msgf("corpus case %q has expected subject %s without a matching step or change expectation", c.ID, subject)
 		}
 	}
 	for _, fact := range c.ExpectedFacts {
 		if strings.TrimSpace(fact.TypeID) == "" {
-			return fmt.Errorf("corpus case %q has empty expected fact type ID", c.ID)
+			return errs.Msgf("corpus case %q has empty expected fact type ID", c.ID)
 		}
 		if !expectationsContainFact(c.ExpectedSteps, c.ExpectedChanges, fact) {
-			return fmt.Errorf("corpus case %q has expected fact %s (%s) without a matching step or change expectation", c.ID, fact.TypeID, fact.Canonical)
+			return errs.Msgf("corpus case %q has expected fact %s (%s) without a matching step or change expectation", c.ID, fact.TypeID, fact.Canonical)
 		}
 	}
 	for i, step := range c.ExpectedSteps {
@@ -602,11 +602,11 @@ func ValidateCase(c Case) error {
 			strings.TrimSpace(string(step.RuleID)) == "" ||
 			strings.TrimSpace(step.Subject.Kind) == "" ||
 			strings.TrimSpace(step.Subject.Key) == "" {
-			return fmt.Errorf("corpus case %q has incomplete expected step at index %d", c.ID, i)
+			return errs.Msgf("corpus case %q has incomplete expected step at index %d", c.ID, i)
 		}
 		for _, fact := range append(slices.Clone(step.Inputs), step.Outputs...) {
 			if strings.TrimSpace(fact.TypeID) == "" {
-				return fmt.Errorf("corpus case %q has empty fact type ID in expected step at index %d", c.ID, i)
+				return errs.Msgf("corpus case %q has empty fact type ID in expected step at index %d", c.ID, i)
 			}
 		}
 	}
@@ -615,11 +615,11 @@ func ValidateCase(c Case) error {
 			strings.TrimSpace(change.Subject.Kind) == "" ||
 			(strings.TrimSpace(change.Subject.Key) == "" && strings.TrimSpace(change.Field) == "") ||
 			(change.From == nil && change.To == nil) {
-			return fmt.Errorf("corpus case %q has incomplete expected change at index %d", c.ID, i)
+			return errs.Msgf("corpus case %q has incomplete expected change at index %d", c.ID, i)
 		}
 		for _, fact := range []*FactExpectation{change.From, change.To} {
 			if fact != nil && strings.TrimSpace(fact.TypeID) == "" {
-				return fmt.Errorf("corpus case %q has empty fact type ID in expected change at index %d", c.ID, i)
+				return errs.Msgf("corpus case %q has empty fact type ID in expected change at index %d", c.ID, i)
 			}
 		}
 	}
@@ -642,27 +642,27 @@ func ValidateCase(c Case) error {
 		}
 	}
 	if c.Execute == nil {
-		return fmt.Errorf("corpus case %q has nil execute function", c.ID)
+		return errs.Msgf("corpus case %q has nil execute function", c.ID)
 	}
 	return nil
 }
 
 func validateMetadataExpectation(caseID, axis string, expectation MetadataExpectation) error {
 	if expectation.Status > analysis.Unsupported {
-		return fmt.Errorf("corpus case %q has invalid %s metadata status %d", caseID, axis, expectation.Status)
+		return errs.Msgf("corpus case %q has invalid %s metadata status %d", caseID, axis, expectation.Status)
 	}
 	if expectation.Status != analysis.Complete && len(expectation.Issues) == 0 {
-		return fmt.Errorf("corpus case %q has non-Complete %s metadata but no expected issues", caseID, axis)
+		return errs.Msgf("corpus case %q has non-Complete %s metadata but no expected issues", caseID, axis)
 	}
 	for i, issue := range expectation.Issues {
 		if strings.TrimSpace(string(issue.Code)) == "" {
-			return fmt.Errorf("corpus case %q has empty %s metadata issue code at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has empty %s metadata issue code at index %d", caseID, axis, i)
 		}
 		if issue.Status == analysis.Complete || issue.Status > analysis.Unsupported {
-			return fmt.Errorf("corpus case %q has invalid %s metadata issue status at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has invalid %s metadata issue status at index %d", caseID, axis, i)
 		}
 		if len(issue.Evidence) == 0 {
-			return fmt.Errorf("corpus case %q has %s metadata issue without evidence at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has %s metadata issue without evidence at index %d", caseID, axis, i)
 		}
 		if err := validateEvidenceRefs(caseID, axis+" metadata issue", i, issue.Evidence); err != nil {
 			return err
@@ -670,10 +670,10 @@ func validateMetadataExpectation(caseID, axis string, expectation MetadataExpect
 	}
 	for i, assumption := range expectation.Assumptions {
 		if strings.TrimSpace(assumption.Statement) == "" {
-			return fmt.Errorf("corpus case %q has empty %s metadata assumption at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has empty %s metadata assumption at index %d", caseID, axis, i)
 		}
 		if len(assumption.Evidence) == 0 {
-			return fmt.Errorf("corpus case %q has %s metadata assumption without evidence at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has %s metadata assumption without evidence at index %d", caseID, axis, i)
 		}
 		if err := validateEvidenceRefs(caseID, axis+" metadata assumption", i, assumption.Evidence); err != nil {
 			return err
@@ -683,20 +683,20 @@ func validateMetadataExpectation(caseID, axis string, expectation MetadataExpect
 	entries := make(map[trace.EvidenceRef]struct{}, len(expectation.Evidence))
 	for i, entry := range expectation.Evidence {
 		if strings.TrimSpace(string(entry.Ref)) == "" {
-			return fmt.Errorf("corpus case %q has empty %s metadata evidence reference at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has empty %s metadata evidence reference at index %d", caseID, axis, i)
 		}
 		if _, duplicate := entries[entry.Ref]; duplicate {
-			return fmt.Errorf("corpus case %q has duplicate %s metadata evidence reference %q", caseID, axis, entry.Ref)
+			return errs.Msgf("corpus case %q has duplicate %s metadata evidence reference %q", caseID, axis, entry.Ref)
 		}
 		catalog, ref := (analysis.EvidenceCatalog{}).Add(entry.Evidence)
 		if _, ok := catalog.Lookup(entry.Ref); !ok || ref != entry.Ref {
-			return fmt.Errorf("corpus case %q has %s metadata evidence whose reference does not match its contents at index %d", caseID, axis, i)
+			return errs.Msgf("corpus case %q has %s metadata evidence whose reference does not match its contents at index %d", caseID, axis, i)
 		}
 		entries[entry.Ref] = struct{}{}
 	}
 	for _, ref := range expectedEvidenceRefs(expectation.Issues, expectation.Assumptions) {
 		if _, ok := entries[ref]; !ok {
-			return fmt.Errorf("corpus case %q has %s metadata reference %q without expected evidence contents", caseID, axis, ref)
+			return errs.Msgf("corpus case %q has %s metadata reference %q without expected evidence contents", caseID, axis, ref)
 		}
 	}
 
@@ -706,7 +706,7 @@ func validateMetadataExpectation(caseID, axis string, expectation MetadataExpect
 	}
 	derivedStatus := analysis.NewMetadata(expectation.Scope, statusIssues, analysis.EvidenceCatalog{}, nil).Status()
 	if expectation.Status != derivedStatus {
-		return fmt.Errorf(
+		return errs.Msgf(
 			"corpus case %q has %s metadata status %s, want %s derived from issues overlapping scope %s",
 			caseID, axis, expectation.Status, derivedStatus, expectation.Scope,
 		)
@@ -717,7 +717,7 @@ func validateMetadataExpectation(caseID, axis string, expectation MetadataExpect
 func validateEvidenceRefs(caseID, owner string, index int, refs []trace.EvidenceRef) error {
 	for _, ref := range refs {
 		if strings.TrimSpace(string(ref)) == "" {
-			return fmt.Errorf("corpus case %q has empty evidence reference on expected %s at index %d", caseID, owner, index)
+			return errs.Msgf("corpus case %q has empty evidence reference on expected %s at index %d", caseID, owner, index)
 		}
 	}
 	return nil
@@ -748,12 +748,14 @@ func expectationsContainFact(steps []StepExpectation, changes []ChangeExpectatio
 	})
 }
 
-// Registry maintains an admitted collection of versioned corpus cases.
+// Registry maintains an admitted collection of versioned corpus cases. A Registry is not
+// safe for concurrent use.
 type Registry struct {
 	cases map[string]Case
 }
 
-// NewRegistry creates a new empty corpus registry.
+// NewRegistry returns an empty Registry that rejects invalid cases and duplicate IDs when
+// they are registered.
 func NewRegistry() *Registry {
 	return &Registry{
 		cases: make(map[string]Case),
@@ -767,7 +769,7 @@ func (r *Registry) Register(c Case) error {
 		return err
 	}
 	if _, exists := r.cases[c.ID]; exists {
-		return fmt.Errorf("duplicate corpus case ID: %q", c.ID)
+		return errs.Msgf("duplicate corpus case ID: %q", c.ID)
 	}
 	r.cases[c.ID] = c.Clone()
 	return nil

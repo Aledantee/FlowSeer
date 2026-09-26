@@ -166,7 +166,7 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 // context by normalizing each configuration before calling Diff.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
-	layer := port.LayerLag
+	layer := port.LayerLAG
 
 	for _, lagName := range sortedKeys(a.LAGs) {
 		aLag := a.LAGs[lagName]

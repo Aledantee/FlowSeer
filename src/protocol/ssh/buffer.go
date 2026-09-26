@@ -14,7 +14,7 @@ import (
 // caller can report a truncated stream's true size. The zero value is
 // not usable; construct via newRing. Safe for concurrent use.
 type ring struct {
-	mu   sync.Mutex
+	mu   sync.Mutex // guards buf, totalWritten, truncated, closed, and err
 	cond *sync.Cond
 
 	buf   []byte

@@ -14,8 +14,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported fabric.Config field
-// reaches fabric.Diff. Switches holds one switch with only a MAC set, no capability:
+// TestDiffCoversEveryConfigField verifies that every exported fabric.Config field reaches
+// fabric.Diff. Switches holds one switch with only a MAC set, no capability:
 // fabric.Diff delegates a present switch to vswitch.Diff, and vswitch's own
 // diff_coverage_test.go already walks every capability leaf; seeding a bare switch here
 // keeps this gate scoped to fabric's own fields instead of re-walking vswitch.Config a

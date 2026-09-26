@@ -167,7 +167,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("port", mirror.OutputPort).
 					Msgf("mirror output port %q absent from port table", mirror.OutputPort)
 			}
-			if output.Kind == port.Lag || output.LagParent != "" {
+			if output.Kind == port.LAG || output.LagParent != "" {
 				return errs.New().
 					Attr("field", prefix+".output_port").
 					Attr("mirror", mirror.Name).

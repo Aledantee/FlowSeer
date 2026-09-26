@@ -146,8 +146,8 @@ func TestProtoReadmeCoverage(t *testing.T) {
 		}
 	})
 
-	// A walk that cannot read the tree has found nothing, not nothing to find,
-	// and the caller has to be able to tell the two apart.
+	// An unreadable tree is an error; an empty result means a complete walk
+	// found no missing README files.
 	t.Run("unreadable tree", func(t *testing.T) {
 		tmp := t.TempDir()
 		if _, err := missingProtoReadmes(tmp, filepath.Join(tmp, "absent")); err == nil {
@@ -547,18 +547,18 @@ func boundariesReadme(title, imports, importedBy string) string {
 func parseReadmeBoundaries(content string) (imports, importedBy []string, err error) {
 	idx := strings.Index(content, "## Boundaries")
 	if idx == -1 {
-		return nil, nil, fmt.Errorf("missing ## Boundaries section")
+		return nil, nil, errors.New("missing ## Boundaries section")
 	}
 	section := content[idx:]
 
 	importsStr, ok := extractBoundaryField(section, "Imports:")
 	if !ok {
-		return nil, nil, fmt.Errorf("missing Imports: line under ## Boundaries")
+		return nil, nil, errors.New("missing Imports: line under ## Boundaries")
 	}
 
 	importedByStr, ok := extractBoundaryField(section, "Imported by:")
 	if !ok {
-		return nil, nil, fmt.Errorf("missing Imported by: line under ## Boundaries")
+		return nil, nil, errors.New("missing Imported by: line under ## Boundaries")
 	}
 
 	imports = parsePackageList(importsStr)

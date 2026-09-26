@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
+
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
@@ -21,13 +23,16 @@ const (
 	maxPageSize     = 500
 )
 
-// OperatorServiceConfig carries configuration options for OperatorService.
+// OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange is a
+// no-op, and nil Clock uses the wall clock.
 type OperatorServiceConfig struct {
 	NotifyChange func()
 	Clock        func() time.Time
 }
 
-// OperatorService implements capturev1connect.CaptureServiceHandler.
+// OperatorService serves operator capture requests. An OperatorService is safe
+// for concurrent use when both its configured NotifyChange and Clock callbacks
+// are safe for concurrent use.
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
@@ -35,10 +40,10 @@ type OperatorService struct {
 	clock        func() time.Time
 }
 
-// Ensure OperatorService satisfies CaptureServiceHandler.
 var _ capturev1connect.CaptureServiceHandler = (*OperatorService)(nil)
 
-// NewOperatorService constructs an OperatorService.
+// NewOperatorService constructs an OperatorService. Store and broadcaster must
+// be non-nil; cfg uses the defaults documented by [OperatorServiceConfig].
 func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServiceConfig) *OperatorService {
 	clock := cfg.Clock
 	if clock == nil {
@@ -56,7 +61,9 @@ func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServ
 	}
 }
 
-// CreateCaptureSession creates and persists a new capture session in PENDING state.
+// CreateCaptureSession persists a bounded, authorized session in the pending
+// state and notifies assignment subscribers. It returns CodeInvalidArgument
+// when the request omits its edge, source, authorization, or positive budget.
 func (s *OperatorService) CreateCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.CreateCaptureSessionRequest],
@@ -64,24 +71,24 @@ func (s *OperatorService) CreateCaptureSession(
 	msg := req.Msg
 
 	if msg.GetEdge() == nil || msg.GetEdge().GetEdge().GetId() == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("edge is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("edge is required"))
 	}
 	if msg.GetSource() == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("capture source is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("capture source is required"))
 	}
 	if msg.GetAuthorization() == nil || msg.GetAuthorization().GetOperator() == "" || msg.GetAuthorization().GetReason() == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("authorization is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("authorization is required"))
 	}
 
 	budget := msg.GetBudget()
 	if budget == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("budget is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("budget is required"))
 	}
 	hasBound := (budget.HasMaxPackets() && budget.GetMaxPackets() > 0) ||
 		(budget.HasMaxBytes() && budget.GetMaxBytes() > 0) ||
 		(budget.HasMaxDuration() && budget.GetMaxDuration().AsDuration() > 0)
 	if !hasBound {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("capture budget must bound packets, bytes, or duration"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("capture budget must bound packets, bytes, or duration"))
 	}
 
 	sessionID := uuid.NewString()
@@ -128,7 +135,7 @@ func (s *OperatorService) StopCaptureSession(
 ) (*connect.Response[operatorcapturev1.StopCaptureSessionResponse], error) {
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
 	rec, err := s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
@@ -158,17 +165,19 @@ func (s *OperatorService) StopCaptureSession(
 	return connect.NewResponse(resp), nil
 }
 
-// GetCaptureSession retrieves a session record.
+// GetCaptureSession returns the requested session. It returns CodeInvalidArgument
+// for an empty session identifier and CodeNotFound when the store holds no such
+// session.
 func (s *OperatorService) GetCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.GetCaptureSessionRequest],
 ) (*connect.Response[operatorcapturev1.GetCaptureSessionResponse], error) {
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, _, err := s.store.GetSession(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, sessionID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -240,7 +249,7 @@ func (s *OperatorService) DeleteCaptureSession(
 ) (*connect.Response[operatorcapturev1.DeleteCaptureSessionResponse], error) {
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
 	if err := s.store.DeleteSession(ctx, sessionID); err != nil {
@@ -261,10 +270,10 @@ func (s *OperatorService) TailCaptureSession(
 ) error {
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
+		return connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, _, err := s.store.GetSession(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -280,7 +289,7 @@ func (s *OperatorService) TailCaptureSession(
 	// A tail that opened after that moment would wait on a channel nobody
 	// will ever send to or close; re-reading under the subscription is what
 	// catches the session that finished in between.
-	rec, _, err = s.store.GetSession(ctx, sessionID)
+	rec, _, err = s.store.Session(ctx, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -325,10 +334,10 @@ func (s *OperatorService) DownloadCaptureSession(
 ) error {
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("session id is required"))
+		return connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, _, err := s.store.GetSession(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -344,9 +353,9 @@ func (s *OperatorService) DownloadCaptureSession(
 	artifact := rec.GetState().GetArtifact()
 	switch {
 	case artifact == nil:
-		return connect.NewError(connect.CodeFailedPrecondition, errors.New("this capture has not finished; there is nothing to download yet"))
+		return connect.NewError(connect.CodeFailedPrecondition, errs.Msg("this capture has not finished; there is nothing to download yet"))
 	case artifact.HasPurgedAt() || !s.clock().Before(artifact.GetExpiresAt().AsTime()):
-		return connect.NewError(connect.CodeNotFound, errors.New("this session's capture is no longer retained"))
+		return connect.NewError(connect.CodeNotFound, errs.Msg("this session's capture is no longer retained"))
 	}
 
 	err = s.store.ReadArtifact(ctx, sessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
@@ -357,7 +366,7 @@ func (s *OperatorService) DownloadCaptureSession(
 	})
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return connect.NewError(connect.CodeNotFound, errors.New("this session's capture is no longer stored"))
+			return connect.NewError(connect.CodeNotFound, errs.Msg("this session's capture is no longer stored"))
 		}
 		return connectErr(err)
 	}
@@ -365,5 +374,5 @@ func (s *OperatorService) DownloadCaptureSession(
 }
 
 func errNoSuchSession() error {
-	return connect.NewError(connect.CodeNotFound, errors.New("no such capture session"))
+	return connect.NewError(connect.CodeNotFound, errs.Msg("no such capture session"))
 }

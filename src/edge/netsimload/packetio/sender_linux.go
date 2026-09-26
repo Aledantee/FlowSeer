@@ -35,7 +35,7 @@ func (s *fdSocket) close() error {
 type linuxSender struct {
 	sock writeSocket
 
-	mu     sync.Mutex
+	mu     sync.Mutex // guards sock and closed
 	closed bool
 }
 

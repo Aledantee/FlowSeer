@@ -73,7 +73,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		if cur != nil && cur.stp != nil {
 			next.stp = cur.stp.Clone()
 			if next.bridge != nil {
-				next.bridge.SetGate(next.stp, protocolScope(next.nodeID, port.LayerStp))
+				next.bridge.SetGate(next.stp, protocolScope(next.nodeID, port.LayerSTP))
 			}
 		}
 	} else {
@@ -151,7 +151,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		if cur != nil && cur.lag != nil {
 			next.lag = cur.lag.Clone()
 			if next.bridge != nil {
-				next.bridge.SetSelector(lagSelector{sw: next}, protocolScope(next.nodeID, port.LayerLag))
+				next.bridge.SetSelector(lagSelector{sw: next}, protocolScope(next.nodeID, port.LayerLAG))
 			}
 		}
 	} else {
@@ -240,7 +240,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		if !ok {
 			continue
 		}
-		if p.Kind == port.Lag && len(next.cfg.Ports.Members(entry.Port)) == 0 {
+		if p.Kind == port.LAG && len(next.cfg.Ports.Members(entry.Port)) == 0 {
 			continue
 		}
 

@@ -316,7 +316,7 @@ func TestStreamingJSONWritesRecordsMidRun(t *testing.T) {
 	// Must have all three lines: meta, first, second, plus summary.
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	if len(lines) < 4 {
-		t.Fatalf("expected >=4 JSONL lines, got %d: %q", len(lines), out)
+		t.Fatalf("got %d JSONL lines, want at least 4: %q", len(lines), out)
 	}
 	// First line is meta, second is "first" finding.
 	if !strings.Contains(lines[1], `"first"`) {

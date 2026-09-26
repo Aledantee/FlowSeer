@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -322,9 +323,8 @@ func TestEdgeProvisioningRules(t *testing.T) {
 	})
 }
 
-// The README shows one worked Authorization header. This test computes the
-// same header from the fixed vector and fails when the README does not carry
-// it, so the two cannot drift apart.
+// TestEdgeAssertionHeaderVector computes the README's worked Authorization
+// header from the fixed vector so the two cannot drift apart.
 func TestEdgeAssertionHeaderVector(t *testing.T) {
 	seed := make([]byte, ed25519.SeedSize)
 	private := ed25519.NewKeyFromSeed(seed)
@@ -370,6 +370,9 @@ func TestEdgeAssertionStreamOpenVector(t *testing.T) {
 		BindingId: proto.String(bindingID),
 		Sequence:  proto.Uint64(42),
 	}.Build()
+	if err := protovalidate.Validate(request); err != nil {
+		t.Fatalf("validate request fixture: %v", err)
+	}
 	message, err := proto.MarshalOptions{Deterministic: true}.Marshal(request)
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
@@ -385,6 +388,9 @@ func TestEdgeAssertionStreamOpenVector(t *testing.T) {
 	assertion := edgeAssertion(30 * time.Second)
 	assertion.SetProcedure("/flowseer.edge.attach.v1.EdgeService/OpenDeviceSubmission")
 	assertion.SetBodySha256(bodySum[:])
+	if err := protovalidate.Validate(assertion); err != nil {
+		t.Fatalf("validate assertion fixture: %v", err)
+	}
 
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
 	if err != nil {

@@ -277,7 +277,7 @@ func telemetryFromComponents(
 		metric.WithDescription("Lifecycle transitions recorded after a module starts, stops, or restarts"),
 	)
 	if err != nil {
-		return telemetry{}, fmt.Errorf("create service lifecycle counter: %w", err)
+		return telemetry{}, errs.Wrap(err, "create service lifecycle counter")
 	}
 	messages, err := meter.Int64Counter(
 		"flowseer.service.message.operations",
@@ -285,7 +285,7 @@ func telemetryFromComponents(
 		metric.WithDescription("Durable message operations recorded after publication, delivery, retry, acknowledgment, rejection, or discard"),
 	)
 	if err != nil {
-		return telemetry{}, fmt.Errorf("create service message lifecycle counter: %w", err)
+		return telemetry{}, errs.Wrap(err, "create service message lifecycle counter")
 	}
 
 	return telemetry{

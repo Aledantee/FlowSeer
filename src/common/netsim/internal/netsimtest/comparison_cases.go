@@ -1,11 +1,12 @@
 package netsimtest
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"reflect"
 	"slices"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -133,9 +134,7 @@ func ComparisonCorpus() []ComparisonCase {
 		return swA, swB, nil
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 1: vswitch/equivalent-complete
-	// -------------------------------------------------------------------------
 	c1Ports := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
@@ -181,24 +180,22 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !reflect.DeepEqual(c1SwA.Spec(), c1InitSpecA) {
-				return fmt.Errorf("c1SwA spec was mutated")
+				return errs.Msg("c1SwA spec was mutated")
 			}
 			if !reflect.DeepEqual(c1SwB.Spec(), c1InitSpecB) {
-				return fmt.Errorf("c1SwB spec was mutated")
+				return errs.Msg("c1SwB spec was mutated")
 			}
 			if !reflect.DeepEqual(c1SwA.Entries(), c1InitEntriesA) {
-				return fmt.Errorf("c1SwA entries were mutated")
+				return errs.Msg("c1SwA entries were mutated")
 			}
 			if !reflect.DeepEqual(c1SwB.Entries(), c1InitEntriesB) {
-				return fmt.Errorf("c1SwB entries were mutated")
+				return errs.Msg("c1SwB entries were mutated")
 			}
 			return nil
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 2: vswitch/port-down-different
-	// -------------------------------------------------------------------------
 	c2PortsA := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
@@ -240,24 +237,22 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !reflect.DeepEqual(c2SwA.Spec(), c2InitSpecA) {
-				return fmt.Errorf("c2SwA spec was mutated")
+				return errs.Msg("c2SwA spec was mutated")
 			}
 			if !reflect.DeepEqual(c2SwB.Spec(), c2InitSpecB) {
-				return fmt.Errorf("c2SwB spec was mutated")
+				return errs.Msg("c2SwB spec was mutated")
 			}
 			if !reflect.DeepEqual(c2SwA.Entries(), c2InitEntriesA) {
-				return fmt.Errorf("c2SwA entries were mutated")
+				return errs.Msg("c2SwA entries were mutated")
 			}
 			if !reflect.DeepEqual(c2SwB.Entries(), c2InitEntriesB) {
-				return fmt.Errorf("c2SwB entries were mutated")
+				return errs.Msg("c2SwB entries were mutated")
 			}
 			return nil
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 3: vswitch/inconclusive-unknown-status
-	// -------------------------------------------------------------------------
 	c3Ports := []port.Port{
 		{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 		{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
@@ -295,24 +290,22 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !reflect.DeepEqual(c3SwA.Spec(), c3InitSpecA) {
-				return fmt.Errorf("c3SwA spec was mutated")
+				return errs.Msg("c3SwA spec was mutated")
 			}
 			if !reflect.DeepEqual(c3SwB.Spec(), c3InitSpecB) {
-				return fmt.Errorf("c3SwB spec was mutated")
+				return errs.Msg("c3SwB spec was mutated")
 			}
 			if !reflect.DeepEqual(c3SwA.Entries(), c3InitEntriesA) {
-				return fmt.Errorf("c3SwA entries were mutated")
+				return errs.Msg("c3SwA entries were mutated")
 			}
 			if !reflect.DeepEqual(c3SwB.Entries(), c3InitEntriesB) {
-				return fmt.Errorf("c3SwB entries were mutated")
+				return errs.Msg("c3SwB entries were mutated")
 			}
 			return nil
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Fabric helpers
-	// -------------------------------------------------------------------------
 	gigabit := gigabitAuto()
 	fabScenario := fabric.Scenario{
 		Name: "comparison-scenario",
@@ -406,9 +399,7 @@ func ComparisonCorpus() []ComparisonCase {
 		return fabA, fabB, nil
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 4: fabric/equivalent-complete
-	// -------------------------------------------------------------------------
 	c4FabA, c4FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
 	c4ClockA, c4ClockB := c4FabA.Snapshot().Clock, c4FabB.Snapshot().Clock
@@ -447,36 +438,34 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !c4FabA.Snapshot().Clock.Equal(c4ClockA) {
-				return fmt.Errorf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Snapshot().Clock)
+				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Snapshot().Clock)
 			}
 			if !c4FabB.Snapshot().Clock.Equal(c4ClockB) {
-				return fmt.Errorf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Snapshot().Clock)
+				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Snapshot().Clock)
 			}
 			if !reflect.DeepEqual(c4FabA.Report(), c4ReportA) {
-				return fmt.Errorf("c4FabA report mutated")
+				return errs.Msg("c4FabA report mutated")
 			}
 			if !reflect.DeepEqual(c4FabB.Report(), c4ReportB) {
-				return fmt.Errorf("c4FabB report mutated")
+				return errs.Msg("c4FabB report mutated")
 			}
 			if !reflect.DeepEqual(c4FabA.Links(), c4LinksA) {
-				return fmt.Errorf("c4FabA links mutated")
+				return errs.Msg("c4FabA links mutated")
 			}
 			if !reflect.DeepEqual(c4FabB.Links(), c4LinksB) {
-				return fmt.Errorf("c4FabB links mutated")
+				return errs.Msg("c4FabB links mutated")
 			}
 			if !reflect.DeepEqual(c4FabA.Spec(), c4SpecA) {
-				return fmt.Errorf("c4FabA spec mutated")
+				return errs.Msg("c4FabA spec mutated")
 			}
 			if !reflect.DeepEqual(c4FabB.Spec(), c4SpecB) {
-				return fmt.Errorf("c4FabB spec mutated")
+				return errs.Msg("c4FabB spec mutated")
 			}
 			return nil
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 5: fabric/cable-cut-different
-	// -------------------------------------------------------------------------
 	cutCableMutation := func(cables []fabric.Cable) []fabric.Cable {
 		res := make([]fabric.Cable, len(cables))
 		copy(res, cables)
@@ -525,36 +514,34 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !c5FabA.Snapshot().Clock.Equal(c5ClockA) {
-				return fmt.Errorf("c5FabA clock advanced")
+				return errs.Msg("c5FabA clock advanced")
 			}
 			if !c5FabB.Snapshot().Clock.Equal(c5ClockB) {
-				return fmt.Errorf("c5FabB clock advanced")
+				return errs.Msg("c5FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c5FabA.Report(), c5ReportA) {
-				return fmt.Errorf("c5FabA report mutated")
+				return errs.Msg("c5FabA report mutated")
 			}
 			if !reflect.DeepEqual(c5FabB.Report(), c5ReportB) {
-				return fmt.Errorf("c5FabB report mutated")
+				return errs.Msg("c5FabB report mutated")
 			}
 			if !reflect.DeepEqual(c5FabA.Links(), c5LinksA) {
-				return fmt.Errorf("c5FabA links mutated")
+				return errs.Msg("c5FabA links mutated")
 			}
 			if !reflect.DeepEqual(c5FabB.Links(), c5LinksB) {
-				return fmt.Errorf("c5FabB links mutated")
+				return errs.Msg("c5FabB links mutated")
 			}
 			if !reflect.DeepEqual(c5FabA.Spec(), c5SpecA) {
-				return fmt.Errorf("c5FabA spec mutated")
+				return errs.Msg("c5FabA spec mutated")
 			}
 			if !reflect.DeepEqual(c5FabB.Spec(), c5SpecB) {
-				return fmt.Errorf("c5FabB spec mutated")
+				return errs.Msg("c5FabB spec mutated")
 			}
 			return nil
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 6: fabric/medium-path-different
-	// -------------------------------------------------------------------------
 	mediumMutation := func(cables []fabric.Cable) []fabric.Cable {
 		res := make([]fabric.Cable, len(cables))
 		copy(res, cables)
@@ -603,36 +590,34 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !c6FabA.Snapshot().Clock.Equal(c6ClockA) {
-				return fmt.Errorf("c6FabA clock advanced")
+				return errs.Msg("c6FabA clock advanced")
 			}
 			if !c6FabB.Snapshot().Clock.Equal(c6ClockB) {
-				return fmt.Errorf("c6FabB clock advanced")
+				return errs.Msg("c6FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c6FabA.Report(), c6ReportA) {
-				return fmt.Errorf("c6FabA report mutated")
+				return errs.Msg("c6FabA report mutated")
 			}
 			if !reflect.DeepEqual(c6FabB.Report(), c6ReportB) {
-				return fmt.Errorf("c6FabB report mutated")
+				return errs.Msg("c6FabB report mutated")
 			}
 			if !reflect.DeepEqual(c6FabA.Links(), c6LinksA) {
-				return fmt.Errorf("c6FabA links mutated")
+				return errs.Msg("c6FabA links mutated")
 			}
 			if !reflect.DeepEqual(c6FabB.Links(), c6LinksB) {
-				return fmt.Errorf("c6FabB links mutated")
+				return errs.Msg("c6FabB links mutated")
 			}
 			if !reflect.DeepEqual(c6FabA.Spec(), c6SpecA) {
-				return fmt.Errorf("c6FabA spec mutated")
+				return errs.Msg("c6FabA spec mutated")
 			}
 			if !reflect.DeepEqual(c6FabB.Spec(), c6SpecB) {
-				return fmt.Errorf("c6FabB spec mutated")
+				return errs.Msg("c6FabB spec mutated")
 			}
 			return nil
 		},
 	}
 
-	// -------------------------------------------------------------------------
 	// Case 7: fabric/inconclusive-budget-exhausted
-	// -------------------------------------------------------------------------
 	c7FabA, c7FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
 	c7ClockA, c7ClockB := c7FabA.Snapshot().Clock, c7FabB.Snapshot().Clock
@@ -671,28 +656,28 @@ func ComparisonCorpus() []ComparisonCase {
 		},
 		VerifyNonConsuming: func() error {
 			if !c7FabA.Snapshot().Clock.Equal(c7ClockA) {
-				return fmt.Errorf("c7FabA clock advanced")
+				return errs.Msg("c7FabA clock advanced")
 			}
 			if !c7FabB.Snapshot().Clock.Equal(c7ClockB) {
-				return fmt.Errorf("c7FabB clock advanced")
+				return errs.Msg("c7FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c7FabA.Report(), c7ReportA) {
-				return fmt.Errorf("c7FabA report mutated")
+				return errs.Msg("c7FabA report mutated")
 			}
 			if !reflect.DeepEqual(c7FabB.Report(), c7ReportB) {
-				return fmt.Errorf("c7FabB report mutated")
+				return errs.Msg("c7FabB report mutated")
 			}
 			if !reflect.DeepEqual(c7FabA.Links(), c7LinksA) {
-				return fmt.Errorf("c7FabA links mutated")
+				return errs.Msg("c7FabA links mutated")
 			}
 			if !reflect.DeepEqual(c7FabB.Links(), c7LinksB) {
-				return fmt.Errorf("c7FabB links mutated")
+				return errs.Msg("c7FabB links mutated")
 			}
 			if !reflect.DeepEqual(c7FabA.Spec(), c7SpecA) {
-				return fmt.Errorf("c7FabA spec mutated")
+				return errs.Msg("c7FabA spec mutated")
 			}
 			if !reflect.DeepEqual(c7FabB.Spec(), c7SpecB) {
-				return fmt.Errorf("c7FabB spec mutated")
+				return errs.Msg("c7FabB spec mutated")
 			}
 			return nil
 		},

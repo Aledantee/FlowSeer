@@ -127,6 +127,7 @@ const (
 // BPDU represents an IEEE 802.1D Spanning Tree Bridge Protocol Data Unit.
 //
 // The zero value represents an RST BPDU ([BPDUTypeRapid]).
+// BPDU values are safe for concurrent reads but not for concurrent mutation.
 type BPDU struct {
 	Version      uint8
 	Type         BPDUType

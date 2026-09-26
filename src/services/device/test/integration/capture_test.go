@@ -183,7 +183,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatal("expected assigned session UUID, got empty")
 	}
 	if createResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
-		t.Fatalf("expected PENDING lifecycle, got: %v", createResp.Msg.GetSession().GetState().GetLifecycle())
+		t.Fatalf("got lifecycle %v, want PENDING", createResp.Msg.GetSession().GetState().GetLifecycle())
 	}
 
 	// The edge subscribes and receives the start assignment.
@@ -204,7 +204,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 	startAssign := subStream.Msg().GetStart()
 	if startAssign == nil {
-		t.Fatalf("expected start assignment, got: %+v", subStream.Msg())
+		t.Fatalf("got assignment %+v, want start assignment", subStream.Msg())
 	}
 	if startAssign.GetRef().GetCaptureSession().GetId() != sessionID {
 		t.Fatalf("assignment session ID = %q, want %q", startAssign.GetRef().GetCaptureSession().GetId(), sessionID)
@@ -401,7 +401,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 	sessionState := getResp.Msg.GetSession().GetState()
 	if sessionState.GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
-		t.Fatalf("expected COMPLETED lifecycle, got: %v", sessionState.GetLifecycle())
+		t.Fatalf("got lifecycle %v, want COMPLETED", sessionState.GetLifecycle())
 	}
 	artifact := sessionState.GetArtifact()
 	if artifact == nil {
@@ -439,7 +439,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open captures KV: %v", err)
 	}
-	capturesStore, err := captureapi.NewStore(kv, filepath.Join(dir, "central-state", "captures"))
+	capturesStore, err := captureapi.NewStore(kv, filepath.Join(dir, "central-state", "captures"), time.Now)
 	if err != nil {
 		t.Fatalf("open captures store: %v", err)
 	}
@@ -458,12 +458,12 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatalf("SweepExpired: %v", err)
 	}
 	if swept != 1 {
-		t.Fatalf("expected 1 swept artifact, got: %d", swept)
+		t.Fatalf("got %d swept artifacts, want 1", swept)
 	}
 
 	// Verify artifact file is purged from disk
 	if _, err := os.Stat(artifactPath); !os.IsNotExist(err) {
-		t.Fatalf("expected artifact file to be unlinked, got err: %v", err)
+		t.Fatalf("got artifact stat error %v, want file to be unlinked", err)
 	}
 
 	// The payload is gone, so the download is CodeNotFound rather than the
@@ -476,7 +476,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 		t.Fatal("expected download stream to fail after artifact swept")
 	}
 	if connect.CodeOf(expiredDownloadStream.Err()) != connect.CodeNotFound {
-		t.Fatalf("expected CodeNotFound for expired download, got: %v", expiredDownloadStream.Err())
+		t.Fatalf("got expired download error %v, want CodeNotFound", expiredDownloadStream.Err())
 	}
 	_ = expiredDownloadStream.Close()
 
@@ -489,7 +489,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 	afterSweep := afterSweepResp.Msg.GetSession().GetState()
 	if afterSweep.GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
-		t.Fatalf("expected session to remain COMPLETED, got: %v", afterSweep.GetLifecycle())
+		t.Fatalf("got session lifecycle %v after sweep, want COMPLETED", afterSweep.GetLifecycle())
 	}
 	// The retention departure: the payload goes, the record and its counters
 	// stay, and the descriptor says when the bytes were purged.
@@ -541,7 +541,7 @@ func TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval(t *testing.T
 	if err != nil {
 		t.Fatalf("open captures KV: %v", err)
 	}
-	store, err := captureapi.NewStore(kv, capturesDir)
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
 	if err != nil {
 		t.Fatalf("open captures store: %v", err)
 	}

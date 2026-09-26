@@ -112,8 +112,8 @@ func wantOrigin(t *testing.T, res routing.Result, origin string) {
 	}
 }
 
-// TestNeighborFactReportsOrigin is R4's acceptance example for the neighbor entry: a configured
-// binding's decision fact names it "configured" and an entry NeighborObserved resolution creates
+// TestNeighborFactReportsOrigin verifies that a configured binding's decision fact names it
+// "configured" and an entry NeighborObserved resolution creates
 // names it "observed", the vocabulary [bridge.Origin] and [mcast.Origin] also use.
 func TestNeighborFactReportsOrigin(t *testing.T) {
 	t.Parallel()
@@ -631,10 +631,8 @@ func wantReleaseOrder(t *testing.T, trial int, eff routing.Effects, want ...byte
 	}
 }
 
-// TestDiscardHeldThenWakePastDeadlineFailsTheEntry is finding 2: the queue-emptiness guard in
-// Wake used to sit above the Incomplete-expiry check, so an entry DiscardHeld emptied never
-// reached Failed and NextWake kept naming a deadline that would never arrive. DiscardHeld and
-// NextWake had no test in this package before this one.
+// TestDiscardHeldThenWakePastDeadlineFailsTheEntry verifies that expiry still moves an
+// incomplete entry to Failed after DiscardHeld empties its held-frame queue.
 func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})

@@ -2,7 +2,7 @@ package snmp
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 )
@@ -341,7 +341,7 @@ func TestWatcher_CounterTier_FiresOnOwnCadence(t *testing.T) {
 	decode := func(idx OID, vbs []VarBind) (ifRowWithCounter, error) {
 		var r ifRowWithCounter
 		if idx.Len() != 1 {
-			return r, fmt.Errorf("bad idx")
+			return r, errors.New("bad idx")
 		}
 		r.IfIndex = idx.At(0)
 		for _, vb := range vbs {
@@ -498,7 +498,7 @@ func TestWatcher_StaticTier_RespectedByOverride(t *testing.T) {
 	decode := func(idx OID, vbs []VarBind) (customRow, error) {
 		var r customRow
 		if idx.Len() != 1 {
-			return r, fmt.Errorf("bad idx")
+			return r, errors.New("bad idx")
 		}
 		r.Idx = idx.At(0)
 		for _, vb := range vbs {

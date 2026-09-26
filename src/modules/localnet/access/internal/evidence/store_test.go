@@ -24,7 +24,7 @@ func TestConsultReturnsNoPolicyWhenKindUnconfigured(t *testing.T) {
 		t.Fatal("expected ok=false for an unconfigured kind")
 	}
 	if code, _ := errs.CodeOf(err); code != evidence.ErrCodeNoPolicy {
-		t.Fatalf("expected ErrCodeNoPolicy, got %v", err)
+		t.Fatalf("got error %v, want ErrCodeNoPolicy", err)
 	}
 }
 
@@ -33,7 +33,7 @@ func TestRecordReturnsNoPolicyWhenKindUnconfigured(t *testing.T) {
 
 	err := store.Record(deviceA, fpA, evidence.KindInterfaceDescriptionChange, inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP, accessv1.Completeness_COMPLETENESS_COMPLETE, time.Now())
 	if code, _ := errs.CodeOf(err); code != evidence.ErrCodeNoPolicy {
-		t.Fatalf("expected ErrCodeNoPolicy, got %v", err)
+		t.Fatalf("got error %v, want ErrCodeNoPolicy", err)
 	}
 }
 
@@ -46,11 +46,11 @@ func TestConsultHonorsLifetimeExpiry(t *testing.T) {
 	}
 
 	if _, ok, err := store.Consult(deviceA, fpA, evidence.KindInterfaceRead, inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP, t0.Add(time.Minute)); err != nil || !ok {
-		t.Fatalf("expected fresh evidence to be usable, got ok=%v err=%v", ok, err)
+		t.Fatalf("got fresh evidence result ok=%v err=%v, want ok=true and err=nil", ok, err)
 	}
 
 	if _, ok, err := store.Consult(deviceA, fpA, evidence.KindInterfaceRead, inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP, t0.Add(3*time.Minute)); err != nil || ok {
-		t.Fatalf("expected stale evidence to be unusable, got ok=%v err=%v", ok, err)
+		t.Fatalf("got stale evidence result ok=%v err=%v, want ok=false and err=nil", ok, err)
 	}
 }
 
@@ -89,6 +89,6 @@ func TestInvalidateFingerprintKeepsCurrentFingerprintEvidence(t *testing.T) {
 	store.InvalidateFingerprint(deviceA, fpB)
 
 	if _, ok, err := store.Consult(deviceA, fpB, evidence.KindInterfaceRead, inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP, now); err != nil || !ok {
-		t.Fatalf("expected current-fingerprint evidence to survive, got ok=%v err=%v", ok, err)
+		t.Fatalf("got current-fingerprint evidence result ok=%v err=%v, want ok=true and err=nil", ok, err)
 	}
 }

@@ -2,8 +2,8 @@ package stream
 
 import (
 	"encoding/binary"
-	"fmt"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -43,10 +43,10 @@ type MACVariation struct {
 // Validate requires a selected address and a positive Count.
 func (v MACVariation) Validate() error {
 	if v.Field != MACDestination && v.Field != MACSource {
-		return fmt.Errorf("MAC variation field must be destination or source")
+		return errs.Msg("MAC variation field must be destination or source")
 	}
 	if v.Count <= 0 {
-		return fmt.Errorf("MAC variation count must be positive")
+		return errs.Msg("MAC variation count must be positive")
 	}
 	return nil
 }
@@ -83,11 +83,11 @@ type SizeVariation struct{ Sizes []int }
 // FCS. [Spec.Validate] also checks the template's VLAN tags.
 func (v SizeVariation) Validate() error {
 	if len(v.Sizes) == 0 {
-		return fmt.Errorf("size variation requires at least one size")
+		return errs.Msg("size variation requires at least one size")
 	}
 	for _, size := range v.Sizes {
 		if size < 18 {
-			return fmt.Errorf("size variation frame size %d is smaller than Ethernet header and FCS", size)
+			return errs.Msgf("size variation frame size %d is smaller than Ethernet header and FCS", size)
 		}
 	}
 	return nil
@@ -117,7 +117,7 @@ type UDPPortVariation struct {
 // template before the source is constructed.
 func (v UDPPortVariation) Validate() error {
 	if v.Count <= 0 {
-		return fmt.Errorf("UDP port variation count must be positive")
+		return errs.Msg("UDP port variation count must be positive")
 	}
 	return nil
 }
@@ -151,11 +151,11 @@ func (v UDPPortVariation) Apply(n int, frame ethernet.Frame, rng *SplitMix64) et
 func encodeUDPFrame(frame ethernet.Frame, ipHeader ip.Header, udpHeader udp.Header, payload []byte) (ethernet.Frame, error) {
 	datagram, err := udp.Encode(udpHeader, payload, ipHeader.Src, ipHeader.Dst)
 	if err != nil {
-		return frame, fmt.Errorf("encode UDP for variation: %w", err)
+		return frame, errs.Wrap(err, "encode UDP for variation")
 	}
 	encoded, err := ipHeader.Encode(datagram)
 	if err != nil {
-		return frame, fmt.Errorf("encode IP for UDP variation: %w", err)
+		return frame, errs.Wrap(err, "encode IP for UDP variation")
 	}
 	packetLen := ipPacketLength(frame.Payload, ipHeader)
 	frame.Payload = append(encoded, frame.Payload[packetLen:]...)
@@ -171,24 +171,24 @@ func ipPacketLength(payload []byte, header ip.Header) int {
 
 func decodeUDPFrame(frame ethernet.Frame) (ip.Header, udp.Header, []byte, error) {
 	if frame.EtherType != ethernet.EtherTypeIPv4 && frame.EtherType != ethernet.EtherTypeIPv6 {
-		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP variation requires IPv4 or IPv6 EtherType")
+		return ip.Header{}, udp.Header{}, nil, errs.Msg("UDP variation requires IPv4 or IPv6 EtherType")
 	}
 	ipHeader, datagram, err := ip.Decode(frame.Payload)
 	if err != nil {
-		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("decode IP for UDP variation: %w", err)
+		return ip.Header{}, udp.Header{}, nil, errs.Wrap(err, "decode IP for UDP variation")
 	}
 	if ipHeader.Protocol != 17 || (frame.EtherType == ethernet.EtherTypeIPv4) != (ipHeader.V4 != nil) {
-		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP variation requires matching IP/UDP payload")
+		return ip.Header{}, udp.Header{}, nil, errs.Msg("UDP variation requires matching IP/UDP payload")
 	}
 	if ipHeader.V4 != nil && (ipHeader.V4.FragmentOffset != 0 || ipHeader.V4.Flags&1 != 0) {
-		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP variation requires an unfragmented IPv4 packet")
+		return ip.Header{}, udp.Header{}, nil, errs.Msg("UDP variation requires an unfragmented IPv4 packet")
 	}
 	udpHeader, payload, err := udp.Decode(datagram)
 	if err != nil {
-		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("decode UDP for variation: %w", err)
+		return ip.Header{}, udp.Header{}, nil, errs.Wrap(err, "decode UDP for variation")
 	}
 	if int(udpHeader.Length) != len(datagram) {
-		return ip.Header{}, udp.Header{}, nil, fmt.Errorf("UDP length %d does not match IP payload length %d", udpHeader.Length, len(datagram))
+		return ip.Header{}, udp.Header{}, nil, errs.Msgf("UDP length %d does not match IP payload length %d", udpHeader.Length, len(datagram))
 	}
 	return ipHeader, udpHeader, payload, nil
 }

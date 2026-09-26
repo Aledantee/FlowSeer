@@ -15,9 +15,10 @@
 package catalog
 
 import (
-	"fmt"
 	"slices"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // MaxArgs is the number of format arguments a row may declare. A
@@ -370,7 +371,7 @@ func Validate(rows []Entry) error {
 			return err
 		}
 		if _, dup := codes[r.Code]; dup {
-			return fmt.Errorf("code %q appears twice", r.Code)
+			return errs.Msgf("code %q appears twice", r.Code)
 		}
 		codes[r.Code] = struct{}{}
 
@@ -378,28 +379,28 @@ func Validate(rows []Entry) error {
 			return err
 		}
 		if _, dup := tags[r.Tag]; dup {
-			return fmt.Errorf("tag %q appears twice", r.Tag)
+			return errs.Msgf("tag %q appears twice", r.Tag)
 		}
 		tags[r.Tag] = struct{}{}
 
 		if r.Severity > MaxSeverity {
-			return fmt.Errorf("%s: severity %d is off the 0-%d scale", r.Code, r.Severity, MaxSeverity)
+			return errs.Msgf("%s: severity %d is off the 0-%d scale", r.Code, r.Severity, MaxSeverity)
 		}
 		if r.Format == "" {
-			return fmt.Errorf("%s: format is empty", r.Code)
+			return errs.Msgf("%s: format is empty", r.Code)
 		}
 		if r.Description == "" {
-			return fmt.Errorf("%s: description is empty", r.Code)
+			return errs.Msgf("%s: description is empty", r.Code)
 		}
 		verbs := CountVerbs(r.Format)
 		if verbs < 0 {
-			return fmt.Errorf("%s: format %q contains an unsupported directive", r.Code, r.Format)
+			return errs.Msgf("%s: format %q contains an unsupported directive", r.Code, r.Format)
 		}
 		if r.Arity != verbs {
-			return fmt.Errorf("%s: arity %d but format %q consumes %d", r.Code, r.Arity, r.Format, verbs)
+			return errs.Msgf("%s: arity %d but format %q consumes %d", r.Code, r.Arity, r.Format, verbs)
 		}
 		if r.Arity > MaxArgs {
-			return fmt.Errorf("%s: arity %d exceeds the %d inline argument slots", r.Code, r.Arity, MaxArgs)
+			return errs.Msgf("%s: arity %d exceeds the %d inline argument slots", r.Code, r.Arity, MaxArgs)
 		}
 	}
 
@@ -451,10 +452,10 @@ func CountVerbs(format string) int {
 func validateCode(code string) error {
 	name, found := strings.CutPrefix(code, "smi/")
 	if !found {
-		return fmt.Errorf("code %q must live in the smi/ namespace", code)
+		return errs.Msgf("code %q must live in the smi/ namespace", code)
 	}
 	if name == "" {
-		return fmt.Errorf("code %q has an empty name", code)
+		return errs.Msgf("code %q has an empty name", code)
 	}
 
 	for i := 0; i < len(name); i++ {
@@ -463,7 +464,7 @@ func validateCode(code string) error {
 		case b >= 'a' && b <= 'z', b >= '0' && b <= '9':
 		case (b == '-' || b == '_') && i > 0:
 		default:
-			return fmt.Errorf("code %q may hold only lowercase letters, digits, '-' and '_'", code)
+			return errs.Msgf("code %q may hold only lowercase letters, digits, '-' and '_'", code)
 		}
 	}
 
@@ -472,10 +473,10 @@ func validateCode(code string) error {
 
 func validateTag(tag, code string) error {
 	if tag == "" {
-		return fmt.Errorf("%s: tag is empty", code)
+		return errs.Msgf("%s: tag is empty", code)
 	}
 	if tag[0] < 'A' || tag[0] > 'Z' {
-		return fmt.Errorf("%s: tag %q must start with an uppercase letter so the generated variable is exported", code, tag)
+		return errs.Msgf("%s: tag %q must start with an uppercase letter so the generated variable is exported", code, tag)
 	}
 
 	for i := 0; i < len(tag); i++ {
@@ -484,7 +485,7 @@ func validateTag(tag, code string) error {
 			continue
 		}
 
-		return fmt.Errorf("%s: tag %q must be a Go identifier", code, tag)
+		return errs.Msgf("%s: tag %q must be a Go identifier", code, tag)
 	}
 
 	return nil

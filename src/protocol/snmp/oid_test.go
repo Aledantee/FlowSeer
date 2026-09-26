@@ -207,7 +207,7 @@ func TestNewOID_ValidatesSMIv2Rules(t *testing.T) {
 		name    string
 		subs    []uint32
 		wantMsg []string // substrings expected in the static message
-		wantGot uint32   // offending value, now carried on the "got" attribute
+		wantGot uint32   // offending value recorded on the "got" attribute
 	}{
 		{"first sub > 2 (single)", []uint32{3}, []string{"first sub-identifier", "index 0"}, 3},
 		{"first sub > 2 (multi)", []uint32{99, 1}, []string{"first sub-identifier", "index 0"}, 99},

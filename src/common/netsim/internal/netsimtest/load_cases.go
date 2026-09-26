@@ -1,8 +1,9 @@
 package netsimtest
 
 import (
-	"fmt"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -105,24 +106,24 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 		return ExecutionResult{}, err
 	}
 	if run := fab.Run(10_000); run.Err != nil || run.Pending.Journeys != 0 {
-		return ExecutionResult{}, fmt.Errorf("load run did not settle: %+v", run)
+		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
 	}
 	stats, ok := fab.Flows()[flow]
 	if !ok || stats.Offered != 32 {
-		return ExecutionResult{}, fmt.Errorf("flow %d offered %d frames, found %t; want 32", flow, stats.Offered, ok)
+		return ExecutionResult{}, errs.Msgf("flow %d offered %d frames, found %t; want 32", flow, stats.Offered, ok)
 	}
 	switch decisive {
 	case traffic.RuleQueueBufferUnstated:
 		if len(stats.Drops) != 0 {
-			return ExecutionResult{}, fmt.Errorf("unstated queue dropped flow %d frames: %v", flow, stats.Drops)
+			return ExecutionResult{}, errs.Msgf("unstated queue dropped flow %d frames: %v", flow, stats.Drops)
 		}
 	case traffic.RuleQueueDrop:
 		if stats.Drops[traffic.ReasonQueueFull] == 0 {
-			return ExecutionResult{}, fmt.Errorf("flow %d missing queue-full drops: %v", flow, stats.Drops)
+			return ExecutionResult{}, errs.Msgf("flow %d missing queue-full drops: %v", flow, stats.Drops)
 		}
 	case traffic.RulePolicerRefuse:
 		if stats.Drops[traffic.ReasonPoliced] == 0 {
-			return ExecutionResult{}, fmt.Errorf("flow %d missing policed drops: %v", flow, stats.Drops)
+			return ExecutionResult{}, errs.Msgf("flow %d missing policed drops: %v", flow, stats.Drops)
 		}
 	}
 	for _, j := range fab.Report() {
@@ -144,7 +145,7 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 			case fabric.JourneyDropped:
 				result.Outcome = trace.Dropped
 			default:
-				return ExecutionResult{}, fmt.Errorf("selected frame %d state %s", j.FrameID, j.State)
+				return ExecutionResult{}, errs.Msgf("selected frame %d state %s", j.FrameID, j.State)
 			}
 			for _, entry := range j.Entries {
 				if entry.Kind == fabric.EntryDrop {
@@ -155,12 +156,12 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 				}
 			}
 			if result.Outcome == trace.Dropped && stats.Drops[result.Reason] == 0 {
-				return ExecutionResult{}, fmt.Errorf("flow %d drop reason %s not counted in drops: %v", flow, result.Reason, stats.Drops)
+				return ExecutionResult{}, errs.Msgf("flow %d drop reason %s not counted in drops: %v", flow, result.Reason, stats.Drops)
 			}
 			return result, nil
 		}
 	}
-	return ExecutionResult{}, fmt.Errorf("no flow %d frame records rule %s", flow, decisive)
+	return ExecutionResult{}, errs.Msgf("no flow %d frame records rule %s", flow, decisive)
 }
 
 func loadForwardSteps() []StepExpectation {

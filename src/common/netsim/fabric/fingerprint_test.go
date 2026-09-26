@@ -1451,7 +1451,7 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 
 	snap1 := fab.Snapshot()
 	if len(snap1.Devices["sw1"].Neighbors) != 1 || snap1.Devices["sw1"].Neighbors[0].State != routing.NeighborIncomplete {
-		t.Fatalf("expected 1 Incomplete neighbor on sw1, got %+v", snap1.Devices["sw1"].Neighbors)
+		t.Fatalf("got sw1 neighbors %+v, want exactly 1 Incomplete neighbor", snap1.Devices["sw1"].Neighbors)
 	}
 	fp1 := snap1.Fingerprint()
 
@@ -1478,7 +1478,7 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 
 	snap2 := fab.Snapshot()
 	if len(snap2.Devices["sw1"].Neighbors) != 1 || snap2.Devices["sw1"].Neighbors[0].State != routing.NeighborReachable {
-		t.Fatalf("expected 1 Reachable neighbor on sw1, got %+v", snap2.Devices["sw1"].Neighbors)
+		t.Fatalf("got sw1 neighbors %+v, want exactly 1 Reachable neighbor", snap2.Devices["sw1"].Neighbors)
 	}
 	fp2 := snap2.Fingerprint()
 

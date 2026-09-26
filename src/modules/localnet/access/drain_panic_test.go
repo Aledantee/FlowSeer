@@ -68,6 +68,6 @@ func TestLaneDrainReleasesItsLockAfterAPanicSoALaterDrainProceeds(t *testing.T) 
 		t.Fatalf("second Submit() after a panicking first read: %v (drain's lock was not released)", err)
 	}
 	if got := result.GetObservation().GetDescription(); got != snmpDescription {
-		t.Fatalf("expected the second read to reach the device's fixture, got description %q", got)
+		t.Fatalf("got description %q from the second read, want %q from the device fixture", got, snmpDescription)
 	}
 }

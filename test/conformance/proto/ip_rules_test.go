@@ -244,7 +244,7 @@ func TestIpPrimitiveRules(t *testing.T) {
 func TestAddressOriginWireValues(t *testing.T) {
 	// Readers depend on these wire numbers retaining their meanings.
 	if got := int32(ipv1.AddressOrigin_ADDRESS_ORIGIN_LINK_LAYER); got != 4 {
-		t.Fatalf("ADDRESS_ORIGIN_LINK_LAYER = %d, want 4", got)
+		t.Fatalf("got ADDRESS_ORIGIN_LINK_LAYER %d, want 4", got)
 	}
 	if got := int32(ipv1.AddressOrigin_ADDRESS_ORIGIN_RANDOM); got != 5 {
 		t.Fatalf("ADDRESS_ORIGIN_RANDOM = %d, want 5", got)

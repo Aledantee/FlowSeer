@@ -3,6 +3,7 @@ package diag
 import (
 	"fmt"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/catalog"
 )
 
@@ -112,7 +113,7 @@ func ParseSeverity(tag string) (Severity, error) {
 		}
 	}
 
-	return 0, fmt.Errorf("smi: %q is not a severity", tag)
+	return 0, errs.Msgf("smi: %q is not a severity", tag)
 }
 
 // NeedsBaselineReason reports whether accepting this severity in a

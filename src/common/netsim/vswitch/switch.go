@@ -326,7 +326,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 			return nil, err
 		}
 		b.SetFDBScope(protocolScope(nodeID, port.LayerRelay))
-		stpScope := protocolScope(nodeID, port.LayerStp)
+		stpScope := protocolScope(nodeID, port.LayerSTP)
 		if norm.STP == nil && metadataHasScopedContent(metadata, stpScope) {
 			b.SetGate(nil, stpScope)
 			sw.missingSTP = true
@@ -346,7 +346,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 
 	var hasLag bool
 	for _, p := range norm.Ports.Ports() {
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			hasLag = true
 			break
 		}
@@ -362,7 +362,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.lag = l
 		if sw.bridge != nil {
-			sw.bridge.SetSelector(lagSelector{sw: sw}, protocolScope(nodeID, port.LayerLag))
+			sw.bridge.SetSelector(lagSelector{sw: sw}, protocolScope(nodeID, port.LayerLAG))
 		}
 		for _, p := range norm.Ports.Ports() {
 			if p.LagParent != "" && p.Forwards() {
@@ -381,7 +381,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.stp = st
 		if sw.bridge != nil {
-			sw.bridge.SetGate(sw.stp, protocolScope(nodeID, port.LayerStp))
+			sw.bridge.SetGate(sw.stp, protocolScope(nodeID, port.LayerSTP))
 		}
 	}
 
@@ -416,7 +416,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		for name, policer := range norm.Traffic.Policers {
 			bucket, err := traffic.NewBucket(policer)
 			if err != nil {
-				return nil, fmt.Errorf("create policer bucket for %q: %w", name, err)
+				return nil, errs.Wrapf(err, "create policer bucket for %q", name)
 			}
 			sw.buckets[name] = bucket
 		}
@@ -516,13 +516,13 @@ func (s *Switch) Fork() *Switch {
 	if s.bridge != nil {
 		cp.bridge = s.bridge.Clone()
 		if cp.stp != nil {
-			cp.bridge.SetGate(cp.stp, protocolScope(cp.nodeID, port.LayerStp))
+			cp.bridge.SetGate(cp.stp, protocolScope(cp.nodeID, port.LayerSTP))
 		}
 		if cp.loopprotect != nil {
 			cp.bridge.SetGate(cp.loopprotect, protocolScope(cp.nodeID, port.LayerLoopProtect))
 		}
 		if cp.lag != nil {
-			cp.bridge.SetSelector(lagSelector{sw: cp}, protocolScope(cp.nodeID, port.LayerLag))
+			cp.bridge.SetSelector(lagSelector{sw: cp}, protocolScope(cp.nodeID, port.LayerLAG))
 		}
 		if cp.mcast != nil {
 			cp.bridge.SetGroupResolver(cp, protocolScope(cp.nodeID, port.LayerMcast))
@@ -1065,7 +1065,7 @@ func (s *Switch) pvstBoundaryIssues() []runtimeIssue {
 // pvstBoundaryScope names the analysis scope for one port and VLAN at a
 // per-VLAN spanning tree boundary.
 func pvstBoundaryScope(nodeID, portName string, vid vlan.ID) analysis.Scope {
-	return analysis.ProtocolScope(nodeID, string(port.LayerStp), fmt.Sprintf("%s/%d", portName, vid))
+	return analysis.ProtocolScope(nodeID, string(port.LayerSTP), fmt.Sprintf("%s/%d", portName, vid))
 }
 
 func (s *Switch) mcastConstructionEvidence(vid vlan.ID) []trace.Fact {
@@ -1122,7 +1122,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			res := s.interceptLACP(now, ingress, f, mutate)
 			res.ConsultScopes(s.aggregatorScope(p.LagParent))
 			res.ConsultScopes(analysis.FieldScope(
-				protocolScope(s.nodeID, port.LayerLag), "ports", ingress,
+				protocolScope(s.nodeID, port.LayerLAG), "ports", ingress,
 			))
 			s.forwardingDependencies(ingress).consult(&res)
 			return s.finishForward(now, ingress, f, res, mutate)
@@ -1133,7 +1133,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		res := s.interceptBPDU(now, ingress, f, mutate)
 		if res.Reason != port.ReasonPortDown {
 			res.ConsultScopes(analysis.FieldScope(
-				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+				protocolScope(s.nodeID, port.LayerSTP), "ports", res.Ingress,
 			))
 		}
 		s.forwardingDependencies(ingress).consult(&res)
@@ -1144,7 +1144,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		res := s.interceptSSTP(now, ingress, f, mutate)
 		if res.Reason != port.ReasonPortDown {
 			res.ConsultScopes(analysis.FieldScope(
-				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+				protocolScope(s.nodeID, port.LayerSTP), "ports", res.Ingress,
 			))
 		}
 		s.forwardingDependencies(ingress).consult(&res)
@@ -1323,7 +1323,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			res.ConsultScopes(routingScopes...)
 			if s.missingSTP && (f.Dst == stpGroupAddress || f.Dst == sstpGroupAddress) {
 				res.ConsultScopes(analysis.FieldScope(
-					protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+					protocolScope(s.nodeID, port.LayerSTP), "ports", res.Ingress,
 				))
 			}
 			return s.finishForward(now, ingress, f, res, mutate)
@@ -1844,7 +1844,7 @@ func (s *Switch) readyMirrorCopies(now time.Time, res *bridge.Result, copies []t
 		var selection trace.Fact
 		if !output.Forwards() {
 			reason = port.ReasonPortDown
-		} else if output.Kind == port.Lag {
+		} else if output.Kind == port.LAG {
 			res.ConsultScopes(s.aggregatorScope(copy.Port))
 			sel, fact := s.selectMemberWithFact(now, copy.Port, copy.Frame, copy.VLAN, mutate)
 			selection = fact
@@ -1965,8 +1965,7 @@ func (s *Switch) assembleRouteResult(
 		case routing.ReasonNotRouted:
 			outcome = trace.Consumed
 		case routing.ReasonNeighborPending:
-			// Pending is not a drop: R21's acceptance example requires a
-			// frame that neither arrived nor failed.
+			// A pending neighbor holds a frame that has neither arrived nor failed.
 			outcome = trace.Held
 			if addr, ok := neighborPendingAddr(routeRes); ok {
 				s.recordNeighborUnresolved(routeRes.Interface, addr)
@@ -2135,7 +2134,7 @@ func (s *Switch) assembleRouteResult(
 	p, _ := s.ports.Port(egressIface.Port)
 	var selection trace.Fact
 	resultScopes := routeScopes
-	if p.Kind == port.Lag {
+	if p.Kind == port.LAG {
 		resultScopes = append(resultScopes, s.aggregatorScope(egressIface.Port))
 		sel, fact := s.selectMemberWithFact(now, egressIface.Port, routeRes.Frame, 0, mutate)
 		selection = fact
@@ -2342,7 +2341,7 @@ func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mut
 
 		var member string
 		var selection trace.Fact
-		if cand.Kind == port.Lag {
+		if cand.Kind == port.LAG {
 			res.ConsultScopes(s.aggregatorScope(cand.Name))
 			sel, fact := s.selectMemberWithFact(now, cand.Name, f, 0, mutate)
 			selection = fact
@@ -2431,7 +2430,7 @@ func (s *Switch) forwardingDependencies(name string) forwardingDependencies {
 
 func (s *Switch) egressDependencies(name string) forwardingDependencies {
 	dependencies := s.forwardingDependencies(name)
-	if len(dependencies.ports) != 1 || dependencies.ports[0].Kind != port.Lag || !dependencies.ports[0].Forwards() {
+	if len(dependencies.ports) != 1 || dependencies.ports[0].Kind != port.LAG || !dependencies.ports[0].Forwards() {
 		return dependencies
 	}
 	dependencies.ports = append(dependencies.ports, s.ports.Members(name)...)
@@ -2440,7 +2439,7 @@ func (s *Switch) egressDependencies(name string) forwardingDependencies {
 }
 
 func (s *Switch) aggregatorScope(name string) analysis.Scope {
-	return analysis.FieldScope(protocolScope(s.nodeID, port.LayerLag), "aggregators", name)
+	return analysis.FieldScope(protocolScope(s.nodeID, port.LayerLAG), "aggregators", name)
 }
 
 func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
@@ -2458,7 +2457,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 				Reason:  lag.ReasonUnsupportedLACPDU,
 				Steps: []trace.Step{
 					{
-						Layer:   port.LayerLag,
+						Layer:   port.LayerLAG,
 						Op:      trace.OpDrop,
 						RuleID:  "lag.lacpdu.unsupported",
 						Subject: trace.Subject{Kind: "port", Key: ingress},
@@ -2482,7 +2481,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 			Outcome: trace.Consumed,
 			Steps: []trace.Step{
 				{
-					Layer:   port.LayerLag,
+					Layer:   port.LayerLAG,
 					Op:      trace.OpClassify,
 					RuleID:  "lag.lacpdu.admit",
 					Subject: trace.Subject{Kind: "port", Key: ingress},
@@ -2611,7 +2610,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 				Outcome: trace.Dropped,
 				Reason:  port.ReasonPortDown,
 				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpDrop,
 					RuleID:  "port.status.down",
 					Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
@@ -2642,7 +2641,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 				Reason:  reason,
 				Steps: []trace.Step{
 					{
-						Layer:   port.LayerStp,
+						Layer:   port.LayerSTP,
 						Op:      trace.OpDrop,
 						RuleID:  trace.RuleID("stp.bpdu." + string(reason)),
 						Subject: trace.Subject{Kind: "port", Key: resolvedPort},
@@ -2666,7 +2665,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 			Outcome: trace.Consumed,
 			Steps: []trace.Step{
 				{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpClassify,
 					RuleID:  "stp.bpdu.admit",
 					Subject: trace.Subject{Kind: "port", Key: resolvedPort},
@@ -2712,7 +2711,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 				Outcome: trace.Dropped,
 				Reason:  port.ReasonPortDown,
 				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpDrop,
 					RuleID:  "port.status.down",
 					Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
@@ -2742,7 +2741,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 				Outcome: trace.Dropped,
 				Reason:  reason,
 				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpDrop,
 					RuleID:  trace.RuleID("stp.sstp." + string(reason)),
 					Subject: trace.Subject{Kind: "port", Key: resolvedPort},
@@ -2828,7 +2827,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 				Outcome: trace.Dropped,
 				Reason:  port.ReasonPortDown,
 				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpDrop,
 					RuleID:  "port.status.down",
 					Subject: subject,
@@ -2855,7 +2854,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 				Outcome: trace.Dropped,
 				Reason:  stp.ReasonVLANNotAdmitted,
 				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpDrop,
 					RuleID:  "stp.sstp.vlan-not-admitted",
 					Subject: subject,
@@ -2871,7 +2870,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 				Outcome: trace.Dropped,
 				Reason:  stp.ReasonVLANUntracked,
 				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
+					Layer:   port.LayerSTP,
 					Op:      trace.OpDrop,
 					RuleID:  "stp.sstp.vlan-untracked",
 					Subject: subject,
@@ -2887,7 +2886,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		Trace: trace.Trace{
 			Outcome: trace.Consumed,
 			Steps: []trace.Step{{
-				Layer:   port.LayerStp,
+				Layer:   port.LayerSTP,
 				Op:      trace.OpClassify,
 				RuleID:  "stp.sstp.admit",
 				Subject: subject,
@@ -2949,13 +2948,13 @@ func (s *Switch) Start(now time.Time) {
 		}
 	}
 	for _, p := range s.ports.Ports() {
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			s.updateLagState(now, p.Name)
 		}
 	}
 
 	for _, p := range s.ports.Ports() {
-		if p.LagParent != "" || p.Kind == port.Lag {
+		if p.LagParent != "" || p.Kind == port.LAG {
 			continue
 		}
 		p2p := true
@@ -2991,7 +2990,7 @@ func (s *Switch) linkSpeed(p port.Port) uint64 {
 	if s.speeds == nil {
 		return 0
 	}
-	if p.Kind != port.Lag {
+	if p.Kind != port.LAG {
 		return s.speeds[p.Name].SpeedBPS
 	}
 	var best uint64
@@ -3272,7 +3271,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	}
 
 	p, _ := s.ports.Port(egressIface.Port)
-	if p.Kind == port.Lag {
+	if p.Kind == port.LAG {
 		sel := s.selectOrPeekMember(now, egressIface.Port, hf.Frame, 0, true)
 		if !sel.OK {
 			s.recordHeldEgressDrop(hf, egressIface.Port, "", "lag.egress.no_member", bridge.ReasonNoMember)
@@ -3887,7 +3886,7 @@ func (s *Switch) recomputeProtocolLinkIssues() {
 
 	if s.ports.Len() > 0 {
 		for _, p := range s.ports.Ports() {
-			if p.Kind != port.Lag {
+			if p.Kind != port.LAG {
 				continue
 			}
 			lagName := p.Name

@@ -92,7 +92,7 @@ func statedPhysical(cfg fabric.Config) fabric.Config {
 		b := port.NewBuilder()
 		for _, p := range swCfg.Ports.Ports() {
 			ep := fabric.Endpoint{Node: name, Port: p.Name}
-			if p.Kind != port.Lag && !named[ep] {
+			if p.Kind != port.LAG && !named[ep] {
 				cfg.Uncabled = append(cfg.Uncabled, fabric.Uncabled{Endpoint: ep})
 				p.OperStatus = ""
 			}
@@ -110,11 +110,11 @@ func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 	t.Helper()
 	b1 := port.NewBuilder()
 	b1.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	b1.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b1.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 
 	b2 := port.NewBuilder()
 	b2.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	b2.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b2.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}

@@ -7,7 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported phy.Config field reaches
+// TestDiffCoversEveryConfigField verifies that every exported phy.Config field reaches
 // phy.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	limit := uint32(5000)

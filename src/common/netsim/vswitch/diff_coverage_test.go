@@ -20,16 +20,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
-// TestDiffCoversEveryConfigField is R9's gate: every exported vswitch.Config field
-// reaches vswitch.Diff. vswitch.Diff delegates each capability to that capability's own
+// TestDiffCoversEveryConfigField verifies that every exported vswitch.Config field reaches
+// vswitch.Diff. vswitch.Diff delegates each capability to that capability's own
 // Diff, so this walk also re-covers every capability Config's leaves; that duplicates
 // each capability package's own diff_coverage_test.go rather than contradicting it,
-// since vswitch.Config field participation is what R9 asks for at this package too.
+// since this package must also verify vswitch.Config field participation.
 // Ports is exempt: port.Table's fields are unexported, so the walk finds nothing inside
 // it regardless; port's own diff_coverage_test.go covers port.Diff.
 func TestDiffCoversEveryConfigField(t *testing.T) {
 	ports, err := port.NewBuilder().
-		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Build()
 	if err != nil {

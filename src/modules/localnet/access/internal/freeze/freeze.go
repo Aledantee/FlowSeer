@@ -14,14 +14,13 @@ import (
 // caller must not act as though side effects are stopped.
 var ErrCodeUnfrozen = errs.NewCode("access/gate-unfrozen")
 
-// Gate is the control-plane freeze state for every device one access.Lane
-// serves — a single Gate is shared across the whole Lane, not scoped to one
-// device: a freeze is control-plane wide, not scoped to one device. The
-// zero value is not usable; construct with [New].
+// Gate is the control-plane freeze state shared by every device one access.Lane
+// serves, so each freeze applies lane-wide. The zero value is not usable;
+// construct with [New]. A Gate is safe for concurrent use.
 type Gate struct {
 	view *telemetry.View
 
-	mu        sync.Mutex
+	mu        sync.Mutex // guards frozen, announced, and released
 	frozen    bool
 	announced bool
 	released  chan struct{}
@@ -32,7 +31,7 @@ type Gate struct {
 	// write lock before reporting the freeze in effect, so it cannot
 	// return while one is still running. frozen alone only stops a side
 	// effect from starting; it says nothing about one already in progress.
-	barrier sync.RWMutex
+	barrier sync.RWMutex // serializes Freeze with active side effects
 }
 
 // New constructs an unfrozen Gate. view may be nil; nil is treated as a

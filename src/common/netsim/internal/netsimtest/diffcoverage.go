@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -95,9 +96,9 @@ func assertCoverage(t *testing.T, found, covered []string) {
 
 // coverageProblems names every path in found absent from covered, and every path in
 // covered the walk did not find: the walk is what grows, covered is what a person edits
-// deliberately, and either side drifting from the other is the defect this checks for. A
-// pure function, not a *testing.T-driven assertion, so a test can check its result
-// directly instead of through a nested subtest whose failure would fail the outer test.
+// deliberately, and either side drifting from the other is the defect this checks for.
+// The pure return value lets a test check the result directly without a nested subtest
+// whose failure would also fail the outer test.
 func coverageProblems(found, covered []string) []string {
 	var problems []string
 	coveredSet := make(map[string]bool, len(covered))
@@ -355,9 +356,6 @@ func navigateReadOnly(root reflect.Value, path []step) reflect.Value {
 }
 
 // mutateLeaf sets v (settable) to a value of its own type guaranteed different from
-// whatever it held before, or panics naming the type when no strategy covers it: a
-// perturbation the walker cannot compute is a gap in the walker, not a leaf to skip.
-// mutateLeaf sets v (settable) to a value of its own type guaranteed different from
 // whatever it held before, or returns an error naming the type when no strategy covers
 // it: a perturbation the walker cannot compute is a gap in the walker, not a leaf to
 // skip.
@@ -396,18 +394,18 @@ func mutateLeaf(v reflect.Value) error {
 	case reflect.Array:
 		return mutateArrayLeaf(v)
 	default:
-		return fmt.Errorf("diffcoverage: no mutation strategy for leaf kind %s (type %s)", v.Kind(), t)
+		return errs.Msgf("diffcoverage: no mutation strategy for leaf kind %s (type %s)", v.Kind(), t)
 	}
 	return nil
 }
 
 func mutateArrayLeaf(v reflect.Value) error {
 	if v.Len() == 0 {
-		return fmt.Errorf("diffcoverage: no mutation strategy for zero-length array type %s", v.Type())
+		return errs.Msgf("diffcoverage: no mutation strategy for zero-length array type %s", v.Type())
 	}
 	last := v.Index(v.Len() - 1)
 	if last.Kind() != reflect.Uint8 {
-		return fmt.Errorf("diffcoverage: no mutation strategy for array element kind %s (type %s)", last.Kind(), v.Type())
+		return errs.Msgf("diffcoverage: no mutation strategy for array element kind %s (type %s)", last.Kind(), v.Type())
 	}
 	last.SetUint((last.Uint() + 1) % 256)
 	return nil
@@ -438,7 +436,7 @@ func leavesOrEmpty[C any](seed C) ([]coverageLeaf, reflect.Value, error) {
 	var leaves []coverageLeaf
 	discoverLeaves(seedVal, nil, "", "", &leaves)
 	if len(leaves) == 0 {
-		return nil, seedVal, fmt.Errorf("the walk found no perturbable leaf in %T; a config with nothing to check would "+
+		return nil, seedVal, errs.Msgf("the walk found no perturbable leaf in %T; a config with nothing to check would "+
 			"pass this gate vacuously rather than proving anything", seed)
 	}
 	return leaves, seedVal, nil
@@ -466,9 +464,8 @@ func exemptionProblems(found []coverageLeaf, exemptions map[string]string) []str
 // checkLeaf perturbs a fresh deep copy of seed at l alone, normalizes both sides through
 // normalize, and reports an error unless diff detects the change — or reports a
 // mutation-strategy error first if the perturbation did not actually produce a different
-// value. A pure function, not a *testing.T-driven assertion, so a test can check its
-// result directly instead of through a nested subtest whose failure would fail the outer
-// test.
+// value. The pure return value lets a test check the result directly without a nested
+// subtest whose failure would also fail the outer test.
 func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize func(C) C, diff func(a, b C) []trace.Change) error {
 	perturbedRoot := deepCopyValue(seedVal)
 	leafVal, commit := navigateForMutation(perturbedRoot, l.path)
@@ -477,22 +474,22 @@ func checkLeaf[C any](seed C, seedVal reflect.Value, l coverageLeaf, normalize f
 	origCopy.Set(origLeafVal)
 
 	if err := mutateLeaf(leafVal); err != nil {
-		return fmt.Errorf("perturbing %s: %w", l.displayPath, err)
+		return errs.Wrapf(err, "perturbing %s", l.displayPath)
 	}
 	commit()
 
 	if reflect.DeepEqual(origCopy.Interface(), leafVal.Interface()) {
-		return fmt.Errorf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
+		return errs.Msgf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
 			l.displayPath, leafVal.Interface(), leafVal.Type())
 	}
 
 	perturbed, ok := perturbedRoot.Interface().(C)
 	if !ok {
-		return fmt.Errorf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
+		return errs.Msgf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
 	}
 
 	if changes := diff(normalize(seed), normalize(perturbed)); len(changes) == 0 {
-		return fmt.Errorf("diff reported no change after perturbing %s", l.displayPath)
+		return errs.Msgf("diff reported no change after perturbing %s", l.displayPath)
 	}
 	return nil
 }
@@ -564,11 +561,12 @@ func AssertDiffCoversPort(t *testing.T, seed port.Port, companions []port.Port, 
 	}
 }
 
-// mustBuildPortTable builds a Table from p and its fixed companions. Build failing here
-// means a perturbation broke Table.Validate, which the mutation strategies in this file
-// are meant to avoid (toggling an enum toward its zero value, keeping a companion LAG
-// port for lag_parent); it is a bug in this file's fixtures, not a condition a caller can
-// recover from.
+// mustBuildPortTable builds a Table from p and its fixed companions. It panics if a
+// perturbation violates Table.Validate. The mutation strategies preserve that invariant
+// by toggling enums toward zero and retaining a companion LAG port for lag_parent. The
+// panic uses the proven handling answer: TestDiffCoversEveryConfigField in
+// src/common/netsim/vswitch/port/diff_coverage_test.go exercises every mutation on each
+// test run.
 func mustBuildPortTable(p port.Port, companions []port.Port) port.Table {
 	b := port.NewBuilder()
 	b.Add(p)
@@ -619,22 +617,22 @@ func checkLeafRetention[C any](seed C, seedVal reflect.Value, l coverageLeaf, ke
 	origCopy.Set(origLeafVal)
 
 	if err := mutateLeaf(leafVal); err != nil {
-		return fmt.Errorf("perturbing %s: %w", l.displayPath, err)
+		return errs.Wrapf(err, "perturbing %s", l.displayPath)
 	}
 	commit()
 
 	if reflect.DeepEqual(origCopy.Interface(), leafVal.Interface()) {
-		return fmt.Errorf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
+		return errs.Msgf("perturbing %s produced the same value (%v); the mutation strategy for %s needs a different value here",
 			l.displayPath, leafVal.Interface(), leafVal.Type())
 	}
 
 	perturbed, ok := perturbedRoot.Interface().(C)
 	if !ok {
-		return fmt.Errorf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
+		return errs.Msgf("perturbed copy is %T, want %T", perturbedRoot.Interface(), seed)
 	}
 
 	if keyFn(seed) == keyFn(perturbed) {
-		return fmt.Errorf("retention key reported no change after perturbing %s", l.displayPath)
+		return errs.Msgf("retention key reported no change after perturbing %s", l.displayPath)
 	}
 	return nil
 }

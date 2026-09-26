@@ -226,8 +226,8 @@ func NewScalarIndicator(scalarOID OID, kind Kind, tableRoots []OID) (ChangeIndic
 // MustChangeIndicator is the panicking companion to [NewPerRowIndicator]
 // and [NewScalarIndicator], intended for codegen output where the
 // arguments are statically known to be valid. A validation failure
-// panics with the underlying error — matching the [MustOID] and
-// [regexp.MustCompile] pattern (learnings doc).
+// panics with the underlying error; this matches the [MustOID] and
+// [regexp.MustCompile] contract.
 //
 // Usage: pass the result of NewPerRowIndicator or NewScalarIndicator
 // directly:
@@ -331,6 +331,8 @@ type WatchEvent[Row any] struct {
 // The *Set fields make explicit-zero distinguishable from
 // no-override — the same shape used by [CallConfig]'s TimeoutSet and
 // RetriesSet.
+// A WatchConfig may be read concurrently after option application; it
+// must not be modified while a Watcher is using it.
 type WatchConfig struct {
 	// CadenceMin is the lower bound of the State-tier adaptive
 	// cadence. The Watcher's State-tier interval starts at this value

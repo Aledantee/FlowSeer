@@ -68,10 +68,10 @@ type Receiver struct {
 	closed      atomic.Bool
 	stopOnce    sync.Once
 	wg          sync.WaitGroup
-	mu          sync.Mutex
+	mu          sync.Mutex // guards connections and terminal
 	connections []net.Conn
 	terminal    error
-	nextMu      sync.Mutex
+	nextMu      sync.Mutex // guards pending
 	pending     *receivedFrame
 }
 

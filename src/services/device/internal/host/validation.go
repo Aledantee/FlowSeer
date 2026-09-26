@@ -65,11 +65,9 @@ func (v validatingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 // record before it reaches a store or a path. A field nobody reads is a field
 // no constraint on it could protect.
 //
-// So this is a choice rather than a limitation — an interceptor can wrap
-// StreamingHandlerConn.Receive and validate the message as it is read — and
-// it is recorded as one. The previous comment said the handlers validate what
-// they receive, which is not what they do, and would have let a handler that
-// started trusting an unchecked field look covered.
+// So this is a choice rather than a limitation: an interceptor can wrap
+// StreamingHandlerConn.Receive and validate the message as it is read. A
+// handler that starts trusting another field must validate that field itself.
 func (v validatingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return next
 }
@@ -127,13 +125,12 @@ func violationSummary(err error) string {
 //
 // Two things it deliberately does not do. It does not call the message's own
 // String(), which is the prototext form of the whole FieldPath
-// (`elements:{field_name:"description"}`) rather than a field name, and was
-// what this produced before. And it does not use protovalidate's own
+// (`elements:{field_name:"description"}`) rather than a field name. And it does
+// not use protovalidate's own
 // FieldPathString, which appends subscripts: an index is harmless, but a map
 // key is a caller-supplied value, and this string goes into the message
 // returned to that caller under a promise that it carries no field values.
-// No validated request message has a map today, which is the only reason
-// that was latent rather than live.
+// Reading field names alone keeps that promise for maps as well.
 func fieldPath(path *validate.FieldPath) string {
 	elements := path.GetElements()
 	names := make([]string, 0, len(elements))

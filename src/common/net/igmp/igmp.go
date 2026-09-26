@@ -3,7 +3,6 @@ package igmp
 
 import (
 	"encoding/binary"
-	"errors"
 	"math"
 	"net/netip"
 	"time"
@@ -81,9 +80,9 @@ type Message struct {
 
 var (
 	// ErrMalformed identifies invalid fields, lengths, and checksums.
-	ErrMalformed = errors.New("malformed IGMP message")
+	ErrMalformed = errs.Msg("malformed IGMP message")
 	// ErrUnsupported identifies well-formed wire formats the package does not support.
-	ErrUnsupported = errors.New("unsupported IGMP message")
+	ErrUnsupported = errs.Msg("unsupported IGMP message")
 )
 
 // Encode serializes m and writes its RFC 1071 checksum. It returns

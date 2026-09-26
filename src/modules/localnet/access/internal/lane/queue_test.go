@@ -27,7 +27,7 @@ func TestQueueOrdersByPriorityAcrossMixedSubmissions(t *testing.T) {
 			t.Fatalf("expected an item, queue empty early")
 		}
 		if got := item.Payload.(string); got != want {
-			t.Fatalf("expected %q next, got %q", want, got)
+			t.Fatalf("got %q next, want %q", got, want)
 		}
 	}
 }
@@ -47,7 +47,7 @@ func TestQueueIsFIFOAmongEqualPriority(t *testing.T) {
 			t.Fatal("expected an item, queue empty early")
 		}
 		if got := item.Payload.(string); got != want {
-			t.Fatalf("expected %q next, got %q", want, got)
+			t.Fatalf("got %q next, want %q", got, want)
 		}
 	}
 }
@@ -64,20 +64,20 @@ func TestQueueOverloadPreservesExistingEntries(t *testing.T) {
 
 	_, err := q.Submit(lane.PriorityNormal, "c")
 	if code, _ := errs.CodeOf(err); code != lane.ErrCodeOverload {
-		t.Fatalf("expected ErrCodeOverload, got %v", err)
+		t.Fatalf("got error %v, want ErrCodeOverload", err)
 	}
 
 	if got := q.Len(); got != 2 {
-		t.Fatalf("expected 2 items to remain admitted, got %d", got)
+		t.Fatalf("got %d admitted items, want 2", got)
 	}
 
 	first, ok := q.Next()
 	if !ok || first.Payload.(string) != "a" {
-		t.Fatalf("expected a first, got %v ok=%v", first, ok)
+		t.Fatalf("got first item %v (ok=%v), want a", first, ok)
 	}
 	second, ok := q.Next()
 	if !ok || second.Payload.(string) != "b" {
-		t.Fatalf("expected b second, got %v ok=%v", second, ok)
+		t.Fatalf("got second item %v (ok=%v), want b", second, ok)
 	}
 }
 
@@ -99,7 +99,7 @@ func TestQueuePositionIsMonotonicAndNeverReassigned(t *testing.T) {
 
 	dequeued, _ := q.Next()
 	if dequeued.Position != high.Position {
-		t.Fatalf("expected high's position to be unchanged by dequeue ordering, got %d want %d", dequeued.Position, high.Position)
+		t.Fatalf("got high position %d after dequeue ordering, want unchanged position %d", dequeued.Position, high.Position)
 	}
 }
 

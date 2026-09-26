@@ -133,10 +133,10 @@ static long ns_bulkwalk(void *sessp, oid *root, size_t rootLen, int maxrep) {
 import "C"
 
 import (
-	"fmt"
 	"sync"
 	"unsafe"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -144,7 +144,7 @@ import (
 // state during setup, so opens are also serialized (see nsOpen).
 var (
 	nsInitOnce sync.Once
-	nsOpenMu   sync.Mutex
+	nsOpenMu   sync.Mutex // guards Net-SNMP session opens
 )
 
 // walkBulkMaxRep is the GETBULK max-repetitions the Net-SNMP arm uses, kept
@@ -169,7 +169,7 @@ func nsOpen(addr, community string) (nsSession, error) {
 	p := C.ns_open(cPeer, cComm, C.long(2_000_000), C.int(3))
 	nsOpenMu.Unlock()
 	if p == nil {
-		return nsSession{}, fmt.Errorf("net-snmp: snmp_sess_open(%s) failed", addr)
+		return nsSession{}, errs.Msgf("net-snmp: snmp_sess_open(%s) failed", addr)
 	}
 	return nsSession{p: p}, nil
 }
@@ -189,7 +189,7 @@ func (s nsSession) bulkWalk(root []uint32, maxRep int) (int, error) {
 	}
 	n := C.ns_bulkwalk(s.p, first, C.size_t(len(coid)), C.int(maxRep))
 	if n < 0 {
-		return 0, fmt.Errorf("net-snmp bulkwalk failed")
+		return 0, errs.Msg("net-snmp bulkwalk failed")
 	}
 	return int(n), nil
 }

@@ -254,7 +254,7 @@ func TestClassPowerMW(t *testing.T) {
 func TestValidate(t *testing.T) {
 	tbl := mustTable(t,
 		port.Port{Name: "1/1/1", Kind: port.Physical},
-		port.Port{Name: "lag1", Kind: port.Lag},
+		port.Port{Name: "lag1", Kind: port.LAG},
 	)
 	validPoE := &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
@@ -441,7 +441,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		c0 := diffs[0]
-		if c0.Layer != port.LayerPoe || c0.Subject.Kind != "pse_group" || c0.Subject.Key != "1" {
+		if c0.Layer != port.LayerPoE || c0.Subject.Kind != "pse_group" || c0.Subject.Key != "1" {
 			t.Errorf("diffs[0] = %+v, want poe pse_group:1", c0)
 		}
 		if c0.Field != "power_milliwatts" || c0.From != phy.PowerFact(60_000) || c0.To != phy.PowerFact(90_000) {
@@ -449,7 +449,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		c1 := diffs[1]
-		if c1.Layer != port.LayerPoe || c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/1" {
+		if c1.Layer != port.LayerPoE || c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/1" {
 			t.Errorf("diffs[1] = %+v, want poe port:1/1/1", c1)
 		}
 		if c1.Field != "enabled" || c1.From != phy.BoolFact(true) || c1.To != phy.BoolFact(false) {
@@ -478,7 +478,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		c1 := diffs[1]
-		if c1.Layer != port.LayerPoe || c1.Subject.Kind != "pse_group" || c1.Field != "" || c1.To != nil {
+		if c1.Layer != port.LayerPoE || c1.Subject.Kind != "pse_group" || c1.Field != "" || c1.To != nil {
 			t.Errorf("diffs[1] = %+v, want removed pse group with empty field and nil To", c1)
 		}
 
@@ -602,10 +602,10 @@ func TestDiff(t *testing.T) {
 			if d.Layer == port.LayerEthernet {
 				ethFields[d.Field] = true
 			}
-			if d.Layer == port.LayerPoe && d.Subject.Kind == "port" {
+			if d.Layer == port.LayerPoE && d.Subject.Kind == "port" {
 				poePortFields[d.Field] = true
 			}
-			if d.Layer == port.LayerPoe && d.Subject.Kind == "pse_group" {
+			if d.Layer == port.LayerPoE && d.Subject.Kind == "pse_group" {
 				poeGroupFields[d.Field] = true
 			}
 		}

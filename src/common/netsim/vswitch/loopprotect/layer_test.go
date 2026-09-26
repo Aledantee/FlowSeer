@@ -592,7 +592,7 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 	fx2 := l.Wake(t0.Add(10 * time.Second))
 
 	if len(fx1.Emissions) != 1 || len(fx2.Emissions) != 1 {
-		t.Fatalf("expected one emission per wake, got %d and %d", len(fx1.Emissions), len(fx2.Emissions))
+		t.Fatalf("got %d and %d emissions per wake, want 1 each", len(fx1.Emissions), len(fx2.Emissions))
 	}
 
 	p1, err := loopprotect.Decode(loopprotect.Encode(fx1.Emissions[0].Probe, switchMAC))

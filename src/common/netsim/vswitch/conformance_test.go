@@ -259,7 +259,7 @@ func TestPlanningConformance(t *testing.T) {
 		t.Fatal("res.Comparison is nil")
 	}
 	if res.Comparison.Disposition != analysis.Different {
-		t.Errorf("expected forwarding comparison to detect divergence, got Disposition=%v", res.Comparison.Disposition)
+		t.Errorf("got forwarding comparison disposition %v, want divergence detected", res.Comparison.Disposition)
 	}
 	if res.Comparison.Current.Outcome != trace.Forwarded {
 		t.Errorf("Current outcome = %v, want %v", res.Comparison.Current.Outcome, trace.Forwarded)

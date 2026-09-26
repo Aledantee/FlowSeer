@@ -19,11 +19,12 @@ package ip6
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -60,10 +61,10 @@ func RunDHCPStarve(ctx context.Context, deps runner.Deps) error {
 	for i := 1; i <= frameCount; i++ {
 		pkt, err := craftDHCPDiscover(src, i)
 		if err != nil {
-			return fmt.Errorf("dhcpstarve: craft frame %d: %w", i, err)
+			return errs.Wrapf(err, "dhcpstarve: craft frame %d", i)
 		}
 		if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-			return fmt.Errorf("dhcpstarve: send frame %d: %w", i, err)
+			return errs.Wrapf(err, "dhcpstarve: send frame %d", i)
 		}
 	}
 

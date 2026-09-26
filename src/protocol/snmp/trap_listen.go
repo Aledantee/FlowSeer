@@ -368,7 +368,7 @@ func (m netMatcher) allow(ip net.IP) bool {
 // tokenBucket is a coarse one-second-window rate limiter. A nil receiver
 // (no limit configured) admits every call.
 type tokenBucket struct {
-	mu          sync.Mutex
+	mu          sync.Mutex // guards count and windowStart
 	perSecond   int
 	count       int
 	windowStart time.Time

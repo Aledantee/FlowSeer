@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,7 +32,7 @@ const (
 
 var (
 	errCodeDelivery      = errs.NewCode("service/delivery")
-	errSettlementChanged = errors.New("durable settlement changed concurrently")
+	errSettlementChanged = errs.Msg("durable settlement changed concurrently")
 )
 
 type deliveryHandler struct {
@@ -406,19 +405,19 @@ func (r *messageRuntime) decodeDelivery(module plannedModule, handlers map[messa
 		return envelope, nil, deliveryHandler{}, err
 	}
 	if envelope.GetTargetPath() != module.path {
-		return envelope, nil, deliveryHandler{}, fmt.Errorf("target path does not match mailbox")
+		return envelope, nil, deliveryHandler{}, errs.Msg("target path does not match mailbox")
 	}
 	wantSubject, err := mailboxSubject(envelope.GetTargetPath(), envelope.GetKind(), envelope.GetTypeName())
 	if err != nil || brokerMessage.Subject() != wantSubject {
-		return envelope, nil, deliveryHandler{}, fmt.Errorf("persisted subject does not match envelope")
+		return envelope, nil, deliveryHandler{}, errs.Msg("persisted subject does not match envelope")
 	}
 	payload, canonical, ok := r.registry.resolver.resolve(protoreflect.FullName(envelope.GetTypeName()))
 	if !ok {
-		return envelope, nil, deliveryHandler{}, fmt.Errorf("persisted protobuf type is not registered")
+		return envelope, nil, deliveryHandler{}, errs.Msg("persisted protobuf type is not registered")
 	}
 	handler, ok := handlers[messageKey{kind: envelope.GetKind(), fullName: canonical}]
 	if !ok {
-		return envelope, nil, deliveryHandler{}, fmt.Errorf("persisted message has no attempt handler")
+		return envelope, nil, deliveryHandler{}, errs.Msg("persisted message has no attempt handler")
 	}
 	if err := proto.Unmarshal(envelope.GetPayload(), payload); err != nil {
 		return envelope, nil, deliveryHandler{}, err
@@ -428,26 +427,26 @@ func (r *messageRuntime) decodeDelivery(module plannedModule, handlers map[messa
 
 func validatePersistedEnvelope(message *runtimev1.Message) error {
 	if message == nil || !message.HasKind() || messageKindToken(message.GetKind()) == "unknown" {
-		return fmt.Errorf("message kind is missing or unsupported")
+		return errs.Msg("message kind is missing or unsupported")
 	}
 	if !message.HasMessageId() || !validUUID(message.GetMessageId()) {
-		return fmt.Errorf("message identifier is missing or malformed")
+		return errs.Msg("message identifier is missing or malformed")
 	}
 	if message.HasCorrelationId() && !validUUID(message.GetCorrelationId()) {
-		return fmt.Errorf("correlation identifier is malformed")
+		return errs.Msg("correlation identifier is malformed")
 	}
 	if message.HasCausationId() && !validUUID(message.GetCausationId()) {
-		return fmt.Errorf("causation identifier is malformed")
+		return errs.Msg("causation identifier is malformed")
 	}
 	if !message.HasSourcePath() || !validModulePath(message.GetSourcePath()) || !message.HasTargetPath() || !validModulePath(message.GetTargetPath()) {
-		return fmt.Errorf("message source or target is missing")
+		return errs.Msg("message source or target is missing")
 	}
 	name := protoreflect.FullName(message.GetTypeName())
 	if !message.HasTypeName() || !name.IsValid() || !strings.Contains(message.GetTypeName(), ".") || len(name) > maxMessageNameLength || !message.HasPayload() {
-		return fmt.Errorf("message payload identity is missing or malformed")
+		return errs.Msg("message payload identity is missing or malformed")
 	}
 	if !message.HasPublishedAt() || !message.GetPublishedAt().IsValid() {
-		return fmt.Errorf("message publish time is missing or malformed")
+		return errs.Msg("message publish time is missing or malformed")
 	}
 	return nil
 }
@@ -520,7 +519,7 @@ func callHandler(ctx context.Context, handler HandlerFunc, payload proto.Message
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			panicked = true
-			err = fmt.Errorf("message handler panic: %v", recovered)
+			err = errs.Msgf("message handler panic: %v", recovered)
 		}
 	}()
 	return false, handler(ctx, payload)
@@ -593,14 +592,14 @@ func (r *messageRuntime) loadSettlement(ctx context.Context, subject string) (*r
 	}
 	if !validModulePath(settlement.GetTargetPath()) || !validUUID(settlement.GetMessageId()) ||
 		!validUUID(settlement.GetDispositionId()) || settlement.GetRetryCount() > maxSubscriptionRetries {
-		return nil, 0, fmt.Errorf("durable settlement identity is malformed")
+		return nil, 0, errs.Msg("durable settlement identity is malformed")
 	}
 	switch settlement.GetState() {
 	case runtimev1.SettlementState_SETTLEMENT_STATE_RETRY,
 		runtimev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE,
 		runtimev1.SettlementState_SETTLEMENT_STATE_DISCARD:
 	default:
-		return nil, 0, fmt.Errorf("durable settlement state is unsupported")
+		return nil, 0, errs.Msg("durable settlement state is unsupported")
 	}
 	return settlement, message.Sequence, nil
 }

@@ -21,7 +21,7 @@ import (
 // recorder is the shared record collector embedded by orchestrators. It
 // pairs a mutex-guarded slice with a 64-buffered live channel.
 type recorder struct {
-	mu     sync.Mutex
+	mu     sync.Mutex // guards recs
 	recs   []findings.Record
 	recsCh chan findings.Record // live stream: emits records as appended (closed on Run completion)
 }

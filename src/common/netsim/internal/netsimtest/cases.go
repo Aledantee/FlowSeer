@@ -1,10 +1,11 @@
 package netsimtest
 
 import (
-	"fmt"
 	"net/netip"
 	"slices"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
@@ -277,7 +278,6 @@ func CasePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 
-			// Advance clock slightly before fork.
 			fab.Run(5)
 
 			// Fork a candidate simulation mid-run.
@@ -1528,7 +1528,7 @@ func CasePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 		Execute: func() (ExecutionResult, error) {
 			ports, err := port.NewBuilder().
 				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Build()
@@ -1646,7 +1646,7 @@ func CaseTroubleshootingActiveBackupNoFailback() Case {
 		Execute: func() (ExecutionResult, error) {
 			ports, err := port.NewBuilder().
 				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Add(port.Port{Name: "b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
 				Build()
@@ -2301,16 +2301,16 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 
 			emissions := sw.Drain()
 			if len(emissions) != 1 {
-				return ExecutionResult{}, fmt.Errorf("released emissions = %d, want 1", len(emissions))
+				return ExecutionResult{}, errs.Msgf("released emissions = %d, want 1", len(emissions))
 			}
 			if emissions[0].Frame.Dst != learnedMAC {
-				return ExecutionResult{}, fmt.Errorf("released frame dst = %v, want %v", emissions[0].Frame.Dst, learnedMAC)
+				return ExecutionResult{}, errs.Msgf("released frame dst = %v, want %v", emissions[0].Frame.Dst, learnedMAC)
 			}
 			if emissions[0].Port != "out" || emissions[0].Protocol {
-				return ExecutionResult{}, fmt.Errorf("released emission = {Port: %v, Protocol: %v}, want {Port: out, Protocol: false}", emissions[0].Port, emissions[0].Protocol)
+				return ExecutionResult{}, errs.Msgf("released emission = {Port: %v, Protocol: %v}, want {Port: out, Protocol: false}", emissions[0].Port, emissions[0].Protocol)
 			}
 			if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
-				return ExecutionResult{}, fmt.Errorf("neighbor failures = %d, want 0: %+v", len(failures), failures)
+				return ExecutionResult{}, errs.Msgf("neighbor failures = %d, want 0: %+v", len(failures), failures)
 			}
 
 			return ExecutionResult{

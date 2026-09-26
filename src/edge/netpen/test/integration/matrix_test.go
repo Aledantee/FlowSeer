@@ -46,7 +46,7 @@ func TestSupersetAttacksInMatrix(t *testing.T) {
 		t.Fatalf("read %s: %v", matrixPath, err)
 	}
 	matrix := string(data)
-	_, section, ok := strings.Cut(matrix, "\n## AE6 superset attacks (R4)\n")
+	_, section, ok := strings.Cut(matrix, "\n## AE6 superset attacks\n")
 	if !ok {
 		t.Fatal("AE6 section missing from VALIDATION_MATRIX.md")
 	}

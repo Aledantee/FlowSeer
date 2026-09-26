@@ -77,8 +77,8 @@ func withRecordingLogger(t *testing.T) *recordSink {
 // goroutine in KVWatcher.Watch: it forces watcher.Updates() into a real
 // panic and checks that the process survives, that the recovered panic
 // reaches the observability floor (the only reporting this site has — Watch
-// hands its caller no failure sink), and that stop still returns without
-// blocking, since a caller has nothing else to release the goroutine with.
+// hands its caller no failure sink), and that two stop calls reach the next
+// statement without blocking or panicking.
 func TestAWatchPanicIsLoggedAndStopStillWorks(t *testing.T) {
 	sink := withRecordingLogger(t)
 	w := NewKVWatcher(fakeKV{watcher: panicKeyWatcher{}})
@@ -108,6 +108,7 @@ func TestAWatchPanicIsLoggedAndStopStillWorks(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
+		stop()
 		stop()
 		close(done)
 	}()

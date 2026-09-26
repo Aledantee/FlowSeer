@@ -154,18 +154,13 @@ type Config struct {
 	// agent host always does.
 	Telemetry *telemetry.View
 	Clock     func() time.Time
-	// OperationTimeout is a FLOOR on a coalesced read's device call — the
-	// actual work its joiners depend on, detached from any single
-	// caller's own context so one caller's cancellation cannot fail every
-	// other item queued behind it. It does not bound a mutation's
-	// Execute/Observe, which runs under the submitting caller's own
-	// context. Without its own floor the detached read would run forever
-	// against a device that accepts a connection but never answers,
-	// parking the device's drain goroutine and the coalescing ticket
-	// permanently — but it is a floor, not a ceiling: a caller whose own
-	// deadline is longer than OperationTimeout keeps that longer
-	// deadline, since a joiner may depend on it, rather than being cut
-	// down to this default. Zero is silently raised to a default of 30s.
+	// OperationTimeout is the minimum time allowed for a coalesced read's
+	// device call. The work is detached from any one caller's context so one
+	// cancellation cannot fail every queued joiner. Mutations keep the
+	// submitting caller's context, and a caller deadline longer than
+	// OperationTimeout remains in force. This bound prevents an unresponsive
+	// device from parking the drain goroutine and coalescing ticket forever.
+	// Zero uses 30s.
 	OperationTimeout time.Duration
 }
 
@@ -262,13 +257,13 @@ type deviceState struct {
 	key      string
 	session  DeviceSession
 	queue    *lane.Queue
-	draining sync.Mutex
+	draining sync.Mutex // serializes work for this device
 
-	waitMu       sync.Mutex
+	waitMu       sync.Mutex // guards waitingSeq and checkpointCh
 	waitingSeq   uint64
 	checkpointCh chan *dispatchv1.CheckpointRequest
 
-	stateMu     sync.Mutex
+	stateMu     sync.Mutex // guards fingerprint, current, and current's poll fields
 	fingerprint string
 	hold        recovery.Hold
 	// current is the mutation central's acknowledgements address: set when
@@ -341,7 +336,7 @@ type Lane struct {
 	freeze    *freeze.Gate
 	coalescer lane.Coalescer
 
-	mu      sync.Mutex
+	mu      sync.Mutex // guards devices and closed
 	devices map[string]*deviceState
 	closed  bool
 
@@ -368,17 +363,10 @@ type Lane struct {
 // already run.
 var ErrCodeClosed = errs.NewCode("access/lane-closed")
 
-// ShutdownReport summarizes a [Lane.Close] call. It is currently empty:
-// Close does not stop everything a full shutdown would. It does stop
-// new admission and cancel every device's recovery poll, and each already-admitted Submit call independently
-// returns on its own passed-in context regardless of how long the
-// background drainer spends on other items (drain runs on its own
-// goroutine; see [Lane.drain]'s doc comment). What it does not do: wait for
-// in-flight operations up to a configured deadline, or report an operation
-// whose audit delivery did not complete as undelivered rather than simply
-// never returning to its own caller. A host that needs those guarantees
-// must build them from Submit's per-call context today; ShutdownReport is
-// reserved for that accounting once it exists.
+// ShutdownReport is the empty result of [Lane.Close]. Close stops new admission
+// and cancels every device's recovery poll. Already-admitted Submit calls remain
+// bounded by their own contexts; Close does not wait for in-flight operations or
+// report incomplete audit delivery.
 type ShutdownReport struct{}
 
 // Close stops the Lane from admitting new work and cancels every device's
@@ -1125,8 +1113,7 @@ func (l *Lane) drainOnce(ds *deviceState) bool {
 
 // HandleCheckpoint delivers central's CheckpointRequest to the device's
 // currently in-flight mutation, if one is waiting for exactly this
-// sequence. A future host's message loop calls this from the execution
-// envelope's CheckpointRequest, per the checkpoint barrier.
+// sequence.
 func (l *Lane) HandleCheckpoint(deviceKey string, req *dispatchv1.CheckpointRequest) error {
 	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
@@ -1246,7 +1233,7 @@ func (ds *deviceState) clearCurrent(open *openMutation) {
 // acknowledgement turned the mutation terminal rather than because the step
 // completed. It is never returned to a caller: process reads the machine
 // and reports the terminal phase instead.
-var errMutationEnded = errors.New("mutation ended before this step completed")
+var errMutationEnded = errs.Msg("mutation ended before this step completed")
 
 // armCheckpoint registers the wait for seq's CheckpointRequest and returns
 // it without blocking. Publishing the channel is a separate step from

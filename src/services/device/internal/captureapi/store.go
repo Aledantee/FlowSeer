@@ -1,5 +1,3 @@
-// Package captureapi provides central persistence and RPC handlers for
-// packet capture sessions and pcapng artifacts.
 package captureapi
 
 import (
@@ -57,36 +55,32 @@ type activeWriter struct {
 }
 
 // Store manages capture session records in JetStream KeyValue storage and
-// writes pcapng artifacts to disk under capturesDir. Safe for concurrent use.
+// writes pcapng artifacts to disk under capturesDir. A Store is safe for
+// concurrent use.
 type Store struct {
 	kv          jetstream.KeyValue
 	capturesDir string
 	clock       func() time.Time
 
-	mu      sync.Mutex
+	mu      sync.Mutex // guards writers and deleted
 	writers map[string]*activeWriter
 	deleted map[string]time.Time
 }
 
-// NewStore initializes a Store over the captures JetStream bucket and
-// ensures capturesDir exists on disk.
-func NewStore(kv jetstream.KeyValue, capturesDir string) (*Store, error) {
+// NewStore initializes a Store over the captures JetStream bucket and ensures
+// capturesDir exists on disk. The clock must be non-nil and safe for concurrent
+// use.
+func NewStore(kv jetstream.KeyValue, capturesDir string, clock func() time.Time) (*Store, error) {
 	if err := os.MkdirAll(capturesDir, 0o700); err != nil {
 		return nil, errs.From(err).Code(ErrCodeStore).Attr("dir", capturesDir).Msg("create captures directory")
 	}
 	return &Store{
 		kv:          kv,
 		capturesDir: capturesDir,
-		clock:       time.Now,
+		clock:       clock,
 		writers:     make(map[string]*activeWriter),
 		deleted:     make(map[string]time.Time),
 	}, nil
-}
-
-// SetClock replaces the clock the retention sweep reads. Tests use it to
-// place an artifact's expiry on either side of now without sleeping.
-func (s *Store) SetClock(clock func() time.Time) {
-	s.clock = clock
 }
 
 // artifactPath maps a session identifier onto its pcapng file. The identifier
@@ -138,9 +132,9 @@ func (s *Store) CreateSession(ctx context.Context, config *modelcapturev1.Captur
 	return rec, nil
 }
 
-// GetSession returns one capture session record and its revision, or (nil, 0, nil)
-// if the session does not exist.
-func (s *Store) GetSession(ctx context.Context, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
+// Session returns one capture session record and its revision, or (nil, 0,
+// nil) if the session does not exist.
+func (s *Store) Session(ctx context.Context, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
 	entry, err := s.kv.Get(ctx, sessionID)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, 0, nil
@@ -169,7 +163,7 @@ func (s *Store) ListSessions(ctx context.Context) ([]*modelcapturev1.CaptureSess
 	sort.Strings(keys)
 	out := make([]*modelcapturev1.CaptureSessionRecord, 0, len(keys))
 	for _, key := range keys {
-		rec, _, err := s.GetSession(ctx, key)
+		rec, _, err := s.Session(ctx, key)
 		if err != nil {
 			return nil, err
 		}
@@ -180,10 +174,12 @@ func (s *Store) ListSessions(ctx context.Context) ([]*modelcapturev1.CaptureSess
 	return out, nil
 }
 
-// MutateSession applies fn to the session record under compare-and-set revision checks.
+// MutateSession applies fn to the latest session record and makes at most
+// eight compare-and-set attempts. It retries a concurrent conflict and returns
+// an error with [ErrCodeConflict] when no update settles within that bound.
 func (s *Store) MutateSession(ctx context.Context, sessionID string, fn func(rec *modelcapturev1.CaptureSessionRecord) error) (*modelcapturev1.CaptureSessionRecord, error) {
 	for attempt := 0; attempt < casRetries; attempt++ {
-		rec, revision, err := s.GetSession(ctx, sessionID)
+		rec, revision, err := s.Session(ctx, sessionID)
 		if err != nil {
 			return nil, err
 		}
@@ -321,7 +317,7 @@ func (s *Store) mayWriteArtifact(ctx context.Context, sessionID string) error {
 		return nil
 	}
 
-	rec, _, err := s.GetSession(ctx, sessionID)
+	rec, _, err := s.Session(ctx, sessionID)
 	if err != nil {
 		return err
 	}
@@ -345,7 +341,9 @@ func (s *Store) pruneDeletedLocked() {
 	}
 }
 
-// AppendPackets appends a slice of PacketRecords to the session's pcapng artifact.
+// AppendPackets writes packet records to the session's single pcapng artifact.
+// The first non-empty call creates the file; an existing finalized artifact is
+// left unchanged and returns an error with [ErrCodeArtifactExists].
 func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, packets []*netcapturev1.PacketRecord) error {
 	if len(packets) == 0 {
 		return nil
@@ -405,8 +403,10 @@ func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType ne
 	return nil
 }
 
-// FinalizeArtifact closes the pcapng file, computes its SHA-256 digest, byte count,
-// and packet total, and returns the constructed CaptureArtifact.
+// FinalizeArtifact closes and syncs a session's pcapng file once, then returns
+// the digest, byte count, and packet total recorded for it. A failure after the
+// writer is claimed unlinks the partial artifact so no unrecorded payload
+// remains on disk.
 func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, counters *netcapturev1.CaptureCounters, expiresAt time.Time) (*modelcapturev1.CaptureArtifact, error) {
 	if err := s.mayWriteArtifact(ctx, sessionID); err != nil {
 		return nil, err
@@ -608,7 +608,7 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 	var failures []error
 
 	for _, key := range keys {
-		rec, _, err := s.GetSession(ctx, key)
+		rec, _, err := s.Session(ctx, key)
 		if err != nil {
 			failures = append(failures, err)
 			continue

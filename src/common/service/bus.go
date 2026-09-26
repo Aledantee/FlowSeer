@@ -197,7 +197,7 @@ func privateStateDir() (string, error) {
 	case "linux":
 		if dir := os.Getenv("XDG_STATE_HOME"); dir != "" {
 			if !filepath.IsAbs(dir) {
-				return "", fmt.Errorf("XDG_STATE_HOME is not absolute")
+				return "", errs.Msg("XDG_STATE_HOME is not absolute")
 			}
 			return dir, nil
 		}
@@ -216,7 +216,7 @@ func privateStateDir() (string, error) {
 		return "", err
 	}
 	if !filepath.IsAbs(dir) {
-		return "", fmt.Errorf("user config directory is not absolute")
+		return "", errs.Msg("user config directory is not absolute")
 	}
 	return dir, nil
 }
@@ -459,7 +459,7 @@ func (b *localBus) checkHealth() error {
 		if status == nil {
 			return busUnhealthy(nil, "local bus health check returned no status")
 		}
-		return busUnhealthy(errors.New(status.Error), "local bus health check failed")
+		return busUnhealthy(errs.Msg(status.Error), "local bus health check failed")
 	}
 	return nil
 }
@@ -605,7 +605,7 @@ func (l *busServerLogger) Debugf(string, ...any)  {}
 func (l *busServerLogger) Tracef(string, ...any)  {}
 
 func (l *busServerLogger) Fatalf(format string, values ...any) {
-	err := fmt.Errorf(format, values...)
+	err := errs.Msgf(format, values...)
 	l.mu.Lock()
 	l.last = err
 	l.mu.Unlock()

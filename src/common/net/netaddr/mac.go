@@ -108,7 +108,9 @@ func (e EUI64) HardwareAddr() net.HardwareAddr {
 	return hw
 }
 
-// ParseEUI64 parses a hexadecimal string representation of an 8-byte hardware address into an [EUI64].
+// ParseEUI64 parses a colon-, hyphen-, or dot-separated hexadecimal string into
+// an [EUI64]. It returns an error if the input cannot be parsed or does not
+// contain exactly 8 bytes.
 func ParseEUI64(s string) (EUI64, error) {
 	hw, err := net.ParseMAC(s)
 	if err != nil {

@@ -130,10 +130,9 @@ func TestCodeOfPrefersOutermost(t *testing.T) {
 	}
 }
 
-// NewCode no longer validates or deduplicates at runtime: the repo-wide scan
-// in TestDeclaredCodesAreUniqueRepoWide rejects a malformed or duplicate
-// declaration at go test time, over every declaration in the tree rather
-// than only the ones a running binary happens to link.
+// TestNewCodeDoesNotPanic verifies that NewCode returns any string unchanged.
+// TestDeclaredCodesAreUniqueRepoWide checks declaration grammar and uniqueness
+// across the repository at test time.
 func TestNewCodeDoesNotPanic(t *testing.T) {
 	tests := []struct {
 		name string

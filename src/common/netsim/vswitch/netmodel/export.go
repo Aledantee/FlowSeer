@@ -342,7 +342,7 @@ func Lacp(sw *vswitch.Switch) ([]*lacpv1.AggregatorState, []*lacpv1.PortState) {
 	ports := sw.Ports()
 	var lagPortNames []string
 	for _, p := range ports.Ports() {
-		if p.Kind == port.Lag {
+		if p.Kind == port.LAG {
 			lagPortNames = append(lagPortNames, p.Name)
 		}
 	}

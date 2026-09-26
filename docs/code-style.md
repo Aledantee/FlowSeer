@@ -211,12 +211,13 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
   message formulation, attributes, and span status.
 - **Handle every error.** Handle it or return it — never both (no log-and-return:
   the caller will log it again). `_ =` discards must be justifiable in review.
-- The project's own `src/common/errs` package is the norm: `errs.Msg` for sentinels,
-  error-first `errs.Wrap(err, "open session")` / `errs.Wrapf(err, "dial %s", target)`
-  for context, and the `errs.New()` / `errs.From(err)` builder when the error carries
-  a code or attributes. Its `doc.go` is the authoritative reference. Plain
-  `fmt.Errorf("open session: %w", err)` stays fine where nothing structured is
-  needed.
+- Non-test Go constructs errors only through `src/common/errs`. The standard
+  library constructors `errors.New` and `fmt.Errorf` live in `src/common/errs`
+  itself; `_test.go` files are outside the rule. Use `errs.Msg` or `errs.Msgf` for a
+  new error or a package-level sentinel, `errs.Wrap(err, "…")` or
+  `errs.Wrapf(err, "…")` to add context to a cause, and the `errs.New()` builder
+  (or `errs.From`) where the error carries a code, attributes, retryability, or a
+  `UserMsg`. Its `doc.go` is the authoritative reference.
 - Wrap with context when crossing a meaningful boundary. Add context the caller
   doesn't already have; never prefix with `failed to` at every level.
 - Sentinel errors and error types exist for callers to branch on — match with

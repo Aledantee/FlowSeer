@@ -152,8 +152,8 @@ commit save
 //
 // Currently skipped: coldStart is emitted at SR Linux boot, which
 // happens before this test sets up the trap listener. Catching it
-// requires moving trap-listener setup into the T2 TestMain (so the
-// listener exists before containerlab deploy) — a planned follow-up.
+// requires trap-listener setup in the T2 TestMain so the listener
+// exists before containerlab deploy.
 func TestT2_Trap_ColdStart(t *testing.T) {
 	t.Skip("coldStart fires at SR Linux boot, before tests run; requires trap-listener setup in TestMain before containerlab deploy")
 }
@@ -240,9 +240,9 @@ commit save
 //
 // The SR-Linux-sourced variant (a v3 USM trap-target stanza in the
 // containerlab template, asserted through a native listener) is the
-// remaining NOS-specific coverage. It is not authored blind here because it
-// cannot be validated without the SR Linux image; tracked as a follow-up so
-// the assertion is not a fabricated, never-run scaffold.
+// remaining NOS-specific coverage. It stays skipped because it cannot
+// be validated without the SR Linux image; the live Net-SNMP tests are
+// the current external-peer proof.
 func TestT2_Trap_V3(t *testing.T) {
-	t.Skip("native v3 trap/inform reception is verified against live Net-SNMP in package snmp (TestNetSNMP_V3*); SR Linux NOS-sourced v3 trap-target coverage is a tracked follow-up")
+	t.Skip("native v3 trap/inform reception is verified against live Net-SNMP in package snmp (TestNetSNMP_V3*); the SR Linux image is required for NOS-sourced coverage")
 }

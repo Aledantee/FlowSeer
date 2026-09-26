@@ -329,7 +329,7 @@ func TestObservableStepConvergence(t *testing.T) {
 				if e.Kind == fabric.EntryCrossing {
 					sawProtocolCrossing = true
 					if e.Serialization <= 0 {
-						t.Errorf("expected BPDU crossing serialization > 0, got %v", e.Serialization)
+						t.Errorf("got BPDU crossing serialization %v, want > 0", e.Serialization)
 					}
 					break
 				}
@@ -782,7 +782,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	lagPorts := func() port.Table {
 		return mustTable(t, port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}))
 	}

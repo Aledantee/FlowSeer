@@ -3,12 +3,12 @@ package netsimload
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"sort"
 	"sync"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/stream"
@@ -77,13 +77,13 @@ func RunWith(ctx context.Context, config Config, dependencies Dependencies) (Obs
 	deps := productionDependencies(dependencies)
 	receiver, err := deps.OpenReceiver(config.RXInterface)
 	if err != nil {
-		return Observation{}, fmt.Errorf("open receive interface %q: %w", config.RXInterface, err)
+		return Observation{}, errs.Wrapf(err, "open receive interface %q", config.RXInterface)
 	}
 
 	sender, err := deps.OpenSender(config.TXInterface)
 	if err != nil {
 		_ = receiver.Close()
-		return Observation{}, fmt.Errorf("open transmit interface %q: %w", config.TXInterface, err)
+		return Observation{}, errs.Wrapf(err, "open transmit interface %q", config.TXInterface)
 	}
 
 	return execute(ctx, config, deps.Clock, sender, receiver)
@@ -155,16 +155,16 @@ func resolveInterface(name string) (InterfaceInfo, error) {
 
 func validateConfig(config Config, resolve func(string) (InterfaceInfo, error)) error {
 	if config.TXInterface == "" || config.RXInterface == "" {
-		return errors.New("transmit and receive interfaces are required")
+		return errs.Msg("transmit and receive interfaces are required")
 	}
 	if config.TXInterface == config.RXInterface {
-		return fmt.Errorf("transmit and receive interfaces must differ: %q", config.TXInterface)
+		return errs.Msgf("transmit and receive interfaces must differ: %q", config.TXInterface)
 	}
 	if config.Drain < 0 {
-		return fmt.Errorf("drain duration must be nonnegative")
+		return errs.Msg("drain duration must be nonnegative")
 	}
 	if len(config.Flows) == 0 {
-		return errors.New("at least one flow is required")
+		return errs.Msg("at least one flow is required")
 	}
 
 	if resolve == nil {
@@ -173,24 +173,24 @@ func validateConfig(config Config, resolve func(string) (InterfaceInfo, error)) 
 	for _, interfaceName := range []string{config.TXInterface, config.RXInterface} {
 		info, err := resolve(interfaceName)
 		if err != nil {
-			return fmt.Errorf("resolve interface %q: %w", interfaceName, err)
+			return errs.Wrapf(err, "resolve interface %q", interfaceName)
 		}
 		if !info.Up {
-			return fmt.Errorf("interface %q is down", interfaceName)
+			return errs.Msgf("interface %q is down", interfaceName)
 		}
 	}
 
 	seen := make(map[fabric.FlowID]struct{}, len(config.Flows))
 	for _, flow := range config.Flows {
 		if flow.ID == 0 {
-			return errors.New("flow ID must be nonzero")
+			return errs.Msg("flow ID must be nonzero")
 		}
 		if _, exists := seen[flow.ID]; exists {
-			return fmt.Errorf("flow ID %d is duplicated", flow.ID)
+			return errs.Msgf("flow ID %d is duplicated", flow.ID)
 		}
 		seen[flow.ID] = struct{}{}
 		if flow.Source == nil {
-			return fmt.Errorf("flow %d has no source", flow.ID)
+			return errs.Msgf("flow %d has no source", flow.ID)
 		}
 	}
 
@@ -201,7 +201,7 @@ func preflightSources(flows []FlowSource) error {
 	for _, flow := range flows {
 		clone := flow.Source.Clone()
 		if clone == nil {
-			return fmt.Errorf("flow %d source clone is nil", flow.ID)
+			return errs.Msgf("flow %d source clone is nil", flow.ID)
 		}
 		for {
 			_, frame, ok := clone.Next()
@@ -209,10 +209,10 @@ func preflightSources(flows []FlowSource) error {
 				break
 			}
 			if len(frame.Payload) < SignatureSize {
-				return fmt.Errorf("flow %d yielded a payload of %d octets; need at least %d for the signature", flow.ID, len(frame.Payload), SignatureSize)
+				return errs.Msgf("flow %d yielded a payload of %d octets; need at least %d for the signature", flow.ID, len(frame.Payload), SignatureSize)
 			}
 			if _, err := frame.Encode(); err != nil {
-				return fmt.Errorf("preflight flow %d frame: %w", flow.ID, err)
+				return errs.Wrapf(err, "preflight flow %d frame", flow.ID)
 			}
 		}
 	}
@@ -253,7 +253,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 			case frame, ok := <-frames:
 				if !ok {
 					if runCtx.Err() == nil {
-						receiveErr = errors.New("capture receiver closed before the run completed")
+						receiveErr = errs.Msg("capture receiver closed before the run completed")
 						signalReceiverError(receiveErr)
 					}
 					goto done
@@ -272,7 +272,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 	done:
 		_, drops, statsErr := receiver.Stats()
 		if statsErr != nil && receiveErr == nil {
-			receiveErr = fmt.Errorf("read capture statistics: %w", statsErr)
+			receiveErr = errs.Wrap(statsErr, "read capture statistics")
 			signalReceiverError(receiveErr)
 		}
 		finishReceiver(receiverOutcome{err: receiveErr, interfaceDrops: drops})
@@ -316,7 +316,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 		}
 		wire, err := signed.Encode()
 		if err != nil {
-			runErr = fmt.Errorf("encode flow %d frame %d: %w", head.flowID, head.sequence, err)
+			runErr = errs.Wrapf(err, "encode flow %d frame %d", head.flowID, head.sequence)
 			break
 		}
 		if err := sender.Send(runCtx, wire); err != nil {
@@ -348,10 +348,10 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 		runErr = outcome.err
 	}
 	if runErr == nil && closeErr != nil {
-		runErr = fmt.Errorf("close receive interface: %w", closeErr)
+		runErr = errs.Wrap(closeErr, "close receive interface")
 	}
 	if runErr == nil && senderErr != nil {
-		runErr = fmt.Errorf("close transmit interface: %w", senderErr)
+		runErr = errs.Wrap(senderErr, "close transmit interface")
 	}
 
 	withAccumulator(&observationMu, func() {

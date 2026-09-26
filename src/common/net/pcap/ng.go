@@ -2,10 +2,11 @@ package pcap
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"math/bits"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 type ngInterface struct {
@@ -19,7 +20,7 @@ type ngInterface struct {
 func (r *Reader) readSection(length [4]byte) error {
 	var magic [4]byte
 	if _, err := io.ReadFull(r.r, magic[:]); err != nil {
-		return fmt.Errorf("pcapng: section byte order: %w", structuredEOF(err))
+		return errs.Wrap(structuredEOF(err), "pcapng: section byte order")
 	}
 	switch magic {
 	case [4]byte{0x4d, 0x3c, 0x2b, 0x1a}:
@@ -27,22 +28,22 @@ func (r *Reader) readSection(length [4]byte) error {
 	case [4]byte{0x1a, 0x2b, 0x3c, 0x4d}:
 		r.order = binary.BigEndian
 	default:
-		return fmt.Errorf("pcapng: invalid section byte-order magic % x", magic)
+		return errs.Msgf("pcapng: invalid section byte-order magic % x", magic)
 	}
 	total := r.order.Uint32(length[:])
 	if total < 28 || total%4 != 0 {
-		return fmt.Errorf("pcapng: invalid section length %d", total)
+		return errs.Msgf("pcapng: invalid section length %d", total)
 	}
 	body := &io.LimitedReader{R: r.r, N: int64(total) - 16}
 	var fixed [12]byte
 	if _, err := io.ReadFull(body, fixed[:]); err != nil {
-		return fmt.Errorf("pcapng: section fields: %w", structuredEOF(err))
+		return errs.Wrap(structuredEOF(err), "pcapng: section fields")
 	}
 	if major, minor := r.order.Uint16(fixed[:2]), r.order.Uint16(fixed[2:4]); major != 1 || (minor != 0 && minor != 2) {
-		return fmt.Errorf("pcapng: unsupported version %d.%d", major, minor)
+		return errs.Msgf("pcapng: unsupported version %d.%d", major, minor)
 	}
 	if err := readOptions(body, r.order, nil); err != nil {
-		return fmt.Errorf("pcapng: section options: %w", err)
+		return errs.Wrap(err, "pcapng: section options")
 	}
 	if err := r.readTrailer(total); err != nil {
 		return err
@@ -58,7 +59,7 @@ func (r *Reader) nextNG() (Record, error) {
 			if err == io.EOF {
 				return Record{}, io.EOF
 			}
-			return Record{}, fmt.Errorf("pcapng: block header: %w", err)
+			return Record{}, errs.Wrap(err, "pcapng: block header")
 		}
 		if header[0] == 0x0a && header[1] == 0x0d && header[2] == 0x0d && header[3] == 0x0a {
 			var length [4]byte
@@ -72,7 +73,7 @@ func (r *Reader) nextNG() (Record, error) {
 		kind := r.order.Uint32(header[:4])
 		total := r.order.Uint32(header[4:8])
 		if total < 12 || total%4 != 0 {
-			return Record{}, fmt.Errorf("pcapng: invalid block length %d", total)
+			return Record{}, errs.Msgf("pcapng: invalid block length %d", total)
 		}
 		body := &io.LimitedReader{R: r.r, N: int64(total) - 12}
 		var rec Record
@@ -83,15 +84,15 @@ func (r *Reader) nextNG() (Record, error) {
 		case 6:
 			rec, err = r.readEPB(body)
 		case 2, 3:
-			return Record{}, fmt.Errorf("pcapng: packet block type %d is unsupported", kind)
+			return Record{}, errs.Msgf("pcapng: packet block type %d is unsupported", kind)
 		default:
 			_, err = io.CopyN(io.Discard, body, body.N)
 		}
 		if err != nil {
-			return Record{}, fmt.Errorf("pcapng: block type %d: %w", kind, structuredEOF(err))
+			return Record{}, errs.Wrapf(structuredEOF(err), "pcapng: block type %d", kind)
 		}
 		if body.N != 0 {
-			return Record{}, fmt.Errorf("pcapng: block type %d has %d unparsed bytes", kind, body.N)
+			return Record{}, errs.Msgf("pcapng: block type %d has %d unparsed bytes", kind, body.N)
 		}
 		if err := r.readTrailer(total); err != nil {
 			return Record{}, err
@@ -105,10 +106,10 @@ func (r *Reader) nextNG() (Record, error) {
 func (r *Reader) readTrailer(total uint32) error {
 	var trailer [4]byte
 	if _, err := io.ReadFull(r.r, trailer[:]); err != nil {
-		return fmt.Errorf("pcapng: block trailer: %w", structuredEOF(err))
+		return errs.Wrap(structuredEOF(err), "pcapng: block trailer")
 	}
 	if got := r.order.Uint32(trailer[:]); got != total {
-		return fmt.Errorf("pcapng: block trailer length %d differs from header %d", got, total)
+		return errs.Msgf("pcapng: block trailer length %d differs from header %d", got, total)
 	}
 	return nil
 }
@@ -116,7 +117,7 @@ func (r *Reader) readTrailer(total uint32) error {
 func (r *Reader) readIDB(body *io.LimitedReader) error {
 	var fixed [8]byte
 	if _, err := io.ReadFull(body, fixed[:]); err != nil {
-		return fmt.Errorf("interface fields: %w", structuredEOF(err))
+		return errs.Wrap(structuredEOF(err), "interface fields")
 	}
 	iface := ngInterface{
 		linkType: r.order.Uint16(fixed[:2]),
@@ -127,23 +128,23 @@ func (r *Reader) readIDB(body *io.LimitedReader) error {
 		switch code {
 		case 9:
 			if len(value) != 1 {
-				return fmt.Errorf("if_tsresol length %d, want 1", len(value))
+				return errs.Msgf("if_tsresol length %d, want 1", len(value))
 			}
 			iface.tsresol = value[0]
 		case 13:
 			if len(value) != 1 {
-				return fmt.Errorf("if_fcslen length %d, want 1", len(value))
+				return errs.Msgf("if_fcslen length %d, want 1", len(value))
 			}
 			iface.hasFCS = value[0] != 0
 		case 14:
 			if len(value) != 8 {
-				return fmt.Errorf("if_tsoffset length %d, want 8", len(value))
+				return errs.Msgf("if_tsoffset length %d, want 8", len(value))
 			}
 			iface.tsoffset = int64(r.order.Uint64(value))
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("interface options: %w", err)
+		return errs.Wrap(err, "interface options")
 	}
 	r.interfaces = append(r.interfaces, iface)
 	return nil
@@ -152,11 +153,11 @@ func (r *Reader) readIDB(body *io.LimitedReader) error {
 func (r *Reader) readEPB(body *io.LimitedReader) (Record, error) {
 	var fixed [20]byte
 	if _, err := io.ReadFull(body, fixed[:]); err != nil {
-		return Record{}, fmt.Errorf("packet fields: %w", structuredEOF(err))
+		return Record{}, errs.Wrap(structuredEOF(err), "packet fields")
 	}
 	id := r.order.Uint32(fixed[:4])
 	if uint64(id) >= uint64(len(r.interfaces)) {
-		return Record{}, fmt.Errorf("invalid interface ID %d", id)
+		return Record{}, errs.Msgf("invalid interface ID %d", id)
 	}
 	iface := r.interfaces[id]
 	captured := r.order.Uint32(fixed[12:16])
@@ -169,15 +170,15 @@ func (r *Reader) readEPB(body *io.LimitedReader) (Record, error) {
 	}
 	data := make([]byte, captured)
 	if _, err := io.ReadFull(body, data); err != nil {
-		return Record{}, fmt.Errorf("packet data: %w", structuredEOF(err))
+		return Record{}, errs.Wrap(structuredEOF(err), "packet data")
 	}
 	var pad [3]byte
 	if _, err := io.ReadFull(body, pad[:padding]); err != nil {
-		return Record{}, fmt.Errorf("packet padding: %w", structuredEOF(err))
+		return Record{}, errs.Wrap(structuredEOF(err), "packet padding")
 	}
 	for _, b := range pad[:padding] {
 		if b != 0 {
-			return Record{}, fmt.Errorf("nonzero packet padding")
+			return Record{}, errs.Msg("nonzero packet padding")
 		}
 	}
 	hasFCS := iface.hasFCS
@@ -186,12 +187,12 @@ func (r *Reader) readEPB(body *io.LimitedReader) (Record, error) {
 			return nil
 		}
 		if len(value) != 4 {
-			return fmt.Errorf("epb_flags length %d, want 4", len(value))
+			return errs.Msgf("epb_flags length %d, want 4", len(value))
 		}
 		hasFCS = hasFCS || r.order.Uint32(value)&(0xf<<5) != 0
 		return nil
 	}); err != nil {
-		return Record{}, fmt.Errorf("packet options: %w", err)
+		return Record{}, errs.Wrap(err, "packet options")
 	}
 	ticks := uint64(r.order.Uint32(fixed[4:8]))<<32 | uint64(r.order.Uint32(fixed[8:12]))
 	at, err := ngTimestamp(ticks, iface.tsresol, iface.tsoffset)
@@ -210,7 +211,7 @@ func readOptions(body *io.LimitedReader, order binary.ByteOrder, onOption func(u
 		code, length := order.Uint16(header[:2]), order.Uint16(header[2:4])
 		if code == 0 {
 			if length != 0 || body.N != 0 {
-				return fmt.Errorf("invalid end-of-options marker")
+				return errs.Msg("invalid end-of-options marker")
 			}
 			return nil
 		}
@@ -228,7 +229,7 @@ func readOptions(body *io.LimitedReader, order binary.ByteOrder, onOption func(u
 		}
 		for _, b := range pad[:padding] {
 			if b != 0 {
-				return fmt.Errorf("nonzero option padding")
+				return errs.Msg("nonzero option padding")
 			}
 		}
 		if onOption != nil {
@@ -272,13 +273,13 @@ func ngTimestamp(ticks uint64, resolution byte, offset int64) (time.Time, error)
 
 	const maxSeconds = int64(^uint64(0) >> 1)
 	if seconds > uint64(maxSeconds) || offset > 0 && int64(seconds) > maxSeconds-offset {
-		return time.Time{}, fmt.Errorf("pcapng: timestamp overflows time.Time")
+		return time.Time{}, errs.Msg("pcapng: timestamp overflows time.Time")
 	}
 	unixSeconds := int64(seconds) + offset
 	// time.Time stores seconds since year 1, so its internal seconds overflow first.
 	const unixToInternalSeconds = 62_135_596_800
 	if unixSeconds > maxSeconds-unixToInternalSeconds {
-		return time.Time{}, fmt.Errorf("pcapng: timestamp overflows time.Time")
+		return time.Time{}, errs.Msg("pcapng: timestamp overflows time.Time")
 	}
 	return time.Unix(unixSeconds, int64(nanos)).UTC(), nil
 }

@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -29,6 +28,8 @@ import (
 	collectormetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	collectortracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const (
@@ -38,7 +39,7 @@ const (
 	telemetryResponseLimit    = 1 << 20
 )
 
-var errTelemetryExportRejected = errors.New("telemetry export rejected")
+var errTelemetryExportRejected = errs.Msg("telemetry export rejected")
 
 func newDirectOTLPTransport(
 	_ context.Context,
@@ -146,24 +147,24 @@ func (t *httpOTLPTransport) upload(
 ) error {
 	payload, err := proto.Marshal(message)
 	if err != nil {
-		return errors.New("telemetry encoding failed")
+		return errs.Msg("telemetry encoding failed")
 	}
 	body := payload
 	if t.compression {
 		var compressed bytes.Buffer
 		writer := gzip.NewWriter(&compressed)
 		if _, err := writer.Write(payload); err != nil {
-			return errors.New("telemetry compression failed")
+			return errs.Msg("telemetry compression failed")
 		}
 		if err := writer.Close(); err != nil {
-			return errors.New("telemetry compression failed")
+			return errs.Msg("telemetry compression failed")
 		}
 		body = compressed.Bytes()
 	}
 	return retryOTLPWithPolicy(ctx, t.timeout, t.retryPolicy, func(attemptCtx context.Context) (time.Duration, bool, error) {
 		request, requestErr := http.NewRequestWithContext(attemptCtx, http.MethodPost, endpoint, bytes.NewReader(body))
 		if requestErr != nil {
-			return 0, false, errors.New("telemetry request failed")
+			return 0, false, errs.Msg("telemetry request failed")
 		}
 		for key, value := range t.headers {
 			request.Header.Set(key, value)
@@ -174,16 +175,16 @@ func (t *httpOTLPTransport) upload(
 		}
 		response, requestErr := t.client.Do(request)
 		if requestErr != nil {
-			return 0, true, errors.New("telemetry request failed")
+			return 0, true, errs.Msg("telemetry request failed")
 		}
 		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, telemetryResponseLimit+1))
 		closeErr := response.Body.Close()
 		if readErr != nil || closeErr != nil || len(responseBody) > telemetryResponseLimit {
-			return 0, true, errors.New("telemetry response failed")
+			return 0, true, errs.Msg("telemetry response failed")
 		}
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
 			if err := proto.Unmarshal(responseBody, responseMessage); err != nil {
-				return 0, false, errors.New("telemetry response failed")
+				return 0, false, errs.Msg("telemetry response failed")
 			}
 			if rejectedCount() > 0 {
 				return 0, false, errTelemetryExportRejected
@@ -191,7 +192,7 @@ func (t *httpOTLPTransport) upload(
 			return 0, false, nil
 		}
 		retry := response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusBadGateway || response.StatusCode == http.StatusServiceUnavailable || response.StatusCode == http.StatusGatewayTimeout
-		return parseRetryAfter(response.Header.Get("Retry-After"), t.now()), retry, fmt.Errorf("telemetry response status %d", response.StatusCode)
+		return parseRetryAfter(response.Header.Get("Retry-After"), t.now()), retry, errs.Msgf("telemetry response status %d", response.StatusCode)
 	})
 }
 
@@ -232,7 +233,7 @@ func newGRPCOTLPTransport(config normalizedOTLPConnection) (otlpTransport, telem
 	}
 	connection, err := grpc.NewClient(config.endpoint.Host, options...)
 	if err != nil {
-		return nil, nil, errors.New("create telemetry connection")
+		return nil, nil, errs.Msg("create telemetry connection")
 	}
 	headers := metadata.New(nil)
 	for key, value := range config.headers {
@@ -256,7 +257,7 @@ func (t *grpcOTLPTransport) uploadLogs(ctx context.Context, request *collectorlo
 			return 0, err
 		}
 		if response == nil {
-			return 0, errors.New("telemetry response failed")
+			return 0, errs.Msg("telemetry response failed")
 		}
 		return response.GetPartialSuccess().GetRejectedLogRecords(), nil
 	})
@@ -269,7 +270,7 @@ func (t *grpcOTLPTransport) uploadMetrics(ctx context.Context, request *collecto
 			return 0, err
 		}
 		if response == nil {
-			return 0, errors.New("telemetry response failed")
+			return 0, errs.Msg("telemetry response failed")
 		}
 		return response.GetPartialSuccess().GetRejectedDataPoints(), nil
 	})
@@ -283,7 +284,7 @@ func (t *grpcOTLPTransport) uploadTraces(ctx context.Context, spans []*tracepb.R
 			return 0, err
 		}
 		if response == nil {
-			return 0, errors.New("telemetry response failed")
+			return 0, errs.Msg("telemetry response failed")
 		}
 		return response.GetPartialSuccess().GetRejectedSpans(), nil
 	})
@@ -302,7 +303,7 @@ func (t *grpcOTLPTransport) upload(ctx context.Context, export func(context.Cont
 			}
 			return 0, false, nil
 		}
-		return grpcRetryDelay(err), retryGRPCError(err), errors.New("telemetry RPC failed")
+		return grpcRetryDelay(err), retryGRPCError(err), errs.Msg("telemetry RPC failed")
 	})
 }
 
@@ -377,7 +378,7 @@ func retryOTLPWithPolicy(
 			wait = jitter(backoff)
 		}
 		if err := policy.wait(retryCtx, wait); err != nil {
-			return errors.New("telemetry retry deadline exceeded")
+			return errs.Msg("telemetry retry deadline exceeded")
 		}
 		backoff = min(backoff*2, policy.maximumWait)
 	}

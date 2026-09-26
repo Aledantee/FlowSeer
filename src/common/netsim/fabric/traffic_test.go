@@ -392,7 +392,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 			for _, p := range []port.Port{
 				{Name: "in", AdminStatus: port.Up, OperStatus: port.Up},
 				{Name: "ordinary", AdminStatus: port.Up, OperStatus: port.Up},
-				{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up},
+				{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up},
 				{Name: "member-a", LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up},
 				{Name: "member-b", LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up},
 			} {

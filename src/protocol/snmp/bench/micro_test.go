@@ -217,8 +217,9 @@ func BenchmarkBulkWalk(b *testing.B) {
 // observed to drop. Each iteration therefore re-dials up to coldRedials
 // times so a transient drop does not fail the suite; a re-dial slightly
 // inflates that one sample, so read cold-start with -count and take the
-// median. The drop itself is flagged for follow-up in
-// docs/benchmarks/2026-06-16-snmp-native-vs-gosnmp-vs-netsnmp.md.
+// median. The benchmark record at
+// docs/benchmarks/2026-06-16-snmp-native-vs-gosnmp-vs-netsnmp.md documents
+// this variance source.
 const coldRedials = 5
 
 func BenchmarkColdStart(b *testing.B) {

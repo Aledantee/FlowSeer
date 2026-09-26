@@ -33,6 +33,11 @@
 //
 //	return errs.Wrapf(err, "dial %s", target)
 //
+// [Wrap] and [Wrapf] return a plain wrapper holding the message, the cause,
+// and an origin stack when the cause carries none. It does not return [*Error]
+// and defines no As method, so [errors.As] reaches through it to the innermost
+// [*Error] in the chain, matching [fmt.Errorf] reading order and unwrap behavior.
+//
 // Anything richer goes through the builder — [New] for a fresh error,
 // [From] for one that wraps an existing error — terminating in
 // [Builder.Msg] or [Builder.Msgf]:
@@ -42,6 +47,10 @@
 //	    Attr("engine_id", id).
 //	    PubAttr("proto", "usm-aes").
 //	    Msg("privacy decryption failed")
+//
+// The builder and sentinels ([Msg], [Msgf]) produce [*Error], which carries
+// structured identity, attributes, client messages, exit codes, and retry
+// disposition.
 //
 // Readers extract with [Attributes], [SafeAttributes], [CodeOf],
 // [UserMessage], [Hint], [ExitCode], and [Retryable].
@@ -147,6 +156,10 @@
 // recorded at package init names the declaration, not the failure. A tree
 // joined from independently created origins legitimately holds one stack
 // per origin.
+//
+// Both the [*Error] produced by the builder and the plain wrapper returned
+// by [Wrap] and [Wrapf] record an origin stack under this rule. Traversal
+// functions and logging inspect both shapes.
 //
 // Capture stores program counters only; symbolization happens when the
 // error is rendered into a log record, or when [Encode] renders it for

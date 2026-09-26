@@ -15,12 +15,13 @@ package ip6
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -46,10 +47,10 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 	// Craft and send the DAD NS.
 	pkt, err := craftDADNS(src, target)
 	if err != nil {
-		return fmt.Errorf("daddos: craft NS: %w", err)
+		return errs.Wrap(err, "daddos: craft NS")
 	}
 	if err := deps.AttackLeg.Send(ctx, pkt); err != nil {
-		return fmt.Errorf("daddos: send NS: %w", err)
+		return errs.Wrap(err, "daddos: send NS")
 	}
 
 	// Observe for a defending NA from the legitimate owner. If one
@@ -64,7 +65,7 @@ func RunDADDOS(ctx context.Context, deps runner.Deps) error {
 		}
 		if ok {
 			if frame.Err != nil {
-				return fmt.Errorf("daddos: receive defense: %w", frame.Err)
+				return errs.Wrap(frame.Err, "daddos: receive defense")
 			}
 			na, err := decodeNA(frame.Data)
 			if err == nil && na.TargetAddress.Equal(target) {
@@ -133,11 +134,11 @@ func decodeNA(data []byte) (*layers.ICMPv6NeighborAdvertisement, error) {
 	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
 	naLayer := pkt.Layer(layers.LayerTypeICMPv6NeighborAdvertisement)
 	if naLayer == nil {
-		return nil, fmt.Errorf("no neighbor advertisement layer")
+		return nil, errs.Msg("no neighbor advertisement layer")
 	}
 	na, ok := naLayer.(*layers.ICMPv6NeighborAdvertisement)
 	if !ok {
-		return nil, fmt.Errorf("unexpected NA layer type")
+		return nil, errs.Msg("unexpected NA layer type")
 	}
 	return na, nil
 }

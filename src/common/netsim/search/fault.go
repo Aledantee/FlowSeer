@@ -16,7 +16,8 @@ type FaultSpec struct {
 	Fault fabric.Fault
 }
 
-// TimedFaultDomainConfig configures a finite timed cable fault exploration domain.
+// TimedFaultDomainConfig configures a finite timed cable fault exploration domain. Its
+// values are safe for concurrent reads but not for concurrent mutation.
 type TimedFaultDomainConfig struct {
 	Faults      []FaultSpec
 	Times       []time.Time

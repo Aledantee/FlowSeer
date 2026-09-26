@@ -3,7 +3,6 @@ package capture
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/capture/filter"
@@ -51,34 +51,37 @@ type Engine struct {
 	snapLength            uint32
 	reportsInterfaceDrops bool
 
-	mu      sync.Mutex
+	mu      sync.Mutex // guards started and state
 	started bool
 	state   State
 }
 
 // New validates cfg, compiles its filter once, and opens the source cfg.Source
-// names.
+// names. The returned Engine owns the source and closes it when [Engine.Run]
+// ends; the caller starts it with one Run call. New preserves
+// [rawsocket.ErrUnsupportedPlatform] and errors carrying
+// [rawsocket.ErrCodeSourceOpen] for callers that branch on source-open failures.
 func New(cfg Config) (*Engine, error) {
 	if cfg.Source == nil {
-		return nil, fmt.Errorf("capture: Source is required")
+		return nil, errs.Msg("capture: Source is required")
 	}
 	if cfg.Budget == nil {
-		return nil, fmt.Errorf("capture: Budget is required")
+		return nil, errs.Msg("capture: Budget is required")
 	}
 	if !cfg.Budget.HasMaxPackets() && !cfg.Budget.HasMaxBytes() && !cfg.Budget.HasMaxDuration() {
-		return nil, fmt.Errorf("capture: Budget must bound packets, bytes, or duration")
+		return nil, errs.Msg("capture: Budget must bound packets, bytes, or duration")
 	}
 	if sl := cfg.Budget.GetSnapLength(); sl > 65535 {
-		return nil, fmt.Errorf("capture: Budget snap_length %d exceeds 65535", sl)
+		return nil, errs.Msgf("capture: Budget snap_length %d exceeds 65535", sl)
 	}
 
 	prog, err := filter.Compile(cfg.Filter)
 	if err != nil {
-		return nil, fmt.Errorf("compile filter: %w", err)
+		return nil, errs.Wrap(err, "compile filter")
 	}
 	raw, err := filter.Assemble(prog)
 	if err != nil {
-		return nil, fmt.Errorf("assemble filter: %w", err)
+		return nil, errs.Wrap(err, "assemble filter")
 	}
 
 	var src Source
@@ -88,7 +91,7 @@ func New(cfg Config) (*Engine, error) {
 		li := cfg.Source.GetLocalInterface()
 		s, err := rawsocket.OpenLocalInterface(li.GetInterfaceName(), li.GetPromiscuous(), raw)
 		if err != nil {
-			return nil, fmt.Errorf("open local interface: %w", err)
+			return nil, errs.Wrap(err, "open local interface")
 		}
 		src = s
 		reportsInterfaceDrops = true
@@ -96,46 +99,30 @@ func New(cfg Config) (*Engine, error) {
 		mr := cfg.Source.GetMirrorReceiver()
 		s, err := rawsocket.OpenMirrorReceiver(mr.GetEncapsulations(), mr.GetUdpPort(), mr.GetBindInterface(), raw)
 		if err != nil {
-			return nil, fmt.Errorf("open mirror receiver: %w", err)
+			return nil, errs.Wrap(err, "open mirror receiver")
 		}
 		src = s
 	default:
-		return nil, fmt.Errorf("capture: Source names neither local_interface nor mirror_receiver")
+		return nil, errs.Msg("capture: Source names neither local_interface nor mirror_receiver")
 	}
 
 	return newEngine(src, cfg.Budget, reportsInterfaceDrops), nil
 }
 
 // NewWithSource builds an Engine around an already-open source, for a caller
-// that opens its own.
-//
-// It is not New with the socket step swapped out: New's work before the
-// socket — validating the budget, rejecting a snap length over 65535, and
-// compiling cfg.Filter into the cBPF program it attaches — has nowhere to
-// happen here, because the engine has no userspace filter stage and this
-// source is already open. A caller that reaches for this constructor owns
-// both: the session's filter is its to apply when it opens the source, and a
-// budget bounding nothing gives an engine that never stops on its own.
+// that opens its own. The Engine takes ownership and closes the source when Run
+// ends. The caller owns the validation and filter setup that New performs before
+// opening a source, and must provide a budget that eventually stops the capture.
 //
 // reportsInterfaceDrops distinguishes a local-interface source, whose Stats
 // reports a real kernel drop count, from a mirror receiver, whose Stats
 // always returns zero for droppedByInterface because no such counter exists
 // at that layer: per capture_counters.proto, an absent counter means the
-// stage does not report one, so a mirror-sourced run never sets
-// dropped_by_interface rather than reporting a misleading zero. A source that
-// counts nothing passes false for the same reason.
+// stage does not report one. A false value leaves dropped_by_interface unset.
 func NewWithSource(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	return newEngine(src, budget, reportsInterfaceDrops)
 }
 
-// newEngine builds an Engine around an already-open source, so a test
-// supplies a fake Source without going through New's real socket-opening
-// path. reportsInterfaceDrops distinguishes a local-interface source, whose
-// Stats reports a real kernel drop count, from a mirror receiver, whose
-// Stats always returns zero for droppedByInterface because no such counter
-// exists at that layer: per capture_counters.proto, an absent counter means
-// the stage does not report one, so a mirror-sourced run never sets
-// dropped_by_interface rather than reporting a misleading zero.
 func newEngine(src Source, budget *modelcapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	snapLength := budget.GetSnapLength()
 	if snapLength == 0 {
@@ -163,7 +150,7 @@ func (e *Engine) Run(ctx context.Context) (*pump.Pump[Batch], error) {
 	e.mu.Lock()
 	if e.started {
 		e.mu.Unlock()
-		return nil, fmt.Errorf("capture: Run called more than once")
+		return nil, errs.Msg("capture: Run called more than once")
 	}
 	e.started = true
 	e.state.Lifecycle = modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING
@@ -297,7 +284,7 @@ runLoop:
 				if p.Context().Err() != nil {
 					stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
 				} else {
-					runErr = fmt.Errorf("capture: source closed its frame channel unexpectedly")
+					runErr = errs.Msg("capture: source closed its frame channel unexpectedly")
 					stopReason = modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
 				}
 				break runLoop

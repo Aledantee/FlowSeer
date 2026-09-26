@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/attribute"
@@ -145,12 +146,12 @@ func newRunTelemetry(
 		var err error
 		res, err = factories.newResource(identity)
 		if err != nil {
-			return unwind(fmt.Errorf("create telemetry resource: %w", err))
+			return unwind(errs.Wrap(err, "create telemetry resource"))
 		}
 		var closeTransport telemetryShutdown
 		transport, closeTransport, err = factories.newTransport(ctx, config.connection)
 		if err != nil {
-			return unwind(fmt.Errorf("create telemetry transport: %w", err))
+			return unwind(errs.Wrap(err, "create telemetry transport"))
 		}
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeTransport)
 	}
@@ -161,7 +162,7 @@ func newRunTelemetry(
 	case signalManaged:
 		handler, shutdown, err := factories.newLogs(res, transport, diagnostics, config.connection)
 		if err != nil {
-			return unwind(fmt.Errorf("create telemetry logs: %w", err))
+			return unwind(errs.Wrap(err, "create telemetry logs"))
 		}
 		closeLogs = shutdown
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeLogs)
@@ -173,7 +174,7 @@ func newRunTelemetry(
 	if config.metrics.backing == signalManaged {
 		provider, shutdown, err := factories.newMetrics(res, transport, diagnostics, config.connection)
 		if err != nil {
-			return unwind(fmt.Errorf("create telemetry metrics: %w", err))
+			return unwind(errs.Wrap(err, "create telemetry metrics"))
 		}
 		meterProvider, closeMetrics = provider, shutdown
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeMetrics)
@@ -181,7 +182,7 @@ func newRunTelemetry(
 	if config.traces.backing == signalManaged {
 		provider, shutdown, err := factories.newTraces(res, transport, diagnostics, config.connection)
 		if err != nil {
-			return unwind(fmt.Errorf("create telemetry traces: %w", err))
+			return unwind(errs.Wrap(err, "create telemetry traces"))
 		}
 		tracerProvider, closeTraces = provider, shutdown
 		owner.shutdowns = prependShutdown(owner.shutdowns, closeTraces)
@@ -301,7 +302,7 @@ func newManagedTraceProvider(
 	client := &managedTraceClient{transport: transport}
 	exporter, err := otlptrace.New(context.Background(), client)
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize trace exporter: %w", err)
+		return nil, nil, errs.Wrap(err, "initialize trace exporter")
 	}
 	guarded := &managedTraceExporter{
 		SpanExporter: exporter,
@@ -399,11 +400,10 @@ func (h multiSlogHandler) WithGroup(name string) slog.Handler {
 }
 
 // telemetryDiagnostics rate-limits export warnings independently per signal.
-// mu guards state and calls to now.
 type telemetryDiagnostics struct {
 	logger *slog.Logger
 	now    func() time.Time
-	mu     sync.Mutex
+	mu     sync.Mutex // guards state and calls to now
 	state  map[string]telemetryDiagnosticState
 }
 
@@ -420,7 +420,7 @@ type telemetryDiagnosticState struct {
 // on its own schedule, with no context of the shutdown that must adopt it.
 type exportGuard struct {
 	signal      string
-	mu          sync.Mutex
+	mu          sync.Mutex // guards shutdownCtx, active, nextExport, and finalFailed
 	shutdownCtx context.Context
 	active      map[uint64]context.CancelFunc
 	nextExport  uint64
@@ -486,7 +486,7 @@ func (g *exportGuard) finalError() error {
 
 // exportFailure is the stable, signal-scoped error returned for a failed drain.
 func (g *exportGuard) exportFailure() error {
-	return fmt.Errorf("%s telemetry export failed", g.signal)
+	return errs.Msgf("%s telemetry export failed", g.signal)
 }
 
 // managedLogExporter reports and absorbs routine export failures so telemetry
@@ -548,7 +548,7 @@ func (e *managedMetricExporter) Export(ctx context.Context, data *metricdata.Res
 	}
 	if err != nil {
 		if isFinalTelemetryExport(ctx) {
-			return errors.New("metrics telemetry export failed")
+			return errs.Msg("metrics telemetry export failed")
 		}
 		e.diagnostics.report(ctx, "metrics", telemetryExportFailureCategory(err))
 	}

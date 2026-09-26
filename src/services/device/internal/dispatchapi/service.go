@@ -86,7 +86,7 @@ type Config struct {
 	// SweepInterval is how often the background sweeper lists the bucket and
 	// closes expired reads. It is separate from Resend because a full key
 	// replay every backoff step is far more work than enforcing read deadlines
-	// needs; nil uses a slower default.
+	// needs; zero uses defaultSweepInterval.
 	SweepInterval time.Duration
 	// SweepError is the error an expired read is closed with. Optional.
 	SweepError func() *errsv1.ErrorPayload
@@ -106,7 +106,9 @@ const (
 	defaultSweepInterval = 30 * time.Second
 )
 
-// Service implements the DispatchService handler and runs the relay.
+// Service implements the DispatchService handler and runs the relay. A Service
+// is safe for concurrent use when its configured dependencies are safe for
+// concurrent use.
 type Service struct {
 	cfg           Config
 	clock         func() time.Time
