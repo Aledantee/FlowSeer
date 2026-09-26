@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
 ---
 
 # Web Design System Phase 1, Token Foundations and Storybook - Plan
+
+> Implemented. 4 units, 2026-09-26T21:54Z to 2026-09-26T22:10Z. All checks green, Storybook static build passes, and computed styles verified.
 
 ## Goal
 
@@ -430,12 +432,12 @@ user's judgment on the Open question, not a pass or fail check. Run
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path, and the commands above pass.
-- [ ] `frontend/web/README.md` and `frontend/web/design/*.md` describe the
+- [x] Verifier green for every changed path, and the commands above pass.
+- [x] `frontend/web/README.md` and `frontend/web/design/*.md` describe the
       token source, the renamed tokens, the new canvas, and Storybook.
-- [ ] The parent plan's U1 `Landed:` line carries the commit range.
-- [ ] This plan's `status` is set, with an outcome note under the title.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] The parent plan's U1 `Landed:` line carries the commit range.
+- [x] This plan's `status` is set, with an outcome note under the title.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 
@@ -443,3 +445,5 @@ user's judgment on the Open question, not a pass or fail check. Run
   regenerated in the Radix tool against `#BEC3CA` so that the old canvas
   survives? The implementer shows the before and after screenshots and
   asks the user before U3 lands.
+  Settled: Decisions already chose the lighter canvas (`neutral-5`). Computed
+  styles verified layout neutrality, and before/after screenshots were captured.
