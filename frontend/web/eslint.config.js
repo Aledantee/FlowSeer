@@ -10,7 +10,7 @@ export default ts.config(
   ...vue.configs['flat/recommended'],
   prettier,
   {
-    files: ['src/**/*.{ts,vue}', 'vite.config.ts'],
+    files: ['src/**/*.{ts,vue}', 'vite.config.ts', '.storybook/**/*.ts'],
     languageOptions: {
       globals: globals.browser,
       parserOptions: {

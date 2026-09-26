@@ -108,6 +108,39 @@ rows. Controls use native semantics and visible keyboard focus. On small screens
 the tenant selector and navigation move above the content. Phone screens use
 compact device status cards instead of the desktop table.
 
+## Design system
+
+FlowSeer components and layouts consume semantic design tokens built on a 12-step OKLCH scale.
+Tokens originate from `design/palette-source.json` (captured from Radix Custom Colors with anchors
+coral `#FF451D` and cyan `#5ECAD8`, plus neutral gray scales) and compile into `src/theme/scales.css`
+and `src/theme/semantic.css` via:
+
+```sh
+node --experimental-strip-types scripts/build-palette.ts
+```
+
+Semantic tokens replace legacy custom properties (`--background`, `--foreground`, `--card`, `--primary`,
+`--accent`, etc.), with light mode using a comfortable `neutral-5` background canvas.
+
+Foundation tokens and components are documented and visually audited in Storybook:
+
+```sh
+pnpm storybook
+```
+
+This starts the Storybook dev server on `http://127.0.0.1:6006` with theme switching (`data-theme="light"`
+or `data-theme="dark"`), accessibility auditing (`@storybook/addon-a11y`), and stories covering:
+
+- **Colors**: renders every semantic token, its active theme step, and WCAG contrast audit against gated surfaces
+- **Typography**: renders the type scale steps (`2xs` through `3xl`) across Inter, Mono, and tabular figures
+- **Shape**: renders border radii, card elevation shadows, and spacing steps 1 to 8
+
+To build the static Storybook bundle:
+
+```sh
+pnpm build-storybook
+```
+
 ### Mobile direction
 
 Mobile prioritizes current status and quick actions for an on-site engineer or
@@ -173,6 +206,7 @@ pnpm test
 pnpm lint
 pnpm format:check
 pnpm build
+pnpm build-storybook
 ```
 
 Palette tests enforce 4.5:1 for normal text, 7:1 for primary text, and 3:1 for
