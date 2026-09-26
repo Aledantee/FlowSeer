@@ -94,7 +94,7 @@ func TestErrorsAsExtractsConcreteType(t *testing.T) {
 	if !errors.As(err, &target) {
 		t.Fatal("errors.As did not extract *Error through the chain")
 	}
-	if target.msg != "middle" {
-		t.Errorf("extracted msg = %q, want %q", target.msg, "middle")
+	if target.msg != "origin" {
+		t.Errorf("extracted msg = %q, want %q", target.msg, "origin")
 	}
 }
