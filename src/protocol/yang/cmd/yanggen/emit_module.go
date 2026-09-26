@@ -79,6 +79,7 @@ func emitModuleFiles(m *LoadedModule) (map[string][]byte, error) {
 	em.topContainers = topContainers
 	em.memo = memo
 
+	em.emitModuleVars()
 	em.emitIdentities()
 	em.emitShapes()
 	if err := em.emitListArtifacts(); err != nil {
@@ -140,6 +141,71 @@ func (em *moduleEmitter) assembleChunks() (map[string][]byte, error) {
 	return out, nil
 }
 
+// moduleVarName derives the unexported package-level variable name for a module.
+func moduleVarName(mod string) string {
+	return "module" + camel(mod)
+}
+
+// emitModuleVars renders package-level *yang.Module variables for each
+// module referenced by schemas, fields, or descriptor paths.
+func (em *moduleEmitter) emitModuleVars() {
+	modules := make(map[string]string)
+	if em.m.Name != "" {
+		modules[em.m.Name] = namespaceOf(em.m.Entry)
+	}
+	for _, s := range em.shapes {
+		if s.module != "" {
+			if s.namespace != "" || modules[s.module] == "" {
+				modules[s.module] = s.namespace
+			}
+		}
+		for _, c := range dataChildren(s.representative) {
+			mod := em.moduleOf(c)
+			if mod != "" {
+				if ns := namespaceOf(c); ns != "" || modules[mod] == "" {
+					modules[mod] = ns
+				}
+			}
+		}
+	}
+	for _, li := range em.listInstances {
+		for _, p := range li.path {
+			if p.module != "" {
+				if p.namespace != "" || modules[p.module] == "" {
+					modules[p.module] = p.namespace
+				}
+			}
+		}
+	}
+	for _, tc := range em.topContainers {
+		for _, p := range tc.path {
+			if p.module != "" {
+				if p.namespace != "" || modules[p.module] == "" {
+					modules[p.module] = p.namespace
+				}
+			}
+		}
+	}
+
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	for _, name := range names {
+		varName := moduleVarName(name)
+		ns := modules[name]
+		em.addCommented(
+			fmt.Sprintf("%s identifies the %s YANG module.", varName, name),
+			jen.Var().Id(varName).Op("=").Op("&").Qual(yangPkg, "Module").Values(jen.Dict{
+				jen.Id("Name"):      jen.Lit(name),
+				jen.Id("Namespace"): jen.Lit(ns),
+			}),
+		)
+	}
+}
+
 // emitIdentities renders one yang.Identity value per identity the
 // module defines.
 func (em *moduleEmitter) emitIdentities() {
@@ -195,38 +261,31 @@ func (em *moduleEmitter) emitShape(s *nodeShape) {
 	for _, c := range children {
 		goName := fieldScope.claim(camel(c.Name), c.Path())
 
-		dict := jen.Dict{
-			jen.Id("GoName"): jen.Lit(goName),
-			jen.Id("Name"):   jen.Lit(c.Name),
-		}
-		if mod := em.moduleOf(c); mod != em.moduleOf(s.representative) {
-			dict[jen.Id("Module")] = jen.Lit(mod)
-			dict[jen.Id("Namespace")] = jen.Lit(namespaceOf(c))
-		}
+		var childSchema string
+		var lt leafType
+		var ft *jen.Statement
+		isList := false
+		isLeafList := false
 
 		switch {
 		case isDataDir(c):
 			childKey := em.memo[c]
 			childStruct := em.structName(childKey)
-			childSchema := em.schemaVar(childKey)
-			dict[jen.Id("Child")] = jen.Id(childSchema)
-			var ft *jen.Statement
+			childSchema = em.schemaVar(childKey)
 			if c.IsList() {
-				dict[jen.Id("List")] = jen.True()
+				isList = true
 				ft = jen.Index().Id(childStruct)
 			} else {
 				ft = jen.Op("*").Id(childStruct)
 			}
 			structFields = append(structFields, jen.Id(goName).Add(ft))
 		case c.IsLeafList():
-			lt := mapLeafType(c)
-			dict[jen.Id("LeafList")] = jen.True()
-			dict[jen.Id("Type")] = lt.typeExpr()
+			isLeafList = true
+			lt = mapLeafType(c)
 			structFields = append(structFields, jen.Id(goName).Index().Add(lt.goType()))
 		case c.IsLeaf():
-			lt := mapLeafType(c)
-			dict[jen.Id("Type")] = lt.typeExpr()
-			ft := lt.goType()
+			lt = mapLeafType(c)
+			ft = lt.goType()
 			if lt.pointer {
 				ft = jen.Op("*").Add(ft)
 			}
@@ -234,16 +293,41 @@ func (em *moduleEmitter) emitShape(s *nodeShape) {
 		default:
 			continue
 		}
-		schemaFields = append(schemaFields, jen.Values(dict))
+
+		var fieldParts []jen.Code
+		if childSchema != "" {
+			fieldParts = append(fieldParts, jen.Id("Child").Op(":").Id(childSchema))
+		}
+		fieldParts = append(fieldParts, jen.Id("GoName").Op(":").Lit(goName))
+		if isLeafList {
+			fieldParts = append(fieldParts, jen.Id("LeafList").Op(":").True())
+		}
+		if isList {
+			fieldParts = append(fieldParts, jen.Id("List").Op(":").True())
+		}
+		if mod := em.moduleOf(c); mod != "" && mod != em.moduleOf(s.representative) {
+			fieldParts = append(fieldParts, jen.Id("Module").Op(":").Id(moduleVarName(mod)))
+		}
+		fieldParts = append(fieldParts, jen.Id("Name").Op(":").Lit(c.Name))
+		if lt.typeExpr != nil {
+			fieldParts = append(fieldParts, jen.Id("Type").Op(":").Add(lt.typeExpr()))
+		}
+
+		schemaFields = append(schemaFields, jen.Custom(
+			jen.Options{Open: "{", Close: "}", Separator: ", ", Multi: false},
+			fieldParts...,
+		))
 	}
 
 	em.addCommented(comment, jen.Type().Id(structName).Struct(structFields...))
 
 	schemaDict := jen.Dict{
-		jen.Id("Module"):    jen.Lit(s.module),
-		jen.Id("Namespace"): jen.Lit(s.namespace),
-		jen.Id("Name"):      jen.Lit(s.name),
-		jen.Id("Fields"):    jen.Index().Qual(yangPkg, "Field").Values(schemaFields...),
+		jen.Id("Fields"): jen.Index().Qual(yangPkg, "Field").Custom(
+			jen.Options{Open: "{", Close: "}", Separator: ",", Multi: true},
+			schemaFields...,
+		),
+		jen.Id("Module"): jen.Id(moduleVarName(s.module)),
+		jen.Id("Name"):   jen.Lit(s.name),
 	}
 	if s.kind == "list" && s.representative.Key != "" {
 		keyLits := make([]jen.Code, 0, 4)
@@ -411,26 +495,10 @@ func (em *moduleEmitter) emitOneList(li *listInstance) error {
 		return 0
 	}
 
-	flatAssigns := func(entryVar string) jen.Dict {
-		d := jen.Dict{jen.Id("Entry"): jen.Id(entryVar).Dot("Entry")}
-		for _, af := range ancFields {
-			d[jen.Id(af.goName)] = jen.Qual(yangPkg, "AncestorKey").Call(
-				jen.Id(entryVar).Dot("AncestorKeys"), jen.Lit(levelOf(af)), jen.Lit(af.keyName))
-		}
-		return d
-	}
-
-	decodeFn := func(runtimeFn string) *jen.Statement {
-		return jen.Func().Params(jen.Id("data").Index().Byte()).Params(jen.Index().Id(flatName), jen.Error()).Block(
-			jen.Id("chain").Op(":=").Add(chainExpr()),
-			jen.List(jen.Id("entries"), jen.Err()).Op(":=").Qual(yangPkg, runtimeFn).Index(jen.Id(structName)).Call(jen.Id("chain"), jen.Id("data")),
-			jen.If(jen.Err().Op("!=").Nil()).Block(jen.Return(jen.Nil(), jen.Err())),
-			jen.Id("rows").Op(":=").Make(jen.Index().Id(flatName), jen.Lit(0), jen.Len(jen.Id("entries"))),
-			jen.For(jen.List(jen.Id("_"), jen.Id("en")).Op(":=").Range().Id("entries")).Block(
-				jen.Id("rows").Op("=").Append(jen.Id("rows"), jen.Id(flatName).Values(flatAssigns("en"))),
-			),
-			jen.Return(jen.Id("rows"), jen.Nil()),
-		)
+	flatAssigns := jen.Dict{jen.Id("Entry"): jen.Id("e")}
+	for _, af := range ancFields {
+		flatAssigns[jen.Id(af.goName)] = jen.Qual(yangPkg, "AncestorKey").Call(
+			jen.Id("anc"), jen.Lit(levelOf(af)), jen.Lit(af.keyName))
 	}
 
 	keyFnStmts := []jen.Code{jen.Var().Id("k").Id(keyStructName)}
@@ -444,18 +512,24 @@ func (em *moduleEmitter) emitOneList(li *listInstance) error {
 		fmt.Sprintf("%s is the flattened-row descriptor for the nested list %s.", descName, structName),
 		jen.Func().Id(descName).Params().Qual(yangPkg, "ListDescriptor").Index(jen.List(jen.Id(flatName), jen.Id(keyStructName))).Block(
 			jen.Return(jen.Qual(yangPkg, "ListDescriptor").Index(jen.List(jen.Id(flatName), jen.Id(keyStructName))).Values(jen.Dict{
-				jen.Id("Path"): em.pathExpr(li.path),
-				jen.Id("Codec"): jen.Qual(yangPkg, "RowCodec").Index(jen.List(jen.Id(flatName), jen.Id(keyStructName))).Values(jen.Dict{
-					jen.Id("DecodeXML"):  decodeFn("DecodeXMLNested"),
-					jen.Id("DecodeJSON"): decodeFn("DecodeJSONNested"),
-					jen.Id("Equal"):      jen.Qual(yangPkg, "EqualStructs").Types(jen.Id(flatName)),
-					jen.Id("Merge"): jen.Func().Params(jen.Id("base"), jen.Id("update").Id(flatName)).Id(flatName).Block(
-						jen.Id("base").Dot("Entry").Op("=").Qual(yangPkg, "MergeStructs").Call(
-							jen.Id(em.schemaVar(li.shapeKey)), jen.Id("base").Dot("Entry"), jen.Id("update").Dot("Entry")),
-						jen.Return(jen.Id("base")),
+				jen.Id("Codec"): jen.Qual(yangPkg, "NestedRowCodec").Call(
+					chainExpr(),
+					jen.Func().Params(
+						jen.Id("anc").Index().Index().Qual(yangPkg, "KeyValue"),
+						jen.Id("e").Id(structName),
+					).Id(flatName).Block(
+						jen.Return(jen.Id(flatName).Values(flatAssigns)),
 					),
-					jen.Id("Key"): jen.Func().Params(jen.Id("r").Id(flatName)).Id(keyStructName).Block(keyFnStmts...),
-				}),
+					jen.Func().Params(
+						jen.Id("r").Op("*").Id(flatName),
+					).Op("*").Id(structName).Block(
+						jen.Return(jen.Op("&").Id("r").Dot("Entry")),
+					),
+					jen.Func().Params(
+						jen.Id("r").Op("*").Id(flatName),
+					).Id(keyStructName).Block(keyFnStmts...),
+				),
+				jen.Id("Path"): em.pathExpr(li.path),
 			})),
 		),
 	)
@@ -507,23 +581,36 @@ func (em *moduleEmitter) containerDescriptor(path string) string {
 	return em.scope.byPath["desc:"+path]
 }
 
-// pathExpr renders a yang.Path literal for the node's ancestry, with
-// Module/Namespace set on module boundaries only.
+// pathExpr renders a yang.Path literal using yang.JoinPath and yang.In.
 func (em *moduleEmitter) pathExpr(path []pathSeg) *jen.Statement {
-	segs := make([]jen.Code, 0, len(path))
-	prevMod := ""
-	for _, s := range path {
-		d := jen.Dict{jen.Id("Name"): jen.Lit(s.name)}
-		if s.module != prevMod {
-			d[jen.Id("Module")] = jen.Lit(s.module)
-			d[jen.Id("Namespace")] = jen.Lit(s.namespace)
-			prevMod = s.module
-		}
-		segs = append(segs, jen.Values(d))
+	if len(path) == 0 {
+		return jen.Qual(yangPkg, "Path").Values()
 	}
-	return jen.Qual(yangPkg, "Path").Values(jen.Dict{
-		jen.Id("Segments"): jen.Index().Qual(yangPkg, "Segment").Values(segs...),
-	})
+	type modGroup struct {
+		module string
+		names  []string
+	}
+	var groups []modGroup
+	for _, s := range path {
+		mod := s.module
+		if mod == "" {
+			mod = em.m.Name
+		}
+		if len(groups) == 0 || groups[len(groups)-1].module != mod {
+			groups = append(groups, modGroup{module: mod, names: []string{s.name}})
+		} else {
+			groups[len(groups)-1].names = append(groups[len(groups)-1].names, s.name)
+		}
+	}
+	var inCalls []jen.Code
+	for _, g := range groups {
+		args := []jen.Code{jen.Id(moduleVarName(g.module))}
+		for _, name := range g.names {
+			args = append(args, jen.Lit(name))
+		}
+		inCalls = append(inCalls, jen.Qual(yangPkg, "In").Call(args...))
+	}
+	return jen.Qual(yangPkg, "JoinPath").Call(inCalls...)
 }
 
 // moduleOf returns the instantiating module's name for an entry.

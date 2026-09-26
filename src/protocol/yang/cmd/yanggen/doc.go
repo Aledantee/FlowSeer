@@ -19,6 +19,11 @@
 // function, and flat row), and clashes resolve to X plus six hex
 // digits of the schema path or shape key.
 //
+// Module descriptors are emitted as package-level *yang.Module variables
+// and shared by all schemas and fields in the package. Schemas format
+// single-line field literals, and list descriptors construct compact
+// paths and codecs via JoinPath, In, and NestedRowCodec.
+//
 // A lockfile (yanggen.lock.json) records, per module, its newest
 // revision, source hash, and a closure hash covering every source in
 // its dependency closure — imports, includes, and reverse
