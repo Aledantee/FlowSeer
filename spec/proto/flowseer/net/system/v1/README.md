@@ -9,7 +9,7 @@ identity (contact, location, uptime) is `DeviceState`'s concern and lives in
 
 Imports: net/key, net/measure
 
-Imported by: nothing FlowSeer-owned
+Imported by: model/inventory
 
 Deliberately absent:
 
