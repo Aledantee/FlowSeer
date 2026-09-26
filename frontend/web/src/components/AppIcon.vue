@@ -9,6 +9,7 @@ const paths: Record<string, string> = {
   'panel-close': 'M3 4h18v16H3z M9 4v16 M17 9l-3 3 3 3',
   sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1.5 1.5 M17.5 17.5 19 19 M5 19l1.5-1.5 M17.5 6.5 19 5',
   moon: 'M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5',
+  dashboard: 'M3 3h8v10H3z M13 3h8v6h-8z M13 11h8v10h-8z M3 15h8v6H3z',
   devices: 'M4 4h16v11H4z M8 20h8 M12 15v5',
   sites: 'M3 21h18 M5 21V7l7-4 7 4v14 M9 9v2 M15 9v2 M9 15v2 M15 15v2',
   topology: 'M9 3h6v6H9z M3 16h6v5H3z M15 16h6v5h-6z M12 9v4 M6 16v-3h12v3',

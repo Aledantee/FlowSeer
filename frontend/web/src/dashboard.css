@@ -1,0 +1,308 @@
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  padding-bottom: var(--space-8);
+}
+.dash-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  box-shadow: 0 3px 6px #092b3403;
+  min-width: 0;
+}
+.dash-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 20px 24px 12px;
+}
+.dash-heading p {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.dash-heading p strong {
+  color: var(--text);
+  font-weight: 550;
+}
+.dash-count {
+  font-size: 11px;
+  background: var(--surface-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--muted);
+  margin-left: 6px;
+  font-weight: 500;
+}
+.dash-unit {
+  font-size: 11px;
+  color: var(--muted);
+}
+.dash-body {
+  padding: 4px 24px 20px;
+}
+.dash-subheading {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 20px 0 6px;
+}
+.dash-empty {
+  font-size: 12px;
+  padding: 0 24px 20px;
+}
+.dash-body .dash-empty {
+  padding: 0;
+}
+.dash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dash-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 9px 10px;
+  margin: 0 -10px;
+  width: calc(100% + 20px);
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.dash-row:hover {
+  background: var(--surface-hover);
+}
+.dash-row strong {
+  font-weight: 500;
+  font-size: 12px;
+}
+.dash-row small {
+  font-size: 11px;
+  margin-top: 2px;
+}
+.dash-link,
+.dash-inline {
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 12px;
+  padding: 4px;
+}
+.dash-inline {
+  padding: 0;
+  font-size: inherit;
+}
+.dash-inline:hover,
+.dash-link:hover {
+  text-decoration: underline;
+}
+
+/* Traffic chart */
+.traffic-chart {
+  margin: 0;
+  padding: 0 12px 12px;
+}
+.traffic-frame {
+  position: relative;
+  outline-offset: -3px;
+  touch-action: pan-y;
+}
+.traffic-frame svg {
+  display: block;
+}
+.traffic-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.traffic-grid text {
+  fill: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.traffic-area {
+  fill: var(--accent-text);
+  opacity: 0.12;
+}
+.traffic-line {
+  fill: none;
+  stroke: var(--accent-text);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.traffic-crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.traffic-dot {
+  fill: var(--accent-text);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.traffic-tooltip {
+  position: absolute;
+  transform: translate(12px, -50%);
+  pointer-events: none;
+  background: var(--panel-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
+  box-shadow: 0 4px 12px #0000001f;
+  white-space: nowrap;
+}
+.traffic-tooltip.flip {
+  transform: translate(calc(-100% - 12px), -50%);
+}
+.traffic-tooltip small {
+  font-size: 10px;
+}
+.traffic-tooltip strong {
+  font-size: 14px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.traffic-tooltip strong span {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Health bar: status fills with a 2px surface gap between segments. */
+.health-track {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  min-width: 80px;
+}
+.dash-body .health-track {
+  height: 14px;
+}
+.health-segment {
+  flex-basis: 0;
+  border-radius: 3px;
+  min-width: 4px;
+}
+.health-segment.healthy,
+.health-key.healthy {
+  background: var(--healthy-text);
+}
+.health-segment.degraded,
+.health-key.degraded {
+  background: var(--warning-border);
+}
+.health-segment.offline,
+.health-key.offline {
+  background: var(--offline-border);
+}
+.health-segment.empty {
+  flex-grow: 1;
+  background: var(--surface-subtle);
+}
+.health-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 12px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.health-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.health-legend strong {
+  color: var(--text);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.health-key {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* Sites */
+.dash-table td {
+  height: 56px;
+}
+.dash-health-col {
+  width: 28%;
+}
+.dash-site {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+.dash-site strong {
+  font-weight: 500;
+}
+.dash-site:hover strong {
+  color: var(--accent-text);
+}
+.dash-roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 var(--space-6);
+  padding: 0 24px 16px;
+}
+.dash-role .dash-subheading {
+  margin-top: 8px;
+}
+
+/* Events */
+.dash-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0 24px 16px;
+}
+.dash-feed li {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.dash-feed li:first-child {
+  border-top: 0;
+}
+.dash-feed i {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--info-border);
+}
+.dash-feed .warning i {
+  background: var(--warning-border);
+}
+.dash-feed .critical i {
+  background: var(--offline-border);
+}
+.dash-feed strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.dash-feed small {
+  margin-top: 3px;
+}
+
+@media (max-width: 1150px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 800px) {
+  .dash-traffic,
+  .dash-sites .dash-health-col {
+    display: none;
+  }
+}
