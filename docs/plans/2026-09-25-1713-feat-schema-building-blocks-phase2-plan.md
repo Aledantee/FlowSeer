@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 2, Network Instances and Routing - Plan
+
+> Partially implemented: U1 passed (683c171f), U2 blocked by Requirement 4. 1 unit, 2026-09-26T07:31:17Z.
 
 ## Goal
 
@@ -333,4 +335,9 @@ go test -race ./test/conformance/... ./src/modules/localnet/snmpmap/... ./src/co
 
 ## Open questions
 
-None.
+- **Requirement 4 satisfiability with `protovalidate`**:
+  Requirement 4 specifies:
+  > "A `NextHop` with both arms set fails `oneof` validation. Example: A `NextHop` with both `forwarding` and `special` populated (unmarshaled from wire bytes containing both field tags 1 and 2) fails `protovalidate.Validate` with `oneof: exactly one field is required`."
+  Under the Protocol Buffers wire encoding specification and Google's Go protobuf runtime (`google.golang.org/protobuf`), unmarshaling wire bytes containing multiple fields for the same oneof applies "last tag wins" — the later tag overwrites the earlier tag and leaves no unknown fields. In Go's opaque API runtime, a oneof is represented in-memory by an interface holding at most one concrete variant; it cannot hold both arms simultaneously.
+  When `protovalidate.Validate` evaluates the unmarshaled message, `msg.WhichOneof(descriptor)` returns the single populated arm, satisfying `(buf.validate.oneof).required = true`. Protovalidate's `oneof.go` only emits `"exactly one field is required in oneof"` when `WhichOneof` is nil (no arm set). It is therefore impossible for `protovalidate.Validate` on an unmarshaled message to reject wire bytes containing multiple oneof tags without rejecting valid messages.
+  Per brief rule 19 ("a requirement you believe the code cannot satisfy is a blocker: record it in the plan's Open questions, commit what passed, state the blocker, stop"), execution stops here for re-planning or requirement clarification.
