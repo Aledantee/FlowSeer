@@ -171,6 +171,10 @@ A client device connected to the network by a wired switchport or wireless BSS a
 
 A device-scoped table row in `net/portaccess/v1.Session` representing an authenticated access session on a physical switchport. It is keyed by interface name and client MAC address to support multi-supplicant ports across 802.1X, MAC authentication bypass, and web authentication. Scoped by interface name, the network instance is inherited and omitted per Rule 4.
 
+### Trust mode
+
+The header field a port believes when it classifies an incoming frame: the PCP, the DSCP, the IP precedence, or the PCP for L2 traffic and the DSCP for L3 traffic. An untrusted port believes none and applies its default class.
+
 ## Capture
 
 ### Capture Session

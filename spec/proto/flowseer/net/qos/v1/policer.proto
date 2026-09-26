@@ -1,0 +1,31 @@
+edition = "2024";
+
+package flowseer.net.qos.v1;
+
+import option "buf/validate/validate.proto";
+
+// A single-rate or two-rate policer: OpenConfig's one-rate-two-color cir and
+// bc, or its two-rate-three-color cir, pir, bc, and be
+// (openconfig-qos-elements.yang:869-943, :1023-1101). A peak rate makes it a
+// two-rate policer.
+message Policer {
+  option (buf.validate.message).cel = {
+    id: "policer.peak_rate_ordered"
+    message: "the peak rate must be at least the committed rate"
+    expression: "!has(this.peak_rate_bps) || !has(this.committed_rate_bps) || this.peak_rate_bps >= this.committed_rate_bps"
+  };
+  option (buf.validate.message).cel = {
+    id: "policer.peak_burst_needs_peak_rate"
+    message: "a peak burst needs a peak rate"
+    expression: "!has(this.peak_burst_bytes) || has(this.peak_rate_bps)"
+  };
+
+  // The committed information rate. Must be present.
+  uint64 committed_rate_bps = 1 [(buf.validate.field).required = true];
+  // The committed burst size. Absent means unreported.
+  uint64 committed_burst_bytes = 2;
+  // The peak information rate. Absent means a single-rate policer.
+  uint64 peak_rate_bps = 3;
+  // The excess or peak burst size. Absent means unreported.
+  uint64 peak_burst_bytes = 4;
+}

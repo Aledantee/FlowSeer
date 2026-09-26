@@ -1,0 +1,60 @@
+edition = "2024";
+
+package flowseer.net.qos.v1;
+
+import "flowseer/net/filter/v1/filter.proto";
+import "flowseer/net/packet/v1/ip_dscp.proto";
+import "flowseer/net/qos/v1/policer.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// A named QoS classifier on a device: an ordered list of terms. Mirrors
+// OpenConfig classifiers/classifier (openconfig-qos-elements.yang:179-269).
+message Classifier {
+  option (buf.validate.message).cel = {
+    id: "classifier.term_ids_unique"
+    message: "term ids must be unique within a classifier"
+    expression: "this.terms.map(t, t.id).unique()"
+  };
+
+  // The classifier's name, unique on the device. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 1024
+    }
+  ];
+  // The terms, in the source's order.
+  repeated ClassifierTerm terms = 2;
+}
+
+// One classifier term: the packets it matches and what it does to them.
+// Mirrors OpenConfig terms/term, its conditions, and its actions
+// (openconfig-qos-elements.yang:179-269), with remark set-dscp and set-dot1p
+// (:1370-1404).
+message ClassifierTerm {
+  // The term's identifier, unique within its classifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 1024
+    }
+  ];
+  // The packets the term matches. Absent matches every packet.
+  flowseer.net.filter.v1.FilterMatch match = 2;
+  // The forwarding group matched packets are assigned to, OpenConfig
+  // target-group. Absent means none is assigned.
+  string forwarding_group = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The DSCP matched packets are remarked with. Absent means no remark.
+  flowseer.net.packet.v1.IpDscp set_dscp = 4 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_dscp) = true];
+  // The IEEE 802.1Q priority code point matched frames are remarked with.
+  // Absent means no remark.
+  uint32 set_pcp = 5 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_pcp) = true];
+  // The policer applied to matched packets. Absent means none.
+  Policer policer = 6;
+}

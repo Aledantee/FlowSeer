@@ -7,7 +7,7 @@ match predicates, actions, and the interface filter facet.
 
 Imports: net/addr, net/packet, net/switching
 
-Imported by: net/interface
+Imported by: net/interface, net/qos
 
 Deliberately absent:
 
