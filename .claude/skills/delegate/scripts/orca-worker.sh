@@ -143,7 +143,7 @@ case "$cmd" in
     # worker stops at the switch-or-edit prompt, which a screen read shows.
     case "$cli" in
       claude) line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
-      codex)  line="codex -a never --sandbox danger-full-access -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
+      codex)  line="codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
       agy)    line="agy --model $model --dangerously-skip-permissions" ;;
       opencode) line="opencode --model $model" ;;
     esac
@@ -159,18 +159,18 @@ case "$cmd" in
     # exited.
     orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1
 
-    # Codex startup dialogs: its update offer and the hooks review for a
-    # repository with .codex/hooks.json. A prompt sent into either is lost.
-    # The update offer is matched on its "Skip until next version" option:
-    # Codex keeps an "Update available!" banner up after the dialog is
-    # answered. Option 3 skips the version, so the offer does not come back.
+    # Codex startup dialog: the hooks review for a repository with
+    # .codex/hooks.json. A prompt sent into it is lost. The update offer is
+    # off on the launch line rather than answered: its option numbering is
+    # not stable across versions, and a wrong answer runs the upgrade and
+    # leaves the terminal at a shell. An offer that shows anyway fails the
+    # start before the brief pointer's Enter can pick an option.
     if [[ $cli == codex ]]; then
       for _ in 1 2 3 4; do
         sleep 2; s=$(screen "$term")
-        if grep -q 'Skip until next version' <<<"$s"; then
-          orca terminal send --terminal "$term" --text 3 --enter --json >/dev/null \
-            || undo "cannot dismiss Codex update offer for $lane"
-        elif grep -q 'hook needs review' <<<"$s"; then
+        grep -q 'restart Codex' <<<"$s" && undo "Codex updated itself and exited at startup for $lane"
+        grep -q 'Skip until next version' <<<"$s" && undo "Codex showed its update offer despite check_for_update_on_startup=false for $lane"
+        if grep -q 'hook needs review' <<<"$s"; then
           orca terminal send --terminal "$term" --text t --json >/dev/null \
             || undo "cannot dismiss Codex hooks review for $lane"
           sleep 1

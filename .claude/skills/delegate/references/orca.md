@@ -22,12 +22,13 @@ names the lane; this file is the procedure.
   `CLAUDE_CODE_CHILD_SESSION` on the launch line: a Claude worker started
   under the coordinator's child-session variables runs with transcript
   saving off.
-- For Codex, answers two startup dialogs: the update offer (`3`, skip
-  until next version) and the hooks review for a repository with
-  `.codex/hooks.json` (`t`, then escape). The update offer is recognized
-  by its "Skip until next version" option, since Codex keeps an "Update
-  available!" banner on screen after the dialog is answered. A prompt sent
-  into either dialog is lost, so the start fails if the review remains.
+- For Codex, launches with `-c check_for_update_on_startup=false` and
+  answers the hooks review for a repository with `.codex/hooks.json` (`t`,
+  then escape). Answering the update offer broke when its option numbering
+  changed in 0.157.0: the answer ran the upgrade and left the terminal at
+  a shell. A prompt sent into the review is lost, so the start fails if
+  the review remains, the update offer shows, or the screen asks to
+  restart Codex.
 - Copies the brief to `.orca-brief.md` in the child and sends a one-line
   pointer to it. A long paragraph through `orca terminal send` arrives as
   stray characters at the prompt, and the loss is silent at both ends. The
@@ -63,10 +64,9 @@ names the lane; this file is the procedure.
   branch -d` follows, and an unmerged lane removed that way would lose its
   commits.
 
-Measured on 2026-09-19 on the `opencode` lane only (Orca 1.4.203). The
-`claude`, `codex`, and `agy` launch lines and the Codex dialog handling
-are the ones the earlier Herdr wrapper used; they have not been run
-through this script yet.
+Measured on 2026-09-19 on the `opencode` lane (Orca 1.4.203). The run log
+has `codex`, `agy`, and `claude` lanes started through this script since
+2026-09-23; the Codex launch with the update check off has not yet run.
 
 ## When a step fails
 

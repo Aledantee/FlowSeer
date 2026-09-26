@@ -83,6 +83,16 @@ Resolve a role to a lane in this order, once per lane:
 When steps 1–3 leave no `fit` model, apply them to the role's
 `last_resort` list, when it has one, and take a survivor by step 5; the
 report names the lane as a last resort and the pools that were out.
+A review role left with no survivor because the executors cover its fit
+set, as after a fix round on several models, splits by writer. A commit
+belongs to the run whose `start` `base` to `end` `head` range holds it
+(`git rev-list <base>..<head>`); a commit in no run's range belongs to
+the coordinator's model. Group the commits by writer (by vendor for
+`review-unit`), and resolve one lane per group, with step 3 dropping
+only that group's writer. Each lane reviews its group report-only. The
+coordinator reads the seams between the groups itself, as `review`
+does for units, and records the one verdict; under `drive`, that is the
+review-stage worker. The report names the split and each lane's commits.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools
