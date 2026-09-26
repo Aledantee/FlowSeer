@@ -56,3 +56,19 @@ Suggested change: Strengthen `orca-worker.sh wait` to inspect terminal status an
 Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh` and `.claude/skills/delegate/SKILL.md`.
 What happened: The review lane was launched with `--model claude-opus-5` and initially reported Opus 5 at startup, but the final screen and git commit attribution reported `Claude Opus 4.8`. For `sensitive` units where `delegate` warns a refusal reads as a model swap, an unannounced model swap under the hood can change reasoning capability or safety behavior without coordinator visibility.
 Suggested change: Check and record the resolved model version in `orca-worker.sh` or `runlog`, and emit a warning when the reported model drifts from the requested ID.
+
+## 2026-09-26 drive: worker completion detection across agy and claude runtimes required six poll variants
+Skill or agent: `.claude/skills/drive/SKILL.md`, step 2 (worker monitoring), and `.claude/skills/delegate/scripts/orca-worker.sh`.
+What happened: No single signal reliably indicated that an Orca worker had finished, and failure modes differed per runtime CLI. `orca-worker.sh wait` returned `idle` mid-turn; the `status` table reported `agy` lanes `idle` from the first read while still working; the screen cursor advanced on `agy` but stayed at 1 on `claude`; file modification times and screen output went quiet during long commands; and busy chrome differed (`esc to cancel` and `task(s)` on `agy`, `bypass permissions on` on `claude`). Six poll variants were needed across the drive. Because `drive` step 2 directs parking a plan on an `idle` verdict with an empty child process tree, these runtime quirks risked prematurely parking plans whose workers were seconds from committing. The reliable combination was git commit state, a hash of the terminal screen body, and an explicit process check for `go test` and `verify-change.sh`.
+Suggested change: Update `drive` step 2 and `orca-worker.sh wait` to combine git status/commit advancement, screen hash stability, and active child process inspection (`go test`, `verify-change.sh`) rather than relying on CLI-reported idle states or transient screen prompts.
+
+## 2026-09-26 verify-change: diff-derived file lists include testdata paths and trigger fixture lints
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`.
+What happened: Feeding file lists generated from `git diff --name-only` into `verify-change.sh` passed `testdata` fixture paths to `golangci-lint`. Fixtures designed specifically to verify dot-imports, aliased imports, and undocumented declarations triggered fifteen lint failures. Standard `go list` skips `testdata` directories automatically, so normal repository gates never inspect them, but `verify-change.sh` linted every path passed on its command line.
+Suggested change: Update `verify-change.sh` to filter out any `**/testdata/**` paths from its lint file list, mirroring the existing exclusion for `/generated/`.
+
+## 2026-09-26 implement: manual invocation of stop-check.sh exhausts host memory in generated/go/yang
+Skill or agent: `.claude/skills/implement/SKILL.md` and `.claude/skills/review/SKILL.md`.
+What happened: A worker ran `tools/hooks/stop-check.sh` manually to test a newly added conformance gate. `stop-check.sh` executes `go test -race -p 5 -timeout 30m ./...` over the root module, which includes `generated/go/yang`. The full race-test suite of `generated/go/yang` exhausts host memory and has previously caused background shell processes to be killed on this machine.
+Suggested change: Add an explicit warning in `implement` and `review` workflows instructing workers never to invoke `tools/hooks/stop-check.sh` manually, directing them instead to run `verify-change.sh` or targeted `go test` on the specific packages under development.
+

@@ -1,6 +1,7 @@
 ---
 title: The errs Package — FlowSeer's Owned Error Type and Its Conventions
 date: 2026-08-20
+last_verified: 2026-09-26
 category: architecture-patterns
 module: src/common/errs
 problem_type: architecture_pattern
@@ -261,9 +262,12 @@ func (b Builder) build(msg string) error {
 ```
 (`src/common/errs/builder.go:127-137`)
 
-Because `Wrap`/`Wrapf` route through `From(err).build(...)`
-(`src/common/errs/wrap.go:15`, `:25`), a wrap over a stack-carrying error captures
-nothing — one stack per origin, not one per wrap. A tree joined from
+Because `Wrap`/`Wrapf` route through `wrap(err, ...)`
+(`src/common/errs/wrap.go:88`, `:98`), a wrap over a stack-carrying error captures
+nothing — one stack per origin, not one per wrap. Both the `*Error` produced
+by the builder and the unexported `wrapError` returned by `Wrap` record an
+origin stack when no cause carries one (`src/common/errs/wrap.go:66-70`; see
+[An Error Wrapper Must Not Reuse the Rich Error Type It Wraps](an-error-wrapper-must-not-reuse-the-rich-error-type.md)). A tree joined from
 independently created origins legitimately holds several, and `stacks`
 (`src/common/errs/stack.go:85`) returns all of them, rendered as numbered groups
 by `stackAttr` (`src/common/errs/slog.go:102`). Symbolization is deferred to
