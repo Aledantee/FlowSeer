@@ -39,6 +39,10 @@ raw="${out%.json}.raw"
 prompt=$(cat "$brief")
 start=$(date +%s)
 cd "$dir" || exit 2
+# Clear per-run artifacts before launch so a lane that never starts or
+# fails early cannot parse stale raw output, session tokens, or SQLite state
+# from an earlier run on the same output path.
+rm -f "$raw" "$raw.err" "$raw.steps" "$raw.session" "$raw.serve" "$raw.body" "$raw.db"* "$out"
 case "$cli" in
   claude)
     env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" --model "$model" \
@@ -69,6 +73,7 @@ case "$cli" in
     for _ in $(seq 1 60); do
       curl -sf --max-time 5 -X POST "http://127.0.0.1:$port/session" -H 'content-type: application/json' -d '{}' \
         -o "$raw.session" && break
+      kill -0 "$spid" 2>/dev/null || break
       sleep 1
     done
     sid=$(python3 -c "import json; print(json.load(open('$raw.session'))['id'])" 2>/dev/null)
@@ -119,63 +124,80 @@ import json, sys
 cli, raw, lane, model, effort, wall, code, out = sys.argv[1:]
 usage = {"input": 0, "output": 0, "cache_read": 0, "reasoning": 0}
 cost = error = finish = tools = None
-text = open(raw, errors="replace").read()
 
-def add(k, v):
-    usage[k] += int(v or 0)
+try:
+    text = open(raw, errors="replace").read()
+except OSError:
+    text = None
 
-if cli == "claude":
+if text is None or (text == "" and int(code) != 0):
+    usage = None
     try:
-        d = json.loads(text)
-        u = d.get("usage", {})
-        add("input", u.get("input_tokens")); add("output", u.get("output_tokens"))
-        add("cache_read", u.get("cache_read_input_tokens"))
-        add("reasoning", (u.get("output_tokens_details") or {}).get("thinking_tokens"))
-        cost = d.get("total_cost_usd")
-    except json.JSONDecodeError:
+        error = open(raw + ".err", errors="replace").read().strip() or None
+    except OSError:
         pass
-elif cli == "codex":
-    for line in text.splitlines():
+else:
+    def add(k, v):
+        usage[k] += int(v or 0)
+
+    if cli == "claude":
         try:
-            e = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if e.get("type") == "turn.completed":
-            u = e.get("usage", {})
+            d = json.loads(text)
+            u = d.get("usage", {})
             add("input", u.get("input_tokens")); add("output", u.get("output_tokens"))
-            add("cache_read", u.get("cached_input_tokens")); add("reasoning", u.get("reasoning_output_tokens"))
-elif cli == "agy":
-    try:
-        u = json.loads(text).get("usage", {})
-        add("input", u.get("input_tokens")); add("output", u.get("output_tokens"))
-        add("cache_read", u.get("cache_read_tokens")); add("reasoning", u.get("thinking_tokens"))
-    except json.JSONDecodeError:
-        pass
-elif cli == "opencode":
-    try:
-        d = json.loads(text)
-    except json.JSONDecodeError:
-        d = {}
-    if isinstance(d, dict) and "name" in d and "info" not in d:
-        # The server answered with an error object instead of a message.
-        error = "%s: %s" % (d["name"], (d.get("data") or {}).get("message", ""))
-    info = d.get("info") if isinstance(d, dict) else None
-    if isinstance(info, dict):
-        finish = info.get("finish")
-        parts = d.get("parts") or []
-        tools = sum(1 for p in parts if p.get("type") == "tool")
-    # Step-finish parts, not message infos: a message's info may hold only
-    # its last step's tokens.
-    try:
-        steps = json.load(open(raw + ".steps"))
-    except (OSError, json.JSONDecodeError):
-        steps, usage = [], None
-    for p in steps:
-        t = p.get("tokens") or {}
-        add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
-        add("cache_read", (t.get("cache") or {}).get("read"))
-        if isinstance(p.get("cost"), (int, float)):
-            cost = (cost or 0) + p["cost"]
+            add("cache_read", u.get("cache_read_input_tokens"))
+            add("reasoning", (u.get("output_tokens_details") or {}).get("thinking_tokens"))
+            cost = d.get("total_cost_usd")
+        except json.JSONDecodeError:
+            pass
+    elif cli == "codex":
+        for line in text.splitlines():
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if e.get("type") == "turn.completed":
+                u = e.get("usage", {})
+                add("input", u.get("input_tokens")); add("output", u.get("output_tokens"))
+                add("cache_read", u.get("cached_input_tokens")); add("reasoning", u.get("reasoning_output_tokens"))
+    elif cli == "agy":
+        try:
+            u = json.loads(text).get("usage", {})
+            add("input", u.get("input_tokens")); add("output", u.get("output_tokens"))
+            add("cache_read", u.get("cache_read_tokens")); add("reasoning", u.get("thinking_tokens"))
+        except json.JSONDecodeError:
+            pass
+    elif cli == "opencode":
+        try:
+            d = json.loads(text)
+        except json.JSONDecodeError:
+            d = {}
+        if isinstance(d, dict) and "name" in d and "info" not in d:
+            # The server answered with an error object instead of a message.
+            error = "%s: %s" % (d["name"], (d.get("data") or {}).get("message", ""))
+        info = d.get("info") if isinstance(d, dict) else None
+        if isinstance(info, dict):
+            finish = info.get("finish")
+            parts = d.get("parts") or []
+            tools = sum(1 for p in parts if p.get("type") == "tool")
+        # Step-finish parts, not message infos: a message's info may hold only
+        # its last step's tokens.
+        try:
+            steps = json.load(open(raw + ".steps"))
+        except (OSError, json.JSONDecodeError):
+            steps, usage = [], None
+        for p in steps:
+            t = p.get("tokens") or {}
+            add("input", t.get("input")); add("output", t.get("output")); add("reasoning", t.get("reasoning"))
+            add("cache_read", (t.get("cache") or {}).get("read"))
+            if isinstance(p.get("cost"), (int, float)):
+                cost = (cost or 0) + p["cost"]
+
+    if error is None and int(code) != 0:
+        try:
+            error = open(raw + ".err", errors="replace").read().strip() or None
+        except OSError:
+            pass
 
 result = {"lane": lane, "cli": cli, "model": model, "effort": effort or None,
           "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost}
