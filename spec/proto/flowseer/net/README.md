@@ -33,10 +33,10 @@ imports outside `net/`, and any root may import them.
 - `addr/v1/`: Canonical IP, prefix, range, lifetime, MAC, EUI, and OUI value types.
 - `packet/v1/`: Packet-header registries, exact header values, and small reusable match atoms.
 - `phy/v1/`: Ethernet settings, capabilities, active link facts, MAU types, transport arms, pluggable module, and PoE.
-- `instance/v1/` (planned; schema building blocks record): NetworkInstance row and NetworkInstanceKind.
+- `instance/v1/`: NetworkInstance row, NetworkInstanceKind, and RouteDistinguisher.
 - `switching/v1/`: VLAN database rows, exact tag stacks, switchport membership, aggregation attributes, and forwarding entries.
 - `ip/v1/`: Per-interface IPv4 and IPv6 facets, assigned-address rows, and neighbor cache.
-- `routing/v1/` (planned; schema building blocks record): Route, NextHop, NextHopGroup, RouteSourceProtocol, RIB/FIB discriminator.
+- `routing/v1/`: Route row, NextHop, NextHopGroup, SpecialNextHop, RouteSourceProtocol, and the RouteTableType RIB/FIB discriminator.
 - `filter/v1/`: L2 match terms.
 - `qos/v1/` (planned; schema building blocks record): Trust mode, classifier terms, queues.
 - `nat/v1/` (planned; schema building blocks record): NAT mappings and sessions.
@@ -85,6 +85,11 @@ IETF RFCs:
   [RFC 3621](https://www.rfc-editor.org/rfc/rfc3621.html), and
   [RFC 4363](https://www.rfc-editor.org/rfc/rfc4363.html) for Ethernet-like
   interface, Power over Ethernet, and VLAN bridge MIB semantics.
+- [RFC 4364, section 4.2](https://www.rfc-editor.org/rfc/rfc4364.html#section-4.2)
+  for BGP/MPLS IP VPN route distinguisher formats.
+- [RFC 8349](https://www.rfc-editor.org/rfc/rfc8349.html) and
+  [RFC 4292](https://www.rfc-editor.org/rfc/rfc4292.html) for routes, RIBs,
+  next hops, and the IP forwarding table MIB.
 
 IANA registries:
 
@@ -94,6 +99,8 @@ IANA registries:
 - [ICMPv6 Parameters](https://www.iana.org/assignments/icmpv6-parameters)
 - [IEEE 802 Numbers](https://www.iana.org/assignments/ieee-802-numbers)
 - [Assigned Internet Protocol Numbers](https://www.iana.org/assignments/protocol-numbers)
+- [IANA-RTPROTO-MIB](https://www.iana.org/assignments/ianaiprouteprotocol-mib)
+  (`IANAipRouteProtocol`) for route source protocols
 
 IEEE and other bodies:
 

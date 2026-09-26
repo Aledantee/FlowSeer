@@ -264,6 +264,17 @@ a byte count, and adding a variant is adding an arm.
 `IpPrefix`, and the related IP value types together; the MAC family uses
 `Eui48Address` / `Eui64Address` / `MacAddress`.
 
+The pattern is not limited to addresses. `RouteDistinguisher` in
+`net/instance/v1` is a required `format` oneof of `As2RouteDistinguisher`,
+`Ipv4RouteDistinguisher`, and `As4RouteDistinguisher`, because the three
+RFC 4364 §4.2 types split the same six octets into fields of different widths,
+and each arm bounds its own fields; a `"65000:100"` string would push that
+parsing into every consumer. `NextHop` in `net/routing/v1` is a required
+`target` oneof of a `ForwardingNextHop` message and a `SpecialNextHop` enum:
+a next hop either forwards or discards, and the oneof is what makes both at
+once unrepresentable. Protobuf keeps at most one arm, and decoding keeps the
+last arm on the wire, so `required` only has the empty case left to reject.
+
 An IP prefix carries a typed family address plus a prefix length. Its address
 is the canonical network address, not an observed interface address: every
 host bit beyond the declared length is zero. Model an observed interface
@@ -319,12 +330,25 @@ holds the rationale and standards grounding for each rule.
   back to a device (such as an operation target or capture source) use
   `shell_safe_interface_name` (`^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$`). A field whose
   name spells an interface name carries exactly one of them.
+- **Network instance key**: a forwarding table's row names the network instance
+  it belongs to in a required `string network_instance` validated by
+  `net/key/v1`'s `network_instance_name` rule ([rule 4](../architecture/2026-09-25-schema-building-blocks-direction.md#4-the-network-instance-is-part-of-the-key)).
+  `Vlan`, `FdbEntry`, and `Route` carry it on the row. A routed interface
+  carries it once, in `IpFacet.network_instance`; `InterfaceAddress` and
+  `NeighborEntry` rows are keyed by interface name and inherit it. A device
+  with no instance concept reports one `NetworkInstance` of kind `DEFAULT`,
+  named as the device names it or `default` when it has no name, and every
+  row names that instance; an absent key never stands for the default.
 - **Facets, settings, and rows**: per-interface bundles are named `<Name>Facet`,
   and requested values for that layer are `<Name>Settings`, carried by the
   facet ([rule 5](../architecture/2026-09-25-schema-building-blocks-direction.md#5-facets-settings-and-table-rows)).
   Device-scoped table rows are named for the thing they describe (`Vlan`, `Route`,
   `BgpPeer`); use `<Table>Entry` only when the table name is the natural noun and
-  the row has none of its own (`FdbEntry`, `NeighborEntry`).
+  the row has none of its own (`FdbEntry`, `NeighborEntry`). `NetworkInstance`
+  is the row for an instance itself, keyed by `name` with a required `kind`.
+  `Route` is keyed by `(network_instance, destination_prefix)` and carries its
+  next hops as a `NextHopGroup`, plus a `table_type` saying whether the row
+  came from the RIB or the FIB.
 
 ## Field numbering
 
