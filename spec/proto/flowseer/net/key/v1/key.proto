@@ -5,7 +5,8 @@ package flowseer.net.key.v1;
 import "buf/validate/validate.proto";
 
 // Predefined protovalidate rules (https://protovalidate.com/) for the
-// device-local names that key a device's tables. The bound is the SNMPv2-TC
+// device-local names that key a device's tables: interface names,
+// network-instance names, and protocol-instance names. The bound is the SNMPv2-TC
 // DisplayString SIZE (0..255 characters), which IF-MIB ifName uses
 // (spec/mib/ietf/SNMPv2-TC, spec/mib/ietf/IF-MIB). An interface name has two
 // rules because it has two uses: interface_name accepts what a device
@@ -27,6 +28,11 @@ extend buf.validate.StringRules {
   bool network_instance_name = 50002 [(buf.validate.predefined).cel = {
     id: "string.network_instance_name"
     message: "value must be a network instance name of 1 to 255 characters"
+    expression: "!rule || (this.size() >= 1 && this.size() <= 255)"
+  }];
+  bool protocol_instance_name = 50003 [(buf.validate.predefined).cel = {
+    id: "string.protocol_instance_name"
+    message: "value must be a protocol instance name of 1 to 255 characters"
     expression: "!rule || (this.size() >= 1 && this.size() <= 255)"
   }];
 }

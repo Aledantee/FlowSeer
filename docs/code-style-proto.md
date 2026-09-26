@@ -371,6 +371,7 @@ a third package from taking a number already used on the same message.
 | `StringRules` | 50000 | `interface_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
 | `StringRules` | 50001 | `shell_safe_interface_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
 | `StringRules` | 50002 | `network_instance_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
+| `StringRules` | 50003 | `protocol_instance_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
 | `UInt32Rules` | 50000 | `vlan_id` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
 | `UInt32Rules` | 50001 | `vlan_tag_vid` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |
 | `UInt32Rules` | 50002 | `vlan_pcp` | `spec/proto/flowseer/net/switching/v1/vlan_id.proto` |

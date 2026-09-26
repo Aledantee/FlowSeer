@@ -46,6 +46,14 @@ var file_flowseer_net_key_v1_key_proto_extTypes = []protoimpl.ExtensionInfo{
 		Tag:           "varint,50002,opt,name=network_instance_name",
 		Filename:      "flowseer/net/key/v1/key.proto",
 	},
+	{
+		ExtendedType:  (*validate.StringRules)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50003,
+		Name:          "flowseer.net.key.v1.protocol_instance_name",
+		Tag:           "varint,50003,opt,name=protocol_instance_name",
+		Filename:      "flowseer/net/key/v1/key.proto",
+	},
 }
 
 // Extension fields to validate.StringRules.
@@ -56,6 +64,8 @@ var (
 	E_ShellSafeInterfaceName = &file_flowseer_net_key_v1_key_proto_extTypes[1]
 	// optional bool network_instance_name = 50002;
 	E_NetworkInstanceName = &file_flowseer_net_key_v1_key_proto_extTypes[2]
+	// optional bool protocol_instance_name = 50003;
+	E_ProtocolInstanceName = &file_flowseer_net_key_v1_key_proto_extTypes[3]
 )
 
 var File_flowseer_net_key_v1_key_proto protoreflect.FileDescriptor
@@ -71,7 +81,10 @@ const file_flowseer_net_key_v1_key_proto_rawDesc = "" +
 	" string.shell_safe_interface_name\x12Rvalue must be 1 to 255 characters from the shell-safe interface-name character set\x1ad!rule || (this.size() >= 1 && this.size() <= 255 && this.matches('^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$'))R\x16shellSafeInterfaceName:\xe8\x01\n" +
 	"\x15network_instance_name\x12\x19.buf.validate.StringRules\x18҆\x03 \x01(\bB\x96\x01\xc2H\x92\x01\n" +
 	"\x8f\x01\n" +
-	"\x1cstring.network_instance_name\x12<value must be a network instance name of 1 to 255 characters\x1a1!rule || (this.size() >= 1 && this.size() <= 255)R\x13networkInstanceNameB\xd6\x01\n" +
+	"\x1cstring.network_instance_name\x12<value must be a network instance name of 1 to 255 characters\x1a1!rule || (this.size() >= 1 && this.size() <= 255)R\x13networkInstanceName:\xec\x01\n" +
+	"\x16protocol_instance_name\x12\x19.buf.validate.StringRules\x18ӆ\x03 \x01(\bB\x98\x01\xc2H\x94\x01\n" +
+	"\x91\x01\n" +
+	"\x1dstring.protocol_instance_name\x12=value must be a protocol instance name of 1 to 255 characters\x1a1!rule || (this.size() >= 1 && this.size() <= 255)R\x14protocolInstanceNameB\xd6\x01\n" +
 	"\x17com.flowseer.net.key.v1B\bKeyProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1;keyv1\xa2\x02\x03FNK\xaa\x02\x13Flowseer.Net.Key.V1\xca\x02\x13Flowseer\\Net\\Key\\V1\xe2\x02\x1fFlowseer\\Net\\Key\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Key::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_key_v1_key_proto_goTypes = []any{
@@ -81,10 +94,11 @@ var file_flowseer_net_key_v1_key_proto_depIdxs = []int32{
 	0, // 0: flowseer.net.key.v1.interface_name:extendee -> buf.validate.StringRules
 	0, // 1: flowseer.net.key.v1.shell_safe_interface_name:extendee -> buf.validate.StringRules
 	0, // 2: flowseer.net.key.v1.network_instance_name:extendee -> buf.validate.StringRules
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	0, // [0:3] is the sub-list for extension extendee
+	0, // 3: flowseer.net.key.v1.protocol_instance_name:extendee -> buf.validate.StringRules
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	0, // [0:4] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -100,7 +114,7 @@ func file_flowseer_net_key_v1_key_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_net_key_v1_key_proto_rawDesc), len(file_flowseer_net_key_v1_key_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   0,
-			NumExtensions: 3,
+			NumExtensions: 4,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_net_key_v1_key_proto_goTypes,

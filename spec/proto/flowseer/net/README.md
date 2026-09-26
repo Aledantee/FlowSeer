@@ -28,7 +28,7 @@ imports outside `net/`, and any root may import them.
 
 ## Packages
 
-- `key/v1/`: Predefined rules for device-local keys: interface_name, network_instance_name.
+- `key/v1/`: Predefined rules for device-local keys: interface_name, network_instance_name, protocol_instance_name.
 - `measure/v1/`: Sensor readings, percentages, and path quality.
 - `addr/v1/`: Canonical IP, prefix, range, lifetime, MAC, EUI, and OUI value types.
 - `packet/v1/`: Packet-header registries, exact header values, and small reusable match atoms.

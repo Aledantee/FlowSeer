@@ -156,6 +156,11 @@ var keyClasses = []keyClass{
 		names: namesANetworkInstance,
 		rules: []keyRule{{ext: keyv1.E_NetworkInstanceName}},
 	},
+	{
+		noun:  "a protocol instance name",
+		names: namesAProtocolInstance,
+		rules: []keyRule{{ext: keyv1.E_ProtocolInstanceName}},
+	},
 }
 
 // namesAnInterface reports whether a field name spells a device interface
@@ -178,6 +183,12 @@ func namesAnInterface(name string) bool {
 // instance a device-local row belongs to.
 func namesANetworkInstance(name string) bool {
 	return name == "network_instance" || strings.HasSuffix(name, "_network_instance")
+}
+
+// namesAProtocolInstance reports whether a field name spells a routing
+// protocol instance.
+func namesAProtocolInstance(name string) bool {
+	return name == "protocol_instance" || strings.HasSuffix(name, "_protocol_instance")
 }
 
 // TestKeyFieldsUseKeyRules walks every FlowSeer package and holds each field
@@ -205,6 +216,8 @@ func TestKeyFieldsUseKeyRules(t *testing.T) {
 	withBound.GetString().MaxLen = proto.Uint64(64)
 	networkInstance := singularCarrier("NetworkInstanceWithoutRule", protoreflect.StringKind, nil)
 	networkInstance.Field[0].Name = proto.String("network_instance")
+	protocolInstance := singularCarrier("ProtocolInstanceWithoutRule", protoreflect.StringKind, nil)
+	protocolInstance.Field[0].Name = proto.String("protocol_instance")
 
 	file := buildSyntheticCarriers(t, "key_breaks.proto",
 		singularCarrier("NoRule", protoreflect.StringKind, &validate.FieldRules{Required: proto.Bool(true)}),
@@ -214,16 +227,18 @@ func TestKeyFieldsUseKeyRules(t *testing.T) {
 			Type: &validate.FieldRules_Repeated{Repeated: &validate.RepeatedRules{Items: restatedItems(64, shellSafeInterfaceNamePattern)}},
 		}),
 		networkInstance,
+		protocolInstance,
 	)
 	synthetic := &keyWalk{}
 	synthetic.messages(file.Messages())
 
 	want := map[string]string{
-		"NoRule":                     "NoRule.interface_name spells an interface name and carries none of interface_name or shell_safe_interface_name on its field",
-		"BothRules":                  "BothRules.interface_name carries interface_name and shell_safe_interface_name together on its field",
-		"OwnBoundBesideRule":         "OwnBoundBesideRule.interface_name declares its own max_len beside interface_name on its field",
-		"ItemsWithWrongBounds":       "ItemsWithWrongBounds.interface_name restates min_len 1, max_len 64, pattern",
-		"NetworkInstanceWithoutRule": "NetworkInstanceWithoutRule.network_instance spells a network instance name and carries none of network_instance_name on its field",
+		"NoRule":                      "NoRule.interface_name spells an interface name and carries none of interface_name or shell_safe_interface_name on its field",
+		"BothRules":                   "BothRules.interface_name carries interface_name and shell_safe_interface_name together on its field",
+		"OwnBoundBesideRule":          "OwnBoundBesideRule.interface_name declares its own max_len beside interface_name on its field",
+		"ItemsWithWrongBounds":        "ItemsWithWrongBounds.interface_name restates min_len 1, max_len 64, pattern",
+		"NetworkInstanceWithoutRule":  "NetworkInstanceWithoutRule.network_instance spells a network instance name and carries none of network_instance_name on its field",
+		"ProtocolInstanceWithoutRule": "ProtocolInstanceWithoutRule.protocol_instance spells a protocol instance name and carries none of protocol_instance_name on its field",
 	}
 	for message, fragment := range want {
 		reported := violationsFor(synthetic.violations, message+".")

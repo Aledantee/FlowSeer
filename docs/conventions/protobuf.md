@@ -345,6 +345,11 @@ holds the rationale and standards grounding for each rule.
   with no instance concept reports one `NetworkInstance` of kind `DEFAULT`,
   named as the device names it or `default` when it has no name, and every
   row names that instance; an absent key never stands for the default.
+- **Protocol instance key**: a routing protocol's instance-level rows carry
+  `network_instance` and a required `protocol_instance` validated by
+  `protocol_instance_name`; rows keyed by an interface carry `protocol_instance`
+  and inherit the network instance; the mapper names the instance as the device
+  does, `default` when it has none.
 - **Facets, settings, and rows**: per-interface bundles, or per-component for a
   radio, are named `<Name>Facet`, and requested values for that layer are
   `<Name>Settings`, carried by the
