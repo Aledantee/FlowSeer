@@ -87,14 +87,14 @@ A review role left with no survivor because the executors cover its fit
 set, as after a fix round on several models, splits by writer. The
 writers are the runs step 3 counts that also have an `end` event. A
 commit belongs to the run with the fewest commits in its `start` `base`
-to `end` `head` range that still holds it, since a `drive` stage's range
-holds the commits of the lanes it merged; a commit in no range belongs
-to the coordinator's model. This prints each commit of the review range
+to `end` `head` range that still holds it, the later-started on a tie,
+since a `drive` stage's range holds the commits of the lanes it merged;
+a commit in no range belongs to the coordinator's model. This prints each commit of the review range
 with its writer, `$coordinator` being the coordinator's registry model id,
 and exits nonzero on a revision git cannot resolve:
 
 ```bash
-python3 -B -c 'import subprocess, sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.split(); events = list(runlog.read()); grade = {e["run"]: e.get("outcome") for e in events if e.get("event") == "grade"}; head = {e["run"]: e["head"] for e in events if e.get("event") == "end"}; runs = [(set(git("rev-list", e["base"] + ".." + head[e["run"]])), e.get("model") or e.get("agent")) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grade.get(e["run"]) in {"accepted", "amended"} and e["run"] in head]; [print(c[:12], min((r for r in runs if c in r[0]), key=lambda r: len(r[0]), default=(None, sys.argv[3]))[1]) for c in git("rev-list", "--no-merges", sys.argv[2])]' "$plan" "$base..$head" "$coordinator"
+python3 -B -c 'import subprocess, sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.split(); events = list(runlog.read()); grade = {e["run"]: e.get("outcome") for e in events if e.get("event") == "grade"}; head = {e["run"]: e["head"] for e in events if e.get("event") == "end"}; runs = [(set(git("rev-list", e["base"] + ".." + head[e["run"]])), e.get("model") or e.get("agent"), e["at"]) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grade.get(e["run"]) in {"accepted", "amended"} and e["run"] in head]; [print(c[:12], max((r for r in runs if c in r[0]), key=lambda r: (-len(r[0]), r[2]), default=(None, sys.argv[3]))[1]) for c in git("rev-list", "--no-merges", sys.argv[2])]' "$plan" "$base..$head" "$coordinator"
 ```
 
 A fix commit often rewrites lines an earlier writer added, so the split
