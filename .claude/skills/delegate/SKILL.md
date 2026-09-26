@@ -27,7 +27,7 @@ say so in the report and continue.
 | Bounded question that needs conventions read and evidence weighed | `research` | `repo-researcher` subagent, or the pool's CLI |
 | Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else see Orca or native |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
-| Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent |
+| Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent, or the pool's CLI |
 | Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent; never on a `sensitive` unit |
 | Adversarial read of a plan | `critique` | the pool's CLI |
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
@@ -61,8 +61,12 @@ Resolve a role to a lane in this order, once per lane:
    the agent instead):
 
    ```bash
-   python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; [print(e.get("unit") or "-", e.get("model") or e.get("agent")) for e in runlog.read() if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1]]' "$plan"
+   python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; events=list(runlog.read()); grades={}; [grades.__setitem__(e.get("run"), e.get("outcome")) for e in events if e.get("event") == "grade"]; [print(e.get("unit") or "-", e.get("model") or e.get("agent")) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grades.get(e.get("run")) in {"accepted", "amended"}]' "$plan"
    ```
+
+   The last `grade` event for a run wins. A rejected or blocked executor
+   did not author work that reached the review set, so its model remains
+   eligible.
 
    A reviewer a session spawns as its own subagent runs on that session's
    vendor, so it is a lane this step applies to like any other.
@@ -202,19 +206,20 @@ says whether it did.
   wave, whatever the row said.
 - The coordinating session and every native subagent draw on the Claude
   pool, a Fable session also on `fableWeekly`. Past 85% there, keep native
-  delegation to `review-seam` and `judge` and send the rest to the other
-  prepaid pools.
+  delegation to `judge`; review lanes follow Orca or native below, and the
+  rest goes to the other prepaid pools.
 - When no fitting pool is usable, do not dispatch: work sequentially or wait
   for the earliest `resetsAt`, and tell the user which window is exhausted.
 
 ## Orca or native
 
-Read-only delegates (`lookup`, `research`, `review-*`, `judge`) stay
-native subagents on every host, except a `review-unit` reviewer when
-step 3 drops the coordinator's own vendor: it runs on the first fitting
-pool's CLI through `orca-worker.sh start --role review-unit`. Without
-Orca that unit gets no independent reviewer; the coordinator's own
-reading in `review` is its pass, and the report says so. Editing work goes to an Orca worker when
+Read-only delegates (`lookup`, `research`, `judge`) stay native subagents
+on every host. A review lane (`review-unit` or `review-seam`) stays native
+only when its resolved model is a Claude model the native subagent can be
+pinned to. Any other resolved review model runs on its pool's CLI through
+`orca-worker.sh start --role <role>`. Without Orca that lane gets no
+independent reviewer; the coordinator's own reading in `review` is its
+pass, and the report says so. Editing work goes to an Orca worker when
 `orca status --json` reports `runtime.reachable: true`. Otherwise it goes
 to a `general-purpose` subagent with `isolation: worktree` only when the
 role's fit set holds a Claude model, pinned to that model. A native

@@ -503,6 +503,7 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.live_lane()
         self.env["ORCA_STUB_FAIL"] = "terminal-read"
         result = self.command("wait", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines()[0], "exited")
 
     def test_tell_fails_when_the_pointer_count_does_not_grow(self):

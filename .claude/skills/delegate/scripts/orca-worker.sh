@@ -248,14 +248,14 @@ case "$cmd" in
     # changed for --stall seconds is a hung model stream (opencode lanes
     # ignored Escape for an hour): `stalled`, for the coordinator to close.
     deadline=$(( timeout > 0 ? $(date +%s) + timeout / 1000 : 0 ))
-    last='' since=$(date +%s)
+    last='' since=$(date +%s) show_screen=true
     while :; do
       out=$(orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 60000 --json 2>&1)
       st=$(printf '%s' "$out" | json 'd["result"]["wait"]["status"]')
       [[ $st == exited ]] && { echo exited; break; }
       # A terminal closed outside this script reads as nothing, twice, which
       # would otherwise pass for a settled screen.
-      s1=$(screen "$term") || { echo exited; break; }
+      s1=$(screen "$term") || { echo exited; show_screen=false; break; }
       if ! working "$s1"; then
         sleep 5
         s2=$(screen "$term")
@@ -270,8 +270,11 @@ case "$cmd" in
       (( deadline > 0 && now >= deadline )) && { echo timeout; exit 0; }
       sleep 5
     done
-    # A permission dialog also reads as idle, so the screen always follows.
-    screen "$term" | grep -v -E '^\s*$' | tail -30
+    # A permission dialog also reads as idle, so the screen follows unless its
+    # failed read is what reported the terminal as exited.
+    if [[ $show_screen == true ]]; then
+      screen "$term" | grep -v -E '^\s*$' | tail -30
+    fi
     ;;
   read)
     name=${1:-}; shift || true; lines=200
