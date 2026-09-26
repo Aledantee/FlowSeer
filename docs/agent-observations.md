@@ -26,3 +26,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-26 delegate: codex 0.157.1 hooks review ends on a hook detail screen
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, start command (codex hooks review).
+What happened: Two `start --cli codex` runs with codex 0.157.1 on 2026-09-26 failed with "pointer not on review-f46's screen after two submissions". The screen showed a single hook's detail view (`Trust Trusted`, `space/enter toggle · esc back`) for the Orca `codex-hook.sh` entry in `~/.codex/hooks.json`, so the `t`-then-escape answer left the TUI inside the review, and the pointer's Enter went to the toggle. The update check was off and did not appear. The step was followed as written; the lane ran as `codex exec` instead.
+Suggested change: Match the detail view (`esc back`) and send escape until the review list and then the prompt show, or launch with the hooks review pre-answered if codex has a config key for it.
