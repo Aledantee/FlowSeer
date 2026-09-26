@@ -4,7 +4,6 @@ package arp
 
 import (
 	"encoding/binary"
-	"errors"
 	"net/netip"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -40,9 +39,9 @@ type Message struct {
 
 var (
 	// ErrMalformed identifies invalid fields and lengths.
-	ErrMalformed = errors.New("malformed ARP message")
+	ErrMalformed = errs.Msg("malformed ARP message")
 	// ErrUnsupported identifies well-formed wire formats the package does not support.
-	ErrUnsupported = errors.New("unsupported ARP message")
+	ErrUnsupported = errs.Msg("unsupported ARP message")
 )
 
 // Encode serializes m into an Ethernet II frame carrying a 28-octet ARP

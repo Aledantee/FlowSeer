@@ -3,7 +3,6 @@ package udp
 
 import (
 	"encoding/binary"
-	"errors"
 	"math"
 	"net/netip"
 
@@ -29,7 +28,7 @@ type Header struct {
 }
 
 // ErrMalformed identifies invalid fields, lengths, and address families.
-var ErrMalformed = errors.New("malformed UDP datagram")
+var ErrMalformed = errs.Msg("malformed UDP datagram")
 
 // Decode parses a UDP header from b and returns the payload it bounds. It
 // returns [ErrMalformed] if b is shorter than eight octets, or if the header's

@@ -18,6 +18,8 @@ import (
 	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Export-side privacy rests first on emission discipline: every signal the
@@ -205,7 +207,7 @@ func transformMetric(value metricdata.Metrics) (*metricspb.Metric, error) {
 	case metricdata.Summary:
 		metric.Data = transformSummary(data)
 	default:
-		err = errors.New("unsupported metric aggregation")
+		err = errs.Msg("unsupported metric aggregation")
 	}
 	return metric, err
 }
@@ -356,7 +358,7 @@ func transformTemporality(value metricdata.Temporality) (metricspb.AggregationTe
 	case metricdata.CumulativeTemporality:
 		return metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE, nil
 	default:
-		return metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_UNSPECIFIED, errors.New("unsupported metric temporality")
+		return metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_UNSPECIFIED, errs.Msg("unsupported metric temporality")
 	}
 }
 

@@ -6,7 +6,6 @@ package icmp
 
 import (
 	"encoding/binary"
-	"errors"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -20,7 +19,7 @@ type Header struct {
 }
 
 // ErrMalformed identifies a message too short to hold the common header.
-var ErrMalformed = errors.New("malformed ICMP message")
+var ErrMalformed = errs.Msg("malformed ICMP message")
 
 // Decode parses the common header from b and returns it with the payload
 // that follows. It returns [ErrMalformed] for a message shorter than 4

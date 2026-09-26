@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -11,12 +10,13 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 var (
-	errSupervisorRestart = errors.New("service supervisor restart")
-	errUnmanagedTask     = errors.New("service task is outside a managed module attempt")
+	errSupervisorRestart = errs.Msg("service supervisor restart")
+	errUnmanagedTask     = errs.Msg("service task is outside a managed module attempt")
 )
 
 // supervisorClock supplies supervisor time and cancellation-aware waits
@@ -184,7 +184,7 @@ func (s *supervisorState) runWithStarted(ctx context.Context, started chan<- str
 			if result.outcome == lifecycleOutcomeCanceled {
 				err := result.err
 				if err == nil {
-					err = fmt.Errorf("module %s stopped without supervisor cancellation", s.slots[result.index].module.path)
+					err = errs.Msgf("module %s stopped without supervisor cancellation", s.slots[result.index].module.path)
 				}
 				s.stopAll(err)
 				return err
@@ -213,7 +213,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	slot := &s.slots[result.index]
 	policy, outcomeIndex := outcomePolicy(slot.module.policy, result.outcome)
 	if policy == nil {
-		return fmt.Errorf("module %s produced unknown lifecycle outcome %d", slot.module.path, result.outcome)
+		return errs.Msgf("module %s produced unknown lifecycle outcome %d", slot.module.path, result.outcome)
 	}
 
 	now := s.runtime.options.clock.Now()
@@ -240,7 +240,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 			return causalOutcomeError(slot.module.path, "supervisor restart intensity exhausted", result.err)
 		}
 	default:
-		return fmt.Errorf("module %s has unknown outcome action %d", slot.module.path, policy.action)
+		return errs.Msgf("module %s has unknown outcome action %d", slot.module.path, policy.action)
 	}
 
 	affected := s.affected(result.index)
@@ -272,7 +272,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 		if ctx.Err() != nil {
 			return nil
 		}
-		return fmt.Errorf("module %s restart backoff: %w", slot.module.path, err)
+		return errs.Wrapf(err, "module %s restart backoff", slot.module.path)
 	}
 	if ctx.Err() != nil {
 		return nil
@@ -367,7 +367,7 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 			return
 		}
 		if enabledLeaves == 0 {
-			s.publishImmediate(index, lifecycleOutcomeError, fmt.Errorf("module %s has no enabled leaf modules", module.path))
+			s.publishImmediate(index, lifecycleOutcomeError, errs.Msgf("module %s has no enabled leaf modules", module.path))
 			return
 		}
 		module.children = children
@@ -665,7 +665,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 		return setupOutcome, 0, setupErr
 	}
 	if attempt.Runner == nil {
-		err := fmt.Errorf("module %s setup returned a nil runner", module.path)
+		err := errs.Msgf("module %s setup returned a nil runner", module.path)
 		coordinator.stop(err)
 		return lifecycleOutcomeError, 0, err
 	}
@@ -820,7 +820,7 @@ func exponentialBackoff(backoff Backoff, exponent int) time.Duration {
 
 func causalOutcomeError(modulePath, reason string, cause error) error {
 	if cause == nil {
-		return fmt.Errorf("module %s %s", modulePath, reason)
+		return errs.Msgf("module %s %s", modulePath, reason)
 	}
-	return fmt.Errorf("module %s %s: %w", modulePath, reason, cause)
+	return errs.Wrapf(cause, "module %s %s", modulePath, reason)
 }
