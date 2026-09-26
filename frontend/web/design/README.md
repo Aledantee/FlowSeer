@@ -80,12 +80,11 @@ Some OKLCH values extend beyond sRGB, so gamut mapping can affect the result.
 Never assume that arbitrary steps work together or that white text works on step 9.
 
 The JSON export includes the source scales, seeds, exact brand anchors, and both
-sets of semantic hex tokens. After editing source scales or semantic tokens:
+sets of semantic OKLCH tokens. After editing source scales or semantic tokens:
 
 ```sh
 cd frontend/web
-node scripts/build-palette.mjs
-pnpm format
+node --experimental-strip-types scripts/build-palette.ts
 pnpm test
 pnpm build
 ```
