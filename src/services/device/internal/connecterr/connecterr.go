@@ -58,16 +58,27 @@ func (t Table) Wrap(err error) error {
 }
 
 // WrapAs renders err as a Connect error with the code and message the call
-// site chose, and nil for a nil err. It is for a boundary whose answer does
-// not depend on what failed behind it: an assertion that did not verify is Unauthenticated whether the
-// signature was wrong, the edge unknown, or the key lookup unable to answer,
-// and telling the caller which would be the leak the check exists to prevent.
+// site chose. It attaches client-safe payload details and returns nil for a nil
+// err. The returned error unwraps to err.
 func WrapAs(code connect.Code, userMsg string, err error) error {
 	if err == nil {
 		return nil
 	}
 
 	return clientError(code, userMsg, err)
+}
+
+// WrapRefused renders err as an Unauthenticated Connect error with userMsg.
+// Wire output carries only the public code and message, and the full cause
+// chain remains reachable for server-side logging. It serves authentication
+// refusal boundaries to keep verification failure causes internal. WrapRefused
+// returns nil for a nil err.
+func WrapRefused(userMsg string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return connect.NewError(connect.CodeUnauthenticated, clientFacing{msg: userMsg, internal: err})
 }
 
 func clientError(code connect.Code, userMsg string, err error) error {

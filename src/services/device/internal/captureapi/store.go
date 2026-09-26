@@ -175,7 +175,7 @@ func (s *Store) ListSessions(ctx context.Context) ([]*modelcapturev1.CaptureSess
 }
 
 // MutateSession applies fn to the latest session record and makes at most
-// eight compare-and-set attempts, retrying a concurrent conflict. It returns
+// eight compare-and-set attempts. It retries a concurrent conflict and returns
 // an error with [ErrCodeConflict] when no update settles within that bound.
 func (s *Store) MutateSession(ctx context.Context, sessionID string, fn func(rec *modelcapturev1.CaptureSessionRecord) error) (*modelcapturev1.CaptureSessionRecord, error) {
 	for attempt := 0; attempt < casRetries; attempt++ {

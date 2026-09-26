@@ -141,7 +141,8 @@ type EdgeServiceConfig struct {
 }
 
 // EdgeService serves capture assignments and uploads from authenticated edges.
-// An EdgeService is safe for concurrent use.
+// An EdgeService is safe for concurrent use when its verifier and configured
+// EdgeID and Clock callbacks are safe for concurrent use.
 type EdgeService struct {
 	store           *Store
 	verifier        AssertionVerifier
@@ -204,6 +205,16 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 	}
 }
 
+// unauthenticated returns a Connect error with [connect.CodeUnauthenticated]
+// and [msgUnauthenticated]. Wire output carries only the public status, and
+// err remains in the cause chain for server-side logging.
+func unauthenticated(err error) error {
+	if err == nil {
+		err = errors.New(msgUnauthenticated)
+	}
+	return connecterr.WrapRefused(msgUnauthenticated, err)
+}
+
 // claimUpload reserves a session for one upload stream, reporting whether this
 // stream got it. One pcapng file is written per session, by one writer, so two
 // streams uploading the same session would interleave their packets into it
@@ -261,7 +272,7 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 ) error {
 	edgeID, err := s.edgeID(ctx)
 	if err != nil {
-		return connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
+		return unauthenticated(err)
 	}
 
 	notifyCh, unwatch := s.registerWatcher()
@@ -350,20 +361,20 @@ func (s *EdgeService) UploadCapture(
 
 	if !stream.Receive() {
 		if err := stream.Err(); err != nil {
-			return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
+			return nil, unauthenticated(err)
 		}
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
+		return nil, unauthenticated(errors.New("stream closed before opening assertion"))
 	}
 
 	firstMsg := stream.Msg()
 	firstSigned := firstMsg.GetAssertion()
 	if firstSigned == nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
+		return nil, unauthenticated(errors.New("opening message carries no assertion"))
 	}
 
 	firstAssertion, err := s.verifier.VerifySigned(ctx, firstSigned, procedure, nil)
 	if err != nil {
-		return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
+		return nil, unauthenticated(err)
 	}
 
 	callingEdgeID := firstAssertion.GetEdge().GetEdge().GetId()
@@ -401,7 +412,7 @@ func (s *EdgeService) UploadCapture(
 		now := s.clock()
 		if now.Sub(lastAssertionAt) > s.assertionWindow {
 			s.failStream(ctx, sessionID, "assertion window lapsed")
-			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("assertion window lapsed past deadline"))
+			return nil, unauthenticated(errors.New("assertion window lapsed past deadline"))
 		}
 
 		msg := stream.Msg()
@@ -410,7 +421,7 @@ func (s *EdgeService) UploadCapture(
 			assertion, err := s.verifier.VerifySigned(ctx, signed, procedure, nil)
 			if err != nil {
 				s.failStream(ctx, sessionID, "mid-stream assertion did not verify")
-				return nil, connecterr.WrapAs(connect.CodeUnauthenticated, msgUnauthenticated, err)
+				return nil, unauthenticated(err)
 			}
 			if assertion.GetEdge().GetEdge().GetId() != callingEdgeID {
 				s.failStream(ctx, sessionID, "assertion edge changed mid-stream")
@@ -565,7 +576,7 @@ func (s *EdgeService) UploadCapture(
 	// with no stream behind it is one nothing ever retries or reports.
 	if s.clock().Sub(lastAssertionAt) > s.assertionWindow {
 		s.failStream(ctx, sessionID, "assertion window lapsed")
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("assertion window lapsed past deadline"))
+		return nil, unauthenticated(errors.New("assertion window lapsed past deadline"))
 	}
 
 	if err := stream.Err(); err != nil {
