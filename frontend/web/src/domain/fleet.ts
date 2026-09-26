@@ -11,11 +11,15 @@ export interface Site {
   location: string
 }
 export type Health = 'Healthy' | 'Degraded' | 'Offline'
+export type DeviceRole = 'gateway' | 'switch' | 'access-point'
 export interface Device {
   id: string
   name: string
   siteId: string
   kind: string
+  role: DeviceRole
+  // The device this one takes its uplink from; absent on a site's root.
+  uplinkId?: string
   address: string
   health: Health
   clients: number
@@ -68,6 +72,8 @@ export const devices: Device[] = sites.flatMap((site, index) =>
     name: `${site.id}-${['gw-01', 'sw-01', 'ap-01', 'ap-02'][offset]}`,
     siteId: site.id,
     kind,
+    role: offset === 0 ? 'gateway' : offset === 1 ? 'switch' : 'access-point',
+    uplinkId: offset ? `dev-${index * 4 + (offset < 2 ? 1 : 2)}` : undefined,
     address: `10.${index + 20}.0.${offset + 1}`,
     health:
       index === 1 && offset === 2
@@ -128,4 +134,53 @@ export function moveDevice(device: Device, siteId: string): Device {
   if (!origin || !destination || origin.tenantId !== destination.tenantId)
     throw new Error('Choose a site owned by the same tenant.')
   return { ...device, siteId }
+}
+export function downlinks(fleet: Device[], device: Device): Device[] {
+  return fleet.filter(
+    (item) => item.uplinkId === device.id && item.siteId === device.siteId,
+  )
+}
+export interface Link {
+  // Named after the downstream device, which has exactly one uplink.
+  id: string
+  sourceId: string
+  targetId: string
+  medium: 'Fiber' | 'Copper'
+  capacity: number
+  throughput: number
+  health: Health
+}
+function subtreeThroughput(fleet: Device[], device: Device): number {
+  return downlinks(fleet, device).reduce(
+    (sum, child) => sum + subtreeThroughput(fleet, child),
+    device.throughput,
+  )
+}
+// A link carries everything below its downstream device; it is down when
+// either end is offline and degraded when either end is.
+export function linksOf(fleet: Device[]): Link[] {
+  const byId = new Map(fleet.map((device) => [device.id, device]))
+  return fleet.flatMap((device) => {
+    const uplink = device.uplinkId ? byId.get(device.uplinkId) : undefined
+    if (!uplink || uplink.siteId !== device.siteId) return []
+    const ends = [uplink.health, device.health]
+    const core = device.role === 'switch'
+    return [
+      {
+        id: `link-${device.id}`,
+        sourceId: uplink.id,
+        targetId: device.id,
+        medium: core ? 'Fiber' : 'Copper',
+        capacity: core ? 10_000 : 1_000,
+        throughput: ends.includes('Offline')
+          ? 0
+          : subtreeThroughput(fleet, device),
+        health: ends.includes('Offline')
+          ? 'Offline'
+          : ends.includes('Degraded')
+            ? 'Degraded'
+            : 'Healthy',
+      },
+    ]
+  })
 }

@@ -77,31 +77,6 @@ installed typescript-eslint version does not support TypeScript 7.
 Prettier owns formatting; ESLint checks code and Vue semantics with the standard
 Prettier compatibility configuration.
 
-## Annotating the UI for an agent
-
-`pnpm dev` adds the [Agentation](https://www.agentation.com/) toolbar at the
-bottom right. Click it, click an element, and write a note; copying produces
-Markdown with each element's selector and classes, ready to paste into a coding
-agent. Agentation is a React component, so `src/dev/agentation.ts` mounts it as
-a separate React root. `main.ts` imports that module only in dev, which keeps
-React out of `pnpm build`. Both packages are licensed under PolyForm Shield
-1.0.0.
-
-An agent can also read annotations directly. The repository's `.mcp.json`
-registers the `agentation` MCP server; Claude Code asks you to approve it the
-first time a session starts in the repository, or approve it later from `/mcp`.
-The server also listens on `http://localhost:4747`, and the toolbar posts each
-annotation there. Ask the agent to fetch pending annotations (for example with
-`agentation_get_all_pending`), or to watch for new ones while you click through
-the UI. When several sessions run at once, the first one owns port 4747 and the
-others reach annotations through it. Annotations are kept in memory
-(`AGENTATION_STORE=memory`) and disappear when that session ends; without a
-running session the toolbar still works and copying still produces Markdown.
-
-`better-sqlite3`, the server's optional persistent store, is denied its native
-build script in `pnpm-workspace.yaml`, so installing runs no third-party install
-scripts.
-
 ## Components workspace
 
 Open `/components` from the sidebar. Try the button variants, inspect labeled

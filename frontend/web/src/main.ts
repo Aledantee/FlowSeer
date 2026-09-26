@@ -10,15 +10,11 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/dashboard' },
     {
-      path: '/:view(dashboard|devices|sites|topology|components)',
+      path: '/:view(dashboard|devices|clients|sites|topology|components)',
       component: FleetView,
     },
+    { path: '/devices/:deviceId', component: FleetView },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
   ],
 })
 createApp(App).use(router).mount('#app')
-// The dynamic import keeps React and Agentation out of production bundles.
-if (import.meta.env.DEV)
-  void import('./dev/agentation').then(({ mountAgentation }) =>
-    mountAgentation(),
-  )

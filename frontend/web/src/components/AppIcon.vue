@@ -18,6 +18,24 @@ const paths: Record<string, string> = {
   close: 'M6 6l12 12 M18 6 6 18',
   pulse: 'M2 12h5l3-8 4 16 3-8h5',
   tenants: 'M12 3 3 7.5 12 12l9-4.5L12 3 M3 12l9 4.5L21 12 M3 16.5 12 21l9-4.5',
+  gateway:
+    'M3 14h18v6H3z M7 17h.01 M11 17h.01 M8.5 10.5a5 5 0 0 1 7 0 M5.5 7.5a9.5 9.5 0 0 1 13 0',
+  switch: 'M3 8h18v8H3z M7 12h.01 M10 12h.01 M13 12h.01 M16 12h.01',
+  'access-point':
+    'M2 9a14 14 0 0 1 20 0 M5 12.5a9.5 9.5 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5v.01',
+  clients:
+    'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-1a6 6 0 0 1 12 0v1 M16 3.5a4 4 0 0 1 0 7.5 M22 21v-1a6 6 0 0 0-4-5.6',
+  chevron: 'M6 9l6 6 6-6',
+  check: 'M5 12.5l4.5 4.5L19 7',
+  back: 'M19 12H5 M10 7l-5 5 5 5',
+  'to-dock': 'M4 3h16v11H4z M12 6v5 M9.5 8.5 12 11l2.5-2.5 M7 20h10',
+  split: 'M3 4h18v16H3z M12 4v16',
+  'panel-right': 'M3 4h18v16H3z M14 4v16',
+  'dock-pair': 'M3 3h18v11H3z M12 3v11 M8 20h8 M12 16v4',
+  swap: 'M7 4 3 8l4 4 M3 8h14 M17 20l4-4-4-4 M21 16H7',
+  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+  'link-clicks': 'M3 4h18v16H3z M12 4v16 M5 12h10 M12 9l3 3-3 3',
+  expand: 'M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5',
 }
 </script>
 <template>

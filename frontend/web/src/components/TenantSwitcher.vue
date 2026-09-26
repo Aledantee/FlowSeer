@@ -10,6 +10,7 @@ const emit = defineEmits<{ change: [tenantId: string] }>()
     <ScopeSwitcher
       v-if="tenants.length > 1"
       label="Tenant scope"
+      placeholder="Search tenants…"
       :selected="selected"
       :options="[
         { value: '', label: 'All tenants' },
@@ -17,6 +18,7 @@ const emit = defineEmits<{ change: [tenantId: string] }>()
           value: tenant.id,
           label: tenant.name,
           nested: !!tenant.parentId,
+          iconUrl: tenant.iconUrl,
         })),
       ]"
       @change="emit('change', $event)"

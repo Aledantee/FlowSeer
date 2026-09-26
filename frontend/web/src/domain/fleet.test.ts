@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { tenantIds, filterDevices, moveDevice, devices } from './fleet'
+import {
+  tenantIds,
+  filterDevices,
+  moveDevice,
+  devices,
+  downlinks,
+  linksOf,
+} from './fleet'
 describe('operator fleet scope', () => {
   it('includes descendants when selecting a parent tenant', () => {
     expect(tenantIds('aurora')).toEqual(['aurora', 'aurora-de'])
@@ -28,5 +35,29 @@ describe('operator fleet scope', () => {
   })
   it('unknown scope produces no devices', () => {
     expect(filterDevices(devices, 'missing', '', '', '')).toEqual([])
+  })
+  it('connects access points to the core switch below the gateway', () => {
+    const berlin = devices.filter((device) => device.siteId === 'berlin')
+    const gateway = berlin.find((device) => device.role === 'gateway')
+    if (!gateway) throw new Error('Missing fixture')
+    const [core] = downlinks(berlin, gateway)
+    if (!core) throw new Error('Missing fixture')
+    expect(downlinks(berlin, core).map((device) => device.role)).toEqual([
+      'access-point',
+      'access-point',
+    ])
+  })
+  it('carries the whole subtree on a link and marks it down when an end is offline', () => {
+    const berlin = devices.filter((device) => device.siteId === 'berlin')
+    const core = linksOf(berlin).find((link) => link.targetId === 'dev-2')
+    expect(core?.throughput).toBe(
+      berlin
+        .filter((device) => device.role !== 'gateway')
+        .reduce((sum, device) => sum + device.throughput, 0),
+    )
+    const cologne = devices.filter((device) => device.siteId === 'cologne')
+    expect(
+      linksOf(cologne).find((link) => link.targetId === 'dev-16')?.health,
+    ).toBe('Offline')
   })
 })

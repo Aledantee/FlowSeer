@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppTooltip from './AppTooltip.vue'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMotionFeedback } from '../motion/useMotionFeedback'
 import AppIcon from './AppIcon.vue'
@@ -75,29 +76,30 @@ onUnmounted(() => systemTheme.removeEventListener('change', syncSystemTheme))
 </script>
 
 <template>
-  <button
-    class="theme-switcher"
-    type="button"
-    role="switch"
-    aria-label="Dark mode"
-    :aria-checked="theme === 'dark'"
-    :title="`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`"
-    @click="toggleTheme"
-  >
-    <span
-      ref="sun"
-      class="theme-icon"
-      :class="{ 'is-active': theme === 'light' }"
-      aria-hidden="true"
-      ><AppIcon name="sun"
-    /></span>
-    <span
-      ref="moon"
-      class="theme-icon"
-      :class="{ 'is-active': theme === 'dark' }"
-      aria-hidden="true"
-      ><AppIcon name="moon"
-    /></span>
-  </button>
+  <AppTooltip :label="`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`">
+    <button
+      class="theme-switcher"
+      type="button"
+      role="switch"
+      aria-label="Dark mode"
+      :aria-checked="theme === 'dark'"
+      @click="toggleTheme"
+    >
+      <span
+        ref="sun"
+        class="theme-icon"
+        :class="{ 'is-active': theme === 'light' }"
+        aria-hidden="true"
+        ><AppIcon name="sun"
+      /></span>
+      <span
+        ref="moon"
+        class="theme-icon"
+        :class="{ 'is-active': theme === 'dark' }"
+        aria-hidden="true"
+        ><AppIcon name="moon"
+      /></span>
+    </button>
+  </AppTooltip>
   <span class="sr-only" role="status">{{ announcement }}</span>
 </template>

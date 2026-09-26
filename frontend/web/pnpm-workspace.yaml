@@ -1,2 +1,4 @@
 allowBuilds:
-  better-sqlite3: false
+  # vue-demi's install script only switches between its Vue 2 and Vue 3
+  # builds; the default already targets Vue 3.
+  vue-demi: false

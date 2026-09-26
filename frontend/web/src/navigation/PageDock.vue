@@ -1,0 +1,108 @@
+<script setup lang="ts">
+import AppTooltip from '../components/AppTooltip.vue'
+import { dockTabShortcut } from './shortcuts'
+import AppIcon from '../components/AppIcon.vue'
+import ScrollArea from '../components/ScrollArea.vue'
+import type { Health } from '../domain/fleet'
+import type { DockTab } from './dock'
+defineProps<{
+  tabs: DockTab[]
+  title: (tab: DockTab) => {
+    label: string
+    detail: string
+    icon: string
+    health?: Health
+    attention?: number
+  }
+  canSplit: boolean
+}>()
+const emit = defineEmits<{
+  open: [id: string]
+  split: [id: string]
+  close: [id: string]
+}>()
+function badge(health: Health | undefined, attention: number | undefined) {
+  if (health && health !== 'Healthy') return health
+  if (attention) return `${attention} need attention`
+  return ''
+}
+</script>
+
+<template>
+  <nav v-if="tabs.length" class="page-dock" aria-label="Minimized pages">
+    <ScrollArea axis="x" class="dock-scroll">
+      <TransitionGroup name="dock" tag="ul">
+        <li
+          v-for="(tab, index) in tabs"
+          :key="tab.id"
+          :class="['dock-tab', { pair: tab.beside }]"
+        >
+          <AppTooltip
+            :label="`Open ${title(tab).label}`"
+            :hint="
+              [
+                title(tab).detail,
+                badge(title(tab).health, title(tab).attention),
+                canSplit && !tab.beside
+                  ? 'Shift-click opens it side by side'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            "
+            :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
+            side="top"
+          >
+            <button
+              class="dock-open"
+              @click="
+                $event.shiftKey && canSplit && !tab.beside
+                  ? emit('split', tab.id)
+                  : emit('open', tab.id)
+              "
+            >
+              <span class="dock-icon"
+                ><AppIcon :name="title(tab).icon" /><i
+                  v-if="badge(title(tab).health, title(tab).attention)"
+                  :class="[
+                    'dock-badge',
+                    (title(tab).health ?? 'Degraded').toLowerCase(),
+                  ]"
+                  :aria-label="badge(title(tab).health, title(tab).attention)"
+                  >{{ title(tab).attention ?? '' }}</i
+                ></span
+              >
+              <span
+                ><strong>{{ title(tab).label }}</strong
+                ><small>{{ title(tab).detail }}</small></span
+              >
+            </button>
+          </AppTooltip>
+          <AppTooltip
+            v-if="canSplit && !tab.beside"
+            label="Open side by side"
+            :shortcut="index < 9 ? dockTabShortcut(index + 1, true) : undefined"
+            side="top"
+          >
+            <button
+              class="dock-action"
+              :aria-label="`Open ${title(tab).label} side by side`"
+              @click="emit('split', tab.id)"
+            >
+              <AppIcon name="panel-right" />
+            </button>
+          </AppTooltip>
+          <AppTooltip label="Remove from dock" side="top">
+            <button
+              class="dock-action"
+              :aria-label="`Close ${title(tab).label}`"
+              @click="emit('close', tab.id)"
+            >
+              <AppIcon name="close" />
+            </button>
+          </AppTooltip>
+        </li>
+      </TransitionGroup>
+    </ScrollArea>
+  </nav>
+</template>

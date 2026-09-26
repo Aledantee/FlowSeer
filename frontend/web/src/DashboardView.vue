@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import ScrollArea from './components/ScrollArea.vue'
 import { computed } from 'vue'
 import AppIcon from './components/AppIcon.vue'
+import AppLink from './navigation/AppLink.vue'
+import { scopeOf, usePage } from './navigation/page'
 import HealthBar from './components/HealthBar.vue'
 import StatusBadge from './components/StatusBadge.vue'
 import TrafficChart from './components/TrafficChart.vue'
@@ -18,7 +21,17 @@ const props = defineProps<{
   site?: Site
   tenantName: (siteId: string) => string
 }>()
-const emit = defineEmits<{ open: [device: Device]; site: [siteId: string] }>()
+const page = usePage()
+function deviceTo(id: string) {
+  return { path: `/devices/${id}`, query: scopeOf(page.location.value) }
+}
+// Focusing a site keeps the dashboard and changes its scope.
+function siteTo(siteId: string) {
+  return {
+    path: page.location.value.path,
+    query: { ...scopeOf(page.location.value), site: siteId || undefined },
+  }
+}
 
 const endHour = new Date().getHours()
 const counts = computed(() => healthCounts(props.scope))
@@ -41,10 +54,6 @@ const rollups = computed(() => siteRollups(props.scope, props.sites))
 const devicesById = computed(
   () => new Map(props.scope.map((device) => [device.id, device])),
 )
-function openById(id: string) {
-  const device = devicesById.value.get(id)
-  if (device) emit('open', device)
-}
 const roles = computed(() => {
   const groups = new Map<string, Device[]>()
   for (const device of props.scope)
@@ -85,7 +94,7 @@ const roles = computed(() => {
         <h3 class="dash-subheading">Needs attention</h3>
         <ul v-if="attention.length" class="dash-list">
           <li v-for="device in attention" :key="device.id">
-            <button class="dash-row" @click="$emit('open', device)">
+            <AppLink class="dash-row" :to="deviceTo(device.id)">
               <span
                 ><strong>{{ device.name }}</strong
                 ><small
@@ -99,7 +108,7 @@ const roles = computed(() => {
                 ></span
               >
               <StatusBadge :status="device.health" />
-            </button>
+            </AppLink>
           </li>
         </ul>
         <p v-else class="dash-empty">Every device in this scope is healthy.</p>
@@ -119,7 +128,7 @@ const roles = computed(() => {
           <p>Select a site to focus the dashboard on it.</p>
         </div>
       </header>
-      <div class="table-scroll">
+      <ScrollArea axis="x" viewport-class="table-scroll">
         <table class="dash-table">
           <thead>
             <tr>
@@ -134,16 +143,13 @@ const roles = computed(() => {
           <tbody>
             <tr v-for="rollup in rollups" :key="rollup.site.id">
               <td>
-                <button
-                  class="dash-site"
-                  @click="$emit('site', rollup.site.id)"
-                >
+                <AppLink class="dash-site" :to="siteTo(rollup.site.id)">
                   <strong>{{ rollup.site.name }}</strong
                   ><small
                     >{{ rollup.site.location }} ·
                     {{ tenantName(rollup.site.id) }}</small
                   >
-                </button>
+                </AppLink>
               </td>
               <td class="dash-health-col">
                 <HealthBar :counts="rollup.health" />
@@ -160,18 +166,18 @@ const roles = computed(() => {
                 {{ rollup.throughput }} <span>Mbps</span>
               </td>
               <td>
-                <button
+                <AppLink
                   class="icon-button"
                   :aria-label="`Focus on ${rollup.site.name}`"
-                  @click="$emit('site', rollup.site.id)"
+                  :to="siteTo(rollup.site.id)"
                 >
                   <AppIcon name="arrow" />
-                </button>
+                </AppLink>
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollArea>
     </section>
 
     <section v-else class="dash-panel dash-sites" aria-labelledby="roles-title">
@@ -180,16 +186,16 @@ const roles = computed(() => {
           <h2 id="roles-title">{{ site.name }}</h2>
           <p>{{ site.location }} · {{ tenantName(site.id) }}</p>
         </div>
-        <button class="dash-link" @click="$emit('site', '')">All sites</button>
+        <AppLink class="dash-link" :to="siteTo('')">All sites</AppLink>
       </header>
       <div class="dash-roles">
         <div v-for="[kind, members] in roles" :key="kind" class="dash-role">
           <h3 class="dash-subheading">{{ kind }}</h3>
-          <button
+          <AppLink
             v-for="device in members"
             :key="device.id"
             class="dash-row"
-            @click="$emit('open', device)"
+            :to="deviceTo(device.id)"
           >
             <span
               ><strong>{{ device.name }}</strong
@@ -201,7 +207,7 @@ const roles = computed(() => {
               ></span
             >
             <StatusBadge :status="device.health" />
-          </button>
+          </AppLink>
         </div>
       </div>
     </section>
@@ -219,13 +225,13 @@ const roles = computed(() => {
           <div>
             <strong>{{ event.summary }}</strong>
             <small>
-              <button
+              <AppLink
                 v-if="devicesById.get(event.deviceId)"
                 class="dash-inline"
-                @click="openById(event.deviceId)"
+                :to="deviceTo(event.deviceId)"
               >
                 {{ devicesById.get(event.deviceId)?.name }}
-              </button>
+              </AppLink>
               · {{ formatAgo(event.minutesAgo) }}
               <span class="sr-only">, severity {{ event.severity }}</span>
             </small>

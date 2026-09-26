@@ -237,6 +237,7 @@
   width: 28%;
 }
 .dash-site {
+  display: inline-block;
   border: 0;
   background: transparent;
   padding: 0;
