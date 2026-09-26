@@ -280,4 +280,3 @@ func TestEnum_KnownAndUnknownStrings(t *testing.T) {
 		t.Errorf("FakeStatusValue(99).String() = %q, want %q", got, "FakeStatusValue(99)")
 	}
 }
-
