@@ -164,24 +164,29 @@ func writeEnumDecl(f *jen.File, goName, mibName, comment string, values []enumMe
 		}
 	})
 
-	f.Comment("String returns the SMI label, or " + goName + "(n) for an unrecognized value n.")
-	f.Func().Params(jen.Id("v").Id(goName)).Id("String").Params().String().BlockFunc(func(g *jen.Group) {
-		if len(values) == 1 {
-			m := values[0]
-			g.If(jen.Id("v").Op("==").Id(goName + camelCase(m.MIBName))).Block(
-				jen.Return(jen.Lit(m.MIBName)),
-			)
-		} else {
-			g.Switch(jen.Id("v")).BlockFunc(func(cg *jen.Group) {
-				for _, m := range values {
-					cg.Case(jen.Id(goName + camelCase(m.MIBName))).Block(
-						jen.Return(jen.Lit(m.MIBName)),
-					)
-				}
-			})
-		}
-		g.Line()
+	valsVar := unexported(goName) + "Values"
+	namesVar := unexported(goName) + "Names"
 
-		g.Return(jen.Qual("fmt", "Sprintf").Call(jen.Lit(goName+"(%d)"), jen.Id("v")))
-	})
+	f.Var().Defs(
+		jen.Id(valsVar).Op("=").Index().Int32().ValuesFunc(func(g *jen.Group) {
+			for _, m := range values {
+				g.Lit(int(m.Value))
+			}
+		}),
+		jen.Id(namesVar).Op("=").Index().String().ValuesFunc(func(g *jen.Group) {
+			for _, m := range values {
+				g.Lit(m.MIBName)
+			}
+		}),
+	)
+
+	f.Comment("String returns the SMI label, or " + goName + "(n) for an unrecognized value n.")
+	f.Func().Params(jen.Id("v").Id(goName)).Id("String").Params().String().Block(
+		jen.Return(jen.Qual(snmpImport, "EnumString").Call(
+			jen.Int32().Call(jen.Id("v")),
+			jen.Lit(goName),
+			jen.Id(valsVar),
+			jen.Id(namesVar),
+		)),
+	)
 }

@@ -97,7 +97,7 @@ func TestEmit_ReferencingModuleUsesQualifiedKeyType(t *testing.T) {
 		t.Errorf("degraded references = %v; want none", degraded)
 	}
 	wantFragments(t, src,
-		"var FakeRef = snmp.NewColumn[fakekeysmib.FakeKeyIndex]",
+		"var FakeRef = snmp.NewFusedTableColumn[fakekeysmib.FakeKeyIndex]",
 		"FakeRef fakekeysmib.FakeKeyIndex",
 		"type FakeTableKey struct {\n\tFakeIndex int32\n}",
 		"type FakeAugTableRow struct {\n\tKey FakeTableKey\n\tkeyValid bool\n",
@@ -112,7 +112,7 @@ func TestEmit_ReferencingModuleUsesQualifiedKeyType(t *testing.T) {
 		"type FakeRefinedTableKey struct {\n\tFakeRefinedIndex fakekeysmib.FakeKeyIndex\n}",
 		"FakeRefinedIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)",
 		"type FakeUnresolvedTableRow struct {\n\tIndex snmp.OID\n",
-		"row := FakeUnresolvedTableRow{Index: idx}",
+		"row.Index = idx",
 		"KeyType: \"snmp.OID\"",
 		"type FakePairTableKey struct {\n\tFakePairSlot int32\n\tFakePairName string\n}",
 		"FakePairName: string(parts[1].Octets)",
@@ -152,7 +152,7 @@ func TestEmit_UnconfiguredKeyModuleDegrades(t *testing.T) {
 	only := map[string]Module{"FAKE-MIB": fakeModules["FAKE-MIB"]}
 	src, degraded := renderFake(t, set, "FAKE-MIB", only)
 	wantFragments(t, src,
-		"var FakeRef = snmp.NewColumn[int32]",
+		"var FakeRef = snmp.NewFusedTableColumn[int32]",
 		"type FakeKeyAugTableRow struct {\n\tIndex snmp.OID\n",
 		"type FakeRefinedTableKey struct {\n\tFakeRefinedIndex int32\n}",
 	)
@@ -224,7 +224,7 @@ func TestKeyedConventions_ExcludesWellKnownAndEnumerated(t *testing.T) {
 	src := renderConfigured(t, "BRIDGE-MIB")
 	wantFragments(t, src,
 		"type Dot1dTpFdbTableKey struct {\n\tDot1dTpFdbAddress string\n}",
-		"var Dot1dStaticAddress = snmp.NewColumn[net.HardwareAddr]",
+		"var Dot1dStaticAddress = snmp.NewTableColumn[net.HardwareAddr]",
 		"Dot1dBasePortIfIndex ifmib.InterfaceIndex",
 		"type Dot1dBasePortTableKey struct {\n\tDot1dBasePort int32\n}",
 	)

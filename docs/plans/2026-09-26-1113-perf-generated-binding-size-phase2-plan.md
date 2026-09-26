@@ -89,7 +89,9 @@ baseline.
   the Go type name, `[]int32`, and `[]string`, in that order. It uses a
   non-allocating binary search for declared values and formats an unknown as
   `<Type>(<n>)`. `emit_enum.go` emits package-level arrays of numeric values
-  and names and a one-call `String` method. Why: numeric arrays do not repeat
+  and names and a one-call `String` method. Static enum name tables invalidate
+  the prior inline-return assertion in `TestEmit_DescriptionWithGoLiteralHazards`;
+  the test now checks the table literal. Why: numeric arrays do not repeat
   long constant identifiers, work for sparse and negative values, and avoid
   3,607 init-time maps.
 - The current tree is the parent baseline: 38,589,077 bytes in 33 generated Go
@@ -205,6 +207,7 @@ Files:
 - `src/protocol/snmp/cmd/mibgen/emit_test.go`
 - `src/protocol/snmp/cmd/mibgen/emit_key_test.go`
 - `src/protocol/snmp/cmd/mibgen/emit_descriptor_test.go`
+- `src/protocol/snmp/cmd/mibgen/emit_resolve_test.go`
 - `src/protocol/snmp/cmd/mibgen/doc.go`
 - `src/protocol/snmp/cmd/mibgen/testdata/golden/fakemib/mib.go`
 - `src/protocol/snmp/cmd/mibgen/testdata/golden/fakekeysmib/mib.go`
