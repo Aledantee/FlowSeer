@@ -21,13 +21,13 @@ tags: [merge, git, conflict-resolution, skills, silent-failure]
 
 When a merge produces conflicts across several files, resolving conflicts in one directory can inadvertently take the incoming branch wholesale for others. Git records the conflicted paths in the default commit message, but it does not check whether the resolved tree preserved the first parent's non-conflicted additions.
 
-Merge `f5be45ac` ("Merge remote-tracking branch 'origin/main' into Aledantee/next-work-triage", 2026-09-24) merged first parent `d6b6b574` with incoming `origin/main` (`670ef8cd`). Conflicts were resolved in `.claude/models/*`, but the resolution in `.claude/skills/` took `670ef8cd` verbatim across seven skill files. This silently dropped implementations that `d6b6b574` had introduced: `runlog.py` integration, `orca-worker.sh grade`, Wave size configuration, machine-wide registry overlays, and bench step-finish accounting. Downstream callers (`drive`, `review`, `implement`, `compound`) and `test_orca_worker.py` still referenced those dropped flags and commands, while the underlying implementations had vanished. Commit `4b3155ec` had to re-merge the parents and restore the dropped changes.
+Merge `f5be45ac` ("Merge remote-tracking branch 'origin/main' into Aledantee/next-work-triage", 2026-09-24) merged first parent `d6b6b574` with incoming `origin/main` (`670ef8cd`). Git reported conflicts only in `.claude/models/*`, yet the result holds `670ef8cd`'s copy of seven files under `.claude/skills/`, none of which git listed as conflicting. This silently dropped implementations that `d6b6b574` had introduced: `runlog.py` integration, `orca-worker.sh grade`, Wave size configuration, machine-wide registry overlays, and bench step-finish accounting. Downstream callers (`drive`, `review`, `implement`, `compound`) and `test_orca_worker.py` still referenced those dropped flags and commands, while the underlying implementations had vanished. Commit `4b3155ec` had to re-merge the parents and restore the dropped changes.
 
 ## Why it bites
 
-Standard automated test suites do not flag missing commands in untyped shell scripts or markdown workflows until an agent or runner invokes them. If tests for the dropped features exist on the incoming branch but the merge took the incoming branch's older implementation without those features, the suite passes against the older contract.
+Nothing reads a skill's prose or a flag it names until an agent follows it, so the dropped commands surfaced only when a drive called them. The one gate that would have caught it did not run: `test_orca_worker.py` kept its run-log tests and fails against the merged script, but the skill script tests run only when someone runs them, and no verifier run named those paths after the merge.
 
-Textual conflict resolution cannot detect that a file was resolved by discarding one side completely. Git considers any file whose index is updated as resolved.
+A conflict list says which files git could not merge, not which files the merged tree took from one side. A file that matches one parent exactly after a merge where both parents changed it is the signal, and only a diff against each parent shows it.
 
 ## How to apply
 
