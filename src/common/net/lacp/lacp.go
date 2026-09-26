@@ -6,7 +6,6 @@ package lacp
 
 import (
 	"encoding/binary"
-	"errors"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -63,7 +62,7 @@ type PDU struct {
 var GroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x02}
 
 // ErrUnsupported indicates that an Ethernet frame does not carry a supported LACPDU.
-var ErrUnsupported = errors.New("unsupported LACPDU")
+var ErrUnsupported = errs.Msg("unsupported LACPDU")
 
 // Encode serializes p into an Ethernet II frame carrying a 110-octet LACPDU payload.
 func Encode(p PDU, src netaddr.MAC) ethernet.Frame {

@@ -1,8 +1,9 @@
 package service
 
 import (
-	"fmt"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const (
@@ -127,7 +128,7 @@ func normalizeOutcomePolicy(name string, policy OutcomePolicy, defaultAction Act
 		action = defaultAction
 	}
 	if action < Stop || action > Escalate {
-		return normalizedOutcomePolicy{}, fmt.Errorf("service %s outcome has unknown action %d", name, action)
+		return normalizedOutcomePolicy{}, errs.Msgf("service %s outcome has unknown action %d", name, action)
 	}
 
 	budget, err := normalizeBudget(name+" outcome", policy.Budget, defaultOutcomeRestarts, defaultOutcomeWindow)
@@ -139,14 +140,14 @@ func normalizeOutcomePolicy(name string, policy OutcomePolicy, defaultAction Act
 		backoff = Backoff{Initial: defaultBackoffInitial, Maximum: defaultBackoffMaximum, ResetAfter: defaultHealthyReset}
 	}
 	if backoff.Initial <= 0 || backoff.Maximum < backoff.Initial || backoff.ResetAfter <= 0 {
-		return normalizedOutcomePolicy{}, fmt.Errorf("service %s outcome has invalid backoff", name)
+		return normalizedOutcomePolicy{}, errs.Msgf("service %s outcome has invalid backoff", name)
 	}
 	return normalizedOutcomePolicy{action: action, budget: budget, backoff: backoff}, nil
 }
 
 func normalizeSupervisor(strategy Strategy, intensity RestartBudget) (normalizedSupervisor, error) {
 	if strategy > RestForOne {
-		return normalizedSupervisor{}, fmt.Errorf("service supervisor has unknown strategy %d", strategy)
+		return normalizedSupervisor{}, errs.Msgf("service supervisor has unknown strategy %d", strategy)
 	}
 	budget, err := normalizeBudget("supervisor", intensity, defaultBranchRestarts, defaultSupervisorWindow)
 	if err != nil {
@@ -157,7 +158,7 @@ func normalizeSupervisor(strategy Strategy, intensity RestartBudget) (normalized
 
 func normalizeRootSupervisor(strategy Strategy, intensity RestartBudget) (normalizedSupervisor, error) {
 	if strategy > RestForOne {
-		return normalizedSupervisor{}, fmt.Errorf("service root supervisor has unknown strategy %d", strategy)
+		return normalizedSupervisor{}, errs.Msgf("service root supervisor has unknown strategy %d", strategy)
 	}
 	budget, err := normalizeBudget("root supervisor", intensity, defaultRootRestarts, defaultSupervisorWindow)
 	if err != nil {
@@ -171,7 +172,7 @@ func normalizeBudget(name string, budget RestartBudget, defaultMax int, defaultW
 		return RestartBudget{Max: defaultMax, Window: defaultWindow}, nil
 	}
 	if budget.Max <= 0 || budget.Window <= 0 {
-		return RestartBudget{}, fmt.Errorf("service %s restart budget must have a positive max and window", name)
+		return RestartBudget{}, errs.Msgf("service %s restart budget must have a positive max and window", name)
 	}
 	return budget, nil
 }

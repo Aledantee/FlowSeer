@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -11,6 +10,8 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 var envPrefixPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*_$`)
@@ -163,10 +164,10 @@ func normalizeEnvPrefix(config Config) (string, error) {
 		envPrefix = strings.ToUpper(config.Identity.Namespace + "_" + config.Identity.Name + "_")
 	}
 	if !envPrefixPattern.MatchString(envPrefix) {
-		return "", fmt.Errorf("service environment prefix %q is invalid", envPrefix)
+		return "", errs.Msgf("service environment prefix %q is invalid", envPrefix)
 	}
 	if len(envPrefix) > maxIdentityLength {
-		return "", fmt.Errorf("service environment prefix exceeds %d bytes", maxIdentityLength)
+		return "", errs.Msgf("service environment prefix exceeds %d bytes", maxIdentityLength)
 	}
 	return envPrefix, nil
 }

@@ -3,9 +3,10 @@ package pcap
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 const maxCapturedLength = 1 << 20
@@ -39,19 +40,19 @@ type Reader struct {
 // keep it open until done.
 func NewReader(input io.Reader) (*Reader, error) {
 	if input == nil {
-		return nil, fmt.Errorf("pcap: nil input")
+		return nil, errs.Msg("pcap: nil input")
 	}
 
 	r := &Reader{r: input}
 	var magic [4]byte
 	if _, err := io.ReadFull(input, magic[:]); err != nil {
-		return nil, fmt.Errorf("pcap: file header: %w", structuredEOF(err))
+		return nil, errs.Wrap(structuredEOF(err), "pcap: file header")
 	}
 	if bytes.Equal(magic[:], []byte{0x0a, 0x0d, 0x0d, 0x0a}) {
 		r.ng = true
 		var length [4]byte
 		if _, err := io.ReadFull(input, length[:]); err != nil {
-			return nil, fmt.Errorf("pcapng: section header: %w", structuredEOF(err))
+			return nil, errs.Wrap(structuredEOF(err), "pcapng: section header")
 		}
 		if err := r.readSection(length); err != nil {
 			return nil, err

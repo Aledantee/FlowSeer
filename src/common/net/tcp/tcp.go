@@ -4,7 +4,6 @@ package tcp
 
 import (
 	"encoding/binary"
-	"errors"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -51,7 +50,7 @@ type Header struct {
 
 // ErrMalformed identifies a segment too short to hold a header, a data
 // offset below the minimum header size, or a data offset past the buffer.
-var ErrMalformed = errors.New("malformed TCP segment")
+var ErrMalformed = errs.Msg("malformed TCP segment")
 
 // Decode parses a TCP header from b and returns it with the payload that
 // follows the header, as delimited by the header's data offset. It returns

@@ -3,7 +3,6 @@ package mld
 
 import (
 	"encoding/binary"
-	"errors"
 	"math"
 	"net/netip"
 	"time"
@@ -83,9 +82,9 @@ type Message struct {
 
 var (
 	// ErrMalformed identifies invalid fields, lengths, extension headers, and checksums.
-	ErrMalformed = errors.New("malformed MLD message")
+	ErrMalformed = errs.Msg("malformed MLD message")
 	// ErrUnsupported identifies well-formed wire formats the package does not support.
-	ErrUnsupported = errors.New("unsupported MLD message")
+	ErrUnsupported = errs.Msg("unsupported MLD message")
 )
 
 // Encode serializes m as an ICMPv6 message and writes its checksum using hdr's
