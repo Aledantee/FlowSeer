@@ -463,7 +463,7 @@ if ((${#modules[@]})); then
       # the module-wide scope.
       targets=(./...)
       changed_pkgs=()
-      for go_file in "${go_files[@]}"; do
+      for go_file in "${go_files[@]:-}"; do
         # Route each file to its nearest go.mod: a prefix match alone
         # would hand a nested module's file to the root module, which
         # then fails with "main module does not contain package".
@@ -756,15 +756,18 @@ if [[ -s $marker ]]; then
     # A file byte-identical to an explicit base is the base, not an edit:
     # `land` merges main in, the marker names every file that merge wrote,
     # and a run against main has nothing of them left to examine.
-    if [[ $verified == false && $base_given == true && $marked != '<Bash mutation; verify with --full>' \
-          && $(git rev-parse -q --verify "$base:$marked" 2>/dev/null) == $(git hash-object -- "$marked" 2>/dev/null) ]]; then
-      verified=identical
+    base_identical=false
+    if [[ $base_given == true && $marked != '<Bash mutation; verify with --full>' ]]; then
+      base_hash=$(git rev-parse -q --verify "$base:$marked" 2>/dev/null || true)
+      if [[ -n $base_hash && $base_hash == $(git hash-object -- "$marked" 2>/dev/null || true) ]]; then
+        base_identical=true
+        verified=true
+      fi
     fi
     if [[ $marked =~ (^|/)(generated/|go\.mod$|go\.sum$|buf\.lock$) ]]; then
       module_wide=$((module_wide + 1))
-      [[ $verified == identical ]] && module_wide_base=$((module_wide_base + 1))
+      [[ $base_identical == true ]] && module_wide_base=$((module_wide_base + 1))
     fi
-    [[ $verified == identical ]] && verified=true
     [[ $verified == true ]] || printf '%s\n' "$marked" >>"$remaining"
   done <"$marker"
   # The Bash-mutation line stands for the generator output and module files
