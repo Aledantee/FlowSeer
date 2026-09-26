@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.multicast.v1;
+
+// How a snooping membership came to exist. Normalized from Aruba's
+// MgmdSnoopingGroupTypeDefinition
+// (spec/mib/aruba/cx/ARUBAWIRED-MGMD-SNOOPING-MIB:54-65) and Ruckus's static
+// group table (spec/mib/ruckus/icx/FOUNDRY-SN-IGMP-MIB:161-193).
+enum MembershipKind {
+  // The kind was not reported.
+  MEMBERSHIP_KIND_UNSPECIFIED = 0;
+  // Configured by an operator; it stays until removed.
+  MEMBERSHIP_KIND_STATIC = 1;
+  // Learned by snooping membership reports; it expires unless refreshed.
+  MEMBERSHIP_KIND_DYNAMIC = 2;
+}

@@ -134,6 +134,10 @@ A device's routing or bridging domain: its default instance, a VRF, or a Layer 2
 
 One row of a network instance's routing table: a destination prefix, how it was learned, and the next hops it forwards over, or a special action that discards or receives the packet locally. A route also says whether it came from the RIB or the FIB, because the standard SNMP routing tables do not.
 
+### Protocol table
+
+A table a single protocol owns lives in that protocol's package under `net/protocol/`, such as the LLDP and CDP neighbor tables. A table several protocols fill lives in a package named for its function, such as snooping group membership, which IGMP and MLD both fill. No message unions two protocols' rows; a protocol-blind view such as what is on a port is a projection a service computes.
+
 ### Spanning tree instance
 
 One spanning tree a bridge runs. The CIST is the bridge's own tree, carried by its bridge state; under MSTP every further tree is a numbered MSTI row beside it, keyed by network instance and MSTID 1 to 4094. Every VLAN belongs to exactly one of them, and the VLAN map spells the CIST as instance 0. Unrelated to a network instance, which is a forwarding domain rather than a tree inside one.

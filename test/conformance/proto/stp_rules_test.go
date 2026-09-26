@@ -10,14 +10,16 @@ import (
 )
 
 // fieldCase is a validationCase that also names where an invalid message
-// fails: wantField is the violated field path and wantText a fragment of its
-// message, so a message rejected by some other rule does not pass for the one
-// under test. An empty wantField means the message must be valid.
+// fails, so a message rejected by some other rule does not pass for the one
+// under test: wantField is the violated field path and wantText a fragment of
+// its message, or, for a message-level rule, which has no field path,
+// wantRule is the rule id. With neither set the message must be valid.
 type fieldCase struct {
 	name      string
 	message   proto.Message
 	wantField string
 	wantText  string
+	wantRule  string
 }
 
 func runFieldCases(t *testing.T, cases []fieldCase) {
@@ -25,13 +27,18 @@ func runFieldCases(t *testing.T, cases []fieldCase) {
 
 	var valid []validationCase
 	for _, tt := range cases {
-		if tt.wantField == "" {
+		switch {
+		case tt.wantRule != "":
+			t.Run(tt.name, func(t *testing.T) {
+				errsOn(t, tt.message, tt.wantRule)
+			})
+		case tt.wantField != "":
+			t.Run(tt.name, func(t *testing.T) {
+				errsAtField(t, tt.message, tt.wantField, tt.wantText)
+			})
+		default:
 			valid = append(valid, validationCase{name: tt.name, message: tt.message, wantValid: true})
-			continue
 		}
-		t.Run(tt.name, func(t *testing.T) {
-			errsAtField(t, tt.message, tt.wantField, tt.wantText)
-		})
 	}
 	runValidationCases(t, valid)
 }

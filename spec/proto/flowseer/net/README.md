@@ -45,7 +45,7 @@ imports outside `net/`, and any root may import them.
 - `endpoint/v1/` (planned; schema building blocks record): Wired and wireless attachment, fingerprint, per-endpoint counters.
 - `portaccess/v1/` (planned; schema building blocks record): Port-access sessions (802.1X, MAC authentication, web authentication).
 - `system/v1/` (planned; schema building blocks record): Resource utilization, software images, licenses.
-- `multicast/v1/` (planned; schema building blocks record): IGMP/MLD snooping group membership.
+- `multicast/v1/`: IGMP/MLD snooping group membership.
 - `aaa/v1/` (planned; schema building blocks record): RADIUS and TACACS+ server identity.
 - `flow/v1/` (planned; schema building blocks record): Flow-export settings (sFlow, NetFlow, IPFIX).
 - `log/v1/` (planned; schema building blocks record): Syslog severity and facility (RFC 5424 registries).
