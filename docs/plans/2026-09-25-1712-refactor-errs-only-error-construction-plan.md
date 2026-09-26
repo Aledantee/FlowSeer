@@ -27,7 +27,9 @@ around it.
 
 ## Decisions
 
-These are the user's rulings, not this plan's proposals.
+These are the user's rulings, not this plan's proposals. The lane table under Units
+was revised twice for netpen and confirmed as it stands on 2026-09-26; nothing in
+this plan is unconfirmed.
 
 - Non-test Go uses `errs` only, with this mapping: `errs.Msg` / `errs.Msgf` for a
   new error or a package-level sentinel, `errs.Wrap` / `errs.Wrapf` to add
