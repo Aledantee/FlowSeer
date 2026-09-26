@@ -247,7 +247,8 @@ func TestWalk_NamedWalkerAssignment(t *testing.T) {
 		snmp.OctetStringVar{Header: snmp.Header{OID: col.Append(1), Kind: snmp.KindOctetString}, Value: []byte("one")},
 	}}
 
-	var w *fakemib.FakeTableWalker = fakemib.FakeTable.Walk(context.Background(), sess, fakemib.FakeName)
+	var w *fakemib.FakeTableWalker
+	w = fakemib.FakeTable.Walk(context.Background(), sess, fakemib.FakeName)
 	var count int
 	for _, row := range w.Iter() {
 		if row.FakeName != "one" {
