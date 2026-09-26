@@ -114,7 +114,7 @@ func (j *Journal) load(ctx context.Context, deviceID string) (*storev1.DeviceLan
 }
 
 // errSkip is fn's signal to mutate that no write is needed.
-var errSkip = errors.New("journal: no write needed")
+var errSkip = errs.Msg("journal: no write needed")
 
 // mutate runs fn against the device's record under compare-and-set,
 // retrying on a revision conflict. fn returning errSkip means "no write is

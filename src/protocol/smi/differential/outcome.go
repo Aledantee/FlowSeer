@@ -37,6 +37,8 @@ import (
 	"sync"
 
 	"github.com/sleepinggenius2/gosmi"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Outcome is what became of one corpus file put through gosmi.
@@ -121,7 +123,7 @@ func CorpusFiles(root string) ([]CorpusFile, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("walking %s: %w", root, err)
+		return nil, errs.Wrapf(err, "walking %s", root)
 	}
 
 	slices.SortFunc(files, func(a, b CorpusFile) int { return cmp.Compare(a.Path, b.Path) })
@@ -146,7 +148,7 @@ func CorpusDirs(root string) ([]string, error) {
 		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("walking %s: %w", root, err)
+		return nil, errs.Wrapf(err, "walking %s", root)
 	}
 	slices.Sort(dirs)
 
@@ -303,7 +305,7 @@ func (c Census) Render() string {
 func CompareOrUpdate(path, got string, update bool) (string, error) {
 	if update {
 		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
-			return "", fmt.Errorf("writing %s: %w", path, err)
+			return "", errs.Wrapf(err, "writing %s", path)
 		}
 
 		return "", nil
@@ -311,7 +313,7 @@ func CompareOrUpdate(path, got string, update bool) (string, error) {
 
 	want, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("reading %s (run with -update-census to create it): %w", path, err)
+		return "", errs.Wrapf(err, "reading %s (run with -update-census to create it)", path)
 	}
 	if string(want) == got {
 		return "", nil
@@ -319,7 +321,7 @@ func CompareOrUpdate(path, got string, update bool) (string, error) {
 
 	gotPath := path + ".got"
 	if err := os.WriteFile(gotPath, []byte(got), 0o644); err != nil {
-		return "", fmt.Errorf("writing %s: %w", gotPath, err)
+		return "", errs.Wrapf(err, "writing %s", gotPath)
 	}
 
 	return fmt.Sprintf("%s no longer matches; current output written to %s\n%s",

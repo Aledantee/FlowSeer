@@ -19,6 +19,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // Status records whether a row has test coverage or an accepted gap. Its zero
@@ -73,22 +75,22 @@ func ValidateRow(r Row, hasMarker bool, allowlist map[string]bool) error {
 	switch r.Status {
 	case Covered:
 		if !hasMarker {
-			return fmt.Errorf("row %q is covered but no `// Covers conformance matrix row: %s` marker was found", r.ID, r.ID)
+			return errs.Msgf("row %q is covered but no `// Covers conformance matrix row: %s` marker was found", r.ID, r.ID)
 		}
 		if strings.TrimSpace(r.Adversarial) == "" {
-			return fmt.Errorf("row %q is covered but catalogs no adversarial input", r.ID)
+			return errs.Msgf("row %q is covered but catalogs no adversarial input", r.ID)
 		}
 	case AcceptedRisk:
 		if strings.TrimSpace(r.Accepted) == "" {
-			return fmt.Errorf("row %q is accepted-risk but has no rationale", r.ID)
+			return errs.Msgf("row %q is accepted-risk but has no rationale", r.ID)
 		}
 		if !allowlist[r.ID] {
-			return fmt.Errorf("row %q is accepted-risk but not on the allowlist (add it as a reviewable diff)", r.ID)
+			return errs.Msgf("row %q is accepted-risk but not on the allowlist (add it as a reviewable diff)", r.ID)
 		}
 	case Pending:
 		// Allowed here; the completeness gate forbids it.
 	default:
-		return fmt.Errorf("row %q has unknown status %q", r.ID, r.Status)
+		return errs.Msgf("row %q has unknown status %q", r.ID, r.Status)
 	}
 	return nil
 }

@@ -2,13 +2,14 @@ package captureapi
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"sync"
 	"time"
 
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
@@ -210,7 +211,7 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 // err remains in the cause chain for server-side logging.
 func unauthenticated(err error) error {
 	if err == nil {
-		err = errors.New(msgUnauthenticated)
+		err = errs.Msg(msgUnauthenticated)
 	}
 	return connecterr.WrapRefused(msgUnauthenticated, err)
 }
@@ -363,13 +364,13 @@ func (s *EdgeService) UploadCapture(
 		if err := stream.Err(); err != nil {
 			return nil, unauthenticated(err)
 		}
-		return nil, unauthenticated(errors.New("stream closed before opening assertion"))
+		return nil, unauthenticated(errs.Msg("stream closed before opening assertion"))
 	}
 
 	firstMsg := stream.Msg()
 	firstSigned := firstMsg.GetAssertion()
 	if firstSigned == nil {
-		return nil, unauthenticated(errors.New("opening message carries no assertion"))
+		return nil, unauthenticated(errs.Msg("opening message carries no assertion"))
 	}
 
 	firstAssertion, err := s.verifier.VerifySigned(ctx, firstSigned, procedure, nil)
@@ -412,7 +413,7 @@ func (s *EdgeService) UploadCapture(
 		now := s.clock()
 		if now.Sub(lastAssertionAt) > s.assertionWindow {
 			s.failStream(ctx, sessionID, "assertion window lapsed")
-			return nil, unauthenticated(errors.New("assertion window lapsed past deadline"))
+			return nil, unauthenticated(errs.Msg("assertion window lapsed past deadline"))
 		}
 
 		msg := stream.Msg()
@@ -425,7 +426,7 @@ func (s *EdgeService) UploadCapture(
 			}
 			if assertion.GetEdge().GetEdge().GetId() != callingEdgeID {
 				s.failStream(ctx, sessionID, "assertion edge changed mid-stream")
-				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("assertion edge changed mid-stream"))
+				return nil, connect.NewError(connect.CodePermissionDenied, errs.Msg("assertion edge changed mid-stream"))
 			}
 
 			lastAssertionAt = s.clock()
@@ -440,13 +441,13 @@ func (s *EdgeService) UploadCapture(
 
 		chunkEdgeID := chunk.GetSession().GetEdge().GetEdge().GetId()
 		if chunkEdgeID != callingEdgeID {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("chunk session edge does not match authenticated edge"))
+			return nil, connect.NewError(connect.CodePermissionDenied, errs.Msg("chunk session edge does not match authenticated edge"))
 		}
 
 		if sessionStarted && chunk.GetSession().GetCaptureSession().GetId() != sessionID {
 			// One stream carries one session: its packets go into one pcapng,
 			// and only the first chunk's ref was resolved against a record.
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("chunk names a different capture session than the stream opened with"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("chunk names a different capture session than the stream opened with"))
 		}
 
 		if !sessionStarted {
@@ -462,7 +463,7 @@ func (s *EdgeService) UploadCapture(
 			}
 
 			if rec.GetConfig().GetRef().GetEdge().GetEdge().GetId() != callingEdgeID {
-				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("session does not belong to calling edge"))
+				return nil, connect.NewError(connect.CodePermissionDenied, errs.Msg("session does not belong to calling edge"))
 			}
 
 			// A session that has already produced its artifact is an audit
@@ -473,11 +474,11 @@ func (s *EdgeService) UploadCapture(
 			// session stays open until its artifact exists: flushing the
 			// final chunk is how the edge answers a stop.
 			if captureIsOver(rec.GetState()) {
-				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("capture session has already stopped"))
+				return nil, connect.NewError(connect.CodeFailedPrecondition, errs.Msg("capture session has already stopped"))
 			}
 
 			if !s.claimUpload(sessionID) {
-				return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("another stream is already uploading this capture session"))
+				return nil, connect.NewError(connect.CodeAlreadyExists, errs.Msg("another stream is already uploading this capture session"))
 			}
 			claimed = true
 
@@ -576,7 +577,7 @@ func (s *EdgeService) UploadCapture(
 	// with no stream behind it is one nothing ever retries or reports.
 	if s.clock().Sub(lastAssertionAt) > s.assertionWindow {
 		s.failStream(ctx, sessionID, "assertion window lapsed")
-		return nil, unauthenticated(errors.New("assertion window lapsed past deadline"))
+		return nil, unauthenticated(errs.Msg("assertion window lapsed past deadline"))
 	}
 
 	if err := stream.Err(); err != nil {
@@ -585,7 +586,7 @@ func (s *EdgeService) UploadCapture(
 	}
 
 	s.failStream(ctx, sessionID, "upload stream ended before its final chunk")
-	return nil, connect.NewError(connect.CodeDataLoss, errors.New("upload stream terminated before final chunk"))
+	return nil, connect.NewError(connect.CodeDataLoss, errs.Msg("upload stream terminated before final chunk"))
 }
 
 // deadlineExtender returns a func that pushes the transport read deadline out
