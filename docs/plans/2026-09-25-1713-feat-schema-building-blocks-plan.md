@@ -133,7 +133,7 @@ Landed:
 
 Files: docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase6-plan.md
 After: U1
-Landed:
+Landed: `d6548fcf..a6e39988`
 
 ### U7. Phase 7: L3 protocols and IP services
 

@@ -4,12 +4,19 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 6, L2 Protocols - Plan
+
+> Implemented. 4 units, 2026-09-26T09:36Z to 2026-09-26T09:45Z. Each unit
+> ran its targeted `Verify:` command; no `--full` run, which builds and
+> race-tests `generated/go/yang` and exhausts host memory. The
+> verification-dirty marker still holds the Bash-mutation line `buf
+> generate` leaves, which only `--full` clears; every targeted run
+> regenerated `generated/go/proto` and diffed it clean.
 
 ## Goal
 
@@ -82,6 +89,10 @@ re-cut before it lands.
   not repeat it. This breaks the landed `BridgeState`; its one producer,
   `src/common/netsim/vswitch/netmodel/export.go`, names its single
   instance `default`.
+- Ruled: `PortState` gains no `network_instance`; only `BridgeState`,
+  `MstInstance`, and `MstVlanMap` carry it, as the decision above says.
+  Why: the port rows are interface-scoped. Cost if wrong: one field and the
+  netmodel port fixtures.
 - **The VLAN-to-MSTI map is one row per instance with a unique VLAN
   list.** Why: every CLI configures it per instance, and the MIB's MSTI
   row carries the same set as the `ieee8021MstpVids0..3` bitmaps
@@ -183,6 +194,17 @@ re-cut before it lands.
   plan takes Wireshark's reading. No mapper fills these rows in this phase
   (parent, Out of scope), so a fixture proves the decoded values fit the
   rows, not that a mapper produces them.
+
+- Ruled: the `Duration` fields of `cdp.v1.Neighbor` and
+  `GroupMembership` (`time_to_live`, `uptime`, `expires_in`) also reject a
+  negative span (`duration.gte = {}`), as the LLDP neighbor's `time_to_live`
+  does. Why: no source reports a negative hold time or age. Cost if wrong:
+  one rule per field.
+- Ruled: the rule tests of all four units share `fieldCase` and
+  `runFieldCases` in `stp_rules_test.go`, which assert the violated field
+  path, or the rule id for a message-level rule, rather than valid or
+  invalid alone. Why: a message rejected by another rule would otherwise
+  pass for the one under test. Cost if wrong: four test files.
 
 ## Requirements
 
@@ -593,14 +615,14 @@ No lab check: no mapper fills these rows in this phase.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit.
-- [ ] The stp, lldp, cdp, and multicast READMEs, `net/protocol/README.md`,
+- [x] Verifier green for every changed path of every unit.
+- [x] The stp, lldp, cdp, and multicast READMEs, `net/protocol/README.md`,
       `net/README.md`, the touched layer READMEs, and `CONCEPTS.md` match
       the tree in the unit that changed it.
-- [ ] Every requirement above has its test case, and the capture-derived
+- [x] Every requirement above has its test case, and the capture-derived
       fixtures name the capture and its sha256.
-- [ ] No plan label appears in schema, code, comments, or commit messages.
-- [ ] This plan's `status` is `implemented` with an outcome note under the
+- [x] No plan label appears in schema, code, comments, or commit messages.
+- [x] This plan's `status` is `implemented` with an outcome note under the
       title, and the parent's U6 `Landed:` line carries the commit range.
 
 ## Open questions
