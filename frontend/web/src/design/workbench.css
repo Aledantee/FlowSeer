@@ -6,14 +6,14 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 11px;
   white-space: nowrap;
 }
 .workbench-tabs {
   display: flex;
   gap: var(--space-6);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
   margin-bottom: var(--space-8);
 }
 .workbench-tabs button {
@@ -24,13 +24,13 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   border-bottom: 2px solid transparent;
   font-weight: 550;
 }
 .workbench-tabs button[aria-pressed='true'] {
-  color: var(--accent-text);
-  border-bottom-color: var(--accent-text);
+  color: var(--accent-foreground);
+  border-bottom-color: var(--accent-foreground);
 }
 .workbench-tabs button > span {
   font-size: 10px;
@@ -57,7 +57,7 @@
   margin-bottom: 4px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
 }
 .component-index button small {
@@ -69,14 +69,14 @@
   opacity: 0;
 }
 .component-index button[aria-pressed='true'] {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   background: var(--info-surface);
 }
 .component-index button[aria-pressed='true'] svg {
   opacity: 1;
 }
 .component-index button:not(:disabled):hover {
-  background: var(--surface-hover);
+  background: var(--hover);
 }
 .component-index > p {
   font-size: 11px;
@@ -107,15 +107,15 @@
 }
 .draft-tag {
   padding: 6px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: var(--surface-subtle);
+  background: var(--subtle);
 }
 .specimen-panel,
 .component-planning,
 .foundation-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-panel);
 }
 .specimen-panel {
@@ -126,8 +126,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
   font-size: 10px;
   letter-spacing: 0.8px;
 }
@@ -142,7 +142,7 @@
   gap: 12px;
   min-height: 224px;
   padding: 32px 24px;
-  background-image: radial-gradient(var(--line) 0.6px, transparent 0.6px);
+  background-image: radial-gradient(var(--border) 0.6px, transparent 0.6px);
   background-size: 16px 16px;
 }
 .specimen-controls {
@@ -151,8 +151,8 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 14px 20px;
-  border-top: 1px solid var(--line);
-  background: var(--surface-subtle);
+  border-top: 1px solid var(--border);
+  background: var(--subtle);
   font-size: 12px;
 }
 .check-control {
@@ -162,7 +162,7 @@
   margin-left: auto;
 }
 .check-control input {
-  accent-color: var(--accent-text);
+  accent-color: var(--accent-foreground);
   width: 16px;
   height: 16px;
 }
@@ -195,7 +195,7 @@
   display: grid;
   gap: 6px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .component-planning > label {
   display: block;
@@ -209,15 +209,15 @@
   resize: vertical;
   min-height: 100px;
   padding: 12px;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--input);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
-  color: var(--text);
+  background: var(--subtle);
+  color: var(--foreground);
   line-height: 1.6;
   font-size: 13px;
 }
 .component-planning textarea::placeholder {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .planning-footer {
   display: flex;
@@ -227,7 +227,7 @@
   margin: 12px 0;
 }
 .planning-footer > span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 10px;
 }
 .input-specimen {
@@ -260,11 +260,11 @@
   align-items: baseline;
   gap: 24px;
   padding: 24px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .type-row > span:first-child {
-  font: 11px var(--font-ui);
-  color: var(--muted);
+  font: 11px var(--font-sans);
+  color: var(--muted-foreground);
 }
 .type-title {
   font-size: 28px;
@@ -286,11 +286,11 @@
 .font-research {
   font-size: 12px;
   padding-top: 16px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .font-research a,
 .text-link {
-  color: var(--accent-text);
+  color: var(--accent-foreground);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -301,7 +301,7 @@
 }
 .swatch {
   height: 64px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 12px;
 }
@@ -312,7 +312,7 @@
 }
 .swatch-grid code,
 .swatch-grid small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 10px;
 }
 .rules-grid {
@@ -337,11 +337,11 @@
   display: grid;
   gap: 8px;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .spacing-specimen i {
   height: 16px;
-  background: var(--accent-text);
+  background: var(--accent-foreground);
   border-radius: 2px;
 }
 @media (max-width: 1100px) {

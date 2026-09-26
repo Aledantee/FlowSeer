@@ -771,7 +771,7 @@ onUnmounted(() => clearInterval(timer))
                 width="5"
                 height="23"
                 rx="1.5"
-                fill="var(--cyan)"
+                fill="var(--accent)"
               />
               <rect
                 x="13.5"
@@ -779,7 +779,7 @@ onUnmounted(() => clearInterval(timer))
                 width="5"
                 height="32"
                 rx="1.5"
-                fill="var(--cyan)"
+                fill="var(--accent)"
               />
               <rect
                 x="21.5"
@@ -787,7 +787,7 @@ onUnmounted(() => clearInterval(timer))
                 width="5"
                 height="17"
                 rx="1.5"
-                fill="var(--coral)"
+                fill="var(--primary)"
               />
             </g>
           </svg>

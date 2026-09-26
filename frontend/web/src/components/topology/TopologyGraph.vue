@@ -358,7 +358,7 @@ function edgesChanged(changes: EdgeChange[]) {
       <template #edge-link="edgeProps">
         <TopologyLink v-bind="edgeProps" />
       </template>
-      <Background :gap="24" :size="1.4" pattern-color="var(--control-border)" />
+      <Background :gap="24" :size="1.4" pattern-color="var(--input)" />
       <Controls
         :show-interactive="false"
         :show-fit-view="false"
@@ -380,9 +380,9 @@ function edgesChanged(changes: EdgeChange[]) {
           (node: Node) =>
             node.type === 'site'
               ? 'transparent'
-              : `var(--${devicesById.get(node.id)?.health === 'Healthy' ? 'connection' : 'coral'})`
+              : `var(--${devicesById.get(node.id)?.health === 'Healthy' ? 'graph-edge' : 'primary'})`
         "
-        mask-color="color-mix(in srgb, var(--page) 70%, transparent)"
+        mask-color="color-mix(in srgb, var(--background) 70%, transparent)"
       />
     </VueFlow>
     <TopologyInspector :history="history" :site-name="siteName" />
