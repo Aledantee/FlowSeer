@@ -1,5 +1,6 @@
-import ELK from 'elkjs/lib/elk.bundled.js'
+import ELK from 'elkjs/lib/elk-api.js'
 import type { ElkNode } from 'elkjs/lib/elk-api'
+import elkWorker from 'elkjs/lib/elk-worker.min.js?url'
 import type { Edge, Node } from '@vue-flow/core'
 import type { Device, Link, Site } from '../../domain/fleet'
 
@@ -9,7 +10,10 @@ export const NODE_HEIGHT = 86
 const SITE_HEADER = 64
 const SITE_INSET = 28
 
-const elk = new ELK()
+// ELK runs in a worker: the engine is about 1.5 MB of compiled Java that
+// would otherwise sit in the page bundle and block the page while it lays
+// out a large site.
+const elk = new ELK({ workerFactory: () => new Worker(elkWorker) })
 
 // Each site is laid out top-down from its gateway, then the sites are packed
 // side by side. Positions of devices are relative to their site, which is

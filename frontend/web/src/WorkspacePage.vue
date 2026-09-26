@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppTooltip from './components/AppTooltip.vue'
 import ScrollArea from './components/ScrollArea.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import ComponentsView from './ComponentsView.vue'
 import DashboardView from './DashboardView.vue'
 import DeviceView from './DeviceView.vue'
@@ -10,7 +10,6 @@ import StatusBadge from './components/StatusBadge.vue'
 import MetricCard from './components/MetricCard.vue'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
-import TopologyGraph from './components/topology/TopologyGraph.vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import { useWorkspace } from './navigation/workspace'
@@ -18,6 +17,11 @@ import { useMotionFeedback } from './motion/useMotionFeedback'
 import { sites, tenants, tenantIds, filterDevices } from './domain/fleet'
 import type { Device } from './domain/fleet'
 
+// Vue Flow and the ELK layout engine are most of the bundle and only the
+// topology page needs them, so they load when it first opens.
+const TopologyGraph = defineAsyncComponent(
+  () => import('./components/topology/TopologyGraph.vue'),
+)
 const page = usePage()
 const workspace = useWorkspace()
 const { fleet, message, reassign, siteName, tenantName, peek, sideDeviceId } =
