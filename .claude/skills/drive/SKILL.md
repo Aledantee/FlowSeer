@@ -77,7 +77,8 @@ Naming the branch and the
 plan path is what makes `review` record its verdict in the plan: a bare
 commit range reads to it as other work, which records nothing. When the
 branch's writers leave `review-seam` no model, the stage still runs as
-one worker, on any fit model, and splits its reviewers by writer as
+one worker, resolved by `delegate`'s steps with step 3 skipped, and
+splits its reviewers by writer as
 `delegate` describes, then records the one verdict itself.
 
 The brief follows `delegate`, and adds three things:

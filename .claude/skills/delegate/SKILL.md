@@ -84,15 +84,28 @@ When steps 1–3 leave no `fit` model, apply them to the role's
 `last_resort` list, when it has one, and take a survivor by step 5; the
 report names the lane as a last resort and the pools that were out.
 A review role left with no survivor because the executors cover its fit
-set, as after a fix round on several models, splits by writer. A commit
-belongs to the run whose `start` `base` to `end` `head` range holds it
-(`git rev-list <base>..<head>`); a commit in no run's range belongs to
-the coordinator's model. Group the commits by writer (by vendor for
+set, as after a fix round on several models, splits by writer. The
+writers are the runs step 3 counts that also have an `end` event. A
+commit belongs to the run with the fewest commits in its `start` `base`
+to `end` `head` range that still holds it, since a `drive` stage's range
+holds the commits of the lanes it merged; a commit in no range belongs
+to the coordinator's model. This prints each commit of the review range
+with its writer:
+
+```bash
+python3 -B -c 'import subprocess, sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True).stdout.split(); events = list(runlog.read()); grade = {e["run"]: e.get("outcome") for e in events if e.get("event") == "grade"}; head = {e["run"]: e["head"] for e in events if e.get("event") == "end"}; runs = [(set(git("rev-list", e["base"] + ".." + head[e["run"]])), e.get("model") or e.get("agent")) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grade.get(e["run"]) in {"accepted", "amended"} and e["run"] in head]; [print(c[:12], min((r for r in runs if c in r[0]), key=lambda r: len(r[0]), default=(None, "coordinator"))[1]) for c in git("rev-list", "--no-merges", sys.argv[2])]' "$plan" "$base..$head"
+```
+
+A fix commit often rewrites lines an earlier writer added, so the split
+is by the lines that survive at head, not by commit: each changed hunk
+goes to the writer of the commit `git blame <base>..<head> -- <file>`
+names for its lines. Group the hunks by writer (by vendor for
 `review-unit`), and resolve one lane per group, with step 3 dropping
-only that group's writer. Each lane reviews its group report-only. The
-coordinator reads the seams between the groups itself, as `review`
-does for units, and records the one verdict; under `drive`, that is the
-review-stage worker. The report names the split and each lane's commits.
+only that group's writer. Each lane gets the whole `<base>..<head>` diff
+for context and reviews its group's hunks report-only. The coordinator
+reads the seams between the groups itself, as `review` does for units,
+and records the one verdict; under `drive`, that is the review-stage
+worker. The report names the split and each lane's hunks.
 
 Step 4 spreads a wave: a six-unit `execute` wave with four pools signed in
 runs on four pools, not six times on one model. The four prepaid pools

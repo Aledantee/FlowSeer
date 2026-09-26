@@ -98,6 +98,11 @@ has `codex`, `agy`, and `claude` lanes started through this script since
 - A codex worker still stops at the hooks review: Orca reports "Agent
   startup blocked: codex-hooks-review-prompt". Use another pool unless
   that dialog has been answered on this host.
+- `start` says Codex updated itself and exited, or showed its update
+  offer despite `check_for_update_on_startup=false`: run `codex` by hand
+  once to finish or dismiss the update, or set
+  `check_for_update_on_startup = false` in `~/.codex/config.toml`, then
+  start the lane again. Use another pool if the offer still shows.
 
 Update the worktree comment at each checkpoint:
 
