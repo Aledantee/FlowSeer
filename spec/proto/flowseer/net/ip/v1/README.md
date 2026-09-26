@@ -12,7 +12,9 @@ Imported by: net/interface
 
 Deliberately absent:
 
-- VRFs, network instances, RIBs, FIBs, and routing policies.
+- The network-instance row and routing tables. `net/instance` and
+  `net/routing` own them; `IpFacet` names its instance by key.
+- Routing policies.
 - Device refs, observation time, and provenance.
 - Protocol-specific routing state (BGP, OSPF).
 
@@ -20,6 +22,11 @@ The package does not own network instances, VRFs, RIBs, FIBs, routing policy,
 multicast forwarding, tunnels, or protocol-specific state. Those domains need
 separate packages whose keys can distinguish network instances and multiple
 instances of one routing protocol.
+
+A routed interface names its network instance once, in the required
+`IpFacet.network_instance`. `InterfaceAddress` and `NeighborEntry` rows are
+keyed by interface name and inherit that instance rather than repeat it, so an
+address and its interface cannot disagree about which VRF they are in.
 
 Rows carry device-local interface names rather than entity references. Device
 identity, tenant, lifecycle, provenance, observation time, and collector health

@@ -23,27 +23,27 @@ func TestSwitchingPrimitiveRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name:      "VLAN identifier absent",
-			message:   switchingv1.Vlan_builder{}.Build(),
+			message:   switchingv1.Vlan_builder{NetworkInstance: proto.String("default")}.Build(),
 			wantValid: false,
 		},
 		{
 			name:      "VLAN identifier zero",
-			message:   switchingv1.Vlan_builder{Id: proto.Uint32(0)}.Build(),
+			message:   switchingv1.Vlan_builder{Id: proto.Uint32(0), NetworkInstance: proto.String("default")}.Build(),
 			wantValid: false,
 		},
 		{
 			name:      "lowest usable VLAN identifier",
-			message:   switchingv1.Vlan_builder{Id: proto.Uint32(1)}.Build(),
+			message:   switchingv1.Vlan_builder{Id: proto.Uint32(1), NetworkInstance: proto.String("default")}.Build(),
 			wantValid: true,
 		},
 		{
 			name:      "highest usable VLAN identifier",
-			message:   switchingv1.Vlan_builder{Id: proto.Uint32(4094)}.Build(),
+			message:   switchingv1.Vlan_builder{Id: proto.Uint32(4094), NetworkInstance: proto.String("default")}.Build(),
 			wantValid: true,
 		},
 		{
 			name:      "reserved VLAN identifier",
-			message:   switchingv1.Vlan_builder{Id: proto.Uint32(4095)}.Build(),
+			message:   switchingv1.Vlan_builder{Id: proto.Uint32(4095), NetworkInstance: proto.String("default")}.Build(),
 			wantValid: false,
 		},
 		{
@@ -157,13 +157,14 @@ func TestSwitchingPrimitiveRules(t *testing.T) {
 		},
 		{
 			name:      "FDB entry requires VLAN and MAC",
-			message:   switchingv1.FdbEntry_builder{}.Build(),
+			message:   switchingv1.FdbEntry_builder{NetworkInstance: proto.String("default")}.Build(),
 			wantValid: false,
 		},
 		{
 			name: "unicast FDB entry",
 			message: switchingv1.FdbEntry_builder{
-				VlanId: proto.Uint32(10),
+				NetworkInstance: proto.String("default"),
+				VlanId:          proto.Uint32(10),
 				Mac: addrv1.Eui48Address_builder{
 					Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 				}.Build(),
@@ -174,7 +175,8 @@ func TestSwitchingPrimitiveRules(t *testing.T) {
 		{
 			name: "FDB entry rejects a multicast address",
 			message: switchingv1.FdbEntry_builder{
-				VlanId: proto.Uint32(10),
+				NetworkInstance: proto.String("default"),
+				VlanId:          proto.Uint32(10),
 				Mac: addrv1.Eui48Address_builder{
 					Octets: []byte{0x01, 0x00, 0x5e, 0x00, 0x00, 0x01},
 				}.Build(),
@@ -184,7 +186,8 @@ func TestSwitchingPrimitiveRules(t *testing.T) {
 		{
 			name: "FDB entry accepts a high-bit unicast address",
 			message: switchingv1.FdbEntry_builder{
-				VlanId: proto.Uint32(10),
+				NetworkInstance: proto.String("default"),
+				VlanId:          proto.Uint32(10),
 				Mac: addrv1.Eui48Address_builder{
 					Octets: []byte{0x82, 0x00, 0x00, 0x00, 0x00, 0x01},
 				}.Build(),
@@ -194,7 +197,8 @@ func TestSwitchingPrimitiveRules(t *testing.T) {
 		{
 			name: "FDB entry rejects the broadcast address",
 			message: switchingv1.FdbEntry_builder{
-				VlanId: proto.Uint32(10),
+				NetworkInstance: proto.String("default"),
+				VlanId:          proto.Uint32(10),
 				Mac: addrv1.Eui48Address_builder{
 					Octets: []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 				}.Build(),
@@ -204,4 +208,37 @@ func TestSwitchingPrimitiveRules(t *testing.T) {
 	}
 
 	runValidationCases(t, tests)
+}
+
+// TestSwitchingRowsRequireNetworkInstance holds the bridge-domain key: a VLAN
+// or forwarding-database row that does not name its network instance fails
+// on that field, not on some other rule.
+func TestSwitchingRowsRequireNetworkInstance(t *testing.T) {
+	t.Run("FDB entry", func(t *testing.T) {
+		errsAtField(t, switchingv1.FdbEntry_builder{
+			VlanId: proto.Uint32(10),
+			Mac: addrv1.Eui48Address_builder{
+				Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+			}.Build(),
+			InterfaceName: proto.String("ethernet1/1"),
+		}.Build(), "network_instance", "value is required")
+	})
+	t.Run("VLAN", func(t *testing.T) {
+		errsAtField(t, switchingv1.Vlan_builder{Id: proto.Uint32(10)}.Build(), "network_instance", "value is required")
+	})
+	t.Run("empty FDB entry instance name", func(t *testing.T) {
+		errsOn(t, switchingv1.FdbEntry_builder{
+			NetworkInstance: proto.String(""),
+			VlanId:          proto.Uint32(10),
+			Mac: addrv1.Eui48Address_builder{
+				Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+			}.Build(),
+		}.Build(), "string.network_instance_name")
+	})
+	t.Run("empty VLAN instance name", func(t *testing.T) {
+		errsOn(t, switchingv1.Vlan_builder{
+			Id:              proto.Uint32(10),
+			NetworkInstance: proto.String(""),
+		}.Build(), "string.network_instance_name")
+	})
 }

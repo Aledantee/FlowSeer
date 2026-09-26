@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.routing.v1;
+
+// The table a route row was read from.
+enum RouteTableType {
+  // The source did not say which table it exposed, as with the RFC 4292
+  // inetCidrRouteTable and the RFC 1213 ipRouteTable.
+  ROUTE_TABLE_TYPE_UNSPECIFIED = 0;
+  // The control-plane routing information base (RFC 8349 §5.2), including
+  // routes that are not selected for forwarding.
+  ROUTE_TABLE_TYPE_RIB = 1;
+  // The forwarding information base the data plane forwards with.
+  ROUTE_TABLE_TYPE_FIB = 2;
+}

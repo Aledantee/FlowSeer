@@ -220,6 +220,10 @@ func TestInterfaces_SviAndAccessPort(t *testing.T) {
 		t.Error("got no ip facet on the SVI, want one: an SVI is routed by definition")
 	}
 
+	if got := svi.GetIp().GetNetworkInstance(); got != "default" {
+		t.Errorf("got network instance %q on the SVI, want the default instance", got)
+	}
+
 	if !port.HasPhysical() {
 		t.Fatalf("got kind %v for the port, want the physical arm", port.WhichKind())
 	}

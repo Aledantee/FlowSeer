@@ -390,7 +390,11 @@ func setKind(
 		iface.SetVlan(vlan)
 		// An SVI is the routed presence of a VLAN, so the facet is
 		// present; the addresses on it come from an IP-MIB mapping.
-		iface.SetIp(&ipv1.IpFacet{})
+		// IF-MIB carries no network-instance context, so the SVI routes
+		// in the device's default instance.
+		ip := &ipv1.IpFacet{}
+		ip.SetNetworkInstance("default")
+		iface.SetIp(ip)
 
 	case ianaiftype.IANAifTypeSoftwareLoopback:
 		iface.SetLoopback(&interfacev1.LoopbackInterface{})

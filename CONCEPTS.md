@@ -126,6 +126,14 @@ A component of kind radio carrying a radio facet with its BSSs. An access point 
 
 Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
+### Network instance
+
+A device's routing or bridging domain: its default instance, a VRF, or a Layer 2 switch instance. Every forwarding table names the instance it belongs to, so two domains that reuse a VLAN id or a prefix stay apart; a routed interface names its instance once in its IP facet, and rows keyed by that interface inherit it. A device with no instance concept reports one of kind `DEFAULT`, named `default` unless the device has its own name for it.
+
+### Route
+
+One row of a network instance's routing table: a destination prefix, how it was learned, and the next hops it forwards over, or a special action that discards or receives the packet locally. A route also says whether it came from the RIB or the FIB, because the standard SNMP routing tables do not.
+
 ### Canonical unit
 
 Every physical quantity has one canonical unit, named in the field suffix, in integer fixed point. A mapper converts from a source's native unit at the edge of the system so consumers compare values without having to know which unit each source reported. The unit table is rule 1 of the [schema building blocks direction](docs/architecture/2026-09-25-schema-building-blocks-direction.md).

@@ -113,7 +113,8 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 				VlanId: &vid10,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{
@@ -125,7 +126,8 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 				VlanId: &vid20,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{
@@ -159,8 +161,8 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	}
 
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlan10Name}.Build(),
-		switchingv1.Vlan_builder{Id: &vid20, Name: &vlan20Name}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlan10Name}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid20, Name: &vlan20Name}.Build(),
 	}
 
 	addrs := []*ipv1.InterfaceAddress{
@@ -294,7 +296,8 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 			OperStatus:  &operUp,
 			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
@@ -361,13 +364,14 @@ func TestLoad_VlanInterfaceDefaultMAC(t *testing.T) {
 				VlanId: &vid10,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
 
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlanName}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlanName}.Build(),
 	}
 
 	addrs := []*ipv1.InterfaceAddress{
@@ -427,7 +431,8 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 			OperStatus:  &operUp,
 			Loopback:    interfacev1.LoopbackInterface_builder{}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
@@ -485,7 +490,8 @@ func TestLoad_RoutedPortSwitchportSkipped(t *testing.T) {
 				}.Build(),
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
@@ -563,13 +569,14 @@ func TestLoad_AddressWithoutIPFacetSkipped(t *testing.T) {
 				VlanId: &vid10,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
 
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlanName}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlanName}.Build(),
 	}
 
 	addrs := []*ipv1.InterfaceAddress{
@@ -636,13 +643,14 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 				VlanId: &vid10,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
 
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlanName}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlanName}.Build(),
 	}
 
 	addrs := []*ipv1.InterfaceAddress{
@@ -855,7 +863,8 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 				VlanId: &vid10,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 		interfacev1.Interface_builder{
@@ -864,7 +873,8 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 			OperStatus:  &operUp,
 			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
@@ -977,13 +987,14 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 				VlanId: &vid10,
 			}.Build(),
 			Ip: ipv1.IpFacet_builder{
-				Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+				NetworkInstance: ptr("default"),
+				Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 			}.Build(),
 		}.Build(),
 	}
 
 	vlans := []*switchingv1.Vlan{
-		switchingv1.Vlan_builder{Id: &vid10, Name: &vlanName}.Build(),
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vlanName}.Build(),
 	}
 
 	addrs := []*ipv1.InterfaceAddress{
@@ -1064,7 +1075,7 @@ func TestLoadRoutingAcceptsZeroLengthPrefixes(t *testing.T) {
 				return interfacev1.Interface_builder{
 					Name: &name, AdminStatus: &admin, OperStatus: &oper,
 					Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
-					Ip:   ipv1.IpFacet_builder{Ipv6: ipv1.Ipv6Facet_builder{}.Build()}.Build(),
+					Ip:   ipv1.IpFacet_builder{NetworkInstance: ptr("default"), Ipv6: ipv1.Ipv6Facet_builder{}.Build()}.Build(),
 				}.Build()
 			}(),
 			address: protoIPv6Addr([16]byte{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x07}),
@@ -1107,7 +1118,8 @@ func routedSwitchedPhysicalInterface(name string, vid uint32) *interfacev1.Inter
 			}.Build(),
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 }
@@ -1429,7 +1441,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 						OperStatus:  &oper,
 						Loopback:    interfacev1.LoopbackInterface_builder{}.Build(),
 						Ip: ipv1.IpFacet_builder{
-							Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+							NetworkInstance: ptr("default"),
+							Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 						}.Build(),
 					}.Build()
 				}()},
@@ -1571,7 +1584,8 @@ func subInterface(name, parent string, tags ...*switchingv1.VlanTag) *interfacev
 			Encapsulation:       stack,
 		}.Build(),
 		Ip: ipv1.IpFacet_builder{
-			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
 		}.Build(),
 	}.Build()
 }

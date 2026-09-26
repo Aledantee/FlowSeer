@@ -4,12 +4,21 @@ package flowseer.net.ip.v1;
 
 import "flowseer/net/ip/v1/ipv4_facet.proto";
 import "flowseer/net/ip/v1/ipv6_facet.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
 
-// Per-family IP attributes embedded by a routed interface. Either family may
-// be absent because partial observations and single-stack interfaces are valid.
+// Per-family IP attributes embedded by a routed interface, and the network
+// instance the interface routes in. Either family may be absent because
+// partial observations and single-stack interfaces are valid.
 message IpFacet {
   // IPv4 attributes. Absent means no IPv4 information was supplied.
   Ipv4Facet ipv4 = 1;
   // IPv6 attributes. Absent means no IPv6 information was supplied.
   Ipv6Facet ipv6 = 2;
+  // The network instance the interface routes in. Must be present. Address
+  // and neighbor rows keyed by this interface belong to the same instance.
+  string network_instance = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
 }
