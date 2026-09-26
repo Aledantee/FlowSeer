@@ -1,0 +1,56 @@
+edition = "2024";
+
+package flowseer.net.protocol.dhcp.v1;
+
+import "buf/validate/validate.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "google/protobuf/duration.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A DHCPv4 address pool configuration and operational state (Cisco-IOS-XE-dhcp-oper.yang).
+message Dhcpv4Pool {
+  option (buf.validate.message).cel = {
+    id: "dhcpv4_pool.leased_le_total"
+    message: "leased_addresses must not exceed total_addresses"
+    expression:
+      "!has(this.leased_addresses) || "
+      "!has(this.total_addresses) || "
+      "this.leased_addresses <= this.total_addresses"
+  };
+
+  // The network instance this pool belongs to. Must be present.
+  string network_instance = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The name of the DHCP pool. Must be present.
+  string name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // The network subnet served by this pool.
+  flowseer.net.addr.v1.Ipv4Prefix subnet = 3;
+  // Dynamic allocation address ranges within the subnet.
+  repeated flowseer.net.addr.v1.Ipv4Range ranges = 4;
+  // Default gateway router addresses configured for this pool (RFC 2132 option 3).
+  repeated flowseer.net.addr.v1.Ipv4Address default_routers = 5;
+  // DNS server addresses configured for this pool (RFC 2132 option 6).
+  repeated flowseer.net.addr.v1.Ipv4Address dns_servers = 6;
+  // Domain name configured for this pool (RFC 2132 option 15, max 253 characters).
+  string domain_name = 7 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 253
+  ];
+  // Total number of assignable IP addresses in this pool.
+  uint32 total_addresses = 8;
+  // Number of active leased IP addresses in this pool.
+  uint32 leased_addresses = 9;
+  // Configured lease duration for this pool.
+  oneof lease_time {
+    // A finite positive lease duration.
+    google.protobuf.Duration lease_duration = 10 [(buf.validate.field).duration.gt = {}];
+    // An infinite lease time.
+    bool infinite = 11 [(buf.validate.field).bool.const = true];
+  }
+}

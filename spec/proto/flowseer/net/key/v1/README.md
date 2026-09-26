@@ -9,7 +9,7 @@ package that needs a name applies the rule to its own string field.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/device, model/access, model/alarm, model/capture, model/inventory, net/endpoint, net/instance, net/interface, net/ip, net/multicast, net/portaccess, net/protocol/bfd, net/protocol/bgp, net/protocol/cdp, net/protocol/isis, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/ospf, net/protocol/stp, net/protocol/vrrp, net/routing, net/switching, net/system
+Imported by: api/device, model/access, model/alarm, model/capture, model/inventory, net/endpoint, net/instance, net/interface, net/ip, net/multicast, net/portaccess, net/protocol/bfd, net/protocol/bgp, net/protocol/cdp, net/protocol/dhcp, net/protocol/dns, net/protocol/isis, net/protocol/lacp, net/protocol/lldp, net/protocol/ntp, net/protocol/ospf, net/protocol/stp, net/protocol/vrrp, net/routing, net/switching, net/system
 
 Deliberately absent:
 
