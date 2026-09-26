@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: code
 parent: docs/plans/2026-09-25-1713-feat-schema-building-blocks-plan.md
 ---
 
 # Schema Building Blocks Phase 2, Network Instances and Routing - Plan
+
+> Partially implemented: U1 passed (683c171f), U2 blocked by Requirement 4. 1 unit, 2026-09-26T07:31:17Z.
 
 ## Goal
 
@@ -168,10 +170,12 @@ from dossiers 05 and 06:
 
 ### U1. Network instance schema and conformance tests
 
-Files: spec/proto/flowseer/net/instance/v1/{network_instance_kind.proto,route_distinguisher.proto,network_instance.proto,README.md},
-test/conformance/proto/layering_test.go,
-test/conformance/proto/instance_rules_test.go,
-generated/go/proto/flowseer/net/instance/v1/ (by `buf generate`)
+Files: `spec/proto/flowseer/net/instance/v1/{network_instance_kind.proto,route_distinguisher.proto,network_instance.proto,README.md}`,
+`spec/proto/flowseer/net/addr/v1/README.md`,
+`spec/proto/flowseer/net/key/v1/README.md`,
+`test/conformance/proto/layering_test.go`,
+`test/conformance/proto/instance_rules_test.go`,
+`generated/go/proto/flowseer/net/instance/v1/`
 After: none
 Change: defines the `flowseer.net.instance.v1` package under `spec/proto/flowseer/net/instance/v1/`.
 `network_instance_kind.proto` declares `NetworkInstanceKind` with values `_UNSPECIFIED = 0`,
@@ -200,34 +204,36 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U2. Routing schema and conformance tests
 
-Files: spec/proto/flowseer/net/routing/v1/{route_source_protocol.proto,route_table_type.proto,special_next_hop.proto,next_hop.proto,next_hop_group.proto,route.proto,README.md},
-test/conformance/proto/routing_rules_test.go,
-generated/go/proto/flowseer/net/routing/v1/ (by `buf generate`)
+Files: `spec/proto/flowseer/net/routing/v1/{route_source_protocol.proto,route_table_type.proto,special_next_hop.proto,next_hop.proto,next_hop_group.proto,route.proto,README.md}`,
+`spec/proto/flowseer/net/addr/v1/README.md`,
+`spec/proto/flowseer/net/key/v1/README.md`,
+`test/conformance/proto/routing_rules_test.go`,
+`generated/go/proto/flowseer/net/routing/v1/`
 After: none
 Change: defines the `flowseer.net.routing.v1` package under `spec/proto/flowseer/net/routing/v1/`.
-`route_source_protocol.proto` declares `RouteSourceProtocol` keeping IANA integers
+route_source_protocol.proto declares `RouteSourceProtocol` keeping IANA integers
 `_UNSPECIFIED = 0`, `_OTHER = 1` through `_TTDP = 20` citing
 `spec/mib/ietf/IANA-RTPROTO-MIB:48-79` and RFC 4292.
-`route_table_type.proto` declares `RouteTableType` discriminator enum with values
+route_table_type.proto declares `RouteTableType` discriminator enum with values
 `_UNSPECIFIED = 0`, `_RIB = 1`, `_FIB = 2` citing RFC 8349 and atlas 04 §3.7.
-`special_next_hop.proto` declares `SpecialNextHop` enum with `_UNSPECIFIED = 0`,
+special_next_hop.proto declares `SpecialNextHop` enum with `_UNSPECIFIED = 0`,
 `_BLACKHOLE = 1`, `_UNREACHABLE = 2`, `_PROHIBIT = 3`, `_RECEIVE = 4` citing RFC 8349 §5.2.
-`next_hop.proto` declares `NextHop` as a typed variant with a required `target` oneof
+next_hop.proto declares `NextHop` as a typed variant with a required `target` oneof
 containing `forwarding = 1` (`ForwardingNextHop` with `interface_name` validated by
 `net/key/v1` rule, optional `flowseer.net.addr.v1.IpAddress address`, and message CEL
 requiring at least one target) and `special = 2` (`SpecialNextHop` with defined_only and
 rejecting unspecified).
-`next_hop_group.proto` declares `NextHopGroup` with required `repeated NextHop next_hops`
+next_hop_group.proto declares `NextHopGroup` with required `repeated NextHop next_hops`
 containing at least 1 item.
-`route.proto` declares `Route` table row with required `network_instance` validated by
+route.proto declares `Route` table row with required `network_instance` validated by
 `net/key/v1` rule, required `destination_prefix` (`flowseer.net.addr.v1.IpPrefix`), optional
 `source_protocol`, optional `preference`, optional `metric`, optional `next_hop_group`,
 optional `active`, and optional `table_type`. Every doc comment states field contracts,
 and new required fields state "Must be present."
-`README.md` documents package admission, boundaries, and standards grounding.
-`test/conformance/proto/routing_rules_test.go` tests validation rules for `Route`,
+README.md documents package admission, boundaries, and standards grounding.
+test/conformance/proto/routing_rules_test.go tests validation rules for `Route`,
 `NextHop`, `ForwardingNextHop`, and `NextHopGroup`.
-`buf generate` emits generated Go bindings under `generated/go/proto/flowseer/net/routing/v1/`.
+buf generate emits generated Go bindings under `generated/go/proto/flowseer/net/routing/v1/`.
 Tests: `test/conformance/proto/routing_rules_test.go` (verifies requirements 3, 4, 9,
 and 10: static default route round-trip with NETMGMT(3), NextHop missing arms, NextHop
 with both arms set, ForwardingNextHop without targets, SpecialNextHop undefined/unspecified,
@@ -236,11 +242,11 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U3. Reshape existing schemas with required network instance
 
-Files: spec/proto/flowseer/net/switching/v1/{vlan.proto,fdb_entry.proto,README.md},
-spec/proto/flowseer/net/ip/v1/{ip_facet.proto,README.md},
-test/conformance/proto/{switching_rules_test.go,interface_rules_test.go},
-generated/go/proto/flowseer/net/switching/v1/ (by `buf generate`),
-generated/go/proto/flowseer/net/ip/v1/ (by `buf generate`)
+Files: `spec/proto/flowseer/net/switching/v1/{vlan.proto,fdb_entry.proto,README.md}`,
+`spec/proto/flowseer/net/ip/v1/{ip_facet.proto,README.md}`,
+`test/conformance/proto/{switching_rules_test.go,interface_rules_test.go}`,
+`generated/go/proto/flowseer/net/switching/v1/`,
+`generated/go/proto/flowseer/net/ip/v1/`
 After: none
 Change: adds `string network_instance = 4 [(buf.validate.field).required = true, (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true];`
 to `Vlan`.
@@ -257,7 +263,7 @@ on valid `Vlan` and `FdbEntry` cases and adds test cases proving that `FdbEntry`
 `network_instance` fails validation and `Vlan` without `network_instance` fails validation.
 Updates `test/conformance/proto/interface_rules_test.go` to provide `network_instance = "default"`
 on `IpFacet` and adds a test case proving that `IpFacet` without `network_instance` fails validation.
-`buf generate` regenerates Go bindings for `net/switching/v1` and `net/ip/v1`.
+buf generate regenerates Go bindings for `net/switching/v1` and `net/ip/v1`.
 Tests: `test/conformance/proto/switching_rules_test.go` (verifies requirements 1 and 6:
 FdbEntry and Vlan fail when network_instance is omitted; valid cases pass when set),
 `test/conformance/proto/interface_rules_test.go` (verifies requirement 5: IpFacet fails
@@ -266,9 +272,9 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U4. Go consumers and netsim export
 
-Files: src/modules/localnet/snmpmap/{ifmib.go,ifmib_test.go},
-src/common/netsim/vswitch/netmodel/{export.go,export_test.go,acceptance_pass10_test.go,conformance_test.go,forward_metadata_test.go,netmodel_test.go,report_test.go,routing_test.go,testdata_icx7150_test.go,trust_test.go},
-src/common/netsim/internal/netsimtest/cases.go
+Files: `src/modules/localnet/snmpmap/{ifmib.go,ifmib_test.go}`,
+`src/common/netsim/vswitch/netmodel/{export.go,export_test.go,acceptance_pass10_test.go,conformance_test.go,forward_metadata_test.go,netmodel_test.go,report_test.go,routing_test.go,testdata_icx7150_test.go,trust_test.go}`,
+`src/common/netsim/internal/netsimtest/cases.go`
 After: U1, U2, U3
 Change: `src/modules/localnet/snmpmap/ifmib.go` populates `NetworkInstance: proto.String("default")`
 on `IpFacet` when creating routed VLAN interfaces.
@@ -289,9 +295,9 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/lo
 
 ### U5. Conventions, concepts, and net package README documentation
 
-Files: docs/conventions/protobuf.md,
-CONCEPTS.md,
-spec/proto/flowseer/net/README.md
+Files: `docs/conventions/protobuf.md`,
+`./CONCEPTS.md`,
+`spec/proto/flowseer/net/README.md`
 After: U1, U2, U3
 Change: `docs/conventions/protobuf.md` records `NetworkInstance` and `Route` table row shapes,
 updates the "Units and keys" section to state the required `network_instance` key rule for
@@ -329,4 +335,9 @@ go test -race ./test/conformance/... ./src/modules/localnet/snmpmap/... ./src/co
 
 ## Open questions
 
-None.
+- **Requirement 4 satisfiability with `protovalidate`**:
+  Requirement 4 specifies:
+  > "A `NextHop` with both arms set fails `oneof` validation. Example: A `NextHop` with both `forwarding` and `special` populated (unmarshaled from wire bytes containing both field tags 1 and 2) fails `protovalidate.Validate` with `oneof: exactly one field is required`."
+  Under the Protocol Buffers wire encoding specification and Google's Go protobuf runtime (`google.golang.org/protobuf`), unmarshaling wire bytes containing multiple fields for the same oneof applies "last tag wins" — the later tag overwrites the earlier tag and leaves no unknown fields. In Go's opaque API runtime, a oneof is represented in-memory by an interface holding at most one concrete variant; it cannot hold both arms simultaneously.
+  When `protovalidate.Validate` evaluates the unmarshaled message, `msg.WhichOneof(descriptor)` returns the single populated arm, satisfying `(buf.validate.oneof).required = true`. Protovalidate's `oneof.go` only emits `"exactly one field is required in oneof"` when `WhichOneof` is nil (no arm set). It is therefore impossible for `protovalidate.Validate` on an unmarshaled message to reject wire bytes containing multiple oneof tags without rejecting valid messages.
+  Per brief rule 19 ("a requirement you believe the code cannot satisfy is a blocker: record it in the plan's Open questions, commit what passed, state the blocker, stop"), execution stops here for re-planning or requirement clarification.

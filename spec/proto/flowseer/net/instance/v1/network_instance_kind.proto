@@ -1,0 +1,20 @@
+edition = "2024";
+
+package flowseer.net.instance.v1;
+
+// The normalized network-instance kind, adapted from OpenConfig
+// openconfig-network-instance-types.yang:144-176.
+enum NetworkInstanceKind {
+  // The instance kind was not reported.
+  NETWORK_INSTANCE_KIND_UNSPECIFIED = 0;
+  // The default or global routing instance for the network device (DEFAULT_INSTANCE).
+  NETWORK_INSTANCE_KIND_DEFAULT = 1;
+  // A private Layer 3 routing instance formed of one or more RIBs (L3VRF).
+  NETWORK_INSTANCE_KIND_L3VRF = 2;
+  // A private Layer 2 switch instance formed of one or more L2 forwarding tables (L2VSI).
+  NETWORK_INSTANCE_KIND_L2VSI = 3;
+  // A private Layer 2 point-to-point forwarding instance between two endpoints (L2P2P).
+  NETWORK_INSTANCE_KIND_L2P2P = 4;
+  // A private joint Layer 2 and Layer 3 forwarding instance (L2L3).
+  NETWORK_INSTANCE_KIND_L2L3 = 5;
+}

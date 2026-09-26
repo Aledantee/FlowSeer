@@ -1,0 +1,31 @@
+edition = "2024";
+
+package flowseer.net.instance.v1;
+
+import "flowseer/net/instance/v1/network_instance_kind.proto";
+import "flowseer/net/instance/v1/route_distinguisher.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/key/v1/key.proto";
+
+// A device-scoped network instance (VRF, VSI, or default routing instance).
+message NetworkInstance {
+  // The device-scoped network-instance name. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.(flowseer.net.key.v1.network_instance_name) = true
+  ];
+  // The network-instance kind. Must be present; unspecified is invalid.
+  NetworkInstanceKind kind = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The route distinguisher scoping this network instance's routes (RFC 4364 §4.2).
+  // Absent when no route distinguisher was reported.
+  RouteDistinguisher route_distinguisher = 3;
+  // Free-form description of the network instance. Absent means no description was reported;
+  // an empty string means the device reported an empty description.
+  string description = 4;
+}
