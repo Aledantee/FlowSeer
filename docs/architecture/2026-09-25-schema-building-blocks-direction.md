@@ -44,7 +44,7 @@ structure record's amendments leave it.
 
 ```
 net/
-  key/v1/          + predefined rules for device-local keys: interface_name, network_instance_name
+  key/v1/          + predefined rules for device-local keys: interface_name, network_instance_name, protocol_instance_name
   measure/v1/      + SensorReading (temperature, voltage, current, power, rotation, humidity) with
                      thresholds; basis_points rule; PathQuality (latency, jitter, loss)
   addr/v1/         ~ EuiAddress renamed MacAddress
@@ -309,6 +309,10 @@ check, as with `Location` and `Cable` today (conventions doc, "EntityRef").
 - `docs/conventions/protobuf.md` names `MacAddress` where the code named
   `EuiAddress`; the code changes to match the document, because every
   sibling record and dossier already says `MacAddress`.
+- `net/key` gains a third predefined rule, `protocol_instance_name`, for the
+  per-protocol instance keys (OSPF process ids, IS-IS tags) that phase 7
+  introduced; it validates the same 1..255 device-local shape as
+  `network_instance_name`.
 
 ## Alternatives rejected
 
