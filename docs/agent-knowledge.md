@@ -12,7 +12,7 @@ information.
 | Steering design and maintenance | `docs/agent-steering.md` | Durable; maintainers changing instructions, skills, agents, or enforcement |
 | Accepted system direction | `docs/architecture/` | Durable; architecture decisions and constraints |
 | Solved problems and reusable lessons | `docs/solutions/` | Durable; evidence-backed implementation knowledge |
-| Repeatable agent workflows | `.claude/skills/` | Durable; task procedures with scripts when useful |
+| Repeatable agent workflows | `.agents/skills/` (`.claude/skills/` links here) | Durable; task procedures with scripts when useful |
 | Narrow specialist behavior | `.claude/agents/` | Durable; bounded delegation roles |
 | Observed gaps in skills, agents, or hooks | `docs/agent-observations.md` | Queue; `steer` applies or rejects each entry on a maintainer's request and deletes it |
 | Claude auto-memory | Claude's local memory directory | Personal, machine-local, advisory, and potentially stale |
