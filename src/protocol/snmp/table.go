@@ -48,8 +48,9 @@ func (d TableDescriptor) Present(ctx context.Context, sess Session) (bool, error
 }
 
 // TableWalker merges selected columns by numeric index suffix into typed rows.
-// Callers iterate over it with [TableWalker.Iter], terminate in-flight retrieval
-// with [TableWalker.Close], and inspect errors with [TableWalker.Err].
+// Construct it through [Table.Walk]; the zero value yields no rows and no error.
+// Iteration is single-use and single-consumer; Close and Err are safe
+// concurrently with it.
 type TableWalker[Row any] struct {
 	cw       *ColumnWalker
 	ordinals []int
@@ -58,7 +59,9 @@ type TableWalker[Row any] struct {
 	row      Row
 }
 
-// Err returns the first terminal error encountered during the walk.
+// Err returns the walk's terminal error, or nil when it completed or the
+// consumer stopped it. A foreign column, a decode error, or parent cancellation
+// during the walk is reported here.
 func (w *TableWalker[Row]) Err() error {
 	if w == nil || w.cw == nil {
 		return nil
@@ -66,7 +69,8 @@ func (w *TableWalker[Row]) Err() error {
 	return w.cw.Err()
 }
 
-// Close cancels in-flight retrieval and prevents further requests.
+// Close cancels in-flight retrieval and prevents further requests. It is
+// idempotent and safe during iteration.
 func (w *TableWalker[Row]) Close() {
 	if w == nil || w.cw == nil {
 		return
@@ -74,9 +78,13 @@ func (w *TableWalker[Row]) Close() {
 	w.cw.Close()
 }
 
-// Iter yields complete selected-column rows in numeric OID suffix order. A
-// decode error omits the failing row and stops iteration; already yielded rows
-// remain valid. Check [TableWalker.Err] after iteration.
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10), retaining one batch per selected column.
+// Each row is a fresh value: a row kept across iterations is never changed by
+// later ones. Breaking iteration stops retrieval. A row whose suffix does not
+// decode as the table's INDEX is still yielded, with the raw suffix as its OID.
+// A decode error omits the failing row and every later row; rows already
+// yielded remain valid. Check [TableWalker.Err] after iteration.
 func (w *TableWalker[Row]) Iter() iter.Seq2[OID, Row] {
 	return func(yield func(OID, Row) bool) {
 		if w == nil || w.cw == nil {
@@ -114,7 +122,9 @@ func (w *TableWalker[Row]) Iter() iter.Seq2[OID, Row] {
 
 // Table coordinates selected-column validation, deduplication, and execution for
 // generated table singletons. The generated table singleton embeds [Table], and
-// its walker embeds [TableWalker] by value.
+// its walker embeds [TableWalker] by value. A Table is immutable after
+// [NewTable] and safe for concurrent use; its zero value walks nothing and
+// returns the zero Walk.
 type Table[Row any, Walk any] struct {
 	name    string
 	cols    []AnyColumn
@@ -141,13 +151,18 @@ func NewTable[Row any, Walk any](
 	}
 }
 
-// Walk initiates a lazy table walk over the requested columns.
+// Walk lazily retrieves only the selected columns with bounded defaults. Rows
+// are the union of selected values in numeric OID index order. No columns means
+// no rows or requests, and duplicate selections are ignored. A nil column or a
+// column of another table fails before I/O with [ErrForeignColumn], reported by
+// the walker's Err.
 func (t Table[Row, Walk]) Walk(ctx context.Context, sess Session, cols ...AnyColumn) Walk {
 	return t.WalkWithOptions(ctx, sess, TableWalkOptions{}, cols...)
 }
 
-// WalkWithOptions initiates a lazy table walk over the requested columns with
-// options.
+// WalkWithOptions is [Table.Walk] with request sizing and per-call controls.
+// SNMPv1 is unsupported. Parent cancellation is an error; stopping iteration is
+// successful.
 func (t Table[Row, Walk]) WalkWithOptions(ctx context.Context, sess Session, options TableWalkOptions, cols ...AnyColumn) Walk {
 	if t.wrap == nil {
 		var zero Walk
