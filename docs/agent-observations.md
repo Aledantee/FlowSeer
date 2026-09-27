@@ -41,3 +41,8 @@ Suggested change: State that a re-review is split by the writer of each commit w
 Skill or agent: `.codex/hooks.json` or `.claude/skills/delegate/scripts/orca-worker.sh`.
 What happened: A codex lane printed "Hook failed — hook exited with code 127" early in its turn on worker fix-delegate2 on 2026-09-26. Cause was uninvestigated; likely a command registered in `.codex/hooks.json` was missing from PATH in the worker environment. The step was followed as written.
 Suggested change: Verify that all commands invoked by `.codex/hooks.json` exist on PATH or provide fallbacks when missing.
+
+## 2026-09-27 verify-change: no build, test, or lint gate mapping for frontend web files
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, path dispatching (`gates_selected`).
+What happened: The step was followed as written. When running `verify-change.sh` against changed paths in `frontend/web/`, the verifier reported "FlowSeer verification selected no build, test or lint gate for these paths" and exited with code 2. The script dispatches Go, Proto, MIB, and Markdown paths, but has no gate mapping for TypeScript, Vue, or CSS files under `frontend/web/`. As a result, web build, test, lint, and formatting checks had to run manually.
+Suggested change: Add path matching for `frontend/web/` in `verify-change.sh` to trigger web workspace gates (such as `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm format:check`).
