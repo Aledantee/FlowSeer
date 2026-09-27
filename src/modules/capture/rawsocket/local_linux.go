@@ -20,7 +20,7 @@ import (
 // pollTimeout is the per-poll wait. It bounds how long a blocked Receive
 // stays unaware of ctx cancellation: the loop checks ctx.Done() after each
 // poll returns, so cancellation lands within this window. It also matches
-// SO_RCVTIMEO, so a blocking Recvfrom returns EAGAIN on its own rather than
+// SO_RCVTIMEO, so a blocking Recvmsg returns EAGAIN on its own rather than
 // blocking indefinitely.
 const pollTimeout = 100 * time.Millisecond
 
@@ -32,7 +32,7 @@ const maxFrameLen = 65536
 // packetSocket is the syscall surface local_linux.go needs, seamed out so
 // the Receive-loop logic is tested without a real socket or CAP_NET_RAW.
 type packetSocket interface {
-	recvfrom(p []byte, flags int) (n int, err error)
+	recvmsg(p, oob []byte) (n, oobn, flags int, err error)
 	stats() (packets, drops uint64, err error)
 	close() error
 }
@@ -50,9 +50,9 @@ type fdSocket struct {
 	fd int
 }
 
-func (s *fdSocket) recvfrom(p []byte, flags int) (int, error) {
-	n, _, err := unix.Recvfrom(s.fd, p, flags)
-	return n, err
+func (s *fdSocket) recvmsg(p, oob []byte) (int, int, int, error) {
+	n, oobn, flags, _, err := unix.Recvmsg(s.fd, p, oob, unix.MSG_TRUNC)
+	return n, oobn, flags, err
 }
 
 func (s *fdSocket) stats() (uint64, uint64, error) {
@@ -79,6 +79,7 @@ func (s *fdSocket) close() error {
 // send to an abandoned consumer.
 type linuxLocalSource struct {
 	sock packetSocket
+	vm   *bpf.VM
 
 	mu     sync.Mutex // guards sock and closed
 	closed bool
@@ -86,6 +87,23 @@ type linuxLocalSource struct {
 }
 
 func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
+	var vm *bpf.VM
+	if len(prog) > 0 {
+		insts, allDecoded := bpf.Disassemble(prog)
+		if !allDecoded {
+			return nil, errs.New().
+				Code(ErrCodeSourceOpen).
+				Msg("disassemble the local interface's filter program")
+		}
+		v, err := bpf.NewVM(insts)
+		if err != nil {
+			return nil, errs.From(err).
+				Code(ErrCodeSourceOpen).
+				Msg("build the local interface's filter VM")
+		}
+		vm = v
+	}
+
 	ifi, err := net.InterfaceByName(iface)
 	if err != nil {
 		return nil, errs.From(err).
@@ -104,23 +122,11 @@ func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 			Hint("check the interface name and that you have CAP_NET_RAW").
 			Msgf("af_packet socket %q", iface)
 	}
-
-	// Attach the filter before Bind: once bound, this AF_PACKET socket's
-	// queue can receive frames on this interface immediately, and a frame
-	// arriving before the filter attaches would bypass it.
-	if len(prog) > 0 {
-		filters := make([]unix.SockFilter, len(prog))
-		for i, ri := range prog {
-			filters[i] = unix.SockFilter{Code: ri.Op, Jt: ri.Jt, Jf: ri.Jf, K: ri.K}
-		}
-		fprog := &unix.SockFprog{Len: uint16(len(filters)), Filter: &filters[0]}
-		if err := unix.SetsockoptSockFprog(fd, unix.SOL_SOCKET, unix.SO_ATTACH_FILTER, fprog); err != nil {
-			_ = unix.Close(fd)
-			return nil, errs.From(err).
-				Code(ErrCodeSourceOpen).
-				Attr("iface", iface).
-				Msgf("attach filter on %q", iface)
-		}
+	if err := unix.SetsockoptInt(fd, unix.SOL_PACKET, unix.PACKET_AUXDATA, 1); err != nil {
+		_ = unix.Close(fd)
+		return nil, errs.From(err).
+			Code(ErrCodeSourceOpen).
+			Msgf("enable packet auxiliary data on %q", iface)
 	}
 
 	sa := &unix.SockaddrLinklayer{
@@ -155,7 +161,9 @@ func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 			Msgf("set receive timeout on %q", iface)
 	}
 
-	return newLinuxLocalSource(&fdSocket{fd: fd}), nil
+	src := newLinuxLocalSource(&fdSocket{fd: fd})
+	src.vm = vm
+	return src, nil
 }
 
 func newLinuxLocalSource(sock packetSocket) *linuxLocalSource {
@@ -194,6 +202,7 @@ func (s *linuxLocalSource) Receive(ctx context.Context) <-chan Frame {
 // inside it. See the ordering comment at the call site.
 func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
 	buf := make([]byte, maxFrameLen)
+	oob := make([]byte, unix.CmsgSpace(20))
 	for {
 		select {
 		case <-ctx.Done():
@@ -204,7 +213,7 @@ func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
 		default:
 		}
 
-		n, open, err := s.receiveOnce(buf)
+		n, oobn, flags, open, err := s.receiveOnce(buf, oob)
 		if !open {
 			// Close always closes done before releasing the lock, so
 			// reaching here means the <-s.done case above lost this
@@ -225,7 +234,13 @@ func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
 			}
 			sendTerminal(frames, Frame{Err: errs.From(err).
 				Code(ErrCodeSourceOpen).
-				Msg("recvfrom")})
+				Msg("recvmsg")})
+			return
+		}
+		if flags&unix.MSG_CTRUNC != 0 {
+			sendTerminal(frames, Frame{Err: errs.New().
+				Code(ErrCodeSourceOpen).
+				Msg("packet auxiliary data truncated")})
 			return
 		}
 
@@ -234,10 +249,27 @@ func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
 			// MSG_TRUNC: the wire frame was longer than the buffer.
 			captured = len(buf)
 		}
-		data := make([]byte, captured)
-		copy(data, buf[:captured])
+		data, originalLength, err := restoreVLAN(buf[:captured], n, oob[:oobn])
+		if err != nil {
+			sendTerminal(frames, Frame{Err: errs.From(err).
+				Code(ErrCodeSourceOpen).
+				Msg("restore VLAN header")})
+			return
+		}
+		if s.vm != nil {
+			accepted, err := s.vm.Run(data)
+			if err != nil {
+				sendTerminal(frames, Frame{Err: errs.From(err).
+					Code(ErrCodeSourceOpen).
+					Msg("run local interface filter")})
+				return
+			}
+			if accepted == 0 {
+				continue
+			}
+		}
 
-		f := Frame{Data: data, OriginalLength: uint32(n), CapturedAt: time.Now()}
+		f := Frame{Data: data, OriginalLength: uint32(originalLength), CapturedAt: time.Now()}
 		select {
 		case frames <- f:
 		case <-ctx.Done():
@@ -247,6 +279,44 @@ func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
 			return
 		}
 	}
+}
+
+func restoreVLAN(frame []byte, originalLength int, oob []byte) ([]byte, int, error) {
+	messages, err := unix.ParseSocketControlMessage(oob)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, message := range messages {
+		if message.Header.Level != unix.SOL_PACKET || message.Header.Type != unix.PACKET_AUXDATA {
+			continue
+		}
+		if len(message.Data) < 20 {
+			return nil, 0, errs.Msg("short packet auxiliary data")
+		}
+		status := binary.NativeEndian.Uint32(message.Data[:4])
+		if status&unix.TP_STATUS_VLAN_VALID == 0 {
+			break
+		}
+		if len(frame) < 14 {
+			return nil, 0, errs.Msg("VLAN metadata on short Ethernet frame")
+		}
+
+		tci := binary.NativeEndian.Uint16(message.Data[16:18])
+		tpid := uint16(0x8100)
+		if status&unix.TP_STATUS_VLAN_TPID_VALID != 0 {
+			tpid = binary.NativeEndian.Uint16(message.Data[18:20])
+		}
+		data := make([]byte, len(frame)+4)
+		copy(data, frame[:12])
+		binary.BigEndian.PutUint16(data[12:14], tpid)
+		binary.BigEndian.PutUint16(data[14:16], tci)
+		copy(data[16:], frame[12:])
+		return data, originalLength + 4, nil
+	}
+
+	data := make([]byte, len(frame))
+	copy(data, frame)
+	return data, originalLength, nil
 }
 
 // Stats reports counts since the last call. PACKET_STATISTICS resets the
@@ -295,19 +365,19 @@ func (s *linuxLocalSource) Close() error {
 // been closed under the lock, which is a clean shutdown rather than an error.
 //
 // The lock is released by a defer because this runs on a supervised
-// goroutine: a panic in recvfrom is recovered, so a release written after the
+// goroutine: a panic in recvmsg is recovered, so a release written after the
 // call would be skipped and s.mu would stay held for the life of the process.
 // Stats and Close both take it, so the capture engine would block there
 // forever — a hang in place of the crash the recovery replaced.
-func (s *linuxLocalSource) receiveOnce(buf []byte) (n int, open bool, err error) {
+func (s *linuxLocalSource) receiveOnce(buf, oob []byte) (n, oobn, flags int, open bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.closed {
-		return 0, false, nil
+		return 0, 0, 0, false, nil
 	}
-	n, err = s.sock.recvfrom(buf, unix.MSG_TRUNC)
-	return n, true, err
+	n, oobn, flags, err = s.sock.recvmsg(buf, oob)
+	return n, oobn, flags, true, err
 }
 
 func sendTerminal(frames chan<- Frame, f Frame) {

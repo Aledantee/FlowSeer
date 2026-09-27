@@ -4,24 +4,32 @@ type: perf
 date: 2026-09-27
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
+review: accept after fixes
+compound: docs/solutions/architecture-patterns/snmp-collection-library-architecture-and-fast-path-conventions.md
 execution: mixed
 ---
 
 # BulkWalk Lazy Varbind Decode - Plan
 
+> Implemented. 2 units, 2026-09-27T16:34Z to 2026-09-27T17:09Z.
+
 ## Goal
 
 `Session.BulkWalk` stops paying to decode the varbinds that follow the one
-ending the walk. An agent answering GETBULK fills every repetition after a
-column's end with `endOfMibView` (RFC 3416 section 4.2.3), so the last response
-of a walk carries up to 49 varbinds the engine never uses, and today the reactor
-decodes all of them before the engine sees the first. After this change a bulk
-walk asks the reactor for raw delivery and decodes a varbind's name when the
-engine reaches it and its value only when it is yielded. Stop condition: if
-raw delivery changes which responses are dropped or which error a walk
-returns, the plan is wrong, because the raw path exists on the promise that
-drop semantics match the eager decode.
+ending the walk. RFC 3416 section 4.2.3 permits an agent answering GETBULK to
+return a shorter response or pad remaining repetitions after a column's end
+with `endOfMibView`. When an agent pads, the last response of a walk carries up
+to 49 varbinds the engine never uses, and previously the reactor decoded all of
+them before the engine saw the first. After this change, a bulk walk asks the
+reactor for raw delivery. Instead of retaining raw slices or eagerly decoding,
+`oidWalkItem` uses a four-byte offset/index locator backed by the response's raw
+varbind-list bytes or decoded varbind slice. `items` validates TLV framing in a
+pre-scan, `exception` and `key` reparse framing without decoding values, and
+`send` defers `decodeValue` until an in-subtree varbind is yielded. Stop
+condition: if raw delivery changes which responses are dropped or which error a
+walk returns, the plan is wrong, because the raw path exists on the promise
+that drop semantics match the eager decode.
 
 ## Evidence
 
@@ -30,9 +38,9 @@ drop semantics match the eager decode.
   commit; later drift adds 7 (1281 today).
 - Swapping only the new `src/common/snmp/bench/responder_test.go` from
   `7210aa0c` onto its parent `7185cd0a` raises the parent to 1274, so the
-  library did not change; the responder did. The new responder fills every
-  repetition after a column's end with `endOfMibView` instead of stopping at
-  the first one.
+  library did not change; the responder did. The new responder exercises
+  permitted RFC padding by appending `endOfMibView` for every repetition after a
+  column's end instead of stopping at the first one.
 - The responder's 7000-byte truncation is not involved: a 100-row walk is
   3 requests and 2898 bytes with the cap at 7000 or at 1 MiB, and allocs/op
   stay at 1281 either way.
@@ -44,9 +52,10 @@ drop semantics match the eager decode.
   `tlv`, `concat`, `oidTLV`), which the micro benchmarks count by design. The
   other half is the client's eager `decodeVarBindList` (`decodeOID`,
   `decodeValue`) in the reactor read loop (`src/protocol/snmp/reactor.go:777`).
-- The walk engine already stops at the first `endOfMibView`
-  (`runWalkEngine`, `walkStop`, `src/protocol/snmp/session_engine.go`), so the
-  padding is decoded and discarded.
+- The walk engine yields the first `endOfMibView` as a terminal marker and
+  stops (`runWalkEngine`, `walkYieldThenStop`,
+  `src/protocol/snmp/session_engine.go`), so trailing padding varbinds were
+  eagerly decoded and discarded.
 
 ## Decisions
 
@@ -61,39 +70,54 @@ drop semantics match the eager decode.
   padding included, and falls back to the eager decode otherwise
   (`src/protocol/snmp/reactor.go:774`). A response the eager decode would
   drop is still dropped, and a raw list is known to decode.
-- `oidWalkOps` keeps `Key = OID` and gets an item type that holds either a
-  decoded `VarBind` (v3, GetNext, eager fallback) or the raw name, tag, and
-  value slices. `key` decodes the name once for a raw item, `exception` reads
-  the tag without decoding, and `send` decodes the value with `decodeValue`
-  and the already-decoded name. Why: switching the decoded walk to byte keys
-  as `rawWalkOps` does would make every v3 varbind pay `encodeOIDContent`,
-  which `rawItemsOf` does for pre-decoded responses; keeping OID keys costs
-  a raw item one name decode, the same as today.
-- The projection for a decoded response wraps each `VarBind` without
-  encoding anything. Why: the same v3 cost as above; `rawItemsOf` is not
-  reused for the decoded branch.
+- `oidWalkItem` is a four-byte locator (`off uint32`) holding a byte offset into
+  the raw varbind-list bytes (`oidWalkOps.rawVBL`) for raw responses, or a slice
+  index into `oidWalkOps.varbinds` for pre-decoded responses (v3, GetNext, eager
+  fallback). Why: retaining raw name/tag/value slices or pointers per varbind
+  inflates item slice memory (72 bytes per item). A compact 4-byte locator keeps
+  item allocation minimal.
+- `oidWalkOps.items` pre-scans `rawVBL` to validate outer sequence and inner TLV
+  framing upfront and count items. Why: counting upfront allows allocating the
+  locator slice with exact capacity, while verifying framing upfront ensures
+  malformed TLV structures fail before the engine processes rows.
+- Framing is reparsed on demand in `exception`, `key`, and `send`, deferring
+  `decodeValue` until `send`. `key` decodes the name OID into `curOID`;
+  `exception` inspects the value tag without decoding; `send` decodes the value
+  with `decodeValue` only when yielding an item. Why: parsing TLV framing from
+  byte offsets is inexpensive and avoids heap allocations. Trailing padding
+  stops the walk at the first `endOfMibView`, so its values are never decoded.
+- Pre-decoded responses index `VarBind`s directly by slice index. Why: it avoids
+  re-encoding or wrapping pre-decoded varbinds and pays no allocations beyond
+  the index slice.
 - A value decode error in `send` fails the walk with the error wrapped as
-  `decode varbind value`. Why: after `validateRawVarBindList` it cannot
-  happen, but the walk must not yield a nil `VarBind` if the two ever
-  diverge.
-- The benchmark responder keeps its RFC-conformant padding. Why: real agents
-  pad, so the benchmark now measures a cost production walks pay.
+  `decode varbind value`. Why: after `validateRawVarBindList` and the pre-scan
+  it cannot happen, but the walk must not yield a nil `VarBind` if parser
+  assumptions diverge.
+- The benchmark responder retains its permitted RFC 3416 section 4.2.3 padding.
+  Why: RFC 3416 permits an agent to pad remaining repetitions with
+  `endOfMibView` instead of truncating the PDU. Real agents exercise this option,
+  so the benchmark measures a cost production walks encounter.
 
 ## Requirements
 
 1. A bulk walk over an agent that pads the last response with
-   `endOfMibView` yields exactly the rows in the subtree and no error.
-   Example: 7 ifTable rows, max-repetitions 50, padded agent; the walk yields
-   7 varbinds and `Err()` is nil.
+   `endOfMibView` (permitted by RFC 3416 section 4.2.3) yields the in-subtree
+   rows plus one `EndOfMibView` terminal marker, and no error. Trailing markers
+   remain unvisited.
+   Example: 7 ifTable rows, no outside scalar, response padded to 50
+   varbinds; the walk observes 7 ordinary rows plus 1 yielded `EndOfMibView`
+   terminal marker (8 total varbinds), trailing 42 markers remain unvisited,
+   and `Err()` is nil.
 2. Decoding a raw response's items for the decoded walk allocates the same
    amount whether one or 49 `endOfMibView` varbinds follow the last row.
    Example: two hand-built raw varbind lists, 3 rows plus 1 marker and 3 rows
    plus 49 markers, driven through the item projection, `key`, `exception`,
-   and `send` up to the stop; `testing.AllocsPerRun` reports equal counts.
+   and `send` up to the stop without a socket; `testing.AllocsPerRun` reports
+   equal counts.
 3. `BulkWalk` and `BulkWalkRaw` agree on every scenario in
    `TestBulkWalkRaw_DifferentialWithBulkWalk`, plus a padded-end scenario.
-   Example: the padded 7-row agent gives the same OIDs in the same order
-   from both.
+   Example: the padded 7-row agent without an outside scalar gives the same
+   OIDs and terminal marker in the same order from both.
 4. A v3 bulk walk and a GetNext walk keep their current behavior. Example:
    the existing v3 and `Walk` tests pass unchanged.
 5. `BenchmarkBulkWalk/impl=flowseer` allocs/op falls below the 1281 in
@@ -122,24 +146,32 @@ Files:
 After: none
 
 Change: `oidWalkOps.newRequest` sets `req.wantRaw = true` on a bulk request.
-`oidWalkOps.items` returns an item per varbind: for a `rawVBL` response the
-raw name, tag, and value slices re-framed in place as `rawItemsOfLimit`
-frames them; for a decoded response the `VarBind` itself. `key` returns the
-decoded `VarBind`'s OID or decodes the raw name; `exception` classifies from
-the tag or the decoded kind; `send` decodes a raw value with `decodeValue`
-and the name `key` already decoded, then calls `Walker.Send`. The engine and
+`oidWalkItem` is a four-byte locator (`off uint32`) holding a byte offset into
+`oidWalkOps.rawVBL` for raw responses, or a slice index into
+`oidWalkOps.varbinds` for pre-decoded responses. `oidWalkOps.items` pre-scans
+`rawVBL` to validate outer sequence and inner TLV framing (varbind sequence, name
+TLV, value TLV) and count items, allocating `items` with exact capacity before
+recording byte offsets. `exception` reparses the framing to inspect the value tag
+without decoding. `key` reparses sequence framing and decodes the name OID into
+`curOID`. `send` reparses framing, extracts value TLV bytes, and defers
+`decodeValue` until an item is yielded to `Walker.Send`. Trailing padding
+varbinds never reach `send`, so their values are never decoded. The engine and
 `rawWalkOps` are unchanged.
 
 Tests:
 - `session_engine_test.go`: `mibBehavior` gains `padEndOfMibView bool`; with
   it set, the GETBULK branch appends `endOfMibView` for every remaining
-  repetition instead of breaking. `TestSession_BulkWalk_PaddedEnd` walks 7
-  rows against it and expects 7 varbinds and a nil error. An allocation test
-  builds the two raw lists of requirement 2 and asserts equal
-  `testing.AllocsPerRun` counts through the item projection and the ops
-  methods, without a socket, so the agent's own allocations are not counted.
+  repetition up to 50 instead of breaking. `TestSession_BulkWalk_PaddedEnd`
+  tests 7 in-subtree rows with no outside scalar against a response padded to
+  50 varbinds, observing 7 ordinary rows plus 1 yielded `EndOfMibView` terminal
+  marker, while 42 trailing markers remain unvisited, and expects a nil error.
+  An allocation test (`TestOIDWalkOps_LazyDecodeAllocations`) builds the two raw
+  lists of requirement 2 (1 marker versus 49 trailing markers) and asserts
+  equal `testing.AllocsPerRun` counts through the item projection and ops
+  methods, without a socket, so agent allocations are excluded.
 - `rawwalk_test.go`: `TestBulkWalkRaw_DifferentialWithBulkWalk` gains a
-  `padded-end` scenario with `mibBehavior{padEndOfMibView: true}`.
+  `padded-end` scenario with 7 rows, no outside scalar, and
+  `mibBehavior{padEndOfMibView: true}`.
 - The stop condition's risk, a changed drop or error for a malformed
   response, is the reactor's fallback, which this unit does not touch;
   `conformance_rawpath_test.go` and `conformance_corpus_test.go` already pin
@@ -155,13 +187,13 @@ Files:
 
 After: U1
 
-Change: the baseline is re-measured with `task bench:micro COUNT=10` and the
-FlowSeer arm kept, as `src/protocol/snmp/bench/bench-gate.sh` documents. The
-solution doc's baseline paragraph replaces "No record explains the BulkWalk
-rise" with the cause: the responder pads GETBULK ends per RFC 3416 section
-4.2.3 since `7210aa0c`, the client used to decode the padding, and bulk
-walks now decode on demand. It quotes the new BulkWalk allocs/op with the
-baseline line.
+Change: the baseline is re-measured with `task bench:micro COUNT=10`, retaining
+the refreshed BulkWalk rows only and restoring unrelated benchmark rows from the
+base. The solution doc's baseline paragraph replaces "No record explains the
+BulkWalk rise" with the cause: the responder pads GETBULK ends per RFC 3416
+section 4.2.3 since `7210aa0c`, the client used to decode the padding eagerly,
+and bulk walks now decode on demand. It quotes the new BulkWalk allocs/op with
+the baseline line.
 
 Tests: `task bench:gate` against the new baseline passes.
 
@@ -182,11 +214,11 @@ unsandboxed run.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Requirement 5 measured and quoted in the U2 commit message.
-- [ ] Solution doc updated in the same change as the baseline.
-- [ ] This plan's `status` set, with an outcome note under its title.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] Verifier green for every changed path.
+- [x] Requirement 5 measured and quoted in the U2 commit message.
+- [x] Solution doc updated in the same change as the baseline.
+- [x] This plan's `status` set, with an outcome note under its title.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 

@@ -31,10 +31,8 @@ func TestRealInterfaceRoundTrip(t *testing.T) {
 		t.Skip("FLOWSEER_CAPTURE_IFACE not set; skipping real-interface round trip")
 	}
 
-	// A real, non-empty compiled filter, not nil: this is the only test at
-	// any tier that exercises SO_ATTACH_FILTER, the RawInstruction ->
-	// SockFilter conversion, and the SockFprog layout against a real
-	// kernel.
+	// A real, non-empty compiled filter exercises the local source's
+	// raw-instruction to VM path against a packet socket.
 	insts, err := filter.Compile(nil) // absent filter still compiles to an accept-all program
 	if err != nil {
 		t.Fatalf("filter.Compile: %v", err)

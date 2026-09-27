@@ -188,7 +188,7 @@ func (s *session) walk(ctx context.Context, root OID, opts []CallOption, bulk bo
 // drives the shared walk engine over decoded OIDs, yielding each
 // in-subtree [VarBind].
 func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, callCfg *CallConfig, span trace.Span, op string) {
-	runWalkEngine(ctx, s, oidWalkOps{s: s, w: w, root: root}, root, bulk, callCfg, span, op)
+	runWalkEngine(ctx, s, &oidWalkOps{s: s, w: w, root: root}, root, bulk, callCfg, span, op)
 }
 
 // walkException classifies a response varbind's SNMPv2 exception
@@ -465,41 +465,176 @@ func runWalkEngine[Item, Key any](ctx context.Context, s *session, ops walkOps[I
 	}
 }
 
+// oidWalkItem is one response varbind locator for the decoded walk engine:
+// a byte offset into [oidWalkOps.rawVBL] for a raw response, or a slice index
+// into [oidWalkOps.varbinds] for a pre-decoded response (v3, GetNext, or eager
+// fallback).
+type oidWalkItem struct {
+	off uint32
+}
+
 // oidWalkOps drives the walk engine over decoded [OID] cursors, yielding
 // [VarBind]s to a [Walker].
 type oidWalkOps struct {
-	s    *session
-	w    *Walker
-	root OID
+	s      *session
+	w      *Walker
+	root   OID
+	curOID OID
+
+	rawVBL   []byte
+	varbinds []VarBind
 }
 
-func (o oidWalkOps) newRequest(cursor OID, useBulk bool, reps int) (*message, error) {
+func (o *oidWalkOps) newRequest(cursor OID, useBulk bool, reps int) (*message, error) {
 	if useBulk {
-		return o.s.newBulkRequest([]OID{cursor}, 0, reps), nil
+		req := o.s.newBulkRequest([]OID{cursor}, 0, reps)
+		req.wantRaw = true
+		return req, nil
 	}
 	return o.s.newRequest(pduGetNextRequest, nullVarbinds([]OID{cursor})), nil
 }
 
-func (o oidWalkOps) items(p *pdu) ([]VarBind, error) { return p.varbinds, nil }
+func (o *oidWalkOps) items(p *pdu) ([]oidWalkItem, error) {
+	if p.rawVBL != nil {
+		listContent, _, err := parseSequence(p.rawVBL, tagSequence, 1)
+		if err != nil {
+			return nil, errs.Wrap(err, "decode varbind list")
+		}
+		count := 0
+		for scan := listContent; len(scan) > 0; {
+			vbContent, consumed, err := parseSequence(scan, tagSequence, 2)
+			if err != nil {
+				return nil, errs.Wrap(err, "decode varbind")
+			}
+			_, _, nameUsed, err := parseTLV(vbContent)
+			if err != nil {
+				return nil, errs.Wrap(err, "decode varbind name")
+			}
+			_, _, _, err = parseTLV(vbContent[nameUsed:])
+			if err != nil {
+				return nil, errs.Wrap(err, "decode varbind value")
+			}
+			count++
+			scan = scan[consumed:]
+		}
+		o.rawVBL = listContent
+		o.varbinds = nil
+		items := make([]oidWalkItem, 0, count)
+		offset := uint32(0)
+		for scan := listContent; len(scan) > 0; {
+			_, consumed, _ := parseSequence(scan, tagSequence, 2)
+			items = append(items, oidWalkItem{off: offset})
+			offset += uint32(consumed)
+			scan = scan[consumed:]
+		}
+		return items, nil
+	}
+	o.rawVBL = nil
+	o.varbinds = p.varbinds
+	items := make([]oidWalkItem, 0, len(p.varbinds))
+	for i := range p.varbinds {
+		items = append(items, oidWalkItem{off: uint32(i)})
+	}
+	return items, nil
+}
 
-func (o oidWalkOps) exception(vb VarBind) walkException {
-	switch vb.(type) {
-	case EndOfMibViewVar:
+func (o *oidWalkOps) exception(it oidWalkItem) walkException {
+	if o.rawVBL == nil {
+		vb := o.varbinds[it.off]
+		switch vb.(type) {
+		case EndOfMibViewVar:
+			return walkEndOfMibView
+		case NoSuchObjectVar:
+			return walkNoSuchObject
+		case NoSuchInstanceVar:
+			return walkNoSuchInstance
+		}
+		return walkNoException
+	}
+	vbContent, _, err := parseSequence(o.rawVBL[it.off:], tagSequence, 2)
+	if err != nil {
+		return walkNoException
+	}
+	_, _, nameUsed, err := parseTLV(vbContent)
+	if err != nil || nameUsed >= len(vbContent) {
+		return walkNoException
+	}
+	switch vbContent[nameUsed] {
+	case tagEndOfMibView:
 		return walkEndOfMibView
-	case NoSuchObjectVar:
+	case tagNoSuchObject:
 		return walkNoSuchObject
-	case NoSuchInstanceVar:
+	case tagNoSuchInstance:
 		return walkNoSuchInstance
 	}
 	return walkNoException
 }
 
-func (o oidWalkOps) key(vb VarBind) OID    { return vb.GetHeader().OID }
-func (o oidWalkOps) inRoot(k OID) bool     { return k.HasPrefix(o.root) }
-func (o oidWalkOps) compare(a, b OID) int  { return a.Compare(b) }
-func (o oidWalkOps) describe(k OID) string { return k.String() }
-func (o oidWalkOps) send(vb VarBind) bool  { return o.w.Send(vb.GetHeader().OID, vb) }
-func (o oidWalkOps) fail(err error)        { o.w.Fail(err) }
+func (o *oidWalkOps) key(it oidWalkItem) OID {
+	if o.rawVBL == nil {
+		o.curOID = o.varbinds[it.off].GetHeader().OID
+		return o.curOID
+	}
+	vbContent, _, err := parseSequence(o.rawVBL[it.off:], tagSequence, 2)
+	if err != nil {
+		o.curOID = OID{}
+		return OID{}
+	}
+	_, nameContent, _, err := parseTLV(vbContent)
+	if err != nil {
+		o.curOID = OID{}
+		return OID{}
+	}
+	oid, err := decodeOID(nameContent)
+	if err != nil {
+		o.curOID = OID{}
+		return OID{}
+	}
+	o.curOID = oid
+	return oid
+}
+
+func (o *oidWalkOps) inRoot(k OID) bool     { return k.HasPrefix(o.root) }
+func (o *oidWalkOps) compare(a, b OID) int  { return a.Compare(b) }
+func (o *oidWalkOps) describe(k OID) string { return k.String() }
+
+func (o *oidWalkOps) send(it oidWalkItem) bool {
+	if o.rawVBL == nil {
+		vb := o.varbinds[it.off]
+		return o.w.Send(vb.GetHeader().OID, vb)
+	}
+	vbContent, _, err := parseSequence(o.rawVBL[it.off:], tagSequence, 2)
+	if err != nil {
+		o.fail(errs.Wrap(err, "decode varbind"))
+		return false
+	}
+	_, nameContent, nameUsed, err := parseTLV(vbContent)
+	if err != nil {
+		o.fail(errs.Wrap(err, "decode varbind name"))
+		return false
+	}
+	name := o.curOID
+	if name.Len() == 0 {
+		name, err = decodeOID(nameContent)
+		if err != nil {
+			o.fail(errs.Wrap(err, "decode varbind name"))
+			return false
+		}
+	}
+	valTag, valContent, _, err := parseTLV(vbContent[nameUsed:])
+	if err != nil {
+		o.fail(errs.Wrap(err, "decode varbind value"))
+		return false
+	}
+	vb, err := decodeValue(name, valTag, valContent)
+	if err != nil {
+		o.fail(errs.Wrap(err, "decode varbind value"))
+		return false
+	}
+	return o.w.Send(name, vb)
+}
+
+func (o *oidWalkOps) fail(err error) { o.w.Fail(err) }
 
 // BulkWalkRaw performs a GetBulk-driven subtree walk that yields
 // [RawVarBind]s — the fast path for generated MIB bindings, which

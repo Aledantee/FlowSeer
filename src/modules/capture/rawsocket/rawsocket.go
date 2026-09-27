@@ -85,10 +85,10 @@ type Source interface {
 }
 
 // OpenLocalInterface opens iface as a capture source: promiscuous when
-// asked, with prog attached as a kernel packet filter. An empty prog accepts
-// every packet, matching filter.Compile's own empty-filter contract. On
-// Linux this is an AF_PACKET socket; elsewhere it returns
-// ErrUnsupportedPlatform.
+// asked, with prog applied after any VLAN tag removed by receive offload is
+// restored. An empty prog accepts every packet, matching filter.Compile's
+// own empty-filter contract. On Linux this is an AF_PACKET socket; elsewhere
+// it returns ErrUnsupportedPlatform.
 func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
 	return openLocalInterface(iface, promiscuous, prog)
 }
@@ -97,13 +97,10 @@ func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 // IPPROTO_GRE socket (IPv4 and IPv6) for the GRE-family arms
 // (erspan_type_i/ii/iii, gre), and a UDP socket bound to udpPort for the
 // UDP-family arms (vxlan, tzsp), each bound to bindInterface when it is not
-// empty. prog is run against each decapsulated inner frame through
-// golang.org/x/net/bpf's own VM rather than attached to the kernel: the
-// filter's field offsets assume the frame it reads starts after
-// decapsulation, which is envelope-dependent and different for every mirror
-// encapsulation, so there is no single kernel-attachable program that reads
-// all of them the way OpenLocalInterface's does. On Linux this opens real
-// sockets; elsewhere it returns ErrUnsupportedPlatform.
+// empty. prog runs against each decapsulated inner frame through
+// golang.org/x/net/bpf's VM; its field offsets assume an Ethernet frame
+// starting after the envelope. On Linux this opens real sockets; elsewhere
+// it returns ErrUnsupportedPlatform.
 func OpenMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort uint32, bindInterface string, prog []bpf.RawInstruction) (Source, error) {
 	return openMirrorReceiver(encapsulations, udpPort, bindInterface, prog)
 }

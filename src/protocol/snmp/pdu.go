@@ -67,8 +67,8 @@ type message struct {
 	pdu       pdu
 
 	// wantRaw marks a request whose walk wants the reply's varbind list
-	// delivered raw (undecoded) on the fast path. Set only by the
-	// raw walk engine; never encoded on the wire. The reactor's read
+	// delivered raw (undecoded) on the fast path. Set by decoded v2c
+	// BulkWalk and BulkWalkRaw; never encoded on the wire. The reactor's read
 	// loop consults the registered waiter's flag and, when raw delivery
 	// is possible, stores the list in pdu.rawVBL instead of decoding.
 	wantRaw bool
@@ -103,8 +103,9 @@ type pdu struct {
 
 	// rawVBL carries the undecoded VarBindList TLV of a response
 	// delivered on the raw fast path: the read loop clones the
-	// region and skips decodeVarBindList entirely; the raw walk engine
-	// iterates the TLVs in place. Exactly one of varbinds / rawVBL is
+	// region and skips decodeVarBindList entirely; consumers like
+	// decoded v2c BulkWalk and BulkWalkRaw iterate or decode the TLVs
+	// on demand. Exactly one of varbinds / rawVBL is
 	// populated on a delivered response; both are nil on requests.
 	// rawVBL responses have passed [validateRawVarBindList], so the
 	// deferred per-varbind decode cannot fail on anything the eager
