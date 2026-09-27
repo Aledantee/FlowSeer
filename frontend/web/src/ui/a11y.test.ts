@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, type Component } from 'vue'
 import axe from 'axe-core'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
@@ -8,16 +8,21 @@ import UiInput from './form/UiInput.vue'
 
 setProjectAnnotations(preview)
 
+// The audit covers the component families under this directory and the
+// component stories alongside it; a story outside the glob is unaudited.
 const storyModules = import.meta.glob<Record<string, unknown>>(
-  './**/*.stories.ts',
+  ['./**/*.stories.ts', '../components/**/*.stories.ts'],
   { eager: true },
 )
 
-const storySources = import.meta.glob<string>('./**/*.stories.ts', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-})
+const storySources = import.meta.glob<string>(
+  ['./**/*.stories.ts', '../components/**/*.stories.ts'],
+  {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+  },
+)
 
 const componentModules = import.meta.glob('./**/Ui*.vue')
 
@@ -55,14 +60,21 @@ const AXE_OPTIONS: axe.RunOptions = {
   },
 }
 
-async function runAudit(
-  element: Element = document.body,
-  overlayAudit?: OverlayAuditExpectation & { container: Element },
-) {
+async function settle() {
   await nextTick()
   await new Promise((resolve) => setTimeout(resolve, 0))
+}
 
-  if (overlayAudit?.triggerSelector) {
+async function runAudit(element: Element = document.body) {
+  await settle()
+  return axe.run(element, AXE_OPTIONS)
+}
+
+async function openOverlay(
+  overlayAudit: OverlayAuditExpectation & { container: Element },
+) {
+  await settle()
+  if (overlayAudit.triggerSelector) {
     const trigger = overlayAudit.container.querySelector<HTMLElement>(
       overlayAudit.triggerSelector,
     )
@@ -75,25 +87,86 @@ async function runAudit(
     } else {
       trigger?.click()
     }
-    await nextTick()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await settle()
   }
 
-  if (overlayAudit) {
-    const selector = `[role="${overlayAudit.role}"]`
-    const portalledElement = document.body.querySelector(selector)
+  const selector = `[role="${overlayAudit.role}"]`
+  expect(
+    document.body.querySelector(selector),
+    `Expected the accessibility audit story to render ${selector} in document.body`,
+  ).not.toBeNull()
+  expect(
+    overlayAudit.container.querySelector(selector),
+    `Expected ${selector} to render outside the story mount container`,
+  ).toBeNull()
+  await settle()
+}
 
-    expect(
-      portalledElement,
-      `Expected the accessibility audit story to render ${selector} in document.body`,
-    ).not.toBeNull()
-    expect(
-      overlayAudit.container.querySelector(selector),
-      `Expected ${selector} to render outside the story mount container`,
-    ).toBeNull()
+function box(): DOMRect {
+  return {
+    x: 0,
+    y: 0,
+    width: 320,
+    height: 120,
+    top: 0,
+    left: 0,
+    right: 320,
+    bottom: 120,
+    toJSON: () => ({}),
+  } as DOMRect
+}
+
+// Select a meaningful target and give it real geometry so the action layer
+// draws Ask over it. The decorator registers the story wrapper as a target of
+// its own, so prefer a target the component registered and only fall back to
+// the wrapper when a story has none.
+async function selectTarget(label: string) {
+  const api = window.flowseerAi
+  expect(
+    api,
+    `Expected the AI decorator to install the window contract in ${label}`,
+  ).toBeDefined()
+
+  const targets = api?.listTargets() ?? []
+  expect(
+    targets.length,
+    `Expected ${label} to register an AI target`,
+  ).toBeGreaterThan(0)
+
+  const componentTarget = targets.find((target) => target.kind !== 'story')
+  const selected = componentTarget ?? targets[0]
+  expect(
+    selected,
+    `Expected ${label} to expose a selectable target`,
+  ).toBeDefined()
+
+  const highlighted: Element[] = []
+  const scrollIntoView = vi
+    .spyOn(Element.prototype, 'scrollIntoView')
+    .mockImplementation(function (this: Element) {
+      highlighted.push(this)
+    })
+  let highlightedTarget: boolean | undefined
+  try {
+    highlightedTarget = api?.highlight(selected?.id ?? '')
+  } finally {
+    scrollIntoView.mockRestore()
   }
+  expect(
+    highlightedTarget,
+    `Expected ${label} to highlight its registered target`,
+  ).toBe(true)
 
-  return axe.run(element, AXE_OPTIONS)
+  const element = highlighted[0]
+  expect(
+    element,
+    `Expected ${label} to highlight a mounted target element`,
+  ).toBeInstanceOf(HTMLElement)
+  if (element instanceof HTMLElement) element.getBoundingClientRect = box
+
+  window.dispatchEvent(new Event('resize'))
+  await settle()
+  return { selected, element, componentTarget }
 }
 
 describe('accessibility (axe-core)', () => {
@@ -175,11 +248,46 @@ describe('accessibility (axe-core)', () => {
             container.remove()
           })
 
+          const label = `${path} -> ${storyName}`
           const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
-          const results = await runAudit(
-            document.body,
-            overlayAudit ? { container, ...overlayAudit } : undefined,
+          if (overlayAudit) {
+            await openOverlay({ container, ...overlayAudit })
+          }
+
+          const { selected, element, componentTarget } =
+            await selectTarget(label)
+
+          const ask = document.querySelector<HTMLElement>('.ai-ask')
+          expect(
+            ask,
+            `Expected ${label} to mount the Ask action for its selected target`,
+          ).not.toBeNull()
+          ask?.click()
+          await settle()
+          expect(
+            document.querySelector('form textarea'),
+            `Expected ${label} to open the Ask panel for its selected target`,
+          ).not.toBeNull()
+
+          const root = container.querySelector<HTMLElement>(
+            '[data-ai-story-root]',
           )
+          expect(
+            root,
+            `Expected ${label} to render the decorator story root`,
+          ).not.toBeNull()
+          if (componentTarget) {
+            expect(
+              element === root,
+              `Expected ${label} to register its target on a component element, not the decorator wrapper`,
+            ).toBe(false)
+            expect(
+              selected?.kind,
+              `Expected ${label} to select a component-level target`,
+            ).not.toBe('story')
+          }
+
+          const results = await runAudit(document.body)
 
           expect(
             results.violations,
@@ -194,48 +302,6 @@ describe('accessibility (axe-core)', () => {
               2,
             )}`,
           ).toHaveLength(0)
-
-          const api = window.flowseerAi
-          expect(
-            api,
-            `Expected the AI decorator to install the window contract in ${path} -> ${storyName}`,
-          ).toBeDefined()
-
-          const targets = api?.listTargets() ?? []
-          expect(
-            targets.length,
-            `Expected ${path} -> ${storyName} to register an AI target`,
-          ).toBeGreaterThan(0)
-
-          const root = container.querySelector<HTMLElement>(
-            '[data-ai-story-root]',
-          )
-          expect(root).not.toBeNull()
-          if (root) {
-            root.getBoundingClientRect = () =>
-              ({
-                x: 0,
-                y: 0,
-                width: 320,
-                height: 120,
-                top: 0,
-                left: 0,
-                right: 320,
-                bottom: 120,
-                toJSON: () => ({}),
-              }) as DOMRect
-          }
-          expect(
-            api?.highlight(targets[0]?.id ?? ''),
-            `Expected ${path} -> ${storyName} to highlight its target`,
-          ).toBe(true)
-          window.dispatchEvent(new Event('resize'))
-          await nextTick()
-          await new Promise((resolve) => setTimeout(resolve, 0))
-          expect(
-            document.querySelector('.ai-ask'),
-            `Expected ${path} -> ${storyName} to render an Ask action`,
-          ).not.toBeNull()
         })
       }
     })
