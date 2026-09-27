@@ -95,7 +95,7 @@ const buttonStyle = computed(() => {
   ]
   const controls = [
     ...document.querySelectorAll<HTMLElement>(
-      'a[href], button, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])',
+      'a[href], button, input, select, textarea, [role="button"], [role="link"]',
     ),
   ]
     .filter(

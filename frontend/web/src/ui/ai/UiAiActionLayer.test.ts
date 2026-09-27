@@ -496,6 +496,11 @@ describe('AiActionLayer geometry', () => {
     const status = { top: 510, left: 270, width: 91, height: 24 }
     const link = { top: 544, left: 270, width: 91, height: 32 }
     const { registry, element } = setup(card)
+    const page = document.createElement('div')
+    page.tabIndex = 0
+    setBox(page, { top: 114, left: 0, width: 390, height: 730 })
+    element.replaceWith(page)
+    page.append(element)
     const statusElement = document.createElement('span')
     const linkElement = document.createElement('span')
     setBox(statusElement, status)
