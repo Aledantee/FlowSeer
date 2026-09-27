@@ -1005,6 +1005,185 @@ func (b0 TailCaptureSessionRequest_builder) Build() *TailCaptureSessionRequest {
 	return m0
 }
 
+// Chunks a live tail was too far behind to receive, reported in-band before
+// the tail resumes with later chunks or before the stream closes. A tail that
+// cannot keep up loses chunks rather than stalling the upload it watches, so
+// the live stream is a subsequence of what the edge sent; without this frame a
+// caller cannot tell a contiguous tail from one a slow consumer punched holes
+// in. The sequence bounds let a caller line the gap up against the downloaded
+// pcapng artifact.
+type TailGap struct {
+	state                           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_DroppedChunks        uint64                 `protobuf:"varint,1,opt,name=dropped_chunks,json=droppedChunks"`
+	xxx_hidden_DroppedPackets       uint64                 `protobuf:"varint,2,opt,name=dropped_packets,json=droppedPackets"`
+	xxx_hidden_FirstDroppedSequence uint64                 `protobuf:"varint,3,opt,name=first_dropped_sequence,json=firstDroppedSequence"`
+	xxx_hidden_LastDroppedSequence  uint64                 `protobuf:"varint,4,opt,name=last_dropped_sequence,json=lastDroppedSequence"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
+}
+
+func (x *TailGap) Reset() {
+	*x = TailGap{}
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TailGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TailGap) ProtoMessage() {}
+
+func (x *TailGap) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *TailGap) GetDroppedChunks() uint64 {
+	if x != nil {
+		return x.xxx_hidden_DroppedChunks
+	}
+	return 0
+}
+
+func (x *TailGap) GetDroppedPackets() uint64 {
+	if x != nil {
+		return x.xxx_hidden_DroppedPackets
+	}
+	return 0
+}
+
+func (x *TailGap) GetFirstDroppedSequence() uint64 {
+	if x != nil {
+		return x.xxx_hidden_FirstDroppedSequence
+	}
+	return 0
+}
+
+func (x *TailGap) GetLastDroppedSequence() uint64 {
+	if x != nil {
+		return x.xxx_hidden_LastDroppedSequence
+	}
+	return 0
+}
+
+func (x *TailGap) SetDroppedChunks(v uint64) {
+	x.xxx_hidden_DroppedChunks = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *TailGap) SetDroppedPackets(v uint64) {
+	x.xxx_hidden_DroppedPackets = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *TailGap) SetFirstDroppedSequence(v uint64) {
+	x.xxx_hidden_FirstDroppedSequence = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *TailGap) SetLastDroppedSequence(v uint64) {
+	x.xxx_hidden_LastDroppedSequence = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *TailGap) HasDroppedChunks() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *TailGap) HasDroppedPackets() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *TailGap) HasFirstDroppedSequence() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *TailGap) HasLastDroppedSequence() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *TailGap) ClearDroppedChunks() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_DroppedChunks = 0
+}
+
+func (x *TailGap) ClearDroppedPackets() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_DroppedPackets = 0
+}
+
+func (x *TailGap) ClearFirstDroppedSequence() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_FirstDroppedSequence = 0
+}
+
+func (x *TailGap) ClearLastDroppedSequence() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_LastDroppedSequence = 0
+}
+
+type TailGap_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// How many chunks were dropped. A gap reports at least one.
+	DroppedChunks *uint64
+	// How many packets those chunks carried. Zero means every dropped chunk
+	// carried only stream markers and no packets.
+	DroppedPackets *uint64
+	// The sequence of the first dropped packet. Set only when dropped_packets is
+	// positive.
+	FirstDroppedSequence *uint64
+	// The sequence of the last dropped packet. Set only when dropped_packets is
+	// positive.
+	LastDroppedSequence *uint64
+}
+
+func (b0 TailGap_builder) Build() *TailGap {
+	m0 := &TailGap{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.DroppedChunks != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_DroppedChunks = *b.DroppedChunks
+	}
+	if b.DroppedPackets != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_DroppedPackets = *b.DroppedPackets
+	}
+	if b.FirstDroppedSequence != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_FirstDroppedSequence = *b.FirstDroppedSequence
+	}
+	if b.LastDroppedSequence != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_LastDroppedSequence = *b.LastDroppedSequence
+	}
+	return m0
+}
+
 type TailCaptureSessionResponse struct {
 	state           protoimpl.MessageState            `protogen:"opaque.v1"`
 	xxx_hidden_Body isTailCaptureSessionResponse_Body `protobuf_oneof:"body"`
@@ -1014,7 +1193,7 @@ type TailCaptureSessionResponse struct {
 
 func (x *TailCaptureSessionResponse) Reset() {
 	*x = TailCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1026,7 +1205,7 @@ func (x *TailCaptureSessionResponse) String() string {
 func (*TailCaptureSessionResponse) ProtoMessage() {}
 
 func (x *TailCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1055,6 +1234,15 @@ func (x *TailCaptureSessionResponse) GetChunk() *v11.CapturePacketChunk {
 	return nil
 }
 
+func (x *TailCaptureSessionResponse) GetGap() *TailGap {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Gap); ok {
+			return x.Gap
+		}
+	}
+	return nil
+}
+
 func (x *TailCaptureSessionResponse) SetAttached(v bool) {
 	x.xxx_hidden_Body = &tailCaptureSessionResponse_Attached{v}
 }
@@ -1065,6 +1253,14 @@ func (x *TailCaptureSessionResponse) SetChunk(v *v11.CapturePacketChunk) {
 		return
 	}
 	x.xxx_hidden_Body = &tailCaptureSessionResponse_Chunk{v}
+}
+
+func (x *TailCaptureSessionResponse) SetGap(v *TailGap) {
+	if v == nil {
+		x.xxx_hidden_Body = nil
+		return
+	}
+	x.xxx_hidden_Body = &tailCaptureSessionResponse_Gap{v}
 }
 
 func (x *TailCaptureSessionResponse) HasBody() bool {
@@ -1090,6 +1286,14 @@ func (x *TailCaptureSessionResponse) HasChunk() bool {
 	return ok
 }
 
+func (x *TailCaptureSessionResponse) HasGap() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Gap)
+	return ok
+}
+
 func (x *TailCaptureSessionResponse) ClearBody() {
 	x.xxx_hidden_Body = nil
 }
@@ -1106,9 +1310,16 @@ func (x *TailCaptureSessionResponse) ClearChunk() {
 	}
 }
 
+func (x *TailCaptureSessionResponse) ClearGap() {
+	if _, ok := x.xxx_hidden_Body.(*tailCaptureSessionResponse_Gap); ok {
+		x.xxx_hidden_Body = nil
+	}
+}
+
 const TailCaptureSessionResponse_Body_not_set_case case_TailCaptureSessionResponse_Body = 0
 const TailCaptureSessionResponse_Attached_case case_TailCaptureSessionResponse_Body = 1
 const TailCaptureSessionResponse_Chunk_case case_TailCaptureSessionResponse_Body = 2
+const TailCaptureSessionResponse_Gap_case case_TailCaptureSessionResponse_Body = 3
 
 func (x *TailCaptureSessionResponse) WhichBody() case_TailCaptureSessionResponse_Body {
 	if x == nil {
@@ -1119,6 +1330,8 @@ func (x *TailCaptureSessionResponse) WhichBody() case_TailCaptureSessionResponse
 		return TailCaptureSessionResponse_Attached_case
 	case *tailCaptureSessionResponse_Chunk:
 		return TailCaptureSessionResponse_Chunk_case
+	case *tailCaptureSessionResponse_Gap:
+		return TailCaptureSessionResponse_Gap_case
 	default:
 		return TailCaptureSessionResponse_Body_not_set_case
 	}
@@ -1127,7 +1340,8 @@ func (x *TailCaptureSessionResponse) WhichBody() case_TailCaptureSessionResponse
 type TailCaptureSessionResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Exactly one of: the tail is live, or the next chunk of packets.
+	// Exactly one of: the tail is live, the next chunk of packets, or a gap
+	// standing for chunks a slow consumer missed.
 
 	// Fields of oneof xxx_hidden_Body:
 	// Sent once, before any chunk, when the tail is attached and no packet
@@ -1138,6 +1352,8 @@ type TailCaptureSessionResponse_builder struct {
 	Attached *bool
 	// The next chunk of packets.
 	Chunk *v11.CapturePacketChunk
+	// The chunks dropped since the last delivered chunk.
+	Gap *TailGap
 	// -- end of xxx_hidden_Body
 }
 
@@ -1151,13 +1367,16 @@ func (b0 TailCaptureSessionResponse_builder) Build() *TailCaptureSessionResponse
 	if b.Chunk != nil {
 		x.xxx_hidden_Body = &tailCaptureSessionResponse_Chunk{b.Chunk}
 	}
+	if b.Gap != nil {
+		x.xxx_hidden_Body = &tailCaptureSessionResponse_Gap{b.Gap}
+	}
 	return m0
 }
 
 type case_TailCaptureSessionResponse_Body protoreflect.FieldNumber
 
 func (x case_TailCaptureSessionResponse_Body) String() string {
-	md := file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11].Descriptor()
+	md := file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1182,9 +1401,16 @@ type tailCaptureSessionResponse_Chunk struct {
 	Chunk *v11.CapturePacketChunk `protobuf:"bytes,2,opt,name=chunk,oneof"`
 }
 
+type tailCaptureSessionResponse_Gap struct {
+	// The chunks dropped since the last delivered chunk.
+	Gap *TailGap `protobuf:"bytes,3,opt,name=gap,oneof"`
+}
+
 func (*tailCaptureSessionResponse_Attached) isTailCaptureSessionResponse_Body() {}
 
 func (*tailCaptureSessionResponse_Chunk) isTailCaptureSessionResponse_Body() {}
+
+func (*tailCaptureSessionResponse_Gap) isTailCaptureSessionResponse_Body() {}
 
 type DownloadCaptureSessionRequest struct {
 	state              protoimpl.MessageState       `protogen:"opaque.v1"`
@@ -1195,7 +1421,7 @@ type DownloadCaptureSessionRequest struct {
 
 func (x *DownloadCaptureSessionRequest) Reset() {
 	*x = DownloadCaptureSessionRequest{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1207,7 +1433,7 @@ func (x *DownloadCaptureSessionRequest) String() string {
 func (*DownloadCaptureSessionRequest) ProtoMessage() {}
 
 func (x *DownloadCaptureSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1264,7 +1490,7 @@ type DownloadCaptureSessionResponse struct {
 
 func (x *DownloadCaptureSessionResponse) Reset() {
 	*x = DownloadCaptureSessionResponse{}
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1276,7 +1502,7 @@ func (x *DownloadCaptureSessionResponse) String() string {
 func (*DownloadCaptureSessionResponse) ProtoMessage() {}
 
 func (x *DownloadCaptureSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[13]
+	mi := &file_flowseer_api_capture_v1_capture_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1363,10 +1589,16 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x1e\n" +
 	"\x1cDeleteCaptureSessionResponse\"q\n" +
 	"\x19TailCaptureSessionRequest\x12T\n" +
-	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x99\x01\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\xce\x01\n" +
+	"\aTailGap\x12.\n" +
+	"\x0edropped_chunks\x18\x01 \x01(\x04B\a\xbaH\x042\x02(\x01R\rdroppedChunks\x12'\n" +
+	"\x0fdropped_packets\x18\x02 \x01(\x04R\x0edroppedPackets\x124\n" +
+	"\x16first_dropped_sequence\x18\x03 \x01(\x04R\x14firstDroppedSequence\x122\n" +
+	"\x15last_dropped_sequence\x18\x04 \x01(\x04R\x13lastDroppedSequenceX\x01\"\xcf\x01\n" +
 	"\x1aTailCaptureSessionResponse\x12%\n" +
 	"\battached\x18\x01 \x01(\bB\a\xbaH\x04j\x02\b\x01H\x00R\battached\x12E\n" +
-	"\x05chunk\x18\x02 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkH\x00R\x05chunkB\r\n" +
+	"\x05chunk\x18\x02 \x01(\v2-.flowseer.model.capture.v1.CapturePacketChunkH\x00R\x05chunk\x124\n" +
+	"\x03gap\x18\x03 \x01(\v2 .flowseer.api.capture.v1.TailGapH\x00R\x03gapB\r\n" +
 	"\x04body\x12\x05\xbaH\x02\b\x01\"u\n" +
 	"\x1dDownloadCaptureSessionRequest\x12T\n" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"o\n" +
@@ -1382,7 +1614,7 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\x16DownloadCaptureSession\x126.flowseer.api.capture.v1.DownloadCaptureSessionRequest\x1a7.flowseer.api.capture.v1.DownloadCaptureSessionResponse0\x01B\xfd\x01\n" +
 	"\x1bcom.flowseer.api.capture.v1B\x13CaptureServiceProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_capture_v1_capture_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_flowseer_api_capture_v1_capture_service_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_flowseer_api_capture_v1_capture_service_proto_goTypes = []any{
 	(*CreateCaptureSessionRequest)(nil),    // 0: flowseer.api.capture.v1.CreateCaptureSessionRequest
 	(*CreateCaptureSessionResponse)(nil),   // 1: flowseer.api.capture.v1.CreateCaptureSessionResponse
@@ -1395,55 +1627,57 @@ var file_flowseer_api_capture_v1_capture_service_proto_goTypes = []any{
 	(*DeleteCaptureSessionRequest)(nil),    // 8: flowseer.api.capture.v1.DeleteCaptureSessionRequest
 	(*DeleteCaptureSessionResponse)(nil),   // 9: flowseer.api.capture.v1.DeleteCaptureSessionResponse
 	(*TailCaptureSessionRequest)(nil),      // 10: flowseer.api.capture.v1.TailCaptureSessionRequest
-	(*TailCaptureSessionResponse)(nil),     // 11: flowseer.api.capture.v1.TailCaptureSessionResponse
-	(*DownloadCaptureSessionRequest)(nil),  // 12: flowseer.api.capture.v1.DownloadCaptureSessionRequest
-	(*DownloadCaptureSessionResponse)(nil), // 13: flowseer.api.capture.v1.DownloadCaptureSessionResponse
-	(*v1.EdgeGlobalRef)(nil),               // 14: flowseer.model.edge.v1.EdgeGlobalRef
-	(*v11.CaptureSource)(nil),              // 15: flowseer.model.capture.v1.CaptureSource
-	(*v12.CaptureFilter)(nil),              // 16: flowseer.net.capture.v1.CaptureFilter
-	(*v11.CaptureBudget)(nil),              // 17: flowseer.model.capture.v1.CaptureBudget
-	(*v11.CaptureAuthorization)(nil),       // 18: flowseer.model.capture.v1.CaptureAuthorization
-	(*v11.CaptureSessionRecord)(nil),       // 19: flowseer.model.capture.v1.CaptureSessionRecord
-	(*v11.CaptureSessionGlobalRef)(nil),    // 20: flowseer.model.capture.v1.CaptureSessionGlobalRef
-	(*v11.CapturePacketChunk)(nil),         // 21: flowseer.model.capture.v1.CapturePacketChunk
-	(*v11.CaptureArtifactChunk)(nil),       // 22: flowseer.model.capture.v1.CaptureArtifactChunk
+	(*TailGap)(nil),                        // 11: flowseer.api.capture.v1.TailGap
+	(*TailCaptureSessionResponse)(nil),     // 12: flowseer.api.capture.v1.TailCaptureSessionResponse
+	(*DownloadCaptureSessionRequest)(nil),  // 13: flowseer.api.capture.v1.DownloadCaptureSessionRequest
+	(*DownloadCaptureSessionResponse)(nil), // 14: flowseer.api.capture.v1.DownloadCaptureSessionResponse
+	(*v1.EdgeGlobalRef)(nil),               // 15: flowseer.model.edge.v1.EdgeGlobalRef
+	(*v11.CaptureSource)(nil),              // 16: flowseer.model.capture.v1.CaptureSource
+	(*v12.CaptureFilter)(nil),              // 17: flowseer.net.capture.v1.CaptureFilter
+	(*v11.CaptureBudget)(nil),              // 18: flowseer.model.capture.v1.CaptureBudget
+	(*v11.CaptureAuthorization)(nil),       // 19: flowseer.model.capture.v1.CaptureAuthorization
+	(*v11.CaptureSessionRecord)(nil),       // 20: flowseer.model.capture.v1.CaptureSessionRecord
+	(*v11.CaptureSessionGlobalRef)(nil),    // 21: flowseer.model.capture.v1.CaptureSessionGlobalRef
+	(*v11.CapturePacketChunk)(nil),         // 22: flowseer.model.capture.v1.CapturePacketChunk
+	(*v11.CaptureArtifactChunk)(nil),       // 23: flowseer.model.capture.v1.CaptureArtifactChunk
 }
 var file_flowseer_api_capture_v1_capture_service_proto_depIdxs = []int32{
-	14, // 0: flowseer.api.capture.v1.CreateCaptureSessionRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
-	15, // 1: flowseer.api.capture.v1.CreateCaptureSessionRequest.source:type_name -> flowseer.model.capture.v1.CaptureSource
-	16, // 2: flowseer.api.capture.v1.CreateCaptureSessionRequest.filter:type_name -> flowseer.net.capture.v1.CaptureFilter
-	17, // 3: flowseer.api.capture.v1.CreateCaptureSessionRequest.budget:type_name -> flowseer.model.capture.v1.CaptureBudget
-	18, // 4: flowseer.api.capture.v1.CreateCaptureSessionRequest.authorization:type_name -> flowseer.model.capture.v1.CaptureAuthorization
-	19, // 5: flowseer.api.capture.v1.CreateCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
-	20, // 6: flowseer.api.capture.v1.StopCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	19, // 7: flowseer.api.capture.v1.StopCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
-	20, // 8: flowseer.api.capture.v1.GetCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	19, // 9: flowseer.api.capture.v1.GetCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
-	19, // 10: flowseer.api.capture.v1.ListCaptureSessionsResponse.sessions:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
-	20, // 11: flowseer.api.capture.v1.DeleteCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	20, // 12: flowseer.api.capture.v1.TailCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	21, // 13: flowseer.api.capture.v1.TailCaptureSessionResponse.chunk:type_name -> flowseer.model.capture.v1.CapturePacketChunk
-	20, // 14: flowseer.api.capture.v1.DownloadCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
-	22, // 15: flowseer.api.capture.v1.DownloadCaptureSessionResponse.chunk:type_name -> flowseer.model.capture.v1.CaptureArtifactChunk
-	0,  // 16: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:input_type -> flowseer.api.capture.v1.CreateCaptureSessionRequest
-	2,  // 17: flowseer.api.capture.v1.CaptureService.StopCaptureSession:input_type -> flowseer.api.capture.v1.StopCaptureSessionRequest
-	4,  // 18: flowseer.api.capture.v1.CaptureService.GetCaptureSession:input_type -> flowseer.api.capture.v1.GetCaptureSessionRequest
-	6,  // 19: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:input_type -> flowseer.api.capture.v1.ListCaptureSessionsRequest
-	8,  // 20: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:input_type -> flowseer.api.capture.v1.DeleteCaptureSessionRequest
-	10, // 21: flowseer.api.capture.v1.CaptureService.TailCaptureSession:input_type -> flowseer.api.capture.v1.TailCaptureSessionRequest
-	12, // 22: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:input_type -> flowseer.api.capture.v1.DownloadCaptureSessionRequest
-	1,  // 23: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:output_type -> flowseer.api.capture.v1.CreateCaptureSessionResponse
-	3,  // 24: flowseer.api.capture.v1.CaptureService.StopCaptureSession:output_type -> flowseer.api.capture.v1.StopCaptureSessionResponse
-	5,  // 25: flowseer.api.capture.v1.CaptureService.GetCaptureSession:output_type -> flowseer.api.capture.v1.GetCaptureSessionResponse
-	7,  // 26: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:output_type -> flowseer.api.capture.v1.ListCaptureSessionsResponse
-	9,  // 27: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:output_type -> flowseer.api.capture.v1.DeleteCaptureSessionResponse
-	11, // 28: flowseer.api.capture.v1.CaptureService.TailCaptureSession:output_type -> flowseer.api.capture.v1.TailCaptureSessionResponse
-	13, // 29: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:output_type -> flowseer.api.capture.v1.DownloadCaptureSessionResponse
-	23, // [23:30] is the sub-list for method output_type
-	16, // [16:23] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	15, // 0: flowseer.api.capture.v1.CreateCaptureSessionRequest.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	16, // 1: flowseer.api.capture.v1.CreateCaptureSessionRequest.source:type_name -> flowseer.model.capture.v1.CaptureSource
+	17, // 2: flowseer.api.capture.v1.CreateCaptureSessionRequest.filter:type_name -> flowseer.net.capture.v1.CaptureFilter
+	18, // 3: flowseer.api.capture.v1.CreateCaptureSessionRequest.budget:type_name -> flowseer.model.capture.v1.CaptureBudget
+	19, // 4: flowseer.api.capture.v1.CreateCaptureSessionRequest.authorization:type_name -> flowseer.model.capture.v1.CaptureAuthorization
+	20, // 5: flowseer.api.capture.v1.CreateCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	21, // 6: flowseer.api.capture.v1.StopCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	20, // 7: flowseer.api.capture.v1.StopCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	21, // 8: flowseer.api.capture.v1.GetCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	20, // 9: flowseer.api.capture.v1.GetCaptureSessionResponse.session:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	20, // 10: flowseer.api.capture.v1.ListCaptureSessionsResponse.sessions:type_name -> flowseer.model.capture.v1.CaptureSessionRecord
+	21, // 11: flowseer.api.capture.v1.DeleteCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	21, // 12: flowseer.api.capture.v1.TailCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	22, // 13: flowseer.api.capture.v1.TailCaptureSessionResponse.chunk:type_name -> flowseer.model.capture.v1.CapturePacketChunk
+	11, // 14: flowseer.api.capture.v1.TailCaptureSessionResponse.gap:type_name -> flowseer.api.capture.v1.TailGap
+	21, // 15: flowseer.api.capture.v1.DownloadCaptureSessionRequest.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
+	23, // 16: flowseer.api.capture.v1.DownloadCaptureSessionResponse.chunk:type_name -> flowseer.model.capture.v1.CaptureArtifactChunk
+	0,  // 17: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:input_type -> flowseer.api.capture.v1.CreateCaptureSessionRequest
+	2,  // 18: flowseer.api.capture.v1.CaptureService.StopCaptureSession:input_type -> flowseer.api.capture.v1.StopCaptureSessionRequest
+	4,  // 19: flowseer.api.capture.v1.CaptureService.GetCaptureSession:input_type -> flowseer.api.capture.v1.GetCaptureSessionRequest
+	6,  // 20: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:input_type -> flowseer.api.capture.v1.ListCaptureSessionsRequest
+	8,  // 21: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:input_type -> flowseer.api.capture.v1.DeleteCaptureSessionRequest
+	10, // 22: flowseer.api.capture.v1.CaptureService.TailCaptureSession:input_type -> flowseer.api.capture.v1.TailCaptureSessionRequest
+	13, // 23: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:input_type -> flowseer.api.capture.v1.DownloadCaptureSessionRequest
+	1,  // 24: flowseer.api.capture.v1.CaptureService.CreateCaptureSession:output_type -> flowseer.api.capture.v1.CreateCaptureSessionResponse
+	3,  // 25: flowseer.api.capture.v1.CaptureService.StopCaptureSession:output_type -> flowseer.api.capture.v1.StopCaptureSessionResponse
+	5,  // 26: flowseer.api.capture.v1.CaptureService.GetCaptureSession:output_type -> flowseer.api.capture.v1.GetCaptureSessionResponse
+	7,  // 27: flowseer.api.capture.v1.CaptureService.ListCaptureSessions:output_type -> flowseer.api.capture.v1.ListCaptureSessionsResponse
+	9,  // 28: flowseer.api.capture.v1.CaptureService.DeleteCaptureSession:output_type -> flowseer.api.capture.v1.DeleteCaptureSessionResponse
+	12, // 29: flowseer.api.capture.v1.CaptureService.TailCaptureSession:output_type -> flowseer.api.capture.v1.TailCaptureSessionResponse
+	14, // 30: flowseer.api.capture.v1.CaptureService.DownloadCaptureSession:output_type -> flowseer.api.capture.v1.DownloadCaptureSessionResponse
+	24, // [24:31] is the sub-list for method output_type
+	17, // [17:24] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_capture_v1_capture_service_proto_init() }
@@ -1451,9 +1685,10 @@ func file_flowseer_api_capture_v1_capture_service_proto_init() {
 	if File_flowseer_api_capture_v1_capture_service_proto != nil {
 		return
 	}
-	file_flowseer_api_capture_v1_capture_service_proto_msgTypes[11].OneofWrappers = []any{
+	file_flowseer_api_capture_v1_capture_service_proto_msgTypes[12].OneofWrappers = []any{
 		(*tailCaptureSessionResponse_Attached)(nil),
 		(*tailCaptureSessionResponse_Chunk)(nil),
+		(*tailCaptureSessionResponse_Gap)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1461,7 +1696,7 @@ func file_flowseer_api_capture_v1_capture_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_capture_v1_capture_service_proto_rawDesc), len(file_flowseer_api_capture_v1_capture_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
