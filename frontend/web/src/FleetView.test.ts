@@ -547,6 +547,47 @@ describe('AI target coverage', () => {
     })
   })
 
+  it('updates the clients view context when the band filter changes', async () => {
+    const { host } = await mountAt('/clients')
+    const id = 'a:clients:view:all'
+    const before = registry.view(id)?.target.context
+    expect(before).toMatchObject({ band: 'all', matching: before?.count })
+
+    const trigger = host.querySelector<HTMLButtonElement>(
+      '[aria-label="Filter by band"]',
+    )
+    expect(trigger).not.toBeNull()
+    trigger?.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    )
+    trigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    )
+    await settle()
+    const option = [
+      ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+    ].find((item) => item.textContent?.includes('2.4 GHz'))
+    expect(option).toBeDefined()
+    option?.focus()
+    option?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    const after = registry.view(id)?.target.context
+    expect(after?.band).toBe('2.4 GHz')
+    expect(Number(after?.matching)).toBeLessThan(Number(after?.count))
+    expect(registry.view(id)?.target.id).toBe(id)
+  })
+
   it('qualifies a view root by physical slot in each pane', async () => {
     await mountAt('/sites')
     window.dispatchEvent(workspaceShortcut())
