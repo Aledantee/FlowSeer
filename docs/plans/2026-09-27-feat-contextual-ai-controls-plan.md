@@ -59,11 +59,11 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/s
 
 ### U2. Shared action layer and summary component
 
-Files: `frontend/web/src/ai/`, `frontend/web/src/ui/ai/`, `frontend/web/src/theme/`, `frontend/web/src/ui/ai/*.test.ts`, `frontend/web/src/ui/ai/*.stories.ts`
+Files: `frontend/web/src/ai/`, `frontend/web/src/ui/ai/`, `frontend/web/src/ui/index.ts`, `frontend/web/src/theme/`, `frontend/web/src/ui/ai/*.test.ts`, `frontend/web/src/ui/ai/*.stories.ts`
 After: U1
-Change: One overlay tracks the selected or hovered/focused target without blocking its controls. Ask uses an existing `Ui` overlay primitive for the prompt panel and renders pending, answer, and error states. `UiAiSummary` owns idle, loading, result, error, and retry presentation, using semantic tokens and reduced-motion styles. Its colocated stories land in this unit so the existing story coverage gate passes.
+Change: One overlay tracks the selected or hovered/focused target without blocking its controls. Ask uses an existing `Ui` overlay primitive for the prompt panel and renders pending, answer, and error states. `UiAiSummary` owns idle, loading, result, error, and retry presentation, using semantic tokens and reduced-motion styles. Its colocated stories land in this unit so the existing story coverage gate passes; the barrel exports the two components so views and the Storybook decorator import them from `./ui`.
 Tests: Component tests prove Alt+A and pointer access, nonempty Ask submission, unavailable/rejected/stale results, scroll and pane movement alignment, viewport clipping, summary request timing and retry, accessible status announcements, and reduced-motion fallback.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ai frontend/web/src/ui/ai frontend/web/src/theme`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ai frontend/web/src/ui/ai frontend/web/src/ui/index.ts frontend/web/src/theme`
 
 ### U3. Web view target coverage
 
