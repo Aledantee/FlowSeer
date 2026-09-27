@@ -7,22 +7,32 @@ import type { Device } from './domain/fleet'
 import type { Band } from './domain/clients'
 import { clientsOf, signalQuality } from './domain/clients'
 import AppIcon from './components/AppIcon.vue'
+import {
+  UiEmptyState,
+  UiPagination,
+  UiTable,
+  UiTableBody,
+  UiTableCell,
+  UiTableHead,
+  UiTableHeader,
+  UiTableRow,
+} from './ui'
 
 const props = defineProps<{
   scope: Device[]
   siteName: (id: string) => string
 }>()
-const page = usePage()
-const PAGE = 50
-const search = ref(page.query('q'))
+const navPage = usePage()
+const pageSize = 50
+const page = ref(1)
+const search = ref(navPage.query('q'))
 watch(
-  () => page.query('q'),
+  () => navPage.query('q'),
   (q) => (search.value = q),
 )
 const band = ref<Band | ''>('')
-const limit = ref(PAGE)
 const accessPoint = computed(() =>
-  props.scope.find((device) => device.id === page.query('ap')),
+  props.scope.find((device) => device.id === navPage.query('ap')),
 )
 const all = computed(() =>
   clientsOf(accessPoint.value ? [accessPoint.value] : props.scope),
@@ -40,10 +50,13 @@ const filtered = computed(() => {
         .includes(query),
   )
 })
-watch([search, band, accessPoint], () => (limit.value = PAGE))
+const paginated = computed(() =>
+  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize),
+)
+watch([search, band, accessPoint], () => (page.value = 1))
 function clearAccessPoint() {
-  void page.go(
-    { query: { ...page.location.value.query, ap: undefined } },
+  void navPage.go(
+    { query: { ...navPage.location.value.query, ap: undefined } },
     { replace: true },
   )
 }
@@ -83,67 +96,67 @@ function clearAccessPoint() {
       >
     </div>
     <ScrollArea axis="x" viewport-class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>MAC address</th>
-            <th>Access point</th>
-            <th>Band</th>
-            <th>Signal</th>
-            <th class="numeric">Traffic</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="client in filtered.slice(0, limit)" :key="client.id">
-            <td>
-              <strong class="client-name">{{ client.hostname }}</strong
-              ><small class="mono">{{ client.address }}</small>
-            </td>
-            <td class="mono">{{ client.mac }}</td>
-            <td>
+      <UiTable>
+        <UiTableHeader>
+          <UiTableRow>
+            <UiTableHead>Client</UiTableHead>
+            <UiTableHead>MAC address</UiTableHead>
+            <UiTableHead>Access point</UiTableHead>
+            <UiTableHead>Band</UiTableHead>
+            <UiTableHead>Signal</UiTableHead>
+            <UiTableHead align="numeric">Traffic</UiTableHead>
+          </UiTableRow>
+        </UiTableHeader>
+        <UiTableBody>
+          <UiTableRow v-for="client in paginated" :key="client.id">
+            <UiTableCell>
+              <strong class="client-name">{{ client.hostname }}</strong>
+              <small class="mono">{{ client.address }}</small>
+            </UiTableCell>
+            <UiTableCell mono>{{ client.mac }}</UiTableCell>
+            <UiTableCell>
               <AppLink
                 class="table-link"
                 :to="{
                   path: `/devices/${client.deviceId}`,
-                  query: scopeOf(page.location.value),
+                  query: scopeOf(navPage.location.value),
                 }"
                 >{{ devicesById.get(client.deviceId)?.name }}</AppLink
               ><small>{{
                 siteName(devicesById.get(client.deviceId)?.siteId ?? '')
               }}</small>
-            </td>
-            <td>{{ client.band }}</td>
-            <td>
+            </UiTableCell>
+            <UiTableCell>{{ client.band }}</UiTableCell>
+            <UiTableCell>
               <span
                 :class="['signal', signalQuality(client.signal).toLowerCase()]"
                 >{{ signalQuality(client.signal) }}
                 <small>{{ client.signal }} dBm</small></span
               >
-            </td>
-            <td class="numeric traffic">
+            </UiTableCell>
+            <UiTableCell align="numeric" class="traffic">
               {{ client.throughput }} <span>Mbps</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-if="!filtered.length" class="empty">
-        <AppIcon name="search" />
-        <h3>No clients match this view</h3>
-        <p>Try a different search or band.</p>
-      </div>
-    </ScrollArea>
-    <footer class="table-footer">
-      <span
-        >Showing {{ Math.min(limit, filtered.length) }} of
-        {{ filtered.length }} clients</span
-      ><button
-        v-if="limit < filtered.length"
-        class="link-button"
-        @click="limit += PAGE"
+            </UiTableCell>
+          </UiTableRow>
+        </UiTableBody>
+      </UiTable>
+      <UiEmptyState
+        v-if="!filtered.length"
+        title="No clients match this view"
+        description="Try a different search or band."
       >
-        Show more
-      </button>
+        <template #icon>
+          <AppIcon name="search" />
+        </template>
+      </UiEmptyState>
+    </ScrollArea>
+    <footer v-if="filtered.length" class="table-footer justify-center">
+      <UiPagination
+        v-model:page="page"
+        :total="filtered.length"
+        :items-per-page="pageSize"
+        show-edges
+      />
     </footer>
   </section>
 </template>

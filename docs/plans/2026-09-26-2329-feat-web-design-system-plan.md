@@ -106,7 +106,7 @@ Landed:
 ### U4. Data display components
 Files: `docs/plans/2026-09-26-2329-feat-web-design-system-phase4-plan.md`
 After: U2
-Landed:
+Landed: `18de412d..a9b11bff`
 
 ### U5. App migration and Preflight
 Files: `docs/plans/2026-09-26-2329-feat-web-design-system-phase5-plan.md`
