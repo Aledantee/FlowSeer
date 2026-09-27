@@ -33,3 +33,21 @@ export const Default: Story = {
     `,
   }),
 }
+
+export const Open: Story = {
+  render: () => ({
+    components: {
+      UiDropdownMenu,
+      UiDropdownMenuItem,
+      UiDropdownMenuSeparator,
+    },
+    template: `
+      <UiDropdownMenu :default-open="true" :modal="false">
+        <UiDropdownMenuItem>Account settings</UiDropdownMenuItem>
+        <UiDropdownMenuItem>Billing & invoices</UiDropdownMenuItem>
+        <UiDropdownMenuSeparator />
+        <UiDropdownMenuItem disabled>Log out (disabled)</UiDropdownMenuItem>
+      </UiDropdownMenu>
+    `,
+  }),
+}

@@ -138,7 +138,7 @@ function deviceLink(id: string) {
         <AppIcon name="close" />
       </button>
     </header>
-    <UiScrollArea viewport-class="inspector-viewport">
+    <UiScrollArea class="flex-1 min-h-0" viewport-class="inspector-viewport">
       <template v-if="device && telemetry">
         <dl>
           <div>

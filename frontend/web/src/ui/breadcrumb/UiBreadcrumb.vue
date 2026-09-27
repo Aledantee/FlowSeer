@@ -71,7 +71,6 @@ const middleItems = computed(() =>
     <slot :collapsed="isCollapsed">
       <UiBreadcrumbList v-if="items && items.length">
         <template v-if="isCollapsed && items.length > 2">
-          <!-- First item -->
           <UiBreadcrumbItem>
             <UiBreadcrumbLink :href="firstItem?.href">
               {{ firstItem?.label }}
@@ -79,13 +78,11 @@ const middleItems = computed(() =>
           </UiBreadcrumbItem>
           <UiBreadcrumbSeparator />
 
-          <!-- Collapsed middle items dropdown -->
           <UiBreadcrumbItem>
             <UiBreadcrumbEllipsis :items="middleItems" />
           </UiBreadcrumbItem>
           <UiBreadcrumbSeparator />
 
-          <!-- Last item -->
           <UiBreadcrumbItem>
             <UiBreadcrumbPage>{{ lastItem?.label }}</UiBreadcrumbPage>
           </UiBreadcrumbItem>

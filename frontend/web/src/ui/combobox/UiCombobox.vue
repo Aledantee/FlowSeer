@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, h, ref } from 'vue'
 import {
   ComboboxContent,
   ComboboxEmpty,
@@ -10,8 +10,10 @@ import {
   ComboboxLabel,
   ComboboxPortal,
   ComboboxRoot,
-  ComboboxTrigger,
   ComboboxViewport,
+  injectComboboxRootContext,
+  Primitive,
+  useId,
 } from 'reka-ui'
 
 export interface ComboboxOption {
@@ -54,6 +56,67 @@ const emit = defineEmits<{
   (e: 'select', value: string): void
 }>()
 
+const PREFIX = 'cb:'
+
+function toInternalValue(val: string): string {
+  return `${PREFIX}${val}`
+}
+
+function toPublicValue(val: string): string {
+  if (val.startsWith(PREFIX)) {
+    return val.slice(PREFIX.length)
+  }
+  return val
+}
+
+const highlightedValue = ref<string | null>(null)
+
+function onHighlight(item: unknown) {
+  let publicVal: string | null = null
+  let emittedItem = item
+  if (
+    item &&
+    typeof item === 'object' &&
+    'value' in item &&
+    typeof (item as { value: unknown }).value === 'string'
+  ) {
+    publicVal = toPublicValue((item as { value: string }).value)
+    emittedItem = { ...item, value: publicVal }
+  } else if (typeof item === 'string') {
+    publicVal = toPublicValue(item)
+    emittedItem = publicVal
+  }
+  highlightedValue.value = publicVal
+  emit('highlight', emittedItem)
+}
+
+function onOpenUpdate(val: boolean) {
+  if (!val) {
+    highlightedValue.value = null
+  }
+  emit('update:open', val)
+}
+
+function isOptionActive(val: string): boolean {
+  return highlightedValue.value !== null && highlightedValue.value === val
+}
+
+const internalModelValue = computed(() => {
+  if (props.modelValue === undefined) return undefined
+  if (Array.isArray(props.modelValue)) {
+    return props.modelValue.map(toInternalValue)
+  }
+  return toInternalValue(props.modelValue)
+})
+
+function isOptionSelected(val: string): boolean {
+  if (props.modelValue === undefined) return false
+  if (Array.isArray(props.modelValue)) {
+    return props.modelValue.includes(val)
+  }
+  return props.modelValue === val
+}
+
 const groupedOptions = computed(() => {
   const groups = new Map<string | undefined, ComboboxOption[]>()
   for (const opt of props.options) {
@@ -63,27 +126,89 @@ const groupedOptions = computed(() => {
   }
   return groups
 })
+
+function UiCustomComboboxTrigger(
+  props: { asChild?: boolean; disabled?: boolean },
+  { slots }: { slots: { default?: () => unknown } },
+) {
+  const rootContext = injectComboboxRootContext()
+  rootContext.contentId ||= useId(undefined, 'reka-combobox-content')
+
+  const disabled = props.disabled || rootContext.disabled.value || false
+
+  function onKeydown(event: KeyboardEvent) {
+    if (disabled) return
+    if (
+      event.key === 'Enter' ||
+      event.key === ' ' ||
+      event.key === 'Spacebar'
+    ) {
+      event.preventDefault()
+      rootContext.onOpenChange(!rootContext.open.value)
+    }
+  }
+
+  function onClick() {
+    if (disabled) return
+    rootContext.onOpenChange(!rootContext.open.value)
+  }
+
+  return h(
+    Primitive,
+    {
+      ref: (el: unknown) => {
+        if (el && typeof el === 'object') {
+          const domEl = '$el' in el ? (el as { $el: HTMLElement }).$el : el
+          if (domEl instanceof HTMLElement) {
+            rootContext.onTriggerElementChange(domEl)
+          }
+        }
+      },
+      asChild: props.asChild ?? true,
+      type: 'button',
+      tabindex: 0,
+      'aria-haspopup': 'listbox',
+      'aria-expanded': rootContext.open.value,
+      'aria-controls': rootContext.contentId,
+      'data-state': rootContext.open.value ? 'open' : 'closed',
+      disabled: disabled ? '' : undefined,
+      'data-disabled': disabled ? '' : undefined,
+      'aria-disabled': disabled || undefined,
+      onClick,
+      onKeydown,
+    },
+    slots,
+  )
+}
 </script>
 
 <template>
   <ComboboxRoot
-    :model-value="modelValue"
+    :model-value="internalModelValue"
     :open="open"
     :default-open="defaultOpen"
     :ignore-filter="ignoreFilter"
     class="relative"
     @update:model-value="
       (val) => {
-        emit('update:modelValue', val as string | string[])
-        if (typeof val === 'string') emit('select', val)
+        if (Array.isArray(val)) {
+          emit(
+            'update:modelValue',
+            val.map((v) =>
+              typeof v === 'string' ? toPublicValue(v) : String(v),
+            ),
+          )
+        } else if (typeof val === 'string') {
+          emit('update:modelValue', toPublicValue(val))
+        }
       }
     "
-    @update:open="emit('update:open', $event)"
-    @highlight="emit('highlight', $event)"
+    @update:open="onOpenUpdate"
+    @highlight="onHighlight"
   >
-    <ComboboxTrigger v-if="$slots.trigger" as-child>
+    <UiCustomComboboxTrigger v-if="$slots.trigger" as-child>
       <slot name="trigger" />
-    </ComboboxTrigger>
+    </UiCustomComboboxTrigger>
     <slot v-else name="input">
       <ComboboxInput
         :placeholder="placeholder"
@@ -123,7 +248,7 @@ const groupedOptions = computed(() => {
               <ComboboxItem
                 v-for="opt in opts"
                 :key="opt.value"
-                :value="opt.value"
+                :value="toInternalValue(opt.value)"
                 :disabled="opt.disabled"
                 class="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-foreground"
                 @select="emit('select', opt.value)"
@@ -131,8 +256,8 @@ const groupedOptions = computed(() => {
                 <slot
                   name="item"
                   :option="opt"
-                  :selected="modelValue === opt.value"
-                  :active="false"
+                  :selected="isOptionSelected(opt.value)"
+                  :active="isOptionActive(opt.value)"
                 >
                   <ComboboxItemIndicator
                     class="inline-flex items-center justify-center"
@@ -159,7 +284,7 @@ const groupedOptions = computed(() => {
               <ComboboxItem
                 v-for="opt in opts"
                 :key="opt.value"
-                :value="opt.value"
+                :value="toInternalValue(opt.value)"
                 :disabled="opt.disabled"
                 class="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-foreground"
                 @select="emit('select', opt.value)"
@@ -167,8 +292,8 @@ const groupedOptions = computed(() => {
                 <slot
                   name="item"
                   :option="opt"
-                  :selected="modelValue === opt.value"
-                  :active="false"
+                  :selected="isOptionSelected(opt.value)"
+                  :active="isOptionActive(opt.value)"
                 >
                   <ComboboxItemIndicator
                     class="inline-flex items-center justify-center"

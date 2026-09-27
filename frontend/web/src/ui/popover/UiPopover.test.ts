@@ -37,11 +37,8 @@ describe('UiPopover', () => {
 
     const trigger = host.querySelector<HTMLButtonElement>('#popover-trigger')
     expect(trigger).not.toBeNull()
-
-    // Initially closed
     expect(document.body.querySelector('#popover-content')).toBeNull()
 
-    // Click trigger to open
     trigger?.click()
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
@@ -102,7 +99,6 @@ describe('UiPopover', () => {
 
     expect(document.body.querySelector('#outside-content')).not.toBeNull()
 
-    // Outside pointerdown
     document.body.dispatchEvent(
       new PointerEvent('pointerdown', {
         bubbles: true,

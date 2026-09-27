@@ -32,7 +32,7 @@ export function useToast() {
       id,
       open: true,
       variant: options.variant || 'default',
-      duration: options.duration ?? 5000,
+      duration: options.duration,
     }
     toasts.value.push(newToast)
     return id

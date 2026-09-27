@@ -110,3 +110,42 @@ export const DialogMode: Story = {
     `,
   }),
 }
+
+export const DialogModeOpen: Story = {
+  render: () => ({
+    components: {
+      UiCommandDialog,
+      UiCommandInput,
+      UiCommandList,
+      UiCommandEmpty,
+      UiCommandGroup,
+      UiCommandItem,
+      UiCommandSeparator,
+      UiCommandShortcut,
+    },
+    setup() {
+      const open = ref(true)
+      return { open }
+    },
+    template: `
+      <div>
+        <UiCommandDialog v-model:open="open">
+          <UiCommandInput placeholder="Search everything..." />
+          <UiCommandList>
+            <UiCommandEmpty>No results found.</UiCommandEmpty>
+            <UiCommandGroup heading="Quick Actions">
+              <UiCommandItem value="new-device" @select="open = false">
+                <span>Add new device</span>
+                <UiCommandShortcut>⌘N</UiCommandShortcut>
+              </UiCommandItem>
+              <UiCommandItem value="toggle-theme" @select="open = false">
+                <span>Toggle theme</span>
+                <UiCommandShortcut>⌘T</UiCommandShortcut>
+              </UiCommandItem>
+            </UiCommandGroup>
+          </UiCommandList>
+        </UiCommandDialog>
+      </div>
+    `,
+  }),
+}

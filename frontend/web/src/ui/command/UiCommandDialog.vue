@@ -18,16 +18,23 @@ export interface UiCommandDialogProps {
   open?: boolean
   defaultOpen?: boolean
   ignoreFilter?: boolean
+  modelValue?: string
+  highlightedValue?: string
 }
 
 withDefaults(defineProps<UiCommandDialogProps>(), {
   open: undefined,
   defaultOpen: false,
   ignoreFilter: false,
+  modelValue: '',
+  highlightedValue: '',
 })
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
+  (e: 'update:modelValue', value: string): void
+  (e: 'update:highlightedValue', value: string): void
+  (e: 'highlight', value: string): void
 }>()
 </script>
 
@@ -49,7 +56,15 @@ const emit = defineEmits<{
         <VisuallyHidden as-child>
           <DialogDescription>Search and command palette</DialogDescription>
         </VisuallyHidden>
-        <UiCommand :ignore-filter="ignoreFilter" v-bind="$attrs">
+        <UiCommand
+          :model-value="modelValue"
+          :highlighted-value="highlightedValue"
+          :ignore-filter="ignoreFilter"
+          v-bind="$attrs"
+          @update:model-value="emit('update:modelValue', $event)"
+          @update:highlighted-value="emit('update:highlightedValue', $event)"
+          @highlight="emit('highlight', $event)"
+        >
           <slot />
         </UiCommand>
       </DialogContent>

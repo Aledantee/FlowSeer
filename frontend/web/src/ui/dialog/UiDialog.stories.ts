@@ -90,3 +90,27 @@ export const Large: Story = {
     `,
   }),
 }
+
+export const Open: Story = {
+  args: {
+    title: 'Edit Workspace',
+    description: 'Configure workspace settings and device access parameters.',
+    size: 'md',
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiDialog, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiDialog v-bind="args">
+        <p class="text-sm text-foreground">Workspace settings content goes here.</p>
+        <template #footer>
+          <UiButton variant="secondary">Cancel</UiButton>
+          <UiButton variant="primary">Save changes</UiButton>
+        </template>
+      </UiDialog>
+    `,
+  }),
+}
