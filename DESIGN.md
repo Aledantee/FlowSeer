@@ -283,8 +283,9 @@ the page heading.
 
 Responsive steps: at 1150px the sidebar narrows to 195px; at 800px the
 navigation moves above the content with a horizontal underline highlight and
-the tenant selector moves with it; at 560px the device table becomes compact
-status cards and topology and secondary traffic summaries drop out. Desktop
+the tenant selector moves with it, and the tools join the brand row; at 560px
+the device table becomes compact status cards, the Dashboard site table keeps
+only site and health, and topology and secondary traffic summaries drop out. Desktop
 can also collapse the sidebar to a 64px icon rail through the curved tab on
 its edge.
 

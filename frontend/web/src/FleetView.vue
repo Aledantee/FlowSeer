@@ -27,6 +27,9 @@ import {
 import type { Device } from './domain/fleet'
 import { events, formatAgo } from './domain/overview'
 const { play, cancel } = useMotionFeedback()
+// The Components workspace is a design tool for the team, not an operator
+// page, so production builds leave it out of navigation.
+const showComponents = import.meta.env.DEV
 const workspace = ref<HTMLElement>()
 const sidebar = ref<HTMLElement>()
 const navigation = ref<HTMLElement>()
@@ -432,7 +435,7 @@ onUnmounted(() => {
             'devices',
             'sites',
             'topology',
-            'components',
+            ...(showComponents ? ['components'] : []),
           ]"
           :key="item"
           :aria-label="
@@ -444,7 +447,7 @@ onUnmounted(() => {
           :to="{ path: `/${item}`, query: route.query }"
           :class="{
             active: view === item,
-            'desktop-navigation': item === 'topology',
+            'desktop-navigation': item === 'topology' || item === 'components',
           }"
           :aria-current="view === item ? 'page' : undefined"
           ><span
@@ -533,7 +536,10 @@ onUnmounted(() => {
               <h1>{{ title }}</h1>
               <p v-if="!scopeError">
                 {{ scopeSummary
-                }}<template v-if="view === 'devices' && scope.length > healthy">
+                }}<template v-if="view === 'topology'"
+                  >. Links are illustrative until topology is
+                  discovered.</template
+                ><template v-if="view === 'devices' && scope.length > healthy">
                   · {{ scope.length - healthy }} need attention</template
                 >
               </p>
@@ -832,17 +838,42 @@ onUnmounted(() => {
                   <div class="connection-tree">
                     <button
                       v-for="device in fleet.filter(
-                        (item) => item.siteId === site.id,
+                        (item) =>
+                          item.siteId === site.id && !item.kind.includes('AP'),
                       )"
                       :key="device.id"
                       :class="['node', device.health.toLowerCase()]"
                       @click="openDevice(device)"
                     >
-                      <AppIcon
-                        :name="device.kind.includes('AP') ? 'pulse' : 'devices'"
-                      /><strong>{{ device.name }}</strong
-                      ><small>{{ device.health }}</small>
+                      <AppIcon name="devices" /><strong>{{
+                        device.name
+                      }}</strong
+                      ><StatusBadge :status="device.health" />
                     </button>
+                    <div
+                      class="node-branch"
+                      :style="{
+                        '--branches': fleet.filter(
+                          (item) =>
+                            item.siteId === site.id && item.kind.includes('AP'),
+                        ).length,
+                      }"
+                    >
+                      <button
+                        v-for="device in fleet.filter(
+                          (item) =>
+                            item.siteId === site.id && item.kind.includes('AP'),
+                        )"
+                        :key="device.id"
+                        :class="['node', device.health.toLowerCase()]"
+                        @click="openDevice(device)"
+                      >
+                        <AppIcon name="pulse" /><strong>{{
+                          device.name
+                        }}</strong
+                        ><StatusBadge :status="device.health" />
+                      </button>
+                    </div>
                   </div>
                 </article>
               </div>

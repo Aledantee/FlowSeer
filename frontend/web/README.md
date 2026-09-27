@@ -49,7 +49,10 @@ name, or site. It supports search, a status filter (including **Needs
 attention**), and a keyboard-accessible details dialog. The metric cards appear
 only on the Dashboard; other pages state the scope and attention count in the
 heading. Sites opens the inventory for a location.
-Topology illustrates connections and opens the same device details. Traffic updates automatically; rows retain their order as values change.
+Topology draws each site's gateway and core switch with its access points side
+by side beneath them. The links are illustrative until topology is discovered,
+and the page says so; each node carries a status badge and opens the same
+device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
 desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.
@@ -123,7 +126,8 @@ scripts.
 
 ## Components workspace
 
-Open `/components` from the sidebar. Try the button variants, inspect labeled
+Open `/components` from the sidebar; development builds list it in navigation
+and production builds leave it out, though the route still works. Try the button variants, inspect labeled
 health states, and compare typography under **Foundations**. The page shares
 buttons, status badges, and metric cards with the fleet views. Record a component
 question and stage, then choose **Save draft** to retain it in this browser.
@@ -165,6 +169,9 @@ Favor concise status summaries and touch-friendly controls. Dense table tooling,
 full topology exploration, bulk configuration, and configurable OLAP dashboards
 can remain desktop workflows. The skeleton shows device count and health first on phones, hides topology
 navigation and secondary traffic summaries, and offers one-tap device details.
+The theme, help, and account controls join the brand row, the bug report
+button is left to desktop, and the Dashboard keeps its site list with a health
+bar per site.
 Further quick actions need their own service contracts.
 
 ### Motion

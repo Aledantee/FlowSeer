@@ -36,7 +36,7 @@ async function copyReport() {
 
 <template>
   <button
-    class="help-button"
+    class="help-button report-bug-button"
     type="button"
     aria-label="Report bug"
     title="Report bug"
