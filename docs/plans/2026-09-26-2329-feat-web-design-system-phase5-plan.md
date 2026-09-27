@@ -19,6 +19,11 @@ This plan is wrong if the navigation frame's shared glow coordinates (`backgroun
 
 ## Decisions
 
+- `design/palette.html` stays beside Storybook's Colors story. Why: the
+  user chose it on 2026-09-27; Storybook is the component catalogue and
+  contrast audit, and `palette.html` exports CSS and JSON tokens without a
+  running server. Its stylesheet links move to `tailwind.css` and
+  `style.css`.
 - Migrate one view at a time behind the unlayered legacy rules, and delete each rule once nothing matches it. Enable Preflight last, when `style.css` holds no component rules. Why: the parent plan's Preflight decision; unlayered legacy rules override utility classes until removed.
 - Dissolve `src/dashboard.css` completely. `DashboardView.vue` migrates to Tailwind utilities and `Ui*` components (`UiCard`, `UiTable`, `UiStatusBadge`, `UiSegmentedMeter`), while chart SVG presentation and tooltip styling are encapsulated in `TrafficChart.vue` and `TrafficSparkline.vue`. Why: eliminates a standalone stylesheet and removes the redundant import in `.storybook/preview.ts`.
 - Retain `src/style.css` strictly as the layout stylesheet for the connected navigation frame and token imports. It keeps `@import` statements for `scales.css`, `semantic.css`, and `brand-glow.css`, and rules for the shell grid, sidebar collapse animation, topbar glass, inner corner notch mask, split pane divider, and custom scrollbars. All component rules are deleted. Why: parent plan Requirement 6; the brand glow requires shared viewport background coordinates across chrome boundaries.
@@ -27,7 +32,6 @@ This plan is wrong if the navigation frame's shared glow coordinates (`backgroun
 - Replace all remaining `<AppTooltip>` tags in `FleetView.vue` with `<UiTooltip>`. Why: `AppTooltip` was migrated to `UiTooltip` in Phase 2; the remaining usages in `FleetView.vue` were left unmigrated when Phase 3 and Phase 4 merged.
 - Remove `src/theme/language.css` entirely and clean hard-coded fallback literals in `src/theme/brand-glow.css`. Why: `--space-*` and `.ui-button` rules are superseded by Tailwind spacing and `UiButton`, and glow variables resolve directly to `--chrome`, `--accent`, and `--primary`.
 - Configure stylelint with `stylelint-config-standard`, `postcss-html`, and `stylelint-declaration-strict-value`. Exclude `src/theme/scales.css` from the check. Integrate it into `pnpm lint` as `eslint . && stylelint "src/**/*.{css,vue}"`. Why: catches regressions where hard-coded hex colors, arbitrary pixel font-sizes, or raw box-shadows are written instead of design tokens.
-- Keep `design/palette.html` as an export artifact for external CSS/JSON downloads, updating its stylesheet links to `tailwind.css` and `style.css`. Why: Storybook provides the interactive component catalogue and WCAG contrast audit, while `palette.html` serves external color exports without launching Storybook.
 
 ## Requirements
 
@@ -121,7 +125,4 @@ From `frontend/web/`:
 
 ## Open questions
 
-- Should Storybook's `Colors` story replace `design/palette.html` (and its CSS/JSON export downloads), or should both stay?
-  - Option 1 (Recommended): Keep both. Storybook serves as the interactive component catalogue and WCAG contrast audit for developers, while `palette.html` remains as a lightweight, zero-dependency standalone page for exporting CSS and JSON tokens without running a Storybook server.
-  - Option 2: Remove `design/palette.html` and move token export functionality into a CLI script (`scripts/export-palette.ts`).
-  - Implementer choice: Follow Option 1 unless explicitly requested otherwise.
+- None.
