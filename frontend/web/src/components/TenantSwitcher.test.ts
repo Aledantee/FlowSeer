@@ -76,4 +76,63 @@ describe('tenant switcher', () => {
       'Tenant scope: Aurora Hospitality',
     )
   })
+  it('mounts in client with trigger button reflecting all tenants scope when selected is empty', async () => {
+    const host = mountApp(() =>
+      h(TenantSwitcher, {
+        tenants: [
+          { id: 'aurora', name: 'Aurora Hospitality' },
+          { id: 'meridian', name: 'Meridian Workspaces' },
+        ],
+        selected: '',
+      }),
+    )
+    await nextTick()
+    const trigger = host.querySelector('button.scope-trigger')
+    expect(trigger).not.toBeNull()
+    expect(trigger?.getAttribute('aria-label')).toBe(
+      'Tenant scope: All tenants',
+    )
+    expect(trigger?.getAttribute('tabindex')).toBe('0')
+    const ariaControls = trigger?.getAttribute('aria-controls')
+    expect(ariaControls).toBeTruthy()
+    expect(ariaControls).not.toBe('')
+  })
+  it('opens dropdown and allows selecting all tenants scope emitting change exactly once', async () => {
+    const changes: string[] = []
+    const host = mountApp(() =>
+      h(TenantSwitcher, {
+        tenants: [
+          { id: 'aurora', name: 'Aurora Hospitality' },
+          { id: 'meridian', name: 'Meridian Workspaces' },
+        ],
+        selected: 'meridian',
+        onChange: (val: string) => {
+          changes.push(val)
+        },
+      }),
+    )
+    await nextTick()
+    const trigger = host.querySelector('button.scope-trigger')
+    const ariaControls = trigger?.getAttribute('aria-controls')
+    expect(ariaControls).toBeTruthy()
+    expect(ariaControls).not.toBe('')
+
+    trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const listbox = document.getElementById(ariaControls!)
+    expect(listbox).not.toBeNull()
+
+    const options = document.body.querySelectorAll('[role="option"]')
+    expect(options.length).toBe(3)
+    expect(options[0]?.textContent).toContain('All tenants')
+
+    options[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toBe('')
+  })
 })

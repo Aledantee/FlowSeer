@@ -25,7 +25,12 @@ defineExpose({ pane })
 <template>
   <div :class="['pane', { 'canvas-view': displayed === 'topology' }]">
     <slot />
-    <UiScrollArea ref="scroller" viewport-class="pane-scroll" label="Page">
+    <UiScrollArea
+      ref="scroller"
+      class="h-full"
+      viewport-class="pane-scroll"
+      label="Page"
+    >
       <Transition
         name="page"
         mode="out-in"

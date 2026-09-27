@@ -40,11 +40,8 @@ describe('UiDialog', () => {
 
     const trigger = host.querySelector<HTMLButtonElement>('#dialog-trigger')
     expect(trigger).not.toBeNull()
-
-    // Initially not open
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
 
-    // Click trigger to open
     trigger?.click()
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
@@ -74,7 +71,6 @@ describe('UiDialog', () => {
     const dialog = document.body.querySelector('[role="dialog"]')
     expect(dialog).not.toBeNull()
 
-    // Dispatch Escape keydown
     dialog?.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Escape',

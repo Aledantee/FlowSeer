@@ -71,7 +71,6 @@ describe('UiDropdownMenu', () => {
     const menu = document.body.querySelector('[role="menu"]')
     expect(menu).not.toBeNull()
 
-    // Dispatch ArrowDown
     menu?.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'ArrowDown',

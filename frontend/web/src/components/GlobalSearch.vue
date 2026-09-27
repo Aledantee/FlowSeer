@@ -107,6 +107,7 @@ const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'
 
 function openSearch() {
   query.value = ''
+  selectedValue.value = ''
   recent.value = loadRecent()
   open.value = true
 }
@@ -151,26 +152,24 @@ function handleItemSelect(
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  const modified =
-    event.altKey || event.shiftKey || event.metaKey || event.ctrlKey
-  if (event.key !== 'Enter' || !modified) return
+  if (event.key === 'Enter') {
+    const isModified =
+      event.shiftKey || event.metaKey || event.ctrlKey || event.altKey
+    if (!isModified) return
 
-  const root = event.currentTarget
-  const highlightedKey =
-    root instanceof HTMLElement
-      ? root.querySelector<HTMLElement>(
-          '[role="option"][data-highlighted][data-command-value]',
-        )?.dataset.commandValue
-      : undefined
-  const target =
-    results.value.find((result) => resultKey(result) === highlightedKey) ??
-    results.value[0]
-  if (!target) return
-
-  event.preventDefault()
-  event.stopPropagation()
-  if (event.altKey) dock(target)
-  else choose(target, true)
+    const target =
+      results.value.find((r) => resultKey(r) === selectedValue.value) ||
+      results.value[0]
+    if (target) {
+      event.preventDefault()
+      event.stopPropagation()
+      if (event.altKey) {
+        dock(target)
+      } else if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        choose(target, true)
+      }
+    }
+  }
 }
 
 function shortcutKey(event: KeyboardEvent) {
@@ -198,7 +197,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
 
   <UiCommandDialog
     v-model:open="open"
-    v-model="selectedValue"
+    v-model:highlighted-value="selectedValue"
     :ignore-filter="true"
     @keydown.capture="handleKeydown"
   >

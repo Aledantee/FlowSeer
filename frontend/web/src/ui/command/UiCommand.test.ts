@@ -134,7 +134,6 @@ describe('UiCommand', () => {
 
     const input = host.querySelector('input')
 
-    // Navigate to next item
     input?.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'ArrowDown',
@@ -147,7 +146,6 @@ describe('UiCommand', () => {
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    // Press Enter
     input?.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Enter',
@@ -186,7 +184,6 @@ describe('UiCommand', () => {
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    // When ignoreFilter is true, internal filtering doesn't hide items
     const options = host.querySelectorAll('[role="option"]')
     expect(options.length).toBe(2)
   })
@@ -217,7 +214,6 @@ describe('UiCommand', () => {
     const dialog = document.body.querySelector('[role="dialog"]')
     expect(dialog).not.toBeNull()
 
-    // Dismiss on Escape
     dialog?.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Escape',
@@ -231,5 +227,200 @@ describe('UiCommand', () => {
     await new Promise((r) => setTimeout(r, 20))
 
     expect(isOpen.value).toBe(false)
+  })
+
+  it('forwards highlighted value on roving keyboard navigation', async () => {
+    const highlighted = ref('')
+    const host = mountApp(() =>
+      h(
+        UiCommand,
+        {
+          highlightedValue: highlighted.value,
+          'onUpdate:highlightedValue': (v: string) => {
+            highlighted.value = v
+          },
+        },
+        () => [
+          h(UiCommandInput, { placeholder: 'Search...' }),
+          h(UiCommandList, null, () => [
+            h(UiCommandItem, { value: 'item-1' }, () => 'Item 1'),
+            h(UiCommandItem, { value: 'item-2' }, () => 'Item 2'),
+          ]),
+        ],
+      ),
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const input = host.querySelector('input')
+    expect(highlighted.value).toBe('item-1')
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        code: 'ArrowDown',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(highlighted.value).toBe('item-2')
+  })
+
+  it('Shift+Enter, Cmd/Ctrl+Enter, and Alt+Enter act on the highlighted item and only once without triggering ordinary select', async () => {
+    const highlighted = ref('')
+    const actions: { type: string; item: string }[] = []
+    const ordinarySelects: string[] = []
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === 'Enter') {
+        const isModified =
+          event.shiftKey || event.metaKey || event.ctrlKey || event.altKey
+        if (!isModified) return
+
+        event.preventDefault()
+        event.stopPropagation()
+        const target = highlighted.value || 'item-1'
+
+        if (event.altKey) {
+          actions.push({ type: 'dock', item: target })
+        } else if (event.shiftKey || event.metaKey || event.ctrlKey) {
+          actions.push({ type: 'beside', item: target })
+        }
+      }
+    }
+
+    mountApp(() =>
+      h(
+        UiCommandDialog,
+        {
+          open: true,
+          highlightedValue: highlighted.value,
+          'onUpdate:highlightedValue': (v: string) => {
+            highlighted.value = v
+          },
+          onKeydownCapture: handleKeydown,
+        },
+        () => [
+          h(UiCommandInput, { placeholder: 'Palette search...' }),
+          h(UiCommandList, null, () => [
+            h(
+              UiCommandItem,
+              {
+                value: 'item-1',
+                onSelect: (event: UiCommandItemSelectEvent) =>
+                  ordinarySelects.push(event.value),
+              },
+              () => 'Item 1',
+            ),
+            h(
+              UiCommandItem,
+              {
+                value: 'item-2',
+                onSelect: (event: UiCommandItemSelectEvent) =>
+                  ordinarySelects.push(event.value),
+              },
+              () => 'Item 2',
+            ),
+          ]),
+        ],
+      ),
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const input = document.body.querySelector('input')
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        code: 'ArrowDown',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        code: 'ArrowDown',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(highlighted.value).toBe('item-2')
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(actions).toEqual([{ type: 'beside', item: 'item-2' }])
+    expect(ordinarySelects).toHaveLength(0)
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(actions).toEqual([
+      { type: 'beside', item: 'item-2' },
+      { type: 'dock', item: 'item-2' },
+    ])
+    expect(ordinarySelects).toHaveLength(0)
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(actions).toEqual([
+      { type: 'beside', item: 'item-2' },
+      { type: 'dock', item: 'item-2' },
+      { type: 'beside', item: 'item-2' },
+    ])
+    expect(ordinarySelects).toHaveLength(0)
+
+    input?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(ordinarySelects).toEqual(['item-2'])
   })
 })

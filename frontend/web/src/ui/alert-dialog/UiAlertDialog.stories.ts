@@ -79,3 +79,24 @@ export const NonDestructive: Story = {
     `,
   }),
 }
+
+export const Open: Story = {
+  args: {
+    title: 'Decommission Device',
+    description:
+      'This will remove the selected gateway from active monitoring and flush cached routes.',
+    confirmText: 'Decommission',
+    cancelText: 'Cancel',
+    destructive: true,
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiAlertDialog },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiAlertDialog v-bind="args" />
+    `,
+  }),
+}
