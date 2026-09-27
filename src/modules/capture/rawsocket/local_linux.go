@@ -20,7 +20,7 @@ import (
 // pollTimeout is the per-poll wait. It bounds how long a blocked Receive
 // stays unaware of ctx cancellation: the loop checks ctx.Done() after each
 // poll returns, so cancellation lands within this window. It also matches
-// SO_RCVTIMEO, so a blocking Recvfrom returns EAGAIN on its own rather than
+// SO_RCVTIMEO, so a blocking Recvmsg returns EAGAIN on its own rather than
 // blocking indefinitely.
 const pollTimeout = 100 * time.Millisecond
 
