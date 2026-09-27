@@ -1,0 +1,18 @@
+module fixture-grp {
+  yang-version 1.1;
+  namespace "urn:flowseer:fixture-grp";
+  prefix fg;
+
+  revision 2026-01-02 {
+    description "Fixture grouping baseline.";
+  }
+
+  grouping endpoint-settings {
+    description "Shared endpoint settings.";
+    container item {
+      leaf buffer-size {
+        type uint32;
+      }
+    }
+  }
+}

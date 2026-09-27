@@ -3,13 +3,14 @@
 # the committed generated fixture bindings against a real server.
 FROM sysrepo/sysrepo-netopeer2:latest
 
-COPY fixture-types.yang fixture-main-sub.yang fixture-main.yang fixture-aug.yang /fixtures/
+COPY fixture-types.yang fixture-grp.yang fixture-main-sub.yang fixture-main.yang fixture-aug.yang /fixtures/
 
 # Install in dependency order; the submodule rides along via the
 # search dir. fixture-dev (the deviation module) is deliberately not
 # installed: the server should accept the un-deviated tree the
 # bindings model.
 RUN sysrepoctl -s /fixtures -i /fixtures/fixture-types.yang && \
+    sysrepoctl -s /fixtures -i /fixtures/fixture-grp.yang && \
     sysrepoctl -s /fixtures -i /fixtures/fixture-main.yang && \
     sysrepoctl -s /fixtures -i /fixtures/fixture-aug.yang
 
