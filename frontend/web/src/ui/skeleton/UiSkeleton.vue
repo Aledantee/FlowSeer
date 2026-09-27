@@ -25,16 +25,25 @@ const variantClass = computed(() => {
 })
 
 const defaultSizeClass = computed(() => {
-  if (props.width || props.height) return ''
-  switch (props.variant) {
-    case 'circular':
-      return 'h-10 w-10'
-    case 'rectangular':
-      return 'h-24 w-full'
-    case 'text':
-    default:
-      return 'h-4 w-full'
+  const classes: string[] = []
+  if (props.width === undefined) {
+    classes.push(props.variant === 'circular' ? 'w-10' : 'w-full')
   }
+  if (props.height === undefined) {
+    switch (props.variant) {
+      case 'circular':
+        classes.push('h-10')
+        break
+      case 'rectangular':
+        classes.push('h-24')
+        break
+      case 'text':
+      default:
+        classes.push('h-4')
+        break
+    }
+  }
+  return classes.join(' ')
 })
 
 const inlineStyle = computed(() => {

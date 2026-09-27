@@ -137,9 +137,7 @@ export const Sortable: Story = {
       UiTableCell,
     },
     setup() {
-      const sortDirection = ref<'ascending' | 'descending' | 'none'>(
-        'ascending',
-      )
+      const sortDirection = ref<'ascending' | 'descending' | 'none'>('none')
       const devices = ref([...sampleDevices])
 
       function toggleSort() {

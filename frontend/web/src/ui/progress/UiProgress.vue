@@ -46,6 +46,8 @@ const variantClass = computed(() => {
   }
 })
 
+const isIndeterminate = computed(() => props.modelValue == null)
+
 const indicatorStyle = computed(() => {
   if (props.modelValue == null) {
     return {}
@@ -70,10 +72,38 @@ const indicatorStyle = computed(() => {
   >
     <ProgressIndicator
       :class="[
-        'h-full w-full transition-transform duration-300 ease-out data-[state=indeterminate]:animate-pulse',
+        'h-full w-full transition-transform duration-300 ease-out motion-reduce:animate-none',
+        isIndeterminate && 'animate-progress-slide',
         variantClass,
       ]"
       :style="indicatorStyle"
     />
   </ProgressRoot>
 </template>
+
+<style>
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(0%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0.6;
+  }
+}
+
+.animate-progress-slide {
+  animation: progress-slide 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-progress-slide {
+    animation: none;
+  }
+}
+</style>

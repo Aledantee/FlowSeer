@@ -28,7 +28,6 @@ function mount(component: Component, props: Record<string, unknown> = {}) {
 
 describe('UiMeter', () => {
   it('single meter sets role="meter", ARIA value bounds, and computes warning/critical tones based on percentage', () => {
-    // Normal tone (< 75%)
     const normal = mount(UiMeter, { label: 'CPU Usage', value: 45 })
     const normalMeter = normal.el.querySelector('[role="meter"]')
     expect(normalMeter).not.toBeNull()
@@ -40,13 +39,11 @@ describe('UiMeter', () => {
     expect(normalBar?.className).toContain('bg-chart-1')
     dispose()
 
-    // Warning tone (>= 75% and < 90%)
     const warning = mount(UiMeter, { label: 'Memory', value: 80 })
     const warningBar = warning.el.querySelector('[role="meter"] i')
     expect(warningBar?.className).toContain('bg-warning-foreground')
     dispose()
 
-    // Critical tone (>= 90%)
     const critical = mount(UiMeter, { label: 'Bandwidth', value: 95 })
     const criticalBar = critical.el.querySelector('[role="meter"] i')
     expect(criticalBar?.className).toContain('bg-danger-foreground')
