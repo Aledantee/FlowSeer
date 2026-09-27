@@ -78,9 +78,15 @@ describe('fleet view', () => {
     )
     expect(names.slice(0, 2)).toEqual(['cologne-ap-02', 'hamburg-ap-01'])
   })
-  it('shows the fleet summary only on the dashboard', async () => {
-    const { host } = await mountAt('/devices')
+  it('opens the dashboard on attention, with the totals in the heading line', async () => {
+    const { host } = await mountAt('/dashboard')
     expect(host.querySelector('.metrics')).toBeNull()
+    expect(host.querySelector('.page-heading p')?.textContent).toContain(
+      '16 devices',
+    )
+    expect(host.querySelector('.dashboard h2')?.textContent).toBe(
+      'Needs attention',
+    )
   })
   it('fills in the tenant of a selected site so the scope never reads all tenants', async () => {
     const { host, router } = await mountAt('/dashboard?site=berlin')

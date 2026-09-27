@@ -1891,3 +1891,6 @@ td small {
     display: none;
   }
 }
+.summary-figure {
+  font-variant-numeric: tabular-nums;
+}

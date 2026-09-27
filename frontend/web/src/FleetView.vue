@@ -6,7 +6,6 @@ import ComponentsView from './ComponentsView.vue'
 import DashboardView from './DashboardView.vue'
 import UiButton from './components/UiButton.vue'
 import StatusBadge from './components/StatusBadge.vue'
-import MetricCard from './components/MetricCard.vue'
 import AppIcon from './components/AppIcon.vue'
 import AccountMenu from './components/AccountMenu.vue'
 import ReportBugButton from './components/ReportBugButton.vue'
@@ -642,7 +641,11 @@ onUnmounted(() => {
               <p v-if="!scopeError">
                 {{ scopeSummary
                 }}<template v-if="view === 'dashboard'">
-                  · as of
+                  · {{ scope.length }}
+                  {{ scope.length === 1 ? 'device' : 'devices' }} ·
+                  {{ clients }} clients ·
+                  <span class="summary-figure">{{ throughput }} Mbps</span> · as
+                  of
                   {{
                     asOf.toLocaleTimeString([], {
                       hour: '2-digit',
@@ -698,34 +701,6 @@ onUnmounted(() => {
             }}</UiButton>
           </div>
           <template v-else>
-            <section
-              v-if="view === 'dashboard'"
-              class="metrics"
-              aria-label="Fleet summary"
-            >
-              <MetricCard
-                label="Devices in scope"
-                :value="scope.length"
-                unit="devices"
-                icon="devices"
-              >
-                Across {{ visibleSites.length }}
-                {{ visibleSites.length === 1 ? 'site' : 'sites' }}
-              </MetricCard>
-              <MetricCard
-                label="Connected clients"
-                :value="clients"
-                icon="topology"
-                >Reported by access points</MetricCard
-              >
-              <MetricCard
-                label="Device traffic"
-                :value="throughput"
-                unit="Mbps"
-                icon="pulse"
-                >Live aggregate across the scope</MetricCard
-              >
-            </section>
             <template v-if="view === 'devices'">
               <section class="inventory" aria-labelledby="inventory-title">
                 <div class="section-heading">

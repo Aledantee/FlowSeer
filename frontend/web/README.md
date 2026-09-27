@@ -36,7 +36,7 @@ offline device last answered. Traffic sits beside it. With **All sites** selecte
 clients, and traffic; choose a site row to focus the dashboard on that site,
 which replaces the list with the site's devices grouped by role. The traffic
 chart and event feed are synthetic fixtures in `src/domain/overview.ts`. The
-chart's right edge is the live aggregate from the metric cards. Hover the
+chart's right edge is the live traffic total from the heading line. Hover the
 chart, or focus it and use the arrow keys, to read hourly values.
 
 Device details lead with why a device needs attention: its open warning and
@@ -60,9 +60,10 @@ The Devices page lists offline and degraded devices first, and sorts by status,
 name, site, or **Last answered**, which shows how long ago each device last
 answered a poll so that a device offline for minutes and one offline for days
 look different. It supports search, a status filter (including **Needs
-attention**), and a keyboard-accessible details dialog. The metric cards appear
-only on the Dashboard; other pages state the scope and attention count in the
-heading. Sites lists every site in scope worst first, with a health bar and a
+attention**), and a keyboard-accessible details dialog. The Dashboard carries its
+totals (devices, clients, traffic, and the time of the last refresh) in the
+heading line rather than in metric cards; other pages state the scope and
+attention count there. Sites lists every site in scope worst first, with a health bar and a
 line such as "1 offline", the newest warning or critical event and its age, and
 the device count; a site's name opens its dashboard and **Devices** opens its
 inventory.
@@ -146,7 +147,8 @@ scripts.
 Open `/components` from the sidebar; development builds list it in navigation
 and production builds leave it out, though the route still works. Try the button variants, inspect labeled
 health states, and compare typography under **Foundations**. The page shares
-buttons, status badges, and metric cards with the fleet views. Record a component
+buttons and status badges with the fleet views; the metric card remains as a
+specimen. Record a component
 question and stage, then choose **Save draft** to retain it in this browser.
 Drafts are personal local storage; unsaved edits are lost when leaving the page.
 
