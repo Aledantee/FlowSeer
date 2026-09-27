@@ -4,9 +4,19 @@ type: feat
 date: 2026-08-23
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
+compound: docs/solutions/conventions/a-tag-gated-container-tier-lacking-the-binary-is-silently-inert.md
 execution: code
+review: accept
 ---
+
+<!-- review: accept (T1 tier change, commit 744c0e67). Coordinator pass on
+2026-09-27, not an independent fresh-model review: the only fit seam reviewer
+(claude-opus-5-5) was quota-blocked and the executor gpt-5.6-sol was excluded.
+Change is test-infra only (FRR+netpen Dockerfile, compose build, matrix); no
+attack logic touched, no fabrication, T2 pending cells preserved. Follow-up:
+the ring Dockerfile pins golang:1.26 vs go.mod 1.27 (dormant, not built). -->
+
 
 # netpen - Plan
 
@@ -14,10 +24,13 @@ execution: code
 > checks under `test/conformance/dependencies`. Live OSPF vendor validation is
 > now obtainable through the SSH-driven lab tier defined by the
 > [accepted direction](../architecture/2026-09-23-netpen-lab-vendor-validation-direction.md):
-> the test injects from a Linux host and asserts the IOS-XE neighbor table. The
-> lab run is still pending, so the validation matrix records no fabricated pass.
-> The former fixtures-plus-T1 limitation is lifted for OSPF; T1 evidence and the
-> other T2 behaviors remain open, and this plan stays `partially-implemented`.
+> the test injects from a Linux host and asserts the IOS-XE neighbor table.
+> OSPF carries a source-(b) vendor result (2026-09-25); the T1 reproducibility
+> tier is now runnable and green for all eight superset behaviors
+> (source-(c), 2026-09-27). The plan is `implemented`: T1 plus the OSPF t2 run
+> is the accepted validation maximum, and the remaining seven behaviors' t2
+> vendor cells stay the documented opt-in limitation the Risks table records,
+> never a gate. The validation matrix records no fabricated pass.
 >
 > The fixture rows are real evidence of wire shape and nothing more. Anyone
 > reading a green integration suite here should read the matrix first: it says
@@ -365,6 +378,7 @@ Deferred to implementation or the A3 horizon; none block units from starting.
 - **vtp SAFE-mode classification** (deferred): the baseline bumps the domain config revision, which persists until a higher-revision legitimate summary arrives. transient-decay is the current classification; if lab evidence shows the bump drives lasting VLAN-database adoption, the row moves to temporary-restored.
 - **teatest compatibility with bubbletea v2** (deferred): still experimental, v1-style key messages. U7's model-level tests are primary; golden files enter only if compatibility verifies.
 - **A3 embed horizon vs quarantine** (horizon): if the FlowSeer edge agent later embeds the toolkit, split a dependency-light library module out of `src/netpen` (TUI stays quarantined); not this release's work (R7).
+- **T2 vendor-validation scope** (decided by the user 2026-09-27): with the T1 reproducibility tier green for all eight superset behaviors (source-(c)) and OSPF carrying a source-(b) vendor result, the plan is `implemented`. T1 plus the OSPF t2 run is the accepted validation maximum. The seven non-OSPF behaviors keep no source-(b) vendor cell because the lab has no responder or wire target for them; per the Risks table, Cisco-proprietary vendor validation "may land only via fixtures + t1" and the t2 licensed-Cisco tier is "never a gate," so those cells stay the documented opt-in limitation. Standing up physical/virtual t2 responders for them is a separate lab-provisioning initiative, not remaining work on this plan.
 
 ### Risks & Dependencies
 

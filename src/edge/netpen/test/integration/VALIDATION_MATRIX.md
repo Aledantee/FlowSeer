@@ -1,10 +1,11 @@
 # netpen Validation Matrix
 
 This matrix inventories every (behavior, mode) pair's intended ground-truth
-source, per KTD15. No live T1 run is recorded here. The `ospf` live-lab path is
-implemented and its T2 cell records the 2026-09-25 vendor result, with the T1
-AE6 cell carrying that same t2 run; every other behavior's cells remain pending
-until a lab run records the target's observable. Fixture provenance labels do
+source, per KTD15. The 2026-09-27 T1 run records source-(c)
+self-consistency for all eight AE6 attacks: two executions produced the same
+record-kind and finding-module class against the same FRR segment. These
+results do not establish wire shape or a target response. The `ospf` T2 cell
+separately records the 2026-09-25 vendor result. Fixture provenance labels do
 not establish that this integration suite has executed a wire or vendor
 assertion.
 
@@ -17,9 +18,10 @@ assertion.
 - **(b)** T2 vendor behavioral truth: the live lab injects from a Linux host and
   reads the Cisco target's own observable over SSH. The OSPF path asserts the
   spoofed neighbor's appearance and removal. The other behaviors remain pending.
-- **(c)** Planned ring self-consistency: captured frames would need to decode
-  correctly. The ring compose fixture exists, but this suite has no capture or
-  decoder test. These rows have no wire or vendor evidence from this suite.
+- **(c)** T1 self-consistency: two complete JSONL streams from the same command
+  and target segment have matching record-kind and finding-module sets. This
+  proves repeatability of netpen's reported class, not wire shape or vendor
+  behavior.
 
 ## Fixture provenance key
 
@@ -27,7 +29,7 @@ assertion.
 |-------|---------|
 | (a)   | Python-fixture wire-shape truth (KTD14 pcap pin) |
 | (b)   | t2 vendor behavioral truth (recorded for `ospf`) |
-| (c)   | Planned ring self-consistency (no executing integration assertion) |
+| (c)   | T1 self-consistency (no wire or vendor truth) |
 
 ## Columns
 
@@ -37,7 +39,7 @@ assertion.
 | Mode | Mode flag (base = mode-less) |
 | Durability | Catalog durability class |
 | Fixture provenance | (a) Python-fixture / (c) ring-only / (a)+(c) both |
-| t1 AE6 status | not recorded = no live result retained; N/A = outside the AE6 list; pending live run = the assertion exists but has not run in the lab; t2 (b) = live result carried by the t2 run |
+| t1 AE6 status | dated source-(c) result = matching live T1 finding classes; N/A = outside the AE6 list |
 | t2 status | never = no t2 assertion exists; pending live run = assertion implemented but not executed; dated result = live vendor observable on that date |
 | Teardown | teardown path from catalog (empty = none) |
 
@@ -53,22 +55,22 @@ assertion.
 | doubletag | base | transient-decay | (a) | N/A | never | one-shot injected frames; nothing persists |
 | dtp | base | temporary-restored | (c) | N/A | never | access-port restore armed by default (KTD12) |
 | dtp | keep-trunk | permanent-destructive | (c) | N/A | never | opt-in per KTD12 |
-| eigrp | base | temporary-restored | (a) | not recorded | never | goodbye/flush teardown |
-| etherchannel | base | temporary-restored | (a) | not recorded | never | port-channel release |
+| eigrp | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:eigrp | never | goodbye/flush teardown |
+| etherchannel | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:lacp | never | port-channel release |
 | ghost | base | non-destructive | (a) | N/A | never | |
-| glbp | base | temporary-restored | (a) | not recorded | never | resign teardown |
+| glbp | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:glbp | never | resign teardown |
 | gratarp | base | transient-decay | (a) | N/A | never | neighbor cache ages |
 | hsrp | base | temporary-restored | (a) | N/A | never | resign teardown |
 | icmpredirect | base | transient-decay | (a) | N/A | never | victim route cache decays |
-| lldpspoof | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
+| lldpspoof | base | transient-decay | (a) | 2026-09-27: source-(c), finding:lldp | never | bounded bursts / holdtimes |
 | llmnr | base | transient-decay | (a) | N/A | never | spoofed answers expire |
-| mld | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
+| mld | base | transient-decay | (a) | 2026-09-27: source-(c), finding:mld | never | bounded bursts / holdtimes |
 | mvrp | base | transient-decay | (c) | N/A | never | MRP timers, minutes |
 | ndpspoof | base | transient-decay | (a) | N/A | never | NUD / real master resumes |
-| ospf | base | temporary-restored | (a) | t2 (b) | 2026-09-25: IOS-XE (172.16.0.42) accepted neighbor 10.0.0.99 and cleared it after teardown; finding:ospf | goodbye/flush teardown |
+| ospf | base | temporary-restored | (a) | 2026-09-27: source-(c), finding:ospf | 2026-09-25: IOS-XE (172.16.0.42) accepted neighbor 10.0.0.99 and cleared it after teardown; finding:ospf | goodbye/flush teardown |
 | portsteal | base | transient-decay | (a) | N/A | never | CAM aging |
 | portsteal | relay | temporary-restored | (a) | N/A | never | ip_forward restore armed |
-| raflood | base | transient-decay | (a) | not recorded | never | bounded bursts / holdtimes |
+| raflood | base | transient-decay | (a) | 2026-09-27: source-(c), finding:ra | never | bounded bursts / holdtimes |
 | raguard | base | non-destructive | (a) | N/A | never | |
 | roguedhcp | base | transient-decay | (a) | N/A | never | client leases ~1800s |
 | roguedhcp6 | base | transient-decay | (a) | N/A | never | ~300s lifetime announced |
@@ -84,7 +86,7 @@ assertion.
 | vtp | base | transient-decay | (c) | N/A | never | revision-bump side effect recorded |
 | vtp | set | permanent-destructive | (c) | N/A | never | opt-in per R15 |
 | vtp | wipe | permanent-destructive | (c) | N/A | never | opt-in per R15 |
-| wpad | base | transient-decay | (a) | not recorded | never | client proxy config residue, bound = TTL |
+| wpad | base | transient-decay | (a) | 2026-09-27: source-(c), finding:wpad | never | client proxy config residue, bound = TTL |
 
 ## Live OSPF source-(b) recording path
 
@@ -119,31 +121,32 @@ complete JSONL streams. Command errors, missing binaries, malformed output, and
 empty streams fail. A skipped tier supplies no live evidence. Results must be
 recorded manually; the tests do not update this file.
 
-| Superset | Fixture provenance | t1 target | t2 target | Caveat |
-|----------|-------------------|-----------|-----------|--------|
-| ospf | (a) | FRR r1 lab segment | IOS-XE live lab | Live assertion implemented; run pending |
-| eigrp | (a) | FRR r1 lab segment | live lab (pending) | No EIGRP responder is configured |
-| wpad | (a) | lab segment | live lab (pending) | LLMNR/NBNS-based; lab segment target |
-| etherchannel | (a) | FRR r1 lab segment | live lab (pending) | No LACP/PAgP responder or wire assertion |
-| mld | (a) | lab segment | live lab (pending) | IPv6 multicast; lab segment target |
-| raflood | (a) | lab segment | live lab (pending) | IPv6 RA; lab segment target |
-| lldpspoof | (a) | FRR r1 lab segment | live lab (pending) | No LLDP decoder assertion |
-| glbp | (a) | FRR r1 lab segment | live lab (pending) | No GLBP responder or wire assertion |
+| Superset | Fixture provenance | t1 target | t1 result | t2 target | Caveat |
+|----------|-------------------|-----------|-----------|-----------|--------|
+| ospf | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:ospf | IOS-XE live lab | T1 checks reported-class repeatability; the separate T2 result supplies vendor truth |
+| eigrp | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:eigrp | live lab (pending) | No EIGRP responder is configured |
+| wpad | (a) | lab segment | 2026-09-27: source-(c), finding:wpad | live lab (pending) | LLMNR/NBNS-based; no responder observable is asserted |
+| etherchannel | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:lacp | live lab (pending) | No LACP/PAgP responder or wire assertion |
+| mld | (a) | lab segment | 2026-09-27: source-(c), finding:mld | live lab (pending) | IPv6 multicast; no receiver observable is asserted |
+| raflood | (a) | lab segment | 2026-09-27: source-(c), finding:ra | live lab (pending) | IPv6 RA; no receiver observable is asserted |
+| lldpspoof | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:lldp | live lab (pending) | No LLDP decoder assertion |
+| glbp | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:glbp | live lab (pending) | No GLBP responder or wire assertion |
 
-### Ring-only caveat
+### Source-(c) caveat
 
-The ring fixture is not started by TestMain, and its containers have no
-crafter/decoder commands configured. It supplies no live assertion today.
-Running a future decoder test would establish self-consistency only; a vendor
-response still needs separate evidence.
+The live T1 run executes netpen inside FRR r1 on the shared `10.99.0.0/24`
+segment. The assertion compares netpen's output classes only. It does not
+inspect captured frames or any peer's protocol state. The separate ring fixture
+is not started by TestMain and still supplies no assertion. Vendor responses
+remain source-(b) evidence from T2.
 
 ### Live T1 prerequisites and limits
 
-The supplied FRR image does not include netpen. The operator must install a
-compatible binary in `netpen-t1-frr-r1` before running AE5 or AE6. The harness
-does not install it. AE6 passes `--duration 2s` and `--timeout 20s`; per-attack
-duration is currently parsed but not consumed by the CLI, so the timeout is
-the enforced bound. A timeout is a test failure, not a reproduced finding.
+The harness builds FRR r1 from the repository root with a static Linux netpen
+binary installed at `/usr/local/bin/netpen`. AE6 passes `--duration 2s` and
+`--timeout 20s`; per-attack duration is currently parsed but not consumed by
+the CLI, so the timeout is the enforced bound. A timeout is a test failure, not
+a reproduced finding.
 
 AE5 checks successful full-command completion with `--duration 3s`. A separate
 test checks static linking of the local release artifact. Neither test verifies
