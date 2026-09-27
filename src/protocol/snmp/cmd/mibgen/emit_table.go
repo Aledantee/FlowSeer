@@ -84,7 +84,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	}
 
 	for _, c := range cols {
-		f.Comment(c.GoName + " is the column " + c.Node.Name + " of table " + table.Name + ".")
+		f.Comment(c.GoName + " is " + c.Node.Name + ".")
 		for _, line := range splitDoc(c.Node.Description) {
 			f.Comment(line)
 		}
@@ -142,18 +142,10 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	// actually landed, read back through the Observed method.
 	observedWords := (len(cols) + 63) / 64
 	if key.raw() {
-		f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
-		f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
+		f.Comment(rowTypeName + " is one row of " + table.Name + "; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.")
 	} else {
-		f.Comment(rowTypeName + " is one row of " + table.Name + ". Key is the decoded INDEX; a")
-		f.Comment("suffix that does not match the declared INDEX leaves it zero, and")
-		f.Comment("[" + rowTypeName + ".KeyValid] reports which. The remaining fields are")
+		f.Comment(rowTypeName + " is one row of " + table.Name + "; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.")
 	}
-	f.Comment("populated only for columns the caller passed to Walk(). Use")
-	f.Comment("[" + rowTypeName + ".Observed] to tell a reported zero from a column the")
-	f.Comment("agent never answered.")
-	f.Comment("The zero value has no observed columns. Concurrent reads are safe;")
-	f.Comment("callers must synchronize mutation of the row or its referenced data.")
 	f.Type().Id(rowTypeName).StructFunc(func(g *jen.Group) {
 		if key.raw() {
 			g.Id("Index").Qual(snmpImport, "OID")
@@ -164,26 +156,17 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 		for _, c := range cols {
 			g.Id(c.FieldName).Add(c.Res.GoType.Clone())
 		}
-		g.Line()
-		g.Comment("observed carries one bit per column of this table, in")
-		g.Comment("column-OID order, set when the walk decoded a value for")
-		g.Comment("that column on this row.")
 		g.Id("observed").Index(jen.Lit(observedWords)).Uint64()
 	})
 
 	if !key.raw() {
-		f.Comment("KeyValid reports whether the row's instance suffix decoded as the declared")
-		f.Comment("INDEX. A false result means Key is zero and the agent's suffix did not")
-		f.Comment("have the declared shape; the row's columns are still populated.")
+		f.Comment("KeyValid reports whether Key decoded from the row index.")
 		f.Func().Params(jen.Id("r").Id(rowTypeName)).Id("KeyValid").Params().Bool().Block(
 			jen.Return(jen.Id("r").Dot("keyValid")),
 		)
 	}
 
-	f.Comment("Observed reports whether col returned a value for this row. A column")
-	f.Comment("the agent answered reads true even when the answer was zero or empty;")
-	f.Comment("a column that was requested but never landed, one that was not passed")
-	f.Comment("to Walk, and any column of another table all read false.")
+	f.Comment("Observed reports whether col supplied this row field, including a zero value.")
 	f.Func().Params(jen.Id("r").Id(rowTypeName)).Id("Observed").Params(
 		jen.Id("col").Qual(snmpImport, "AnyColumn"),
 	).Bool().Block(
@@ -194,14 +177,11 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 		)),
 	)
 
-	f.Comment(walkerTypeName + " streams selected columns of " + table.Name + ".")
-	f.Comment("The zero value is not usable; construct via " + tableName + ".Walk(ctx, sess, cols...).")
-	f.Comment("Iteration is single-use and single-consumer; Close and Err are safe concurrently.")
+	f.Comment(walkerTypeName + " streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.")
 	f.Type().Id(walkerTypeName).Struct(
 		jen.Qual(snmpImport, "TableWalker").Types(jen.Id(rowTypeName)),
 	)
 
-	f.Comment(descriptorTypeName + " is the singleton type of " + tableName + ".")
 	f.Type().Id(descriptorTypeName).Struct(
 		jen.Qual(snmpImport, "Table").Types(jen.Id(rowTypeName), jen.Op("*").Id(walkerTypeName)),
 	)
@@ -253,10 +233,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	// The descriptor names the indicator var emitIndicators writes at
 	// the end of the file; a method body may refer to a package-level
 	// var declared after it, so emission order does not matter here.
-	f.Comment("Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its")
-	f.Comment("change indicator when the MIB declares one, and the Go type of its row key.")
-	f.Comment("The descriptor is a value; hold it without the row or walker types to probe")
-	f.Comment("for the table or declare it as a dependency.")
+	f.Comment("Descriptor returns the table identity, change indicator, and row-key type.")
 	f.Func().Params(jen.Id(descriptorTypeName)).Id("Descriptor").Params().Qual(snmpImport, "TableDescriptor").Block(
 		jen.Return(jen.Qual(snmpImport, "TableDescriptor").Values(jen.DictFunc(func(d jen.Dict) {
 			d[jen.Id("Root")] = newOIDCall(tablePrefix)

@@ -108,6 +108,9 @@ baseline.
   68,290 B/op. Why: the parent plan forbids rebaselining this phase, and
   `bench-gate.sh:61-79` hard-fails significant `allocs/op` or `B/op`
   regressions.
+- Generated doc contracts are deliberately dense (one-line contracts and no
+  narration for columns, rows, walkers, enums, and descriptors). Why: repeated
+  boilerplate is material at 11,204 columns and 26,579 enum constants.
 
 ## Requirements
 

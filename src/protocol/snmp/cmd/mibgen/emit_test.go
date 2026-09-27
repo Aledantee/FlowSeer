@@ -533,5 +533,137 @@ func TestEmit_RejectsRemovedInlineShapes(t *testing.T) {
 		"if tw.cols[cell.Column].Key() == FakeSoloLastChange.Key()",
 		"if v == FakeModeValueOnly",
 		"switch v {",
+		"is the column fakeName of table fakeTable.",
+		"is the singleton type of FakeTable.",
+		"Values outside the named constants are preserved.",
+		"FakeStatusValueUp represents the SMI value up.",
+		"for an unrecognized value n.",
+		"FakeTableWalker streams selected columns of fakeTable.",
+		"Descriptor returns the table as a [snmp.TableDescriptor]",
+		"observed carries one bit per column of this table",
+		"populated only for columns the caller passed to Walk()",
 	)
+}
+
+// TestEmit_CompactCommentContracts asserts that table and enum contracts use
+// dense, single-line comments without narration.
+func TestEmit_CompactCommentContracts(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "fakemib_mib.go", out, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	typeDocs := make(map[string]string)
+	typeDocPresent := make(map[string]bool)
+	var observedField *ast.Field
+
+	valDocs := make(map[string]string)
+
+	methodDocs := make(map[string]string)
+	for _, decl := range file.Decls {
+		switch d := decl.(type) {
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					typeDocPresent[s.Name.Name] = s.Doc != nil || d.Doc != nil
+					doc := d.Doc
+					if s.Doc != nil {
+						doc = s.Doc
+					}
+					if doc != nil {
+						typeDocs[s.Name.Name] = strings.TrimSpace(doc.Text())
+					}
+					if st, ok := s.Type.(*ast.StructType); ok && s.Name.Name == "FakeTableRow" {
+						for _, field := range st.Fields.List {
+							for _, name := range field.Names {
+								if name.Name == "observed" {
+									observedField = field
+								}
+							}
+						}
+					}
+				case *ast.ValueSpec:
+					doc := d.Doc
+					if s.Doc != nil {
+						doc = s.Doc
+					}
+					if doc != nil {
+						for _, name := range s.Names {
+							valDocs[name.Name] = strings.TrimSpace(doc.Text())
+						}
+					}
+				}
+			}
+		case *ast.FuncDecl:
+			if d.Recv != nil && len(d.Recv.List) > 0 {
+				var recvName string
+				switch rt := d.Recv.List[0].Type.(type) {
+				case *ast.Ident:
+					recvName = rt.Name
+				case *ast.StarExpr:
+					if id, ok := rt.X.(*ast.Ident); ok {
+						recvName = id.Name
+					}
+				}
+				key := recvName + "." + d.Name.Name
+				if d.Doc != nil {
+					methodDocs[key] = strings.TrimSpace(d.Doc.Text())
+				}
+			}
+		}
+	}
+
+	wantValDocs := map[string]string{
+		"FakeName":          "FakeName is fakeName.\nName.",
+		"FakeStatusValueUp": "FakeStatusValueUp is up.",
+	}
+	for name, want := range wantValDocs {
+		if got := valDocs[name]; got != want {
+			t.Errorf("val %s doc = %q, want %q", name, got, want)
+		}
+	}
+
+	wantTypeDocs := map[string]string{
+		"FakeTableRow":           "FakeTableRow is one row of fakeTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.",
+		"FakeUnresolvedTableRow": "FakeUnresolvedTableRow is one row of fakeUnresolvedTable; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.",
+		"FakeTableWalker":        "FakeTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.",
+		"FakeStatusValue":        "FakeStatusValue is the SMI enum fakeStatus (inline).\nAn enum-typed scalar.\n\nUnknown values are valid; reads are safe concurrently.",
+	}
+	for name, want := range wantTypeDocs {
+		if got := typeDocs[name]; got != want {
+			t.Errorf("type %s doc = %q, want %q", name, got, want)
+		}
+	}
+
+	if typeDocPresent["fakeTableT"] {
+		t.Errorf("unexported singleton type fakeTableT has doc %q, want none", typeDocs["fakeTableT"])
+	}
+
+	if observedField == nil {
+		t.Fatal("FakeTableRow missing observed field")
+	}
+	if observedField.Doc != nil || observedField.Comment != nil {
+		t.Errorf("unexported observed field has doc/comment, want none")
+	}
+
+	wantMethodDocs := map[string]string{
+		"FakeTableRow.KeyValid":  "KeyValid reports whether Key decoded from the row index.",
+		"FakeTableRow.Observed":  "Observed reports whether col supplied this row field, including a zero value.",
+		"fakeTableT.Descriptor":  "Descriptor returns the table identity, change indicator, and row-key type.",
+		"FakeStatusValue.String": "String returns the SMI label, or FakeStatusValue(n) for an unknown value.",
+	}
+	for method, want := range wantMethodDocs {
+		if got := methodDocs[method]; got != want {
+			t.Errorf("method %s doc = %q, want %q", method, got, want)
+		}
+	}
 }

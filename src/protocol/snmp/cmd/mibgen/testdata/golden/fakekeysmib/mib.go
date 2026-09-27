@@ -23,7 +23,7 @@ func (FakeKeyIndex) HomeTable() snmp.TableDescriptor {
 	return FakeKeyTable.Descriptor()
 }
 
-// FakeKeyName is the column fakeKeyName of table fakeKeyTable.
+// FakeKeyName is fakeKeyName.
 // Name.
 var (
 	FakeKeyName         = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
@@ -48,48 +48,28 @@ func decodeFakeKeyTableKey(idx snmp.OID) (FakeKeyTableKey, bool) {
 	return FakeKeyTableKey{FakeKeyIndex: FakeKeyIndex(parts[0].Integer)}, true
 }
 
-// FakeKeyTableRow is one row of fakeKeyTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [FakeKeyTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [FakeKeyTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// FakeKeyTableRow is one row of fakeKeyTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeKeyTableRow struct {
 	Key         FakeKeyTableKey
 	keyValid    bool
 	FakeKeyName string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r FakeKeyTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r FakeKeyTableRow) Observed(col snmp.AnyColumn) bool {
 	return snmp.ColumnObserved(r.observed[:], fakeKeyTableColumns, col)
 }
 
-// FakeKeyTableWalker streams selected columns of fakeKeyTable.
-// The zero value is not usable; construct via FakeKeyTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// FakeKeyTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type FakeKeyTableWalker struct {
 	snmp.TableWalker[FakeKeyTableRow]
 }
-
-// fakeKeyTableT is the singleton type of FakeKeyTable.
 type fakeKeyTableT struct {
 	snmp.Table[FakeKeyTableRow, *FakeKeyTableWalker]
 }
@@ -107,10 +87,7 @@ var FakeKeyTable = fakeKeyTableT{Table: snmp.NewTable("fakeKeyTable", fakeKeyTab
 	return &FakeKeyTableWalker{TableWalker: tw}
 })}
 
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (fakeKeyTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "FakeKeyTableKey",
