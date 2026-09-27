@@ -871,6 +871,9 @@ onUnmounted(() => {
               <div class="section-heading">
                 <div>
                   <h2>Site connections</h2>
+                  <p class="topology-legend">
+                    <i aria-hidden="true"></i>Assumed link, not yet discovered
+                  </p>
                 </div>
               </div>
               <div class="topology-grid">
@@ -889,12 +892,16 @@ onUnmounted(() => {
                       )"
                       :key="device.id"
                       :class="['node', device.health.toLowerCase()]"
+                      :aria-label="`${device.name}, ${device.health}`"
                       @click="openDevice(device)"
                     >
                       <AppIcon name="devices" /><strong>{{
                         device.name
                       }}</strong
-                      ><StatusBadge :status="device.health" />
+                      ><StatusBadge
+                        v-if="device.health !== 'Healthy'"
+                        :status="device.health"
+                      />
                     </button>
                     <div
                       class="node-branch"
@@ -912,12 +919,16 @@ onUnmounted(() => {
                         )"
                         :key="device.id"
                         :class="['node', device.health.toLowerCase()]"
+                        :aria-label="`${device.name}, ${device.health}`"
                         @click="openDevice(device)"
                       >
                         <AppIcon name="access-point" /><strong>{{
                           device.name
                         }}</strong
-                        ><StatusBadge :status="device.health" />
+                        ><StatusBadge
+                          v-if="device.health !== 'Healthy'"
+                          :status="device.health"
+                        />
                       </button>
                     </div>
                   </div>

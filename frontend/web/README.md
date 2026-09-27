@@ -59,9 +59,9 @@ attention**), and a keyboard-accessible details dialog. The metric cards appear
 only on the Dashboard; other pages state the scope and attention count in the
 heading. Sites opens the inventory for a location.
 Topology draws each site's gateway and core switch with its access points side
-by side beneath them. The links are illustrative until topology is discovered,
-and the page says so; each node carries a status badge and opens the same
-device details. Traffic updates automatically; rows retain their order as values change.
+by side beneath them. Links are drawn dashed and a legend marks them as assumed until topology is
+discovered. Only nodes that are not healthy carry a status badge, so a degraded
+or offline device stands out; every node opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
 desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.

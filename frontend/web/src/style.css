@@ -848,8 +848,8 @@ td small {
   content: '';
   position: absolute;
   height: 24px;
-  width: 1px;
-  background: var(--connection);
+  width: 0;
+  border-left: 1px dashed var(--connection);
   top: -25px;
   left: 50%;
 }
@@ -864,6 +864,17 @@ td small {
 }
 .node .status {
   margin-left: auto;
+}
+.topology-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--muted);
+}
+.topology-legend i {
+  width: 24px;
+  border-top: 1px dashed var(--connection);
 }
 /* Access points hang off the core switch side by side; a drawn chain would
    claim they are cabled through each other. */
@@ -880,17 +891,17 @@ td small {
   top: -25px;
   left: calc(50% / var(--branches));
   right: calc(50% / var(--branches));
-  height: 1px;
-  background: var(--connection);
+  height: 0;
+  border-top: 1px dashed var(--connection);
 }
 .node-branch::after {
   content: '';
   position: absolute;
   top: -49px;
   left: 50%;
-  width: 1px;
+  width: 0;
   height: 24px;
-  background: var(--connection);
+  border-left: 1px dashed var(--connection);
 }
 .node-branch .node {
   flex: 1;
@@ -904,9 +915,9 @@ td small {
   position: absolute;
   top: -25px;
   left: 50%;
-  width: 1px;
+  width: 0;
   height: 24px;
-  background: var(--connection);
+  border-left: 1px dashed var(--connection);
 }
 .node-branch .node .status {
   margin-left: 0;
