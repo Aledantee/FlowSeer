@@ -60,6 +60,7 @@ interface Move {
   from: string
   to: string
   observed: boolean
+  reverted: boolean
 }
 const move = ref<Move>()
 const detail = ref<HTMLDialogElement>()
@@ -340,7 +341,7 @@ async function openDevice(device: Device) {
 let moveTimer: ReturnType<typeof setTimeout> | undefined
 // A move is reported as done only once the fixture observes the device at its
 // new site; until then the device stays where it was.
-function startMove(device: Device, siteId: string) {
+function startMove(device: Device, siteId: string, reverted = false) {
   const updated = moveDevice(device, siteId)
   clearTimeout(moveTimer)
   message.value = ''
@@ -350,6 +351,7 @@ function startMove(device: Device, siteId: string) {
     from: device.siteId,
     to: siteId,
     observed: false,
+    reverted,
   }
   moveTimer = setTimeout(() => {
     fleet.value = fleet.value.map((item) =>
@@ -366,7 +368,15 @@ function undoMove() {
   const last = move.value
   const device = fleet.value.find((item) => item.id === last?.deviceId)
   if (!last || !device) return
-  startMove(device, last.from)
+  startMove(device, last.from, true)
+  // The Undo button disappears while the reversal is pending, so focus moves
+  // to the notice that reports it instead of falling back to the page.
+  void nextTick(() => notice.value?.focus())
+}
+function revealMove(event: Event) {
+  const details = event.target
+  if (details instanceof HTMLDetailsElement && details.open)
+    details.scrollIntoView({ block: 'nearest' })
 }
 function dismissNotice() {
   message.value = ''
@@ -565,18 +575,27 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="notice-region" role="status">
-            <div v-if="message || move" ref="notice" class="notice">
+            <div
+              v-if="message || move"
+              ref="notice"
+              class="notice"
+              tabindex="-1"
+            >
               <span v-if="message">{{ message }}</span>
               <span v-else-if="move && !move.observed"
                 >Moving {{ move.name }} from {{ siteName(move.from) }} to
                 {{ siteName(move.to) }}…</span
+              >
+              <span v-else-if="move?.reverted"
+                >Move reverted. {{ move.name }} is back at
+                {{ siteName(move.to) }}.</span
               >
               <span v-else-if="move"
                 >{{ move.name }} is now at {{ siteName(move.to) }} (was
                 {{ siteName(move.from) }}).</span
               >
               <button
-                v-if="!message && move?.observed"
+                v-if="!message && move?.observed && !move.reverted"
                 class="notice-action"
                 @click="undoMove"
               >
@@ -1006,9 +1025,13 @@ onUnmounted(() => {
             </div>
           </dl>
         </section>
-        <details class="device-move">
+        <details class="device-move" @toggle="revealMove">
           <summary>Move to another site</summary>
-          <form @submit.prevent="reassign">
+          <p v-if="allowedSites.length < 2">
+            {{ tenantName(selected.siteId) }} has no other site to move this
+            device to.
+          </p>
+          <form v-else @submit.prevent="reassign">
             <p>
               A device belongs to one site. Moving it replaces its current
               assignment.

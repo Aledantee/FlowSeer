@@ -20,7 +20,9 @@ Select **Berlin Mitte**, then search for `gateway`. Open the device, expand
 the Berlin scope once the move is observed, because the assignment replaces its
 previous site. Until then a notice at the bottom of the page reads "Moving…"
 and the device stays where it was; the confirmed notice names both sites and
-offers **Undo**. This demo permits moves within the owning tenant.
+offers **Undo**. Undoing reports **Move reverted** once the device is back
+and keeps keyboard focus on the notice. A tenant with a single site says so
+instead of offering a move with nowhere to go. This demo permits moves within the owning tenant.
 Reloading restores fixtures; URL scope and filters survive reloads.
 A link that names only a site gains that site's tenant, so the breadcrumb never
 reads **All tenants** while one customer's site is in view, and the Devices

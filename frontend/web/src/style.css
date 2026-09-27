@@ -730,6 +730,10 @@ td small {
 .notice > span {
   flex: 1;
 }
+.notice:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
 .notice button {
   border: 0;
   background: none;
@@ -1095,6 +1099,7 @@ td small {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
+.device-move > p,
 .device-move form p {
   font-size: 12px;
   margin: 0 0 var(--space-4);
