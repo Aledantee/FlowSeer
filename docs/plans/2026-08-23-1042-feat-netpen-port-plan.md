@@ -5,6 +5,7 @@ date: 2026-08-23
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+compound: docs/solutions/conventions/a-tag-gated-container-tier-lacking-the-binary-is-silently-inert.md
 execution: code
 review: accept
 ---
