@@ -4,6 +4,7 @@ import AppIcon from './components/AppIcon.vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import {
+  UiCard,
   UiScrollArea,
   UiSegmentedMeter,
   UiStatusBadge,
@@ -71,77 +72,118 @@ const roles = computed(() => {
 </script>
 
 <template>
-  <div class="dashboard">
-    <section class="dash-panel dash-traffic" aria-labelledby="traffic-title">
-      <header class="dash-heading">
-        <div>
-          <h2 id="traffic-title">Traffic, last 24 hours</h2>
-          <p>
-            Aggregate device throughput · peak
-            <strong>{{ peak.mbps }} Mbps</strong> at
-            {{ String(peak.hour).padStart(2, '0') }}:00
-          </p>
+  <div
+    class="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-[1150px]:grid-cols-1 gap-6 pb-8"
+  >
+    <UiCard
+      as="section"
+      class="max-[800px]:hidden overflow-hidden min-w-0"
+      aria-labelledby="traffic-title"
+    >
+      <template #header>
+        <div class="flex items-start justify-between gap-3 w-full">
+          <div>
+            <h2
+              id="traffic-title"
+              class="text-base font-semibold text-foreground"
+            >
+              Traffic, last 24 hours
+            </h2>
+            <p class="text-xs text-muted-foreground mt-1">
+              Aggregate device throughput · peak
+              <strong class="text-foreground font-semibold"
+                >{{ peak.mbps }} Mbps</strong
+              >
+              at {{ String(peak.hour).padStart(2, '0') }}:00
+            </p>
+          </div>
+          <span class="text-xs text-muted-foreground">Mbps</span>
         </div>
-        <span class="dash-unit">Mbps</span>
-      </header>
+      </template>
       <TrafficChart
         :points="history"
         :label="`Hourly aggregate traffic for ${site ? site.name : 'all sites in scope'}`"
       />
-    </section>
+    </UiCard>
 
-    <section class="dash-panel dash-health" aria-labelledby="health-title">
-      <header class="dash-heading">
+    <UiCard
+      as="section"
+      class="overflow-hidden min-w-0"
+      aria-labelledby="health-title"
+    >
+      <template #header>
         <div>
-          <h2 id="health-title">Device health</h2>
-          <p>{{ scope.length }} devices monitored</p>
+          <h2 id="health-title" class="text-base font-semibold text-foreground">
+            Device health
+          </h2>
+          <p class="text-xs text-muted-foreground mt-1">
+            {{ scope.length }} devices monitored
+          </p>
         </div>
-      </header>
-      <div class="dash-body">
+      </template>
+      <div>
         <UiSegmentedMeter :counts="counts" legend />
-        <h3 class="dash-subheading">Needs attention</h3>
-        <ul v-if="attention.length" class="dash-list">
+        <h3 class="text-xs font-medium text-muted-foreground mt-5 mb-1.5">
+          Needs attention
+        </h3>
+        <ul v-if="attention.length" class="list-none m-0 p-0">
           <li v-for="device in attention" :key="device.id">
-            <AppLink class="dash-row" :to="deviceTo(device.id)">
-              <span
-                ><strong>{{ device.name }}</strong
-                ><small
-                  >{{ device.kind
-                  }}<template v-if="!site">
+            <AppLink
+              class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
+              :to="deviceTo(device.id)"
+            >
+              <span>
+                <strong class="text-xs font-medium text-foreground block">{{
+                  device.name
+                }}</strong>
+                <small class="text-2xs text-muted-foreground mt-0.5 block">
+                  {{ device.kind }}
+                  <template v-if="!site">
                     ·
                     {{
                       sites.find((s) => s.id === device.siteId)?.name
                     }}</template
-                  ></small
-                ></span
-              >
+                  >
+                </small>
+              </span>
               <UiStatusBadge :status="device.health" />
             </AppLink>
           </li>
         </ul>
-        <p v-else class="dash-empty">Every device in this scope is healthy.</p>
+        <p v-else class="text-xs text-muted-foreground">
+          Every device in this scope is healthy.
+        </p>
       </div>
-    </section>
+    </UiCard>
 
-    <section
+    <UiCard
       v-if="!site"
-      class="dash-panel dash-sites"
+      as="section"
+      class="overflow-hidden min-w-0"
       aria-labelledby="sites-title"
     >
-      <header class="dash-heading">
+      <template #header>
         <div>
-          <h2 id="sites-title">
-            Sites <span class="dash-count">{{ sites.length }}</span>
+          <h2 id="sites-title" class="text-base font-semibold text-foreground">
+            Sites
+            <span
+              class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
+              >{{ sites.length }}</span
+            >
           </h2>
-          <p>Select a site to focus the dashboard on it.</p>
+          <p class="text-xs text-muted-foreground mt-1">
+            Select a site to focus the dashboard on it.
+          </p>
         </div>
-      </header>
+      </template>
       <UiScrollArea axis="x" viewport-class="table-scroll">
         <UiTable>
           <UiTableHeader>
             <UiTableRow>
               <UiTableHead>Site</UiTableHead>
-              <UiTableHead class="dash-health-col">Health</UiTableHead>
+              <UiTableHead class="w-[28%] max-[800px]:hidden"
+                >Health</UiTableHead
+              >
               <UiTableHead align="numeric">Devices</UiTableHead>
               <UiTableHead align="numeric">Clients</UiTableHead>
               <UiTableHead align="numeric">Traffic</UiTableHead>
@@ -151,15 +193,21 @@ const roles = computed(() => {
           <UiTableBody>
             <UiTableRow v-for="rollup in rollups" :key="rollup.site.id">
               <UiTableCell>
-                <AppLink class="dash-site" :to="siteTo(rollup.site.id)">
-                  <strong>{{ rollup.site.name }}</strong>
-                  <small
-                    >{{ rollup.site.location }} ·
-                    {{ tenantName(rollup.site.id) }}</small
+                <AppLink
+                  class="inline-block text-left group"
+                  :to="siteTo(rollup.site.id)"
+                >
+                  <strong
+                    class="font-medium text-foreground group-hover:text-accent-foreground block"
+                    >{{ rollup.site.name }}</strong
                   >
+                  <small class="text-2xs text-muted-foreground block">
+                    {{ rollup.site.location }} ·
+                    {{ tenantName(rollup.site.id) }}
+                  </small>
                 </AppLink>
               </UiTableCell>
-              <UiTableCell class="dash-health-col">
+              <UiTableCell class="w-[28%] max-[800px]:hidden">
                 <UiSegmentedMeter :counts="rollup.health" />
               </UiTableCell>
               <UiTableCell align="numeric">
@@ -170,12 +218,13 @@ const roles = computed(() => {
                 }}
               </UiTableCell>
               <UiTableCell align="numeric">{{ rollup.clients }}</UiTableCell>
-              <UiTableCell align="numeric" class="traffic">
-                {{ rollup.throughput }} <span>Mbps</span>
+              <UiTableCell align="numeric">
+                {{ rollup.throughput }}
+                <span class="text-2xs text-muted-foreground">Mbps</span>
               </UiTableCell>
               <UiTableCell>
                 <AppLink
-                  class="icon-button"
+                  class="inline-flex items-center justify-center p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground"
                   :aria-label="`Focus on ${rollup.site.name}`"
                   :to="siteTo(rollup.site.id)"
                 >
@@ -186,56 +235,101 @@ const roles = computed(() => {
           </UiTableBody>
         </UiTable>
       </UiScrollArea>
-    </section>
+    </UiCard>
 
-    <section v-else class="dash-panel dash-sites" aria-labelledby="roles-title">
-      <header class="dash-heading">
-        <div>
-          <h2 id="roles-title">{{ site.name }}</h2>
-          <p>{{ site.location }} · {{ tenantName(site.id) }}</p>
+    <UiCard
+      v-else
+      as="section"
+      class="overflow-hidden min-w-0"
+      aria-labelledby="roles-title"
+    >
+      <template #header>
+        <div class="flex items-start justify-between gap-3 w-full">
+          <div>
+            <h2
+              id="roles-title"
+              class="text-base font-semibold text-foreground"
+            >
+              {{ site.name }}
+            </h2>
+            <p class="text-xs text-muted-foreground mt-1">
+              {{ site.location }} · {{ tenantName(site.id) }}
+            </p>
+          </div>
+          <AppLink
+            class="text-xs text-accent-foreground p-1 hover:underline"
+            :to="siteTo('')"
+            >All sites</AppLink
+          >
         </div>
-        <AppLink class="dash-link" :to="siteTo('')">All sites</AppLink>
-      </header>
-      <div class="dash-roles">
-        <div v-for="[kind, members] in roles" :key="kind" class="dash-role">
-          <h3 class="dash-subheading">{{ kind }}</h3>
+      </template>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-x-6">
+        <div v-for="[kind, members] in roles" :key="kind">
+          <h3 class="text-xs font-medium text-muted-foreground mt-2 mb-1.5">
+            {{ kind }}
+          </h3>
           <AppLink
             v-for="device in members"
             :key="device.id"
-            class="dash-row"
+            class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
             :to="deviceTo(device.id)"
           >
-            <span
-              ><strong>{{ device.name }}</strong
-              ><small
-                >{{ device.address
-                }}<template v-if="device.clients">
+            <span>
+              <strong class="text-xs font-medium text-foreground block">{{
+                device.name
+              }}</strong>
+              <small class="text-2xs text-muted-foreground mt-0.5 block">
+                {{ device.address }}
+                <template v-if="device.clients">
                   · {{ device.clients }} clients</template
-                ></small
-              ></span
-            >
+                >
+              </small>
+            </span>
             <UiStatusBadge :status="device.health" />
           </AppLink>
         </div>
       </div>
-    </section>
+    </UiCard>
 
-    <section class="dash-panel dash-events" aria-labelledby="events-title">
-      <header class="dash-heading">
+    <UiCard
+      as="section"
+      class="overflow-hidden min-w-0"
+      aria-labelledby="events-title"
+    >
+      <template #header>
         <div>
-          <h2 id="events-title">Recent events</h2>
-          <p>Last 24 hours in this scope</p>
+          <h2 id="events-title" class="text-base font-semibold text-foreground">
+            Recent events
+          </h2>
+          <p class="text-xs text-muted-foreground mt-1">
+            Last 24 hours in this scope
+          </p>
         </div>
-      </header>
-      <ol v-if="feed.length" class="dash-feed">
-        <li v-for="event in feed" :key="event.id" :class="event.severity">
-          <i aria-hidden="true"></i>
+      </template>
+      <ol v-if="feed.length" class="list-none m-0 p-0">
+        <li
+          v-for="event in feed"
+          :key="event.id"
+          class="flex gap-3 py-2.5 border-t border-border first:border-t-0"
+        >
+          <i
+            aria-hidden="true"
+            class="shrink-0 w-2 h-2 mt-1 rounded-full"
+            :class="{
+              'bg-warning-border': event.severity === 'warning',
+              'bg-danger-border': event.severity === 'critical',
+              'bg-info-border':
+                event.severity !== 'warning' && event.severity !== 'critical',
+            }"
+          />
           <div>
-            <strong>{{ event.summary }}</strong>
-            <small>
+            <strong class="text-xs font-medium text-foreground block">{{
+              event.summary
+            }}</strong>
+            <small class="text-2xs text-muted-foreground mt-0.5 block">
               <AppLink
                 v-if="devicesById.get(event.deviceId)"
-                class="dash-inline"
+                class="text-accent-foreground hover:underline"
                 :to="deviceTo(event.deviceId)"
               >
                 {{ devicesById.get(event.deviceId)?.name }}
@@ -246,9 +340,9 @@ const roles = computed(() => {
           </div>
         </li>
       </ol>
-      <p v-else class="dash-empty">No events in the last 24 hours.</p>
-    </section>
+      <p v-else class="text-xs text-muted-foreground">
+        No events in the last 24 hours.
+      </p>
+    </UiCard>
   </div>
 </template>
-
-<style src="./dashboard.css"></style>
