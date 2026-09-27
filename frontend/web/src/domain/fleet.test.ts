@@ -6,6 +6,7 @@ import {
   devices,
   downlinks,
   linksOf,
+  uplinkOf,
 } from './fleet'
 describe('operator fleet scope', () => {
   it('includes descendants when selecting a parent tenant', () => {
@@ -59,5 +60,12 @@ describe('operator fleet scope', () => {
     expect(
       linksOf(cologne).find((link) => link.targetId === 'dev-16')?.health,
     ).toBe('Offline')
+  })
+  it('drops active uplink when an access point is reassigned across sites', () => {
+    const ap = devices.find((device) => device.name === 'berlin-ap-01')
+    if (!ap) throw new Error('Missing fixture')
+    expect(uplinkOf(devices, ap)?.name).toBe('berlin-sw-01')
+    const reassigned = moveDevice(ap, 'hamburg')
+    expect(uplinkOf(devices, reassigned)).toBeUndefined()
   })
 })
