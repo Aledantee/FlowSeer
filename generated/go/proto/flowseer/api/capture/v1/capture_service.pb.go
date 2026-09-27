@@ -1148,7 +1148,9 @@ func (x *TailGap) ClearLastDroppedSequence() {
 type TailGap_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// How many chunks were dropped. A gap reports at least one.
+	// How many chunks were dropped. Must be present, and at least one: a gap
+	// that reports no dropped chunk is not a gap. Without the presence rule the
+	// count bound is skipped for an absent field, so an empty gap would validate.
 	DroppedChunks *uint64
 	// How many packets those chunks carried. Zero means every dropped chunk
 	// carried only stream markers and no packets.
@@ -1589,9 +1591,10 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\x1e\n" +
 	"\x1cDeleteCaptureSessionResponse\"q\n" +
 	"\x19TailCaptureSessionRequest\x12T\n" +
-	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\xce\x01\n" +
-	"\aTailGap\x12.\n" +
-	"\x0edropped_chunks\x18\x01 \x01(\x04B\a\xbaH\x042\x02(\x01R\rdroppedChunks\x12'\n" +
+	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"\xd1\x01\n" +
+	"\aTailGap\x121\n" +
+	"\x0edropped_chunks\x18\x01 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\rdroppedChunks\x12'\n" +
 	"\x0fdropped_packets\x18\x02 \x01(\x04R\x0edroppedPackets\x124\n" +
 	"\x16first_dropped_sequence\x18\x03 \x01(\x04R\x14firstDroppedSequence\x122\n" +
 	"\x15last_dropped_sequence\x18\x04 \x01(\x04R\x13lastDroppedSequenceX\x01\"\xcf\x01\n" +

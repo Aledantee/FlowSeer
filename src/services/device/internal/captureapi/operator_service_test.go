@@ -701,6 +701,8 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 	// overlap, in order: that is what an in-band gap buys over a silent drop.
 	var expected uint64 = 1
 	gaps := 0
+	lastWasGap := false
+	var lastGapLast uint64
 	for stream.Receive() {
 		msg := stream.Msg()
 		switch msg.WhichBody() {
@@ -710,6 +712,7 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 				t.Fatalf("chunk starts at %d, want %d — a hole opened in the tail", c.GetFirstSequence(), expected)
 			}
 			expected += uint64(len(c.GetPackets()))
+			lastWasGap = false
 		case operatorcapturev1.TailCaptureSessionResponse_Gap_case:
 			gaps++
 			g := msg.GetGap()
@@ -723,6 +726,8 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 				t.Fatalf("gap range inverted: %+v", g)
 			}
 			expected = g.GetLastDroppedSequence() + 1
+			lastWasGap = true
+			lastGapLast = g.GetLastDroppedSequence()
 		default:
 			t.Fatalf("unexpected tail frame: %+v", msg)
 		}
@@ -735,6 +740,44 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 	}
 	if gaps == 0 {
 		t.Fatal("expected at least one in-band gap when the consumer lagged behind a flood")
+	}
+	// The paused consumer never drains, so the final chunk is dropped and its
+	// loss must be the last frame before EOF — a terminal flush, not a silent
+	// EOF over the lost final packets.
+	if !lastWasGap || lastGapLast != total {
+		t.Fatalf("last frame before EOF was not a terminal gap covering the final sequence (lastWasGap=%v lastGapLast=%d, want a gap reaching %d)", lastWasGap, lastGapLast, total)
+	}
+}
+
+func TestTailGap_SchemaBoundRejectsEmptyGap(t *testing.T) {
+	// R1 acceptance: a gap carrying real counts validates on the wire.
+	valid := operatorcapturev1.TailCaptureSessionResponse_builder{
+		Gap: operatorcapturev1.TailGap_builder{
+			DroppedChunks:        proto.Uint64(1),
+			DroppedPackets:       proto.Uint64(256),
+			FirstDroppedSequence: proto.Uint64(100),
+			LastDroppedSequence:  proto.Uint64(355),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(valid); err != nil {
+		t.Fatalf("a gap of 1 chunk / 256 packets should validate: %v", err)
+	}
+
+	// An empty gap must be rejected. Without the presence rule the count bound
+	// is skipped for the absent field, so a zero-drop gap would slip through.
+	empty := operatorcapturev1.TailCaptureSessionResponse_builder{
+		Gap: operatorcapturev1.TailGap_builder{}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(empty); err == nil {
+		t.Fatal("an empty gap must fail validation: a gap reports at least one dropped chunk")
+	}
+
+	// A gap that explicitly claims zero dropped chunks is rejected by the bound.
+	zero := operatorcapturev1.TailCaptureSessionResponse_builder{
+		Gap: operatorcapturev1.TailGap_builder{DroppedChunks: proto.Uint64(0)}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(zero); err == nil {
+		t.Fatal("a gap claiming zero dropped chunks must fail validation")
 	}
 }
 

@@ -153,15 +153,29 @@ func testPacketRecord(seq uint64, data []byte) *netcapturev1.PacketRecord {
 	}.Build()
 }
 
-// tailTestChunk builds a chunk of the given packet count starting at firstSeq.
+// tailTestSessionRef is a valid capture session ref for broadcaster fixtures.
 // The broadcaster routes by the session argument, not by the chunk's own ref,
-// so these fixtures carry no session.
+// but a fixture is still a claim the wire would carry the message, so it names
+// a session the schema accepts.
+func tailTestSessionRef() *modelcapturev1.CaptureSessionGlobalRef {
+	return modelcapturev1.CaptureSessionGlobalRef_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdge1ID)}.Build(),
+		}.Build(),
+		CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{
+			Id: proto.String("0192e6a0-0000-7000-8000-0000000000b0"),
+		}.Build(),
+	}.Build()
+}
+
+// tailTestChunk builds a chunk of the given packet count starting at firstSeq.
 func tailTestChunk(firstSeq uint64, packets int) *modelcapturev1.CapturePacketChunk {
 	recs := make([]*netcapturev1.PacketRecord, packets)
 	for i := range recs {
 		recs[i] = testPacketRecord(firstSeq+uint64(i), []byte("p"))
 	}
 	return modelcapturev1.CapturePacketChunk_builder{
+		Session:       tailTestSessionRef(),
 		FirstSequence: proto.Uint64(firstSeq),
 		Packets:       recs,
 	}.Build()
@@ -174,6 +188,11 @@ const tailBufferSize = 128
 func TestBroadcaster_LaggingSubscriberRecordsGap(t *testing.T) {
 	b := captureapi.NewBroadcaster()
 	const session = "sess-gap"
+
+	// A fixture is a claim the wire would carry this message.
+	if err := protovalidate.Validate(tailTestChunk(1, 1)); err != nil {
+		t.Fatalf("tail chunk fixture is not a message the wire would accept: %v", err)
+	}
 
 	sub, unsub := b.Subscribe(session)
 	defer unsub()

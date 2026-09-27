@@ -120,8 +120,13 @@ message TailCaptureSessionRequest {
 // in. The sequence bounds let a caller line the gap up against the downloaded
 // pcapng artifact.
 local message TailGap {
-  // How many chunks were dropped. A gap reports at least one.
-  uint64 dropped_chunks = 1 [(buf.validate.field).uint64.gte = 1];
+  // How many chunks were dropped. Must be present, and at least one: a gap
+  // that reports no dropped chunk is not a gap. Without the presence rule the
+  // count bound is skipped for an absent field, so an empty gap would validate.
+  uint64 dropped_chunks = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
   // How many packets those chunks carried. Zero means every dropped chunk
   // carried only stream markers and no packets.
   uint64 dropped_packets = 2;
