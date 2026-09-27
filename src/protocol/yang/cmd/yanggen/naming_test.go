@@ -36,7 +36,6 @@ func TestNameScopeClash(t *testing.T) {
 // one ancestor segment each ("InterfaceConfig" and "SubinterfaceConfig").
 func TestFairGrowthGrowsClashingNames(t *testing.T) {
 	node1 := &claimantEntity{
-		id:         "node1",
 		candidates: candidateSuffixes([]string{"Interface", "Config"}),
 		getSymbols: func(base string) []claimSpec {
 			return []claimSpec{
@@ -46,7 +45,6 @@ func TestFairGrowthGrowsClashingNames(t *testing.T) {
 		},
 	}
 	node2 := &claimantEntity{
-		id:         "node2",
 		candidates: candidateSuffixes([]string{"Subinterface", "Config"}),
 		getSymbols: func(base string) []claimSpec {
 			return []claimSpec{
@@ -76,44 +74,51 @@ func TestFairGrowthGrowsClashingNames(t *testing.T) {
 	}
 }
 
-// TestFairGrowthReversedOrderByteIdentity asserts that resolving entities in
-// forward order vs reverse order yields the exact same byte-identical assigned names.
+// TestFairGrowthReversedOrderByteIdentity asserts that when growth runs
+// out of segments, the final claim order, not the order entities arrive in,
+// decides who keeps the clean name. A list "server" wants ServersServer plus
+// ServersServerSchema; a sibling container "server-schema" wants the struct
+// name ServersServerSchema. Both are at full length, so one must take the
+// hash suffix, and struct types rank before companion schema vars.
 func TestFairGrowthReversedOrderByteIdentity(t *testing.T) {
 	makeEntities := func() (*claimantEntity, *claimantEntity) {
-		n1 := &claimantEntity{
-			id:         "node1",
-			candidates: candidateSuffixes([]string{"Interface", "Config"}),
+		server := &claimantEntity{
+			candidates: candidateSuffixes([]string{"Servers", "Server"}),
 			getSymbols: func(base string) []claimSpec {
 				return []claimSpec{
-					{wanted: base, kind: kindStruct, depth: 2, tieBreak: "/interface/config", discriminator: "shape1"},
-					{wanted: base + "Schema", kind: kindSchema, depth: 2, tieBreak: "/interface/config", discriminator: "schema:shape1"},
+					{wanted: base, kind: kindStruct, depth: 2, tieBreak: "/servers/server", discriminator: "shape:server"},
+					{wanted: base + "Schema", kind: kindSchema, depth: 2, tieBreak: "/servers/server", discriminator: "schema:server"},
 				}
 			},
 		}
-		n2 := &claimantEntity{
-			id:         "node2",
-			candidates: candidateSuffixes([]string{"Subinterface", "Config"}),
+		serverSchema := &claimantEntity{
+			candidates: candidateSuffixes([]string{"Servers", "ServerSchema"}),
 			getSymbols: func(base string) []claimSpec {
 				return []claimSpec{
-					{wanted: base, kind: kindStruct, depth: 2, tieBreak: "/subinterface/config", discriminator: "shape2"},
-					{wanted: base + "Schema", kind: kindSchema, depth: 2, tieBreak: "/subinterface/config", discriminator: "schema:shape2"},
+					{wanted: base, kind: kindStruct, depth: 2, tieBreak: "/servers/server-schema", discriminator: "shape:server-schema"},
+					{wanted: base + "Schema", kind: kindSchema, depth: 2, tieBreak: "/servers/server-schema", discriminator: "schema:server-schema"},
 				}
 			},
 		}
-		return n1, n2
+		return server, serverSchema
 	}
 
-	fwd1, fwd2 := makeEntities()
-	fwdScope := resolveFairGrowth([]*claimantEntity{fwd1, fwd2})
-
-	rev1, rev2 := makeEntities()
-	revScope := resolveFairGrowth([]*claimantEntity{rev2, rev1})
-
-	for _, key := range []string{"shape1", "shape2", "schema:shape1", "schema:shape2"} {
-		fwd := fwdScope.byPath[key]
-		rev := revScope.byPath[key]
-		if fwd != rev {
-			t.Errorf("key %q: forward got %q, reverse got %q", key, fwd, rev)
+	hashed := regexp.MustCompile(`^ServersServerSchemaX[0-9a-f]{6}$`)
+	for _, order := range []string{"forward", "reverse"} {
+		server, serverSchema := makeEntities()
+		entities := []*claimantEntity{server, serverSchema}
+		if order == "reverse" {
+			entities = []*claimantEntity{serverSchema, server}
+		}
+		scope := resolveFairGrowth(entities)
+		if got := scope.byPath["shape:server"]; got != "ServersServer" {
+			t.Errorf("%s: server struct = %q, want ServersServer", order, got)
+		}
+		if got := scope.byPath["shape:server-schema"]; got != "ServersServerSchema" {
+			t.Errorf("%s: server-schema struct = %q, want ServersServerSchema", order, got)
+		}
+		if got := scope.byPath["schema:server"]; !hashed.MatchString(got) {
+			t.Errorf("%s: server schema var = %q, want ServersServerSchemaX<hex>", order, got)
 		}
 	}
 }
@@ -124,7 +129,6 @@ func TestFairGrowthReversedOrderByteIdentity(t *testing.T) {
 func TestFairGrowthHashFallback(t *testing.T) {
 	makeEntities := func() (*claimantEntity, *claimantEntity) {
 		n1 := &claimantEntity{
-			id:         "nodeA",
 			candidates: candidateSuffixes([]string{"State"}),
 			getSymbols: func(base string) []claimSpec {
 				return []claimSpec{
@@ -133,7 +137,6 @@ func TestFairGrowthHashFallback(t *testing.T) {
 			},
 		}
 		n2 := &claimantEntity{
-			id:         "nodeB",
 			candidates: candidateSuffixes([]string{"State"}),
 			getSymbols: func(base string) []claimSpec {
 				return []claimSpec{
