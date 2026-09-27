@@ -120,4 +120,19 @@ describe('DeviceView AI targets', () => {
     expect(clients.length).toBeGreaterThan(0)
     expect(clients[0]?.context.accessPoint).toBe('berlin-ap-01')
   })
+
+  it('registers a downlink row with its uplink context', async () => {
+    const sw = devices.find((device) => device.name === 'berlin-sw-01')
+    const ap = devices.find((device) => device.name === 'berlin-ap-01')
+    if (!sw || !ap) throw new Error('Missing fixture')
+    await mountDeviceView(sw, devices)
+
+    const downlink = registry.view(`standalone:device:downlink:${ap.id}`)
+    expect(downlink?.target.kind).toBe('downlink')
+    expect(downlink?.target.label).toBe('berlin-ap-01')
+    expect(downlink?.target.context).toMatchObject({
+      name: 'berlin-ap-01',
+      uplink: 'berlin-sw-01',
+    })
+  })
 })
