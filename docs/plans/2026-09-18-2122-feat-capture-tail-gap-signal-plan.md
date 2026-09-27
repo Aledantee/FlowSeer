@@ -4,11 +4,15 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
+review: accept after fixes
+compound: docs/solutions/conventions/a-protovalidate-value-bound-without-required-is-skipped-on-an-absent-field.md, docs/solutions/conventions/force-a-streaming-drop-test-through-a-paused-http1-consumer.md
 execution: code
 ---
 
 # Remote Packet Capture In-Band Tail Gap Signal - Plan
+
+> Implemented. 3 units, 2026-09-27T12:30Z to 2026-09-27T12:50Z.
 
 ## Goal
 
@@ -54,6 +58,34 @@ signaling.
   drops are per-subscriber, not session-wide. A subscriber object tracks
   pending gap metrics. When space in the subscriber's channel opens up, the
   broadcaster delivers a gap notification item before the next packet chunk.
+- Ruled: In-band ordering (a gap before the next chunk) needs one ordered
+  delivery stream, so `Broadcaster.Subscribe` returns a handle whose channel
+  carries a chunk-or-gap item instead of a raw chunk channel. Why: two channels
+  cannot order a gap ahead of the chunk that follows it. Cost if wrong: the
+  handle type and its one consumer (`operator_service.go`). Because that
+  signature change leaves `operator_service.go` uncompilable until U3 updates
+  it, U2 and U3 are verified together over the union of their paths rather than
+  U2 alone.
+- Ruled: The planned end-to-end integration test in `capture_test.go` is
+  omitted; the slow-consumer coverage lives in `operator_service_test.go`
+  instead. Why: forcing the broadcaster to overflow drives off transport
+  back-pressure, and central serves the tail over HTTPS/HTTP/2 whose per-stream
+  buffering absorbs ~10 MB before it blocks and only reliably drops past ~100 MB
+  of flood — a volume that is both heavy and machine-dependent, so a `gaps > 0`
+  assertion there is flaky. The operator service test runs a real Connect
+  client and server over a plain-HTTP `httptest` listener that back-pressures at
+  ~13 MB, so it forces the overflow deterministically and asserts in-band gap
+  ordering, sequence-continuity, and the terminal flush over real transport. The
+  edge→central→operator relay of tail frames is already covered end to end by
+  `TestRemotePacketCapture_EndToEnd`. Cost if wrong: a new `capture_test.go`
+  test if a full-stack gap assertion is later wanted.
+- Ruled: A closed subscription exposes a residual `TerminalGap()` for chunks
+  dropped with nothing delivered after them, which the reader flushes after it
+  drains the channel and sees it closed. Why: at session close the channel may
+  be full, so a terminal gap cannot be guaranteed a slot on it; pulling it off
+  the handle after drain delivers it in order without a blocking send under the
+  broadcaster lock. Cost if wrong: the close path in `Broadcaster.CloseSession`
+  and the reader's post-drain step in `TailCaptureSession`.
 - If chunks are dropped at the very end of a capture (including the final
   chunk), the gap signal is delivered before stream termination. Why: If the
   final chunk (`final: true`) was dropped due to lag, closing the channel
@@ -118,15 +150,16 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/d
 ### U3. OperatorService.TailCaptureSession streaming with in-band gaps
 
 Files: `src/services/device/internal/captureapi/operator_service.go`,
-`src/services/device/internal/captureapi/operator_service_test.go`,
-`src/services/device/test/integration/capture_test.go`
+`src/services/device/internal/captureapi/operator_service_test.go`
 After: U2
 Change: `TailCaptureSession` translates subscriber items (chunks and gaps)
 into `TailCaptureSessionResponse`, delivering `TailGap` frames when gaps
 occurred and ensuring terminal gaps are flushed before stream exit.
-Tests: `operator_service_test.go` tests slow consumer scenarios verifying
-in-band gap receipt and sequence continuity; `capture_test.go` integration
-test tests end-to-end tail gap delivery when a consumer pauses reading.
+Tests: `operator_service_test.go` runs a real Connect client against a
+plain-HTTP `httptest` listener, pauses the consumer to force a broadcaster
+overflow, and verifies in-band gap ordering, sequence continuity, and the
+terminal flush before EOF. The full-central integration test is omitted; see
+the Decisions ruling for why.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/captureapi/operator_service.go src/services/device/internal/captureapi/operator_service_test.go src/services/device/test/integration/capture_test.go`
 
 Waves: U1 | U2 | U3

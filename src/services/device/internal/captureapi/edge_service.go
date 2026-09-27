@@ -36,67 +36,162 @@ const (
 	defaultRetentionPeriod = 7 * 24 * time.Hour
 )
 
+// TailGapInfo counts what a lagging tail missed: the chunks and packets a
+// subscriber was too far behind to receive, and the packet sequence range they
+// spanned. The sequence bounds are meaningful only when DroppedPackets is
+// positive; a dropped chunk that carried only stream markers bumps
+// DroppedChunks and leaves them at zero.
+type TailGapInfo struct {
+	DroppedChunks        uint64
+	DroppedPackets       uint64
+	FirstDroppedSequence uint64
+	LastDroppedSequence  uint64
+}
+
+// record folds one dropped chunk into the running gap. Chunks arrive in
+// sequence order, so a later drop only extends the range's upper bound.
+func (g *TailGapInfo) record(chunk *modelcapturev1.CapturePacketChunk) {
+	g.DroppedChunks++
+	n := uint64(len(chunk.GetPackets()))
+	if n == 0 {
+		return
+	}
+	first := chunk.GetFirstSequence()
+	if g.DroppedPackets == 0 {
+		g.FirstDroppedSequence = first
+	}
+	g.DroppedPackets += n
+	g.LastDroppedSequence = first + n - 1
+}
+
+// TailItem is one delivery on a live tail: either a captured chunk, or a gap
+// standing for chunks the subscriber was too far behind to receive. Exactly one
+// of Chunk and Gap is set.
+type TailItem struct {
+	Chunk *modelcapturev1.CapturePacketChunk
+	Gap   *TailGapInfo
+}
+
+// Subscription is one live tail's view of a capture session. Items delivers
+// chunks and in-band gaps in order until the session ends, when it closes. A
+// gap the channel had no room to carry — chunks dropped with nothing delivered
+// after them — is not lost: after Items closes, read it from TerminalGap.
+type Subscription struct {
+	items chan TailItem
+	// b and session let TerminalGap read the residual gap under the broadcaster
+	// lock once the channel has closed.
+	b       *Broadcaster
+	session string
+	// gap holds chunks dropped since the last delivered chunk, still waiting for
+	// room on items. Guarded by b.mu.
+	gap *TailGapInfo
+}
+
+// Items delivers tail chunks and in-band gaps in order. It is closed when the
+// session ends.
+func (s *Subscription) Items() <-chan TailItem {
+	return s.items
+}
+
+// TerminalGap returns a gap for chunks dropped with nothing delivered after
+// them, or nil when the tail lost nothing at the end. Call it only after Items
+// has closed: until then a pending gap may still find room on the channel.
+func (s *Subscription) TerminalGap() *TailGapInfo {
+	s.b.mu.Lock()
+	defer s.b.mu.Unlock()
+	return s.gap
+}
+
+// deliver hands chunk to the subscriber, flushing any pending gap first so a
+// gap always precedes the chunks that followed it. It reports whether chunk
+// reached the channel; a chunk that did not is folded into the pending gap. The
+// caller holds b.mu, and every send is non-blocking, so a slow reader never
+// stalls a broadcast.
+func (s *Subscription) deliver(chunk *modelcapturev1.CapturePacketChunk) bool {
+	if s.gap != nil {
+		select {
+		case s.items <- TailItem{Gap: s.gap}:
+			s.gap = nil
+		default:
+			// No room for the pending gap, so no room for a chunk behind it:
+			// fold this chunk into the gap and keep the order.
+			s.gap.record(chunk)
+			return false
+		}
+	}
+	select {
+	case s.items <- TailItem{Chunk: chunk}:
+		return true
+	default:
+		s.gap = &TailGapInfo{}
+		s.gap.record(chunk)
+		return false
+	}
+}
+
 // Broadcaster manages live packet chunk subscriptions for active capture
 // sessions. A Broadcaster is safe for concurrent use.
 type Broadcaster struct {
-	mu   sync.RWMutex // guards subs
-	subs map[string]map[chan *modelcapturev1.CapturePacketChunk]struct{}
+	mu   sync.Mutex // guards subs and every subscription's gap
+	subs map[string]map[*Subscription]struct{}
 }
 
 // NewBroadcaster returns an empty Broadcaster ready for concurrent use. The
 // zero value is not usable.
 func NewBroadcaster() *Broadcaster {
 	return &Broadcaster{
-		subs: make(map[string]map[chan *modelcapturev1.CapturePacketChunk]struct{}),
+		subs: make(map[string]map[*Subscription]struct{}),
 	}
 }
 
-// Subscribe registers a 128-chunk live tail for sessionID. The caller must call
+// Subscribe registers a 128-item live tail for sessionID. The caller must call
 // the returned function to unsubscribe. A slow reader may lose chunks but does
-// not block the upload.
-func (b *Broadcaster) Subscribe(sessionID string) (<-chan *modelcapturev1.CapturePacketChunk, func()) {
+// not block the upload; the losses surface as gaps on the subscription.
+func (b *Broadcaster) Subscribe(sessionID string) (*Subscription, func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	ch := make(chan *modelcapturev1.CapturePacketChunk, 128)
+	sub := &Subscription{
+		items:   make(chan TailItem, 128),
+		b:       b,
+		session: sessionID,
+	}
 	set, ok := b.subs[sessionID]
 	if !ok {
-		set = make(map[chan *modelcapturev1.CapturePacketChunk]struct{})
+		set = make(map[*Subscription]struct{})
 		b.subs[sessionID] = set
 	}
-	set[ch] = struct{}{}
+	set[sub] = struct{}{}
 
 	unsub := sync.OnceFunc(func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
 		if s, ok := b.subs[sessionID]; ok {
-			delete(s, ch)
+			delete(s, sub)
 			if len(s) == 0 {
 				delete(b.subs, sessionID)
 			}
 		}
 	})
-	return ch, unsub
+	return sub, unsub
 }
 
 // Broadcast distributes a packet chunk to all subscribers of sessionID and
-// returns how many subscribers were too far behind to take it. A tail that
-// cannot keep up loses chunks rather than stalling the upload it is watching,
-// which makes the live stream a subsequence of what the edge sent; the count
-// is what lets the caller say so instead of leaving the gap invisible.
+// returns how many were too far behind to take it. A tail that cannot keep up
+// loses chunks rather than stalling the upload it is watching, which makes the
+// live stream a subsequence of what the edge sent; each subscriber records the
+// loss as a gap it delivers in-band once its channel drains.
 func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CapturePacketChunk) int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	set, ok := b.subs[sessionID]
 	if !ok {
 		return 0
 	}
 	dropped := 0
-	for ch := range set {
-		select {
-		case ch <- chunk:
-		default:
+	for sub := range set {
+		if !sub.deliver(chunk) {
 			dropped++
 		}
 	}
@@ -104,14 +199,16 @@ func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CaptureP
 }
 
 // CloseSession closes every subscriber channel for sessionID and releases the
-// subscriber set. Repeated calls are safe.
+// subscriber set. A subscriber's residual gap stays on its Subscription for the
+// reader to flush through TerminalGap after it drains the channel. Repeated
+// calls are safe.
 func (b *Broadcaster) CloseSession(sessionID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if set, ok := b.subs[sessionID]; ok {
-		for ch := range set {
-			close(ch)
+		for sub := range set {
+			close(sub.items)
 		}
 		delete(b.subs, sessionID)
 	}
@@ -119,8 +216,8 @@ func (b *Broadcaster) CloseSession(sessionID string) {
 
 // SubscriberCount returns the number of active subscribers for sessionID.
 func (b *Broadcaster) SubscriberCount(sessionID string) int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return len(b.subs[sessionID])
 }
 

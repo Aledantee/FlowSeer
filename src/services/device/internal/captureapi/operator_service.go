@@ -281,7 +281,7 @@ func (s *OperatorService) TailCaptureSession(
 		return errNoSuchSession()
 	}
 
-	ch, unsub := s.broadcaster.Subscribe(sessionID)
+	sub, unsub := s.broadcaster.Subscribe(sessionID)
 	defer unsub()
 
 	// Subscribe first, then read the session again. Only the upload relay
@@ -309,21 +309,62 @@ func (s *OperatorService) TailCaptureSession(
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case chunk, ok := <-ch:
+		case item, ok := <-sub.Items():
 			if !ok {
-				return nil
+				// The session ended. A gap the channel had no room to carry —
+				// a dropped final chunk among them — waits on the subscription
+				// so a slow consumer reads it here instead of a clean EOF over
+				// lost packets.
+				return sendTailFrame(stream, tailGapFrame(sub.TerminalGap()))
 			}
-			resp := operatorcapturev1.TailCaptureSessionResponse_builder{
-				Chunk: chunk,
-			}.Build()
-			if err := stream.Send(resp); err != nil {
+			if err := sendTailFrame(stream, tailItemFrame(item)); err != nil {
 				return err
 			}
-			if chunk.GetFinal() {
+			if item.Chunk.GetFinal() {
 				return nil
 			}
 		}
 	}
+}
+
+// tailItemFrame renders a broadcast item as the wire frame for it: a chunk, or
+// a gap standing for the chunks a slow consumer missed before it.
+func tailItemFrame(item TailItem) *operatorcapturev1.TailCaptureSessionResponse {
+	if item.Chunk != nil {
+		return operatorcapturev1.TailCaptureSessionResponse_builder{
+			Chunk: item.Chunk,
+		}.Build()
+	}
+	return tailGapFrame(item.Gap)
+}
+
+// tailGapFrame renders a gap as a response frame, or nil when there is no gap,
+// which callers treat as nothing to send.
+func tailGapFrame(gap *TailGapInfo) *operatorcapturev1.TailCaptureSessionResponse {
+	if gap == nil {
+		return nil
+	}
+	msg := operatorcapturev1.TailGap_builder{
+		DroppedChunks:  proto.Uint64(gap.DroppedChunks),
+		DroppedPackets: proto.Uint64(gap.DroppedPackets),
+	}
+	// The sequence bounds mean nothing when no packets were lost, only stream
+	// markers, so they are left unset to say so.
+	if gap.DroppedPackets > 0 {
+		msg.FirstDroppedSequence = proto.Uint64(gap.FirstDroppedSequence)
+		msg.LastDroppedSequence = proto.Uint64(gap.LastDroppedSequence)
+	}
+	return operatorcapturev1.TailCaptureSessionResponse_builder{
+		Gap: msg.Build(),
+	}.Build()
+}
+
+// sendTailFrame sends frame unless it is nil, which stands for nothing to send.
+func sendTailFrame(stream *connect.ServerStream[operatorcapturev1.TailCaptureSessionResponse], frame *operatorcapturev1.TailCaptureSessionResponse) error {
+	if frame == nil {
+		return nil
+	}
+	return stream.Send(frame)
 }
 
 // DownloadCaptureSession streams pcapng artifact chunks <=1MB from disk.

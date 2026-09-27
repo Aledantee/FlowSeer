@@ -153,6 +153,175 @@ func testPacketRecord(seq uint64, data []byte) *netcapturev1.PacketRecord {
 	}.Build()
 }
 
+// tailTestSessionRef is a valid capture session ref for broadcaster fixtures.
+// The broadcaster routes by the session argument, not by the chunk's own ref,
+// but a fixture is still a claim the wire would carry the message, so it names
+// a session the schema accepts.
+func tailTestSessionRef() *modelcapturev1.CaptureSessionGlobalRef {
+	return modelcapturev1.CaptureSessionGlobalRef_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdge1ID)}.Build(),
+		}.Build(),
+		CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{
+			Id: proto.String("0192e6a0-0000-7000-8000-0000000000b0"),
+		}.Build(),
+	}.Build()
+}
+
+// tailTestChunk builds a chunk of the given packet count starting at firstSeq.
+func tailTestChunk(firstSeq uint64, packets int) *modelcapturev1.CapturePacketChunk {
+	recs := make([]*netcapturev1.PacketRecord, packets)
+	for i := range recs {
+		recs[i] = testPacketRecord(firstSeq+uint64(i), []byte("p"))
+	}
+	return modelcapturev1.CapturePacketChunk_builder{
+		Session:       tailTestSessionRef(),
+		FirstSequence: proto.Uint64(firstSeq),
+		Packets:       recs,
+	}.Build()
+}
+
+// The subscription buffer size the broadcaster gives every tail. Overflowing it
+// is what these tests exercise, so they depend on the exact figure.
+const tailBufferSize = 128
+
+func TestBroadcaster_LaggingSubscriberRecordsGap(t *testing.T) {
+	b := captureapi.NewBroadcaster()
+	const session = "sess-gap"
+
+	// A fixture is a claim the wire would carry this message.
+	if err := protovalidate.Validate(tailTestChunk(1, 1)); err != nil {
+		t.Fatalf("tail chunk fixture is not a message the wire would accept: %v", err)
+	}
+
+	sub, unsub := b.Subscribe(session)
+	defer unsub()
+
+	// Fill the buffer so nothing more fits, then overflow it. The reader never
+	// drains, so every later chunk folds into one pending gap.
+	for seq := uint64(1); seq <= tailBufferSize; seq++ {
+		if dropped := b.Broadcast(session, tailTestChunk(seq, 1)); dropped != 0 {
+			t.Fatalf("chunk %d dropped while the buffer had room", seq)
+		}
+	}
+	if dropped := b.Broadcast(session, tailTestChunk(129, 4)); dropped != 1 {
+		t.Fatalf("overflowing chunk dropped for %d subscribers, want 1", dropped)
+	}
+	if dropped := b.Broadcast(session, tailTestChunk(133, 2)); dropped != 1 {
+		t.Fatalf("second overflowing chunk dropped for %d subscribers, want 1", dropped)
+	}
+
+	b.CloseSession(session)
+
+	gap := sub.TerminalGap()
+	if gap == nil {
+		t.Fatal("expected a terminal gap after chunks dropped with nothing behind them")
+	}
+	if gap.DroppedChunks != 2 {
+		t.Errorf("dropped chunks = %d, want 2", gap.DroppedChunks)
+	}
+	if gap.DroppedPackets != 6 {
+		t.Errorf("dropped packets = %d, want 6", gap.DroppedPackets)
+	}
+	if gap.FirstDroppedSequence != 129 || gap.LastDroppedSequence != 134 {
+		t.Errorf("dropped range = [%d,%d], want [129,134]", gap.FirstDroppedSequence, gap.LastDroppedSequence)
+	}
+}
+
+func TestBroadcaster_FastSubscriberUnaffectedByLaggard(t *testing.T) {
+	b := captureapi.NewBroadcaster()
+	const session = "sess-mixed"
+
+	fast, unsubFast := b.Subscribe(session)
+	defer unsubFast()
+	slow, unsubSlow := b.Subscribe(session)
+	defer unsubSlow()
+
+	// The fast subscriber is drained after every broadcast, so its buffer never
+	// fills; the slow one is never read and drops everything past the buffer.
+	const total = 200
+	for seq := uint64(1); seq <= total; seq++ {
+		b.Broadcast(session, tailTestChunk(seq, 1))
+		item, ok := <-fast.Items()
+		if !ok {
+			t.Fatalf("fast subscriber channel closed at seq %d", seq)
+		}
+		if item.Chunk == nil {
+			t.Fatalf("fast subscriber received a gap at seq %d: %+v", seq, item.Gap)
+		}
+		if item.Chunk.GetFirstSequence() != seq {
+			t.Fatalf("fast subscriber got chunk %d, want %d", item.Chunk.GetFirstSequence(), seq)
+		}
+	}
+
+	b.CloseSession(session)
+
+	if gap := fast.TerminalGap(); gap != nil {
+		t.Errorf("fast subscriber recorded a gap: %+v", gap)
+	}
+
+	gap := slow.TerminalGap()
+	if gap == nil {
+		t.Fatal("expected the slow subscriber to record a gap")
+	}
+	const wantDropped = total - tailBufferSize
+	if gap.DroppedChunks != wantDropped {
+		t.Errorf("slow subscriber dropped %d chunks, want %d", gap.DroppedChunks, wantDropped)
+	}
+	if gap.FirstDroppedSequence != tailBufferSize+1 || gap.LastDroppedSequence != total {
+		t.Errorf("slow subscriber dropped range = [%d,%d], want [%d,%d]",
+			gap.FirstDroppedSequence, gap.LastDroppedSequence, tailBufferSize+1, total)
+	}
+}
+
+func TestBroadcaster_GapPrecedesNextChunkAfterDrain(t *testing.T) {
+	b := captureapi.NewBroadcaster()
+	const session = "sess-order"
+
+	sub, unsub := b.Subscribe(session)
+	defer unsub()
+
+	for seq := uint64(1); seq <= tailBufferSize; seq++ {
+		b.Broadcast(session, tailTestChunk(seq, 1))
+	}
+	// Overflow once to open a pending gap over sequences 129..130.
+	b.Broadcast(session, tailTestChunk(129, 2))
+
+	// Free two slots: one for the gap, one for the chunk that follows it.
+	for seq := uint64(1); seq <= 2; seq++ {
+		item := <-sub.Items()
+		if item.Chunk == nil || item.Chunk.GetFirstSequence() != seq {
+			t.Fatalf("expected buffered chunk %d, got %+v", seq, item)
+		}
+	}
+	// Room now exists, so this broadcast flushes the gap and then delivers 131.
+	b.Broadcast(session, tailTestChunk(131, 1))
+
+	for seq := uint64(3); seq <= tailBufferSize; seq++ {
+		item := <-sub.Items()
+		if item.Chunk == nil || item.Chunk.GetFirstSequence() != seq {
+			t.Fatalf("expected buffered chunk %d, got %+v", seq, item)
+		}
+	}
+
+	gapItem := <-sub.Items()
+	if gapItem.Gap == nil {
+		t.Fatalf("expected a gap before the next chunk, got %+v", gapItem)
+	}
+	if gapItem.Chunk != nil {
+		t.Fatalf("gap item also carried a chunk: %+v", gapItem)
+	}
+	if gapItem.Gap.DroppedChunks != 1 || gapItem.Gap.DroppedPackets != 2 ||
+		gapItem.Gap.FirstDroppedSequence != 129 || gapItem.Gap.LastDroppedSequence != 130 {
+		t.Errorf("gap = %+v, want 1 chunk / 2 packets / seq [129,130]", gapItem.Gap)
+	}
+
+	next := <-sub.Items()
+	if next.Chunk == nil || next.Chunk.GetFirstSequence() != 131 {
+		t.Fatalf("expected chunk 131 after the gap, got %+v", next)
+	}
+}
+
 func TestSubscribeCaptureAssignments_EdgeIsolation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

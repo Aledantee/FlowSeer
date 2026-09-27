@@ -112,8 +112,35 @@ message TailCaptureSessionRequest {
   flowseer.model.capture.v1.CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
 }
 
+// Chunks a live tail was too far behind to receive, reported in-band before
+// the tail resumes with later chunks or before the stream closes. A tail that
+// cannot keep up loses chunks rather than stalling the upload it watches, so
+// the live stream is a subsequence of what the edge sent; without this frame a
+// caller cannot tell a contiguous tail from one a slow consumer punched holes
+// in. The sequence bounds let a caller line the gap up against the downloaded
+// pcapng artifact.
+local message TailGap {
+  // How many chunks were dropped. Must be present, and at least one: a gap
+  // that reports no dropped chunk is not a gap. Without the presence rule the
+  // count bound is skipped for an absent field, so an empty gap would validate.
+  uint64 dropped_chunks = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // How many packets those chunks carried. Zero means every dropped chunk
+  // carried only stream markers and no packets.
+  uint64 dropped_packets = 2;
+  // The sequence of the first dropped packet. Set only when dropped_packets is
+  // positive.
+  uint64 first_dropped_sequence = 3;
+  // The sequence of the last dropped packet. Set only when dropped_packets is
+  // positive.
+  uint64 last_dropped_sequence = 4;
+}
+
 message TailCaptureSessionResponse {
-  // Exactly one of: the tail is live, or the next chunk of packets.
+  // Exactly one of: the tail is live, the next chunk of packets, or a gap
+  // standing for chunks a slow consumer missed.
   oneof body {
     option (buf.validate.oneof).required = true;
 
@@ -125,6 +152,8 @@ message TailCaptureSessionResponse {
     bool attached = 1 [(buf.validate.field).bool.const = true];
     // The next chunk of packets.
     flowseer.model.capture.v1.CapturePacketChunk chunk = 2;
+    // The chunks dropped since the last delivered chunk.
+    TailGap gap = 3;
   }
 }
 
