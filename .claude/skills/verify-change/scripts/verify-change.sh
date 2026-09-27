@@ -170,7 +170,10 @@ run() {
   # `go test` lists every affected package, which is not a line to quote.
   # Left in place on failure so the exit trap can name the gate.
   gate_label "$@" >"$gate_file"
-  "$@"
+  # Return the status explicitly: bash ignores `set -e` inside a function
+  # called from a condition, such as `if ! out=$(run ...)`, so without it a
+  # failing command there reports success.
+  "$@" || return
   : >"$gate_file"
 }
 
