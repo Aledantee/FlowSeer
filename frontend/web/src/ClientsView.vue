@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import ScrollArea from './components/ScrollArea.vue'
 import { computed, ref, watch } from 'vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
@@ -10,6 +9,7 @@ import AppIcon from './components/AppIcon.vue'
 import {
   UiEmptyState,
   UiPagination,
+  UiScrollArea,
   UiTable,
   UiTableBody,
   UiTableCell,
@@ -95,7 +95,7 @@ function clearAccessPoint() {
         {{ filtered.length === 1 ? 'result' : 'results' }}</span
       >
     </div>
-    <ScrollArea axis="x" viewport-class="table-scroll">
+    <UiScrollArea axis="x" viewport-class="table-scroll">
       <UiTable>
         <UiTableHeader>
           <UiTableRow>
@@ -149,7 +149,7 @@ function clearAccessPoint() {
           <AppIcon name="search" />
         </template>
       </UiEmptyState>
-    </ScrollArea>
+    </UiScrollArea>
     <footer v-if="filtered.length" class="table-footer justify-center">
       <UiPagination
         v-model:page="page"

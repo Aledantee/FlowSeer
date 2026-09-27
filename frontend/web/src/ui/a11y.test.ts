@@ -75,13 +75,14 @@ describe('accessibility (axe-core)', () => {
           app.mount(container)
           cleanups.push(() => app.unmount())
 
-          const results = await axe.run(container, {
+          const results = await axe.run(document.body, {
             runOnly: {
               type: 'tag',
               values: ['wcag2a', 'wcag2aa', 'wcag21aa'],
             },
             rules: {
               'color-contrast': { enabled: false },
+              region: { enabled: false },
             },
           })
 

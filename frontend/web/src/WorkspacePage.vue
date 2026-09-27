@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import ScrollArea from './components/ScrollArea.vue'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import DashboardView from './DashboardView.vue'
 import DeviceView from './DeviceView.vue'
 import ClientsView from './ClientsView.vue'
 import {
   UiMetricCard,
+  UiScrollArea,
   UiStatusBadge,
   UiTable,
   UiTableBody,
@@ -316,7 +316,7 @@ function rememberList(event: MouseEvent) {
             </AppLink>
           </li>
         </ul>
-        <ScrollArea axis="x" viewport-class="table-scroll">
+        <UiScrollArea axis="x" viewport-class="table-scroll">
           <UiTable>
             <UiTableHeader>
               <UiTableRow>
@@ -395,7 +395,7 @@ function rememberList(event: MouseEvent) {
             <p>Try a different search, status, or site.</p>
             <button @click="resetFilters">Reset all filters</button>
           </div>
-        </ScrollArea>
+        </UiScrollArea>
         <footer class="table-footer">
           <span
             >Showing {{ filtered.length }} of {{ scope.length }} devices</span

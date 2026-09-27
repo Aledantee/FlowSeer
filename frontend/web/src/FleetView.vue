@@ -21,7 +21,17 @@ import GlobalSearch from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import PageHost from './navigation/PageHost.vue'
-import { UiTooltip } from './ui'
+import {
+  UiBreadcrumb,
+  UiBreadcrumbEllipsis,
+  UiBreadcrumbItem,
+  UiBreadcrumbLink,
+  UiBreadcrumbList,
+  UiBreadcrumbPage,
+  UiBreadcrumbSeparator,
+  UiDropdownMenuItem,
+  UiTooltip,
+} from './ui'
 import { TooltipProvider } from 'reka-ui'
 import { SHORTCUTS, dockTabShortcut, matches } from './navigation/shortcuts'
 import { usePanes } from './navigation/panes'
@@ -853,52 +863,82 @@ onUnmounted(() => clearInterval(timer))
         <header ref="topbar" class="topbar">
           <span class="topbar-glass brand-glow" aria-hidden="true"></span>
           <div class="topbar-start">
-            <nav class="breadcrumb" aria-label="Breadcrumb">
-              <template v-if="tenants.length > 1">
-                <TenantSwitcher
-                  :tenants="tenants"
-                  :selected="query('tenant')"
-                  @change="setQuery('tenant', $event)"
-                />
-                <span class="breadcrumb-separator" aria-hidden="true">/</span>
-              </template>
-              <div class="breadcrumb-scope">
-                <ScopeSwitcher
-                  label="Site scope"
-                  placeholder="Search sites…"
-                  :selected="query('site')"
-                  :options="[
-                    { value: '', label: 'All sites' },
-                    ...scopedSites.map((site) => ({
-                      value: site.id,
-                      label: site.name,
-                    })),
-                  ]"
-                  @change="setQuery('site', $event)"
-                />
-              </div>
-              <span class="breadcrumb-separator" aria-hidden="true">/</span>
-              <template v-if="view === 'device'">
-                <AppLink
-                  class="breadcrumb-link"
-                  :to="{ path: '/devices', query: mainScope }"
-                  >Devices</AppLink
-                ><span class="breadcrumb-separator" aria-hidden="true">/</span>
-              </template>
-              <div
-                v-if="view === 'device' && selected"
-                class="breadcrumb-scope"
-              >
-                <ScopeSwitcher
-                  label="Device"
-                  placeholder="Search devices…"
-                  :selected="selected.id"
-                  :options="deviceOptions"
-                  @change="openDevice($event)"
-                />
-              </div>
-              <strong v-else>{{ title }}</strong>
-            </nav>
+            <UiBreadcrumb v-slot="{ collapsed }" class="breadcrumb">
+              <UiBreadcrumbList>
+                <template v-if="tenants.length > 1">
+                  <UiBreadcrumbItem>
+                    <TenantSwitcher
+                      :tenants="tenants"
+                      :selected="query('tenant')"
+                      @change="setQuery('tenant', $event)"
+                    />
+                  </UiBreadcrumbItem>
+                  <UiBreadcrumbSeparator />
+                </template>
+                <UiBreadcrumbItem class="breadcrumb-scope">
+                  <ScopeSwitcher
+                    label="Site scope"
+                    placeholder="Search sites…"
+                    :selected="query('site')"
+                    :options="[
+                      { value: '', label: 'All sites' },
+                      ...scopedSites.map((site) => ({
+                        value: site.id,
+                        label: site.name,
+                      })),
+                    ]"
+                    @change="setQuery('site', $event)"
+                  />
+                </UiBreadcrumbItem>
+                <UiBreadcrumbSeparator />
+                <template v-if="view === 'device'">
+                  <template v-if="collapsed">
+                    <UiBreadcrumbItem>
+                      <UiBreadcrumbEllipsis>
+                        <template #menu>
+                          <UiDropdownMenuItem as-child>
+                            <AppLink
+                              class="w-full"
+                              :to="{ path: '/devices', query: mainScope }"
+                            >
+                              Devices
+                            </AppLink>
+                          </UiDropdownMenuItem>
+                        </template>
+                      </UiBreadcrumbEllipsis>
+                    </UiBreadcrumbItem>
+                    <UiBreadcrumbSeparator />
+                  </template>
+                  <template v-else>
+                    <UiBreadcrumbItem>
+                      <UiBreadcrumbLink as-child>
+                        <AppLink
+                          class="breadcrumb-link"
+                          :to="{ path: '/devices', query: mainScope }"
+                          >Devices</AppLink
+                        >
+                      </UiBreadcrumbLink>
+                    </UiBreadcrumbItem>
+                    <UiBreadcrumbSeparator />
+                  </template>
+                </template>
+                <UiBreadcrumbItem
+                  v-if="view === 'device' && selected"
+                  class="breadcrumb-scope"
+                >
+                  <ScopeSwitcher
+                    label="Device"
+                    placeholder="Search devices…"
+                    :selected="selected.id"
+                    :options="deviceOptions"
+                    @change="openDevice($event)"
+                  />
+                </UiBreadcrumbItem>
+                <UiBreadcrumbItem v-else>
+                  <UiBreadcrumbPage>{{ title }}</UiBreadcrumbPage>
+                </UiBreadcrumbItem>
+              </UiBreadcrumbList>
+            </UiBreadcrumb>
             <AppTooltip
               label="Minimize to dock"
               hint="The shortcut minimizes whichever pane is focused."
@@ -993,31 +1033,35 @@ onUnmounted(() => clearInterval(timer))
                     ><strong>{{ sideTitle.label }}</strong></span
                   >
                   <div class="pane-scope">
-                    <TenantSwitcher
-                      v-if="tenants.length > 1"
-                      :tenants="tenants"
-                      :selected="sidePage.query('tenant')"
-                      @change="setSideScope('tenant', $event)"
-                    />
-                    <span
-                      v-if="tenants.length > 1"
-                      class="breadcrumb-separator"
-                      aria-hidden="true"
-                      >/</span
-                    >
-                    <ScopeSwitcher
-                      label="Side page site"
-                      placeholder="Search sites…"
-                      :selected="sidePage.query('site')"
-                      :options="[
-                        { value: '', label: 'All sites' },
-                        ...sideScopedSites.map((site) => ({
-                          value: site.id,
-                          label: site.name,
-                        })),
-                      ]"
-                      @change="setSideScope('site', $event)"
-                    />
+                    <UiBreadcrumb>
+                      <UiBreadcrumbList>
+                        <template v-if="tenants.length > 1">
+                          <UiBreadcrumbItem>
+                            <TenantSwitcher
+                              :tenants="tenants"
+                              :selected="sidePage.query('tenant')"
+                              @change="setSideScope('tenant', $event)"
+                            />
+                          </UiBreadcrumbItem>
+                          <UiBreadcrumbSeparator />
+                        </template>
+                        <UiBreadcrumbItem>
+                          <ScopeSwitcher
+                            label="Side page site"
+                            placeholder="Search sites…"
+                            :selected="sidePage.query('site')"
+                            :options="[
+                              { value: '', label: 'All sites' },
+                              ...sideScopedSites.map((site) => ({
+                                value: site.id,
+                                label: site.name,
+                              })),
+                            ]"
+                            @change="setSideScope('site', $event)"
+                          />
+                        </UiBreadcrumbItem>
+                      </UiBreadcrumbList>
+                    </UiBreadcrumb>
                   </div>
                   <div
                     class="pane-tools"
