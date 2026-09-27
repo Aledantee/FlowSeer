@@ -233,6 +233,7 @@ function UiCustomComboboxTrigger(
     </slot>
     <ComboboxPortal>
       <ComboboxContent
+        position="popper"
         :side="side"
         :align="align"
         :side-offset="sideOffset"

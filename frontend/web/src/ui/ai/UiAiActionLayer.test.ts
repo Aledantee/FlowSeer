@@ -186,8 +186,9 @@ describe('AiActionLayer selection and Ask', () => {
     const button = askButton()
     expect(button).not.toBeNull()
     expect(button?.getAttribute('aria-label')).toBe('Ask about d1')
-    expect(button?.style.top).toBe('129px')
-    expect(document.querySelector('.ai-outline')).not.toBeNull()
+    expect(button?.textContent?.trim()).toBe('AI')
+    expect(button?.style.top).toBe('124px')
+    expect(button?.style.left).toBe('350px')
   })
 
   it('submits only a nonempty prompt and shows the answer', async () => {
@@ -489,30 +490,27 @@ describe('AiActionLayer selection and Ask', () => {
 })
 
 describe('AiActionLayer geometry', () => {
-  it('keeps Ask off a selected mobile card status and link', async () => {
+  it('moves Ask above a mobile card whose corner holds a link', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
     const card = { top: 494, left: 29, width: 332, height: 98 }
-    const status = { top: 510, left: 270, width: 91, height: 24 }
-    const link = { top: 544, left: 270, width: 91, height: 32 }
+    const link = { top: 500, left: 270, width: 91, height: 24 }
     const { registry, element } = setup(card)
     const page = document.createElement('div')
     page.tabIndex = 0
     setBox(page, { top: 114, left: 0, width: 390, height: 730 })
     element.replaceWith(page)
     page.append(element)
-    const statusElement = document.createElement('span')
-    const linkElement = document.createElement('span')
-    setBox(statusElement, status)
+    const linkElement = document.createElement('a')
+    linkElement.href = '#device'
     setBox(linkElement, link)
-    element.append(statusElement, linkElement)
+    element.append(linkElement)
     registry.highlight('a:devices:device:d1')
     await settle()
 
     const button = askButton()
-    expect(button?.style.top).toBe('532px')
-    expect(button?.style.left).toBe('363px')
-    expect(boxesIntersect(buttonBox(button), status)).toBe(false)
+    expect(button?.style.top).toBe('468px')
+    expect(button?.style.left).toBe('331px')
     expect(boxesIntersect(buttonBox(button), link)).toBe(false)
     button?.dispatchEvent(
       new PointerEvent('pointerdown', { bubbles: true, cancelable: true }),
@@ -528,40 +526,23 @@ describe('AiActionLayer geometry', () => {
     const card = { top: 593, left: 29, width: 332, height: 98 }
     const previousRow = { top: 494, left: 29, width: 332, height: 98 }
     const nextRow = { top: 692, left: 29, width: 332, height: 98 }
-    const status = { top: 609, left: 270, width: 91, height: 24 }
-    const link = { top: 643, left: 270, width: 91, height: 32 }
-    const name = { top: 613, left: 29, width: 231, height: 16 }
-    const detail = { top: 643, left: 29, width: 231, height: 32 }
     const { registry, element } = setup(card)
-    const statusElement = document.createElement('span')
-    const linkElement = document.createElement('span')
-    const nameElement = document.createElement('strong')
-    const detailElement = document.createElement('small')
     const previousControl = document.createElement('button')
     const nextControl = document.createElement('button')
-    setBox(statusElement, status)
-    setBox(linkElement, link)
-    setBox(nameElement, name)
-    setBox(detailElement, detail)
     setBox(previousControl, previousRow)
     setBox(nextControl, nextRow)
-    element.append(statusElement, linkElement, nameElement, detailElement)
     element.before(previousControl)
     element.after(nextControl)
     registry.highlight('a:devices:device:d1')
     await settle()
 
     const ask = buttonBox(askButton())
-    expect(ask).toEqual({ top: 631, left: 363, width: 26, height: 22 })
+    expect(ask).toEqual({ top: 597, left: 331, width: 26, height: 22 })
     expect(boxesIntersect(ask, previousRow)).toBe(false)
     expect(boxesIntersect(ask, nextRow)).toBe(false)
-    expect(boxesIntersect(ask, status)).toBe(false)
-    expect(boxesIntersect(ask, link)).toBe(false)
-    expect(boxesIntersect(ask, name)).toBe(false)
-    expect(boxesIntersect(ask, detail)).toBe(false)
   })
 
-  it('keeps Ask visible outside a small target clipped by the viewport edge', async () => {
+  it('keeps Ask on screen for a small target clipped by the viewport edge', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
     const clippedTarget = { top: -10, left: 380, width: 30, height: 20 }
@@ -570,11 +551,10 @@ describe('AiActionLayer geometry', () => {
     await settle()
 
     const button = askButton()
-    expect(button?.style.top).toBe('1px')
-    expect(button?.style.left).toBe('352px')
+    expect(button?.style.top).toBe('4px')
     expect(
       Number.parseFloat(button?.style.left ?? '') + 26,
-    ).toBeLessThanOrEqual(380)
+    ).toBeLessThanOrEqual(390)
   })
 
   it('stacks the action layer below the app chrome and modal layers', async () => {
@@ -613,13 +593,13 @@ describe('AiActionLayer geometry', () => {
     const { registry, element } = setup()
     registry.highlight('a:devices:device:d1')
     await settle()
-    expect(askButton()?.style.top).toBe('129px')
+    expect(askButton()?.style.top).toBe('124px')
 
     setBox(element, { top: 300, left: 60, width: 320, height: 40 })
     window.dispatchEvent(new Event('resize'))
     await settle()
 
-    expect(askButton()?.style.top).toBe('309px')
+    expect(askButton()?.style.top).toBe('304px')
   })
 
   it('drops a selected responsive copy when the viewport changes', async () => {
@@ -681,20 +661,20 @@ describe('AiActionLayer placement invariant', () => {
     const button = askButton()
     expectClear(button, [previousRow, nextRow])
     expect(buttonBox(button)).toEqual({
-      top: 631,
-      left: 363,
+      top: 597,
+      left: 331,
       width: 26,
       height: 22,
     })
   })
 
-  it('takes a clear alternative when a control blocks the right gutter', async () => {
-    const rightGutter: Box = { top: 631, left: 363, width: 40, height: 40 }
-    await render(card, [previousRow, nextRow, rightGutter])
+  it('moves above the corner when a control occupies it', async () => {
+    const corner: Box = { top: 595, left: 331, width: 40, height: 30 }
+    await render(card, [nextRow, corner])
 
     const button = askButton()
-    expectClear(button, [previousRow, nextRow, rightGutter])
-    expect(buttonBox(button).left).toBe(1)
+    expectClear(button, [nextRow, corner])
+    expect(buttonBox(button).top).toBe(567)
   })
 
   it('keeps a wider target clear of a control just below it', async () => {

@@ -2,7 +2,12 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import FleetView from './FleetView.vue'
-import { installFlowSeerAi, vAiTarget } from './ai'
+import {
+  aiRegistry,
+  createMockAiHandler,
+  installFlowSeerAi,
+  vAiTarget,
+} from './ai'
 import '@fontsource-variable/inter/standard.css'
 import '@fontsource-variable/dm-sans'
 import './theme/tailwind.css'
@@ -20,4 +25,6 @@ const router = createRouter({
   ],
 })
 installFlowSeerAi()
+// No model backend exists yet; the preview answers summaries from fixtures.
+aiRegistry.onRequest(createMockAiHandler())
 createApp(App).use(router).directive('ai-target', vAiTarget).mount('#app')

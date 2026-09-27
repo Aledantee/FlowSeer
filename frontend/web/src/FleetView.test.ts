@@ -306,9 +306,10 @@ describe('fleet view', () => {
     const totals = host.querySelector('.page-heading p')
     expect(totals?.textContent).toContain('16 devices')
     expect(totals?.classList).toContain('tabular-nums')
-    expect(host.querySelector('.dashboard h2')?.textContent).toBe(
-      'Needs attention',
+    const headings = [...host.querySelectorAll('.dashboard h2')].map((h) =>
+      h.textContent?.trim(),
     )
+    expect(headings.slice(0, 2)).toEqual(['AI summary', 'Needs attention'])
   })
 
   it('keeps dashboard site, health, and device columns on phones', async () => {

@@ -9,9 +9,9 @@ import { useAiRegistry } from './context'
 import { placeAsk, visibleRect } from './geometry'
 import type { Rect } from './geometry'
 
-// One overlay per app or Storybook canvas. It draws the selection outline and
-// the compact Ask button over whichever target is selected, hovered, or
-// focused, and hosts the prompt and answer. It is pointer-transparent except
+// One overlay per app or Storybook canvas. It draws the compact AI button in
+// the top-right corner of whichever target is selected, hovered, or focused,
+// and hosts the prompt and answer. It is pointer-transparent except
 // for the Ask button, so rows, charts, and panes keep their own controls and
 // tab order.
 
@@ -56,19 +56,9 @@ const box = shallowRef<Rect>()
 const layerRoot = ref<HTMLElement>()
 const askButtonWidth = 26
 const askButtonHeight = 22
-const askButtonGap = 2
+const askButtonGap = 4
 const viewportInset = 1
 
-const outlineStyle = computed(() => {
-  const rect = box.value
-  if (!rect) return undefined
-  return {
-    top: `${rect.top}px`,
-    left: `${rect.left}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
-  }
-})
 // Ask is drawn only where placeAsk finds a spot that is both on screen and
 // clear of every measured control. When none exists the trigger is hidden, but
 // the popover stays mounted so an open panel is not torn down by the
@@ -311,7 +301,6 @@ function submit() {
       data-ai-action-layer=""
       :style="{ zIndex: 1 }"
     >
-      <div class="ai-outline" :style="outlineStyle" aria-hidden="true"></div>
       <UiPopover
         :open="open"
         side="bottom"
@@ -330,7 +319,7 @@ function submit() {
             :aria-label="`Ask about ${layerTarget.target.label}`"
             @click="openAsk(layerTarget.target.id)"
           >
-            Ask
+            AI
           </button>
         </template>
         <form
@@ -397,12 +386,6 @@ function submit() {
   position: fixed;
   inset: 0;
   pointer-events: none;
-}
-.ai-outline {
-  position: fixed;
-  pointer-events: none;
-  border-radius: var(--radius-control);
-  box-shadow: var(--ai-selection-ring);
 }
 .ai-ask {
   position: fixed;

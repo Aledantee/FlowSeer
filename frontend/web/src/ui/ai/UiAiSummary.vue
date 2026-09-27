@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { AiStaleError, AiUnavailableError } from '../../ai'
 import type { AiTarget } from '../../ai'
 import UiButton from '../button/UiButton.vue'
@@ -71,6 +71,34 @@ async function generate() {
 function start() {
   void generate()
 }
+
+// A result is revealed a word at a time, the way a streamed answer arrives.
+// The visible text is decorative; the full answer sits in a status region so
+// a screen reader announces it once. Reduced motion shows it at once.
+const revealStep = 35
+const shownWords = ref(0)
+let revealTimer: ReturnType<typeof setInterval> | undefined
+const words = computed(() =>
+  state.value.kind === 'result' ? state.value.answer.split(/(\s+)/) : [],
+)
+const revealing = computed(() => shownWords.value < words.value.length)
+function stopReveal() {
+  if (revealTimer !== undefined) clearInterval(revealTimer)
+  revealTimer = undefined
+}
+watch(words, (next) => {
+  stopReveal()
+  const reduced =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  shownWords.value = reduced ? next.length : 0
+  if (reduced || !next.length) return
+  revealTimer = setInterval(() => {
+    shownWords.value += 2
+    if (!revealing.value) stopReveal()
+  }, revealStep)
+})
+onUnmounted(stopReveal)
 </script>
 
 <template>
@@ -109,13 +137,17 @@ function start() {
       >
     </template>
 
-    <p
-      v-else-if="state.kind === 'result'"
-      role="status"
-      class="text-xs whitespace-pre-wrap text-foreground"
-    >
-      {{ state.answer }}
-    </p>
+    <template v-else-if="state.kind === 'result'">
+      <p
+        class="text-xs whitespace-pre-wrap text-foreground"
+        aria-hidden="true"
+        data-ai-summary-text
+      >
+        {{ words.slice(0, shownWords).join('')
+        }}<span v-if="revealing" class="ai-caret"></span>
+      </p>
+      <p role="status" class="sr-only">{{ state.answer }}</p>
+    </template>
 
     <template v-else-if="state.kind === 'unavailable'">
       <p role="status" class="text-xs text-muted-foreground">

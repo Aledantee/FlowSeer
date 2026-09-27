@@ -301,14 +301,18 @@ unsubscribe()
 returns `true`; unknown or CSS-hidden IDs return `false`. `onRequest` installs
 the asynchronous handler; the returned function removes it. With no handler
 installed, Ask and summary report **AI is unavailable** rather than inventing an
-answer — the application has no model provider yet. A handler that rejects
+answer. The application has no model provider yet, so `main.ts` installs
+`createMockAiHandler` (`src/ai/mock.ts`): it answers a summary from the target's
+context after a short pause that shows the pending shimmer, and leaves Ask
+unavailable. A result is revealed a word at a time; reduced motion shows it at
+once. A handler that rejects
 produces an error state, and an answer whose target unmounted, was replaced, or
 became hidden before it resolved is discarded, so a result never lands on a
 different instance that reused the ID.
 
-The on-screen action layer draws the selection outline and the compact Ask
-button over the registered element without nesting controls inside rows,
-charts, or buttons; focus within a target reveals Ask, and Alt+A opens it
+The on-screen action layer draws a small AI button in the top-right corner of
+the registered element, or just above that corner when a control occupies it,
+without nesting controls inside rows, charts, or buttons; focus within a target reveals Ask, and Alt+A opens it
 from the focused target. The prompt and answer use `UiPopover` with
 `UiButton` and `UiTextarea`; `UiAiSummary` owns the idle, loading, result,
 error, and retry states and makes no request until **Generate summary** is

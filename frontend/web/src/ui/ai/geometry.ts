@@ -126,11 +126,11 @@ function clearsControls(
   )
 }
 
-// Picks where the Ask affordance sits relative to its target. The four
-// candidates are the target's right, left, top, and bottom edges in that order;
-// the first one inside the inset viewport that overlaps no measured control
-// wins. Undefined means no candidate is both on screen and clear, and a caller
-// that renders nothing for undefined keeps Ask from covering a control when a
+// Picks where the Ask affordance sits on its target: inside the target's
+// top-right corner, or just above that corner when a control occupies it. The
+// first spot inside the inset viewport that overlaps no measured control wins.
+// Undefined means neither spot is both on screen and clear, and a caller that
+// renders nothing for undefined keeps Ask from covering a control when a
 // crowded page leaves no room.
 export function placeAsk({
   target,
@@ -140,21 +140,13 @@ export function placeAsk({
   gap,
   inset,
 }: AskPlacement): Point | undefined {
-  const maxLeft = viewport.right - inset - size.width
-  const maxTop = viewport.bottom - inset - size.height
-  const alignedRight = Math.min(
-    Math.max(target.right - size.width, inset),
-    maxLeft,
-  )
-  const alignedMiddle = Math.min(
-    Math.max(target.top + (target.height - size.height) / 2, inset),
-    maxTop,
+  const left = Math.min(
+    Math.max(target.right - gap - size.width, inset),
+    viewport.right - inset - size.width,
   )
   const candidates: Point[] = [
-    { top: alignedMiddle, left: target.right + gap },
-    { top: alignedMiddle, left: target.left - gap - size.width },
-    { top: target.top - gap - size.height, left: alignedRight },
-    { top: target.bottom + gap, left: alignedRight },
+    { top: target.top + gap, left },
+    { top: target.top - gap - size.height, left },
   ]
   return candidates.find((candidate) =>
     clearsControls(candidate, size, viewport, controls, inset),

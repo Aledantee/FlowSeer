@@ -154,7 +154,7 @@ describe('placeAsk', () => {
   const previousRow = rect(494, 29, 332, 98)
   const nextRow = rect(692, 29, 332, 98)
 
-  it('uses the right gutter of the 390px adjacent-card case', () => {
+  it('uses the inside top-right corner of the 390px adjacent-card case', () => {
     const placement = placeAsk({
       target: card,
       controls: [previousRow, nextRow],
@@ -162,20 +162,20 @@ describe('placeAsk', () => {
       ...ask,
     })
 
-    expect(placement).toEqual({ top: 631, left: 363 })
+    expect(placement).toEqual({ top: 595, left: 333 })
   })
 
-  it('falls to the left when a control blocks the right gutter', () => {
-    const rightGutter = rect(631, 363, 40, 40)
+  it('moves above the corner when a control occupies it', () => {
+    const corner = rect(595, 333, 26, 22)
     const placement = placeAsk({
       target: card,
-      controls: [previousRow, nextRow, rightGutter],
+      controls: [nextRow, corner],
       viewport: mobile,
       ...ask,
     })
 
-    expect(placement).toEqual({ top: 631, left: 1 })
-    expect(overlaps(placement!, rightGutter)).toBe(false)
+    expect(placement).toEqual({ top: 569, left: 333 })
+    expect(overlaps(placement!, corner)).toBe(false)
   })
 
   it('returns undefined when every candidate overlaps a control', () => {
@@ -190,19 +190,11 @@ describe('placeAsk', () => {
     })
 
     expect(placement).toBeUndefined()
-    // The clamped fallback the affordance used to fall back to sits inside a
-    // control, which is the overlap this guard exists to prevent.
-    expect(overlaps({ top: 593, left: 335 }, rightColumn)).toBe(true)
   })
 
   it('places or withholds Ask for every combination of obstacles', () => {
-    // One obstacle per candidate region: right, left, top, then bottom.
-    const regions = [
-      rect(628, 360, 32, 28),
-      rect(628, 0, 30, 28),
-      rect(566, 332, 32, 28),
-      rect(690, 332, 32, 28),
-    ]
+    // One obstacle per candidate region: inside the corner, then above it.
+    const regions = [rect(595, 333, 26, 22), rect(569, 333, 26, 22)]
     for (let mask = 0; mask < 1 << regions.length; mask += 1) {
       const controls = regions.filter((_, index) => mask & (1 << index))
       const placement = placeAsk({

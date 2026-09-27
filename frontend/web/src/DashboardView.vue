@@ -52,6 +52,11 @@ const viewTarget = computed(() =>
         ? `${props.site.name}, ${props.site.location}`
         : 'All sites',
       devices: String(props.scope.length),
+      health: healthLine(counts.value),
+      attention: attention.value
+        .map((device) => `${device.name} (${device.health.toLowerCase()})`)
+        .join(', '),
+      peak: `${peak.value.mbps} Mbps at ${String(peak.value.hour).padStart(2, '0')}:00`,
     },
   }),
 )
@@ -184,6 +189,28 @@ const roles = computed(() => {
   >
     <UiCard
       as="section"
+      class="col-span-full overflow-hidden min-w-0"
+      aria-labelledby="summary-title"
+    >
+      <template #header>
+        <div>
+          <h2
+            id="summary-title"
+            class="text-base font-semibold text-foreground"
+          >
+            AI summary
+          </h2>
+          <p class="text-xs text-muted-foreground mt-1">
+            Health, attention, and traffic for
+            {{ site ? site.name : 'all sites' }}
+          </p>
+        </div>
+      </template>
+      <UiAiSummary :target="viewTarget" />
+    </UiCard>
+
+    <UiCard
+      as="section"
       class="overflow-hidden min-w-0"
       aria-labelledby="health-title"
     >
@@ -241,9 +268,6 @@ const roles = computed(() => {
           Health across the scope
         </h3>
         <UiSegmentedMeter :counts="counts" legend />
-        <div class="mt-4">
-          <UiAiSummary :target="viewTarget" />
-        </div>
       </div>
     </UiCard>
 
