@@ -195,7 +195,7 @@ representative dataset. Keep incoming stream batching separate from rendered row
 order. A future topology renderer and configurable OLAP dashboard can use the
 existing scoped routes, but need their own data/query contracts and load tests.
 
-For self-hosting, `pnpm build` emits `dist/`. Configure the web server to return
+For self-hosting, `pnpm build` emits `dist/app/`. Configure the web server to return
 `index.html` for application routes such as `/devices` and `/sites`. Serving assets
 under a subpath requires setting Vite's base and the router history base together.
 
