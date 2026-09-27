@@ -3,6 +3,7 @@ package snmp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -409,5 +410,101 @@ func TestTable_DecodeFailureRetainsDeliveredPrefix(t *testing.T) {
 	}
 	if w.Err() == nil {
 		t.Fatal("w.Err() = nil, want decode error")
+	}
+}
+
+type sparseTableRow struct {
+	Index    OID
+	A, B     string
+	observed [1]uint64
+}
+
+type sparseTableWalker struct {
+	TableWalker[sparseTableRow]
+}
+
+func TestTable_RetainedRowsSurviveLaterRows(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 4, 1, 999, 1)
+	decodeString := func(vb VarBind) (string, error) {
+		if os, ok := vb.(OctetStringVar); ok {
+			return string(os.Value), nil
+		}
+		return "", ErrTypeMismatch
+	}
+	colA := NewTableColumn[string](entry.Child(1), KindOctetString, decodeString, 0)
+	colB := NewTableColumn[string](entry.Child(2), KindOctetString, decodeString, 1)
+	cols := []AnyColumn{colA, colB}
+	tbl := NewTable[sparseTableRow, *sparseTableWalker](
+		"sparseTable",
+		cols,
+		func(idx OID, r *sparseTableRow) { r.Index = idx },
+		func(r *sparseTableRow, ordinal int, rv RawVarBind) error {
+			switch ordinal {
+			case 0:
+				return DecodeColumn(rv, colA, &r.A, r.observed[:])
+			case 1:
+				return DecodeColumn(rv, colB, &r.B, r.observed[:])
+			}
+			return nil
+		},
+		func(tw TableWalker[sparseTableRow]) *sparseTableWalker {
+			return &sparseTableWalker{TableWalker: tw}
+		},
+	)
+
+	// Row 1 answers both columns and row 2 only A, so a row buffer that
+	// carried state between rows would leak row 1's B into row 2.
+	roots := []OID{colA.OID(), colB.OID()}
+	data := [][]uint32{{1, 2}, {1}}
+	sess := columnScript{call: func(_ context.Context, oids []OID, reps int, _ bool) ([]VarBind, error) {
+		cur := append([]OID(nil), oids...)
+		var out []VarBind
+		for range reps {
+			for i, o := range cur {
+				var vb VarBind = EndOfMibViewVar{Header: Header{OID: o, Kind: KindEndOfMibView}}
+				for col, root := range roots {
+					if !o.HasPrefix(root) {
+						continue
+					}
+					for _, index := range data[col] {
+						if next := root.Child(index); next.Compare(o) > 0 {
+							vb = octet(next, fmt.Sprintf("c%d.%d", col, index))
+							break
+						}
+					}
+				}
+				cur[i] = vb.GetHeader().OID
+				out = append(out, vb)
+			}
+		}
+		return out, nil
+	}}
+
+	snapshot := func(r sparseTableRow) string {
+		return fmt.Sprintf("%s %q %q %v", r.Index, r.A, r.B, r.observed)
+	}
+	w := tbl.Walk(context.Background(), sess, colA, colB)
+	var rows []sparseTableRow
+	var atYield []string
+	for _, row := range w.Iter() {
+		rows = append(rows, row)
+		atYield = append(atYield, snapshot(row))
+	}
+	if err := w.Err(); err != nil {
+		t.Fatalf("Err() = %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("len(rows) = %d, want 2", len(rows))
+	}
+	for i, row := range rows {
+		if got := snapshot(row); got != atYield[i] {
+			t.Errorf("row %d changed after later rows: got %s, yielded %s", i, got, atYield[i])
+		}
+	}
+	if rows[0].B != "c1.1" || !ColumnObserved(rows[0].observed[:], cols, colB) {
+		t.Errorf("row 1 B = %q, observed %v; want c1.1 observed", rows[0].B, ColumnObserved(rows[0].observed[:], cols, colB))
+	}
+	if rows[1].B != "" || ColumnObserved(rows[1].observed[:], cols, colB) {
+		t.Errorf("row 2 B = %q, observed %v; want empty and unobserved", rows[1].B, ColumnObserved(rows[1].observed[:], cols, colB))
 	}
 }
