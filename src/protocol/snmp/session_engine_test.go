@@ -32,6 +32,7 @@ type mibBehavior struct {
 	tooBigOver      int     // GetBulk returns tooBig when maxRepetitions exceeds this (0 → never)
 	padEndOfMibView bool
 	nextOverride    func(req OID, prev OID, n int) (OID, VarBind, bool)
+	bulkResponses   chan []VarBind // test observation hook: receives each GetBulk response's varbinds
 }
 
 // startMIBAgent serves a sorted MIB over GetNext/Get/GetBulk/Set, enough
@@ -111,6 +112,12 @@ func startMIBAgent(t *testing.T, entries []mibEntry, b mibBehavior) *mockAgent {
 				}
 				resp.pdu.varbinds = append(resp.pdu.varbinds, e.vb)
 				cur = e.oid
+			}
+			if b.bulkResponses != nil {
+				select {
+				case b.bulkResponses <- append([]VarBind(nil), resp.pdu.varbinds...):
+				default:
+				}
 			}
 		case pduSetRequest:
 			resp.pdu.varbinds = req.pdu.varbinds
@@ -193,18 +200,27 @@ func TestSession_GetNext(t *testing.T) {
 	}
 }
 
-// ifTable returns a small ifDescr column table rooted under ifTable.
-func ifTable(n int) (root OID, entries []mibEntry) {
+// ifTableEntries returns a small ifDescr column table rooted under ifTable,
+// optionally appending a scalar outside the subtree.
+func ifTableEntries(n int, withOutside bool) (root OID, entries []mibEntry) {
 	root = MustOID(1, 3, 6, 1, 2, 1, 2, 2)
 	ifDescr := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2)
 	for i := 1; i <= n; i++ {
 		oid := ifDescr.Append(uint32(i))
 		entries = append(entries, mibEntry{oid, octet(oid, "eth")})
 	}
-	// A scalar outside the subtree, to prove the walk stops at the boundary.
-	outside := MustOID(1, 3, 6, 1, 2, 1, 3, 1, 0)
-	entries = append(entries, mibEntry{outside, octet(outside, "outside")})
+	if withOutside {
+		// A scalar outside the subtree, to prove the walk stops at the boundary.
+		outside := MustOID(1, 3, 6, 1, 2, 1, 3, 1, 0)
+		entries = append(entries, mibEntry{outside, octet(outside, "outside")})
+	}
 	return root, entries
+}
+
+// ifTable returns a small ifDescr column table rooted under ifTable with an
+// out-of-subtree scalar appended.
+func ifTable(n int) (root OID, entries []mibEntry) {
+	return ifTableEntries(n, true)
 }
 
 func TestSession_Walk_Completion(t *testing.T) {
@@ -250,20 +266,105 @@ func TestSession_BulkWalk_Completion(t *testing.T) {
 }
 
 func TestSession_BulkWalk_PaddedEnd(t *testing.T) {
-	root, entries := ifTable(7)
-	agent := startMIBAgent(t, entries, mibBehavior{padEndOfMibView: true})
+	root, entries := ifTableEntries(7, false)
+	bulkResponses := make(chan []VarBind, 4)
+	agent := startMIBAgent(t, entries, mibBehavior{
+		padEndOfMibView: true,
+		bulkResponses:   bulkResponses,
+	})
 	sess := dialNative(t, agent, V2c)
 
-	count := 0
+	var yieldedOIDs []OID
+	var yieldedVBs []VarBind
 	w := sess.BulkWalk(context.Background(), root)
-	for range w.Iter() {
-		count++
+	for oid, vb := range w.Iter() {
+		yieldedOIDs = append(yieldedOIDs, oid)
+		yieldedVBs = append(yieldedVBs, vb)
 	}
 	if err := w.Err(); err != nil {
-		t.Fatalf("bulkwalk err: %v", err)
+		t.Fatalf("bulkwalk err: %v, want nil", err)
 	}
-	if count != 7 {
-		t.Fatalf("bulkwalked %d rows, want 7", count)
+
+	// 1. Assert complete expected sequence: 7 in-subtree rows + exactly 1 terminal EndOfMibView marker.
+	if got, want := len(yieldedVBs), 8; got != want {
+		t.Fatalf("yielded %d items, want %d (7 rows + 1 EndOfMibView)", got, want)
+	}
+	if got, want := len(yieldedOIDs), 8; got != want {
+		t.Fatalf("yielded %d OIDs, want %d", got, want)
+	}
+
+	// Verify the 7 ordinary in-subtree rows.
+	for i := 0; i < 7; i++ {
+		wantOID := entries[i].oid
+		if !yieldedOIDs[i].Equal(wantOID) {
+			t.Fatalf("row %d OID = %s, want %s", i, yieldedOIDs[i], wantOID)
+		}
+		if !yieldedOIDs[i].HasPrefix(root) {
+			t.Fatalf("row %d OID %s not under root %s", i, yieldedOIDs[i], root)
+		}
+		oct, ok := yieldedVBs[i].(OctetStringVar)
+		if !ok {
+			t.Fatalf("row %d kind = %v, want OctetStringVar", i, yieldedVBs[i].GetHeader().Kind)
+		}
+		if got, want := string(oct.Value), "eth"; got != want {
+			t.Fatalf("row %d value = %q, want %q", i, got, want)
+		}
+	}
+
+	// Verify exactly one yielded terminal EndOfMibView marker.
+	terminalOID := yieldedOIDs[7]
+	terminalVB := yieldedVBs[7]
+	if terminalVB.GetHeader().Kind != KindEndOfMibView {
+		t.Fatalf("terminal item kind = %v, want KindEndOfMibView", terminalVB.GetHeader().Kind)
+	}
+	lastRowOID := entries[6].oid
+	if !terminalOID.Equal(lastRowOID) {
+		t.Fatalf("terminal marker OID = %s, want %s", terminalOID, lastRowOID)
+	}
+
+	// Partition count check: exactly 7 ordinary rows and 1 EndOfMibView marker.
+	ordinaryRows, eomvMarkers := 0, 0
+	for _, vb := range yieldedVBs {
+		switch vb.GetHeader().Kind {
+		case KindOctetString:
+			ordinaryRows++
+		case KindEndOfMibView:
+			eomvMarkers++
+		default:
+			t.Fatalf("unexpected varbind kind %v", vb.GetHeader().Kind)
+		}
+	}
+	if ordinaryRows != 7 {
+		t.Fatalf("ordinary rows count = %d, want 7", ordinaryRows)
+	}
+	if eomvMarkers != 1 {
+		t.Fatalf("terminal EndOfMibView count = %d, want 1", eomvMarkers)
+	}
+
+	// 2. Observe wire response via mock behavior: prove the agent actually
+	// padded the response to maxRepetitions (50).
+	var wireVBs []VarBind
+	select {
+	case wireVBs = <-bulkResponses:
+	default:
+		t.Fatal("agent did not record a GetBulk response")
+	}
+
+	if got, want := len(wireVBs), walkBulkMaxRepetitions; got != want {
+		t.Fatalf("agent response varbind count = %d, want %d (padded to maxRepetitions)", got, want)
+	}
+	for i := 0; i < 7; i++ {
+		if !wireVBs[i].GetHeader().OID.Equal(entries[i].oid) {
+			t.Fatalf("wire varbind %d OID = %s, want %s", i, wireVBs[i].GetHeader().OID, entries[i].oid)
+		}
+		if wireVBs[i].GetHeader().Kind != KindOctetString {
+			t.Fatalf("wire varbind %d kind = %v, want KindOctetString", i, wireVBs[i].GetHeader().Kind)
+		}
+	}
+	for i := 7; i < len(wireVBs); i++ {
+		if wireVBs[i].GetHeader().Kind != KindEndOfMibView {
+			t.Fatalf("wire padded varbind %d kind = %v, want KindEndOfMibView", i, wireVBs[i].GetHeader().Kind)
+		}
 	}
 }
 

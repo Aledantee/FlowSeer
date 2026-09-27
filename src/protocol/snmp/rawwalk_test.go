@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"reflect"
 	"testing"
 )
 
@@ -77,12 +78,13 @@ func (o OID) WireArcsForTest() []uint32 { return o.subs }
 // same (OID, VarBind) sequence and the same terminal error as BulkWalk.
 func TestBulkWalkRaw_DifferentialWithBulkWalk(t *testing.T) {
 	scenarios := []struct {
-		name     string
-		rows     int
-		behavior mibBehavior
+		name        string
+		rows        int
+		behavior    mibBehavior
+		omitOutside bool
 	}{
-		{"clean-walk", 7, mibBehavior{}},
-		{"toobig-degrade", 5, mibBehavior{tooBigOver: 1}},
+		{"clean-walk", 7, mibBehavior{}, false},
+		{"toobig-degrade", 5, mibBehavior{tooBigOver: 1}, false},
 		{"eomv-mid-walk", 4, mibBehavior{
 			nextOverride: func(_ OID, prev OID, n int) (OID, VarBind, bool) {
 				if n >= 6 { // cut the walk short with an explicit marker
@@ -90,12 +92,12 @@ func TestBulkWalkRaw_DifferentialWithBulkWalk(t *testing.T) {
 				}
 				return OID{}, nil, false
 			},
-		}},
-		{"padded-end", 7, mibBehavior{padEndOfMibView: true}},
+		}, false},
+		{"padded-end", 7, mibBehavior{padEndOfMibView: true}, true},
 	}
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
-			root, entries := ifTable(sc.rows)
+			root, entries := ifTableEntries(sc.rows, !sc.omitOutside)
 
 			agent1 := startMIBAgent(t, entries, sc.behavior)
 			sess1 := dialNative(t, agent1, V2c)
@@ -138,6 +140,42 @@ func TestBulkWalkRaw_DifferentialWithBulkWalk(t *testing.T) {
 				}
 				if genVBs[i].GetHeader().Kind != rawVBs[i].GetHeader().Kind {
 					t.Fatalf("kind %d diverges: generic=%v raw=%v", i, genVBs[i].GetHeader().Kind, rawVBs[i].GetHeader().Kind)
+				}
+				if !reflect.DeepEqual(genVBs[i], rawVBs[i]) {
+					t.Fatalf("varbind %d diverges: generic=%#v raw=%#v", i, genVBs[i], rawVBs[i])
+				}
+			}
+
+			if sc.name == "padded-end" {
+				if got, want := len(genOIDs), 8; got != want {
+					t.Fatalf("padded scenario yielded %d items, want %d (7 rows + 1 EndOfMibView)", got, want)
+				}
+				for i := 0; i < 7; i++ {
+					if !genOIDs[i].Equal(entries[i].oid) {
+						t.Fatalf("padded row %d OID = %s, want %s", i, genOIDs[i], entries[i].oid)
+					}
+					if genVBs[i].GetHeader().Kind != KindOctetString {
+						t.Fatalf("padded row %d kind = %v, want KindOctetString", i, genVBs[i].GetHeader().Kind)
+					}
+				}
+				if genVBs[7].GetHeader().Kind != KindEndOfMibView {
+					t.Fatalf("padded terminal generic kind = %v, want KindEndOfMibView", genVBs[7].GetHeader().Kind)
+				}
+				if rawVBs[7].GetHeader().Kind != KindEndOfMibView {
+					t.Fatalf("padded terminal raw kind = %v, want KindEndOfMibView", rawVBs[7].GetHeader().Kind)
+				}
+				wantTerminalOID := entries[6].oid
+				if !genOIDs[7].Equal(wantTerminalOID) {
+					t.Fatalf("padded terminal generic OID = %s, want %s", genOIDs[7], wantTerminalOID)
+				}
+				if !rawOIDs[7].Equal(wantTerminalOID) {
+					t.Fatalf("padded terminal raw OID = %s, want %s", rawOIDs[7], wantTerminalOID)
+				}
+				if genErr != nil {
+					t.Fatalf("padded generic error = %v, want nil", genErr)
+				}
+				if rawErr != nil {
+					t.Fatalf("padded raw error = %v, want nil", rawErr)
 				}
 			}
 		})
