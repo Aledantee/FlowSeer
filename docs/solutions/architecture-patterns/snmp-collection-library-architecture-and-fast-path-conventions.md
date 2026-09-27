@@ -317,20 +317,19 @@ benchstat's own significance verdict so high-variance benchmarks read `~` and do
 not false-trip (`:18`), and it **never rewrites the baseline** — rebaselining is a
 deliberate reviewed commit (`:25`).
 
-The committed baseline records `BenchmarkGet/impl=flowseer` at 56 allocs/op and
-1824 B/op, `BenchmarkGetNext` at 56 allocs/op, `BenchmarkGetBulk` at 97, and
-`BenchmarkBulkWalk` at 481 (`src/protocol/snmp/bench/testdata/baseline-micro.txt:5`, `:15`, `:25`,
-`:35`).
+The committed baseline, re-measured on darwin/arm64 on 2026-09-27, records
+`BenchmarkGet/impl=flowseer` at 55 allocs/op and 1800 B/op, `BenchmarkGetNext`
+at 56, `BenchmarkGetBulk` at 98, `BenchmarkBulkWalk` at 1281, and
+`BenchmarkTableWalk` at 1667
+(`src/protocol/snmp/bench/testdata/baseline-micro.txt:5`, `:15`, `:25`, `:35`,
+`:65`). The earlier baseline had BulkWalk at 481 and TableWalk at 364 and had
+not been refreshed through several walk changes, so the gate failed on every
+branch. The TableWalk rise is the cost the streaming walk accepted for bounded
+retained memory (`docs/benchmarks/2026-09-03-streaming-mib-walks.md:72`). No
+record explains the BulkWalk rise; the refresh took it as `main`'s state rather
+than a verdict on it.
 
-That file has since drifted from the tree. Measured on darwin/arm64 at
-`e9b0bc58` on 2026-09-06, `BenchmarkGetBulk` is 98 allocs/op and
-`BenchmarkBulkWalk` 1278 — so `task bench:gate` reports a large BulkWalk
-"regression" on any branch, and its headline percentages are not the change's
-delta. Until someone rebaselines, judge a suspected regression by benchmarking
-the merge base and the branch and comparing those two, and read the gate only
-for the direction it points.
-
-Per the 2026-08-16 session history, that `56` is post-optimization: four
+Per the 2026-08-16 session history, the Get/GetNext `56` is post-optimization: four
 prototypes were each benchmarked against a fresh baseline with benchstat at
 `n=10` and fully reverted before the next; three were adopted. Experiment 4 — the
 single-buffer request encode now called `encodeRequestFast` — measured −23%
