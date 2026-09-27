@@ -50,7 +50,15 @@ function reason(device: Device) {
   return parts.join(' · ')
 }
 const feed = computed(() => scopedEvents(props.scope))
-const rollups = computed(() => siteRollups(props.scope, props.sites))
+// Worst site first: offline, then degraded devices, then name.
+const rollups = computed(() =>
+  siteRollups(props.scope, props.sites).sort(
+    (a, b) =>
+      b.health.Offline - a.health.Offline ||
+      b.health.Degraded - a.health.Degraded ||
+      a.site.name.localeCompare(b.site.name),
+  ),
+)
 const devicesById = computed(
   () => new Map(props.scope.map((device) => [device.id, device])),
 )

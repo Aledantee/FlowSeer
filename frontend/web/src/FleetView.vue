@@ -55,6 +55,9 @@ const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
+// Fixture values refresh with the tick; the dashboard states the time of the
+// last refresh so a glance never mistakes stale numbers for live ones.
+const asOf = ref(new Date())
 const message = ref('')
 interface Move {
   deviceId: string
@@ -434,6 +437,7 @@ let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
   timer = setInterval(() => {
     tick.value++
+    asOf.value = new Date()
     for (const [index, device] of fleet.value.entries()) {
       if (device.health !== 'Offline')
         device.throughput = Math.max(
@@ -603,7 +607,15 @@ onUnmounted(() => {
               <h1>{{ title }}</h1>
               <p v-if="!scopeError">
                 {{ scopeSummary
-                }}<template v-if="view === 'devices' && scope.length > healthy">
+                }}<template v-if="view === 'dashboard'">
+                  · as of
+                  {{
+                    asOf.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  }}</template
+                ><template v-if="view === 'devices' && scope.length > healthy">
                   · {{ scope.length - healthy }} need attention</template
                 >
               </p>
@@ -665,21 +677,6 @@ onUnmounted(() => {
               >
                 Across {{ visibleSites.length }}
                 {{ visibleSites.length === 1 ? 'site' : 'sites' }}
-              </MetricCard>
-              <MetricCard
-                label="Need attention"
-                :value="scope.length - healthy"
-                unit="devices"
-                icon="pulse"
-              >
-                {{
-                  scope.filter((device) => device.health === 'Offline').length
-                }}
-                offline ·
-                {{
-                  scope.filter((device) => device.health === 'Degraded').length
-                }}
-                degraded
               </MetricCard>
               <MetricCard
                 label="Connected clients"

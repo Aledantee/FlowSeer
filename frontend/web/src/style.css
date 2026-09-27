@@ -420,7 +420,7 @@ main {
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
@@ -1244,15 +1244,6 @@ td small {
   main {
     padding: 25px 20px 0;
   }
-  .metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .metrics article:nth-child(2) {
-    border-right: 0;
-  }
-  .metrics article:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line);
-  }
   .page-heading {
     align-items: flex-start;
   }
@@ -1451,8 +1442,11 @@ td small {
     display: table-cell;
     min-width: 96px;
   }
-  .metrics article:nth-child(-n + 2) {
-    border-bottom: 0;
+  .metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .metrics article:nth-child(2) {
+    border-right: 0;
   }
   .mobile-devices {
     display: grid;
