@@ -9,6 +9,8 @@ import { devices, linksOf } from '../../domain/fleet'
 import type { Device, Link } from '../../domain/fleet'
 import { topologyLive } from './live'
 import type { Selection } from './live'
+import { createAiRegistry, createAiTargetDirective } from '../../ai'
+import type { AiRegistry } from '../../ai'
 import TopologyLink from './TopologyLink.vue'
 import TopologyNode from './TopologyNode.vue'
 
@@ -37,6 +39,7 @@ vi.mock('@vue-flow/core', async () => {
 })
 
 let dispose = () => {}
+let registry: AiRegistry
 
 afterEach(() => {
   dispose()
@@ -72,6 +75,8 @@ function mount(component: Component, props: Record<string, unknown>) {
       },
     }),
   )
+  registry = createAiRegistry()
+  app.directive('ai-target', createAiTargetDirective(registry))
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -130,5 +135,49 @@ describe('topology assumption semantics', () => {
       /class="topology-assumption"[^>]*>[\s\S]*Assumed link, not yet discovered/,
     )
     expect(baseRule).toContain('stroke-dasharray: 4 5')
+  })
+})
+
+describe('topology AI targets', () => {
+  it('registers a node with its device context', () => {
+    const device = devices.find((item) => item.role === 'access-point')
+    if (!device) throw new Error('Missing device fixture')
+
+    mount(TopologyNode, { data: { deviceId: device.id } })
+
+    const node = registry.view(`standalone:topology:device:${device.id}`)
+    expect(node?.target.kind).toBe('device')
+    expect(node?.target.label).toBe(device.name)
+    expect(node?.target.context).toMatchObject({
+      name: device.name,
+      role: device.role,
+      health: device.health,
+      address: device.address,
+    })
+  })
+
+  it('registers a link label with both endpoint names', () => {
+    const link = linksOf(devices)[0]
+    if (!link) throw new Error('Missing link fixture')
+    const byId = new Map(devices.map((device) => [device.id, device]))
+
+    mount(TopologyLink, {
+      id: link.id,
+      sourceX: 0,
+      sourceY: 0,
+      targetX: 10,
+      targetY: 10,
+      sourcePosition: Position.Bottom,
+      targetPosition: Position.Top,
+      data: { linkId: link.id },
+    })
+
+    const label = registry.view(`standalone:topology:link:${link.id}`)
+    expect(label?.target.kind).toBe('link')
+    expect(label?.target.context).toMatchObject({
+      health: link.health,
+      source: byId.get(link.sourceId)?.name,
+      target: byId.get(link.targetId)?.name,
+    })
   })
 })
