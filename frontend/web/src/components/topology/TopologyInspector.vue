@@ -111,7 +111,7 @@ function deviceLink(id: string) {
       </template>
       <template v-else-if="port">
         <button
-          class="icon-button grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded-control bg-transparent text-muted-foreground hover:bg-hover hover:text-accent-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px] max-[560px]:min-w-[44px] [&>svg]:w-3.5 [&>svg]:h-3.5"
+          class="icon-button"
           :aria-label="`Back to ${port.owner.name}`"
           @click="live.select({ kind: 'device', id: port.owner.id })"
         >
@@ -131,7 +131,7 @@ function deviceLink(id: string) {
         ></span
       >
       <button
-        class="icon-button grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded-control bg-transparent text-muted-foreground hover:bg-hover hover:text-accent-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px] max-[560px]:min-w-[44px] [&>svg]:w-3.5 [&>svg]:h-3.5"
+        class="icon-button"
         aria-label="Close details"
         @click="live.select(undefined)"
       >
@@ -592,6 +592,10 @@ function deviceLink(id: string) {
 }
 .panel-link:hover {
   text-decoration: underline;
+}
+
+.panel-link :deep(svg) {
+  width: 14px;
 }
 
 .topology-inspector header .icon-button {
