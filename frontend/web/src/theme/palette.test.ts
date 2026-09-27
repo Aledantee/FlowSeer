@@ -1,11 +1,18 @@
-import { readFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
-import prettier from 'prettier'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { writePaletteOutputs } from '../../scripts/palette-outputs.ts'
 import {
   contrast,
   pairs,
-  renderScales,
   renderSemantic,
   resolve,
   toSrgb,
@@ -14,8 +21,6 @@ import {
 
 const sourcePath = path.resolve(__dirname, '../../design/palette-source.json')
 const source: PaletteSource = JSON.parse(readFileSync(sourcePath, 'utf8'))
-const scalesPath = path.resolve(__dirname, 'scales.css')
-const semanticPath = path.resolve(__dirname, 'semantic.css')
 
 describe('palette module and contrast gate', () => {
   describe('WCAG contrast thresholds', () => {
@@ -34,23 +39,83 @@ describe('palette module and contrast gate', () => {
     }
   })
 
-  it('matches generated files on disk after prettier formatting', async () => {
-    const scalesDisk = readFileSync(scalesPath, 'utf8')
-    const semanticDisk = readFileSync(semanticPath, 'utf8')
+  it('resolves every semantic token in both themes without throwing', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const token of Object.keys(source.semantic)) {
+        expect(() => resolve(source, token, theme)).not.toThrow()
+      }
+    }
+  })
 
-    const scalesConfig = await prettier.resolveConfig(scalesPath)
-    const formattedScales = await prettier.format(renderScales(source), {
-      ...scalesConfig,
-      filepath: scalesPath,
-    })
-    expect(formattedScales).toBe(scalesDisk)
+  describe('generator write path', () => {
+    const outputFiles = [
+      'src/theme/scales.css',
+      'src/theme/semantic.css',
+      'design/palette.json',
+    ] as const
+    let tempDir: string
 
-    const semanticConfig = await prettier.resolveConfig(semanticPath)
-    const formattedSemantic = await prettier.format(renderSemantic(source), {
-      ...semanticConfig,
-      filepath: semanticPath,
+    const sentinelContent = (relPath: string) => `/* sentinel ${relPath} */\n`
+
+    beforeEach(() => {
+      tempDir = mkdtempSync(path.join(os.tmpdir(), 'palette-test-'))
+      copyFileSync(
+        path.resolve(__dirname, '../../.prettierrc.json'),
+        path.join(tempDir, '.prettierrc.json'),
+      )
+      for (const relPath of outputFiles) {
+        const fullPath = path.join(tempDir, relPath)
+        mkdirSync(path.dirname(fullPath), { recursive: true })
+        writeFileSync(fullPath, sentinelContent(relPath), 'utf8')
+      }
     })
-    expect(formattedSemantic).toBe(semanticDisk)
+
+    afterEach(() => {
+      rmSync(tempDir, { recursive: true, force: true })
+    })
+
+    it('rejects an invalid source and leaves all three sentinel outputs unchanged', async () => {
+      const invalidSource: PaletteSource = {
+        ...source,
+        semantic: {
+          ...source.semantic,
+          card: {
+            ...source.semantic.card,
+            light: 'neutral-3',
+          },
+          overlay: {
+            light: 'teal-3',
+            dark: 'teal-3',
+          },
+        },
+      }
+
+      await expect(
+        writePaletteOutputs(invalidSource, tempDir),
+      ).rejects.toThrow()
+
+      for (const relPath of outputFiles) {
+        const content = readFileSync(path.join(tempDir, relPath), 'utf8')
+        expect(content).toBe(sentinelContent(relPath))
+      }
+    })
+
+    it('writes all three outputs for the valid real source matching repository files', async () => {
+      const rootDir = path.resolve(__dirname, '../..')
+      await writePaletteOutputs(source, tempDir)
+
+      for (const relPath of outputFiles) {
+        const generatedContent = readFileSync(
+          path.join(tempDir, relPath),
+          'utf8',
+        )
+        const diskContent = readFileSync(path.join(rootDir, relPath), 'utf8')
+        expect(
+          generatedContent,
+          `${relPath} is out of date; regenerate with: node --experimental-strip-types scripts/build-palette.ts`,
+        ).toBe(diskContent)
+      }
+    })
   })
 
   it('declares only valid var(--m3-*) or color-mix values in semantic CSS', () => {

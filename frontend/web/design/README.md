@@ -114,8 +114,9 @@ mode. Exact brand anchors therefore remain separate from generated steps.
 
 `src/theme/scales.css` exposes `--m3-coral-1` through `--m3-blue-12`, with dark
 values selected by `data-theme="dark"`. The app imports these primitives through
-`src/style.css`. Existing semantic tokens remain the reviewed, contrast-tested
-layer for components; a full primitive ramp does not replace those decisions.
+`src/style.css`. Semantic tokens are generated into `src/theme/semantic.css` from
+`design/palette-source.json` and reference scale steps; a full primitive ramp
+does not replace those decisions.
 
 ```css
 .site-hint {
@@ -210,7 +211,8 @@ pnpm exec vitest run src/theme/palette.test.ts
 The [Radix review capture](light-palette-review.json) is a historical ramp
 reference, not the current semantic role mapping. The eight-family primitive
 export is also a reference palette; components use the contrast-tested semantic
-tokens in `src/style.css`. Foundation tokens, typography, shape, and active contrast
+tokens generated into `src/theme/semantic.css` from `design/palette-source.json`
+referencing scale steps. Foundation tokens, typography, shape, and active contrast
 pairs can also be inspected interactively in Storybook (`pnpm storybook`).
 
 The connected frame keeps its shared ribbons and rounded inner corner. Content

@@ -17,6 +17,10 @@ describe('tailwind theme and utilities', () => {
     expect(cardOutput).toContain('.bg-card')
     expect(cardOutput).toContain('background-color: var(--card)')
 
+    const textMutedOutput = compiler.build(['text-muted-foreground'])
+    expect(textMutedOutput).toContain('.text-muted-foreground')
+    expect(textMutedOutput).toContain('color: var(--muted-foreground)')
+
     const redOutput = compiler.build(['bg-red-500'])
     expect(redOutput).not.toContain('.bg-red-500')
   })
@@ -28,8 +32,11 @@ describe('tailwind theme and utilities', () => {
     })
 
     const darkOutput = compiler.build(['dark:bg-popover'])
-    expect(darkOutput).toContain('[data-theme=dark]')
-    expect(darkOutput).toContain('var(--popover)')
+    expect(darkOutput).toContain(
+      '.dark\\:bg-popover:where([data-theme=dark], [data-theme=dark] *)',
+    )
+    expect(darkOutput).toContain('background-color: var(--popover)')
+    expect(darkOutput).not.toContain('light')
   })
 
   it('declares type scale with companion line-height', async () => {

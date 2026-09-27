@@ -16,7 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "storybook": "storybook dev -p 6006 --host 127.0.0.1",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build --output-dir dist/storybook"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
