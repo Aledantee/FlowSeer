@@ -1,17 +1,14 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { URL } from 'node:url'
 import type { PaletteSource } from '../src/theme/palette.ts'
-import { buildPaletteOutputs } from './palette-outputs.ts'
+import { writePaletteOutputs } from './palette-outputs.ts'
 
 const root = new URL('../', import.meta.url)
 const sourcePath = new URL('design/palette-source.json', root)
 const source: PaletteSource = JSON.parse(readFileSync(sourcePath, 'utf8'))
 
 async function main() {
-  const outputs = await buildPaletteOutputs(source)
-  for (const { path, content } of outputs) {
-    writeFileSync(path, content)
-  }
+  await writePaletteOutputs(source)
 }
 
 main().catch((err: unknown) => {

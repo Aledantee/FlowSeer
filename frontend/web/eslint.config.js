@@ -4,7 +4,7 @@ import vue from 'eslint-plugin-vue'
 import prettier from 'eslint-config-prettier'
 import globals from 'globals'
 export default ts.config(
-  { ignores: ['dist/**', 'node_modules/**', 'storybook-static/**'] },
+  { ignores: ['dist/**', 'node_modules/**'] },
   js.configs.recommended,
   ...ts.configs.recommended,
   ...vue.configs['flat/recommended'],

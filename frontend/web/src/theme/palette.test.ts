@@ -1,7 +1,15 @@
-import { readFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { buildPaletteOutputs } from '../../scripts/palette-outputs.ts'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { writePaletteOutputs } from '../../scripts/palette-outputs.ts'
 import {
   contrast,
   pairs,
@@ -39,32 +47,75 @@ describe('palette module and contrast gate', () => {
     }
   })
 
-  it('rejects for a source whose ungated token refs teal-3', async () => {
-    const invalidSource: PaletteSource = {
-      ...source,
-      semantic: {
-        ...source.semantic,
-        overlay: {
-          light: 'teal-3',
-          dark: 'teal-3',
-        },
-      },
-    }
-    await expect(buildPaletteOutputs(invalidSource)).rejects.toThrow()
-  })
+  describe('generator write path', () => {
+    const outputFiles = [
+      'src/theme/scales.css',
+      'src/theme/semantic.css',
+      'design/palette.json',
+    ] as const
+    let tempDir: string
 
-  it('resolves for the real source to content equal to the three files on disk', async () => {
-    const rootDir = path.resolve(__dirname, '../..')
-    const outputs = await buildPaletteOutputs(source, rootDir)
-    expect(outputs).toHaveLength(3)
-    for (const { path: filePath, content } of outputs) {
-      const diskContent = readFileSync(filePath, 'utf8')
-      const relPath = path.relative(rootDir, filePath)
-      expect(
-        content,
-        `${relPath} is out of date; regenerate with: node --experimental-strip-types scripts/build-palette.ts`,
-      ).toBe(diskContent)
-    }
+    const sentinelContent = (relPath: string) => `/* sentinel ${relPath} */\n`
+
+    beforeEach(() => {
+      tempDir = mkdtempSync(path.join(os.tmpdir(), 'palette-test-'))
+      copyFileSync(
+        path.resolve(__dirname, '../../.prettierrc.json'),
+        path.join(tempDir, '.prettierrc.json'),
+      )
+      for (const relPath of outputFiles) {
+        const fullPath = path.join(tempDir, relPath)
+        mkdirSync(path.dirname(fullPath), { recursive: true })
+        writeFileSync(fullPath, sentinelContent(relPath), 'utf8')
+      }
+    })
+
+    afterEach(() => {
+      rmSync(tempDir, { recursive: true, force: true })
+    })
+
+    it('rejects an invalid source and leaves all three sentinel outputs unchanged', async () => {
+      const invalidSource: PaletteSource = {
+        ...source,
+        semantic: {
+          ...source.semantic,
+          card: {
+            ...source.semantic.card,
+            light: 'neutral-3',
+          },
+          overlay: {
+            light: 'teal-3',
+            dark: 'teal-3',
+          },
+        },
+      }
+
+      await expect(
+        writePaletteOutputs(invalidSource, tempDir),
+      ).rejects.toThrow()
+
+      for (const relPath of outputFiles) {
+        const content = readFileSync(path.join(tempDir, relPath), 'utf8')
+        expect(content).toBe(sentinelContent(relPath))
+      }
+    })
+
+    it('writes all three outputs for the valid real source matching repository files', async () => {
+      const rootDir = path.resolve(__dirname, '../..')
+      await writePaletteOutputs(source, tempDir)
+
+      for (const relPath of outputFiles) {
+        const generatedContent = readFileSync(
+          path.join(tempDir, relPath),
+          'utf8',
+        )
+        const diskContent = readFileSync(path.join(rootDir, relPath), 'utf8')
+        expect(
+          generatedContent,
+          `${relPath} is out of date; regenerate with: node --experimental-strip-types scripts/build-palette.ts`,
+        ).toBe(diskContent)
+      }
+    })
   })
 
   it('declares only valid var(--m3-*) or color-mix values in semantic CSS', () => {
