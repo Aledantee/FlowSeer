@@ -1031,9 +1031,11 @@ onUnmounted(() => {
               <div>
                 <strong>{{ event.summary }}</strong
                 ><small
-                  >{{ formatAgo(event.minutesAgo) }}
-                  <span class="sr-only">, severity {{ event.severity }}</span>
-                </small>
+                  ><span class="severity">{{
+                    event.severity === 'critical' ? 'Critical' : 'Warning'
+                  }}</span>
+                  · {{ formatAgo(event.minutesAgo) }}</small
+                >
               </div>
             </li>
           </ol>

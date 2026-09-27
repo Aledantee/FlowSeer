@@ -639,7 +639,7 @@ td small {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 4px 8px;
   border-radius: 4px;
@@ -662,6 +662,10 @@ td small {
 }
 .site-name {
   font-weight: 450;
+}
+.severity {
+  font-weight: 550;
+  color: var(--text);
 }
 .seen {
   font-variant-numeric: tabular-nums;

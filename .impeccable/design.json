@@ -134,6 +134,10 @@
       "mono": {
         "displayName": "Mono",
         "purpose": "Device addresses, serials, and MACs."
+      },
+      "status": {
+        "displayName": "Status",
+        "purpose": "Status badges and event severity words; the 12px status floor."
       }
     },
     "shadows": [
@@ -243,7 +247,7 @@
       "refersTo": "status-healthy",
       "description": "Health always as a word plus its own color family.",
       "html": "<span class=\"ds-status\"><i></i>Healthy</span> <span class=\"ds-status ds-degraded\"><i></i>Degraded</span> <span class=\"ds-status ds-offline\"><i></i>Offline</span>",
-      "css": ".ds-status{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 8px;border-radius:4px;font:500 11px 'Inter Variable',system-ui,sans-serif;background:var(--healthy-surface,#c9ddd0);color:var(--healthy-text,#1e5135)}.ds-status i{width:5px;height:5px;border-radius:50%;background:currentColor}.ds-degraded{background:var(--warning-surface,#e8d9a7);color:var(--warning-text,#60450f)}.ds-offline{background:var(--offline-surface,#e3c9cf);color:var(--offline-text,#792e3b)}"
+      "css": ".ds-status{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 8px;border-radius:4px;font:500 12px 'Inter Variable',system-ui,sans-serif;background:var(--healthy-surface,#c9ddd0);color:var(--healthy-text,#1e5135)}.ds-status i{width:5px;height:5px;border-radius:50%;background:currentColor}.ds-degraded{background:var(--warning-surface,#e8d9a7);color:var(--warning-text,#60450f)}.ds-offline{background:var(--offline-surface,#e3c9cf);color:var(--offline-text,#792e3b)}"
     },
     {
       "name": "Metric Panel",

@@ -29,6 +29,7 @@ const peak = computed(() =>
   }),
 )
 const severity = { Offline: 0, Degraded: 1, Healthy: 2 }
+const severityLabel = { critical: 'Critical', warning: 'Warning', info: 'Info' }
 const attention = computed(() =>
   props.scope
     .filter((device) => device.health !== 'Healthy')
@@ -233,6 +234,8 @@ const roles = computed(() => {
           <div>
             <strong>{{ event.summary }}</strong>
             <small>
+              <span class="severity">{{ severityLabel[event.severity] }}</span>
+              ·
               <button
                 v-if="devicesById.get(event.deviceId)"
                 class="dash-inline"
@@ -241,7 +244,6 @@ const roles = computed(() => {
                 {{ devicesById.get(event.deviceId)?.name }}
               </button>
               · {{ formatAgo(event.minutesAgo) }}
-              <span class="sr-only">, severity {{ event.severity }}</span>
             </small>
           </div>
         </li>

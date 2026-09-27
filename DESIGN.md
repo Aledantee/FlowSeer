@@ -64,6 +64,10 @@ typography:
     fontFamily: "'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "11px"
     fontWeight: 500
+  status:
+    fontFamily: "'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "12px"
+    fontWeight: 500
   mono:
     fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace"
     fontSize: "12px"
@@ -112,19 +116,19 @@ components:
   status-healthy:
     backgroundColor: "{colors.healthy-surface}"
     textColor: "{colors.healthy-text}"
-    typography: "{typography.label}"
+    typography: "{typography.status}"
     rounded: "{rounded.badge}"
     padding: "4px 8px"
   status-degraded:
     backgroundColor: "{colors.warning-surface}"
     textColor: "{colors.warning-text}"
-    typography: "{typography.label}"
+    typography: "{typography.status}"
     rounded: "{rounded.badge}"
     padding: "4px 8px"
   status-offline:
     backgroundColor: "{colors.offline-surface}"
     textColor: "{colors.offline-text}"
-    typography: "{typography.label}"
+    typography: "{typography.status}"
     rounded: "{rounded.badge}"
     padding: "4px 8px"
   metric-panel:
@@ -255,8 +259,10 @@ website face, replaces it only once licensed files are supplied.
 - **Headline** (600, 28px, 1.3, -0.8px): the page heading, once per view.
 - **Title** (600, 15px, -0.2px): section and panel headings, dialog titles.
 - **Body** (400, 13px, 1.6): running copy and page descriptions in `muted`.
-- **Label** (500, 11 to 12px): table headers, badges, metric labels, control
-  text at 12px, sort buttons.
+- **Label** (500, 11 to 12px): table headers, metric labels, control text at
+  12px, sort buttons.
+- **Status** (500, 12px): status badges and the severity word beside an
+  event. Anything read as a status uses this size or larger.
 - **Mono** (12px): device addresses, serials, MACs.
 
 ### Named Rules
@@ -345,7 +351,7 @@ Quiet and exact.
 
 ### Status badges
 
-- **Style:** 4px corners, 4px by 8px padding, 11px label at 500, a 5px dot in
+- **Style:** 4px corners, 4px by 8px padding, 12px text at 500, a 5px dot in
   `currentColor`, the status word always present.
 - **States:** Healthy, Degraded, Offline, each on its own surface/text pair.
 
