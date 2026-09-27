@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/a-protovalidate-value-bound-without-required-is-skipped-on-an-absent-field.md, docs/solutions/conventions/force-a-streaming-drop-test-through-a-paused-http1-consumer.md
 execution: code
 ---
 
