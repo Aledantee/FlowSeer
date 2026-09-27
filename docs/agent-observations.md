@@ -26,3 +26,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-27 verify-change: selects no gate for frontend web paths
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, path classification.
+What happened: running `.claude/skills/verify-change/scripts/verify-change.sh -- <paths>` on `.vue`, `.ts`, or `.css` files under `frontend/web/` failed with `FlowSeer verification FAILED (exit 2)` because `gates_selected` remained false. The verifier script classifies paths for Go, protobuf, MIB, and Markdown, but selects no build, lint, or test gate for web paths. The step was followed as written. Web verification was performed directly with `./node_modules/.bin/vue-tsc --noEmit`, `eslint .`, `prettier --check .`, and `vitest run` from `frontend/web`.
+Suggested change: add a path classification arm for `frontend/web/*` in `verify-change.sh` that selects a web gate running the `vue-tsc`, `eslint`, `prettier`, and `vitest` checks, calling local `node_modules/.bin/` binaries directly to avoid sandbox hangs under `pnpm <script>`.
