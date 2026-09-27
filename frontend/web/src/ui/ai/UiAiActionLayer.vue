@@ -28,16 +28,20 @@ const selected = computed<AiTargetView | undefined>(() => {
 })
 const hoveredId = ref<string>()
 const focusedId = ref<string>()
+let lastFocusedTargetId: string | undefined
+let lastFocusedElement: HTMLElement | undefined
 const hovered = computed(() =>
   hoveredId.value ? registry.view(hoveredId.value) : undefined,
 )
 const focused = computed(() =>
   focusedId.value ? registry.view(focusedId.value) : undefined,
 )
-const active = computed(() => selected.value ?? focused.value ?? hovered.value)
+const active = computed(() => focused.value ?? selected.value ?? hovered.value)
 
 const open = ref(false)
 const openForId = ref<string>()
+let requestGeneration = 0
+let returnFocusElement: HTMLElement | undefined
 // While the panel is open it stays on the target it opened for, even if the
 // pointer leaves that element.
 const layerTarget = computed<AiTargetView | undefined>(() => {
@@ -105,11 +109,23 @@ function nearTarget(node: Node | null): AiTargetView | undefined {
 }
 
 function handleFocusIn(event: FocusEvent) {
-  focusedId.value = nearTarget(event.target as Node | null)?.target.id
+  const target = event.target
+  const view = nearTarget(target as Node | null)
+  if (!view && target instanceof Node && layerRoot.value?.contains(target))
+    return
+  focusedId.value = view?.target.id
+  if (view && target instanceof HTMLElement) {
+    lastFocusedTargetId = view.target.id
+    lastFocusedElement = target
+  }
 }
 function handleFocusOut(event: FocusEvent) {
   const next = event.relatedTarget as Node | null
-  if (next && focused.value?.element.contains(next)) return
+  if (
+    next &&
+    (focused.value?.element.contains(next) || layerRoot.value?.contains(next))
+  )
+    return
   focusedId.value = undefined
 }
 function handlePointerOver(event: PointerEvent) {
@@ -134,11 +150,16 @@ function handleKeydown(event: KeyboardEvent) {
   openAsk(view.target.id)
 }
 
+function handleResize() {
+  registry.refresh()
+  measure()
+}
+
 onMounted(() => {
   unsubscribe = registry.subscribe(() => {
     version.value += 1
   })
-  window.addEventListener('resize', measure)
+  window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
   document.addEventListener('scroll', measure, true)
   document.addEventListener('focusin', handleFocusIn)
@@ -149,7 +170,7 @@ onMounted(() => {
 onUnmounted(() => {
   unsubscribe()
   observer?.disconnect()
-  window.removeEventListener('resize', measure)
+  window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('scroll', measure, true)
   document.removeEventListener('focusin', handleFocusIn)
@@ -168,12 +189,18 @@ type AskState =
 const state = ref<AskState>({ kind: 'idle' })
 
 function openAsk(id: string) {
+  requestGeneration += 1
+  returnFocusElement =
+    lastFocusedTargetId === id && lastFocusedElement?.isConnected
+      ? lastFocusedElement
+      : undefined
   openForId.value = id
   prompt.value = ''
   state.value = { kind: 'idle' }
   open.value = true
 }
 function closeAsk() {
+  requestGeneration += 1
   open.value = false
   openForId.value = undefined
   prompt.value = ''
@@ -184,11 +211,24 @@ function onOpenChange(value: boolean) {
   if (value) open.value = true
   else closeAsk()
 }
+function handleCloseAutoFocus(event: Event) {
+  const target = returnFocusElement
+  returnFocusElement = undefined
+  if (!target?.isConnected) return
+  event.preventDefault()
+  target.focus()
+}
 
 async function runAsk() {
   const view = layerTarget.value
   const text = prompt.value.trim()
   if (!view || !text || pending.value) return
+  const generation = ++requestGeneration
+  const targetId = view.target.id
+  const isCurrent = () =>
+    generation === requestGeneration &&
+    open.value &&
+    openForId.value === targetId
   pending.value = true
   state.value = { kind: 'idle' }
   try {
@@ -196,8 +236,10 @@ async function runAsk() {
       kind: 'ask',
       prompt: text,
     })
+    if (!isCurrent()) return
     state.value = { kind: 'answer', answer }
   } catch (error: unknown) {
+    if (!isCurrent()) return
     if (error instanceof AiStaleError) {
       closeAsk()
       return
@@ -211,7 +253,7 @@ async function runAsk() {
           error instanceof Error ? error.message : 'Something went wrong.',
       }
   } finally {
-    pending.value = false
+    if (isCurrent()) pending.value = false
   }
 }
 function submit() {
@@ -234,6 +276,7 @@ function submit() {
         align="end"
         :side-offset="6"
         @update:open="onOpenChange"
+        @close-auto-focus="handleCloseAutoFocus"
       >
         <template #trigger>
           <button
