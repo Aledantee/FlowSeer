@@ -27,10 +27,11 @@ type mibEntry struct {
 
 // mibBehavior customizes the mock agent's responses for edge-case tests.
 type mibBehavior struct {
-	respVersion   Version // version to stamp on the response (0 → echo request)
-	respCommunity string  // community to stamp (empty → echo request)
-	tooBigOver    int     // GetBulk returns tooBig when maxRepetitions exceeds this (0 → never)
-	nextOverride  func(req OID, prev OID, n int) (OID, VarBind, bool)
+	respVersion     Version // version to stamp on the response (0 → echo request)
+	respCommunity   string  // community to stamp (empty → echo request)
+	tooBigOver      int     // GetBulk returns tooBig when maxRepetitions exceeds this (0 → never)
+	padEndOfMibView bool
+	nextOverride    func(req OID, prev OID, n int) (OID, VarBind, bool)
 }
 
 // startMIBAgent serves a sorted MIB over GetNext/Get/GetBulk/Set, enough
@@ -103,7 +104,10 @@ func startMIBAgent(t *testing.T, entries []mibEntry, b mibBehavior) *mockAgent {
 				if !ok {
 					resp.pdu.varbinds = append(resp.pdu.varbinds,
 						EndOfMibViewVar{Header: Header{OID: cur, Kind: KindEndOfMibView}})
-					break
+					if !b.padEndOfMibView {
+						break
+					}
+					continue
 				}
 				resp.pdu.varbinds = append(resp.pdu.varbinds, e.vb)
 				cur = e.oid
@@ -242,6 +246,110 @@ func TestSession_BulkWalk_Completion(t *testing.T) {
 	}
 	if count != 7 {
 		t.Fatalf("bulkwalked %d rows, want 7", count)
+	}
+}
+
+func TestSession_BulkWalk_PaddedEnd(t *testing.T) {
+	root, entries := ifTable(7)
+	agent := startMIBAgent(t, entries, mibBehavior{padEndOfMibView: true})
+	sess := dialNative(t, agent, V2c)
+
+	count := 0
+	w := sess.BulkWalk(context.Background(), root)
+	for range w.Iter() {
+		count++
+	}
+	if err := w.Err(); err != nil {
+		t.Fatalf("bulkwalk err: %v", err)
+	}
+	if count != 7 {
+		t.Fatalf("bulkwalked %d rows, want 7", count)
+	}
+}
+
+func TestOIDWalkOps_LazyDecodeAllocations(t *testing.T) {
+	root := MustOID(1, 3, 6, 1, 2, 1, 2, 2)
+	rowOIDs := []OID{
+		MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1),
+		MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 2),
+		MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 3),
+	}
+	var rows []VarBind
+	for _, o := range rowOIDs {
+		rows = append(rows, octet(o, "eth"))
+	}
+	markerOID := rowOIDs[len(rowOIDs)-1]
+	marker := EndOfMibViewVar{Header: Header{OID: markerOID, Kind: KindEndOfMibView}}
+
+	list1 := append([]VarBind(nil), rows...)
+	list1 = append(list1, marker)
+	raw1, err := encodeVarBindList(list1)
+	if err != nil {
+		t.Fatalf("encode list1: %v", err)
+	}
+
+	list2 := append([]VarBind(nil), rows...)
+	for range 49 {
+		list2 = append(list2, marker)
+	}
+	raw2, err := encodeVarBindList(list2)
+	if err != nil {
+		t.Fatalf("encode list2: %v", err)
+	}
+
+	drive := func(rawVBL []byte) int {
+		p := &pdu{rawVBL: rawVBL}
+		w := NewWalker(context.Background(), 64)
+		ops := &oidWalkOps{w: w, root: root}
+		items, err := ops.items(p)
+		if err != nil {
+			t.Fatalf("items: %v", err)
+		}
+		cur := walkCursor[OID]{next: root}
+		yielded := 0
+		for _, it := range items {
+			k := ops.key(it)
+			step, stepErr := classifyWalkItem(ops, cur, ops.exception(it), k)
+			if stepErr != nil {
+				t.Fatalf("classify: %v", stepErr)
+			}
+			switch step {
+			case walkYieldThenStop:
+				ops.send(it)
+				yielded++
+				return yielded
+			case walkStop, walkFail:
+				return yielded
+			case walkSkip:
+				continue
+			case walkYield:
+				if !ops.send(it) {
+					return yielded
+				}
+				yielded++
+				cur.prev = k
+				cur.havePrev = true
+			}
+		}
+		return yielded
+	}
+
+	if got := drive(raw1); got != 4 {
+		t.Fatalf("drive(raw1) yielded %d, want 4", got)
+	}
+	if got := drive(raw2); got != 4 {
+		t.Fatalf("drive(raw2) yielded %d, want 4", got)
+	}
+
+	allocs1 := testing.AllocsPerRun(100, func() {
+		_ = drive(raw1)
+	})
+	allocs2 := testing.AllocsPerRun(100, func() {
+		_ = drive(raw2)
+	})
+
+	if allocs1 != allocs2 {
+		t.Fatalf("allocations diverge: 1 marker = %v, 49 markers = %v", allocs1, allocs2)
 	}
 }
 

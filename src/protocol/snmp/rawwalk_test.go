@@ -91,6 +91,7 @@ func TestBulkWalkRaw_DifferentialWithBulkWalk(t *testing.T) {
 				return OID{}, nil, false
 			},
 		}},
+		{"padded-end", 7, mibBehavior{padEndOfMibView: true}},
 	}
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
