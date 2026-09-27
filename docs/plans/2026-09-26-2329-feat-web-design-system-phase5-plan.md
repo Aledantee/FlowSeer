@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/a-stylesheet-to-utilities-migration-must-audit-dynamic-selectors-and-resets.md
 execution: code
 parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
 ---
