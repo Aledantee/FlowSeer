@@ -1,9 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { URL } from 'node:url'
-import {
-  buildPaletteOutputs,
-  type PaletteSource,
-} from '../src/theme/palette.ts'
+import type { PaletteSource } from '../src/theme/palette.ts'
+import { buildPaletteOutputs } from './palette-outputs.ts'
 
 const root = new URL('../', import.meta.url)
 const sourcePath = new URL('design/palette-source.json', root)
