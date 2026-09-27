@@ -194,6 +194,48 @@ describe('accessibility (axe-core)', () => {
               2,
             )}`,
           ).toHaveLength(0)
+
+          const api = window.flowseerAi
+          expect(
+            api,
+            `Expected the AI decorator to install the window contract in ${path} -> ${storyName}`,
+          ).toBeDefined()
+
+          const targets = api?.listTargets() ?? []
+          expect(
+            targets.length,
+            `Expected ${path} -> ${storyName} to register an AI target`,
+          ).toBeGreaterThan(0)
+
+          const root = container.querySelector<HTMLElement>(
+            '[data-ai-story-root]',
+          )
+          expect(root).not.toBeNull()
+          if (root) {
+            root.getBoundingClientRect = () =>
+              ({
+                x: 0,
+                y: 0,
+                width: 320,
+                height: 120,
+                top: 0,
+                left: 0,
+                right: 320,
+                bottom: 120,
+                toJSON: () => ({}),
+              }) as DOMRect
+          }
+          expect(
+            api?.highlight(targets[0]?.id ?? ''),
+            `Expected ${path} -> ${storyName} to highlight its target`,
+          ).toBe(true)
+          window.dispatchEvent(new Event('resize'))
+          await nextTick()
+          await new Promise((resolve) => setTimeout(resolve, 0))
+          expect(
+            document.querySelector('.ai-ask'),
+            `Expected ${path} -> ${storyName} to render an Ask action`,
+          ).not.toBeNull()
         })
       }
     })

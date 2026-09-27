@@ -4,11 +4,13 @@ type: feat
 date: 2026-09-27
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Contextual AI Controls for the Web Console - Plan
+
+> Implemented. 4 units, 2026-09-27T16:32Z to 2026-09-27T16:58Z.
 
 ## Goal
 

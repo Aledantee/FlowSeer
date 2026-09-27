@@ -40,7 +40,7 @@ function mount(handler?: (request: AiRequest) => Promise<string> | string) {
 
 async function settle() {
   await nextTick()
-  await new Promise((resolve) => setTimeout(resolve, 0))
+  await new Promise((resolve) => setTimeout(resolve, 10))
   await nextTick()
 }
 
@@ -110,10 +110,12 @@ describe('UiAiSummary', () => {
       'The summary service did not answer.',
     )
 
-    button('Retry')?.click()
+    const retry = button('Retry')
+    expect(retry, 'Expected an error state to offer Retry').toBeDefined()
+    retry?.click()
     await settle()
 
-    expect(requests).toHaveLength(2)
+    await vi.waitFor(() => expect(requests).toHaveLength(2))
     expect(requests[1]?.requestId).not.toBe(requests[0]?.requestId)
   })
 

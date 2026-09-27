@@ -62,7 +62,13 @@ export const Default: Story = {
       UiTableCell,
     },
     setup() {
-      return { args, devices: sampleDevices }
+      const aiTarget = (dev: (typeof sampleDevices)[number]) => ({
+        id: `standalone:story:ui-table-default:${dev.id}`,
+        kind: 'device',
+        label: dev.name,
+        context: { ip: dev.ip, status: dev.status },
+      })
+      return { args, devices: sampleDevices, aiTarget }
     },
     template: `
       <UiTable v-bind="args">
@@ -75,7 +81,11 @@ export const Default: Story = {
           </UiTableRow>
         </UiTableHeader>
         <UiTableBody>
-          <UiTableRow v-for="dev in devices" :key="dev.id">
+          <UiTableRow
+            v-for="dev in devices"
+            :key="dev.id"
+            v-ai-target="aiTarget(dev)"
+          >
             <UiTableCell>{{ dev.name }}</UiTableCell>
             <UiTableCell mono>{{ dev.ip }}</UiTableCell>
             <UiTableCell>{{ dev.status }}</UiTableCell>
