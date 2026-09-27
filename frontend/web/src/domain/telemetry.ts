@@ -1,5 +1,5 @@
 import type { Device, DeviceRole, Link } from './fleet'
-import { downlinks, linksOf } from './fleet'
+import { downlinks, linksOf, uplinkOf } from './fleet'
 import { clientsOf } from './clients'
 import type { Band } from './clients'
 
@@ -101,7 +101,10 @@ export function portsOf(fleet: Device[], device: Device): Port[] {
   const seed = seedOf(device.id)
   const links = linksOf(fleet)
   const offline = device.health === 'Offline'
-  const own = links.find((link) => link.targetId === device.id)
+  const uplink = uplinkOf(fleet, device)
+  const own = uplink
+    ? links.find((link) => link.targetId === device.id)
+    : undefined
   const children = downlinks(fleet, device)
   const names =
     device.role === 'gateway'
@@ -116,59 +119,65 @@ export function portsOf(fleet: Device[], device: Device): Port[] {
           ]
         : ['eth0', 'eth1']
   return names.map((name, index) => {
-    if (offline) return { name, status: 'Down', throughput: 0 }
     if (index === 0) {
-      if (device.role === 'gateway')
+      if (device.role === 'gateway') {
+        const up = !offline
         return {
           name,
-          status: 'Up',
-          speed: 1000,
+          status: up ? 'Up' : 'Down',
+          speed: up ? 1000 : undefined,
           endpoint: 'Internet',
-          throughput: children.reduce(
-            (sum, child) =>
-              sum +
-              (links.find((link) => link.targetId === child.id)?.throughput ??
-                0),
-            device.throughput,
-          ),
+          throughput: up
+            ? children.reduce(
+                (sum, child) =>
+                  sum +
+                  (links.find((link) => link.targetId === child.id)
+                    ?.throughput ?? 0),
+                device.throughput,
+              )
+            : 0,
         }
+      }
+      const up = !offline && own !== undefined && own.health !== 'Offline'
       return {
         name,
-        status: own?.health === 'Offline' ? 'Down' : 'Up',
-        speed: own?.capacity,
+        status: up ? 'Up' : 'Down',
+        speed: up ? own?.capacity : undefined,
         neighborId: own?.sourceId,
-        throughput: own?.throughput ?? 0,
-        poe: device.role === 'access-point' ? 18 + (seed % 9) : undefined,
+        throughput: up ? (own?.throughput ?? 0) : 0,
+        poe: up && device.role === 'access-point' ? 18 + (seed % 9) : undefined,
       }
     }
     const child = children[index - 1]
     if (child) {
       const link = links.find((item) => item.targetId === child.id)
-      const up = link?.health !== 'Offline'
+      const up = !offline && link !== undefined && link.health !== 'Offline'
       return {
         name,
         status: up ? 'Up' : 'Down',
         speed: up ? link?.capacity : undefined,
         neighborId: child.id,
-        throughput: link?.throughput ?? 0,
+        throughput: up ? (link?.throughput ?? 0) : 0,
         poe:
           up && child.role === 'access-point' && device.role === 'switch'
             ? 18 + (seedOf(child.id) % 9)
             : undefined,
       }
     }
-    if (device.role === 'switch' && (seed + index) % 4 === 0)
+    if (device.role === 'switch' && (seed + index) % 4 === 0) {
+      const up = !offline
       return {
         name,
-        status: 'Up',
-        speed: 1000,
+        status: up ? 'Up' : 'Down',
+        speed: up ? 1000 : undefined,
         endpoint: endpoints[(seed + (index >> 2)) % endpoints.length],
-        throughput: 1 + ((seed + index) % 6),
-        poe: (seed + (index >> 2)) % endpoints.length < 2 ? 6 : undefined,
+        throughput: up ? 1 + ((seed + index) % 6) : 0,
+        poe: up && (seed + (index >> 2)) % endpoints.length < 2 ? 6 : undefined,
       }
+    }
     return {
       name,
-      status: (seed + index) % 9 === 0 ? 'Disabled' : 'Down',
+      status: !offline && (seed + index) % 9 === 0 ? 'Disabled' : 'Down',
       throughput: 0,
     }
   })

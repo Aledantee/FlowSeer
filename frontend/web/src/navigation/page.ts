@@ -36,8 +36,14 @@ const VIEWS: PageView[] = [
 ]
 export function viewOf(path: string): { view: PageView; deviceId?: string } {
   const device = /^\/devices\/([^/]+)$/.exec(path)
-  if (device?.[1])
-    return { view: 'device', deviceId: decodeURIComponent(device[1]) }
+  if (device?.[1]) {
+    try {
+      return { view: 'device', deviceId: decodeURIComponent(device[1]) }
+    } catch (error: unknown) {
+      if (!(error instanceof URIError)) throw error
+      return { view: 'device', deviceId: device[1] }
+    }
+  }
   const name = path.replace(/^\//, '')
   return { view: VIEWS.find((view) => view === name) ?? 'dashboard' }
 }

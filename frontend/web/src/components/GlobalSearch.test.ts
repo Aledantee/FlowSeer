@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
 import type { SearchResult } from '../domain/search'
+import { SHORTCUTS, isMac, keysOf } from '../navigation/shortcuts'
 import GlobalSearch, { type SearchPage } from './GlobalSearch.vue'
 
 const pages: SearchPage[] = [
@@ -33,10 +34,12 @@ async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 20))
 }
 
-async function mountSearch(handlers: {
+interface SearchHandlers {
   onSelect?: (result: SearchResult, beside: boolean) => void
   onDock?: (result: SearchResult) => void
-}) {
+}
+
+async function mountSearchClosed(handlers: SearchHandlers = {}) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
@@ -52,6 +55,13 @@ async function mountSearch(handlers: {
   })
   app.mount(host)
   dispose = () => app.unmount()
+
+  await settle()
+  return { host }
+}
+
+async function mountSearch(handlers: SearchHandlers) {
+  const { host } = await mountSearchClosed(handlers)
 
   host.querySelector<HTMLButtonElement>('.search-trigger')?.click()
   await settle()
@@ -157,5 +167,155 @@ describe('global search selection', () => {
     expect(selected).toEqual([
       [expect.objectContaining({ id: 'inventory' }), true],
     ])
+  })
+})
+
+describe('global search shortcuts', () => {
+  it('displays registered shortcut keys and opens search with the registered shortcut', async () => {
+    const { host } = await mountSearchClosed()
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    const kbd = trigger?.querySelector('kbd')
+    expect(kbd?.textContent?.trim()).toBe(
+      keysOf(SHORTCUTS.search).join(isMac() ? '' : ' '),
+    )
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      code: SHORTCUTS.search.code,
+      bubbles: true,
+      cancelable: true,
+      ...(isMac() ? { metaKey: true } : { ctrlKey: true }),
+    })
+    window.dispatchEvent(event)
+    await settle()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).not.toBeNull()
+  })
+
+  it('does not open search when the platform modifier does not match', async () => {
+    await mountSearchClosed()
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      code: SHORTCUTS.search.code,
+      bubbles: true,
+      cancelable: true,
+      ...(isMac() ? { ctrlKey: true } : { metaKey: true }),
+    })
+    window.dispatchEvent(event)
+    await settle()
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).toBeNull()
+  })
+
+  it('does not open search with Cmd/Ctrl+K when a modal is already open', async () => {
+    await mountSearchClosed()
+
+    const modal = document.createElement('div')
+    modal.setAttribute('role', 'dialog')
+    modal.dataset.state = 'open'
+    document.body.append(modal)
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      code: 'KeyK',
+      bubbles: true,
+      cancelable: true,
+      ...(isMac() ? { metaKey: true } : { ctrlKey: true }),
+    })
+    window.dispatchEvent(event)
+    await settle()
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).toBeNull()
+  })
+
+  it('does not open search with / when focused in a contenteditable element', async () => {
+    await mountSearchClosed()
+
+    const editable = document.createElement('div')
+    editable.contentEditable = 'true'
+    document.body.append(editable)
+    editable.focus()
+
+    const event = new KeyboardEvent('keydown', {
+      key: '/',
+      code: 'Slash',
+      bubbles: true,
+      cancelable: true,
+    })
+    editable.dispatchEvent(event)
+    await settle()
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).toBeNull()
+  })
+
+  it('opens search with / when not typing, but not when a modal is open', async () => {
+    await mountSearchClosed()
+
+    const modal = document.createElement('div')
+    modal.setAttribute('role', 'dialog')
+    modal.dataset.state = 'open'
+    document.body.append(modal)
+
+    const blockedEvent = new KeyboardEvent('keydown', {
+      key: '/',
+      code: 'Slash',
+      bubbles: true,
+      cancelable: true,
+    })
+    window.dispatchEvent(blockedEvent)
+    await settle()
+
+    expect(blockedEvent.defaultPrevented).toBe(false)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).toBeNull()
+
+    modal.remove()
+
+    const allowedEvent = new KeyboardEvent('keydown', {
+      key: '/',
+      code: 'Slash',
+      bubbles: true,
+      cancelable: true,
+    })
+    window.dispatchEvent(allowedEvent)
+    await settle()
+
+    expect(allowedEvent.defaultPrevented).toBe(true)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).not.toBeNull()
+  })
+
+  it('does not open search with / when modified by Shift', async () => {
+    await mountSearchClosed()
+
+    const event = new KeyboardEvent('keydown', {
+      key: '/',
+      code: 'Slash',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    window.dispatchEvent(event)
+    await settle()
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
+    ).toBeNull()
   })
 })

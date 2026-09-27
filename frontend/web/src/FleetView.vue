@@ -33,7 +33,13 @@ import {
   UiTooltip,
 } from './ui'
 import { TooltipProvider } from 'reka-ui'
-import { SHORTCUTS, dockTabShortcut, matches } from './navigation/shortcuts'
+import {
+  SHORTCUTS,
+  dockTabShortcut,
+  matches,
+  modalOpen,
+  typingIn,
+} from './navigation/shortcuts'
 import { usePanes } from './navigation/panes'
 import type { SlotId } from './navigation/panes'
 import AppLink from './navigation/AppLink.vue'
@@ -654,7 +660,9 @@ watch(splitRatio, (value) => {
 function nudgeSplit(delta: number) {
   splitRatio.value = Math.min(0.7, Math.max(0.3, splitRatio.value + delta))
 }
+let stopResize: (() => void) | undefined
 function startResize(event: PointerEvent) {
+  stopResize?.()
   const panes =
     event.currentTarget instanceof HTMLElement
       ? event.currentTarget.closest('.panes')
@@ -668,40 +676,31 @@ function startResize(event: PointerEvent) {
     )
   }
   const stop = () => {
+    if (stopResize !== stop) return
+    stopResize = undefined
     window.removeEventListener('pointermove', move)
     window.removeEventListener('pointerup', stop)
+    window.removeEventListener('pointercancel', stop)
+    window.removeEventListener('blur', stop)
     document.body.classList.remove('resizing-panes')
   }
+  stopResize = stop
   document.body.classList.add('resizing-panes')
   window.addEventListener('pointermove', move)
   window.addEventListener('pointerup', stop)
+  window.addEventListener('pointercancel', stop)
+  window.addEventListener('blur', stop)
 }
+onUnmounted(() => stopResize?.())
 
 // Workspace shortcuts, from the registry the tooltips read. While a peek is
 // open the arrow keys step through the list that opened it and Escape closes
 // it.
-function typingIn(target: EventTarget | null) {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  )
-}
-function modalOpen() {
-  const dialogs = document.querySelectorAll<HTMLElement>(
-    '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
-  )
-  // Reka popovers also use role="dialog", but their content is nonmodal and
-  // lives inside the library's popper wrapper.
-  return [...dialogs].some(
-    (dialog) => !dialog.closest('[data-reka-popper-content-wrapper]'),
-  )
-}
 function workspaceKey(event: KeyboardEvent) {
   if (modalOpen()) return
   const run = (action: () => unknown) => {
     event.preventDefault()
+    if (event.repeat) return
     void action()
   }
   if (matches(event, SHORTCUTS.toggleSplit)) return run(toggleSplit)

@@ -75,3 +75,24 @@ export function keysOf(shortcut: Shortcut, mac: boolean = isMac()): string[] {
     keyName(shortcut.code),
   ]
 }
+
+export function typingIn(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
+}
+
+// Reka popovers also use role="dialog", but their content is nonmodal and
+// lives inside the library's popper wrapper.
+export function modalOpen(root: ParentNode = globalThis.document): boolean {
+  if (!root) return false
+  const dialogs = root.querySelectorAll<HTMLElement>(
+    '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+  )
+  return [...dialogs].some(
+    (dialog) => !dialog.closest('[data-reka-popper-content-wrapper]'),
+  )
+}
