@@ -565,10 +565,7 @@ onUnmounted(() => {
               <h1>{{ title }}</h1>
               <p v-if="!scopeError">
                 {{ scopeSummary
-                }}<template v-if="view === 'topology'"
-                  >. Links are illustrative until topology is
-                  discovered.</template
-                ><template v-if="view === 'devices' && scope.length > healthy">
+                }}<template v-if="view === 'devices' && scope.length > healthy">
                   · {{ scope.length - healthy }} need attention</template
                 >
               </p>
