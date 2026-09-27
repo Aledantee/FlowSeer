@@ -148,3 +148,93 @@ const width = computed(() => {
     </template>
   </EdgeLabelRenderer>
 </template>
+
+<style scoped>
+.topology-link :deep(.vue-flow__edge-path) {
+  stroke: var(--graph-edge);
+  transition: stroke 120ms ease;
+}
+.topology-link.degraded :deep(.vue-flow__edge-path) {
+  stroke: var(--warning-border);
+}
+.topology-link.offline :deep(.vue-flow__edge-path) {
+  stroke: var(--danger-border);
+  stroke-dasharray: 4 5;
+}
+.topology-link.selected :deep(.vue-flow__edge-path) {
+  stroke: var(--accent-foreground);
+}
+.topology-link-flow {
+  fill: none;
+  stroke: var(--chart-1);
+  stroke-dasharray: 3 14;
+  stroke-linecap: round;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: topology-flow 1.1s linear infinite;
+}
+@keyframes topology-flow {
+  to {
+    stroke-dashoffset: -17;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topology-link-flow {
+    animation: none;
+  }
+}
+.topology-link-label {
+  position: absolute;
+  z-index: 1;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: all;
+  cursor: pointer;
+}
+.topology-link-label:hover,
+.topology-link-label.selected {
+  border-color: var(--accent-foreground);
+  color: var(--accent-foreground);
+}
+.topology-link-label.degraded {
+  border-color: var(--warning-border);
+  color: var(--warning-foreground);
+}
+.topology-link-label.offline {
+  border-color: var(--danger-border);
+  color: var(--danger-foreground);
+}
+.topology-port-label {
+  position: absolute;
+  z-index: 1;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  cursor: pointer;
+  transition:
+    opacity 120ms ease,
+    visibility 120ms;
+  pointer-events: all;
+}
+.topology-port-label.visible {
+  opacity: 1;
+  visibility: visible;
+}
+.topology-port-label:hover {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--accent-foreground);
+}
+</style>

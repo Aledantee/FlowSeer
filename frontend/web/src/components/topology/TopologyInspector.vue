@@ -423,3 +423,174 @@ function deviceLink(id: string) {
     </UiScrollArea>
   </aside>
 </template>
+
+<style scoped>
+.topology-inspector {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  width: 340px;
+  max-width: calc(100% - 28px);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 28px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-lg);
+}
+.topology-inspector header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.topology-inspector header > span:not(.device-icon) {
+  flex: 1;
+  min-width: 0;
+}
+.topology-inspector header strong,
+.topology-inspector header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topology-inspector header strong {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.topology-inspector header small {
+  margin-top: 3px;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+.topology-inspector dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 16px;
+}
+.topology-inspector dt {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+.topology-inspector dd {
+  margin: 4px 0 0;
+  font-size: var(--text-base);
+  font-weight: 550;
+}
+.topology-inspector dl .wide {
+  grid-column: 1 / -1;
+}
+.topology-inspector-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.topology-inspector-section h3 {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.topology-inspector-note {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+.resource-meter {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 8px;
+  font-size: var(--text-sm);
+}
+.resource-meter-label {
+  color: var(--muted-foreground);
+}
+.resource-meter-value {
+  white-space: nowrap;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.resource-meter-value small {
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.resource-meter-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--subtle);
+}
+.resource-meter-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-foreground);
+  transition: width 300ms ease;
+}
+.resource-meter.warning .resource-meter-track i {
+  background: var(--warning-foreground);
+}
+.resource-meter.critical .resource-meter-track i {
+  background: var(--danger-foreground);
+}
+.radio-list,
+.port-list,
+.link-ends {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.radio-list li,
+.port-list li,
+.link-ends li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+}
+.radio-list span,
+.port-rate,
+.port-endpoint {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.link-ends {
+  padding: 14px 16px 0;
+}
+.port-state {
+  font-size: var(--text-xs);
+  color: var(--success-foreground);
+}
+.port-state.down {
+  color: var(--danger-foreground);
+}
+.topology-inspector footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.panel-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--accent-foreground);
+}
+.panel-link:hover {
+  text-decoration: underline;
+}
+</style>

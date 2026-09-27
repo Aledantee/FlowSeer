@@ -8,6 +8,7 @@ import {
   UiCommandInput,
   UiCommandItem,
   UiCommandList,
+  UiKbd,
   UiTooltip,
 } from '../ui'
 import type { Device } from '../domain/fleet'
@@ -192,8 +193,18 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
 </script>
 
 <template>
-  <button class="search-trigger" aria-haspopup="dialog" @click="openSearch">
-    <AppIcon name="search" /><span>Search</span><kbd>{{ shortcut }}</kbd>
+  <button
+    class="search-trigger flex items-center gap-2 h-[34px] mr-2 px-2.5 border border-chrome-border rounded-control bg-chrome-surface/60 text-chrome-muted-foreground text-xs hover:border-chrome-muted-foreground hover:text-chrome-foreground cursor-pointer max-[800px]:w-11 max-[800px]:h-11 max-[800px]:justify-center max-[800px]:mr-0 max-[800px]:p-0"
+    aria-haspopup="dialog"
+    @click="openSearch"
+  >
+    <AppIcon name="search" class="w-3.5 h-3.5" /><span
+      class="min-w-[90px] text-left max-[800px]:hidden"
+      >Search</span
+    ><UiKbd
+      class="max-[800px]:hidden border-chrome-border bg-transparent text-chrome-muted-foreground"
+      >{{ shortcut }}</UiKbd
+    >
   </button>
 
   <UiCommandDialog
@@ -207,12 +218,18 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
       placeholder="Search tenants, sites, devices, clients, interfaces…"
       label="Search tenants, sites, devices, clients, and interfaces"
     />
-    <UiCommandList label="Search results" class="search-scroll">
+    <UiCommandList label="Search results" class="search-scroll flex-1 min-h-0">
       <UiCommandEmpty>
-        <p v-if="query.trim() && !results.length" class="search-empty">
+        <p
+          v-if="query.trim() && !results.length"
+          class="search-empty py-5 px-3 text-xs text-muted-foreground text-center"
+        >
           Nothing matches “{{ query.trim() }}”.
         </p>
-        <p v-else class="search-empty">
+        <p
+          v-else
+          class="search-empty py-5 px-3 text-xs text-muted-foreground text-center"
+        >
           Type a name, IP address, MAC address, or port.
         </p>
       </UiCommandEmpty>
@@ -288,14 +305,16 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
     </UiCommandList>
 
     <footer
-      class="search-hints flex items-center gap-3 border-t border-border px-3 py-2 text-xs text-muted-foreground"
+      class="search-hints flex items-center gap-4 border-t border-border px-3.5 py-2.5 text-xs text-muted-foreground"
       aria-hidden="true"
     >
-      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
-      <span><kbd>↵</kbd> open</span>
-      <span v-if="canSplit"><kbd>⇧</kbd><kbd>↵</kbd> side by side</span>
-      <span><kbd>⌥</kbd><kbd>↵</kbd> to dock</span>
-      <span><kbd>esc</kbd> close</span>
+      <span><UiKbd class="mr-1">↑</UiKbd><UiKbd>↓</UiKbd> move</span>
+      <span><UiKbd>↵</UiKbd> open</span>
+      <span v-if="canSplit"
+        ><UiKbd class="mr-1">⇧</UiKbd><UiKbd>↵</UiKbd> side by side</span
+      >
+      <span><UiKbd class="mr-1">⌥</UiKbd><UiKbd>↵</UiKbd> to dock</span>
+      <span><UiKbd>esc</UiKbd> close</span>
     </footer>
   </UiCommandDialog>
 </template>
