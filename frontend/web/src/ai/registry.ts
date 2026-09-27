@@ -71,9 +71,22 @@ function defaultViewport(): AiViewport {
   return { wide, narrow: !wide }
 }
 
-function hiddenByAncestor(element: HTMLElement): boolean {
-  for (let node: HTMLElement | null = element; node; node = node.parentElement)
+function isHidden(element: HTMLElement): boolean {
+  for (
+    let node: HTMLElement | null = element;
+    node;
+    node = node.parentElement
+  ) {
     if (node.hidden) return true
+    const win = node.ownerDocument?.defaultView ?? window
+    const style = win.getComputedStyle(node)
+    if (
+      style.display === 'none' ||
+      style.visibility === 'hidden' ||
+      style.visibility === 'collapse'
+    )
+      return true
+  }
   return false
 }
 
@@ -119,7 +132,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     const segment: AiTargetSegment | undefined = registration.target.segment
     if (segment === 'mobile' && !viewportOf().narrow) return false
     if (segment === 'desktop' && !viewportOf().wide) return false
-    return !hiddenByAncestor(registration.element)
+    return !isHidden(registration.element)
   }
 
   function view(id: string): AiTargetView | undefined {
@@ -177,7 +190,8 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
   }
 
   function highlight(id: string): boolean {
-    if (!view(id)) {
+    const targetView = view(id)
+    if (!targetView) {
       if (highlighted !== undefined) {
         highlighted = undefined
         notify()
@@ -188,6 +202,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
       highlighted = id
       notify()
     }
+    targetView.element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     return true
   }
 
@@ -239,10 +254,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     }
     const active = handler
     return Promise.resolve(active(snapshot)).then((answer) => {
-      if (
-        byId.get(target.id) !== registration ||
-        !registration.element.isConnected
-      )
+      if (byId.get(target.id) !== registration || !isVisible(registration))
         throw new AiStaleError()
       return answer
     })
