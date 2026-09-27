@@ -33,8 +33,8 @@ func MarshalXMLStruct(s *Schema, v any) ([]byte, error) {
 // writeXMLElement writes one <s.Name> element for rv. parentNS is the
 // effective namespace already in scope.
 func writeXMLElement(b *strings.Builder, s *Schema, rv reflect.Value, parentNS string) error {
-	openXML(b, s.Name, s.Namespace, parentNS)
-	ns := s.Namespace
+	openXML(b, s.Name, s.namespaceURI(), parentNS)
+	ns := s.namespaceURI()
 	if ns == "" {
 		ns = parentNS
 	}
@@ -183,7 +183,7 @@ func findXMLElement(dec *xml.Decoder, s *Schema) error {
 		if start.Name.Local != s.Name {
 			continue
 		}
-		if s.Namespace != "" && start.Name.Space != "" && start.Name.Space != s.Namespace {
+		if s.namespaceURI() != "" && start.Name.Space != "" && start.Name.Space != s.namespaceURI() {
 			continue
 		}
 		return nil

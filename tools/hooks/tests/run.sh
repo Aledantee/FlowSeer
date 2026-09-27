@@ -711,6 +711,16 @@ selection_build_dirs=$(find "$selection_tmp" -maxdepth 1 -name 'flowseer-build.*
 [[ -z $selection_build_dirs ]]
 ok "verifier selection exits before recursively running hook tests"
 
+run_helper=$(sed -n '/^run() {/,/^}/p' "$selection_script")
+[[ -n $run_helper ]]
+bash -c 'set -euo pipefail
+  gate_label() { :; }
+  gate_file=/dev/null
+  eval "$1"
+  if run false >/dev/null 2>&1; then exit 1; fi
+  run true >/dev/null' _ "$run_helper"
+ok "verifier run helper fails a command checked inside a condition"
+
 ledger_script=$repo_root/.claude/skills/verify-change/scripts/check-plan-status.py
 ledger_fixture=$fixture_parent/ledger-fixture
 mkdir -p "$ledger_fixture/docs/plans"

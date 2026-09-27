@@ -9,7 +9,7 @@
 // Package snmpv2tc binds the SMI objects declared by SNMPv2-TC.
 package snmpv2tc
 
-import "fmt"
+import snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 
 // StorageType is the SMI enum StorageType.
 // Describes the memory realization of a conceptual row. A row which is
@@ -24,37 +24,28 @@ import "fmt"
 // of this textual convention is required to specify the columnar objects
 // which a permanent(4) row must at a minimum allow to be writable.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type StorageType int32
 
 const (
-	// StorageTypeOther represents the SMI value other.
+	// StorageTypeOther is other.
 	StorageTypeOther StorageType = 1
-	// StorageTypeVolatile represents the SMI value volatile.
+	// StorageTypeVolatile is volatile.
 	StorageTypeVolatile StorageType = 2
-	// StorageTypeNonVolatile represents the SMI value nonVolatile.
+	// StorageTypeNonVolatile is nonVolatile.
 	StorageTypeNonVolatile StorageType = 3
-	// StorageTypePermanent represents the SMI value permanent.
+	// StorageTypePermanent is permanent.
 	StorageTypePermanent StorageType = 4
-	// StorageTypeReadOnly represents the SMI value readOnly.
+	// StorageTypeReadOnly is readOnly.
 	StorageTypeReadOnly StorageType = 5
 )
 
-// String returns the SMI label, or StorageType(n) for an unrecognized value n.
-func (v StorageType) String() string {
-	switch v {
-	case StorageTypeOther:
-		return "other"
-	case StorageTypeVolatile:
-		return "volatile"
-	case StorageTypeNonVolatile:
-		return "nonVolatile"
-	case StorageTypePermanent:
-		return "permanent"
-	case StorageTypeReadOnly:
-		return "readOnly"
-	}
+var (
+	storageTypeValues = []int32{1, 2, 3, 4, 5}
+	storageTypeNames  = []string{"other", "volatile", "nonVolatile", "permanent", "readOnly"}
+)
 
-	return fmt.Sprintf("StorageType(%d)", v)
+// String returns the SMI label, or StorageType(n) for an unknown value.
+func (v StorageType) String() string {
+	return snmp.EnumString(int32(v), "StorageType", storageTypeValues, storageTypeNames)
 }

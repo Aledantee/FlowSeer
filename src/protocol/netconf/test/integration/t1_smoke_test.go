@@ -39,7 +39,7 @@ func readServers(t *testing.T, s *netconf.Session) map[string]uint16 {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	walker := netconf.Walk(ctx, s, fixturemain.ServersServerDescriptor())
+	walker := netconf.Walk(ctx, s, fixturemain.ServerDescriptor())
 	out := make(map[string]uint16)
 	for row := range walker.Iter() {
 		if row.Name == nil {

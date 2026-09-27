@@ -201,7 +201,7 @@ func TestTickWatcherTransientFailureAndLatch(t *testing.T) {
 // disappearing (nil payload) emits Removed.
 func TestTickWatcherSyntheticRow(t *testing.T) {
 	extraSchema := &yang.Schema{
-		Module: "test-main", Namespace: "urn:test:main", Name: "extra", Presence: true,
+		Module: &yang.Module{Name: "test-main", Namespace: "urn:test:main"}, Name: "extra", Presence: true,
 		Fields: []yang.Field{{GoName: "Note", Name: "note", Type: &yang.Type{Kind: yang.TypeString}}},
 	}
 	codec := yang.ContainerRowCodec[testExtra](extraSchema)

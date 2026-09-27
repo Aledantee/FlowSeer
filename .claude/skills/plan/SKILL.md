@@ -165,6 +165,13 @@ Rules:
   dependents, or a deferral's trigger, is a claim checkable against the
   plan's own Decisions before it is written; two parts of one plan
   disagreeing is the normal case, not a surprise.
+- A unit that changes an output shape (emitted source, a golden file, a
+  rendered message) lists in `Files:` every existing test and golden file
+  holding the old shape. An unlisted one is an edit no unit owns: it
+  blocks the implement pass or collides with a parallel unit. Grep
+  `*_test.go` and `testdata/` for the distinctive token of the old output
+  (`with-hyphen`); a mibgen test asserted the emitted `return
+  "with-hyphen"` and named no emitter.
 - A unit adding or changing the exported `Config` of a module under
   `src/modules/` names a test in a package outside that module's directory.
 - Over six units or 300 lines (an inventory of sites excluded), cut what the implementer can decide alone,

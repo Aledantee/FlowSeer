@@ -99,6 +99,15 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
         sys.exit(1)
     status = {{"terminal-wait": "running", "terminal-exited": "exited"}}.get(failure, "idle")
     print(json.dumps({{"result": {{"terminal": {{"status": status}}}}}}))
+elif len(args) >= 2 and args[0] == "worktree" and args[1] == "show":
+    # ORCA_STUB_CHILDREN_FROM: the query, counting from 1, that first reports the children.
+    shows = Path(str(log_file) + ".shows")
+    count = int(shows.read_text()) + 1 if shows.exists() else 1
+    shows.write_text(str(count))
+    children = [c for c in os.environ.get("ORCA_STUB_CHILDREN", "").split(",") if c]
+    if count < int(os.environ.get("ORCA_STUB_CHILDREN_FROM", "1")):
+        children = []
+    print(json.dumps({{"result": {{"worktree": {{"childWorktreeIds": children}}}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "create":
     base = args[args.index("--base-branch") + 1]
     subprocess.run(["git", "worktree", "add", "-b", "wt1", str(child), base], check=True, capture_output=True)
@@ -582,6 +591,43 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(state_file.exists())
         self.assertFalse((child_path / ".orca-note.md").exists())
+
+    def test_stop_refuses_a_lane_with_child_worktrees_and_removes_nothing(self):
+        state_file, child_path, _ = self.graded_lane()
+        (child_path / ".orca-brief.md").write_text("brief")
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild"
+        result = self.command("stop", "l1")
+        self.assertTrue((child_path / ".orca-brief.md").exists())
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("child worktrees", result.stderr)
+        self.assertIn("repo::/lanes/grandchild", result.stderr)
+        self.assertTrue(state_file.exists())
+        self.assertTrue(child_path.exists())
+        calls = self.orca_calls()
+        self.assertNotIn("terminal close", calls)
+        self.assertNotIn("worktree rm", calls)
+
+    def test_stop_rechecks_children_after_a_stalled_terminal_closes(self):
+        state_file, child_path, _ = self.graded_lane()
+        self.env["ORCA_STUB_SCREEN"] = "esc to cancel"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/late"
+        self.env["ORCA_STUB_CHILDREN_FROM"] = "2"
+        result = self.command("stop", "l1", "--stalled")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("started child worktrees before its terminal closed", result.stderr)
+        self.assertTrue(state_file.exists())
+        self.assertTrue(child_path.exists())
+        calls = self.orca_calls()
+        self.assertIn("terminal close", calls)
+        self.assertNotIn("worktree rm", calls)
+
+    def test_start_rollback_keeps_a_lane_with_child_worktrees(self):
+        self.env["ORCA_STUB_FAIL"] = "pointer"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild"
+        result = self.start()
+        self.assert_retained_lane(result, "term-1", True)
+        self.assertIn("it has child worktrees: repo::/lanes/grandchild", result.stderr)
+        self.assertNotIn("worktree rm", self.orca_calls())
 
 
 if __name__ == "__main__":
