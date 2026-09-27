@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
 ---
 
 # Web Design System Phase 3, Overlays and Navigation - Plan
+
+> Implemented. 6 units, 2026-09-27T07:55Z to 2026-09-27T08:44Z. All checks green, core overlay, navigation, command, and scroller components created with CSF 3 stories and axe-core tests, view migrations complete, and legacy dialogs/popovers/scrollers removed.
 
 ## Goal
 
@@ -403,14 +405,14 @@ Manual and browser checks:
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path, and all verification commands pass.
-- [ ] All 10 `Ui*` components created under `src/ui/` (`dialog/`, `alert-dialog/`, `popover/`, `dropdown-menu/`, `tabs/`, `toast/`, `combobox/`, `command/`, `scroll-area/`, `breadcrumb/`) with CSF 3 stories and passing axe accessibility checks.
-- [ ] `AccountMenu`, `ScopeSwitcher`, `TenantSwitcher`, `HelpButton`, `ReportBugButton`, and `GlobalSearch` rebuilt on `Ui*` primitives without manual coordinate math or native popover/modal calls (`GlobalSearch` built on `UiCommand` and `UiCommandDialog`).
-- [ ] `UiBreadcrumb` collapses middle items into an ellipsis dropdown on narrow viewports without wrapping.
-- [ ] `src/components/ScrollArea.vue` deleted and all callers migrated to `UiScrollArea` from `src/ui`.
-- [ ] `frontend/web/README.md` updated with Phase 3 component documentation.
-- [ ] This plan's `status` set to `implemented` with an outcome note under the title upon landing.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] Verifier green for every changed path, and all verification commands pass.
+- [x] All 10 `Ui*` components created under `src/ui/` (`dialog/`, `alert-dialog/`, `popover/`, `dropdown-menu/`, `tabs/`, `toast/`, `combobox/`, `command/`, `scroll-area/`, `breadcrumb/`) with CSF 3 stories and passing axe accessibility checks.
+- [x] `AccountMenu`, `ScopeSwitcher`, `TenantSwitcher`, `HelpButton`, `ReportBugButton`, and `GlobalSearch` rebuilt on `Ui*` primitives without manual coordinate math or native popover/modal calls (`GlobalSearch` built on `UiCommand` and `UiCommandDialog`).
+- [x] `UiBreadcrumb` collapses middle items into an ellipsis dropdown on narrow viewports without wrapping.
+- [x] `src/components/ScrollArea.vue` deleted and all callers migrated to `UiScrollArea` from `src/ui`.
+- [x] `frontend/web/README.md` updated with Phase 3 component documentation.
+- [x] This plan's `status` set to `implemented` with an outcome note under the title upon landing.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 
