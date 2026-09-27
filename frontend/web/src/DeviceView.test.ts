@@ -6,8 +6,12 @@ import { pageContext, pageFor } from './navigation/page'
 import { workspaceContext } from './navigation/workspace'
 import { devices, moveDevice, sites, tenants } from './domain/fleet'
 import type { Device } from './domain/fleet'
+import { createAiRegistry, createAiTargetDirective } from './ai'
+import type { AiRegistry } from './ai'
+import { aiRegistryKey } from './ui/ai/context'
 
 let dispose = () => {}
+let registry: AiRegistry
 
 afterEach(() => {
   dispose()
@@ -52,8 +56,11 @@ async function mountDeviceView(device: Device, fleet: Device[]) {
         })
     },
   })
+  registry = createAiRegistry()
   app.provide(pageContext, page)
   app.provide(workspaceContext, workspace)
+  app.provide(aiRegistryKey, registry)
+  app.directive('ai-target', createAiTargetDirective(registry))
   app.mount(host)
   dispose = () => app.unmount()
   await nextTick()
@@ -92,5 +99,25 @@ describe('DeviceView status typography', () => {
     )
 
     expect(severity?.classList).toContain('text-sm')
+  })
+})
+
+describe('DeviceView AI targets', () => {
+  it('registers a standalone view root and client rows with context', async () => {
+    const ap = devices.find((device) => device.name === 'berlin-ap-01')
+    if (!ap) throw new Error('Missing fixture')
+    await mountDeviceView(ap, devices)
+
+    const root = registry.view(`standalone:device:view:${ap.id}`)
+    expect(root?.target.context).toMatchObject({
+      health: ap.health,
+      site: 'Berlin Mitte',
+    })
+
+    const clients = registry
+      .list()
+      .filter((item) => item.id.startsWith('standalone:device:client:'))
+    expect(clients.length).toBeGreaterThan(0)
+    expect(clients[0]?.context.accessPoint).toBe('berlin-ap-01')
   })
 })

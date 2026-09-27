@@ -22,6 +22,8 @@ import {
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import AppLink from './navigation/AppLink.vue'
+import { aiTarget, useAiSlot } from './ai'
+import type { AiTarget, AiTargetSegment } from './ai'
 import { scopeOf, usePage } from './navigation/page'
 import { useWorkspace } from './navigation/workspace'
 import { useMotionFeedback } from './motion/useMotionFeedback'
@@ -34,6 +36,7 @@ import {
   rankSites,
   siteRollups,
 } from './domain/overview'
+import type { SiteRollup } from './domain/overview'
 
 // Vue Flow and the ELK layout engine are most of the bundle and only the
 // topology page needs them, so they load when it first opens.
@@ -42,6 +45,7 @@ const TopologyGraph = defineAsyncComponent(
 )
 const page = usePage()
 const workspace = useWorkspace()
+const slot = useAiSlot()
 const {
   fleet,
   message,
@@ -152,6 +156,64 @@ const scopeSummary = computed(() => {
   const count = visibleSites.value.length
   return `${count} ${count === 1 ? 'site' : 'sites'} across ${tenant ? tenant.name : 'all tenants'}`
 })
+
+// Addressable targets. The mobile card and the desktop row are both mounted
+// and hidden by CSS, so each carries its layout as a segment and the
+// registry lists only the one the viewport shows.
+function deviceTarget(device: Device, segment: AiTargetSegment): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'devices',
+    kind: 'device',
+    entityId: device.id,
+    segment,
+    label: device.name,
+    context: {
+      name: device.name,
+      kind: device.kind,
+      health: device.health,
+      address: device.address,
+      site: siteName(device.siteId),
+      siteId: device.siteId,
+      tenant: tenantName(device.siteId),
+    },
+  })
+}
+function siteRowTarget(rollup: SiteRollup): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'sites',
+    kind: 'site',
+    entityId: rollup.site.id,
+    label: rollup.site.name,
+    context: {
+      name: rollup.site.name,
+      location: rollup.site.location,
+      tenant: tenantName(rollup.site.id),
+      health: healthLine(rollup.health),
+    },
+  })
+}
+const inventoryTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'devices',
+    kind: 'view',
+    entityId: 'inventory',
+    label: 'Device inventory',
+    context: { scope: scopeSummary.value },
+  }),
+)
+const sitesViewTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'sites',
+    kind: 'view',
+    entityId: 'sites',
+    label: 'Sites',
+    context: { scope: scopeSummary.value },
+  }),
+)
 
 const healthy = computed(
   () => scope.value.filter((device) => device.health === 'Healthy').length,
@@ -439,6 +501,7 @@ async function handleUndo() {
     <template v-if="!scopeError">
       <template v-if="view === 'devices'">
         <section
+          v-ai-target="inventoryTarget"
           class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
           aria-labelledby="inventory-title"
         >
@@ -504,6 +567,7 @@ async function handleUndo() {
               class="border-t border-border first:border-t-0"
             >
               <button
+                v-ai-target="deviceTarget(device, 'mobile')"
                 :data-device-id="device.id"
                 class="grid grid-cols-[1fr_auto] gap-2.5 w-full py-4 text-left cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit"
                 @click="openMobileDevice(device)"
@@ -634,6 +698,7 @@ async function handleUndo() {
                 <UiTableRow
                   v-for="device in filtered"
                   :key="device.id"
+                  v-ai-target="deviceTarget(device, 'desktop')"
                   :data-device-id="device.id"
                   :class="{
                     peeked: page.primary && sideDeviceId === device.id,
@@ -756,6 +821,7 @@ async function handleUndo() {
 
       <section
         v-else-if="view === 'sites'"
+        v-ai-target="sitesViewTarget"
         class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
         aria-labelledby="sites-title"
       >
@@ -787,7 +853,11 @@ async function handleUndo() {
               </UiTableRow>
             </UiTableHeader>
             <UiTableBody>
-              <UiTableRow v-for="rollup in siteRows" :key="rollup.site.id">
+              <UiTableRow
+                v-for="rollup in siteRows"
+                :key="rollup.site.id"
+                v-ai-target="siteRowTarget(rollup)"
+              >
                 <UiTableCell>
                   <AppLink
                     class="inline-block text-left group"

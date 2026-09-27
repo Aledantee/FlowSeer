@@ -4,6 +4,8 @@ import AppLink from '../../navigation/AppLink.vue'
 import { scopeOf, usePage } from '../../navigation/page'
 import type { Site } from '../../domain/fleet'
 import AppIcon from '../AppIcon.vue'
+import { aiTarget, useAiSlot } from '../../ai'
+import type { AiTarget } from '../../ai'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{
   data: { siteId: string }
@@ -11,14 +13,32 @@ const props = defineProps<{
   tenantName: (siteId: string) => string
 }>()
 const page = usePage()
+const slot = useAiSlot()
 const site = computed(() =>
   props.sites.find((item) => item.id === props.data.siteId),
 )
+const target = computed<AiTarget | undefined>(() => {
+  const current = site.value
+  if (!current) return undefined
+  return aiTarget({
+    slot,
+    view: 'topology',
+    kind: 'site',
+    entityId: current.id,
+    label: current.name,
+    context: {
+      name: current.name,
+      location: current.location,
+      tenant: props.tenantName(current.id),
+    },
+  })
+})
 </script>
 
 <template>
   <div
     v-if="site"
+    v-ai-target="target"
     :class="['topology-site-node', { solo: sites.length === 1 }]"
   >
     <header v-if="sites.length > 1">

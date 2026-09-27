@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import {
+  UiAiSummary,
   UiCard,
   UiScrollArea,
   UiSegmentedMeter,
@@ -15,6 +16,8 @@ import {
   UiTableRow,
 } from './ui'
 import TrafficChart from './components/TrafficChart.vue'
+import { aiTarget, useAiSlot } from './ai'
+import type { AiTarget } from './ai'
 import type { Device, Site } from './domain/fleet'
 import {
   formatAgo,
@@ -25,6 +28,7 @@ import {
   siteRollups,
   trafficHistory,
 } from './domain/overview'
+import type { SiteRollup } from './domain/overview'
 
 const props = defineProps<{
   scope: Device[]
@@ -34,7 +38,87 @@ const props = defineProps<{
 }>()
 
 const page = usePage()
+const slot = useAiSlot()
 
+const viewTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'dashboard',
+    kind: 'view',
+    entityId: props.site ? props.site.id : 'all',
+    label: `Dashboard · ${props.site ? props.site.name : 'all sites'}`,
+    context: {
+      scope: props.site
+        ? `${props.site.name}, ${props.site.location}`
+        : 'All sites',
+      devices: String(props.scope.length),
+    },
+  }),
+)
+function attentionTarget(device: Device): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'dashboard',
+    kind: 'attention-device',
+    entityId: device.id,
+    label: device.name,
+    context: {
+      name: device.name,
+      kind: device.kind,
+      health: device.health,
+      site: siteNameOf(device.siteId),
+      reason: reason(device),
+    },
+  })
+}
+function roleTarget(device: Device): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'dashboard',
+    kind: 'role-device',
+    entityId: device.id,
+    label: device.name,
+    context: {
+      name: device.name,
+      kind: device.kind,
+      health: device.health,
+      address: device.address,
+      site: siteNameOf(device.siteId),
+    },
+  })
+}
+function siteTarget(rollup: SiteRollup): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'dashboard',
+    kind: 'site',
+    entityId: rollup.site.id,
+    label: rollup.site.name,
+    context: {
+      name: rollup.site.name,
+      location: rollup.site.location,
+      tenant: props.tenantName(rollup.site.id),
+      health: healthLine(rollup.health),
+    },
+  })
+}
+const chartTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'dashboard',
+    kind: 'chart',
+    entityId: 'traffic',
+    label: 'Traffic, last 24 hours',
+    context: {
+      scope: props.site ? props.site.name : 'All sites',
+      peak: `${peak.value.mbps} Mbps at ${String(peak.value.hour).padStart(2, '0')}:00`,
+    },
+  }),
+)
+
+function siteNameOf(id: string) {
+  return props.sites.find((item) => item.id === id)?.name ?? 'Unknown site'
+}
 function deviceTo(id: string) {
   return { path: `/devices/${id}`, query: scopeOf(page.location.value) }
 }
@@ -95,6 +179,7 @@ const roles = computed(() => {
 
 <template>
   <div
+    v-ai-target="viewTarget"
     class="dashboard grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-[1150px]:grid-cols-1 gap-6 pb-8"
   >
     <UiCard
@@ -116,7 +201,11 @@ const roles = computed(() => {
       </template>
       <div>
         <ul v-if="attention.length" class="list-none m-0 p-0">
-          <li v-for="device in attention" :key="device.id">
+          <li
+            v-for="device in attention"
+            :key="device.id"
+            v-ai-target="attentionTarget(device)"
+          >
             <AppLink
               class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
               :to="deviceTo(device.id)"
@@ -152,6 +241,9 @@ const roles = computed(() => {
           Health across the scope
         </h3>
         <UiSegmentedMeter :counts="counts" legend />
+        <div class="mt-4">
+          <UiAiSummary :target="viewTarget" />
+        </div>
       </div>
     </UiCard>
 
@@ -181,6 +273,7 @@ const roles = computed(() => {
         </div>
       </template>
       <TrafficChart
+        v-ai-target="chartTarget"
         :points="history"
         :label="`Hourly aggregate traffic for ${site ? site.name : 'all sites in scope'}`"
       />
@@ -222,7 +315,11 @@ const roles = computed(() => {
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
-            <UiTableRow v-for="rollup in rollups" :key="rollup.site.id">
+            <UiTableRow
+              v-for="rollup in rollups"
+              :key="rollup.site.id"
+              v-ai-target="siteTarget(rollup)"
+            >
               <UiTableCell>
                 <AppLink
                   class="inline-block text-left group"
@@ -298,6 +395,7 @@ const roles = computed(() => {
           <AppLink
             v-for="device in members"
             :key="device.id"
+            v-ai-target="roleTarget(device)"
             class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
             :to="deviceTo(device.id)"
           >

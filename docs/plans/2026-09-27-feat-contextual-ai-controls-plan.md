@@ -25,6 +25,8 @@ Make meaningful instances in the web console and Storybook addressable by stable
 - An `AiRequest` is a snapshot of `{ requestId, kind, targetId, label, context, prompt? }`. The registered handler returns a `Promise` of answer text; an absent handler rejects with an unavailable state. Ignore a completion if its target registration is gone or replaced. Why: a result must refer to the chosen instance and must not appear on a later instance reusing its ID.
 - Use the current semantic coral (`--primary`) and cyan (`--accent`) tokens for the outline and shimmer; keep focus styling from the web direction record. Why: `docs/architecture/2026-09-26-web-design-system-direction.md` requires semantic tokens and Storybook theme parity. The existing web direction record covers this work, so no new direction record is needed.
 - Keep this as one plan. Why: registry, action layer, summary, views, and stories all live in the single `frontend/web` package and import one another.
+- Ruled: Both CSS-only device-row copies carry an ID segment (`desktop` and `mobile`), not only the mobile copy. Why: the registry decides visibility from the segment, and an unsegmented desktop ID would stay listable at narrow widths. Cost if wrong: the example ID `a:devices:device:d1` reads `a:devices:device:desktop:d1` in tests and the README.
+- Ruled: A topology link registers on its HTML link-label button, not the SVG edge group. Why: the registry addresses HTML elements and the label is the element that already carries the link's pointer interaction, so registering the `<g>` would need an Element-typed registry and risk Vue Flow's edge handling. Cost if wrong: SVG targets would need `Element` support throughout the registry and geometry.
 
 ## Requirements
 

@@ -77,6 +77,25 @@ function hiddenByAncestor(element: HTMLElement): boolean {
   return false
 }
 
+// A view hands the directive a fresh target object on every render. When
+// nothing but the object identity changed, re-registering it must not wake
+// every listener, or a live value like traffic would churn the action layer.
+function sameTarget(a: AiTarget, b: AiTarget): boolean {
+  if (
+    a.id !== b.id ||
+    a.kind !== b.kind ||
+    a.label !== b.label ||
+    a.segment !== b.segment
+  )
+    return false
+  const aKeys = Object.keys(a.context)
+  const bKeys = Object.keys(b.context)
+  return (
+    aKeys.length === bKeys.length &&
+    aKeys.every((key) => a.context[key] === b.context[key])
+  )
+}
+
 let idCounter = 0
 function nextRequestId(targetId: string): string {
   idCounter += 1
@@ -125,6 +144,10 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
       console.warn(
         `[flowseerAi] Duplicate target id "${target.id}" ignored; the first registration stays.`,
       )
+      return
+    }
+    if (existing && sameTarget(existing.target, target)) {
+      existing.target = target
       return
     }
     byId.set(target.id, { element, target })
