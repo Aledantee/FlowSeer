@@ -39,3 +39,30 @@ defineExpose({ pane })
     </UiScrollArea>
   </div>
 </template>
+
+<style scoped>
+.page-enter-active {
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+.page-leave-active {
+  transition: opacity 110ms ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: none;
+  }
+  .page-enter-from {
+    transform: none;
+  }
+}
+</style>
