@@ -7,6 +7,8 @@ import {
   getSmoothStepPath,
 } from '@vue-flow/core'
 import { linkDetailsOf } from '../../domain/telemetry'
+import { aiTarget, useAiSlot } from '../../ai'
+import type { AiTarget } from '../../ai'
 import { useTopologyLive } from './live'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{
@@ -57,6 +59,27 @@ const ends = computed(() =>
 const speed = computed(() =>
   link.value ? `${link.value.capacity / 1000}G` : '',
 )
+const slot = useAiSlot()
+const target = computed<AiTarget | undefined>(() => {
+  const current = link.value
+  if (!current) return undefined
+  return aiTarget({
+    slot,
+    view: 'topology',
+    kind: 'link',
+    entityId: current.id,
+    label: `${speed.value} link`,
+    context: {
+      health: current.health,
+      capacity: `${current.capacity / 1000}G`,
+      throughput: `${current.throughput} Mbps`,
+      source: live.device(current.sourceId)?.name ?? 'Unknown',
+      target: live.device(current.targetId)?.name ?? 'Unknown',
+      sourcePort: details.value?.sourcePort?.name ?? '',
+      targetPort: details.value?.targetPort?.name ?? '',
+    },
+  })
+})
 // Each link owns the vertical drop from the shared bus down to its target;
 // its labels sit there so siblings under one switch never collide.
 const drop = computed(() => ({
@@ -103,6 +126,7 @@ const width = computed(() => {
   </g>
   <EdgeLabelRenderer v-if="link">
     <button
+      v-ai-target="target"
       :class="[
         'topology-link-label',
         'nodrag',

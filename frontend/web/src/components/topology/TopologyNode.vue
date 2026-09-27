@@ -3,11 +3,34 @@ import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { UiStatusBadge } from '../../ui'
 import DeviceIcon from '../DeviceIcon.vue'
+import { aiTarget, useAiSlot } from '../../ai'
+import type { AiTarget } from '../../ai'
 import { useTopologyLive } from './live'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{ data: { deviceId: string } }>()
 const live = useTopologyLive()
 const device = computed(() => live.device(props.data.deviceId))
+const slot = useAiSlot()
+const target = computed<AiTarget | undefined>(() => {
+  const current = device.value
+  if (!current) return undefined
+  return aiTarget({
+    slot,
+    view: 'topology',
+    kind: 'device',
+    entityId: current.id,
+    label: current.name,
+    context: {
+      name: current.name,
+      kind: current.kind,
+      health: current.health,
+      address: current.address,
+      role: current.role,
+      clients: String(current.clients),
+      throughput: `${current.throughput} Mbps`,
+    },
+  })
+})
 const selected = computed(
   () =>
     live.selection.value !== undefined &&
@@ -19,6 +42,7 @@ const selected = computed(
 <template>
   <div
     v-if="device"
+    v-ai-target="target"
     :class="[
       'topology-node',
       device.health.toLowerCase(),

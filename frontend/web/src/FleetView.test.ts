@@ -4,8 +4,12 @@ import { createApp, nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from './FleetView.vue'
 import { isMac } from './navigation/shortcuts'
+import { createAiRegistry, createAiTargetDirective } from './ai'
+import type { AiRegistry } from './ai'
+import { aiRegistryKey } from './ui/ai/context'
 
 let dispose = () => {}
+let registry: AiRegistry
 
 // happy-dom has no Web Animations API, so the view runs as it does for a
 // user who asked for reduced motion.
@@ -49,9 +53,12 @@ async function mountAt(path: string) {
       { path: '/devices/:deviceId', component: FleetView },
     ],
   })
+  registry = createAiRegistry()
   const app = createApp(FleetView)
   await router.push(path)
   app.use(router)
+  app.directive('ai-target', createAiTargetDirective(registry))
+  app.provide(aiRegistryKey, registry)
   await router.isReady()
   app.mount(host)
   dispose = () => app.unmount()
@@ -397,5 +404,73 @@ describe('fleet view', () => {
     expect(card?.textContent).toContain('Offline')
     expect(card?.textContent).toContain('Cologne Central')
     expect(card?.textContent).toContain('38 min ago')
+  })
+})
+
+describe('AI target coverage', () => {
+  function listIds() {
+    return registry.list().map((item) => item.id)
+  }
+
+  it('lists only the device-row copy the viewport shows', async () => {
+    await mountAt('/devices')
+    expect(listIds()).toContain('a:devices:device:desktop:dev-16')
+    expect(listIds()).not.toContain('a:devices:device:mobile:dev-16')
+    expect(
+      registry.view('a:devices:device:desktop:dev-16')?.target.context,
+    ).toMatchObject({ name: 'cologne-ap-02', health: 'Offline' })
+
+    // A narrow viewport swaps the visible copy without remounting either.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('reduce'),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }))
+
+    expect(listIds()).toContain('a:devices:device:mobile:dev-16')
+    expect(listIds()).not.toContain('a:devices:device:desktop:dev-16')
+  })
+
+  it('drops a filtered-out target and restores it', async () => {
+    const { router } = await mountAt('/devices')
+    expect(registry.highlight('a:devices:device:desktop:dev-16')).toBe(true)
+
+    await router.push({ path: '/devices', query: { search: 'berlin' } })
+    await settle()
+    expect(listIds()).not.toContain('a:devices:device:desktop:dev-16')
+    expect(registry.highlight('a:devices:device:desktop:dev-16')).toBe(false)
+    expect(registry.selection()).toBeUndefined()
+
+    await router.push({ path: '/devices' })
+    await settle()
+    expect(listIds()).toContain('a:devices:device:desktop:dev-16')
+    expect(registry.highlight('a:devices:device:desktop:dev-16')).toBe(true)
+  })
+
+  it('qualifies the same device by physical slot in each pane', async () => {
+    await mountAt('/devices')
+    window.dispatchEvent(workspaceShortcut())
+    await settle()
+
+    expect(listIds()).toContain('a:devices:device:desktop:dev-16')
+    expect(listIds()).toContain('b:devices:device:desktop:dev-16')
+  })
+
+  it('registers the device view root and client rows with context', async () => {
+    const { host } = await mountAt('/devices/dev-3')
+    const root = registry.view('a:device:view:dev-3')
+    expect(root).toBeDefined()
+    expect(root?.target.context).toMatchObject({ site: 'Berlin Mitte' })
+    expect(host.querySelector('.ai-ask')).toBeNull()
+
+    const clientIds = listIds().filter((id) =>
+      id.startsWith('a:device:client:'),
+    )
+    expect(clientIds.length).toBeGreaterThan(0)
   })
 })

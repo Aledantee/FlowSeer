@@ -12,8 +12,17 @@ type Story = StoryObj<typeof UiCard>
 export const Default: Story = {
   render: () => ({
     components: { UiCard },
+    setup() {
+      const cardTarget = {
+        id: 'standalone:story:ui-card-default:card',
+        kind: 'card',
+        label: 'Card Title',
+        context: { updated: 'just now' },
+      }
+      return { cardTarget }
+    },
     template: `
-      <UiCard class="max-w-sm">
+      <UiCard class="max-w-sm" v-ai-target="cardTarget">
         <template #header>
           <h3 class="text-sm font-semibold text-foreground">Card Title</h3>
           <span class="text-xs text-muted-foreground">Action</span>

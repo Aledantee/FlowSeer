@@ -2,10 +2,15 @@
 import { computed, provide, ref } from 'vue'
 import WorkspacePage from '../WorkspacePage.vue'
 import { UiScrollArea } from '../ui'
+import { aiSlot } from '../ai'
+import type { AiSlot } from '../ai'
 import { pageContext } from './page'
 import type { PageContext } from './page'
-const props = defineProps<{ context: PageContext }>()
+const props = defineProps<{ context: PageContext; paneSlot: AiSlot }>()
 provide(pageContext, props.context)
+// The physical slot stays with the page across a pane swap, so descendants
+// can qualify their target IDs with it.
+provide(aiSlot, props.paneSlot)
 const scroller = ref<InstanceType<typeof UiScrollArea>>()
 // The element that scrolls the page.
 const pane = computed(() => scroller.value?.element)

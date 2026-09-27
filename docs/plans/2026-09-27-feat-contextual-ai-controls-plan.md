@@ -4,11 +4,13 @@ type: feat
 date: 2026-09-27
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Contextual AI Controls for the Web Console - Plan
+
+> Implemented. 4 units, 2026-09-27T16:32Z to 2026-09-27T16:58Z.
 
 ## Goal
 
@@ -25,6 +27,8 @@ Make meaningful instances in the web console and Storybook addressable by stable
 - An `AiRequest` is a snapshot of `{ requestId, kind, targetId, label, context, prompt? }`. The registered handler returns a `Promise` of answer text; an absent handler rejects with an unavailable state. Ignore a completion if its target registration is gone or replaced. Why: a result must refer to the chosen instance and must not appear on a later instance reusing its ID.
 - Use the current semantic coral (`--primary`) and cyan (`--accent`) tokens for the outline and shimmer; keep focus styling from the web direction record. Why: `docs/architecture/2026-09-26-web-design-system-direction.md` requires semantic tokens and Storybook theme parity. The existing web direction record covers this work, so no new direction record is needed.
 - Keep this as one plan. Why: registry, action layer, summary, views, and stories all live in the single `frontend/web` package and import one another.
+- Ruled: Both CSS-only device-row copies carry an ID segment (`desktop` and `mobile`), not only the mobile copy. Why: the registry decides visibility from the segment, and an unsegmented desktop ID would stay listable at narrow widths. Cost if wrong: the example ID `a:devices:device:d1` reads `a:devices:device:desktop:d1` in tests and the README.
+- Ruled: A topology link registers on its HTML link-label button, not the SVG edge group. Why: the registry addresses HTML elements and the label is the element that already carries the link's pointer interaction, so registering the `<g>` would need an Element-typed registry and risk Vue Flow's edge handling. Cost if wrong: SVG targets would need `Element` support throughout the registry and geometry.
 
 ## Requirements
 
@@ -55,11 +59,11 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/s
 
 ### U2. Shared action layer and summary component
 
-Files: `frontend/web/src/ai/`, `frontend/web/src/ui/ai/`, `frontend/web/src/theme/`, `frontend/web/src/ui/ai/*.test.ts`, `frontend/web/src/ui/ai/*.stories.ts`
+Files: `frontend/web/src/ai/`, `frontend/web/src/ui/ai/`, `frontend/web/src/ui/index.ts`, `frontend/web/src/theme/`, `frontend/web/src/ui/ai/*.test.ts`, `frontend/web/src/ui/ai/*.stories.ts`
 After: U1
-Change: One overlay tracks the selected or hovered/focused target without blocking its controls. Ask uses an existing `Ui` overlay primitive for the prompt panel and renders pending, answer, and error states. `UiAiSummary` owns idle, loading, result, error, and retry presentation, using semantic tokens and reduced-motion styles. Its colocated stories land in this unit so the existing story coverage gate passes.
+Change: One overlay tracks the selected or hovered/focused target without blocking its controls. Ask uses an existing `Ui` overlay primitive for the prompt panel and renders pending, answer, and error states. `UiAiSummary` owns idle, loading, result, error, and retry presentation, using semantic tokens and reduced-motion styles. Its colocated stories land in this unit so the existing story coverage gate passes; the barrel exports the two components so views and the Storybook decorator import them from `./ui`.
 Tests: Component tests prove Alt+A and pointer access, nonempty Ask submission, unavailable/rejected/stale results, scroll and pane movement alignment, viewport clipping, summary request timing and retry, accessible status announcements, and reduced-motion fallback.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ai frontend/web/src/ui/ai frontend/web/src/theme`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ai frontend/web/src/ui/ai frontend/web/src/ui/index.ts frontend/web/src/theme`
 
 ### U3. Web view target coverage
 

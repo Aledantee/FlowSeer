@@ -52,11 +52,24 @@ export const AllColorVariants: Story = {
         { color: 'chart-5' as const, label: 'chart-5 (Amber)' },
         { color: 'chart-6' as const, label: 'chart-6 (Blue)' },
       ]
-      return { variants, values: sampleValues }
+      // Each series is a distinct target, so a composite story addresses one
+      // sparkline rather than the group.
+      const seriesTarget = (v: (typeof variants)[number]) => ({
+        id: `standalone:story:traffic-sparkline-variants:${v.color}`,
+        kind: 'chart',
+        label: v.label,
+        context: { color: v.color, samples: String(sampleValues.length) },
+      })
+      return { variants, values: sampleValues, seriesTarget }
     },
     template: `
       <div class="space-y-4 max-w-sm">
-        <div v-for="v in variants" :key="v.color" class="space-y-1">
+        <div
+          v-for="v in variants"
+          :key="v.color"
+          class="space-y-1"
+          v-ai-target="seriesTarget(v)"
+        >
           <div class="text-xs text-muted-foreground">{{ v.label }}</div>
           <div class="w-60 h-12 bg-card p-2 border border-border rounded-control">
             <TrafficSparkline :values="values" :label="v.label" :color="v.color" />

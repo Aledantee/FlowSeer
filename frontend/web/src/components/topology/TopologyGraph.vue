@@ -23,6 +23,7 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import type { Device, Site } from '../../domain/fleet'
 import { linksOf } from '../../domain/fleet'
+import { aiTarget, useAiSlot } from '../../ai'
 import { layoutTopology } from './layout'
 import { topologyLive } from './live'
 import type { Selection } from './live'
@@ -39,6 +40,21 @@ const props = defineProps<{
   // "deviceId~port" of an interface to open selected, e.g. from search.
   focus?: string
 }>()
+const slot = useAiSlot()
+const viewTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'topology',
+    kind: 'view',
+    entityId: 'graph',
+    label: 'Topology',
+    context: {
+      sites: String(props.sites.length),
+      devices: String(members.value.length),
+      focus: props.focus ?? '',
+    },
+  }),
+)
 const SAMPLES = 40
 const members = computed(() =>
   props.fleet.filter((device) =>
@@ -329,7 +345,7 @@ function edgesChanged(changes: EdgeChange[]) {
 </script>
 
 <template>
-  <div ref="frame" class="topology-graph">
+  <div ref="frame" v-ai-target="viewTarget" class="topology-graph">
     <VueFlow
       :id="flowId"
       :nodes="nodes"

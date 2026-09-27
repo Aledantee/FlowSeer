@@ -13,10 +13,20 @@ import {
   uplinkOf,
 } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
+import type { Client } from './domain/clients'
 import { formatAgo, openIssues } from './domain/overview'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
-import { UiButton, UiCard, UiField, UiSelect, UiStatusBadge } from './ui'
+import { aiTarget, useAiSlot } from './ai'
+import type { AiTarget } from './ai'
+import {
+  UiAiSummary,
+  UiButton,
+  UiCard,
+  UiField,
+  UiSelect,
+  UiStatusBadge,
+} from './ui'
 
 const props = defineProps<{
   device: Device
@@ -28,6 +38,57 @@ const props = defineProps<{
 const emit = defineEmits<{ reassign: [siteId: string] }>()
 const page = usePage()
 const workspace = useWorkspace()
+const slot = useAiSlot()
+
+const viewTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'device',
+    kind: 'view',
+    entityId: props.device.id,
+    label: props.device.name,
+    context: {
+      name: props.device.name,
+      kind: props.device.kind,
+      health: props.device.health,
+      address: props.device.address,
+      site: props.siteName(props.device.siteId),
+      tenant: props.tenantName(props.device.siteId),
+    },
+  }),
+)
+function clientTarget(client: Client): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'device',
+    kind: 'client',
+    entityId: client.id,
+    label: client.hostname,
+    context: {
+      hostname: client.hostname,
+      address: client.address,
+      mac: client.mac,
+      band: client.band,
+      signal: `${client.signal} dBm (${signalQuality(client.signal)})`,
+      accessPoint: props.device.name,
+    },
+  })
+}
+function downlinkTarget(device: Device): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'device',
+    kind: 'downlink',
+    entityId: device.id,
+    label: device.name,
+    context: {
+      name: device.name,
+      kind: device.kind,
+      health: device.health,
+      uplink: props.device.name,
+    },
+  })
+}
 const destination = ref(props.device.siteId)
 watch(
   () => props.device.siteId,
@@ -130,7 +191,7 @@ function to(path: string, extra: Record<string, string> = {}) {
 </script>
 
 <template>
-  <div class="grid gap-5">
+  <div v-ai-target="viewTarget" class="grid gap-5">
     <AppLink
       class="inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground hover:text-accent-foreground"
       :to="to('/devices')"
@@ -279,6 +340,7 @@ function to(path: string, extra: Record<string, string> = {}) {
               >{{ escalation }}</pre>
           </template>
         </div>
+        <UiAiSummary :target="viewTarget" />
       </div>
     </UiCard>
 
@@ -393,6 +455,7 @@ function to(path: string, extra: Record<string, string> = {}) {
           <li
             v-for="client in clients"
             :key="client.id"
+            v-ai-target="clientTarget(client)"
             class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
           >
             <span>
@@ -441,6 +504,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             <li
               v-for="link in links"
               :key="link.id"
+              v-ai-target="downlinkTarget(link)"
               class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
             >
               <AppLink class="group" :to="to(`/devices/${link.id}`)">

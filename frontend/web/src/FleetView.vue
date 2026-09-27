@@ -29,6 +29,7 @@ import {
   UiBreadcrumbList,
   UiBreadcrumbPage,
   UiBreadcrumbSeparator,
+  UiAiActionLayer,
   UiDropdownMenuItem,
   UiTooltip,
 } from './ui'
@@ -830,6 +831,7 @@ onUnmounted(() => clearInterval(timer))
 
 <template>
   <TooltipProvider :delay-duration="350" :skip-delay-duration="250">
+    <UiAiActionLayer />
     <div
       class="shell max-[800px]:flex-col"
       :class="{ 'sidebar-collapsed': sidebarCollapsed }"
@@ -1115,6 +1117,7 @@ onUnmounted(() => clearInterval(timer))
                   (slot === panes.mainSlot.value || showSplit)
                 "
                 :context="panes.pages[slot]"
+                :pane-slot="slot"
                 :class="
                   slot === panes.mainSlot.value
                     ? [

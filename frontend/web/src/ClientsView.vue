@@ -3,8 +3,10 @@ import { computed, ref, watch } from 'vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import type { Device } from './domain/fleet'
-import type { Band } from './domain/clients'
+import type { Band, Client } from './domain/clients'
 import { clientsOf, signalQuality } from './domain/clients'
+import { aiTarget, useAiSlot } from './ai'
+import type { AiTarget } from './ai'
 import AppIcon from './components/AppIcon.vue'
 import {
   UiEmptyState,
@@ -25,6 +27,38 @@ const props = defineProps<{
   siteName: (id: string) => string
 }>()
 const navPage = usePage()
+const slot = useAiSlot()
+const viewTarget = computed(() =>
+  aiTarget({
+    slot,
+    view: 'clients',
+    kind: 'view',
+    entityId: accessPoint.value ? accessPoint.value.id : 'all',
+    label: 'Connected clients',
+    context: {
+      count: String(all.value.length),
+      accessPoint: accessPoint.value?.name ?? 'All access points',
+      search: search.value || 'none',
+    },
+  }),
+)
+function clientTarget(client: Client): AiTarget {
+  return aiTarget({
+    slot,
+    view: 'clients',
+    kind: 'client',
+    entityId: client.id,
+    label: client.hostname,
+    context: {
+      hostname: client.hostname,
+      address: client.address,
+      mac: client.mac,
+      band: client.band,
+      signal: `${client.signal} dBm (${signalQuality(client.signal)})`,
+      accessPoint: devicesById.value.get(client.deviceId)?.name ?? 'Unknown',
+    },
+  })
+}
 const pageSize = 50
 const page = ref(1)
 const search = ref(navPage.query('q'))
@@ -78,6 +112,7 @@ function clearAccessPoint() {
 
 <template>
   <section
+    v-ai-target="viewTarget"
     class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
     aria-labelledby="clients-title"
   >
@@ -143,7 +178,11 @@ function clearAccessPoint() {
           </UiTableRow>
         </UiTableHeader>
         <UiTableBody>
-          <UiTableRow v-for="client in paginated" :key="client.id">
+          <UiTableRow
+            v-for="client in paginated"
+            :key="client.id"
+            v-ai-target="clientTarget(client)"
+          >
             <UiTableCell>
               <strong class="font-medium text-foreground block text-xs">
                 {{ client.hostname }}

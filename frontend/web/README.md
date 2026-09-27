@@ -268,6 +268,47 @@ preference changes during a session. Resizing or unmounting cancels pending
 animations and restores the previous inline styles so responsive CSS stays in
 control. Motion lifecycle tests cover these cleanup paths and rapid replacement.
 
+## AI targets
+
+The console can expose meaningful instances to an agent without an AI
+backend. A view marks an element with the `v-ai-target` directive bound to a
+`AiTarget`; the directive registers the element while it is mounted and
+removes it when it unmounts, so a row that leaves a filter or a pane swap
+stops being addressable. IDs are qualified by the physical pane slot (`a`,
+`b`, or `standalone` for a Storybook story or a test), the view, the kind,
+an optional `mobile`/`desktop` segment, and the entity ID, for example
+`a:devices:device:d1`. Two elements that render the same entity in CSS-only
+layouts register distinct segments, and only the copy the viewport shows is
+listed.
+
+`window.flowseerAi` is the inspectable contract:
+
+```ts
+window.flowseerAi.listTargets() // visible targets, sorted by id
+window.flowseerAi.highlight('a:devices:device:d1') // true when the id is visible
+window.flowseerAi.clearHighlight()
+const unsubscribe = window.flowseerAi.onRequest(async (request) => {
+  // request: { requestId, kind, targetId, label, context, prompt? }
+  return 'An answer built from the request snapshot.'
+})
+unsubscribe()
+```
+
+`onRequest` installs the asynchronous handler; the returned function removes
+it. With no handler installed, Ask and summary report **AI is unavailable**
+rather than inventing an answer — the application has no model provider yet.
+A handler that rejects produces an error state, and an answer whose target
+unmounted or was replaced before it resolved is discarded, so a result never
+lands on a different instance that reused the ID.
+
+The on-screen action layer draws the selection outline and the compact Ask
+button over the registered element without nesting controls inside rows,
+charts, or buttons; focus within a target reveals Ask, and Alt+A opens it
+from the focused target. The prompt and answer use `UiPopover` with
+`UiButton` and `UiTextarea`; `UiAiSummary` owns the idle, loading, result,
+error, and retry states and makes no request until **Generate summary** is
+activated.
+
 ## Boundaries and next decisions
 
 The UI uses product-facing copy and omits decorative placeholder text and demo

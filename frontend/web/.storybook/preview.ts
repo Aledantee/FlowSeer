@@ -1,5 +1,6 @@
 import type { Preview } from '@storybook/vue3-vite'
 import { withThemeByDataAttribute } from '@storybook/addon-themes'
+import { withAiTargets } from './aiDecorator'
 import '@fontsource-variable/inter'
 import '../src/theme/tailwind.css'
 import '../src/style.css'
@@ -19,6 +20,7 @@ const preview: Preview = {
       defaultTheme: 'light',
       attributeName: 'data-theme',
     }),
+    withAiTargets,
   ],
 }
 
