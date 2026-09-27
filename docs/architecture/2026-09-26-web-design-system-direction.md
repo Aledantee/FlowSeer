@@ -3,7 +3,7 @@ title: Web Design System - Direction
 type: direction
 date: 2026-09-26
 topic: web-design-system
-status: proposed-direction
+status: accepted-direction
 ---
 
 # Web Design System - Direction

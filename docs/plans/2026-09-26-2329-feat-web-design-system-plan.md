@@ -131,13 +131,13 @@ the README's "Try the UI" steps in both themes.
 
 ## Definition of done
 
-- [ ] Every phase plan reads `implemented`, and its `Landed:` line above
+- [x] Every phase plan reads `implemented`, and its `Landed:` line above
       carries its commit range.
-- [ ] The direction record is accepted or amended by a person.
-- [ ] `frontend/web/README.md` and `frontend/web/design/` describe the
+- [x] The direction record is accepted or amended by a person.
+- [x] `frontend/web/README.md` and `frontend/web/design/` describe the
       token source, Storybook, and the `Ui*` components. The `/components`
       workbench text is gone.
-- [ ] This plan's `status` is `implemented`, with an outcome note under
+- [x] This plan's `status` is `implemented`, with an outcome note under
       the title.
 
 ## Open questions
