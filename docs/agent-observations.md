@@ -26,13 +26,3 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
-
-## 2026-09-27 plan: codegen refactor units under-scoped test files asserting old emitted shapes
-Skill or agent: `.claude/skills/plan/SKILL.md`, step 3 (Units).
-What happened: The phase2 re-plan under-scoped U2's owned paths: a codegen-shape change must own the tests that assert the old emission shape (`emit_resolve_test.go` asserted the old inline `return "with-hyphen"`; it was invalidated by the enum static-names-table decision and blocked the first implement pass). The step was followed as written, but missed existing tests asserting emitted syntax.
-Suggested change: When planning a codegen or emitter shape change, require an explicit search for tests asserting generated source syntax and include all affected test files in the unit's owned `Files:` list.
-
-## 2026-09-27 bench-gate: micro-benchmark baseline is stale after streaming walk redesign
-Skill or agent: `src/protocol/snmp/bench/bench-gate.sh` and `testdata/baseline-micro.txt`.
-What happened: The bench-gate baseline `src/protocol/snmp/bench/testdata/baseline-micro.txt` is stale: it records pre-streaming allocation levels (TableWalk 364, BulkWalk 481 allocs/op), never re-measured after the 2026-09-03 streaming redesign (commit `7210aa0c`), so `bench-gate.sh` fails for current `main` too. It is a pre-existing gate defect independent of phase 2; phase 2 verified parity with `main` via A/B benchmark runs instead.
-Suggested change: Flag for a follow-up task to rebaseline `src/protocol/snmp/bench/testdata/baseline-micro.txt` against post-streaming reality on `main`.
