@@ -4,21 +4,28 @@ package rawsocket
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
+	"golang.org/x/net/bpf"
 	"golang.org/x/sys/unix"
+
+	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/modules/capture/filter"
 )
 
-// queuedFrame is one recvfrom result a fakeSocket hands out in order. data
+// queuedFrame is one recvmsg result a fakeSocket hands out in order. data
 // is what the fake copies into the caller's buffer; originalLen is what it
 // reports as n, which can exceed len(data) to simulate MSG_TRUNC exactly as
 // the kernel would: it fills the caller's buffer up to its own capacity and
 // reports the true, longer wire length.
 type queuedFrame struct {
 	data        []byte
+	oob         []byte
 	originalLen int
 }
 
@@ -29,7 +36,7 @@ type fakeSocket struct {
 	mu       sync.Mutex
 	queue    []queuedFrame
 	afterErr error // returned once the queue is drained; nil means EAGAIN forever
-	eintr    int   // number of leading recvfrom calls that return EINTR before anything else
+	eintr    int   // number of leading recvmsg calls that return EINTR before anything else
 
 	statsPackets, statsDrops uint64
 	statsErr                 error
@@ -38,24 +45,118 @@ type fakeSocket struct {
 	closeErr error
 }
 
-func (f *fakeSocket) recvfrom(p []byte, _ int) (int, error) {
+func (f *fakeSocket) recvmsg(p, oob []byte) (int, int, int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	if f.eintr > 0 {
 		f.eintr--
-		return 0, unix.EINTR
+		return 0, 0, 0, unix.EINTR
 	}
 	if len(f.queue) == 0 {
 		if f.afterErr != nil {
-			return 0, f.afterErr
+			return 0, 0, 0, f.afterErr
 		}
-		return 0, unix.EAGAIN
+		return 0, 0, 0, unix.EAGAIN
 	}
 	qf := f.queue[0]
 	f.queue = f.queue[1:]
 	copy(p, qf.data)
-	return qf.originalLen, nil
+	copy(oob, qf.oob)
+	return qf.originalLen, len(qf.oob), 0, nil
+}
+
+func packetAuxdata(status uint32, tci, tpid uint16) []byte {
+	oob := make([]byte, unix.CmsgSpace(20))
+	header := (*unix.Cmsghdr)(unsafe.Pointer(&oob[0]))
+	header.SetLen(unix.CmsgLen(20))
+	header.Level = unix.SOL_PACKET
+	header.Type = unix.PACKET_AUXDATA
+	data := oob[unix.CmsgLen(0):]
+	binary.NativeEndian.PutUint32(data[:4], status)
+	binary.NativeEndian.PutUint16(data[16:18], tci)
+	binary.NativeEndian.PutUint16(data[18:20], tpid)
+	return oob
+}
+
+func TestLinuxLocalSource_RestoresOffloadedVLAN(t *testing.T) {
+	untagged := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x08, 0x00, 0x45}
+	sock := &fakeSocket{queue: []queuedFrame{{
+		data:        untagged,
+		oob:         packetAuxdata(unix.TP_STATUS_VLAN_VALID, 1000, 0),
+		originalLen: len(untagged),
+	}}}
+	s := newLinuxLocalSource(sock)
+	defer func() { _ = s.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	select {
+	case frame := <-s.Receive(ctx):
+		want := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x81, 0x00, 0x03, 0xe8, 0x08, 0x00, 0x45}
+		if string(frame.Data) != string(want) {
+			t.Errorf("Data = %x, want %x", frame.Data, want)
+		}
+		if frame.OriginalLength != uint32(len(want)) {
+			t.Errorf("OriginalLength = %d, want %d", frame.OriginalLength, len(want))
+		}
+	case <-ctx.Done():
+		t.Fatal("did not receive a frame within the timeout")
+	}
+}
+
+func TestRestoreVLAN_PreservesPriorityTagAndTPID(t *testing.T) {
+	frame := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x08, 0x00}
+	oob := packetAuxdata(unix.TP_STATUS_VLAN_VALID|unix.TP_STATUS_VLAN_TPID_VALID, 0xa000, 0x88a8)
+	got, originalLength, err := restoreVLAN(frame, len(frame), oob)
+	if err != nil {
+		t.Fatalf("restoreVLAN: %v", err)
+	}
+	want := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x88, 0xa8, 0xa0, 0x00, 0x08, 0x00}
+	if string(got) != string(want) {
+		t.Errorf("Data = %x, want %x", got, want)
+	}
+	if originalLength != len(want) {
+		t.Errorf("OriginalLength = %d, want %d", originalLength, len(want))
+	}
+}
+
+func TestLinuxLocalSource_FiltersRestoredVLAN(t *testing.T) {
+	match := &capturev1.VlanMatch{}
+	match.SetVlanId(1000)
+	clause := &capturev1.CaptureFilterClause{}
+	clause.SetVlan(match)
+	request := &capturev1.CaptureFilter{}
+	request.SetAnyOf([]*capturev1.CaptureFilterClause{clause})
+	insts, err := filter.Compile(request)
+	if err != nil {
+		t.Fatalf("compile filter: %v", err)
+	}
+	vm, err := bpf.NewVM(insts)
+	if err != nil {
+		t.Fatalf("build filter VM: %v", err)
+	}
+
+	untagged := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x08, 0x00}
+	sock := &fakeSocket{queue: []queuedFrame{
+		{data: untagged, originalLen: len(untagged)},
+		{data: untagged, oob: packetAuxdata(unix.TP_STATUS_VLAN_VALID, 1000, 0), originalLen: len(untagged)},
+	}}
+	s := newLinuxLocalSource(sock)
+	s.vm = vm
+	defer func() { _ = s.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	select {
+	case frame := <-s.Receive(ctx):
+		want := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x81, 0x00, 0x03, 0xe8, 0x08, 0x00}
+		if string(frame.Data) != string(want) {
+			t.Errorf("Data = %x, want %x", frame.Data, want)
+		}
+	case <-ctx.Done():
+		t.Fatal("did not receive a VLAN 1000 frame within the timeout")
+	}
 }
 
 func (f *fakeSocket) stats() (uint64, uint64, error) {
@@ -96,7 +197,7 @@ func TestLinuxLocalSource_DeliversFrame(t *testing.T) {
 	}
 }
 
-// TestLinuxLocalSource_EINTRIsRetried proves a signal-interrupted recvfrom
+// TestLinuxLocalSource_EINTRIsRetried proves a signal-interrupted recvmsg
 // (EINTR) is retried within the same poll cycle rather than reported as a
 // terminal error: SO_RCVTIMEO sockets never auto-restart on a signal, and
 // Go's own runtime routinely delivers one to a goroutine blocked this long.
