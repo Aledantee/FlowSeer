@@ -5,6 +5,21 @@ export interface UseFormResetOptions {
   onReset: () => void
 }
 
+function resolveElement(target: unknown): HTMLElement | null {
+  if (target instanceof HTMLElement) {
+    return target
+  }
+  if (
+    typeof target === 'object' &&
+    target !== null &&
+    '$el' in target &&
+    target.$el instanceof HTMLElement
+  ) {
+    return target.$el
+  }
+  return null
+}
+
 export function useFormReset(options: UseFormResetOptions): void {
   let form: HTMLFormElement | null = null
 
@@ -16,16 +31,7 @@ export function useFormReset(options: UseFormResetOptions): void {
   }
 
   onMounted(() => {
-    const raw = options.elementRef.value
-    const el =
-      raw instanceof HTMLElement
-        ? raw
-        : raw &&
-            typeof raw === 'object' &&
-            '$el' in raw &&
-            (raw as { $el: unknown }).$el instanceof HTMLElement
-          ? (raw as { $el: HTMLElement }).$el
-          : null
+    const el = resolveElement(options.elementRef.value)
 
     if (el) {
       form = el.closest('form')

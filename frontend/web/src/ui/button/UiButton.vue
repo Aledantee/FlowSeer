@@ -28,15 +28,15 @@ const buttonVariants = tv({
       primary:
         '!bg-primary !text-primary-foreground hover:brightness-105 !border-transparent',
       secondary:
-        '!bg-card !text-foreground !border !border-border hover:bg-hover',
+        '!bg-card !text-foreground !border !border-border hover:!bg-hover',
       ghost:
-        '!bg-transparent !text-foreground !border-transparent hover:bg-hover',
+        '!bg-transparent !text-foreground !border-transparent hover:!bg-hover',
       danger:
         '!bg-danger-surface !text-danger-foreground !border !border-danger-border hover:brightness-95',
     },
     size: {
-      sm: 'h-7 !px-2.5 text-xs',
-      md: 'h-8 !px-3.5 text-sm',
+      sm: 'h-7 !px-2.5 !py-0 text-xs',
+      md: 'h-8 !px-3.5 !py-0 text-sm',
       icon: 'h-8 w-8 !p-0',
     },
   },

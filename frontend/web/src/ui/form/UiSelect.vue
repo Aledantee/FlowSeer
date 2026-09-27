@@ -69,14 +69,16 @@ const triggerId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,
 )
-const computedAriaLabel = computed(
-  () => props.ariaLabel ?? (attrs['aria-label'] as string | undefined),
-)
-const ariaDescribedBy = computed(
-  () =>
-    (attrs['aria-describedby'] as string | undefined) ??
-    fieldContext?.describedBy.value,
-)
+const computedAriaLabel = computed(() => {
+  if (props.ariaLabel !== undefined) return props.ariaLabel
+  const attr = attrs['aria-label']
+  return typeof attr === 'string' ? attr : undefined
+})
+const ariaDescribedBy = computed(() => {
+  const attr = attrs['aria-describedby']
+  if (typeof attr === 'string') return attr
+  return fieldContext?.describedBy.value
+})
 
 const selectTriggerVariants = tv({
   base: 'w-full inline-flex items-center justify-between gap-2 text-sm !px-3 !py-1.5 !rounded-control transition-colors !bg-card !text-foreground disabled:!opacity-50 disabled:!cursor-not-allowed focus-visible:!outline-none !border',
@@ -92,20 +94,21 @@ const selectTriggerVariants = tv({
   },
 })
 
-const isControlled = computed(() => props.modelValue !== undefined)
 const internalValue = ref<string>(props.modelValue ?? '')
 
 watch(
   () => props.modelValue,
   (val) => {
-    if (val !== undefined) {
-      internalValue.value = val
-    }
+    internalValue.value = val ?? ''
   },
 )
 
-const currentValue = computed(() =>
-  isControlled.value ? (props.modelValue as string) : internalValue.value,
+const currentValue = computed<string>(() =>
+  props.modelValue !== undefined ? props.modelValue : internalValue.value,
+)
+
+const selectedLabel = computed(
+  () => props.options.find((opt) => opt.value === currentValue.value)?.label,
 )
 
 let initialValue = ''
@@ -145,7 +148,9 @@ function handleUpdate(val: string | null | undefined) {
       :aria-describedby="ariaDescribedBy"
       :class="selectTriggerVariants({ invalid: isInvalid })"
     >
-      <SelectValue :placeholder="placeholder" />
+      <SelectValue :placeholder="placeholder">
+        {{ selectedLabel || placeholder }}
+      </SelectValue>
       <svg
         class="h-4 w-4 opacity-50 shrink-0"
         xmlns="http://www.w3.org/2000/svg"
