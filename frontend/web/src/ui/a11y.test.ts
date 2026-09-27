@@ -49,6 +49,26 @@ const OVERLAY_AUDITS: Readonly<Record<string, OverlayAuditExpectation>> = {
   './popover/UiPopover.stories.ts:AccessibilityAudit': { role: 'dialog' },
 }
 
+const COMPONENT_TARGETS: Readonly<
+  Record<string, { kind: string; count: number }>
+> = {
+  '../components/TrafficChart.stories.ts:Default': { kind: 'chart', count: 1 },
+  '../components/TrafficChart.stories.ts:DarkMode': { kind: 'chart', count: 1 },
+  '../components/TrafficSparkline.stories.ts:AllColorVariants': {
+    kind: 'chart',
+    count: 6,
+  },
+  './card/UiCard.stories.ts:Default': { kind: 'card', count: 1 },
+  './table/UiTable.stories.ts:Default': { kind: 'device', count: 4 },
+  './ai/UiAiActionLayer.stories.ts:Selected': { kind: 'row', count: 1 },
+  './ai/UiAiSummary.stories.ts:Idle': { kind: 'device', count: 1 },
+  './ai/UiAiSummary.stories.ts:Loading': { kind: 'device', count: 1 },
+  './ai/UiAiSummary.stories.ts:Result': { kind: 'device', count: 1 },
+  './ai/UiAiSummary.stories.ts:ErrorState': { kind: 'device', count: 1 },
+  './ai/UiAiSummary.stories.ts:Unavailable': { kind: 'device', count: 1 },
+  './ai/UiAiSummary.stories.ts:DarkMode': { kind: 'device', count: 1 },
+}
+
 const AXE_OPTIONS: axe.RunOptions = {
   runOnly: {
     type: 'tag',
@@ -133,7 +153,18 @@ async function selectTarget(label: string) {
     `Expected ${label} to register an AI target`,
   ).toBeGreaterThan(0)
 
-  const componentTarget = targets.find((target) => target.kind !== 'story')
+  const expected = COMPONENT_TARGETS[label.replace(' -> ', ':')]
+  if (expected) {
+    expect(
+      targets.filter((target) => target.kind === expected.kind),
+      `Expected ${label} to register ${expected.count} ${expected.kind} target(s)`,
+    ).toHaveLength(expected.count)
+  }
+
+  const componentTarget = targets.find(
+    (target) =>
+      target.kind === expected?.kind || (!expected && target.kind !== 'story'),
+  )
   const selected = componentTarget ?? targets[0]
   expect(
     selected,
@@ -183,6 +214,15 @@ describe('accessibility (axe-core)', () => {
   it('discovers story files and covers every component in a story', () => {
     const storyPaths = Object.keys(storyModules)
     expect(storyPaths.length).toBeGreaterThan(0)
+
+    const storyKeys = Object.entries(storyModules).flatMap(([path, module]) =>
+      Object.keys(
+        composeStories(module as Parameters<typeof composeStories>[0]),
+      ).map((name) => `${path}:${name}`),
+    )
+    for (const key of Object.keys(COMPONENT_TARGETS)) {
+      expect(storyKeys, `${key} is missing from the story audit`).toContain(key)
+    }
 
     const componentPaths = Object.keys(componentModules)
     expect(componentPaths.length).toBeGreaterThan(0)
