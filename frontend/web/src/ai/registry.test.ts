@@ -110,31 +110,134 @@ describe('target registry', () => {
     expect(registry.list()).toHaveLength(0)
   })
 
-  it('clears an old selection when highlighting an unknown id', () => {
+  it('scrolls the exact mounted element into view on highlight', () => {
     const registry = createAiRegistry()
-    registry.register(element(), target('a:devices:device:d1'))
-    expect(registry.highlight('a:devices:device:d1')).toBe(true)
-    expect(registry.selection()?.target.id).toBe('a:devices:device:d1')
+    const scrollArea = element()
+    const pane = document.createElement('div')
+    const row = document.createElement('div')
+    scrollArea.append(pane)
+    pane.append(row)
 
+    const scrollSpy = vi.spyOn(row, 'scrollIntoView')
+    registry.register(
+      row,
+      target('a:devices:device:desktop:dev-13', { segment: 'desktop' }),
+    )
+
+    expect(registry.highlight('a:devices:device:desktop:dev-13')).toBe(true)
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    expect(scrollSpy).toHaveBeenCalledWith({
+      block: 'nearest',
+      inline: 'nearest',
+    })
+    expect(registry.selection()?.element).toBe(row)
+  })
+
+  it('clears an old selection and does not scroll when highlighting an unknown id', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const scrollSpy = vi.spyOn(node, 'scrollIntoView')
+    registry.register(
+      node,
+      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
+    )
+    expect(registry.highlight('a:devices:device:desktop:d1')).toBe(true)
+    expect(scrollSpy).toHaveBeenCalledWith({
+      block: 'nearest',
+      inline: 'nearest',
+    })
+    expect(registry.selection()?.target.id).toBe('a:devices:device:desktop:d1')
+
+    scrollSpy.mockClear()
     expect(registry.highlight('a:devices:device:missing')).toBe(false)
+    expect(scrollSpy).not.toHaveBeenCalled()
     expect(registry.selection()).toBeUndefined()
   })
 
-  it('returns false when highlighting a hidden segment', () => {
+  it('returns false and does not scroll when highlighting a hidden segment', () => {
     const { registry } = viewport({ wide: true, narrow: false })
+    const node = element()
+    const scrollSpy = vi.spyOn(node, 'scrollIntoView')
     registry.register(
-      element(),
+      node,
       target('a:devices:device:mobile:d1', { segment: 'mobile' }),
     )
 
     expect(registry.highlight('a:devices:device:mobile:d1')).toBe(false)
+    expect(scrollSpy).not.toHaveBeenCalled()
+  })
+
+  it('excludes targets inside a CSS-hidden ancestor across all target kinds', async () => {
+    const registry = createAiRegistry()
+    const card = element()
+    const chart = document.createElement('div')
+    card.append(chart)
+
+    const chartTarget = target('a:dashboard:chart:traffic', {
+      kind: 'chart',
+      label: 'Traffic',
+    })
+    registry.register(chart, chartTarget)
+
+    expect(registry.list().map((item) => item.id)).toEqual([
+      'a:dashboard:chart:traffic',
+    ])
+    expect(registry.view('a:dashboard:chart:traffic')).toBeDefined()
+    expect(registry.idForElement(chart)).toBe('a:dashboard:chart:traffic')
+
+    card.style.display = 'none'
+
+    expect(registry.list()).toEqual([])
+    expect(registry.view('a:dashboard:chart:traffic')).toBeUndefined()
+    expect(registry.idForElement(chart)).toBeUndefined()
+    expect(registry.highlight('a:dashboard:chart:traffic')).toBe(false)
+    expect(registry.selection()).toBeUndefined()
+
+    await expect(
+      registry.request(chartTarget, { kind: 'ask' }),
+    ).rejects.toBeInstanceOf(AiStaleError)
+
+    card.style.display = ''
+    const scrollSpy = vi.spyOn(chart, 'scrollIntoView')
+    expect(registry.list().map((item) => item.id)).toEqual([
+      'a:dashboard:chart:traffic',
+    ])
+    expect(registry.highlight('a:dashboard:chart:traffic')).toBe(true)
+    expect(scrollSpy).toHaveBeenCalledWith({
+      block: 'nearest',
+      inline: 'nearest',
+    })
+    expect(registry.idForElement(chart)).toBe('a:dashboard:chart:traffic')
+  })
+
+  it('excludes targets hidden by CSS visibility or the hidden attribute', () => {
+    const registry = createAiRegistry()
+    const parent = element()
+    const child = document.createElement('div')
+    parent.append(child)
+
+    registry.register(child, target('a:view:card:stats', { kind: 'card' }))
+
+    parent.style.visibility = 'hidden'
+    expect(registry.list()).toEqual([])
+    expect(registry.highlight('a:view:card:stats')).toBe(false)
+
+    parent.style.visibility = ''
+    expect(registry.list()).toHaveLength(1)
+
+    child.hidden = true
+    expect(registry.list()).toEqual([])
+    expect(registry.highlight('a:view:card:stats')).toBe(false)
   })
 
   it('drops a stale selection when its element unmounts', () => {
     const registry = createAiRegistry()
     const node = element()
-    registry.register(node, target('a:devices:device:d1'))
-    registry.highlight('a:devices:device:d1')
+    registry.register(
+      node,
+      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
+    )
+    registry.highlight('a:devices:device:desktop:d1')
 
     registry.unregister(node)
 
@@ -202,7 +305,10 @@ describe('request snapshots', () => {
   it('discards an answer when the registration unmounts before it resolves', async () => {
     const registry = createAiRegistry()
     const node = element()
-    registry.register(node, target('a:devices:device:d1'))
+    registry.register(
+      node,
+      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
+    )
     let release: ((value: string) => void) | undefined
     registry.onRequest(
       () =>
@@ -211,10 +317,41 @@ describe('request snapshots', () => {
         }),
     )
 
-    const pending = registry.request(target('a:devices:device:d1'), {
-      kind: 'ask',
-    })
+    const pending = registry.request(
+      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
+      {
+        kind: 'ask',
+      },
+    )
     registry.unregister(node)
+    release?.('late answer')
+
+    await expect(pending).rejects.toBeInstanceOf(AiStaleError)
+  })
+
+  it('discards an answer when the target becomes CSS-hidden before resolution', async () => {
+    const registry = createAiRegistry()
+    const parent = element()
+    const child = document.createElement('div')
+    parent.append(child)
+    registry.register(
+      child,
+      target('a:dashboard:chart:traffic', { kind: 'chart' }),
+    )
+
+    let release: ((value: string) => void) | undefined
+    registry.onRequest(
+      () =>
+        new Promise<string>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    const pending = registry.request(
+      target('a:dashboard:chart:traffic', { kind: 'chart' }),
+      { kind: 'ask' },
+    )
+    parent.style.display = 'none'
     release?.('late answer')
 
     await expect(pending).rejects.toBeInstanceOf(AiStaleError)
