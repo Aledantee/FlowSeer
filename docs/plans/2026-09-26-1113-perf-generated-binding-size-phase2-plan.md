@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/reused-walker-row-storage-prevents-loop-local-allocations.md
 execution: code
 parent: docs/plans/2026-09-26-1113-perf-generated-binding-size-plan.md
 ---

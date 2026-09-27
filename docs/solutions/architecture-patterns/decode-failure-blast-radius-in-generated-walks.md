@@ -1,6 +1,7 @@
 ---
 title: A Decoder's Decline Costs the Whole Table, Not the Field
 date: 2026-08-30
+last_verified: 2026-09-27
 category: architecture-patterns
 module: src/protocol/snmp
 problem_type: architecture_pattern
@@ -67,12 +68,13 @@ wrong wire variant, an exception marker. `DecodeBitSet` still declines on those.
 
 ## Why This Matters
 
-The mechanism is in `src/protocol/snmp/cmd/mibgen/emit_table.go`, so it applies
-to every generated table. The selected-column merge assembles the next complete
-row; the generated iterator decodes that row immediately before yielding it.
-A decoder error calls `ColumnWalker.Fail`, omits the failing row, and stops.
-Earlier delivered rows remain available to the caller. There is no full-table
-buffer or partial flush in this path.
+The mechanism is in `src/protocol/snmp/table.go` (`TableWalker.Iter`), so it
+applies to every generated table. The selected-column merge assembles the next
+complete row; `TableWalker.Iter` (`table.go:88-121`) decodes each cell via the
+table's ordinal decoder callback immediately before yielding it. A decoder error
+calls `ColumnWalker.Fail`, omits the failing row, and stops. Earlier delivered
+rows remain available to the caller. There is no full-table buffer or partial
+flush in this path.
 
 A bad value on the first row still yields zero rows. A bad value on row 3
 preserves rows 1 and 2, even if all three arrived in one GETBULK response.
@@ -157,9 +159,9 @@ The package documentation states that a later decoder or transport failure
 preserves rows already delivered but does not imply a complete scan
 (`src/protocol/snmp/doc.go:90-92`). The README also says that a column decode
 error terminates a generated walk and that callers must check `Err` even after
-receiving rows (`src/protocol/snmp/README.md:45-48`). The generator emits the
-same contract on every generated walker
-(`src/protocol/snmp/cmd/mibgen/emit_table.go:256-259`).
+receiving rows (`src/protocol/snmp/README.md:49-50`). The shared runtime walker
+documents and enforces the same contract on every generated table
+(`src/protocol/snmp/table.go:81-87`, `:112-115`).
 
 Watcher partial-fetch merges intentionally use different semantics: an
 individual VarBind decode failure is skipped rather than propagated, while

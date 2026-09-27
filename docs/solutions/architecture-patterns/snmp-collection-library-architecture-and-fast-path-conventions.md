@@ -1,7 +1,7 @@
 ---
 title: SNMP Collection Library — Architecture and Fast-Path Conventions
 date: 2026-08-17
-last_verified: 2026-09-06
+last_verified: 2026-09-27
 category: architecture-patterns
 module: src/protocol/snmp
 problem_type: architecture_pattern
@@ -171,10 +171,12 @@ length-first (`src/protocol/snmp/rawwalk.go:193`).
 (`src/protocol/snmp/oid.go:156`); `OID.WireKey()` returns them as an immutable string
 so a lookup with raw wire bytes (`map[string(b)]`) is allocation-free
 (`oid.go:166`). `AnyColumn.Key()` is that wire key **precomputed at construction**
-(`src/protocol/snmp/column.go:14`), stored by `NewColumn` (`column.go:44`):
+(`src/protocol/snmp/column.go:17`), stored by `NewColumn` (`column.go:49`) and
+table column constructors `NewTableColumn` (`column.go:54`) /
+`NewFusedTableColumn` (`column.go:60`):
 
 ```go
-return Column[T]{oid: oid, key: oid.WireKey(), kind: kind, decode: decode}
+return Column[T]{oid: oid, key: oid.WireKey(), kind: kind, decode: decode, bit: -1}
 ```
 
 Generated packages key both maps on wire keys, not dotted strings: the
@@ -188,17 +190,19 @@ package (`emit_dispatch.go:15`, `emit_tier.go:68`). New hot-path lookups key on
 ### 4 — Generated code uses only the public API, and moves with its generator
 
 `mibgen` emits one package per MIB module using only `snmp`'s exported surface:
-typed scalar accessors, `snmp.NewColumn`, row structs and Walkers, SMI enums, the
-dispatch map, `snmp.Decode*` for textual conventions
-(`src/protocol/snmp/cmd/mibgen/doc.go:1`). Generated table walkers use the
-exported `snmp.WalkColumns` bounded merge. `BulkWalkRaw` is part of the public
-`Session` interface (`src/protocol/snmp/session.go:45-52`). Native sessions
-supply raw batches directly; alternate sessions can implement the method by
-adapting `BulkWalk` through `RawWalkerFromWalker`
-(`src/protocol/snmp/rawwalk.go:331`), as the integration fake does
+typed scalar accessors, `snmp.NewTableColumn` and `snmp.NewFusedTableColumn`,
+row structs and Walkers, SMI enums, the dispatch map, and `snmp.Decode*` for
+textual conventions (`src/protocol/snmp/cmd/mibgen/doc.go:4-9`). Generated
+table singletons embed `snmp.Table`, and named walkers embed `snmp.TableWalker`
+by value (`doc.go:27-30`). `BulkWalkRaw` is part of the public `Session`
+interface (`src/protocol/snmp/session.go:45-52`). Native sessions supply raw
+batches directly; alternate sessions can implement the method by adapting
+`BulkWalk` through `RawWalkerFromWalker` (`src/protocol/snmp/rawwalk.go:387`),
+as the integration fake does
 (`src/protocol/snmp/test/integration/assertions_test.go:69-70`). Each typed
-column still has a fused arm with a generic fallback in `emit_table.go`
-(`src/protocol/snmp/cmd/mibgen/emit_table.go:263-264`).
+column routes cell decoding through `snmp.DecodeColumn`
+(`src/protocol/snmp/column.go:95-114`), which evaluates the fused raw decoder
+first and falls back to generic decoding on decline.
 
 The merge requests selected columns, retains one batch per column, and joins by
 numeric index suffix before decoding a row. `Walk` is lazy and empty selection
