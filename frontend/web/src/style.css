@@ -1046,6 +1046,39 @@ td small {
   margin-top: var(--space-2);
   font-size: 12px;
 }
+.device-next {
+  margin-top: var(--space-2);
+  font-size: 12px;
+}
+.device-next p {
+  font-size: 12px;
+}
+.device-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-2);
+}
+.device-next-link {
+  color: var(--accent-text);
+  font-weight: 550;
+  font-size: 12px;
+}
+.device-next-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.device-escalation {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  font: 12px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  user-select: all;
+}
 .device-paths li {
   display: flex;
   justify-content: space-between;

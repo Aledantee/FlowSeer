@@ -188,3 +188,34 @@ export function pollDevice(device: Device): Device {
     })),
   }
 }
+// Says how many of a device's paths are down in words an operator can repeat,
+// so "still not answering" comes with what FlowSeer actually observed.
+export function pathSummary(device: Device): string {
+  const down = device.bindings.filter(
+    (binding) => binding.reachability === 'Unreachable',
+  ).length
+  const total = device.bindings.length
+  if (!down)
+    return total === 1 ? 'Its path is reachable.' : 'All paths are reachable.'
+  if (down === total)
+    return total === 1
+      ? 'Its only path is unreachable.'
+      : total === 2
+        ? 'Both paths are unreachable.'
+        : `All ${total} paths are unreachable.`
+  return `${down} of ${total} paths are unreachable.`
+}
+// Whether the rest of the site still answers tells a device fault apart from
+// a site that has gone dark.
+export function siteNeighbours(
+  fleet: Device[],
+  device: Device,
+): { answering: number; total: number } {
+  const others = fleet.filter(
+    (item) => item.siteId === device.siteId && item.id !== device.id,
+  )
+  return {
+    answering: others.filter((item) => item.health !== 'Offline').length,
+    total: others.length,
+  }
+}

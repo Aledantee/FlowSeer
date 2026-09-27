@@ -44,7 +44,11 @@ through (an integration, whether it is reachable, and when that was checked).
 Lifecycle sits on its own line because an operator owns it, while
 reachability heals on its own. Open **hamburg-ap-01** or **cologne-ap-02** and
 choose **Poll now**: the fixture answers after a moment, and an unreachable
-device stays offline with only its check time refreshed.
+device stays offline with only its check time refreshed. An offline device
+also says whether the rest of its site is answering, which separates a device
+fault from a site that has gone dark, links to that site's dashboard, and
+offers **Copy escalation summary**: plain text with the device, its paths, its
+open issues, and the site check, ready to paste into a ticket.
 
 A tenant or site in the URL that does not resolve shows **Scope not found**
 with a way back, never an empty scope reported as healthy. Offline devices show

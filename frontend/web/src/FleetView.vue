@@ -23,6 +23,8 @@ import {
   filterDevices,
   moveDevice,
   pollDevice,
+  pathSummary,
+  siteNeighbours,
 } from './domain/fleet'
 import type { Device } from './domain/fleet'
 import { events, formatAgo } from './domain/overview'
@@ -298,6 +300,41 @@ const selectedIssues = computed(() =>
 function integration(id: string) {
   return integrations.find((item) => item.id === id)
 }
+const neighbours = computed(() =>
+  selected.value ? siteNeighbours(fleet.value, selected.value) : undefined,
+)
+// A plain-text summary an operator can paste into a ticket or a call to the
+// site, built only from what FlowSeer observed.
+const escalation = computed(() => {
+  const device = selected.value
+  if (!device) return ''
+  return [
+    `${device.name} (${device.kind}, ${device.address}) is ${device.health.toLowerCase()}.`,
+    `Site: ${siteName(device.siteId)}, ${tenantName(device.siteId)}.`,
+    `Last answered ${formatAgo(device.lastSeenMinutes)}. ${pathSummary(device)}`,
+    ...device.bindings.map(
+      (binding) =>
+        `- ${integration(binding.integrationId)?.name}: ${binding.reachability.toLowerCase()}, checked ${formatAgo(binding.observedMinutesAgo)}`,
+    ),
+    ...selectedIssues.value.map(
+      (event) => `- ${event.summary} (${formatAgo(event.minutesAgo)})`,
+    ),
+    neighbours.value
+      ? `${neighbours.value.answering} of ${neighbours.value.total} other devices at the site are answering.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+})
+const copyState = ref<'' | 'copied' | 'failed'>('')
+async function copyEscalation() {
+  try {
+    await navigator.clipboard.writeText(escalation.value)
+    copyState.value = 'copied'
+  } catch {
+    copyState.value = 'failed'
+  }
+}
 const polling = ref(false)
 const pollResult = ref('')
 let pollTimer: ReturnType<typeof setTimeout> | undefined
@@ -305,6 +342,7 @@ function stopPoll() {
   clearTimeout(pollTimer)
   polling.value = false
   pollResult.value = ''
+  copyState.value = ''
 }
 // The fixture answers after a short delay so the panel shows the difference
 // between a poll that was sent and one that was observed.
@@ -323,7 +361,7 @@ function poll() {
     pollResult.value =
       updated.lastSeenMinutes === 0
         ? `Answered just now. Still ${updated.health.toLowerCase()}.`
-        : `Still not answering. Last answer ${formatAgo(updated.lastSeenMinutes)}.`
+        : `Still not answering. ${pathSummary(updated)} Last answer ${formatAgo(updated.lastSeenMinutes)}.`
   }, 1200)
 }
 async function openDevice(device: Device) {
@@ -997,6 +1035,44 @@ onUnmounted(() => {
               {{ polling ? 'Polling…' : 'Poll now' }}
             </UiButton>
             <p role="status">{{ pollResult }}</p>
+          </div>
+          <div
+            v-if="selected.health === 'Offline' && neighbours"
+            class="device-next"
+          >
+            <p>
+              {{
+                neighbours.answering === neighbours.total
+                  ? `The other ${neighbours.total} devices at ${siteName(selected.siteId)} are answering, so the fault is likely this device or its link.`
+                  : neighbours.answering === 0
+                    ? `No other device at ${siteName(selected.siteId)} is answering; the whole site may be down.`
+                    : `${neighbours.answering} of ${neighbours.total} other devices at ${siteName(selected.siteId)} are answering.`
+              }}
+            </p>
+            <div class="device-next-actions">
+              <UiButton @click="copyEscalation"
+                >Copy escalation summary</UiButton
+              ><RouterLink
+                class="device-next-link"
+                :to="{
+                  path: '/dashboard',
+                  query: {
+                    tenant: sites.find((site) => site.id === selected?.siteId)
+                      ?.tenantId,
+                    site: selected.siteId,
+                  },
+                }"
+                @click="detail?.close()"
+                >Open {{ siteName(selected.siteId) }} dashboard</RouterLink
+              >
+            </div>
+            <p v-if="copyState === 'copied'" role="status">
+              Summary copied. Paste it into the ticket or message.
+            </p>
+            <template v-else-if="copyState === 'failed'">
+              <p role="status">Could not copy. Select the summary below.</p>
+              <pre class="device-escalation">{{ escalation }}</pre>
+            </template>
           </div>
         </section>
         <section class="device-section" aria-labelledby="paths-title">
