@@ -4,6 +4,7 @@ import { createApp, h, nextTick, type App, type Component } from 'vue'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from './preview'
 import type { AiRequest } from '../src/ai'
+import { aiRegistry } from '../src/ai'
 
 setProjectAnnotations(preview)
 
@@ -53,6 +54,7 @@ function setBox(element: HTMLElement) {
 }
 
 let mounted: { app: App; container: HTMLElement }[] = []
+let manualTargets: HTMLElement[] = []
 
 function mountStory(component: Component) {
   const container = document.createElement('div')
@@ -98,6 +100,8 @@ async function select(id: string) {
 }
 
 afterEach(() => {
+  for (const target of manualTargets) aiRegistry.unregister(target)
+  manualTargets = []
   for (const { app, container } of mounted) {
     app.unmount()
     container.remove()
@@ -108,6 +112,29 @@ afterEach(() => {
 })
 
 describe('AI decorator document scope', () => {
+  it('routes a nested component target to its canvas handler', async () => {
+    const alpha = mountStory(stories.Alpha)
+    const root = alpha.container.querySelector<HTMLElement>(
+      '[data-ai-story-root]',
+    )
+    expect(root).not.toBeNull()
+    const nested = document.createElement('button')
+    root?.append(nested)
+    setBox(nested)
+    manualTargets.push(nested)
+    const id = 'standalone:story:alpha:nested'
+    aiRegistry.register(nested, {
+      id,
+      kind: 'row',
+      label: 'Nested target',
+      context: { story: 'alpha' },
+    })
+
+    await select(id)
+    await ask('Why this row?')
+    expect(document.body.textContent).toContain(`alpha:${id}`)
+  })
+
   it('keeps both canvases inspectable and releases them after the last unmount', async () => {
     const alpha = mountStory(stories.Alpha)
     const beta = mountStory(stories.Beta)

@@ -34,6 +34,8 @@ interface StoryCanvas {
 
 interface MountedCanvas {
   id: string
+  element: HTMLElement
+  handler: AiHandler
   ownsId: boolean
   showLayer: Ref<boolean>
 }
@@ -53,7 +55,12 @@ function createStoryScope() {
     // story keeps its own configured demo handler instead of sharing the
     // handler of whichever canvas mounted last.
     removeDispatcher = aiRegistry.onRequest((request) => {
-      const handler = handlers.get(request.targetId)
+      const targetElement = aiRegistry.view(request.targetId)?.element
+      const handler =
+        handlers.get(request.targetId) ??
+        [...canvases].find(
+          (canvas) => targetElement && canvas.element.contains(targetElement),
+        )?.handler
       if (!handler) return Promise.reject(new AiUnavailableError())
       return handler(request)
     })
@@ -90,6 +97,8 @@ function createStoryScope() {
     if (ownsId) handlers.set(canvas.id, canvas.handler)
     const mounted: MountedCanvas = {
       id: canvas.id,
+      element: canvas.element,
+      handler: canvas.handler,
       ownsId,
       showLayer: canvas.showLayer,
     }
