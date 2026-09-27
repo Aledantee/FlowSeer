@@ -51,6 +51,14 @@ const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
 const message = ref('')
+interface Move {
+  deviceId: string
+  name: string
+  from: string
+  to: string
+  observed: boolean
+}
+const move = ref<Move>()
 const detail = ref<HTMLDialogElement>()
 const selected = ref<Device>()
 const destination = ref('')
@@ -94,7 +102,7 @@ watch(
   { flush: 'post' },
 )
 watch(
-  message,
+  () => message.value || move.value?.deviceId,
   (value) => {
     if (value)
       play(notice.value, {
@@ -191,13 +199,37 @@ async function setQuery(key: string, value: string) {
     message.value = 'Could not update this view. Try again.'
   }
 }
-async function resetFilters() {
+// Clearing filters keeps the tenant and site: widening scope is a separate,
+// visible choice in the breadcrumb.
+async function clearFilters() {
   try {
-    await router.replace({ path: '/devices' })
+    await router.replace({
+      query: { ...route.query, search: undefined, health: undefined },
+    })
   } catch {
-    message.value = 'Could not reset filters. Try again.'
+    message.value = 'Could not clear the filters. Try again.'
   }
 }
+// A tenant or site in the URL that no longer resolves is an error, not an
+// empty scope: an empty scope would report every device as healthy.
+const scopeError = computed(() => {
+  if (query('tenant') && !tenants.some((item) => item.id === query('tenant')))
+    return {
+      text: 'This tenant does not exist or is not available to you.',
+      action: 'Show all tenants',
+      key: 'tenant',
+    }
+  if (
+    query('site') &&
+    !scopedSites.value.some((item) => item.id === query('site'))
+  )
+    return {
+      text: 'This site does not exist in the selected tenant.',
+      action: 'Show all sites',
+      key: 'site',
+    }
+  return undefined
+})
 function valueOf(event: Event): string {
   return event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLSelectElement
@@ -266,15 +298,45 @@ async function openDevice(device: Device) {
     0.16,
   )
 }
+let moveTimer: ReturnType<typeof setTimeout> | undefined
+// A move is reported as done only once the fixture observes the device at its
+// new site; until then the device stays where it was.
+function startMove(device: Device, siteId: string) {
+  const updated = moveDevice(device, siteId)
+  clearTimeout(moveTimer)
+  message.value = ''
+  move.value = {
+    deviceId: device.id,
+    name: device.name,
+    from: device.siteId,
+    to: siteId,
+    observed: false,
+  }
+  moveTimer = setTimeout(() => {
+    fleet.value = fleet.value.map((item) =>
+      item.id === updated.id
+        ? { ...updated, throughput: item.throughput }
+        : item,
+    )
+    if (selected.value?.id === updated.id)
+      selected.value = fleet.value.find((item) => item.id === updated.id)
+    if (move.value?.deviceId === updated.id) move.value.observed = true
+  }, 1200)
+}
+function undoMove() {
+  const last = move.value
+  const device = fleet.value.find((item) => item.id === last?.deviceId)
+  if (!last || !device) return
+  startMove(device, last.from)
+}
+function dismissNotice() {
+  message.value = ''
+  if (move.value?.observed) move.value = undefined
+}
 function reassign() {
   if (!selected.value) return
   try {
-    const updated = moveDevice(selected.value, destination.value)
-    fleet.value = fleet.value.map((device) =>
-      device.id === updated.id ? updated : device,
-    )
-    selected.value = updated
-    message.value = `${updated.name} assigned to ${siteName(updated.siteId)}.`
+    startMove(selected.value, destination.value)
     detail.value?.close()
   } catch (error: unknown) {
     message.value =
@@ -297,6 +359,7 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(timer)
   clearTimeout(pollTimer)
+  clearTimeout(moveTimer)
 })
 </script>
 
@@ -449,7 +512,7 @@ onUnmounted(() => {
             <div>
               <span class="eyebrow">NETWORK OPERATIONS</span>
               <h1>{{ title }}</h1>
-              <p>
+              <p v-if="!scopeError">
                 {{
                   view === 'dashboard'
                     ? scopeSummary
@@ -462,289 +525,330 @@ onUnmounted(() => {
               </p>
             </div>
           </div>
-          <div v-if="message" ref="notice" role="status" class="notice">
-            {{ message
-            }}<button aria-label="Dismiss notification" @click="message = ''">
-              <AppIcon name="close" />
-            </button>
-          </div>
-          <section class="metrics" aria-label="Fleet summary">
-            <MetricCard
-              label="Devices in scope"
-              :value="scope.length"
-              unit="devices"
-              icon="devices"
-            >
-              Across {{ visibleSites.length }}
-              {{ visibleSites.length === 1 ? 'site' : 'sites' }}
-            </MetricCard>
-            <MetricCard
-              label="Fleet health"
-              :value="
-                scope.length ? Math.round((healthy / scope.length) * 100) : 0
-              "
-              unit="%"
-              icon="pulse"
-            >
-              <b>{{ healthy }} healthy</b> · {{ scope.length - healthy }} need
-              attention
-            </MetricCard>
-            <MetricCard
-              label="Connected clients"
-              :value="clients"
-              icon="topology"
-              >Reported by access points</MetricCard
-            >
-            <MetricCard
-              label="Device traffic"
-              :value="throughput"
-              unit="Mbps"
-              icon="pulse"
-              >Updates every 2.5s</MetricCard
-            >
-          </section>
-          <template v-if="view === 'devices'">
-            <div
-              v-if="scope.some((device) => device.health !== 'Healthy')"
-              class="attention"
-            >
-              <span class="attention-icon">!</span>
-              <div>
-                <strong
-                  >{{ scope.length - healthy }}
-                  {{
-                    scope.length - healthy === 1
-                      ? 'device needs'
-                      : 'devices need'
-                  }}
-                  attention</strong
-                ><span
-                  >Review degraded or offline devices in the current
-                  scope.</span
-                >
-              </div>
-              <button
-                @click="setQuery('health', query('health') ? '' : 'attention')"
+          <div class="notice-region" role="status">
+            <div v-if="message || move" ref="notice" class="notice">
+              <span v-if="message">{{ message }}</span>
+              <span v-else-if="move && !move.observed"
+                >Moving {{ move.name }} from {{ siteName(move.from) }} to
+                {{ siteName(move.to) }}…</span
               >
-                {{ query('health') ? 'Show all devices' : 'Review devices'
-                }}<AppIcon name="arrow" />
+              <span v-else-if="move"
+                >{{ move.name }} is now at {{ siteName(move.to) }} (was
+                {{ siteName(move.from) }}).</span
+              >
+              <button
+                v-if="!message && move?.observed"
+                class="notice-action"
+                @click="undoMove"
+              >
+                Undo</button
+              ><button
+                v-if="message || move?.observed"
+                aria-label="Dismiss notification"
+                @click="dismissNotice"
+              >
+                <AppIcon name="close" />
               </button>
             </div>
-            <section class="inventory" aria-labelledby="inventory-title">
-              <div class="section-heading">
-                <div>
-                  <h2 id="inventory-title">
-                    Device inventory <span>{{ scope.length }}</span>
-                  </h2>
-                </div>
-              </div>
-              <div class="toolbar">
-                <label class="search"
-                  ><AppIcon name="search" /><input
-                    :value="query('search')"
-                    placeholder="Search name, type, or IP address…"
-                    aria-label="Search devices"
-                    @input="setQuery('search', valueOf($event))" /></label
-                ><label class="status-filter"
-                  ><span>Status</span
-                  ><select
-                    :value="query('health')"
-                    aria-label="Filter by status"
-                    @change="setQuery('health', valueOf($event))"
-                  >
-                    <option value="">All statuses</option>
-                    <option value="attention">Needs attention</option>
-                    <option>Healthy</option>
-                    <option>Degraded</option>
-                    <option>Offline</option>
-                  </select></label
-                ><span class="results"
-                  >{{ filtered.length }}
-                  {{ filtered.length === 1 ? 'result' : 'results' }}</span
-                >
-              </div>
-              <ul
-                v-if="filtered.length"
-                class="mobile-devices"
-                aria-label="Device status"
+          </div>
+          <div v-if="scopeError" class="scope-error" role="alert">
+            <h2>Scope not found</h2>
+            <p>{{ scopeError.text }}</p>
+            <UiButton @click="setQuery(scopeError.key, '')">{{
+              scopeError.action
+            }}</UiButton>
+          </div>
+          <template v-else>
+            <section class="metrics" aria-label="Fleet summary">
+              <MetricCard
+                label="Devices in scope"
+                :value="scope.length"
+                unit="devices"
+                icon="devices"
               >
-                <li v-for="device in filtered" :key="device.id">
-                  <button
-                    :aria-label="`View status for ${device.name}`"
-                    @click="openDevice(device)"
-                  >
-                    <strong>{{ device.name }}</strong>
-                    <StatusBadge :status="device.health" />
-                    <small
-                      >{{ siteName(device.siteId) }} ·
-                      {{ device.address }}</small
-                    >
-                    <span class="mobile-device-action"
-                      >View status <AppIcon name="arrow"
-                    /></span>
-                  </button>
-                </li>
-              </ul>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th :aria-sort="ascending ? 'ascending' : 'descending'">
-                        <button
-                          class="sort-button"
-                          @click="ascending = !ascending"
-                        >
-                          Device name {{ ascending ? '↑' : '↓' }}
-                        </button>
-                      </th>
-                      <th>Status</th>
-                      <th>Site / tenant</th>
-                      <th>IP address</th>
-                      <th class="numeric">Clients</th>
-                      <th class="numeric">Traffic</th>
-                      <th><span class="sr-only">Details</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="device in filtered" :key="device.id">
-                      <td>
-                        <button
-                          class="device-button"
-                          @click="openDevice(device)"
-                        >
-                          <span class="device-icon"
-                            ><AppIcon
-                              :name="
-                                device.kind.includes('AP') ? 'pulse' : 'devices'
-                              " /></span
-                          ><span
-                            ><strong>{{ device.name }}</strong
-                            ><small>{{ device.kind }}</small></span
-                          >
-                        </button>
-                      </td>
-                      <td>
-                        <StatusBadge :status="device.health" />
-                      </td>
-                      <td>
-                        <span class="site-name">{{
-                          siteName(device.siteId)
-                        }}</span
-                        ><small>{{ tenantName(device.siteId) }}</small>
-                      </td>
-                      <td class="mono">{{ device.address }}</td>
-                      <td class="numeric">{{ device.clients || '—' }}</td>
-                      <td class="numeric traffic">
-                        {{ device.throughput }} <span>Mbps</span>
-                      </td>
-                      <td>
-                        <button
-                          class="icon-button"
-                          :aria-label="`Details for ${device.name}`"
-                          @click="openDevice(device)"
-                        >
-                          <AppIcon name="arrow" />
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div v-if="!filtered.length" class="empty">
-                  <AppIcon name="search" />
-                  <h3>No devices match this view</h3>
-                  <p>Try a different search, status, or site.</p>
-                  <button @click="resetFilters">Reset all filters</button>
-                </div>
-              </div>
-              <footer class="table-footer">
-                <span
-                  >Showing {{ filtered.length }} of
-                  {{ scope.length }} devices</span
-                >
-              </footer>
+                Across {{ visibleSites.length }}
+                {{ visibleSites.length === 1 ? 'site' : 'sites' }}
+              </MetricCard>
+              <MetricCard
+                label="Fleet health"
+                :value="
+                  scope.length ? Math.round((healthy / scope.length) * 100) : 0
+                "
+                unit="%"
+                icon="pulse"
+              >
+                <b>{{ healthy }} healthy</b> · {{ scope.length - healthy }} need
+                attention
+              </MetricCard>
+              <MetricCard
+                label="Connected clients"
+                :value="clients"
+                icon="topology"
+                >Reported by access points</MetricCard
+              >
+              <MetricCard
+                label="Device traffic"
+                :value="throughput"
+                unit="Mbps"
+                icon="pulse"
+                >Updates every 2.5s</MetricCard
+              >
             </section>
-          </template>
-          <DashboardView
-            v-else-if="view === 'dashboard'"
-            :scope="scope"
-            :sites="visibleSites"
-            :site="sites.find((site) => site.id === query('site'))"
-            :tenant-name="tenantName"
-            @open="openDevice"
-            @site="setQuery('site', $event)"
-          />
-          <section
-            v-else-if="view === 'sites'"
-            class="site-grid"
-            aria-label="Sites"
-          >
-            <article
-              v-for="site in visibleSites"
-              :key="site.id"
-              class="site-card"
-            >
-              <span class="site-symbol"><AppIcon name="sites" /></span
-              ><span class="eyebrow">{{ site.location }}</span>
-              <h2>{{ site.name }}</h2>
-              <p>{{ tenantName(site.id) }}</p>
-              <div class="site-stats">
-                <strong
-                  >{{
-                    fleet.filter((device) => device.siteId === site.id).length
-                  }}
-                  devices</strong
-                ><span
-                  >{{
-                    fleet.filter(
-                      (device) =>
-                        device.siteId === site.id &&
-                        device.health !== 'Healthy',
-                    ).length
-                  }}
-                  need attention</span
+            <template v-if="view === 'devices'">
+              <div
+                v-if="scope.some((device) => device.health !== 'Healthy')"
+                class="attention"
+              >
+                <span class="attention-icon">!</span>
+                <div>
+                  <strong
+                    >{{ scope.length - healthy }}
+                    {{
+                      scope.length - healthy === 1
+                        ? 'device needs'
+                        : 'devices need'
+                    }}
+                    attention</strong
+                  ><span
+                    >Review degraded or offline devices in the current
+                    scope.</span
+                  >
+                </div>
+                <button
+                  @click="
+                    setQuery('health', query('health') ? '' : 'attention')
+                  "
                 >
+                  {{ query('health') ? 'Show all devices' : 'Review devices'
+                  }}<AppIcon name="arrow" />
+                </button>
               </div>
-              <RouterLink
-                :to="{
-                  path: '/devices',
-                  query: { tenant: query('tenant'), site: site.id },
-                }"
-                >View devices <AppIcon name="arrow"
-              /></RouterLink>
-            </article>
-          </section>
-          <section v-else class="topology-panel">
-            <div class="section-heading">
-              <div>
-                <h2>Site connections</h2>
-              </div>
-            </div>
-            <div class="topology-grid">
+              <section class="inventory" aria-labelledby="inventory-title">
+                <div class="section-heading">
+                  <div>
+                    <h2 id="inventory-title">
+                      Device inventory <span>{{ scope.length }}</span>
+                    </h2>
+                  </div>
+                </div>
+                <div class="toolbar">
+                  <label class="search"
+                    ><AppIcon name="search" /><input
+                      :value="query('search')"
+                      placeholder="Search name, type, or IP address…"
+                      aria-label="Search devices"
+                      @input="setQuery('search', valueOf($event))" /></label
+                  ><label class="status-filter"
+                    ><span>Status</span
+                    ><select
+                      :value="query('health')"
+                      aria-label="Filter by status"
+                      @change="setQuery('health', valueOf($event))"
+                    >
+                      <option value="">All statuses</option>
+                      <option value="attention">Needs attention</option>
+                      <option>Healthy</option>
+                      <option>Degraded</option>
+                      <option>Offline</option>
+                    </select></label
+                  ><span class="results"
+                    >{{ filtered.length }}
+                    {{ filtered.length === 1 ? 'result' : 'results' }}</span
+                  >
+                </div>
+                <ul
+                  v-if="filtered.length"
+                  class="mobile-devices"
+                  aria-label="Device status"
+                >
+                  <li v-for="device in filtered" :key="device.id">
+                    <button
+                      :aria-label="`View status for ${device.name}`"
+                      @click="openDevice(device)"
+                    >
+                      <strong>{{ device.name }}</strong>
+                      <StatusBadge :status="device.health" />
+                      <small
+                        >{{ siteName(device.siteId) }} ·
+                        {{ device.address }}</small
+                      >
+                      <span class="mobile-device-action"
+                        >View status <AppIcon name="arrow"
+                      /></span>
+                    </button>
+                  </li>
+                </ul>
+                <div class="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th :aria-sort="ascending ? 'ascending' : 'descending'">
+                          <button
+                            class="sort-button"
+                            @click="ascending = !ascending"
+                          >
+                            Device name {{ ascending ? '↑' : '↓' }}
+                          </button>
+                        </th>
+                        <th>Status</th>
+                        <th>Site / tenant</th>
+                        <th>IP address</th>
+                        <th class="numeric">Clients</th>
+                        <th class="numeric">Traffic</th>
+                        <th><span class="sr-only">Details</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="device in filtered" :key="device.id">
+                        <td>
+                          <button
+                            class="device-button"
+                            @click="openDevice(device)"
+                          >
+                            <span class="device-icon"
+                              ><AppIcon
+                                :name="
+                                  device.kind.includes('AP')
+                                    ? 'pulse'
+                                    : 'devices'
+                                " /></span
+                            ><span
+                              ><strong>{{ device.name }}</strong
+                              ><small>{{ device.kind }}</small></span
+                            >
+                          </button>
+                        </td>
+                        <td>
+                          <StatusBadge :status="device.health" />
+                        </td>
+                        <td>
+                          <span class="site-name">{{
+                            siteName(device.siteId)
+                          }}</span
+                          ><small>{{ tenantName(device.siteId) }}</small>
+                        </td>
+                        <td class="mono">{{ device.address }}</td>
+                        <td class="numeric">{{ device.clients || '—' }}</td>
+                        <td class="numeric traffic">
+                          <template v-if="device.health === 'Offline'"
+                            >—<span class="sr-only"
+                              >no data while offline</span
+                            ></template
+                          ><template v-else
+                            >{{ device.throughput }} <span>Mbps</span></template
+                          >
+                        </td>
+                        <td>
+                          <button
+                            class="icon-button"
+                            :aria-label="`Details for ${device.name}`"
+                            @click="openDevice(device)"
+                          >
+                            <AppIcon name="arrow" />
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div v-if="!filtered.length" class="empty">
+                    <AppIcon name="search" />
+                    <h3>No devices match this view</h3>
+                    <p>Try a different search, status, or site.</p>
+                    <button @click="clearFilters">
+                      Clear search and status
+                    </button>
+                  </div>
+                </div>
+                <footer class="table-footer">
+                  <span
+                    >Showing {{ filtered.length }} of
+                    {{ scope.length }} devices</span
+                  >
+                </footer>
+              </section>
+            </template>
+            <DashboardView
+              v-else-if="view === 'dashboard'"
+              :scope="scope"
+              :sites="visibleSites"
+              :site="sites.find((site) => site.id === query('site'))"
+              :tenant-name="tenantName"
+              @open="openDevice"
+              @site="setQuery('site', $event)"
+            />
+            <section
+              v-else-if="view === 'sites'"
+              class="site-grid"
+              aria-label="Sites"
+            >
               <article
                 v-for="site in visibleSites"
                 :key="site.id"
-                class="topology-site"
+                class="site-card"
               >
-                <h3>{{ site.name }}</h3>
+                <span class="site-symbol"><AppIcon name="sites" /></span
+                ><span class="eyebrow">{{ site.location }}</span>
+                <h2>{{ site.name }}</h2>
                 <p>{{ tenantName(site.id) }}</p>
-                <div class="connection-tree">
-                  <button
-                    v-for="device in fleet.filter(
-                      (item) => item.siteId === site.id,
-                    )"
-                    :key="device.id"
-                    :class="['node', device.health.toLowerCase()]"
-                    @click="openDevice(device)"
+                <div class="site-stats">
+                  <strong
+                    >{{
+                      fleet.filter((device) => device.siteId === site.id).length
+                    }}
+                    devices</strong
+                  ><span
+                    >{{
+                      fleet.filter(
+                        (device) =>
+                          device.siteId === site.id &&
+                          device.health !== 'Healthy',
+                      ).length
+                    }}
+                    need attention</span
                   >
-                    <AppIcon
-                      :name="device.kind.includes('AP') ? 'pulse' : 'devices'"
-                    /><strong>{{ device.name }}</strong
-                    ><small>{{ device.health }}</small>
-                  </button>
                 </div>
+                <RouterLink
+                  :to="{
+                    path: '/devices',
+                    query: { tenant: query('tenant'), site: site.id },
+                  }"
+                  >View devices <AppIcon name="arrow"
+                /></RouterLink>
               </article>
-            </div>
-          </section>
+            </section>
+            <section v-else class="topology-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>Site connections</h2>
+                </div>
+              </div>
+              <div class="topology-grid">
+                <article
+                  v-for="site in visibleSites"
+                  :key="site.id"
+                  class="topology-site"
+                >
+                  <h3>{{ site.name }}</h3>
+                  <p>{{ tenantName(site.id) }}</p>
+                  <div class="connection-tree">
+                    <button
+                      v-for="device in fleet.filter(
+                        (item) => item.siteId === site.id,
+                      )"
+                      :key="device.id"
+                      :class="['node', device.health.toLowerCase()]"
+                      @click="openDevice(device)"
+                    >
+                      <AppIcon
+                        :name="device.kind.includes('AP') ? 'pulse' : 'devices'"
+                      /><strong>{{ device.name }}</strong
+                      ><small>{{ device.health }}</small>
+                    </button>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </template>
         </template>
       </main>
     </div>
@@ -839,7 +943,9 @@ onUnmounted(() => {
             </div>
             <div>
               <dt>Clients</dt>
-              <dd>{{ selected.clients }}</dd>
+              <dd>
+                {{ selected.health === 'Offline' ? '—' : selected.clients }}
+              </dd>
             </div>
           </dl>
         </section>

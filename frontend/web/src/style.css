@@ -754,20 +754,63 @@ td small {
   color: var(--muted);
   background: var(--surface-subtle);
 }
+/* The notice floats so that reporting a change never shifts the page the
+   operator is reading. */
+.notice-region {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  transform: translateX(-50%);
+  width: max-content;
+  z-index: 5;
+  max-width: min(440px, calc(100vw - 2 * var(--space-4)));
+}
 .notice {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--info-surface);
-  border: 1px solid var(--info-border);
-  border-radius: var(--radius-control);
-  margin-bottom: 15px;
+  gap: var(--space-3);
+  padding: 10px 10px 10px 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 12px 32px #00000026;
+  font-size: 12px;
+}
+.notice > span {
+  flex: 1;
 }
 .notice button {
   border: 0;
   background: none;
-  padding: 0;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.notice .notice-action {
+  padding: 4px 8px;
+  font-weight: 550;
+  color: var(--accent-text);
+}
+.notice .notice-action:hover {
+  background: var(--surface-hover);
+}
+.scope-error {
+  padding: var(--space-8) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+.scope-error p {
+  margin: var(--space-2) 0 var(--space-4);
+}
+@media (max-width: 560px) {
+  .notice-region {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    width: auto;
+    transform: none;
+  }
 }
 .site-grid {
   display: grid;

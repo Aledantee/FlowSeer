@@ -102,7 +102,10 @@ const roles = computed(() => {
             </button>
           </li>
         </ul>
-        <p v-else class="dash-empty">Every device in this scope is healthy.</p>
+        <p v-else-if="scope.length" class="dash-empty">
+          Every device in this scope is healthy.
+        </p>
+        <p v-else class="dash-empty">No devices in this scope.</p>
       </div>
     </section>
 

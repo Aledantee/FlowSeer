@@ -17,7 +17,10 @@ The fonts are bundled locally. The app makes no requests to external services.
 Choose **Aurora Hospitality** to see devices in its **Aurora Germany** sub-tenant.
 Select **Berlin Mitte**, then search for `gateway`. Open the device, expand
 **Move to another site**, and move it to **Hamburg Hafen**: it disappears from
-the Berlin scope because the assignment replaces its previous site. This demo permits moves within the owning tenant.
+the Berlin scope once the move is observed, because the assignment replaces its
+previous site. Until then a notice at the bottom of the page reads "Moving…"
+and the device stays where it was; the confirmed notice names both sites and
+offers **Undo**. This demo permits moves within the owning tenant.
 Reloading restores fixtures; URL scope and filters survive reloads.
 
 The app opens on the Dashboard, an overview of the current tenant and site
@@ -35,6 +38,11 @@ Lifecycle sits on its own line because an operator owns it, while
 reachability heals on its own. Open **hamburg-ap-01** or **cologne-ap-02** and
 choose **Poll now**: the fixture answers after a moment, and an unreachable
 device stays offline with only its check time refreshed.
+
+A tenant or site in the URL that does not resolve shows **Scope not found**
+with a way back, never an empty scope reported as healthy. Offline devices show
+"—" for traffic and clients rather than a measured zero, and **Clear search and
+status** keeps the tenant and site.
 
 The Devices page supports search, status filters, name sorting, an attention view,
 and a keyboard-accessible details dialog. Sites opens the inventory for a location.
