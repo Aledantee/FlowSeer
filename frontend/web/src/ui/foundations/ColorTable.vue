@@ -90,14 +90,20 @@ const tokens = computed<TokenInfo[]>(() => {
   >
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-foreground">Semantic Colors</h1>
-        <p class="text-sm text-muted-foreground mt-1">
+        <div
+          role="heading"
+          aria-level="1"
+          class="text-2xl font-bold text-foreground"
+        >
+          Semantic Colors
+        </div>
+        <div class="text-sm text-muted-foreground mt-1">
           Active theme:
           <span
             class="font-semibold uppercase tracking-wider text-foreground"
             >{{ currentTheme }}</span
           >
-        </p>
+        </div>
       </div>
     </div>
 
@@ -110,29 +116,33 @@ const tokens = computed<TokenInfo[]>(() => {
         </caption>
         <thead>
           <tr class="border-b border-border bg-subtle text-foreground">
-            <th
-              scope="col"
-              class="py-3 px-4 font-semibold text-xs uppercase tracking-wider"
-            >
-              Token
+            <th scope="col">
+              <span
+                class="font-semibold text-xs uppercase tracking-wider text-foreground"
+              >
+                Token
+              </span>
             </th>
-            <th
-              scope="col"
-              class="py-3 px-4 font-semibold text-xs uppercase tracking-wider"
-            >
-              Swatch
+            <th scope="col">
+              <span
+                class="font-semibold text-xs uppercase tracking-wider text-foreground"
+              >
+                Swatch
+              </span>
             </th>
-            <th
-              scope="col"
-              class="py-3 px-4 font-semibold text-xs uppercase tracking-wider"
-            >
-              Active Step
+            <th scope="col">
+              <span
+                class="font-semibold text-xs uppercase tracking-wider text-foreground"
+              >
+                Active Step
+              </span>
             </th>
-            <th
-              scope="col"
-              class="py-3 px-4 font-semibold text-xs uppercase tracking-wider"
-            >
-              Gated Contrast Pairs
+            <th scope="col">
+              <span
+                class="font-semibold text-xs uppercase tracking-wider text-foreground"
+              >
+                Gated Contrast Pairs
+              </span>
             </th>
           </tr>
         </thead>
@@ -142,21 +152,27 @@ const tokens = computed<TokenInfo[]>(() => {
             :key="token.name"
             class="hover:bg-hover transition-colors"
           >
-            <td class="py-3 px-4 font-mono text-xs">--{{ token.name }}</td>
-            <td class="py-3 px-4">
+            <td>
+              <span class="font-mono text-xs text-foreground"
+                >--{{ token.name }}</span
+              >
+            </td>
+            <td>
               <div
                 class="w-8 h-8 rounded-control border border-border shadow-xs"
                 :style="{ backgroundColor: `var(--${token.name})` }"
                 aria-hidden="true"
               />
             </td>
-            <td class="py-3 px-4 font-mono text-xs text-muted-foreground">
-              {{ token.step }}
+            <td>
+              <span class="font-mono text-xs text-muted-foreground">
+                {{ token.step }}
+              </span>
             </td>
-            <td class="py-3 px-4 text-xs">
+            <td>
               <ul
                 v-if="token.gatedPairs.length > 0"
-                class="space-y-1 list-none p-0 m-0"
+                class="space-y-1 list-none p-0 m-0 text-xs"
               >
                 <li
                   v-for="pair in token.gatedPairs"
@@ -195,7 +211,9 @@ const tokens = computed<TokenInfo[]>(() => {
                   </span>
                 </li>
               </ul>
-              <span v-else class="text-muted-foreground italic"> None </span>
+              <span v-else class="text-muted-foreground italic text-xs">
+                None
+              </span>
             </td>
           </tr>
         </tbody>

@@ -57,8 +57,8 @@ export const Default: Story = {
     },
     template: `
       <div class="p-6 max-w-5xl mx-auto font-sans text-foreground bg-background">
-        <h1 class="text-2xl font-bold mb-2">Typography</h1>
-        <p class="text-sm text-muted-foreground mb-6">Type scale, fonts (Inter, Mono), and tabular figures.</p>
+        <div role="heading" aria-level="1" class="text-2xl font-bold mb-2">Typography</div>
+        <div class="text-sm text-muted-foreground mb-6">Type scale, fonts (Inter, Mono), and tabular figures.</div>
 
         <div class="space-y-6">
           <div
@@ -74,23 +74,23 @@ export const Default: Story = {
             <div class="space-y-3">
               <div>
                 <span class="text-2xs uppercase tracking-wider text-muted-foreground block mb-1">Inter (Sans)</span>
-                <p :class="[step.className, 'font-sans text-foreground']">
+                <div :class="[step.className, 'font-sans text-foreground']">
                   Sphinx of black quartz, judge my vow.
-                </p>
+                </div>
               </div>
 
               <div>
                 <span class="text-2xs uppercase tracking-wider text-muted-foreground block mb-1">Mono</span>
-                <p :class="[step.className, 'font-mono text-foreground']">
+                <div :class="[step.className, 'font-mono text-foreground']">
                   interface eth0/1: up (10 Gbps full-duplex)
-                </p>
+                </div>
               </div>
 
               <div>
                 <span class="text-2xs uppercase tracking-wider text-muted-foreground block mb-1">Tabular Figures</span>
-                <p :class="[step.className, 'font-mono tabular-nums text-foreground']">
+                <div :class="[step.className, 'font-mono tabular-nums text-foreground']">
                   99,842,105 pkts/s &middot; 42.871 Gbps &middot; latency 0.124 ms
-                </p>
+                </div>
               </div>
             </div>
           </div>
