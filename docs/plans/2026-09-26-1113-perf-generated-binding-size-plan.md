@@ -4,11 +4,18 @@ type: perf
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Generated Binding Size - Plan
+
+> Implemented. Both phases landed. `generated/go/yang` shrank 205,604,350 →
+> 48,882,316 bytes (76.2%); `generated/go/mib` shrank 38,589,077 → 26,985,181
+> bytes (30.069%). The SNMP table-walk hot path holds allocation parity with
+> main (TableWalk 1,667, BulkWalk 1,281 allocs/op). Both trees decode, diff, and
+> address the same data. Known follow-up: `src/protocol/snmp/bench/testdata/`
+> `baseline-micro.txt` is a pre-streaming baseline (see `docs/agent-observations.md`).
 
 ## Goal
 
