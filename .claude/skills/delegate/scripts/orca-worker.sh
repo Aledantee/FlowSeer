@@ -32,6 +32,12 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 json() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1" 2>/dev/null; }
 state_dir=$(git rev-parse --path-format=absolute --git-common-dir)/orca-workers
 field() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$state_dir/$1.json" "$2" 2>/dev/null; }
+# Orca drops the lineage of a removed worktree's children, so a lane that
+# started lanes of its own would leave them top-level, unmerged work and all.
+children() {
+  orca worktree show --worktree "id:$1" --json 2>/dev/null \
+    | json '" ".join(d["result"]["worktree"]["childWorktreeIds"])'
+}
 screen() { [[ -n $1 ]] || return 1; orca terminal read --terminal "$1" --screen 2>/dev/null; }
 brief_name=.orca-brief.md
 note_name=.orca-note.md
@@ -115,7 +121,7 @@ case "$cmd" in
         "$state_dir/$lane.json" "$lane" "$cli" "$term" "$wt" "$path" "$branch" "$run_id"
     }
     undo() {
-      local reason="$*" head_sha end_out cleanup_failed='' state_out=''
+      local reason="$*" head_sha end_out cleanup_failed='' state_out='' kids
       if [[ -n $run_id ]]; then
         head_sha=$(git -C "$path" rev-parse HEAD 2>/dev/null) || head_sha=$base_sha
         end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
@@ -123,6 +129,11 @@ case "$cmd" in
       fi
       if [[ -n $term ]] && ! orca terminal close --terminal "$term" --json >/dev/null 2>&1; then
         cleanup_failed='terminal close failed'
+      fi
+      # Checked after the close, so the worker cannot start another lane.
+      if [[ -z $cleanup_failed ]]; then
+        kids=$(children "$wt") || cleanup_failed='child worktree check failed'
+        [[ -z $cleanup_failed && -n $kids ]] && cleanup_failed="it has child worktrees: $kids"
       fi
       if [[ -z $cleanup_failed ]] && ! orca worktree rm --worktree "id:$wt" --force --json >/dev/null 2>&1; then
         cleanup_failed='worktree removal failed'
@@ -143,7 +154,7 @@ case "$cmd" in
     # worker stops at the switch-or-edit prompt, which a screen read shows.
     case "$cli" in
       claude) line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
-      codex)  line="codex -a never --sandbox danger-full-access -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
+      codex)  line="codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
       agy)    line="agy --model $model --dangerously-skip-permissions" ;;
       opencode) line="opencode --model $model" ;;
     esac
@@ -159,28 +170,33 @@ case "$cmd" in
     # exited.
     orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1
 
-    # Codex startup dialogs: its update offer and the hooks review for a
-    # repository with .codex/hooks.json. A prompt sent into either is lost.
-    # The update offer is matched on its "Skip until next version" option:
-    # Codex keeps an "Update available!" banner up after the dialog is
-    # answered. Option 3 skips the version, so the offer does not come back.
+    # Codex startup dialog: "Hooks need review", shown when a hook in
+    # .codex/hooks.json or ~/.codex/hooks.json is new or changed. A prompt
+    # sent into it is lost, and its Enter picks "Review hooks", which opens a
+    # detail view. The answer is "Trust all and continue", picked by the
+    # number its line carries rather than a fixed one, since the numbering
+    # is not stable across versions: the digit moves the selection and Enter
+    # confirms it. The update offer is off on the launch line rather than
+    # answered, for the same reason: a wrong answer runs the upgrade and
+    # leaves the terminal at a shell. An offer that shows anyway fails the
+    # start before the brief pointer's Enter can pick an option.
     if [[ $cli == codex ]]; then
       for _ in 1 2 3 4; do
         sleep 2; s=$(screen "$term")
-        if grep -q 'Skip until next version' <<<"$s"; then
-          orca terminal send --terminal "$term" --text 3 --enter --json >/dev/null \
-            || undo "cannot dismiss Codex update offer for $lane"
-        elif grep -q 'hook needs review' <<<"$s"; then
-          orca terminal send --terminal "$term" --text t --json >/dev/null \
-            || undo "cannot dismiss Codex hooks review for $lane"
-          sleep 1
-          orca terminal send --terminal "$term" --text $'\e' --json >/dev/null \
-            || undo "cannot dismiss Codex hooks review for $lane"
-        else
-          break
-        fi
+        grep -q 'restart Codex' <<<"$s" && undo "Codex updated itself and exited at startup for $lane"
+        grep -q 'Skip until next version' <<<"$s" && undo "Codex showed its update offer despite check_for_update_on_startup=false for $lane"
+        grep -q -i 'hooks need review' <<<"$s" || break
+        n=$(sed -n 's/.*\([0-9]\)\. Trust all and continue.*/\1/p' <<<"$s" | head -1)
+        [[ -n $n ]] || undo "Codex hooks review for $lane has no \"Trust all and continue\" option: $(tail -8 <<<"$s")"
+        orca terminal send --terminal "$term" --text "$n" --json >/dev/null \
+          || undo "cannot answer Codex hooks review for $lane"
+        sleep 1
+        orca terminal send --terminal "$term" --text '' --enter --json >/dev/null \
+          || undo "cannot answer Codex hooks review for $lane"
       done
-      grep -q 'hook needs review' <<<"$(screen "$term")" && undo "$lane still shows the hooks review after four rounds"
+      # The last round's Enter needs the same redraw time as the others.
+      sleep 2
+      grep -q -i 'hooks need review' <<<"$(screen "$term")" && undo "$lane still shows the hooks review after four rounds"
     fi
     st=$(orca terminal show --terminal "$term" --json 2>/dev/null | json 'd["result"]["terminal"].get("status") or d["result"].get("status")') \
       || undo "terminal show failed for $lane"
@@ -349,6 +365,8 @@ case "$cmd" in
     # A stalled lane shows the working hint over a turn that will not end.
     [[ $stalled == true ]] || ! working "$(screen "$term")" \
       || die "$name is still working; wait for it, or pass --stalled after wait printed stalled"
+    kids=$(children "$wt") || die "cannot read the child worktrees of $name; nothing removed"
+    [[ -z $kids ]] || die "$name has child worktrees of its own; merge and remove them first, nothing removed: $kids"
     rm -f "$path/$brief_name" "$path/$note_name"
     dirty=$(git -C "$path" status --porcelain 2>/dev/null)
     [[ -z $dirty ]] || die "$path is dirty; nothing removed: $dirty"
@@ -365,6 +383,9 @@ case "$cmd" in
       || die "terminal close failed for $name; nothing removed"
     end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
       || die "run log end failed after $name's terminal closed: $end_out"
+    # A stalled worker may have started a lane after the first check.
+    kids=$(children "$wt") || die "cannot read the child worktrees of $name after its terminal closed; worktree kept"
+    [[ -z $kids ]] || die "$name started child worktrees before its terminal closed; merge and remove them, then remove $name in Orca: $kids"
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
     rm -f "$state_dir/$name.json" || die "cannot remove lane state for $name"
     ;;

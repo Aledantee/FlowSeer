@@ -1,11 +1,12 @@
-# Two FRR nodes form an OSPF adjacency on a shared bridge. The integration
-# suite starts this fixture, but the image does not include the netpen binary
-# that the command-execution tests require. The separate ring fixture has no
-# executing protocol assertions.
+# Two FRR nodes form an OSPF adjacency on a shared bridge. The r1 image also
+# carries the static netpen binary used by the command-execution tests. The
+# separate ring fixture has no executing protocol assertions.
 
 services:
   frr-r1:
-    image: quay.io/frrouting/frr:10.1.0
+    build:
+      context: ../../../../../../../..
+      dockerfile: src/edge/netpen/test/integration/t1/testdata/frr/Dockerfile
     container_name: netpen-t1-frr-r1
     cap_add:
       - NET_ADMIN

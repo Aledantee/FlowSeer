@@ -89,11 +89,11 @@ func TestEmit_UnimportedKeyTypeDegradesKeyAndColumn(t *testing.T) {
 	src := string(out)
 	wantFragments(t, src,
 		"type FakeNoImportTableKey struct {\n\tFakeNoImportIndex int32\n}",
-		"var FakeNoImportRef = snmp.NewColumn[[]byte]",
+		"FakeNoImportRef = snmp.NewTableColumn[[]byte]",
 		"type FakeNoImportByKeyTableKey struct {\n\tFakeKeyIndex fakekeysmib.FakeKeyIndex\n}",
 		"FakeKeyIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)",
 	)
-	rejectFragments(t, src, "FakeNoImportIndex fakekeysmib", "NewColumn[fakekeysmib")
+	rejectFragments(t, src, "FakeNoImportIndex fakekeysmib", "NewTableColumn[fakekeysmib")
 
 	want := map[string]bool{"fakeNoImportIndex": true, "fakeNoImportRef": true}
 	for _, d := range degraded {

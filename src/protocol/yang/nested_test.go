@@ -10,10 +10,11 @@ import (
 
 func TestNestedAncestorKeysCanonical(t *testing.T) {
 	type entry struct{ Name *string }
-	child := &yang.Schema{Module: "m", Namespace: "urn:m", Name: "inner", Fields: []yang.Field{
+	mod := &yang.Module{Name: "m", Namespace: "urn:m"}
+	child := &yang.Schema{Module: mod, Name: "inner", Fields: []yang.Field{
 		{GoName: "Name", Name: "name", Type: yang.TString},
 	}}
-	outer := &yang.Schema{Module: "m", Namespace: "urn:m", Name: "outer", Keys: []string{"id"}, Fields: []yang.Field{
+	outer := &yang.Schema{Module: mod, Name: "outer", Keys: []string{"id"}, Fields: []yang.Field{
 		{GoName: "ID", Name: "id", Type: yang.TUint16},
 		{GoName: "Inner", Name: "inner", Child: child, List: true},
 	}}
@@ -41,8 +42,9 @@ func TestNestedAncestorKeysCanonical(t *testing.T) {
 
 func TestDecodeJSONNestedRejectsNull(t *testing.T) {
 	type entry struct{ Name *string }
-	child := &yang.Schema{Module: "m", Name: "inner", Fields: []yang.Field{{GoName: "Name", Name: "name", Type: yang.TString}}}
-	outer := &yang.Schema{Module: "m", Name: "outer", Fields: []yang.Field{{GoName: "Inner", Name: "inner", Child: child, List: true}}}
+	mod := &yang.Module{Name: "m"}
+	child := &yang.Schema{Module: mod, Name: "inner", Fields: []yang.Field{{GoName: "Name", Name: "name", Type: yang.TString}}}
+	outer := &yang.Schema{Module: mod, Name: "outer", Fields: []yang.Field{{GoName: "Inner", Name: "inner", Child: child, List: true}}}
 	chain := []*yang.Schema{outer, child}
 	for _, tc := range []struct{ name, data string }{
 		{"payload", `null`},

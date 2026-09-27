@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import AppIcon from './components/AppIcon.vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import {
@@ -20,20 +19,26 @@ import type { Device, Site } from './domain/fleet'
 import {
   formatAgo,
   healthCounts,
+  healthLine,
+  rankSites,
   scopedEvents,
   siteRollups,
   trafficHistory,
 } from './domain/overview'
+
 const props = defineProps<{
   scope: Device[]
   sites: Site[]
   site?: Site
   tenantName: (siteId: string) => string
 }>()
+
 const page = usePage()
+
 function deviceTo(id: string) {
   return { path: `/devices/${id}`, query: scopeOf(page.location.value) }
 }
+
 // Focusing a site keeps the dashboard and changes its scope.
 function siteTo(siteId: string) {
   return {
@@ -51,15 +56,32 @@ const peak = computed(() =>
     mbps: 0,
   }),
 )
+const severity = { Offline: 0, Degraded: 1, Healthy: 2 }
+const severityLabel = { critical: 'Critical', warning: 'Warning', info: 'Info' }
 const attention = computed(() =>
   props.scope
     .filter((device) => device.health !== 'Healthy')
-    .sort((a, b) =>
-      a.health === 'Offline' ? -1 : b.health === 'Offline' ? 1 : 0,
+    .sort(
+      (a, b) =>
+        severity[a.health] - severity[b.health] || a.name.localeCompare(b.name),
     ),
 )
+
+// The newest warning or critical event is the reason shown beside a device;
+// the full list lives in device details.
+function reason(device: Device) {
+  const event = feed.value.find(
+    (item) => item.deviceId === device.id && item.severity !== 'info',
+  )
+  const parts = [event?.summary ?? 'No event explains this yet']
+  if (device.health === 'Offline')
+    parts.push(`last answered ${formatAgo(device.lastSeenMinutes)}`)
+  else if (event) parts.push(formatAgo(event.minutesAgo))
+  return parts.join(' · ')
+}
+
 const feed = computed(() => scopedEvents(props.scope))
-const rollups = computed(() => siteRollups(props.scope, props.sites))
+const rollups = computed(() => rankSites(siteRollups(props.scope, props.sites)))
 const devicesById = computed(
   () => new Map(props.scope.map((device) => [device.id, device])),
 )
@@ -73,8 +95,66 @@ const roles = computed(() => {
 
 <template>
   <div
-    class="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-[1150px]:grid-cols-1 gap-6 pb-8"
+    class="dashboard grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-[1150px]:grid-cols-1 gap-6 pb-8"
   >
+    <UiCard
+      as="section"
+      class="overflow-hidden min-w-0"
+      aria-labelledby="health-title"
+    >
+      <template #header>
+        <div>
+          <h2
+            id="health-title"
+            class="text-base font-semibold text-foreground"
+            v-text="'Needs attention'"
+          ></h2>
+          <p class="text-xs text-muted-foreground mt-1">
+            {{ attention.length }} of {{ scope.length }} devices
+          </p>
+        </div>
+      </template>
+      <div>
+        <ul v-if="attention.length" class="list-none m-0 p-0">
+          <li v-for="device in attention" :key="device.id">
+            <AppLink
+              class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
+              :to="deviceTo(device.id)"
+            >
+              <span>
+                <strong class="text-xs font-medium text-foreground block">{{
+                  device.name
+                }}</strong>
+                <small class="text-2xs text-muted-foreground mt-0.5 block">
+                  {{ device.kind }}
+                  <template v-if="!site">
+                    ·
+                    {{
+                      sites.find((s) => s.id === device.siteId)?.name
+                    }}</template
+                  >
+                </small>
+                <span class="block mt-1 text-xs text-foreground">{{
+                  reason(device)
+                }}</span>
+              </span>
+              <UiStatusBadge :status="device.health" />
+            </AppLink>
+          </li>
+        </ul>
+        <p v-else-if="scope.length" class="text-xs text-muted-foreground">
+          Every device in this scope is healthy.
+        </p>
+        <p v-else class="text-xs text-muted-foreground">
+          No devices in this scope.
+        </p>
+        <h3 class="text-xs font-medium text-muted-foreground mt-5 mb-1.5">
+          Health across the scope
+        </h3>
+        <UiSegmentedMeter :counts="counts" legend />
+      </div>
+    </UiCard>
+
     <UiCard
       as="section"
       class="max-[800px]:hidden overflow-hidden min-w-0"
@@ -104,56 +184,6 @@ const roles = computed(() => {
         :points="history"
         :label="`Hourly aggregate traffic for ${site ? site.name : 'all sites in scope'}`"
       />
-    </UiCard>
-
-    <UiCard
-      as="section"
-      class="overflow-hidden min-w-0"
-      aria-labelledby="health-title"
-    >
-      <template #header>
-        <div>
-          <h2 id="health-title" class="text-base font-semibold text-foreground">
-            Device health
-          </h2>
-          <p class="text-xs text-muted-foreground mt-1">
-            {{ scope.length }} devices monitored
-          </p>
-        </div>
-      </template>
-      <div>
-        <UiSegmentedMeter :counts="counts" legend />
-        <h3 class="text-xs font-medium text-muted-foreground mt-5 mb-1.5">
-          Needs attention
-        </h3>
-        <ul v-if="attention.length" class="list-none m-0 p-0">
-          <li v-for="device in attention" :key="device.id">
-            <AppLink
-              class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
-              :to="deviceTo(device.id)"
-            >
-              <span>
-                <strong class="text-xs font-medium text-foreground block">{{
-                  device.name
-                }}</strong>
-                <small class="text-2xs text-muted-foreground mt-0.5 block">
-                  {{ device.kind }}
-                  <template v-if="!site">
-                    ·
-                    {{
-                      sites.find((s) => s.id === device.siteId)?.name
-                    }}</template
-                  >
-                </small>
-              </span>
-              <UiStatusBadge :status="device.health" />
-            </AppLink>
-          </li>
-        </ul>
-        <p v-else class="text-xs text-muted-foreground">
-          Every device in this scope is healthy.
-        </p>
-      </div>
     </UiCard>
 
     <UiCard
@@ -187,7 +217,6 @@ const roles = computed(() => {
               <UiTableHead align="numeric">Devices</UiTableHead>
               <UiTableHead align="numeric">Clients</UiTableHead>
               <UiTableHead align="numeric">Traffic</UiTableHead>
-              <UiTableHead><span class="sr-only">Open</span></UiTableHead>
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
@@ -209,6 +238,9 @@ const roles = computed(() => {
               </UiTableCell>
               <UiTableCell class="w-[28%] max-[800px]:hidden">
                 <UiSegmentedMeter :counts="rollup.health" />
+                <small class="text-2xs text-muted-foreground block mt-1">{{
+                  healthLine(rollup.health)
+                }}</small>
               </UiTableCell>
               <UiTableCell align="numeric">
                 {{
@@ -221,15 +253,6 @@ const roles = computed(() => {
               <UiTableCell align="numeric">
                 {{ rollup.throughput }}
                 <span class="text-2xs text-muted-foreground">Mbps</span>
-              </UiTableCell>
-              <UiTableCell>
-                <AppLink
-                  class="inline-flex items-center justify-center p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground"
-                  :aria-label="`Focus on ${rollup.site.name}`"
-                  :to="siteTo(rollup.site.id)"
-                >
-                  <AppIcon name="arrow" />
-                </AppLink>
               </UiTableCell>
             </UiTableRow>
           </UiTableBody>
@@ -327,6 +350,10 @@ const roles = computed(() => {
               event.summary
             }}</strong>
             <small class="text-2xs text-muted-foreground mt-0.5 block">
+              <span class="text-muted-foreground font-medium">{{
+                severityLabel[event.severity]
+              }}</span>
+              ·
               <AppLink
                 v-if="devicesById.get(event.deviceId)"
                 class="text-accent-foreground hover:underline"
@@ -335,7 +362,6 @@ const roles = computed(() => {
                 {{ devicesById.get(event.deviceId)?.name }}
               </AppLink>
               · {{ formatAgo(event.minutesAgo) }}
-              <span class="sr-only">, severity {{ event.severity }}</span>
             </small>
           </div>
         </li>

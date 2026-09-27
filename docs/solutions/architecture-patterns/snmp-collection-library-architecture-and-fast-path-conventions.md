@@ -1,7 +1,7 @@
 ---
 title: SNMP Collection Library — Architecture and Fast-Path Conventions
 date: 2026-08-17
-last_verified: 2026-09-06
+last_verified: 2026-09-27
 category: architecture-patterns
 module: src/protocol/snmp
 problem_type: architecture_pattern
@@ -171,10 +171,12 @@ length-first (`src/protocol/snmp/rawwalk.go:193`).
 (`src/protocol/snmp/oid.go:156`); `OID.WireKey()` returns them as an immutable string
 so a lookup with raw wire bytes (`map[string(b)]`) is allocation-free
 (`oid.go:166`). `AnyColumn.Key()` is that wire key **precomputed at construction**
-(`src/protocol/snmp/column.go:14`), stored by `NewColumn` (`column.go:44`):
+(`src/protocol/snmp/column.go:17`), stored by `NewColumn` (`column.go:49`) and
+table column constructors `NewTableColumn` (`column.go:54`) /
+`NewFusedTableColumn` (`column.go:60`):
 
 ```go
-return Column[T]{oid: oid, key: oid.WireKey(), kind: kind, decode: decode}
+return Column[T]{oid: oid, key: oid.WireKey(), kind: kind, decode: decode, bit: -1}
 ```
 
 Generated packages key both maps on wire keys, not dotted strings: the
@@ -188,17 +190,19 @@ package (`emit_dispatch.go:15`, `emit_tier.go:68`). New hot-path lookups key on
 ### 4 — Generated code uses only the public API, and moves with its generator
 
 `mibgen` emits one package per MIB module using only `snmp`'s exported surface:
-typed scalar accessors, `snmp.NewColumn`, row structs and Walkers, SMI enums, the
-dispatch map, `snmp.Decode*` for textual conventions
-(`src/protocol/snmp/cmd/mibgen/doc.go:1`). Generated table walkers use the
-exported `snmp.WalkColumns` bounded merge. `BulkWalkRaw` is part of the public
-`Session` interface (`src/protocol/snmp/session.go:45-52`). Native sessions
-supply raw batches directly; alternate sessions can implement the method by
-adapting `BulkWalk` through `RawWalkerFromWalker`
-(`src/protocol/snmp/rawwalk.go:331`), as the integration fake does
+typed scalar accessors, `snmp.NewTableColumn` and `snmp.NewFusedTableColumn`,
+row structs and Walkers, SMI enums, the dispatch map, and `snmp.Decode*` for
+textual conventions (`src/protocol/snmp/cmd/mibgen/doc.go:4-9`). Generated
+table singletons embed `snmp.Table`, and named walkers embed `snmp.TableWalker`
+by value (`doc.go:27-30`). `BulkWalkRaw` is part of the public `Session`
+interface (`src/protocol/snmp/session.go:45-52`). Native sessions supply raw
+batches directly; alternate sessions can implement the method by adapting
+`BulkWalk` through `RawWalkerFromWalker` (`src/protocol/snmp/rawwalk.go:387`),
+as the integration fake does
 (`src/protocol/snmp/test/integration/assertions_test.go:69-70`). Each typed
-column still has a fused arm with a generic fallback in `emit_table.go`
-(`src/protocol/snmp/cmd/mibgen/emit_table.go:263-264`).
+column routes cell decoding through `snmp.DecodeColumn`
+(`src/protocol/snmp/column.go:95-114`), which evaluates the fused raw decoder
+first and falls back to generic decoding on decline.
 
 The merge requests selected columns, retains one batch per column, and joins by
 numeric index suffix before decoding a row. `Walk` is lazy and empty selection
@@ -313,20 +317,19 @@ benchstat's own significance verdict so high-variance benchmarks read `~` and do
 not false-trip (`:18`), and it **never rewrites the baseline** — rebaselining is a
 deliberate reviewed commit (`:25`).
 
-The committed baseline records `BenchmarkGet/impl=flowseer` at 56 allocs/op and
-1824 B/op, `BenchmarkGetNext` at 56 allocs/op, `BenchmarkGetBulk` at 97, and
-`BenchmarkBulkWalk` at 481 (`src/protocol/snmp/bench/testdata/baseline-micro.txt:5`, `:15`, `:25`,
-`:35`).
+The committed baseline, re-measured on darwin/arm64 on 2026-09-27, records
+`BenchmarkGet/impl=flowseer` at 55 allocs/op and 1800 B/op, `BenchmarkGetNext`
+at 56, `BenchmarkGetBulk` at 98, `BenchmarkBulkWalk` at 1281, and
+`BenchmarkTableWalk` at 1667
+(`src/protocol/snmp/bench/testdata/baseline-micro.txt:5`, `:15`, `:25`, `:35`,
+`:65`). The earlier baseline had BulkWalk at 481 and TableWalk at 364 and had
+not been refreshed through several walk changes, so the gate failed on every
+branch. The TableWalk rise is the cost the streaming walk accepted for bounded
+retained memory (`docs/benchmarks/2026-09-03-streaming-mib-walks.md:72`). No
+record explains the BulkWalk rise; the refresh took it as `main`'s state rather
+than a verdict on it.
 
-That file has since drifted from the tree. Measured on darwin/arm64 at
-`e9b0bc58` on 2026-09-06, `BenchmarkGetBulk` is 98 allocs/op and
-`BenchmarkBulkWalk` 1278 — so `task bench:gate` reports a large BulkWalk
-"regression" on any branch, and its headline percentages are not the change's
-delta. Until someone rebaselines, judge a suspected regression by benchmarking
-the merge base and the branch and comparing those two, and read the gate only
-for the direction it points.
-
-Per the 2026-08-16 session history, that `56` is post-optimization: four
+Per the 2026-08-16 session history, the Get/GetNext `56` is post-optimization: four
 prototypes were each benchmarked against a fresh baseline with benchstat at
 `n=10` and fully reverted before the next; three were adopted. Experiment 4 — the
 single-buffer request encode now called `encodeRequestFast` — measured −23%

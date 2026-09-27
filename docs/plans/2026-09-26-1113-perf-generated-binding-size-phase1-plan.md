@@ -4,12 +4,21 @@ type: perf
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
+review: accept after fixes
+compound: docs/solutions/conventions/a-byte-golden-cannot-show-a-dedup-key-term-matters.md
 execution: code
 parent: docs/plans/2026-09-26-1113-perf-generated-binding-size-plan.md
 ---
 
 # Generated Binding Size Phase 1 - yanggen - Plan
+
+> Implemented. 5 units, 2026-09-26T21:50Z to 2026-09-26T22:25Z. Generated tree
+> shrank to 48,882,316 bytes (76.2% reduction from the 205,604,350-byte baseline,
+> well below the 102,802,175-byte limit); ciscoiosxenative shrank to 31,679,228
+> bytes (81.4% reduction from 170,104,398 bytes, well below the 85,052,199-byte limit).
+> Codegen style rule recorded in docs/code-style.md. Integration tests updated for
+> shortest unique suffix naming.
 
 ## Goal
 
@@ -340,14 +349,14 @@ U2, U3, and U4 all edit `emit_module.go`, which is why they form a chain.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path outside `generated/`.
-- [ ] The `src/protocol/yang` docs, `cmd/yanggen/doc.go`, the companion-symbols
+- [x] The verifier is green for every changed path outside `generated/`.
+- [x] The `src/protocol/yang` docs, `cmd/yanggen/doc.go`, the companion-symbols
       solution, and `docs/code-style.md` are updated in the same change.
-- [ ] `generated/go/yang` is at or below 102,802,175 bytes, and the number is
+- [x] `generated/go/yang` is at or below 102,802,175 bytes, and the number is
       recorded.
-- [ ] `status` is `implemented`, with an outcome note, and the parent's P1
+- [x] `status` is `implemented`, with an outcome note, and the parent's P1
       `Landed:` line carries the commit range.
-- [ ] No plan labels in code or commit messages.
+- [x] No plan labels in code or commit messages.
 
 ## Open questions
 
@@ -356,3 +365,30 @@ U2, U3, and U4 all edit `emit_module.go`, which is why they form a chain.
   implementer checks the key against every field `yang.Schema`, `yang.Field`,
   and `yang.Type` carry (`src/protocol/yang/schema.go:19-61`,
   `value.go:74-100`) and adds any that are missing.
+
+## Review
+
+Verdict: accept after fixes. Reviewed range `0652bdd6..7bcaa829`; fixes in
+`4c43c3a2`, `44fe95bc`, `d3f2baf5`, `2119a2fb`, and `fc7d896b`.
+
+The shape key covers every property the codecs read: the runtime reads only
+`Schema{Module, Name, Presence, Keys, Fields}`, `Field{GoName, Name, Module,
+Type, LeafList, Child, List}`, and `Type{Kind, FractionDigits, Members}`, and
+a leaf's Go type depends only on its YANG type. That answers the open
+question above. A full regeneration matches the committed tree byte for byte
+except in packages that vary between runs without this change (pre-existing
+finding P1).
+
+| # | Finding | Where | State |
+| --- | --- | --- | --- |
+| 1 | `fixture-main.yang` imports `fixture-grp`, but the netopeer2 build context lacked it, so the t1 image failed to build ("Data model "fixture-grp" not found") and every t1 NETCONF test failed to start. | `src/protocol/yang/test/integration/testenv/testdata/netopeer2/Dockerfile:6,12-14`, `testenv/fixturesync_test.go:17-19` | fixed `44fe95bc`; image builds, t1 NETCONF and gNMI pass |
+| 2 | The companion-symbols solution cited stale lines, quoted a nonexistent `em.names.structToSchema`, named `ServersServerKey`, and described recursion-time claiming by kind. | `docs/solutions/architecture-patterns/claim-companion-symbols-in-scope-before-child-nodes.md` | fixed `fc7d896b` |
+| 3 | No test showed the shape key keeping apart nodes that differ in leaf type, presence, or module, or a shared keyed list keeping per-instance descriptors; dropping a key term failed only the byte golden. | `src/protocol/yang/cmd/yanggen/naming.go:252-299` (`computeShapeKey`) | fixed `d3f2baf5` |
+| 4 | The companion-comment test selected companions by name suffix, so hash-suffixed companions escaped the no-path check. | `src/protocol/yang/cmd/yanggen/emit_test.go` (`TestGoldenCompanionCommentsAndSingleLineFields`) | fixed `4c43c3a2` |
+| 5 | The grouping round trip decoded `ItemSchema` twice and never went through either container. | `src/protocol/yang/cmd/yanggen/golden_roundtrip_test.go` (`TestGroupingInstantiatingModuleRoundTrip`) | fixed `4c43c3a2` |
+| 6 | Requirement numbers in test names and comments, history wording in `schema_test.go`, and a `doc.go` paragraph that misstated companion naming. | `emit_test.go`, `naming_test.go`, `src/protocol/yang/schema_test.go:17-19,39-40`, `cmd/yanggen/doc.go:14-24` | fixed `4c43c3a2` |
+| 7 | When `InstantiatingModule` fails (two modules sharing a namespace), `moduleOf` falls back to the package's module while `namespaceOf` keeps the foreign namespace, and `emitModuleVars` may bind the package's module var to it, in `range shapeMap` order. Zero occurrences across the vendored tree. | `src/protocol/yang/cmd/yanggen/emit_module.go:610-617`, `:149-205` | open-latent; a guard needs error plumbing through `moduleOf`'s callers |
+| 8 | Two module names that camel-case alike (`foo-bar`, `foo_bar`) produce two `var moduleFooBar`; emission succeeds and the package does not compile. None in the current tree, which builds. | `src/protocol/yang/cmd/yanggen/emit_module.go:143-145` (`moduleVarName`) | open-latent; fix by claiming module var names through a `nameScope` |
+| 9 | Unread state (`moduleEmitter.shapeMap`, `claimantEntity.id`, `claimItem` fields); `TestFairGrowthReversedOrderByteIdentity` could not fail; the emit-level reversed-module-order check was missing. | `naming.go`, `emit_module.go`, `naming_test.go:83-124`, `emit_test.go` | fixed `2119a2fb` (state, naming test) and `d3f2baf5` (`TestEmitModuleOrderIndependent`) |
+| P1 | Pre-existing: two modules augmenting one parent with same-named children in different namespaces (RFC 7950 allows it) collapse to one entry in goyang's name-keyed `Dir`, chosen by map order, so regeneration varies between runs (`ciscoiosxenative`, cisco `openconfigsystem`, ruckus `openconfiginterfaces`). The committed tree holds the rarer outcome for ruckus `ethernet/poe`: module `openconfig-if-poe`, not a presence container. | loader (`src/protocol/yang/cmd/yanggen/load.go`, goyang v1.6.3 `Entry.Dir`) | deferred-to-plan |
+| P2 | Pre-existing: restconf t1 `TestT1EditWithReadBack` cleanup gets HTTP 409 from the clixon image; fails identically at `0652bdd6`. | `src/protocol/restconf/test/integration/t1_smoke_test.go:48` | deferred-to-plan |

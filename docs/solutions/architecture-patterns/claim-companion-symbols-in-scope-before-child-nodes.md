@@ -20,114 +20,121 @@ tags: [code-generation, yanggen, naming, collision-resolution, name-scope]
 ## Context
 
 When a code generator flattens a nested schema tree into a single Go package
-namespace, parent identifiers concatenate to form struct names. In `yanggen`,
-the nested hierarchy `container servers { list server { ... } }` becomes the Go
-struct `ServersServer`.
+namespace, a node's struct name is a run of its ancestors' names. In `yanggen`
+the names are shortest unique suffixes: the list in
+`container servers { list server { ... } }` becomes `ServersServer` in the
+fixture, because its schema var `ServerSchema` clashes with the sibling
+container `server-schema` and both grow a segment.
 
-Generators also emit companion symbols derived from those structs: schema
-metadata variables (`ServersServerSchema`), list key structs
-(`ServersServerKey`), descriptor functions (`ServersServerDescriptor`), and
-flat-row representations (`ServersServerFlatRow`).
+Generators also emit companion symbols. A struct has a schema variable
+(`ServersServerSchema`). Each list instance has a key struct, a descriptor
+function, and, when nested, a flat-row struct. These take the shortest unique
+suffix of the instance's own path, so the fixture's list has `ServerKey` and
+`ServerDescriptor`.
 
-Removing separator characters (such as underscores) creates ambiguity between
-derived companion names and potential child or sibling schema nodes. If a child
-or sibling node's path concatenates to the exact name of a companion symbol,
-both map to the same Go identifier in the package.
+Without separators, a companion name and a node name can be the same string.
+If a sibling's or child's joined name equals a companion's, both map to one Go
+identifier and the package does not compile.
 
 ## The Rule
 
-1. **Claim companions immediately after the struct name.** As soon as a node
-   claims its struct identifier in the package `nameScope`, claim all companion
-   symbols derived from that struct before recursing into child nodes. This
-   ensures companion symbols (which form the primary caller API) keep their
-   predictable names over deeper child nodes.
-2. **Sibling struct names precede companion names.** Sibling struct names
-   claimed in an earlier iteration take precedence over a list or container's
-   companions. When a sibling struct already holds the clean name, the companion
-   must take the collision suffix.
-3. **Route declarations and references through the same claim.** Every emission
-   site for a companion symbol—both where the symbol is declared and where other
-   generated code references it—must look up the claimed name through the scope
-   registry rather than re-computing an unsuffixed string.
+1. **Resolve every name in one scope.** Structs, schema vars, keys, flat rows,
+   descriptors, and identities are all claimants in the same package scope.
+   Clashing claimants grow by one ancestor segment together until no two
+   want the same name. A clash is judged across all kinds, so the struct
+   `ServerKey` and the key `Server` + `Key` count as a clash.
+2. **Claim in one sorted pass after growth.** When growth runs out of
+   segments, the claim order decides who keeps the clean name and who takes
+   the `X<hash>` suffix. Claims are sorted by depth first, so a node and its
+   companions claim before any deeper child node. At equal depth, kind decides:
+   `kindStruct`, then `kindListKey`, `kindListFlatRow`, `kindListDescriptor`,
+   `kindContainerDescriptor`, `kindSchema`, and `kindIdentity`. A sibling
+   struct therefore keeps its name over a companion schema var at the same
+   depth. Ties fall to the wanted name, then the schema path.
+3. **Route declarations and references through the same claim.** Every
+   emission site for a companion symbol, both where it is declared and where
+   other generated code references it, looks the name up in the resolved scope
+   instead of re-deriving an unsuffixed string.
 
 ## Working Example
 
-In `src/protocol/yang/cmd/yanggen/emit_module.go:156-172`, `emitNode` claims the
-node's struct name, claims its companions, and only then claims its children:
+`resolvePackageNaming` (`src/protocol/yang/cmd/yanggen/naming.go:454-565`)
+registers every shape, list instance, top-level container, and identity as a
+claimant. A shape claims its struct and its schema var at the same depth:
 
 ```go
-func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []pathSeg, ancestors []ancestorList) error {
-	structName := em.structName(e, parentStruct)
-	nodePath := append(append([]pathSeg{}, path...), em.segFor(e))
-
-	em.claimCompanions(e, structName, nodePath, ancestors)
-
-	children := dataChildren(e)
-	fieldScope := newNameScope()
-
-	childStructs := make(map[string]string)
-	for _, c := range children {
-		if isDataDir(c) {
-			childStructs[c.Name] = em.structName(c, structName)
+ent := &claimantEntity{
+	candidates: sCopy.candidates,
+	getSymbols: func(base string) []claimSpec {
+		return []claimSpec{
+			{
+				wanted:        base,
+				kind:          kindStruct,
+				depth:         len(sCopy.instances[0].segments),
+				tieBreak:      sCopy.instances[0].entry.Path(),
+				discriminator: sCopy.key,
+			},
+			{
+				wanted:        base + "Schema",
+				kind:          kindSchema,
+				depth:         len(sCopy.instances[0].segments),
+				tieBreak:      sCopy.instances[0].entry.Path(),
+				discriminator: "schema:" + sCopy.key,
+			},
 		}
-	}
-	// ...
-```
-
-In `src/protocol/yang/cmd/yanggen/emit_module.go:501-512`, `claimCompanions`
-reserves companion names:
-
-```go
-func (em *moduleEmitter) claimCompanions(e *goyang.Entry, structName string, nodePath []pathSeg, ancestors []ancestorList) {
-	em.schemaVar(structName)
-	if e.IsList() && len(strings.Fields(e.Key)) > 0 {
-		em.scope.claim(structName+"Key", "key:"+structName)
-		em.scope.claim(structName+"Descriptor", "desc:"+structName)
-		if len(ancestors) > 0 {
-			em.scope.claim(structName+"FlatRow", "flat:"+structName)
-		}
-	} else if !e.IsList() && len(nodePath) == 1 {
-		em.scope.claim(structName+"Descriptor", "desc:"+structName)
-	}
+	},
 }
 ```
 
-The helper `schemaVar` (`emit_module.go:526-528`) returns
-`em.scope.claim(structName+"Schema", "schema:"+structName)`. When emitting the
-`var` declaration and all downstream references, callers invoke
-`em.schemaVar(structName)` instead of formatting `structName + "Schema"`.
+`resolveFairGrowth` (`naming.go:105-172`) grows clashing claimants, then sorts
+the final claims by depth, kind, wanted name, and path (`naming.go:154-165`)
+and claims them into the scope in that order (`naming.go:167-169`).
 
-If a sibling container named `server-schema` claims `ServersServerSchema` first
-as a struct type, `em.schemaVar` receives a deterministic disambiguation suffix
-(such as `ServersServerSchemaX4d76e3`). Both compile cleanly without
-redeclaration errors:
+The emitter reads names back from the scope by discriminator
+(`src/protocol/yang/cmd/yanggen/emit_module.go:553-575`):
+
+```go
+func (em *moduleEmitter) schemaVar(shapeKey string) string {
+	return em.scope.byPath["schema:"+shapeKey]
+}
+```
+
+In the fixture, the sibling container `server-schema` wants the struct name
+`ServersServerSchema`, the same string as the `server` list's schema var. Both
+are at full length and at the same depth, so the struct wins on kind and the
+schema var takes the suffix:
 
 ```go
 type ServersServerSchema struct {
 	Note *string
 }
 
-var ServersServerSchemaX4d76e3 = yang.NewSchema( /* ... */ )
+var ServersServerSchemaX9bc561 = &yang.Schema{ /* ... */ }
 ```
 
 ## Evidence
 
-- `src/protocol/yang/cmd/yanggen/emit_module.go:160`: `claimCompanions` is
-  invoked prior to inspecting and claiming `childStructs`.
-- `src/protocol/yang/cmd/yanggen/emit_module.go:526-528`: `schemaVar` claims
-  `structName+"Schema"` through `em.scope.claim`.
-- `src/protocol/yang/cmd/yanggen/emit_test.go:195-283`: `TestEmitNoUnderscores`
-  parses generated golden output and confirms `ServersServerKey` and
-  `ServersSchema` exist, while verifying that sibling collision resolves
-  deterministically (`var ServersServerSchema` does not overwrite
-  `type ServersServerSchema`).
-- `src/protocol/yang/cmd/yanggen/testdata/modules/fixture-main.yang:73-83`:
-  `container server-schema` and `container schema` verify companion/child
-  disambiguation.
+- `src/protocol/yang/cmd/yanggen/naming.go:154-165`: the final claim sort, by
+  depth, then kind, then wanted name, then path.
+- `src/protocol/yang/cmd/yanggen/naming.go:461-485`: a shape registers its
+  struct and schema var as one claimant.
+- `src/protocol/yang/cmd/yanggen/emit_module.go:553-575`: `structName`,
+  `schemaVar`, and the list and descriptor helpers look names up in
+  `em.scope`.
+- `src/protocol/yang/cmd/yanggen/naming_test.go:83-124`:
+  `TestFairGrowthReversedOrderByteIdentity` resolves the `server` and
+  `server-schema` clash in both input orders and fails if the claim sort is
+  removed.
+- `src/protocol/yang/cmd/yanggen/emit_test.go:368-487`: `TestEmitNoUnderscores`
+  parses the golden output and confirms `ServerKey` and `ServersSchema` exist
+  and that `var ServersServerSchemaX…` does not overwrite
+  `type ServersServerSchema`.
+- `src/protocol/yang/cmd/yanggen/testdata/modules/fixture-main.yang:77-88`:
+  `container server-schema` and `container schema` exercise the
+  companion-against-node clashes.
 
 ## What It Does Not Cover
 
-This pattern does not apply to code generators that preserve full path
-separators or qualify companion types within separate Go packages. It also does
-not cover field-level naming within a struct, which is isolated to an
-independent per-struct field name scope.
+This pattern does not apply to code generators that keep path separators or
+put companion types in separate Go packages. It also does not cover field
+names within a struct, which use their own per-struct scope.

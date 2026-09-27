@@ -176,13 +176,12 @@ func TestEmit_FakeMIB_UsesIdiomaticGeneratedShapes(t *testing.T) {
 
 	wantFragments := []string{
 		"return snmp.DecodeMacAddress(vbs[0])",
-		"snmp.KindCounter32, snmp.DecodeUint32)",
-		"var FakeRef = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)",
-		"row.FakeSoloLastChange = v",
-		"row.FakeMode = FakeModeValue(v)",
-		"if col.Key() == FakeSoloLastChange.Key()",
-		"if tw.cols[cell.Column].Key() == FakeSoloLastChange.Key()",
-		"if v == FakeModeValueOnly",
+		"snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 0)",
+		"var FakeRef = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)",
+		"return snmp.DecodeColumn(rv, FakeSoloLastChange, &row.FakeSoloLastChange, row.observed[:])",
+		"return snmp.DecodeColumn(rv, FakeMode, &row.FakeMode, row.observed[:])",
+		"return snmp.ColumnObserved(r.observed[:], fakeSoloTableColumns, col)",
+		"return snmp.EnumString(int32(v), \"FakeModeValue\", fakeModeValueValues, fakeModeValueNames)",
 	}
 	for _, want := range wantFragments {
 		if !strings.Contains(src, want) {
@@ -327,14 +326,9 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		"var FakeLastChange =",
 		"type FakeTableRow struct",
 		"type FakeTableWalker struct",
-		"func (tw *FakeTableWalker) Iter()",
-		"func (tw *FakeTableWalker) Err()",
-		"func (fakeTableT) Walk",
-		"func (fakeTableT) WalkWithOptions",
-		"func (tw *FakeTableWalker) Close()",
-		"snmp.WalkColumns(ctx, sess, roots, options)",
-		"snmp.ErrForeignColumn",
-		"var FakeTable fakeTableT",
+		"snmp.TableWalker[FakeTableRow]",
+		"snmp.Table[FakeTableRow, *FakeTableWalker]",
+		"var FakeTable = fakeTableT{",
 		// Module-prefixed dispatch map: FAKE-MIB → fAKEMIBOIDDispatch
 		// (camelCase upper-cases letters following hyphens, then the
 		// first rune is lower-cased to keep the symbol package-private).
@@ -381,13 +375,13 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		// and answers by column identity, so a mapper can tell a
 		// reported zero from a column the agent never answered.
 		"func (r FakeTableRow) Observed(col snmp.AnyColumn) bool",
-		"case FakeName.Key():",
+		"return snmp.ColumnObserved(r.observed[:], fakeTableColumns, col)",
 		// BITS decodes to a set of positions, with one named constant
 		// per bit the MIB names.
 		"FakeCapabilitiesAlpha snmp.BitPos = 0",
 		"FakeCapabilitiesGamma snmp.BitPos = 2",
-		"snmp.KindOctetString, snmp.DecodeBitSet)",
-		"var FakeFlags = snmp.NewColumn[snmp.BitSet]",
+		"snmp.KindOctetString, snmp.DecodeBitSet, 4)",
+		"var FakeFlags = snmp.NewTableColumn[snmp.BitSet]",
 		"a.FakeFlags.Equal(b.FakeFlags)",
 	}
 	notWantFragments := []string{
@@ -398,6 +392,12 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 		// int32 constant per bit can carry neither the wire OCTET
 		// STRING nor a two-bits-set answer.
 		"type FakeCapabilities int32",
+		"func (tw *FakeTableWalker) Iter()",
+		"func (tw *FakeTableWalker) Err()",
+		"func (tw *FakeTableWalker) Close()",
+		"func (fakeTableT) Walk(",
+		"func (fakeTableT) WalkWithOptions(",
+		"case FakeName.Key():",
 	}
 	for _, w := range wantFragments {
 		if !strings.Contains(src, w) {
@@ -407,6 +407,263 @@ func TestEmit_FakeMIB_HasExpectedSymbols(t *testing.T) {
 	for _, w := range notWantFragments {
 		if strings.Contains(src, w) {
 			t.Errorf("emitted source contains forbidden fragment %q\n--- src ---\n%s", w, src)
+		}
+	}
+}
+
+// TestEmit_TableBoundAndFusedConstructors asserts that accessible columns are
+// emitted with bound ordinals and typed fast-path raw decoders where applicable.
+func TestEmit_TableBoundAndFusedConstructors(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"var FakeName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)",
+		"var FakeMAC = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress, 1)",
+		"var FakeOctets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 2)",
+		"var FakeLastChange = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 5), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 3)",
+		"var FakeRef = snmp.NewFusedTableColumn[fakekeysmib.FakeKeyIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (fakekeysmib.FakeKeyIndex, error)",
+		"snmp.RawInteger32As[fakekeysmib.FakeKeyIndex], 5)",
+		"var FakeMode = snmp.NewFusedTableColumn[FakeModeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (FakeModeValue, error)",
+		"snmp.RawInteger32As[FakeModeValue], 6)",
+	)
+}
+
+// TestEmit_TableNumericOrdinalDecoder asserts that the ordinal decoder switch
+// emits one snmp.DecodeColumn call per accessible column.
+func TestEmit_TableNumericOrdinalDecoder(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"case 0:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeName, &row.FakeName, row.observed[:])",
+		"case 1:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeMAC, &row.FakeMAC, row.observed[:])",
+		"case 2:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeOctets, &row.FakeOctets, row.observed[:])",
+		"case 3:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeLastChange, &row.FakeLastChange, row.observed[:])",
+		"case 4:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeFlags, &row.FakeFlags, row.observed[:])",
+		"case 5:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeRef, &row.FakeRef, row.observed[:])",
+		"case 6:\n\t\t\t\treturn snmp.DecodeColumn(rv, FakeMode, &row.FakeMode, row.observed[:])",
+	)
+}
+
+// TestEmit_TableOneCallColumnObserved asserts that Observed delegates directly
+// to snmp.ColumnObserved against the package-level column slice.
+func TestEmit_TableOneCallColumnObserved(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"func (r FakeTableRow) Observed(col snmp.AnyColumn) bool {\n\treturn snmp.ColumnObserved(r.observed[:], fakeTableColumns, col)\n}",
+	)
+}
+
+// TestEmit_TableEmbeddedRuntimeTypes asserts that the singleton embeds
+// snmp.Table and the named walker embeds snmp.TableWalker.
+func TestEmit_TableEmbeddedRuntimeTypes(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"type FakeTableWalker struct {\n\tsnmp.TableWalker[FakeTableRow]\n}",
+		"type fakeTableT struct {\n\tsnmp.Table[FakeTableRow, *FakeTableWalker]\n}",
+		"var FakeTable = fakeTableT{Table: snmp.NewTable(\"fakeTable\", fakeTableColumns,",
+		"func(tw snmp.TableWalker[FakeTableRow]) *FakeTableWalker {\n\treturn &FakeTableWalker{TableWalker: tw}\n})}",
+	)
+}
+
+// TestEmit_EnumStaticArraysAndHelper asserts that each enum generates static
+// value and name slices and a one-call String implementation.
+func TestEmit_EnumStaticArraysAndHelper(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	wantFragments(t, src,
+		"fakeStatusValueValues = []int32{1, 2, 3}",
+		"fakeStatusValueNames = []string{\"up\", \"down\", \"testing\"}",
+		"func (v FakeStatusValue) String() string {\n\treturn snmp.EnumString(int32(v), \"FakeStatusValue\", fakeStatusValueValues, fakeStatusValueNames)\n}",
+		"fakeModeValueValues = []int32{1}",
+		"fakeModeValueNames = []string{\"only\"}",
+		"func (v FakeModeValue) String() string {\n\treturn snmp.EnumString(int32(v), \"FakeModeValue\", fakeModeValueValues, fakeModeValueNames)\n}",
+	)
+}
+
+// TestEmit_RejectsRemovedInlineShapes verifies that generated output does not
+// declare per-table lifecycle methods, inline decode arms, or enum switches.
+func TestEmit_RejectsRemovedInlineShapes(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+	src := string(out)
+
+	rejectFragments(t, src,
+		"func (tw *FakeTableWalker) Iter()",
+		"func (tw *FakeTableWalker) Err()",
+		"func (tw *FakeTableWalker) Close()",
+		"func (fakeTableT) Walk(",
+		"func (fakeTableT) WalkWithOptions(",
+		"if col.Key() == FakeSoloLastChange.Key()",
+		"if tw.cols[cell.Column].Key() == FakeSoloLastChange.Key()",
+		"if v == FakeModeValueOnly",
+		"switch v {",
+		"is the column fakeName of table fakeTable.",
+		"is the singleton type of FakeTable.",
+		"Values outside the named constants are preserved.",
+		"FakeStatusValueUp represents the SMI value up.",
+		"for an unrecognized value n.",
+		"FakeTableWalker streams selected columns of fakeTable.",
+		"Descriptor returns the table as a [snmp.TableDescriptor]",
+		"observed carries one bit per column of this table",
+		"populated only for columns the caller passed to Walk()",
+	)
+}
+
+// TestEmit_CompactCommentContracts asserts that table and enum contracts use
+// dense, single-line comments without narration.
+func TestEmit_CompactCommentContracts(t *testing.T) {
+	mod, set := loadFakeMIB(t)
+	cm := Module{Name: "FAKE-MIB", Package: "fakemib"}
+	out, _, err := renderModule(mod, set, cm, fakeModules, goldenPkgPrefix)
+	if err != nil {
+		t.Fatalf("renderModule: %v", err)
+	}
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "fakemib_mib.go", out, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	typeDocs := make(map[string]string)
+	typeDocPresent := make(map[string]bool)
+	var observedField *ast.Field
+
+	valDocs := make(map[string]string)
+
+	methodDocs := make(map[string]string)
+	for _, decl := range file.Decls {
+		switch d := decl.(type) {
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					typeDocPresent[s.Name.Name] = s.Doc != nil || d.Doc != nil
+					doc := d.Doc
+					if s.Doc != nil {
+						doc = s.Doc
+					}
+					if doc != nil {
+						typeDocs[s.Name.Name] = strings.TrimSpace(doc.Text())
+					}
+					if st, ok := s.Type.(*ast.StructType); ok && s.Name.Name == "FakeTableRow" {
+						for _, field := range st.Fields.List {
+							for _, name := range field.Names {
+								if name.Name == "observed" {
+									observedField = field
+								}
+							}
+						}
+					}
+				case *ast.ValueSpec:
+					doc := d.Doc
+					if s.Doc != nil {
+						doc = s.Doc
+					}
+					if doc != nil {
+						for _, name := range s.Names {
+							valDocs[name.Name] = strings.TrimSpace(doc.Text())
+						}
+					}
+				}
+			}
+		case *ast.FuncDecl:
+			if d.Recv != nil && len(d.Recv.List) > 0 {
+				var recvName string
+				switch rt := d.Recv.List[0].Type.(type) {
+				case *ast.Ident:
+					recvName = rt.Name
+				case *ast.StarExpr:
+					if id, ok := rt.X.(*ast.Ident); ok {
+						recvName = id.Name
+					}
+				}
+				key := recvName + "." + d.Name.Name
+				if d.Doc != nil {
+					methodDocs[key] = strings.TrimSpace(d.Doc.Text())
+				}
+			}
+		}
+	}
+
+	wantValDocs := map[string]string{
+		"FakeName":          "FakeName is fakeName.\nName.",
+		"FakeStatusValueUp": "FakeStatusValueUp is up.",
+	}
+	for name, want := range wantValDocs {
+		if got := valDocs[name]; got != want {
+			t.Errorf("val %s doc = %q, want %q", name, got, want)
+		}
+	}
+
+	wantTypeDocs := map[string]string{
+		"FakeTableRow":           "FakeTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.",
+		"FakeUnresolvedTableRow": "FakeUnresolvedTableRow is one table row; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.",
+		"FakeTableWalker":        "FakeTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.",
+		"FakeStatusValue":        "FakeStatusValue is the SMI enum fakeStatus (inline).\nAn enum-typed scalar.\n\nUnknown values are valid; reads are safe concurrently.",
+	}
+	for name, want := range wantTypeDocs {
+		if got := typeDocs[name]; got != want {
+			t.Errorf("type %s doc = %q, want %q", name, got, want)
+		}
+	}
+
+	if typeDocPresent["fakeTableT"] {
+		t.Errorf("unexported singleton type fakeTableT has doc %q, want none", typeDocs["fakeTableT"])
+	}
+
+	if observedField == nil {
+		t.Fatal("FakeTableRow missing observed field")
+	}
+	if observedField.Doc != nil || observedField.Comment != nil {
+		t.Errorf("unexported observed field has doc/comment, want none")
+	}
+
+	wantMethodDocs := map[string]string{
+		"FakeTableRow.KeyValid":  "KeyValid reports whether Key decoded from the row index.",
+		"FakeTableRow.Observed":  "Observed reports whether col supplied this row field, including a zero value.",
+		"fakeTableT.Descriptor":  "Descriptor returns the table identity, change indicator, and row-key type.",
+		"FakeStatusValue.String": "String returns the SMI label, or FakeStatusValue(n) for an unknown value.",
+	}
+	for method, want := range wantMethodDocs {
+		if got := methodDocs[method]; got != want {
+			t.Errorf("method %s doc = %q, want %q", method, got, want)
 		}
 	}
 }

@@ -437,6 +437,11 @@ spec/          # protobuf, MIB, and YANG sources of truth
   [MIB generator](../src/protocol/snmp/cmd/mibgen/doc.go), and
   [YANG generator](../src/protocol/yang/cmd/yanggen/doc.go) describe their inputs
   and checks.
+- A code generator emits declarations, static data, and typed glue. Behavior
+  that differs only in type parameters belongs in the owning runtime package as
+  a generic helper that generated code calls, rather than in generated inline
+  closures or logic. Schema data stays in package-level composite literals,
+  never in per-field constructor calls.
 
 ## Testing
 

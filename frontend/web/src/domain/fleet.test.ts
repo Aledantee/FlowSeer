@@ -7,6 +7,9 @@ import {
   downlinks,
   linksOf,
   uplinkOf,
+  pollDevice,
+  pathSummary,
+  siteNeighbours,
 } from './fleet'
 describe('operator fleet scope', () => {
   it('includes descendants when selecting a parent tenant', () => {
@@ -67,5 +70,29 @@ describe('operator fleet scope', () => {
     expect(uplinkOf(devices, ap)?.name).toBe('berlin-sw-01')
     const reassigned = moveDevice(ap, 'hamburg')
     expect(uplinkOf(devices, reassigned)).toBeUndefined()
+  })
+  it('a poll refreshes the observation but not the last answer of an unreachable device', () => {
+    const offline = devices.find((device) => device.health === 'Offline')
+    const degraded = devices.find((device) => device.health === 'Degraded')
+    if (!offline || !degraded) throw new Error('Missing fixture')
+    const failed = pollDevice(offline)
+    expect(failed.lastSeenMinutes).toBe(offline.lastSeenMinutes)
+    expect(failed.health).toBe('Offline')
+    expect(failed.bindings.map((b) => b.observedMinutesAgo)).toEqual([0, 0])
+    expect(pollDevice(degraded).lastSeenMinutes).toBe(0)
+  })
+  it('keeps reachability per binding apart from lifecycle', () => {
+    const ap = devices.find((device) => device.name === 'berlin-ap-01')
+    expect(ap?.lifecycle).toBe('Active')
+    expect(ap?.bindings.map((b) => b.integrationId)).toEqual([
+      'lan-berlin',
+      'wlc-aurora-de',
+    ])
+  })
+  it('describes an offline device against its paths and its site', () => {
+    const offline = devices.find((device) => device.health === 'Offline')
+    if (!offline) throw new Error('Missing fixture')
+    expect(pathSummary(offline)).toBe('Both paths are unreachable.')
+    expect(siteNeighbours(devices, offline)).toEqual({ answering: 3, total: 3 })
   })
 })

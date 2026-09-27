@@ -15,22 +15,62 @@ The fonts are bundled locally. The app makes no requests to external services.
 ## Try the UI
 
 Choose **Aurora Hospitality** to see devices in its **Aurora Germany** sub-tenant.
-Select **Berlin Mitte**, then search for `gateway`. Open the device and assign it
-to **Hamburg Hafen**: it disappears from the Berlin scope because the assignment
-replaces its previous site. This demo permits moves within the owning tenant.
+Select **Berlin Mitte**, then search for `gateway`. Open the device, expand
+**Move to another site**, and move it to **Hamburg Hafen**: it disappears from
+the Berlin scope once the move is observed, because the assignment replaces its
+previous site. Until then a notice at the bottom of the page reads "Moving…"
+and the device stays where it was; the confirmed notice names both sites and
+offers **Undo**. Undoing reports **Move reverted** once the device is back
+and keeps keyboard focus on the notice. Keyboard focus follows
+the moved row wherever the current sort puts it. A tenant with a single site
+shows no move section at all. This demo permits moves within the owning tenant.
 Reloading restores fixtures; URL scope and filters survive reloads.
+A link that names only a site gains that site's tenant, so the breadcrumb never
+reads **All tenants** while one customer's site is in view, and the Devices
+count in the sidebar follows the scope.
 
 The app opens on the Dashboard, an overview of the current tenant and site
-scope. With **All sites** selected it lists each site with a health bar,
+scope. It leads with **Needs attention**: each failing device with the reason
+from its newest warning or critical event and how long ago that was, or when an
+offline device last answered. Traffic sits beside it. With **All sites** selected it lists each site with a health bar,
 clients, and traffic; choose a site row to focus the dashboard on that site,
 which replaces the list with the site's devices grouped by role. The traffic
 chart and event feed are synthetic fixtures in `src/domain/overview.ts`. The
-chart's right edge is the live aggregate from the metric cards. Hover the
+chart's right edge is the live traffic total from the heading line. Hover the
 chart, or focus it and use the arrow keys, to read hourly values.
 
-The Devices page supports search, status filters, name sorting, an attention view,
-and a keyboard-accessible details dialog. Sites opens the inventory for a location.
-Topology illustrates connections and opens the same device details. Traffic updates automatically; rows retain their order as values change.
+Device details lead with why a device needs attention: its open warning and
+critical events, when it last answered, and each path FlowSeer reaches it
+through (an integration, whether it is reachable, and when that was checked).
+Lifecycle sits on its own line because an operator owns it, while
+reachability heals on its own. Open **hamburg-ap-01** or **cologne-ap-02** and
+choose **Poll now**: the fixture answers after a moment, and an unreachable
+device stays offline with only its check time refreshed. An offline device
+also says whether the rest of its site is answering, which separates a device
+fault from a site that has gone dark, links to that site's dashboard, and
+offers **Copy escalation summary**: plain text with the device, its paths, its
+open issues, and the site check, ready to paste into a ticket.
+
+A tenant or site in the URL that does not resolve shows **Scope not found**
+with a way back, never an empty scope reported as healthy. Offline devices show
+"—" for traffic and clients rather than a measured zero, and **Clear search and
+status** keeps the tenant and site.
+
+The Devices page lists offline and degraded devices first, and sorts by status,
+name, site, or **Last answered**, which shows how long ago each device last
+answered a poll so that a device offline for minutes and one offline for days
+look different. It supports search, a status filter (including **Needs
+attention**), and a keyboard-accessible details dialog. The Dashboard carries its
+totals (devices, clients, traffic, and the time of the last refresh) in the
+heading line rather than in metric cards; other pages state the scope and
+attention count there. Sites lists every site in scope worst first, with a health bar and a
+line such as "1 offline", the newest open issue and its age (a warning on a device
+that has since recovered is history, not an open issue), and the device count; a site's name opens its dashboard and **Devices** opens its
+inventory.
+Topology draws each site's gateway and core switch with its access points side
+by side beneath them. Links are drawn dashed and a legend marks them as assumed until topology is
+discovered. Only nodes that are not healthy carry a status badge, so a degraded
+or offline device stands out; every node opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
 desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.
@@ -90,7 +130,7 @@ all light/dark tones and download the CSS or JSON.
 
 The [m3connect homepage](https://www.m3connect.de/) supplies coral `#FF451D` and
 cyan `#5ECAD8`. Large surfaces use neutral charcoal in dark mode and a neutral gray canvas and softly lifted cards in light mode to reduce the amount of saturated color in the workspace. Coral marks
-the primary assignment action; cyan identifies navigation. Health uses separate labeled green, amber, and red
+the primary action on a failing device; cyan identifies navigation. Health uses separate labeled green, amber, and red
 states so brand colors do not carry status meanings.
 
 The restrained borders, contextual details panel, and typography take cues from
@@ -202,6 +242,9 @@ Favor concise status summaries and touch-friendly controls. Dense table tooling,
 full topology exploration, bulk configuration, and configurable OLAP dashboards
 can remain desktop workflows. The skeleton shows device count and health first on phones, hides topology
 navigation and secondary traffic summaries, and offers one-tap device details.
+The theme, help, and account controls join the brand row, the bug report
+button is left to desktop, and the Dashboard keeps its site list with a health
+bar per site.
 Further quick actions need their own service contracts.
 
 ### Motion

@@ -111,19 +111,62 @@ function tenantName(siteId: string) {
     )?.name || 'Unknown tenant'
   )
 }
-function reassign(deviceId: string, destination: string) {
+export interface Move {
+  deviceId: string
+  name: string
+  from: string
+  to: string
+  observed: boolean
+  reverted: boolean
+}
+const move = ref<Move>()
+let moveTimer: ReturnType<typeof setTimeout> | undefined
+
+function refocus(deviceId: string) {
+  if (document.activeElement !== document.body) return
+  const row = [
+    ...document.querySelectorAll<HTMLElement>(`[data-device-id="${deviceId}"]`),
+  ].find((item) => item.offsetParent !== null)
+  row?.focus()
+}
+
+function reassign(deviceId: string, destination: string, reverted = false) {
   const device = fleet.value.find((item) => item.id === deviceId)
   if (!device) return
   try {
     const updated = moveDevice(device, destination)
-    fleet.value = fleet.value.map((item) =>
-      item.id === updated.id ? updated : item,
-    )
-    message.value = `${updated.name} assigned to ${siteName(updated.siteId)}.`
+    clearTimeout(moveTimer)
+    message.value = ''
+    move.value = {
+      deviceId: updated.id,
+      name: updated.name,
+      from: device.siteId,
+      to: destination,
+      observed: false,
+      reverted,
+    }
+    moveTimer = setTimeout(() => {
+      fleet.value = fleet.value.map((item) =>
+        item.id === updated.id ? updated : item,
+      )
+      if (move.value?.deviceId === updated.id) move.value.observed = true
+      void nextTick(() => refocus(updated.id))
+    }, 1200)
   } catch (error: unknown) {
     message.value =
       error instanceof Error ? error.message : 'Could not assign site.'
   }
+}
+
+function undoMove() {
+  const last = move.value
+  if (!last) return
+  reassign(last.deviceId, last.from, true)
+}
+
+function dismissNotice() {
+  message.value = ''
+  move.value = undefined
 }
 // Per-window view state survives a reload but is not shared with other
 // windows, unlike the dock.
@@ -261,6 +304,9 @@ provide(pageContext, mainPage)
 provide(workspaceContext, {
   fleet,
   message,
+  move,
+  undoMove,
+  dismissNotice,
   reassign,
   siteName,
   tenantName,
@@ -369,6 +415,9 @@ async function setQuery(key: string, value: string) {
           ...mainPage.location.value.query,
           [key]: value,
           ...(key === 'tenant' ? { site: undefined } : {}),
+          ...(key === 'site' && !query('tenant')
+            ? { tenant: sites.find((item) => item.id === value)?.tenantId }
+            : {}),
         },
       },
       { replace: true },
@@ -377,6 +426,21 @@ async function setQuery(key: string, value: string) {
     message.value = 'Could not update this view. Try again.'
   }
 }
+// A site without its tenant in the URL would leave the breadcrumb reading
+// "All tenants" while one customer's site is in view, so the tenant is filled
+// in from the site.
+watch(
+  () => [query('site'), query('tenant')],
+  ([site, tenant]) => {
+    const owner = sites.find((item) => item.id === site)?.tenantId
+    if (owner && !tenant) {
+      router
+        .replace({ query: { ...route.query, tenant: owner } })
+        .catch(() => undefined)
+    }
+  },
+  { immediate: true },
+)
 // The breadcrumb offers the devices in the current scope, plus the open one
 // when the scope would otherwise hide it.
 const deviceOptions = computed(() =>
@@ -837,7 +901,11 @@ onUnmounted(() => clearInterval(timer))
               'sites',
             ]"
             :key="item"
-            :aria-label="item"
+            :aria-label="
+              item.charAt(0).toUpperCase() +
+              item.slice(1) +
+              (item === 'devices' ? `, ${scope.length} in scope` : '')
+            "
             :to="{ path: `/${item}`, query: mainScope }"
             class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring max-[800px]:mb-0 max-[800px]:p-2.5 max-[560px]:gap-1.5 max-[560px]:text-xs max-[560px]:p-[9px]"
             :class="{
@@ -859,7 +927,7 @@ onUnmounted(() => clearInterval(timer))
               v-if="item === 'devices'"
               class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
             >
-              {{ fleet.length }}
+              {{ scope.length }}
             </span>
           </AppLink>
         </nav>

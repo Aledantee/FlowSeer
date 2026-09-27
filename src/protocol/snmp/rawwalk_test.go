@@ -377,3 +377,45 @@ func TestOID_WireKey(t *testing.T) {
 		t.Fatal("empty OID wire forms not empty")
 	}
 }
+
+type (
+	customInt32  int32
+	customUint32 uint32
+	customUint64 uint64
+)
+
+func TestRawAdaptersAs(t *testing.T) {
+	rvInt := RawVarBind{Tag: tagInteger, Value: []byte{42}}
+	if v, ok := RawInteger32As[customInt32](rvInt); !ok || v != 42 {
+		t.Fatalf("RawInteger32As = (%v, %v), want (42, true)", v, ok)
+	}
+	rvBad := RawVarBind{Tag: tagOctetString, Value: []byte("foo")}
+	if _, ok := RawInteger32As[customInt32](rvBad); ok {
+		t.Fatal("RawInteger32As accepted OctetString")
+	}
+
+	rvCounter32 := RawVarBind{Tag: tagCounter32, Value: []byte{10}}
+	if v, ok := RawCounter32As[customUint32](rvCounter32); !ok || v != 10 {
+		t.Fatalf("RawCounter32As = (%v, %v), want (10, true)", v, ok)
+	}
+
+	rvGauge32 := RawVarBind{Tag: tagGauge32, Value: []byte{20}}
+	if v, ok := RawGauge32As[customUint32](rvGauge32); !ok || v != 20 {
+		t.Fatalf("RawGauge32As = (%v, %v), want (20, true)", v, ok)
+	}
+
+	rvUnsigned32 := RawVarBind{Tag: tagUinteger32, Value: []byte{30}}
+	if v, ok := RawUnsigned32As[customUint32](rvUnsigned32); !ok || v != 30 {
+		t.Fatalf("RawUnsigned32As = (%v, %v), want (30, true)", v, ok)
+	}
+
+	rvTimeTicks := RawVarBind{Tag: tagTimeTicks, Value: []byte{40}}
+	if v, ok := RawTimeTicksAs[customUint32](rvTimeTicks); !ok || v != 40 {
+		t.Fatalf("RawTimeTicksAs = (%v, %v), want (40, true)", v, ok)
+	}
+
+	rvCounter64 := RawVarBind{Tag: tagCounter64, Value: []byte{50}}
+	if v, ok := RawCounter64As[customUint64](rvCounter64); !ok || v != 50 {
+		t.Fatalf("RawCounter64As = (%v, %v), want (50, true)", v, ok)
+	}
+}

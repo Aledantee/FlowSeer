@@ -11,7 +11,6 @@ package snmpv2mib
 
 import (
 	"context"
-	"fmt"
 	"iter"
 
 	errs "go.aledante.io/FlowSeer/src/common/errs"
@@ -27,27 +26,24 @@ import (
 // remains constant across re-initializations of the network management
 // system.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type SNMPEnableAuthenTrapsValue int32
 
 const (
-	// SNMPEnableAuthenTrapsValueEnabled represents the SMI value enabled.
+	// SNMPEnableAuthenTrapsValueEnabled is enabled.
 	SNMPEnableAuthenTrapsValueEnabled SNMPEnableAuthenTrapsValue = 1
-	// SNMPEnableAuthenTrapsValueDisabled represents the SMI value disabled.
+	// SNMPEnableAuthenTrapsValueDisabled is disabled.
 	SNMPEnableAuthenTrapsValueDisabled SNMPEnableAuthenTrapsValue = 2
 )
 
-// String returns the SMI label, or SNMPEnableAuthenTrapsValue(n) for an unrecognized value n.
-func (v SNMPEnableAuthenTrapsValue) String() string {
-	switch v {
-	case SNMPEnableAuthenTrapsValueEnabled:
-		return "enabled"
-	case SNMPEnableAuthenTrapsValueDisabled:
-		return "disabled"
-	}
+var (
+	snmpEnableAuthenTrapsValueValues = []int32{1, 2}
+	snmpEnableAuthenTrapsValueNames  = []string{"enabled", "disabled"}
+)
 
-	return fmt.Sprintf("SNMPEnableAuthenTrapsValue(%d)", v)
+// String returns the SMI label, or SNMPEnableAuthenTrapsValue(n) for an unknown value.
+func (v SNMPEnableAuthenTrapsValue) String() string {
+	return snmp.EnumString(int32(v), "SNMPEnableAuthenTrapsValue", snmpEnableAuthenTrapsValueValues, snmpEnableAuthenTrapsValueNames)
 }
 
 // SysDescrGet reads the SMIv2 scalar sysDescr.
@@ -900,21 +896,24 @@ func SNMPSetSerialNoGet(ctx context.Context, sess snmp.Session) (uint32, error) 
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// SysORID is the column sysORID of table sysORTable.
+// SysORID is sysORID.
 // An authoritative identification of a capabilities statement with respect
 // to various MIB modules supported by the local SNMP application acting as
 // a command responder.
-var SysORID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
+var SysORID = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 2), snmp.KindObjectID, snmp.DecodeOID, 0)
 
-// SysORDescr is the column sysORDescr of table sysORTable.
+// SysORDescr is sysORDescr.
 // A textual description of the capabilities identified by the
 // corresponding instance of sysORID.
-var SysORDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var SysORDescr = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// SysORUpTime is the column sysORUpTime of table sysORTable.
+// SysORUpTime is sysORUpTime.
 // The value of sysUpTime at the time this conceptual row was last
 // instantiated.
-var SysORUpTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 4), snmp.KindTimeTicks, snmp.DecodeUint32)
+var (
+	SysORUpTime       = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9, 1, 4), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 2)
+	sysORTableColumns = []snmp.AnyColumn{SysORID, SysORDescr, SysORUpTime}
+)
 
 // SysORTableKey is the decoded INDEX of one sysORTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -934,192 +933,57 @@ func decodeSysORTableKey(idx snmp.OID) (SysORTableKey, bool) {
 	return SysORTableKey{SysORIndex: parts[0].Integer}, true
 }
 
-// SysORTableRow is one row of sysORTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [SysORTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [SysORTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// SysORTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type SysORTableRow struct {
 	Key         SysORTableKey
 	keyValid    bool
 	SysORID     snmp.OID
 	SysORDescr  string
 	SysORUpTime uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r SysORTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r SysORTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case SysORID.Key():
-		return r.observed[0]&(1<<0) != 0
-	case SysORDescr.Key():
-		return r.observed[0]&(1<<1) != 0
-	case SysORUpTime.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], sysORTableColumns, col)
 }
 
-// SysORTableWalker streams selected columns of sysORTable.
-// The zero value is not usable; construct via SysORTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// SysORTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type SysORTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[SysORTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *SysORTableWalker) Iter() iter.Seq2[snmp.OID, SysORTableRow] {
-	return func(yield func(snmp.OID, SysORTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row SysORTableRow
-			row.Key, row.keyValid = decodeSysORTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case SysORID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := SysORID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.SysORID = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case SysORDescr.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := SysORDescr.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.SysORDescr = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case SysORUpTime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.SysORUpTime = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := SysORUpTime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.SysORUpTime = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type sysORTableT struct {
+	snmp.Table[SysORTableRow, *SysORTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *SysORTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// sysORTableT is the singleton type of SysORTable.
-type sysORTableT struct{}
 
 // SysORTable is the descriptor for the sysORTable table.
-var SysORTable sysORTableT
+var SysORTable = sysORTableT{Table: snmp.NewTable("sysORTable", sysORTableColumns, func(idx snmp.OID, row *SysORTableRow) {
+	row.Key, row.keyValid = decodeSysORTableKey(idx)
+}, func(row *SysORTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, SysORID, &row.SysORID, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, SysORDescr, &row.SysORDescr, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, SysORUpTime, &row.SysORUpTime, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[SysORTableRow]) *SysORTableWalker {
+	return &SysORTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *SysORTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t sysORTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *SysORTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (sysORTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		Indicator: SysORTableIndicator,
 		KeyType:   "SysORTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 9),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (sysORTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *SysORTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case SysORID.Key(), SysORDescr.Key(), SysORUpTime.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "sysORTable.Walk: column %s", c.OID()))
-			return &SysORTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &SysORTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

@@ -35,7 +35,7 @@ func moduleByName(t *testing.T, vs *VendorSet, name string) *LoadedModule {
 func TestLoadVendorFixtureTree(t *testing.T) {
 	vs := fixtureVendor(t)
 
-	wantModules := []string{"fixture-aug", "fixture-dev", "fixture-main", "fixture-types"}
+	wantModules := []string{"fixture-aug", "fixture-dev", "fixture-grp", "fixture-main", "fixture-types"}
 	var got []string
 	for _, m := range vs.Modules {
 		got = append(got, m.Name)

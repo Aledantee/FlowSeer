@@ -11,12 +11,10 @@ package entitystatemib
 
 import (
 	"context"
-	"fmt"
 	"iter"
 	"time"
 
 	entitymib "go.aledante.io/FlowSeer/generated/go/mib/entitymib"
-	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -28,35 +26,28 @@ import (
 // not administratively prohibited from use. A value of 'unknown' means
 // that this resource is unable to report administrative state.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntityAdminState int32
 
 const (
-	// EntityAdminStateUnknown represents the SMI value unknown.
+	// EntityAdminStateUnknown is unknown.
 	EntityAdminStateUnknown EntityAdminState = 1
-	// EntityAdminStateLocked represents the SMI value locked.
+	// EntityAdminStateLocked is locked.
 	EntityAdminStateLocked EntityAdminState = 2
-	// EntityAdminStateShuttingDown represents the SMI value shuttingDown.
+	// EntityAdminStateShuttingDown is shuttingDown.
 	EntityAdminStateShuttingDown EntityAdminState = 3
-	// EntityAdminStateUnlocked represents the SMI value unlocked.
+	// EntityAdminStateUnlocked is unlocked.
 	EntityAdminStateUnlocked EntityAdminState = 4
 )
 
-// String returns the SMI label, or EntityAdminState(n) for an unrecognized value n.
-func (v EntityAdminState) String() string {
-	switch v {
-	case EntityAdminStateUnknown:
-		return "unknown"
-	case EntityAdminStateLocked:
-		return "locked"
-	case EntityAdminStateShuttingDown:
-		return "shuttingDown"
-	case EntityAdminStateUnlocked:
-		return "unlocked"
-	}
+var (
+	entityAdminStateValues = []int32{1, 2, 3, 4}
+	entityAdminStateNames  = []string{"unknown", "locked", "shuttingDown", "unlocked"}
+)
 
-	return fmt.Sprintf("EntityAdminState(%d)", v)
+// String returns the SMI label, or EntityAdminState(n) for an unknown value.
+func (v EntityAdminState) String() string {
+	return snmp.EnumString(int32(v), "EntityAdminState", entityAdminStateValues, entityAdminStateNames)
 }
 
 // EntityOperState is the SMI enum EntityOperState.
@@ -67,35 +58,28 @@ func (v EntityAdminState) String() string {
 // therefore report whether it is operational or not. A value of 'unknown'
 // means that this resource is unable to report operational state.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntityOperState int32
 
 const (
-	// EntityOperStateUnknown represents the SMI value unknown.
+	// EntityOperStateUnknown is unknown.
 	EntityOperStateUnknown EntityOperState = 1
-	// EntityOperStateDisabled represents the SMI value disabled.
+	// EntityOperStateDisabled is disabled.
 	EntityOperStateDisabled EntityOperState = 2
-	// EntityOperStateEnabled represents the SMI value enabled.
+	// EntityOperStateEnabled is enabled.
 	EntityOperStateEnabled EntityOperState = 3
-	// EntityOperStateTesting represents the SMI value testing.
+	// EntityOperStateTesting is testing.
 	EntityOperStateTesting EntityOperState = 4
 )
 
-// String returns the SMI label, or EntityOperState(n) for an unrecognized value n.
-func (v EntityOperState) String() string {
-	switch v {
-	case EntityOperStateUnknown:
-		return "unknown"
-	case EntityOperStateDisabled:
-		return "disabled"
-	case EntityOperStateEnabled:
-		return "enabled"
-	case EntityOperStateTesting:
-		return "testing"
-	}
+var (
+	entityOperStateValues = []int32{1, 2, 3, 4}
+	entityOperStateNames  = []string{"unknown", "disabled", "enabled", "testing"}
+)
 
-	return fmt.Sprintf("EntityOperState(%d)", v)
+// String returns the SMI label, or EntityOperState(n) for an unknown value.
+func (v EntityOperState) String() string {
+	return snmp.EnumString(int32(v), "EntityOperState", entityOperStateValues, entityOperStateNames)
 }
 
 // EntityStandbyStatus is the SMI enum EntityStandbyStatus.
@@ -110,35 +94,28 @@ func (v EntityOperState) String() string {
 // 'providingService' means the resource is providing service. A value of
 // 'unknown' means that this resource is unable to report standby state.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntityStandbyStatus int32
 
 const (
-	// EntityStandbyStatusUnknown represents the SMI value unknown.
+	// EntityStandbyStatusUnknown is unknown.
 	EntityStandbyStatusUnknown EntityStandbyStatus = 1
-	// EntityStandbyStatusHotStandby represents the SMI value hotStandby.
+	// EntityStandbyStatusHotStandby is hotStandby.
 	EntityStandbyStatusHotStandby EntityStandbyStatus = 2
-	// EntityStandbyStatusColdStandby represents the SMI value coldStandby.
+	// EntityStandbyStatusColdStandby is coldStandby.
 	EntityStandbyStatusColdStandby EntityStandbyStatus = 3
-	// EntityStandbyStatusProvidingService represents the SMI value providingService.
+	// EntityStandbyStatusProvidingService is providingService.
 	EntityStandbyStatusProvidingService EntityStandbyStatus = 4
 )
 
-// String returns the SMI label, or EntityStandbyStatus(n) for an unrecognized value n.
-func (v EntityStandbyStatus) String() string {
-	switch v {
-	case EntityStandbyStatusUnknown:
-		return "unknown"
-	case EntityStandbyStatusHotStandby:
-		return "hotStandby"
-	case EntityStandbyStatusColdStandby:
-		return "coldStandby"
-	case EntityStandbyStatusProvidingService:
-		return "providingService"
-	}
+var (
+	entityStandbyStatusValues = []int32{1, 2, 3, 4}
+	entityStandbyStatusNames  = []string{"unknown", "hotStandby", "coldStandby", "providingService"}
+)
 
-	return fmt.Sprintf("EntityStandbyStatus(%d)", v)
+// String returns the SMI label, or EntityStandbyStatus(n) for an unknown value.
+func (v EntityStandbyStatus) String() string {
+	return snmp.EnumString(int32(v), "EntityStandbyStatus", entityStandbyStatusValues, entityStandbyStatusNames)
 }
 
 // EntityUsageState is the SMI enum EntityUsageState.
@@ -150,35 +127,28 @@ func (v EntityStandbyStatus) String() string {
 // additional users. A value of 'unknown' means that this resource is
 // unable to report usage state.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntityUsageState int32
 
 const (
-	// EntityUsageStateUnknown represents the SMI value unknown.
+	// EntityUsageStateUnknown is unknown.
 	EntityUsageStateUnknown EntityUsageState = 1
-	// EntityUsageStateIdle represents the SMI value idle.
+	// EntityUsageStateIdle is idle.
 	EntityUsageStateIdle EntityUsageState = 2
-	// EntityUsageStateActive represents the SMI value active.
+	// EntityUsageStateActive is active.
 	EntityUsageStateActive EntityUsageState = 3
-	// EntityUsageStateBusy represents the SMI value busy.
+	// EntityUsageStateBusy is busy.
 	EntityUsageStateBusy EntityUsageState = 4
 )
 
-// String returns the SMI label, or EntityUsageState(n) for an unrecognized value n.
-func (v EntityUsageState) String() string {
-	switch v {
-	case EntityUsageStateUnknown:
-		return "unknown"
-	case EntityUsageStateIdle:
-		return "idle"
-	case EntityUsageStateActive:
-		return "active"
-	case EntityUsageStateBusy:
-		return "busy"
-	}
+var (
+	entityUsageStateValues = []int32{1, 2, 3, 4}
+	entityUsageStateNames  = []string{"unknown", "idle", "active", "busy"}
+)
 
-	return fmt.Sprintf("EntityUsageState(%d)", v)
+// String returns the SMI label, or EntityUsageState(n) for an unknown value.
+func (v EntityUsageState) String() string {
+	return snmp.EnumString(int32(v), "EntityUsageState", entityUsageStateValues, entityUsageStateNames)
 }
 
 // EntityAlarmStatus names the bit positions of the SMI BITS type EntityAlarmStatus.
@@ -215,7 +185,7 @@ const (
 	EntityAlarmStatusIndeterminate snmp.BitPos = 6
 )
 
-// EntStateLastChanged is the column entStateLastChanged of table entStateTable.
+// EntStateLastChanged is entStateLastChanged.
 // The value of this object is the date and time when the value of any of
 // entStateAdmin, entStateOper, entStateUsage, entStateAlarm, or
 // entStateStandby changed for this entity. If there has been no change
@@ -223,9 +193,9 @@ const (
 // contains the date and time of local system initialization. If there has
 // been no change since the entity was added to the local system, this
 // object contains the date and time of the insertion.
-var EntStateLastChanged = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 1), snmp.KindOctetString, snmp.DecodeDateAndTime)
+var EntStateLastChanged = snmp.NewTableColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 1), snmp.KindOctetString, snmp.DecodeDateAndTime, 0)
 
-// EntStateAdmin is the column entStateAdmin of table entStateTable.
+// EntStateAdmin is entStateAdmin.
 // The administrative state for this entity. This object refers to an
 // entities administrative permission to service both other entities within
 // its containment hierarchy as well other users of its services defined by
@@ -239,15 +209,15 @@ var EntStateLastChanged = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 
 // object does not exhibit the 'shuttingDown' state. A value of
 // 'inconsistentValue' will be returned if attempts are made to set this
 // object to values not supported by its administrative model.
-var EntStateAdmin = snmp.NewColumn[EntityAdminState](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (EntityAdminState, error) {
+var EntStateAdmin = snmp.NewFusedTableColumn[EntityAdminState](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (EntityAdminState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntityAdminState(0), err
 	}
 	return EntityAdminState(v), nil
-})
+}, snmp.RawInteger32As[EntityAdminState], 1)
 
-// EntStateOper is the column entStateOper of table entStateTable.
+// EntStateOper is entStateOper.
 // The operational state for this entity. Note that unlike the state model
 // used within the Interfaces MIB [RFC 2863], this object does not follow
 // the administrative state. An administrative state of down does not
@@ -263,15 +233,15 @@ var EntStateAdmin = snmp.NewColumn[EntityAdminState](snmp.MustOID(1, 3, 6, 1, 2,
 // MIB. Note that some implementations may not be able to accurately report
 // entStateOper while the entStateAdmin object has a value other than
 // 'unlocked'. In these cases, this object MUST have a value of 'unknown'.
-var EntStateOper = snmp.NewColumn[EntityOperState](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (EntityOperState, error) {
+var EntStateOper = snmp.NewFusedTableColumn[EntityOperState](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (EntityOperState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntityOperState(0), err
 	}
 	return EntityOperState(v), nil
-})
+}, snmp.RawInteger32As[EntityOperState], 2)
 
-// EntStateUsage is the column entStateUsage of table entStateTable.
+// EntStateUsage is entStateUsage.
 // The usage state for this entity. This object refers to an entity's
 // ability to service more physical entities in a containment hierarchy. A
 // value of 'idle' means this entity is able to contain other entities but
@@ -285,15 +255,15 @@ var EntStateOper = snmp.NewColumn[EntityOperState](snmp.MustOID(1, 3, 6, 1, 2, 1
 // entities will only ever be able to support one entity within its
 // containment hierarchy and will therefore only exhibit values of 'idle'
 // and 'busy'.
-var EntStateUsage = snmp.NewColumn[EntityUsageState](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (EntityUsageState, error) {
+var EntStateUsage = snmp.NewFusedTableColumn[EntityUsageState](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (EntityUsageState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntityUsageState(0), err
 	}
 	return EntityUsageState(v), nil
-})
+}, snmp.RawInteger32As[EntityUsageState], 3)
 
-// EntStateAlarm is the column entStateAlarm of table entStateTable.
+// EntStateAlarm is entStateAlarm.
 // The alarm status for this entity. It does not include the alarms raised
 // on child components within its containment hierarchy. A value of
 // 'unknown' means that this entity is unable to report alarm state. Note
@@ -302,20 +272,21 @@ var EntStateUsage = snmp.NewColumn[EntityUsageState](snmp.MustOID(1, 3, 6, 1, 2,
 // some of the alarms is not known. If no bits are set, then this entity
 // supports reporting of alarms, but there are currently no active alarms
 // against this entity.
-var EntStateAlarm = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeBitSet)
+var EntStateAlarm = snmp.NewTableColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeBitSet, 4)
 
-// EntStateStandby is the column entStateStandby of table entStateTable.
+// EntStateStandby is entStateStandby.
 // The standby status for this entity. Some entities will exhibit only a
 // subset of the remaining standby state values. If this entity cannot
 // operate in a standby role, the value of this object will always be
 // 'providingService'.
-var EntStateStandby = snmp.NewColumn[EntityStandbyStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (EntityStandbyStatus, error) {
+var EntStateStandby = snmp.NewFusedTableColumn[EntityStandbyStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (EntityStandbyStatus, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntityStandbyStatus(0), err
 	}
 	return EntityStandbyStatus(v), nil
-})
+}, snmp.RawInteger32As[EntityStandbyStatus], 5)
+var entStateTableColumns = []snmp.AnyColumn{EntStateLastChanged, EntStateAdmin, EntStateOper, EntStateUsage, EntStateAlarm, EntStateStandby}
 
 // EntStateTableKey is the decoded INDEX of one entStateTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -335,14 +306,7 @@ func decodeEntStateTableKey(idx snmp.OID) (EntStateTableKey, bool) {
 	return EntStateTableKey{EntPhysicalIndex: entitymib.PhysicalIndex(parts[0].Integer)}, true
 }
 
-// EntStateTableRow is one row of entStateTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [EntStateTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [EntStateTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// EntStateTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type EntStateTableRow struct {
 	Key                 EntStateTableKey
 	keyValid            bool
@@ -352,238 +316,56 @@ type EntStateTableRow struct {
 	EntStateUsage       EntityUsageState
 	EntStateAlarm       snmp.BitSet
 	EntStateStandby     EntityStandbyStatus
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed            [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r EntStateTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r EntStateTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case EntStateLastChanged.Key():
-		return r.observed[0]&(1<<0) != 0
-	case EntStateAdmin.Key():
-		return r.observed[0]&(1<<1) != 0
-	case EntStateOper.Key():
-		return r.observed[0]&(1<<2) != 0
-	case EntStateUsage.Key():
-		return r.observed[0]&(1<<3) != 0
-	case EntStateAlarm.Key():
-		return r.observed[0]&(1<<4) != 0
-	case EntStateStandby.Key():
-		return r.observed[0]&(1<<5) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], entStateTableColumns, col)
 }
 
-// EntStateTableWalker streams selected columns of entStateTable.
-// The zero value is not usable; construct via EntStateTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// EntStateTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type EntStateTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[EntStateTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *EntStateTableWalker) Iter() iter.Seq2[snmp.OID, EntStateTableRow] {
-	return func(yield func(snmp.OID, EntStateTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row EntStateTableRow
-			row.Key, row.keyValid = decodeEntStateTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case EntStateLastChanged.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntStateLastChanged.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntStateLastChanged = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case EntStateAdmin.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntStateAdmin = EntityAdminState(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntStateAdmin.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntStateAdmin = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case EntStateOper.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntStateOper = EntityOperState(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntStateOper.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntStateOper = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case EntStateUsage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntStateUsage = EntityUsageState(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntStateUsage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntStateUsage = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case EntStateAlarm.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntStateAlarm.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntStateAlarm = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case EntStateStandby.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntStateStandby = EntityStandbyStatus(v)
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntStateStandby.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntStateStandby = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type entStateTableT struct {
+	snmp.Table[EntStateTableRow, *EntStateTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *EntStateTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// entStateTableT is the singleton type of EntStateTable.
-type entStateTableT struct{}
 
 // EntStateTable is the descriptor for the entStateTable table.
-var EntStateTable entStateTableT
+var EntStateTable = entStateTableT{Table: snmp.NewTable("entStateTable", entStateTableColumns, func(idx snmp.OID, row *EntStateTableRow) {
+	row.Key, row.keyValid = decodeEntStateTableKey(idx)
+}, func(row *EntStateTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, EntStateLastChanged, &row.EntStateLastChanged, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, EntStateAdmin, &row.EntStateAdmin, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, EntStateOper, &row.EntStateOper, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, EntStateUsage, &row.EntStateUsage, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, EntStateAlarm, &row.EntStateAlarm, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, EntStateStandby, &row.EntStateStandby, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[EntStateTableRow]) *EntStateTableWalker {
+	return &EntStateTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *EntStateTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t entStateTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntStateTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (entStateTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		Indicator: EntStateTableIndicator,
 		KeyType:   "EntStateTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 131, 1, 1),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (entStateTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntStateTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case EntStateLastChanged.Key(), EntStateAdmin.Key(), EntStateOper.Key(), EntStateUsage.Key(), EntStateAlarm.Key(), EntStateStandby.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "entStateTable.Walk: column %s", c.OID()))
-			return &EntStateTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &EntStateTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

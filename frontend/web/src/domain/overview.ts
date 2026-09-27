@@ -64,6 +64,23 @@ export const events: FleetEvent[] = [
   },
 ]
 
+// An issue stays open only while its device is not healthy; a warning on a
+// device that has since recovered is history, shown in the event feed.
+export function openIssues(scope: Device[]): FleetEvent[] {
+  const failing = new Set(
+    scope.filter((device) => device.health !== 'Healthy').map((d) => d.id),
+  )
+  return scopedEvents(scope).filter(
+    (event) => event.severity !== 'info' && failing.has(event.deviceId),
+  )
+}
+export function healthLine(health: Record<Health, number>): string {
+  const parts = [
+    health.Offline ? `${health.Offline} offline` : '',
+    health.Degraded ? `${health.Degraded} degraded` : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'All healthy'
+}
 export function scopedEvents(scope: Device[]): FleetEvent[] {
   const ids = new Set(scope.map((device) => device.id))
   return events
@@ -120,7 +137,27 @@ export function trafficHistory(
 }
 
 export function formatAgo(minutes: number): string {
+  if (minutes < 1) return 'just now'
   if (minutes < 60) return `${minutes} min ago`
   const hours = Math.floor(minutes / 60)
   return `${hours} h ago`
+}
+
+// Worst site first: most offline, then most degraded devices, then by name.
+export function rankSites(rollups: SiteRollup[]): SiteRollup[] {
+  return [...rollups].sort(
+    (a, b) =>
+      b.health.Offline - a.health.Offline ||
+      b.health.Degraded - a.health.Degraded ||
+      a.site.name.localeCompare(b.site.name),
+  )
+}
+
+// The newest warning or critical event at a site, the one-line answer to
+// "what is wrong there".
+export function latestIssue(
+  scope: Device[],
+  site: Site,
+): FleetEvent | undefined {
+  return openIssues(scope.filter((device) => device.siteId === site.id))[0]
 }

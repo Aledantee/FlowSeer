@@ -238,3 +238,46 @@ func TestHomeTable_IsTheHomeDescriptor(t *testing.T) {
 		t.Errorf("home root = %s; want fakeKeyTable", home.Root)
 	}
 }
+
+// TestWalk_NamedWalkerAssignment pins the exact named-walker return type and
+// walk execution over the embedded TableWalker.
+func TestWalk_NamedWalkerAssignment(t *testing.T) {
+	col := fakemib.FakeName.OID()
+	sess := scriptedSession{instances: []snmp.VarBind{
+		snmp.OctetStringVar{Header: snmp.Header{OID: col.Append(1), Kind: snmp.KindOctetString}, Value: []byte("one")},
+	}}
+
+	requireNamedWalker := func(w *fakemib.FakeTableWalker) *fakemib.FakeTableWalker { return w }
+	w := requireNamedWalker(fakemib.FakeTable.Walk(context.Background(), sess, fakemib.FakeName))
+	var count int
+	for _, row := range w.Iter() {
+		if row.FakeName != "one" {
+			t.Errorf("row.FakeName = %q, want one", row.FakeName)
+		}
+		count++
+	}
+	if err := w.Err(); err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("got %d rows, want 1", count)
+	}
+	w.Close()
+}
+
+// TestEnum_KnownAndUnknownStrings asserts formatting of both declared SMI enum
+// labels and unknown values under snmp.EnumString.
+func TestEnum_KnownAndUnknownStrings(t *testing.T) {
+	if got := fakemib.FakeStatusValueUp.String(); got != "up" {
+		t.Errorf("FakeStatusValueUp.String() = %q, want %q", got, "up")
+	}
+	if got := fakemib.FakeStatusValueDown.String(); got != "down" {
+		t.Errorf("FakeStatusValueDown.String() = %q, want %q", got, "down")
+	}
+	if got := fakemib.FakeStatusValue(-7).String(); got != "FakeStatusValue(-7)" {
+		t.Errorf("FakeStatusValue(-7).String() = %q, want %q", got, "FakeStatusValue(-7)")
+	}
+	if got := fakemib.FakeStatusValue(99).String(); got != "FakeStatusValue(99)" {
+		t.Errorf("FakeStatusValue(99).String() = %q, want %q", got, "FakeStatusValue(99)")
+	}
+}

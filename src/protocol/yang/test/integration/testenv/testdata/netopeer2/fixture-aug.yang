@@ -17,6 +17,16 @@ module fixture-aug {
     }
   }
 
+  augment "/fm:shape-probe/fm:by-module-b/fm:slot" {
+    leaf value {
+      type uint32;
+    }
+  }
+
+  augment "/fm:shape-probe/fm:by-owner-b" {
+    container flag;
+  }
+
   leaf sub-typed {
     type fm:sub-label;
     description "References a typedef fixture-main defines in its

@@ -3,6 +3,10 @@ import { devices, filterDevices, sites } from './fleet'
 import {
   events,
   healthCounts,
+  healthLine,
+  latestIssue,
+  openIssues,
+  rankSites,
   scopedEvents,
   siteRollups,
   trafficHistory,
@@ -38,5 +42,26 @@ describe('scope overview', () => {
     expect(history).toHaveLength(24)
     expect(history[0]?.hour).toBe(4)
     expect(history.at(-1)).toEqual({ hour: 3, mbps: live })
+  })
+  it('ranks the worst site first and names its newest issue', () => {
+    const ranked = rankSites(siteRollups(devices, sites)).map(
+      (rollup) => rollup.site.id,
+    )
+    expect(ranked.slice(0, 2)).toEqual(['cologne', 'hamburg'])
+    const cologne = sites.find((site) => site.id === 'cologne')
+    if (!cologne) throw new Error('Missing fixture')
+    expect(latestIssue(devices, cologne)?.summary).toBe(
+      'Stopped answering polls',
+    )
+  })
+  it('treats a warning on a device that recovered as history, not an open issue', () => {
+    const open = openIssues(devices).map((event) => event.deviceId)
+    expect(open).toEqual(['dev-7', 'dev-16'])
+    const aachen = sites.find((site) => site.id === 'aachen')
+    if (!aachen) throw new Error('Missing fixture')
+    expect(latestIssue(devices, aachen)).toBeUndefined()
+    expect(healthLine({ Healthy: 3, Degraded: 0, Offline: 1 })).toBe(
+      '1 offline',
+    )
   })
 })

@@ -220,3 +220,53 @@ func StructRowCodec[Row any, Key comparable](s *Schema, key func(*Row) Key) RowC
 		Key:        func(row Row) Key { return key(&row) },
 	}
 }
+
+// NestedRowCodec assembles the [RowCodec] for a flattened nested list:
+// decoding walks the ancestor chain, maps decoded [NestedEntry] values to
+// Rows, and merges updates into the base entry using the target list schema.
+func NestedRowCodec[Entry, Row any, Key comparable](
+	chain []*Schema,
+	row func(ancestors [][]KeyValue, entry Entry) Row,
+	entry func(*Row) *Entry,
+	key func(*Row) Key,
+) RowCodec[Row, Key] {
+	var targetSchema *Schema
+	if len(chain) > 0 {
+		targetSchema = chain[len(chain)-1]
+	}
+	return RowCodec[Row, Key]{
+		DecodeXML: func(data []byte) ([]Row, error) {
+			entries, err := DecodeXMLNested[Entry](chain, data)
+			if err != nil {
+				return nil, err
+			}
+			rows := make([]Row, len(entries))
+			for i := range entries {
+				rows[i] = row(entries[i].AncestorKeys, entries[i].Entry)
+			}
+			return rows, nil
+		},
+		DecodeJSON: func(data []byte) ([]Row, error) {
+			entries, err := DecodeJSONNested[Entry](chain, data)
+			if err != nil {
+				return nil, err
+			}
+			rows := make([]Row, len(entries))
+			for i := range entries {
+				rows[i] = row(entries[i].AncestorKeys, entries[i].Entry)
+			}
+			return rows, nil
+		},
+		Equal: EqualStructs[Row],
+		Merge: func(base, update Row) Row {
+			out := base
+			bEntry := entry(&out)
+			uEntry := entry(&update)
+			if bEntry != nil && uEntry != nil && targetSchema != nil {
+				*bEntry = MergeStructs(targetSchema, *bEntry, *uEntry)
+			}
+			return out
+		},
+		Key: func(r Row) Key { return key(&r) },
+	}
+}

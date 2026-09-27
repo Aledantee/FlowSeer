@@ -11,8 +11,6 @@ package qbridgemib
 
 import (
 	"context"
-	"fmt"
-	"iter"
 	"net"
 
 	bridgemib "go.aledante.io/FlowSeer/generated/go/mib/bridgemib"
@@ -27,27 +25,24 @@ import (
 // are as defined for dot1qConstraintType. The value of this object MUST be
 // retained across reinitializations of the management system.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qConstraintTypeDefaultValue int32
 
 const (
-	// Dot1qConstraintTypeDefaultValueIndependent represents the SMI value independent.
+	// Dot1qConstraintTypeDefaultValueIndependent is independent.
 	Dot1qConstraintTypeDefaultValueIndependent Dot1qConstraintTypeDefaultValue = 1
-	// Dot1qConstraintTypeDefaultValueShared represents the SMI value shared.
+	// Dot1qConstraintTypeDefaultValueShared is shared.
 	Dot1qConstraintTypeDefaultValueShared Dot1qConstraintTypeDefaultValue = 2
 )
 
-// String returns the SMI label, or Dot1qConstraintTypeDefaultValue(n) for an unrecognized value n.
-func (v Dot1qConstraintTypeDefaultValue) String() string {
-	switch v {
-	case Dot1qConstraintTypeDefaultValueIndependent:
-		return "independent"
-	case Dot1qConstraintTypeDefaultValueShared:
-		return "shared"
-	}
+var (
+	dot1qConstraintTypeDefaultValueValues = []int32{1, 2}
+	dot1qConstraintTypeDefaultValueNames  = []string{"independent", "shared"}
+)
 
-	return fmt.Sprintf("Dot1qConstraintTypeDefaultValue(%d)", v)
+// String returns the SMI label, or Dot1qConstraintTypeDefaultValue(n) for an unknown value.
+func (v Dot1qConstraintTypeDefaultValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qConstraintTypeDefaultValue", dot1qConstraintTypeDefaultValueValues, dot1qConstraintTypeDefaultValueNames)
 }
 
 // Dot1qConstraintTypeValue is the SMI enum dot1qConstraintType (inline).
@@ -57,27 +52,24 @@ func (v Dot1qConstraintTypeDefaultValue) String() string {
 // the VLAN, dot1qConstraintVlan, shares the same filtering database as all
 // other VLANs in the same set, defined by dot1qConstraintSet.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qConstraintTypeValue int32
 
 const (
-	// Dot1qConstraintTypeValueIndependent represents the SMI value independent.
+	// Dot1qConstraintTypeValueIndependent is independent.
 	Dot1qConstraintTypeValueIndependent Dot1qConstraintTypeValue = 1
-	// Dot1qConstraintTypeValueShared represents the SMI value shared.
+	// Dot1qConstraintTypeValueShared is shared.
 	Dot1qConstraintTypeValueShared Dot1qConstraintTypeValue = 2
 )
 
-// String returns the SMI label, or Dot1qConstraintTypeValue(n) for an unrecognized value n.
-func (v Dot1qConstraintTypeValue) String() string {
-	switch v {
-	case Dot1qConstraintTypeValueIndependent:
-		return "independent"
-	case Dot1qConstraintTypeValueShared:
-		return "shared"
-	}
+var (
+	dot1qConstraintTypeValueValues = []int32{1, 2}
+	dot1qConstraintTypeValueNames  = []string{"independent", "shared"}
+)
 
-	return fmt.Sprintf("Dot1qConstraintTypeValue(%d)", v)
+// String returns the SMI label, or Dot1qConstraintTypeValue(n) for an unknown value.
+func (v Dot1qConstraintTypeValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qConstraintTypeValue", dot1qConstraintTypeValueValues, dot1qConstraintTypeValueNames)
 }
 
 // Dot1qPortAcceptableFrameTypesValue is the SMI enum dot1qPortAcceptableFrameTypes (inline).
@@ -91,27 +83,24 @@ func (v Dot1qConstraintTypeValue) String() string {
 // GMRP. The value of this object MUST be retained across reinitializations
 // of the management system.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qPortAcceptableFrameTypesValue int32
 
 const (
-	// Dot1qPortAcceptableFrameTypesValueAdmitAll represents the SMI value admitAll.
+	// Dot1qPortAcceptableFrameTypesValueAdmitAll is admitAll.
 	Dot1qPortAcceptableFrameTypesValueAdmitAll Dot1qPortAcceptableFrameTypesValue = 1
-	// Dot1qPortAcceptableFrameTypesValueAdmitOnlyVLANTagged represents the SMI value admitOnlyVlanTagged.
+	// Dot1qPortAcceptableFrameTypesValueAdmitOnlyVLANTagged is admitOnlyVlanTagged.
 	Dot1qPortAcceptableFrameTypesValueAdmitOnlyVLANTagged Dot1qPortAcceptableFrameTypesValue = 2
 )
 
-// String returns the SMI label, or Dot1qPortAcceptableFrameTypesValue(n) for an unrecognized value n.
-func (v Dot1qPortAcceptableFrameTypesValue) String() string {
-	switch v {
-	case Dot1qPortAcceptableFrameTypesValueAdmitAll:
-		return "admitAll"
-	case Dot1qPortAcceptableFrameTypesValueAdmitOnlyVLANTagged:
-		return "admitOnlyVlanTagged"
-	}
+var (
+	dot1qPortAcceptableFrameTypesValueValues = []int32{1, 2}
+	dot1qPortAcceptableFrameTypesValueNames  = []string{"admitAll", "admitOnlyVlanTagged"}
+)
 
-	return fmt.Sprintf("Dot1qPortAcceptableFrameTypesValue(%d)", v)
+// String returns the SMI label, or Dot1qPortAcceptableFrameTypesValue(n) for an unknown value.
+func (v Dot1qPortAcceptableFrameTypesValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qPortAcceptableFrameTypesValue", dot1qPortAcceptableFrameTypesValueValues, dot1qPortAcceptableFrameTypesValueNames)
 }
 
 // Dot1qStaticMulticastStatusValue is the SMI enum dot1qStaticMulticastStatus (inline).
@@ -126,39 +115,30 @@ func (v Dot1qPortAcceptableFrameTypesValue) String() string {
 // this object MUST be retained across reinitializations of the management
 // system.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qStaticMulticastStatusValue int32
 
 const (
-	// Dot1qStaticMulticastStatusValueOther represents the SMI value other.
+	// Dot1qStaticMulticastStatusValueOther is other.
 	Dot1qStaticMulticastStatusValueOther Dot1qStaticMulticastStatusValue = 1
-	// Dot1qStaticMulticastStatusValueInvalid represents the SMI value invalid.
+	// Dot1qStaticMulticastStatusValueInvalid is invalid.
 	Dot1qStaticMulticastStatusValueInvalid Dot1qStaticMulticastStatusValue = 2
-	// Dot1qStaticMulticastStatusValuePermanent represents the SMI value permanent.
+	// Dot1qStaticMulticastStatusValuePermanent is permanent.
 	Dot1qStaticMulticastStatusValuePermanent Dot1qStaticMulticastStatusValue = 3
-	// Dot1qStaticMulticastStatusValueDeleteOnReset represents the SMI value deleteOnReset.
+	// Dot1qStaticMulticastStatusValueDeleteOnReset is deleteOnReset.
 	Dot1qStaticMulticastStatusValueDeleteOnReset Dot1qStaticMulticastStatusValue = 4
-	// Dot1qStaticMulticastStatusValueDeleteOnTimeout represents the SMI value deleteOnTimeout.
+	// Dot1qStaticMulticastStatusValueDeleteOnTimeout is deleteOnTimeout.
 	Dot1qStaticMulticastStatusValueDeleteOnTimeout Dot1qStaticMulticastStatusValue = 5
 )
 
-// String returns the SMI label, or Dot1qStaticMulticastStatusValue(n) for an unrecognized value n.
-func (v Dot1qStaticMulticastStatusValue) String() string {
-	switch v {
-	case Dot1qStaticMulticastStatusValueOther:
-		return "other"
-	case Dot1qStaticMulticastStatusValueInvalid:
-		return "invalid"
-	case Dot1qStaticMulticastStatusValuePermanent:
-		return "permanent"
-	case Dot1qStaticMulticastStatusValueDeleteOnReset:
-		return "deleteOnReset"
-	case Dot1qStaticMulticastStatusValueDeleteOnTimeout:
-		return "deleteOnTimeout"
-	}
+var (
+	dot1qStaticMulticastStatusValueValues = []int32{1, 2, 3, 4, 5}
+	dot1qStaticMulticastStatusValueNames  = []string{"other", "invalid", "permanent", "deleteOnReset", "deleteOnTimeout"}
+)
 
-	return fmt.Sprintf("Dot1qStaticMulticastStatusValue(%d)", v)
+// String returns the SMI label, or Dot1qStaticMulticastStatusValue(n) for an unknown value.
+func (v Dot1qStaticMulticastStatusValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qStaticMulticastStatusValue", dot1qStaticMulticastStatusValueValues, dot1qStaticMulticastStatusValueNames)
 }
 
 // Dot1qStaticUnicastStatusValue is the SMI enum dot1qStaticUnicastStatus (inline).
@@ -173,39 +153,30 @@ func (v Dot1qStaticMulticastStatusValue) String() string {
 // this object MUST be retained across reinitializations of the management
 // system.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qStaticUnicastStatusValue int32
 
 const (
-	// Dot1qStaticUnicastStatusValueOther represents the SMI value other.
+	// Dot1qStaticUnicastStatusValueOther is other.
 	Dot1qStaticUnicastStatusValueOther Dot1qStaticUnicastStatusValue = 1
-	// Dot1qStaticUnicastStatusValueInvalid represents the SMI value invalid.
+	// Dot1qStaticUnicastStatusValueInvalid is invalid.
 	Dot1qStaticUnicastStatusValueInvalid Dot1qStaticUnicastStatusValue = 2
-	// Dot1qStaticUnicastStatusValuePermanent represents the SMI value permanent.
+	// Dot1qStaticUnicastStatusValuePermanent is permanent.
 	Dot1qStaticUnicastStatusValuePermanent Dot1qStaticUnicastStatusValue = 3
-	// Dot1qStaticUnicastStatusValueDeleteOnReset represents the SMI value deleteOnReset.
+	// Dot1qStaticUnicastStatusValueDeleteOnReset is deleteOnReset.
 	Dot1qStaticUnicastStatusValueDeleteOnReset Dot1qStaticUnicastStatusValue = 4
-	// Dot1qStaticUnicastStatusValueDeleteOnTimeout represents the SMI value deleteOnTimeout.
+	// Dot1qStaticUnicastStatusValueDeleteOnTimeout is deleteOnTimeout.
 	Dot1qStaticUnicastStatusValueDeleteOnTimeout Dot1qStaticUnicastStatusValue = 5
 )
 
-// String returns the SMI label, or Dot1qStaticUnicastStatusValue(n) for an unrecognized value n.
-func (v Dot1qStaticUnicastStatusValue) String() string {
-	switch v {
-	case Dot1qStaticUnicastStatusValueOther:
-		return "other"
-	case Dot1qStaticUnicastStatusValueInvalid:
-		return "invalid"
-	case Dot1qStaticUnicastStatusValuePermanent:
-		return "permanent"
-	case Dot1qStaticUnicastStatusValueDeleteOnReset:
-		return "deleteOnReset"
-	case Dot1qStaticUnicastStatusValueDeleteOnTimeout:
-		return "deleteOnTimeout"
-	}
+var (
+	dot1qStaticUnicastStatusValueValues = []int32{1, 2, 3, 4, 5}
+	dot1qStaticUnicastStatusValueNames  = []string{"other", "invalid", "permanent", "deleteOnReset", "deleteOnTimeout"}
+)
 
-	return fmt.Sprintf("Dot1qStaticUnicastStatusValue(%d)", v)
+// String returns the SMI label, or Dot1qStaticUnicastStatusValue(n) for an unknown value.
+func (v Dot1qStaticUnicastStatusValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qStaticUnicastStatusValue", dot1qStaticUnicastStatusValueValues, dot1qStaticUnicastStatusValueNames)
 }
 
 // Dot1qTpFdbStatusValue is the SMI enum dot1qTpFdbStatus (inline).
@@ -224,39 +195,30 @@ func (v Dot1qStaticUnicastStatusValue) String() string {
 // mgmt(5) - the value of the corresponding instance of dot1qTpFdbAddress
 // is also the value of an existing instance of dot1qStaticAddress.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qTpFdbStatusValue int32
 
 const (
-	// Dot1qTpFdbStatusValueOther represents the SMI value other.
+	// Dot1qTpFdbStatusValueOther is other.
 	Dot1qTpFdbStatusValueOther Dot1qTpFdbStatusValue = 1
-	// Dot1qTpFdbStatusValueInvalid represents the SMI value invalid.
+	// Dot1qTpFdbStatusValueInvalid is invalid.
 	Dot1qTpFdbStatusValueInvalid Dot1qTpFdbStatusValue = 2
-	// Dot1qTpFdbStatusValueLearned represents the SMI value learned.
+	// Dot1qTpFdbStatusValueLearned is learned.
 	Dot1qTpFdbStatusValueLearned Dot1qTpFdbStatusValue = 3
-	// Dot1qTpFdbStatusValueSelf represents the SMI value self.
+	// Dot1qTpFdbStatusValueSelf is self.
 	Dot1qTpFdbStatusValueSelf Dot1qTpFdbStatusValue = 4
-	// Dot1qTpFdbStatusValueMgmt represents the SMI value mgmt.
+	// Dot1qTpFdbStatusValueMgmt is mgmt.
 	Dot1qTpFdbStatusValueMgmt Dot1qTpFdbStatusValue = 5
 )
 
-// String returns the SMI label, or Dot1qTpFdbStatusValue(n) for an unrecognized value n.
-func (v Dot1qTpFdbStatusValue) String() string {
-	switch v {
-	case Dot1qTpFdbStatusValueOther:
-		return "other"
-	case Dot1qTpFdbStatusValueInvalid:
-		return "invalid"
-	case Dot1qTpFdbStatusValueLearned:
-		return "learned"
-	case Dot1qTpFdbStatusValueSelf:
-		return "self"
-	case Dot1qTpFdbStatusValueMgmt:
-		return "mgmt"
-	}
+var (
+	dot1qTpFdbStatusValueValues = []int32{1, 2, 3, 4, 5}
+	dot1qTpFdbStatusValueNames  = []string{"other", "invalid", "learned", "self", "mgmt"}
+)
 
-	return fmt.Sprintf("Dot1qTpFdbStatusValue(%d)", v)
+// String returns the SMI label, or Dot1qTpFdbStatusValue(n) for an unknown value.
+func (v Dot1qTpFdbStatusValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qTpFdbStatusValue", dot1qTpFdbStatusValueValues, dot1qTpFdbStatusValueNames)
 }
 
 // Dot1qVLANStatusValue is the SMI enum dot1qVlanStatus (inline).
@@ -271,91 +233,77 @@ func (v Dot1qTpFdbStatusValue) String() string {
 // static entry for this VLAN, and it will be removed when the last port
 // leaves the VLAN.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qVLANStatusValue int32
 
 const (
-	// Dot1qVLANStatusValueOther represents the SMI value other.
+	// Dot1qVLANStatusValueOther is other.
 	Dot1qVLANStatusValueOther Dot1qVLANStatusValue = 1
-	// Dot1qVLANStatusValuePermanent represents the SMI value permanent.
+	// Dot1qVLANStatusValuePermanent is permanent.
 	Dot1qVLANStatusValuePermanent Dot1qVLANStatusValue = 2
-	// Dot1qVLANStatusValueDynamicGvrp represents the SMI value dynamicGvrp.
+	// Dot1qVLANStatusValueDynamicGvrp is dynamicGvrp.
 	Dot1qVLANStatusValueDynamicGvrp Dot1qVLANStatusValue = 3
 )
 
-// String returns the SMI label, or Dot1qVLANStatusValue(n) for an unrecognized value n.
-func (v Dot1qVLANStatusValue) String() string {
-	switch v {
-	case Dot1qVLANStatusValueOther:
-		return "other"
-	case Dot1qVLANStatusValuePermanent:
-		return "permanent"
-	case Dot1qVLANStatusValueDynamicGvrp:
-		return "dynamicGvrp"
-	}
+var (
+	dot1qVLANStatusValueValues = []int32{1, 2, 3}
+	dot1qVLANStatusValueNames  = []string{"other", "permanent", "dynamicGvrp"}
+)
 
-	return fmt.Sprintf("Dot1qVLANStatusValue(%d)", v)
+// String returns the SMI label, or Dot1qVLANStatusValue(n) for an unknown value.
+func (v Dot1qVLANStatusValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qVLANStatusValue", dot1qVLANStatusValueValues, dot1qVLANStatusValueNames)
 }
 
 // Dot1qVLANVersionNumberValue is the SMI enum dot1qVlanVersionNumber (inline).
 // The version number of IEEE 802.1Q that this device supports.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1qVLANVersionNumberValue int32
 
 const (
-	// Dot1qVLANVersionNumberValueVersion1 represents the SMI value version1.
+	// Dot1qVLANVersionNumberValueVersion1 is version1.
 	Dot1qVLANVersionNumberValueVersion1 Dot1qVLANVersionNumberValue = 1
 )
 
-// String returns the SMI label, or Dot1qVLANVersionNumberValue(n) for an unrecognized value n.
-func (v Dot1qVLANVersionNumberValue) String() string {
-	if v == Dot1qVLANVersionNumberValueVersion1 {
-		return "version1"
-	}
+var (
+	dot1qVLANVersionNumberValueValues = []int32{1}
+	dot1qVLANVersionNumberValueNames  = []string{"version1"}
+)
 
-	return fmt.Sprintf("Dot1qVLANVersionNumberValue(%d)", v)
+// String returns the SMI label, or Dot1qVLANVersionNumberValue(n) for an unknown value.
+func (v Dot1qVLANVersionNumberValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1qVLANVersionNumberValue", dot1qVLANVersionNumberValueValues, dot1qVLANVersionNumberValueNames)
 }
 
 // Dot1vProtocolTemplateFrameTypeValue is the SMI enum dot1vProtocolTemplateFrameType (inline).
 // The data-link encapsulation format or the 'detagged_frame_type' in a
 // Protocol Template.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1vProtocolTemplateFrameTypeValue int32
 
 const (
-	// Dot1vProtocolTemplateFrameTypeValueEthernet represents the SMI value ethernet.
+	// Dot1vProtocolTemplateFrameTypeValueEthernet is ethernet.
 	Dot1vProtocolTemplateFrameTypeValueEthernet Dot1vProtocolTemplateFrameTypeValue = 1
-	// Dot1vProtocolTemplateFrameTypeValueRfc1042 represents the SMI value rfc1042.
+	// Dot1vProtocolTemplateFrameTypeValueRfc1042 is rfc1042.
 	Dot1vProtocolTemplateFrameTypeValueRfc1042 Dot1vProtocolTemplateFrameTypeValue = 2
-	// Dot1vProtocolTemplateFrameTypeValueSnap8021H represents the SMI value snap8021H.
+	// Dot1vProtocolTemplateFrameTypeValueSnap8021H is snap8021H.
 	Dot1vProtocolTemplateFrameTypeValueSnap8021H Dot1vProtocolTemplateFrameTypeValue = 3
-	// Dot1vProtocolTemplateFrameTypeValueSnapOther represents the SMI value snapOther.
+	// Dot1vProtocolTemplateFrameTypeValueSnapOther is snapOther.
 	Dot1vProtocolTemplateFrameTypeValueSnapOther Dot1vProtocolTemplateFrameTypeValue = 4
-	// Dot1vProtocolTemplateFrameTypeValueLlcOther represents the SMI value llcOther.
+	// Dot1vProtocolTemplateFrameTypeValueLlcOther is llcOther.
 	Dot1vProtocolTemplateFrameTypeValueLlcOther Dot1vProtocolTemplateFrameTypeValue = 5
 )
 
-// String returns the SMI label, or Dot1vProtocolTemplateFrameTypeValue(n) for an unrecognized value n.
-func (v Dot1vProtocolTemplateFrameTypeValue) String() string {
-	switch v {
-	case Dot1vProtocolTemplateFrameTypeValueEthernet:
-		return "ethernet"
-	case Dot1vProtocolTemplateFrameTypeValueRfc1042:
-		return "rfc1042"
-	case Dot1vProtocolTemplateFrameTypeValueSnap8021H:
-		return "snap8021H"
-	case Dot1vProtocolTemplateFrameTypeValueSnapOther:
-		return "snapOther"
-	case Dot1vProtocolTemplateFrameTypeValueLlcOther:
-		return "llcOther"
-	}
+var (
+	dot1vProtocolTemplateFrameTypeValueValues = []int32{1, 2, 3, 4, 5}
+	dot1vProtocolTemplateFrameTypeValueNames  = []string{"ethernet", "rfc1042", "snap8021H", "snapOther", "llcOther"}
+)
 
-	return fmt.Sprintf("Dot1vProtocolTemplateFrameTypeValue(%d)", v)
+// String returns the SMI label, or Dot1vProtocolTemplateFrameTypeValue(n) for an unknown value.
+func (v Dot1vProtocolTemplateFrameTypeValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1vProtocolTemplateFrameTypeValue", dot1vProtocolTemplateFrameTypeValueValues, dot1vProtocolTemplateFrameTypeValueNames)
 }
 
 // VLANIndex is the textual convention VlanIndex. A value identifies one row of
@@ -573,9 +521,12 @@ func Dot1qConstraintTypeDefaultGet(ctx context.Context, sess snmp.Session) (Dot1
 	}(vbs[0])
 }
 
-// Dot1qFdbDynamicCount is the column dot1qFdbDynamicCount of table dot1qFdbTable.
+// Dot1qFdbDynamicCount is dot1qFdbDynamicCount.
 // The current number of dynamic entries in this Filtering Database.
-var Dot1qFdbDynamicCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	Dot1qFdbDynamicCount = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 1, 1, 2), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 0)
+	dot1qFdbTableColumns = []snmp.AnyColumn{Dot1qFdbDynamicCount}
+)
 
 // Dot1qFdbTableKey is the decoded INDEX of one dot1qFdbTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -595,126 +546,46 @@ func decodeDot1qFdbTableKey(idx snmp.OID) (Dot1qFdbTableKey, bool) {
 	return Dot1qFdbTableKey{Dot1qFdbID: parts[0].Integer}, true
 }
 
-// Dot1qFdbTableRow is one row of dot1qFdbTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qFdbTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qFdbTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qFdbTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qFdbTableRow struct {
 	Key                  Dot1qFdbTableKey
 	keyValid             bool
 	Dot1qFdbDynamicCount uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed             [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qFdbTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qFdbTableRow) Observed(col snmp.AnyColumn) bool {
-	if col.Key() == Dot1qFdbDynamicCount.Key() {
-		return r.observed[0]&(1<<0) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qFdbTableColumns, col)
 }
 
-// Dot1qFdbTableWalker streams selected columns of dot1qFdbTable.
-// The zero value is not usable; construct via Dot1qFdbTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qFdbTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qFdbTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qFdbTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qFdbTableRow] {
-	return func(yield func(snmp.OID, Dot1qFdbTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qFdbTableRow
-			row.Key, row.keyValid = decodeDot1qFdbTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				if tw.cols[cell.Column].Key() == Dot1qFdbDynamicCount.Key() {
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qFdbDynamicCount = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qFdbDynamicCount.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qFdbDynamicCount = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qFdbTableT struct {
+	snmp.Table[Dot1qFdbTableRow, *Dot1qFdbTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qFdbTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qFdbTableT is the singleton type of Dot1qFdbTable.
-type dot1qFdbTableT struct{}
 
 // Dot1qFdbTable is the descriptor for the dot1qFdbTable table.
-var Dot1qFdbTable dot1qFdbTableT
+var Dot1qFdbTable = dot1qFdbTableT{Table: snmp.NewTable("dot1qFdbTable", dot1qFdbTableColumns, func(idx snmp.OID, row *Dot1qFdbTableRow) {
+	row.Key, row.keyValid = decodeDot1qFdbTableKey(idx)
+}, func(row *Dot1qFdbTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qFdbDynamicCount, &row.Dot1qFdbDynamicCount, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qFdbTableRow]) *Dot1qFdbTableWalker {
+	return &Dot1qFdbTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qFdbTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qFdbTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qFdbTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qFdbTableKey",
@@ -722,34 +593,7 @@ func (dot1qFdbTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qFdbTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qFdbDynamicCount.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qFdbTable.Walk: column %s", c.OID()))
-			return &Dot1qFdbTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qFdbTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qTpFdbPort is the column dot1qTpFdbPort of table dot1qTpFdbTable.
+// Dot1qTpFdbPort is dot1qTpFdbPort.
 // Either the value '0', or the port number of the port on which a frame
 // having a source address equal to the value of the corresponding instance
 // of dot1qTpFdbAddress has been seen. A value of '0' indicates that the
@@ -758,9 +602,9 @@ func (dot1qFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, op
 // dot1qStaticUnicastTable). Implementors are encouraged to assign the port
 // value to this object whenever it is learned, even for addresses for
 // which the corresponding value of dot1qTpFdbStatus is not learned(3).
-var Dot1qTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1qTpFdbPort = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// Dot1qTpFdbStatus is the column dot1qTpFdbStatus of table dot1qTpFdbTable.
+// Dot1qTpFdbStatus is dot1qTpFdbStatus.
 // The status of this entry. The meanings of the values are: other(1) -
 // none of the following. This may include the case where some other MIB
 // object (not the corresponding instance of dot1qTpFdbPort, nor an entry
@@ -775,13 +619,14 @@ var Dot1qTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7,
 // dot1qTpFdbPort indicates which of the device's ports has this address.
 // mgmt(5) - the value of the corresponding instance of dot1qTpFdbAddress
 // is also the value of an existing instance of dot1qStaticAddress.
-var Dot1qTpFdbStatus = snmp.NewColumn[Dot1qTpFdbStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qTpFdbStatusValue, error) {
+var Dot1qTpFdbStatus = snmp.NewFusedTableColumn[Dot1qTpFdbStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qTpFdbStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1qTpFdbStatusValue(0), err
 	}
 	return Dot1qTpFdbStatusValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1qTpFdbStatusValue], 1)
+var dot1qTpFdbTableColumns = []snmp.AnyColumn{Dot1qTpFdbPort, Dot1qTpFdbStatus}
 
 // Dot1qTpFdbTableKey is the decoded INDEX of one dot1qTpFdbTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -805,149 +650,49 @@ func decodeDot1qTpFdbTableKey(idx snmp.OID) (Dot1qTpFdbTableKey, bool) {
 	return Dot1qTpFdbTableKey{Dot1qFdbID: parts[0].Integer, Dot1qTpFdbAddress: string(parts[1].Octets)}, true
 }
 
-// Dot1qTpFdbTableRow is one row of dot1qTpFdbTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qTpFdbTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qTpFdbTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qTpFdbTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qTpFdbTableRow struct {
 	Key              Dot1qTpFdbTableKey
 	keyValid         bool
 	Dot1qTpFdbPort   int32
 	Dot1qTpFdbStatus Dot1qTpFdbStatusValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed         [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qTpFdbTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qTpFdbTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qTpFdbPort.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qTpFdbStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qTpFdbTableColumns, col)
 }
 
-// Dot1qTpFdbTableWalker streams selected columns of dot1qTpFdbTable.
-// The zero value is not usable; construct via Dot1qTpFdbTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qTpFdbTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qTpFdbTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qTpFdbTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpFdbTableRow] {
-	return func(yield func(snmp.OID, Dot1qTpFdbTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qTpFdbTableRow
-			row.Key, row.keyValid = decodeDot1qTpFdbTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qTpFdbPort.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qTpFdbPort = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpFdbPort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpFdbPort = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1qTpFdbStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qTpFdbStatus = Dot1qTpFdbStatusValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpFdbStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpFdbStatus = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qTpFdbTableT struct {
+	snmp.Table[Dot1qTpFdbTableRow, *Dot1qTpFdbTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qTpFdbTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qTpFdbTableT is the singleton type of Dot1qTpFdbTable.
-type dot1qTpFdbTableT struct{}
 
 // Dot1qTpFdbTable is the descriptor for the dot1qTpFdbTable table.
-var Dot1qTpFdbTable dot1qTpFdbTableT
+var Dot1qTpFdbTable = dot1qTpFdbTableT{Table: snmp.NewTable("dot1qTpFdbTable", dot1qTpFdbTableColumns, func(idx snmp.OID, row *Dot1qTpFdbTableRow) {
+	row.Key, row.keyValid = decodeDot1qTpFdbTableKey(idx)
+}, func(row *Dot1qTpFdbTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qTpFdbPort, &row.Dot1qTpFdbPort, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qTpFdbStatus, &row.Dot1qTpFdbStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qTpFdbTableRow]) *Dot1qTpFdbTableWalker {
+	return &Dot1qTpFdbTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qTpFdbTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qTpFdbTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qTpFdbTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qTpFdbTableKey",
@@ -955,44 +700,20 @@ func (dot1qTpFdbTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qTpFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qTpFdbTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qTpFdbPort.Key(), Dot1qTpFdbStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qTpFdbTable.Walk: column %s", c.OID()))
-			return &Dot1qTpFdbTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qTpFdbTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qTpGroupEgressPorts is the column dot1qTpGroupEgressPorts of table dot1qTpGroupTable.
+// Dot1qTpGroupEgressPorts is dot1qTpGroupEgressPorts.
 // The complete set of ports, in this VLAN, to which frames destined for
 // this Group MAC address are currently being explicitly forwarded. This
 // does not include ports for which this address is only implicitly
 // forwarded, in the dot1qForwardAllPorts list.
-var Dot1qTpGroupEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qTpGroupEgressPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// Dot1qTpGroupLearnt is the column dot1qTpGroupLearnt of table dot1qTpGroupTable.
+// Dot1qTpGroupLearnt is dot1qTpGroupLearnt.
 // The subset of ports in dot1qTpGroupEgressPorts that were learned by GMRP
 // or some other dynamic mechanism, in this Filtering database.
-var Dot1qTpGroupLearnt = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var (
+	Dot1qTpGroupLearnt       = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 3, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 1)
+	dot1qTpGroupTableColumns = []snmp.AnyColumn{Dot1qTpGroupEgressPorts, Dot1qTpGroupLearnt}
+)
 
 // Dot1qTpGroupTableKey is the decoded INDEX of one dot1qTpGroupTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1016,139 +737,49 @@ func decodeDot1qTpGroupTableKey(idx snmp.OID) (Dot1qTpGroupTableKey, bool) {
 	return Dot1qTpGroupTableKey{Dot1qVLANIndex: VLANIndex(parts[0].Integer), Dot1qTpGroupAddress: string(parts[1].Octets)}, true
 }
 
-// Dot1qTpGroupTableRow is one row of dot1qTpGroupTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qTpGroupTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qTpGroupTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qTpGroupTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qTpGroupTableRow struct {
 	Key                     Dot1qTpGroupTableKey
 	keyValid                bool
 	Dot1qTpGroupEgressPorts []byte
 	Dot1qTpGroupLearnt      []byte
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qTpGroupTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qTpGroupTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qTpGroupEgressPorts.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qTpGroupLearnt.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qTpGroupTableColumns, col)
 }
 
-// Dot1qTpGroupTableWalker streams selected columns of dot1qTpGroupTable.
-// The zero value is not usable; construct via Dot1qTpGroupTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qTpGroupTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qTpGroupTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qTpGroupTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qTpGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qTpGroupTableRow] {
-	return func(yield func(snmp.OID, Dot1qTpGroupTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qTpGroupTableRow
-			row.Key, row.keyValid = decodeDot1qTpGroupTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qTpGroupEgressPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qTpGroupEgressPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qTpGroupEgressPorts = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1qTpGroupLearnt.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qTpGroupLearnt.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qTpGroupLearnt = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qTpGroupTableT struct {
+	snmp.Table[Dot1qTpGroupTableRow, *Dot1qTpGroupTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qTpGroupTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qTpGroupTableT is the singleton type of Dot1qTpGroupTable.
-type dot1qTpGroupTableT struct{}
 
 // Dot1qTpGroupTable is the descriptor for the dot1qTpGroupTable table.
-var Dot1qTpGroupTable dot1qTpGroupTableT
+var Dot1qTpGroupTable = dot1qTpGroupTableT{Table: snmp.NewTable("dot1qTpGroupTable", dot1qTpGroupTableColumns, func(idx snmp.OID, row *Dot1qTpGroupTableRow) {
+	row.Key, row.keyValid = decodeDot1qTpGroupTableKey(idx)
+}, func(row *Dot1qTpGroupTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qTpGroupEgressPorts, &row.Dot1qTpGroupEgressPorts, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qTpGroupLearnt, &row.Dot1qTpGroupLearnt, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qTpGroupTableRow]) *Dot1qTpGroupTableWalker {
+	return &Dot1qTpGroupTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qTpGroupTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qTpGroupTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qTpGroupTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qTpGroupTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qTpGroupTableKey",
@@ -1156,41 +787,14 @@ func (dot1qTpGroupTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qTpGroupTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qTpGroupTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qTpGroupEgressPorts.Key(), Dot1qTpGroupLearnt.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qTpGroupTable.Walk: column %s", c.OID()))
-			return &Dot1qTpGroupTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qTpGroupTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qForwardAllPorts is the column dot1qForwardAllPorts of table dot1qForwardAllTable.
+// Dot1qForwardAllPorts is dot1qForwardAllPorts.
 // The complete set of ports in this VLAN to which all multicast
 // group-addressed frames are to be forwarded. This includes ports for
 // which this need has been determined dynamically by GMRP, or configured
 // statically by management.
-var Dot1qForwardAllPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qForwardAllPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 1), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// Dot1qForwardAllStaticPorts is the column dot1qForwardAllStaticPorts of table dot1qForwardAllTable.
+// Dot1qForwardAllStaticPorts is dot1qForwardAllStaticPorts.
 // The set of ports configured by management in this VLAN to which all
 // multicast group-addressed frames are to be forwarded. Ports entered in
 // this list will also appear in the complete set shown by
@@ -1203,9 +807,9 @@ var Dot1qForwardAllPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1,
 // filtering services, i.e., forward all multicasts to all ports. The value
 // of this object MUST be retained across reinitializations of the
 // management system.
-var Dot1qForwardAllStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qForwardAllStaticPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// Dot1qForwardAllForbiddenPorts is the column dot1qForwardAllForbiddenPorts of table dot1qForwardAllTable.
+// Dot1qForwardAllForbiddenPorts is dot1qForwardAllForbiddenPorts.
 // The set of ports configured by management in this VLAN for which the
 // Service Requirement attribute Forward All Multicast Groups may not be
 // dynamically registered by GMRP. This value will be restored after the
@@ -1214,7 +818,10 @@ var Dot1qForwardAllStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1,
 // value is a string of zeros of appropriate length. The value of this
 // object MUST be retained across reinitializations of the management
 // system.
-var Dot1qForwardAllForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var (
+	Dot1qForwardAllForbiddenPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 4, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 2)
+	dot1qForwardAllTableColumns   = []snmp.AnyColumn{Dot1qForwardAllPorts, Dot1qForwardAllStaticPorts, Dot1qForwardAllForbiddenPorts}
+)
 
 // Dot1qForwardAllTableKey is the decoded INDEX of one dot1qForwardAllTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1234,155 +841,52 @@ func decodeDot1qForwardAllTableKey(idx snmp.OID) (Dot1qForwardAllTableKey, bool)
 	return Dot1qForwardAllTableKey{Dot1qVLANIndex: VLANIndex(parts[0].Integer)}, true
 }
 
-// Dot1qForwardAllTableRow is one row of dot1qForwardAllTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qForwardAllTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qForwardAllTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qForwardAllTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qForwardAllTableRow struct {
 	Key                           Dot1qForwardAllTableKey
 	keyValid                      bool
 	Dot1qForwardAllPorts          []byte
 	Dot1qForwardAllStaticPorts    []byte
 	Dot1qForwardAllForbiddenPorts []byte
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                      [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qForwardAllTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qForwardAllTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qForwardAllPorts.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qForwardAllStaticPorts.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qForwardAllForbiddenPorts.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qForwardAllTableColumns, col)
 }
 
-// Dot1qForwardAllTableWalker streams selected columns of dot1qForwardAllTable.
-// The zero value is not usable; construct via Dot1qForwardAllTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qForwardAllTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qForwardAllTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qForwardAllTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qForwardAllTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qForwardAllTableRow] {
-	return func(yield func(snmp.OID, Dot1qForwardAllTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qForwardAllTableRow
-			row.Key, row.keyValid = decodeDot1qForwardAllTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qForwardAllPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qForwardAllPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qForwardAllPorts = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1qForwardAllStaticPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qForwardAllStaticPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qForwardAllStaticPorts = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case Dot1qForwardAllForbiddenPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qForwardAllForbiddenPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qForwardAllForbiddenPorts = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qForwardAllTableT struct {
+	snmp.Table[Dot1qForwardAllTableRow, *Dot1qForwardAllTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qForwardAllTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qForwardAllTableT is the singleton type of Dot1qForwardAllTable.
-type dot1qForwardAllTableT struct{}
 
 // Dot1qForwardAllTable is the descriptor for the dot1qForwardAllTable table.
-var Dot1qForwardAllTable dot1qForwardAllTableT
+var Dot1qForwardAllTable = dot1qForwardAllTableT{Table: snmp.NewTable("dot1qForwardAllTable", dot1qForwardAllTableColumns, func(idx snmp.OID, row *Dot1qForwardAllTableRow) {
+	row.Key, row.keyValid = decodeDot1qForwardAllTableKey(idx)
+}, func(row *Dot1qForwardAllTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qForwardAllPorts, &row.Dot1qForwardAllPorts, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qForwardAllStaticPorts, &row.Dot1qForwardAllStaticPorts, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qForwardAllForbiddenPorts, &row.Dot1qForwardAllForbiddenPorts, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qForwardAllTableRow]) *Dot1qForwardAllTableWalker {
+	return &Dot1qForwardAllTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qForwardAllTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qForwardAllTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qForwardAllTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qForwardAllTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qForwardAllTableKey",
@@ -1390,42 +894,15 @@ func (dot1qForwardAllTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qForwardAllTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qForwardAllTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qForwardAllPorts.Key(), Dot1qForwardAllStaticPorts.Key(), Dot1qForwardAllForbiddenPorts.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qForwardAllTable.Walk: column %s", c.OID()))
-			return &Dot1qForwardAllTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qForwardAllTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qForwardUnregisteredPorts is the column dot1qForwardUnregisteredPorts of table dot1qForwardUnregisteredTable.
+// Dot1qForwardUnregisteredPorts is dot1qForwardUnregisteredPorts.
 // The complete set of ports in this VLAN to which multicast
 // group-addressed frames for which there is no more specific forwarding
 // information will be forwarded. This includes ports for which this need
 // has been determined dynamically by GMRP, or configured statically by
 // management.
-var Dot1qForwardUnregisteredPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qForwardUnregisteredPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 1), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// Dot1qForwardUnregisteredStaticPorts is the column dot1qForwardUnregisteredStaticPorts of table dot1qForwardUnregisteredTable.
+// Dot1qForwardUnregisteredStaticPorts is dot1qForwardUnregisteredStaticPorts.
 // The set of ports configured by management, in this VLAN, to which
 // multicast group-addressed frames for which there is no more specific
 // forwarding information are to be forwarded. Ports entered in this list
@@ -1437,9 +914,9 @@ var Dot1qForwardUnregisteredPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 // this has no effect with the default value of dot1qForwardAllStaticPorts.
 // The value of this object MUST be retained across reinitializations of
 // the management system.
-var Dot1qForwardUnregisteredStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qForwardUnregisteredStaticPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// Dot1qForwardUnregisteredForbiddenPorts is the column dot1qForwardUnregisteredForbiddenPorts of table dot1qForwardUnregisteredTable.
+// Dot1qForwardUnregisteredForbiddenPorts is dot1qForwardUnregisteredForbiddenPorts.
 // The set of ports configured by management in this VLAN for which the
 // Service Requirement attribute Forward Unregistered Multicast Groups may
 // not be dynamically registered by GMRP. This value will be restored after
@@ -1448,7 +925,10 @@ var Dot1qForwardUnregisteredStaticPorts = snmp.NewColumn[[]byte](snmp.MustOID(1,
 // dot1qForwardUnregisteredStaticPorts. The default value is a string of
 // zeros of appropriate length. The value of this object MUST be retained
 // across reinitializations of the management system.
-var Dot1qForwardUnregisteredForbiddenPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var (
+	Dot1qForwardUnregisteredForbiddenPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 5, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 2)
+	dot1qForwardUnregisteredTableColumns   = []snmp.AnyColumn{Dot1qForwardUnregisteredPorts, Dot1qForwardUnregisteredStaticPorts, Dot1qForwardUnregisteredForbiddenPorts}
+)
 
 // Dot1qForwardUnregisteredTableKey is the decoded INDEX of one dot1qForwardUnregisteredTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1468,155 +948,52 @@ func decodeDot1qForwardUnregisteredTableKey(idx snmp.OID) (Dot1qForwardUnregiste
 	return Dot1qForwardUnregisteredTableKey{Dot1qVLANIndex: VLANIndex(parts[0].Integer)}, true
 }
 
-// Dot1qForwardUnregisteredTableRow is one row of dot1qForwardUnregisteredTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qForwardUnregisteredTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qForwardUnregisteredTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qForwardUnregisteredTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qForwardUnregisteredTableRow struct {
 	Key                                    Dot1qForwardUnregisteredTableKey
 	keyValid                               bool
 	Dot1qForwardUnregisteredPorts          []byte
 	Dot1qForwardUnregisteredStaticPorts    []byte
 	Dot1qForwardUnregisteredForbiddenPorts []byte
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                               [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qForwardUnregisteredTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qForwardUnregisteredTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qForwardUnregisteredPorts.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qForwardUnregisteredStaticPorts.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qForwardUnregisteredForbiddenPorts.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qForwardUnregisteredTableColumns, col)
 }
 
-// Dot1qForwardUnregisteredTableWalker streams selected columns of dot1qForwardUnregisteredTable.
-// The zero value is not usable; construct via Dot1qForwardUnregisteredTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qForwardUnregisteredTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qForwardUnregisteredTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qForwardUnregisteredTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qForwardUnregisteredTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qForwardUnregisteredTableRow] {
-	return func(yield func(snmp.OID, Dot1qForwardUnregisteredTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qForwardUnregisteredTableRow
-			row.Key, row.keyValid = decodeDot1qForwardUnregisteredTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qForwardUnregisteredPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qForwardUnregisteredPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qForwardUnregisteredPorts = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1qForwardUnregisteredStaticPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qForwardUnregisteredStaticPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qForwardUnregisteredStaticPorts = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case Dot1qForwardUnregisteredForbiddenPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qForwardUnregisteredForbiddenPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qForwardUnregisteredForbiddenPorts = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qForwardUnregisteredTableT struct {
+	snmp.Table[Dot1qForwardUnregisteredTableRow, *Dot1qForwardUnregisteredTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qForwardUnregisteredTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qForwardUnregisteredTableT is the singleton type of Dot1qForwardUnregisteredTable.
-type dot1qForwardUnregisteredTableT struct{}
 
 // Dot1qForwardUnregisteredTable is the descriptor for the dot1qForwardUnregisteredTable table.
-var Dot1qForwardUnregisteredTable dot1qForwardUnregisteredTableT
+var Dot1qForwardUnregisteredTable = dot1qForwardUnregisteredTableT{Table: snmp.NewTable("dot1qForwardUnregisteredTable", dot1qForwardUnregisteredTableColumns, func(idx snmp.OID, row *Dot1qForwardUnregisteredTableRow) {
+	row.Key, row.keyValid = decodeDot1qForwardUnregisteredTableKey(idx)
+}, func(row *Dot1qForwardUnregisteredTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qForwardUnregisteredPorts, &row.Dot1qForwardUnregisteredPorts, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qForwardUnregisteredStaticPorts, &row.Dot1qForwardUnregisteredStaticPorts, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qForwardUnregisteredForbiddenPorts, &row.Dot1qForwardUnregisteredForbiddenPorts, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qForwardUnregisteredTableRow]) *Dot1qForwardUnregisteredTableWalker {
+	return &Dot1qForwardUnregisteredTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qForwardUnregisteredTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qForwardUnregisteredTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qForwardUnregisteredTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qForwardUnregisteredTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qForwardUnregisteredTableKey",
@@ -1624,34 +1001,7 @@ func (dot1qForwardUnregisteredTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qForwardUnregisteredTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qForwardUnregisteredTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qForwardUnregisteredPorts.Key(), Dot1qForwardUnregisteredStaticPorts.Key(), Dot1qForwardUnregisteredForbiddenPorts.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qForwardUnregisteredTable.Walk: column %s", c.OID()))
-			return &Dot1qForwardUnregisteredTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qForwardUnregisteredTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qStaticUnicastAllowedToGoTo is the column dot1qStaticUnicastAllowedToGoTo of table dot1qStaticUnicastTable.
+// Dot1qStaticUnicastAllowedToGoTo is dot1qStaticUnicastAllowedToGoTo.
 // The set of ports for which a frame with a specific unicast address will
 // be flooded in the event that it has not been learned. It also specifies
 // the set of ports on which a specific unicast address may be dynamically
@@ -1662,9 +1012,9 @@ func (dot1qForwardUnregisteredTableT) WalkWithOptions(ctx context.Context, sess 
 // dot1qVlanCurrentEgressPorts. The default value of this object is a
 // string of ones of appropriate length. The value of this object MUST be
 // retained across reinitializations of the management system.
-var Dot1qStaticUnicastAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qStaticUnicastAllowedToGoTo = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// Dot1qStaticUnicastStatus is the column dot1qStaticUnicastStatus of table dot1qStaticUnicastTable.
+// Dot1qStaticUnicastStatus is dot1qStaticUnicastStatus.
 // This object indicates the status of this entry. other(1) - this entry is
 // currently in use, but the conditions under which it will remain so
 // differ from the following values. invalid(2) - writing this value to the
@@ -1675,13 +1025,14 @@ var Dot1qStaticUnicastAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 
 // currently in use and will remain so until it is aged out. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
-var Dot1qStaticUnicastStatus = snmp.NewColumn[Dot1qStaticUnicastStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qStaticUnicastStatusValue, error) {
+var Dot1qStaticUnicastStatus = snmp.NewFusedTableColumn[Dot1qStaticUnicastStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qStaticUnicastStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1qStaticUnicastStatusValue(0), err
 	}
 	return Dot1qStaticUnicastStatusValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1qStaticUnicastStatusValue], 1)
+var dot1qStaticUnicastTableColumns = []snmp.AnyColumn{Dot1qStaticUnicastAllowedToGoTo, Dot1qStaticUnicastStatus}
 
 // Dot1qStaticUnicastTableKey is the decoded INDEX of one dot1qStaticUnicastTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1706,144 +1057,49 @@ func decodeDot1qStaticUnicastTableKey(idx snmp.OID) (Dot1qStaticUnicastTableKey,
 	return Dot1qStaticUnicastTableKey{Dot1qFdbID: parts[0].Integer, Dot1qStaticUnicastAddress: string(parts[1].Octets), Dot1qStaticUnicastReceivePort: int32(parts[2].Integer)}, true
 }
 
-// Dot1qStaticUnicastTableRow is one row of dot1qStaticUnicastTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qStaticUnicastTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qStaticUnicastTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qStaticUnicastTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qStaticUnicastTableRow struct {
 	Key                             Dot1qStaticUnicastTableKey
 	keyValid                        bool
 	Dot1qStaticUnicastAllowedToGoTo []byte
 	Dot1qStaticUnicastStatus        Dot1qStaticUnicastStatusValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                        [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qStaticUnicastTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qStaticUnicastTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qStaticUnicastAllowedToGoTo.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qStaticUnicastStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qStaticUnicastTableColumns, col)
 }
 
-// Dot1qStaticUnicastTableWalker streams selected columns of dot1qStaticUnicastTable.
-// The zero value is not usable; construct via Dot1qStaticUnicastTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qStaticUnicastTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qStaticUnicastTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qStaticUnicastTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qStaticUnicastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStaticUnicastTableRow] {
-	return func(yield func(snmp.OID, Dot1qStaticUnicastTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qStaticUnicastTableRow
-			row.Key, row.keyValid = decodeDot1qStaticUnicastTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qStaticUnicastAllowedToGoTo.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qStaticUnicastAllowedToGoTo.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qStaticUnicastAllowedToGoTo = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1qStaticUnicastStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qStaticUnicastStatus = Dot1qStaticUnicastStatusValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qStaticUnicastStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qStaticUnicastStatus = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qStaticUnicastTableT struct {
+	snmp.Table[Dot1qStaticUnicastTableRow, *Dot1qStaticUnicastTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qStaticUnicastTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qStaticUnicastTableT is the singleton type of Dot1qStaticUnicastTable.
-type dot1qStaticUnicastTableT struct{}
 
 // Dot1qStaticUnicastTable is the descriptor for the dot1qStaticUnicastTable table.
-var Dot1qStaticUnicastTable dot1qStaticUnicastTableT
+var Dot1qStaticUnicastTable = dot1qStaticUnicastTableT{Table: snmp.NewTable("dot1qStaticUnicastTable", dot1qStaticUnicastTableColumns, func(idx snmp.OID, row *Dot1qStaticUnicastTableRow) {
+	row.Key, row.keyValid = decodeDot1qStaticUnicastTableKey(idx)
+}, func(row *Dot1qStaticUnicastTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qStaticUnicastAllowedToGoTo, &row.Dot1qStaticUnicastAllowedToGoTo, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qStaticUnicastStatus, &row.Dot1qStaticUnicastStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qStaticUnicastTableRow]) *Dot1qStaticUnicastTableWalker {
+	return &Dot1qStaticUnicastTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qStaticUnicastTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qStaticUnicastTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qStaticUnicastTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qStaticUnicastTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qStaticUnicastTableKey",
@@ -1851,34 +1107,7 @@ func (dot1qStaticUnicastTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qStaticUnicastTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qStaticUnicastTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qStaticUnicastAllowedToGoTo.Key(), Dot1qStaticUnicastStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qStaticUnicastTable.Walk: column %s", c.OID()))
-			return &Dot1qStaticUnicastTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qStaticUnicastTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qStaticMulticastStaticEgressPorts is the column dot1qStaticMulticastStaticEgressPorts of table dot1qStaticMulticastTable.
+// Dot1qStaticMulticastStaticEgressPorts is dot1qStaticMulticastStaticEgressPorts.
 // The set of ports to which frames received from a specific port and
 // destined for a specific Multicast or Broadcast MAC address must be
 // forwarded, regardless of any dynamic information, e.g., from GMRP. A
@@ -1887,9 +1116,9 @@ func (dot1qStaticUnicastTableT) WalkWithOptions(ctx context.Context, sess snmp.S
 // of this object is a string of ones of appropriate length. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
-var Dot1qStaticMulticastStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qStaticMulticastStaticEgressPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// Dot1qStaticMulticastForbiddenEgressPorts is the column dot1qStaticMulticastForbiddenEgressPorts of table dot1qStaticMulticastTable.
+// Dot1qStaticMulticastForbiddenEgressPorts is dot1qStaticMulticastForbiddenEgressPorts.
 // The set of ports to which frames received from a specific port and
 // destined for a specific Multicast or Broadcast MAC address must not be
 // forwarded, regardless of any dynamic information, e.g., from GMRP. A
@@ -1898,9 +1127,9 @@ var Dot1qStaticMulticastStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(
 // this object is a string of zeros of appropriate length. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
-var Dot1qStaticMulticastForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qStaticMulticastForbiddenEgressPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// Dot1qStaticMulticastStatus is the column dot1qStaticMulticastStatus of table dot1qStaticMulticastTable.
+// Dot1qStaticMulticastStatus is dot1qStaticMulticastStatus.
 // This object indicates the status of this entry. other(1) - this entry is
 // currently in use, but the conditions under which it will remain so
 // differ from the following values. invalid(2) - writing this value to the
@@ -1911,13 +1140,14 @@ var Dot1qStaticMulticastForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustO
 // currently in use and will remain so until it is aged out. The value of
 // this object MUST be retained across reinitializations of the management
 // system.
-var Dot1qStaticMulticastStatus = snmp.NewColumn[Dot1qStaticMulticastStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qStaticMulticastStatusValue, error) {
+var Dot1qStaticMulticastStatus = snmp.NewFusedTableColumn[Dot1qStaticMulticastStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 3, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qStaticMulticastStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1qStaticMulticastStatusValue(0), err
 	}
 	return Dot1qStaticMulticastStatusValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1qStaticMulticastStatusValue], 2)
+var dot1qStaticMulticastTableColumns = []snmp.AnyColumn{Dot1qStaticMulticastStaticEgressPorts, Dot1qStaticMulticastForbiddenEgressPorts, Dot1qStaticMulticastStatus}
 
 // Dot1qStaticMulticastTableKey is the decoded INDEX of one dot1qStaticMulticastTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1942,160 +1172,52 @@ func decodeDot1qStaticMulticastTableKey(idx snmp.OID) (Dot1qStaticMulticastTable
 	return Dot1qStaticMulticastTableKey{Dot1qVLANIndex: VLANIndex(parts[0].Integer), Dot1qStaticMulticastAddress: string(parts[1].Octets), Dot1qStaticMulticastReceivePort: int32(parts[2].Integer)}, true
 }
 
-// Dot1qStaticMulticastTableRow is one row of dot1qStaticMulticastTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qStaticMulticastTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qStaticMulticastTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qStaticMulticastTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qStaticMulticastTableRow struct {
 	Key                                      Dot1qStaticMulticastTableKey
 	keyValid                                 bool
 	Dot1qStaticMulticastStaticEgressPorts    []byte
 	Dot1qStaticMulticastForbiddenEgressPorts []byte
 	Dot1qStaticMulticastStatus               Dot1qStaticMulticastStatusValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                                 [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qStaticMulticastTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qStaticMulticastTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qStaticMulticastStaticEgressPorts.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qStaticMulticastForbiddenEgressPorts.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qStaticMulticastStatus.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qStaticMulticastTableColumns, col)
 }
 
-// Dot1qStaticMulticastTableWalker streams selected columns of dot1qStaticMulticastTable.
-// The zero value is not usable; construct via Dot1qStaticMulticastTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qStaticMulticastTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qStaticMulticastTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qStaticMulticastTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qStaticMulticastTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qStaticMulticastTableRow] {
-	return func(yield func(snmp.OID, Dot1qStaticMulticastTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qStaticMulticastTableRow
-			row.Key, row.keyValid = decodeDot1qStaticMulticastTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qStaticMulticastStaticEgressPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qStaticMulticastStaticEgressPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qStaticMulticastStaticEgressPorts = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1qStaticMulticastForbiddenEgressPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qStaticMulticastForbiddenEgressPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qStaticMulticastForbiddenEgressPorts = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case Dot1qStaticMulticastStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qStaticMulticastStatus = Dot1qStaticMulticastStatusValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qStaticMulticastStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qStaticMulticastStatus = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qStaticMulticastTableT struct {
+	snmp.Table[Dot1qStaticMulticastTableRow, *Dot1qStaticMulticastTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qStaticMulticastTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qStaticMulticastTableT is the singleton type of Dot1qStaticMulticastTable.
-type dot1qStaticMulticastTableT struct{}
 
 // Dot1qStaticMulticastTable is the descriptor for the dot1qStaticMulticastTable table.
-var Dot1qStaticMulticastTable dot1qStaticMulticastTableT
+var Dot1qStaticMulticastTable = dot1qStaticMulticastTableT{Table: snmp.NewTable("dot1qStaticMulticastTable", dot1qStaticMulticastTableColumns, func(idx snmp.OID, row *Dot1qStaticMulticastTableRow) {
+	row.Key, row.keyValid = decodeDot1qStaticMulticastTableKey(idx)
+}, func(row *Dot1qStaticMulticastTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qStaticMulticastStaticEgressPorts, &row.Dot1qStaticMulticastStaticEgressPorts, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qStaticMulticastForbiddenEgressPorts, &row.Dot1qStaticMulticastForbiddenEgressPorts, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qStaticMulticastStatus, &row.Dot1qStaticMulticastStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qStaticMulticastTableRow]) *Dot1qStaticMulticastTableWalker {
+	return &Dot1qStaticMulticastTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qStaticMulticastTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qStaticMulticastTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qStaticMulticastTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qStaticMulticastTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qStaticMulticastTableKey",
@@ -2103,53 +1225,26 @@ func (dot1qStaticMulticastTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qStaticMulticastTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qStaticMulticastTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qStaticMulticastStaticEgressPorts.Key(), Dot1qStaticMulticastForbiddenEgressPorts.Key(), Dot1qStaticMulticastStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qStaticMulticastTable.Walk: column %s", c.OID()))
-			return &Dot1qStaticMulticastTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qStaticMulticastTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qVLANFdbID is the column dot1qVlanFdbId of table dot1qVlanCurrentTable.
+// Dot1qVLANFdbID is dot1qVlanFdbId.
 // The Filtering Database used by this VLAN. This is one of the dot1qFdbId
 // values in the dot1qFdbTable. This value is allocated automatically by
 // the device whenever the VLAN is created: either dynamically by GVRP, or
 // by management, in dot1qVlanStaticTable. Allocation of this value follows
 // the learning constraints defined for this VLAN in
 // dot1qLearningConstraintsTable.
-var Dot1qVLANFdbID = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32)
+var Dot1qVLANFdbID = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 3), snmp.KindUinteger32, snmp.DecodeUint32, snmp.RawGauge32, 0)
 
-// Dot1qVLANCurrentEgressPorts is the column dot1qVlanCurrentEgressPorts of table dot1qVlanCurrentTable.
+// Dot1qVLANCurrentEgressPorts is dot1qVlanCurrentEgressPorts.
 // The set of ports that are transmitting traffic for this VLAN as either
 // tagged or untagged frames.
-var Dot1qVLANCurrentEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qVLANCurrentEgressPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// Dot1qVLANCurrentUntaggedPorts is the column dot1qVlanCurrentUntaggedPorts of table dot1qVlanCurrentTable.
+// Dot1qVLANCurrentUntaggedPorts is dot1qVlanCurrentUntaggedPorts.
 // The set of ports that are transmitting traffic for this VLAN as untagged
 // frames.
-var Dot1qVLANCurrentUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qVLANCurrentUntaggedPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBytes, 2)
 
-// Dot1qVLANStatus is the column dot1qVlanStatus of table dot1qVlanCurrentTable.
+// Dot1qVLANStatus is dot1qVlanStatus.
 // This object indicates the status of this entry. other(1) - this entry is
 // currently in use, but the conditions under which it will remain so
 // differ from the following values. permanent(2) - this entry,
@@ -2160,17 +1255,20 @@ var Dot1qVLANCurrentUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 // currently in use and will remain so until removed by GVRP. There is no
 // static entry for this VLAN, and it will be removed when the last port
 // leaves the VLAN.
-var Dot1qVLANStatus = snmp.NewColumn[Dot1qVLANStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qVLANStatusValue, error) {
+var Dot1qVLANStatus = snmp.NewFusedTableColumn[Dot1qVLANStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qVLANStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1qVLANStatusValue(0), err
 	}
 	return Dot1qVLANStatusValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1qVLANStatusValue], 3)
 
-// Dot1qVLANCreationTime is the column dot1qVlanCreationTime of table dot1qVlanCurrentTable.
+// Dot1qVLANCreationTime is dot1qVlanCreationTime.
 // The value of sysUpTime when this VLAN was created.
-var Dot1qVLANCreationTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 7), snmp.KindTimeTicks, snmp.DecodeUint32)
+var (
+	Dot1qVLANCreationTime        = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 2, 1, 7), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 4)
+	dot1qVLANCurrentTableColumns = []snmp.AnyColumn{Dot1qVLANFdbID, Dot1qVLANCurrentEgressPorts, Dot1qVLANCurrentUntaggedPorts, Dot1qVLANStatus, Dot1qVLANCreationTime}
+)
 
 // Dot1qVLANCurrentTableKey is the decoded INDEX of one dot1qVlanCurrentTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2191,14 +1289,7 @@ func decodeDot1qVLANCurrentTableKey(idx snmp.OID) (Dot1qVLANCurrentTableKey, boo
 	return Dot1qVLANCurrentTableKey{Dot1qVLANTimeMark: parts[0].Integer, Dot1qVLANIndex: VLANIndex(parts[1].Integer)}, true
 }
 
-// Dot1qVLANCurrentTableRow is one row of dot1qVlanCurrentTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qVLANCurrentTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qVLANCurrentTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qVLANCurrentTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qVLANCurrentTableRow struct {
 	Key                           Dot1qVLANCurrentTableKey
 	keyValid                      bool
@@ -2207,186 +1298,49 @@ type Dot1qVLANCurrentTableRow struct {
 	Dot1qVLANCurrentUntaggedPorts []byte
 	Dot1qVLANStatus               Dot1qVLANStatusValue
 	Dot1qVLANCreationTime         uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                      [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qVLANCurrentTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qVLANCurrentTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qVLANFdbID.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qVLANCurrentEgressPorts.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qVLANCurrentUntaggedPorts.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1qVLANStatus.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1qVLANCreationTime.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qVLANCurrentTableColumns, col)
 }
 
-// Dot1qVLANCurrentTableWalker streams selected columns of dot1qVlanCurrentTable.
-// The zero value is not usable; construct via Dot1qVLANCurrentTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qVLANCurrentTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qVLANCurrentTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qVLANCurrentTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qVLANCurrentTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVLANCurrentTableRow] {
-	return func(yield func(snmp.OID, Dot1qVLANCurrentTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qVLANCurrentTableRow
-			row.Key, row.keyValid = decodeDot1qVLANCurrentTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qVLANFdbID.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Dot1qVLANFdbID = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qVLANFdbID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qVLANFdbID = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1qVLANCurrentEgressPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANCurrentEgressPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANCurrentEgressPorts = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case Dot1qVLANCurrentUntaggedPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANCurrentUntaggedPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANCurrentUntaggedPorts = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case Dot1qVLANStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qVLANStatus = Dot1qVLANStatusValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qVLANStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qVLANStatus = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case Dot1qVLANCreationTime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.Dot1qVLANCreationTime = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qVLANCreationTime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qVLANCreationTime = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qVLANCurrentTableT struct {
+	snmp.Table[Dot1qVLANCurrentTableRow, *Dot1qVLANCurrentTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qVLANCurrentTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qVLANCurrentTableT is the singleton type of Dot1qVLANCurrentTable.
-type dot1qVLANCurrentTableT struct{}
 
 // Dot1qVLANCurrentTable is the descriptor for the dot1qVlanCurrentTable table.
-var Dot1qVLANCurrentTable dot1qVLANCurrentTableT
+var Dot1qVLANCurrentTable = dot1qVLANCurrentTableT{Table: snmp.NewTable("dot1qVlanCurrentTable", dot1qVLANCurrentTableColumns, func(idx snmp.OID, row *Dot1qVLANCurrentTableRow) {
+	row.Key, row.keyValid = decodeDot1qVLANCurrentTableKey(idx)
+}, func(row *Dot1qVLANCurrentTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qVLANFdbID, &row.Dot1qVLANFdbID, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qVLANCurrentEgressPorts, &row.Dot1qVLANCurrentEgressPorts, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qVLANCurrentUntaggedPorts, &row.Dot1qVLANCurrentUntaggedPorts, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1qVLANStatus, &row.Dot1qVLANStatus, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1qVLANCreationTime, &row.Dot1qVLANCreationTime, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qVLANCurrentTableRow]) *Dot1qVLANCurrentTableWalker {
+	return &Dot1qVLANCurrentTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qVLANCurrentTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qVLANCurrentTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qVLANCurrentTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qVLANCurrentTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qVLANCurrentTableKey",
@@ -2394,39 +1348,12 @@ func (dot1qVLANCurrentTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qVLANCurrentTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qVLANCurrentTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qVLANFdbID.Key(), Dot1qVLANCurrentEgressPorts.Key(), Dot1qVLANCurrentUntaggedPorts.Key(), Dot1qVLANStatus.Key(), Dot1qVLANCreationTime.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qVlanCurrentTable.Walk: column %s", c.OID()))
-			return &Dot1qVLANCurrentTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qVLANCurrentTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qVLANStaticName is the column dot1qVlanStaticName of table dot1qVlanStaticTable.
+// Dot1qVLANStaticName is dot1qVlanStaticName.
 // An administratively assigned string, which may be used to identify the
 // VLAN.
-var Dot1qVLANStaticName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 1), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qVLANStaticName = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 1), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// Dot1qVLANStaticEgressPorts is the column dot1qVlanStaticEgressPorts of table dot1qVlanStaticTable.
+// Dot1qVLANStaticEgressPorts is dot1qVlanStaticEgressPorts.
 // The set of ports that are permanently assigned to the egress list for
 // this VLAN by management. Changes to a bit in this object affect the
 // per-port, per-VLAN Registrar control for Registration Fixed for the
@@ -2434,9 +1361,9 @@ var Dot1qVLANStaticName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // this set if it is already a member of the set of ports in
 // dot1qVlanForbiddenEgressPorts. The default value of this object is a
 // string of zeros of appropriate length, indicating not fixed.
-var Dot1qVLANStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qVLANStaticEgressPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// Dot1qVLANForbiddenEgressPorts is the column dot1qVlanForbiddenEgressPorts of table dot1qVlanStaticTable.
+// Dot1qVLANForbiddenEgressPorts is dot1qVlanForbiddenEgressPorts.
 // The set of ports that are prohibited by management from being included
 // in the egress list for this VLAN. Changes to this object that cause a
 // port to be included or excluded affect the per-port, per-VLAN Registrar
@@ -2445,9 +1372,9 @@ var Dot1qVLANStaticEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1,
 // member of the set of ports in dot1qVlanStaticEgressPorts. The default
 // value of this object is a string of zeros of appropriate length,
 // excluding all ports from the forbidden set.
-var Dot1qVLANForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qVLANForbiddenEgressPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 2)
 
-// Dot1qVLANStaticUntaggedPorts is the column dot1qVlanStaticUntaggedPorts of table dot1qVlanStaticTable.
+// Dot1qVLANStaticUntaggedPorts is dot1qVlanStaticUntaggedPorts.
 // The set of ports that should transmit egress packets for this VLAN as
 // untagged. The default value of this object for the default VLAN
 // (dot1qVlanIndex = 1) is a string of appropriate length including all
@@ -2456,11 +1383,14 @@ var Dot1qVLANForbiddenEgressPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6,
 // operation with an error. For example, a manager might attempt to set
 // more than one VLAN to be untagged on egress where the device does not
 // support this IEEE 802.1Q option.
-var Dot1qVLANStaticUntaggedPorts = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1qVLANStaticUntaggedPorts = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 4), snmp.KindOctetString, snmp.DecodeBytes, 3)
 
-// Dot1qVLANStaticRowStatus is the column dot1qVlanStaticRowStatus of table dot1qVlanStaticTable.
+// Dot1qVLANStaticRowStatus is dot1qVlanStaticRowStatus.
 // This object indicates the status of this entry.
-var Dot1qVLANStaticRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 5), snmp.KindInteger32, snmp.DecodeRowStatus)
+var (
+	Dot1qVLANStaticRowStatus    = snmp.NewTableColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 3, 1, 5), snmp.KindInteger32, snmp.DecodeRowStatus, 4)
+	dot1qVLANStaticTableColumns = []snmp.AnyColumn{Dot1qVLANStaticName, Dot1qVLANStaticEgressPorts, Dot1qVLANForbiddenEgressPorts, Dot1qVLANStaticUntaggedPorts, Dot1qVLANStaticRowStatus}
+)
 
 // Dot1qVLANStaticTableKey is the decoded INDEX of one dot1qVlanStaticTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2480,14 +1410,7 @@ func decodeDot1qVLANStaticTableKey(idx snmp.OID) (Dot1qVLANStaticTableKey, bool)
 	return Dot1qVLANStaticTableKey{Dot1qVLANIndex: VLANIndex(parts[0].Integer)}, true
 }
 
-// Dot1qVLANStaticTableRow is one row of dot1qVlanStaticTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qVLANStaticTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qVLANStaticTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qVLANStaticTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qVLANStaticTableRow struct {
 	Key                           Dot1qVLANStaticTableKey
 	keyValid                      bool
@@ -2496,171 +1419,49 @@ type Dot1qVLANStaticTableRow struct {
 	Dot1qVLANForbiddenEgressPorts []byte
 	Dot1qVLANStaticUntaggedPorts  []byte
 	Dot1qVLANStaticRowStatus      snmp.RowStatus
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                      [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qVLANStaticTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qVLANStaticTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qVLANStaticName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qVLANStaticEgressPorts.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qVLANForbiddenEgressPorts.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1qVLANStaticUntaggedPorts.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1qVLANStaticRowStatus.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qVLANStaticTableColumns, col)
 }
 
-// Dot1qVLANStaticTableWalker streams selected columns of dot1qVlanStaticTable.
-// The zero value is not usable; construct via Dot1qVLANStaticTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qVLANStaticTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qVLANStaticTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qVLANStaticTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qVLANStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qVLANStaticTableRow] {
-	return func(yield func(snmp.OID, Dot1qVLANStaticTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qVLANStaticTableRow
-			row.Key, row.keyValid = decodeDot1qVLANStaticTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qVLANStaticName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANStaticName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANStaticName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1qVLANStaticEgressPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANStaticEgressPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANStaticEgressPorts = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case Dot1qVLANForbiddenEgressPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANForbiddenEgressPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANForbiddenEgressPorts = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case Dot1qVLANStaticUntaggedPorts.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANStaticUntaggedPorts.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANStaticUntaggedPorts = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case Dot1qVLANStaticRowStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qVLANStaticRowStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qVLANStaticRowStatus = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qVLANStaticTableT struct {
+	snmp.Table[Dot1qVLANStaticTableRow, *Dot1qVLANStaticTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qVLANStaticTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qVLANStaticTableT is the singleton type of Dot1qVLANStaticTable.
-type dot1qVLANStaticTableT struct{}
 
 // Dot1qVLANStaticTable is the descriptor for the dot1qVlanStaticTable table.
-var Dot1qVLANStaticTable dot1qVLANStaticTableT
+var Dot1qVLANStaticTable = dot1qVLANStaticTableT{Table: snmp.NewTable("dot1qVlanStaticTable", dot1qVLANStaticTableColumns, func(idx snmp.OID, row *Dot1qVLANStaticTableRow) {
+	row.Key, row.keyValid = decodeDot1qVLANStaticTableKey(idx)
+}, func(row *Dot1qVLANStaticTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qVLANStaticName, &row.Dot1qVLANStaticName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qVLANStaticEgressPorts, &row.Dot1qVLANStaticEgressPorts, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qVLANForbiddenEgressPorts, &row.Dot1qVLANForbiddenEgressPorts, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1qVLANStaticUntaggedPorts, &row.Dot1qVLANStaticUntaggedPorts, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1qVLANStaticRowStatus, &row.Dot1qVLANStaticRowStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qVLANStaticTableRow]) *Dot1qVLANStaticTableWalker {
+	return &Dot1qVLANStaticTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qVLANStaticTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qVLANStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qVLANStaticTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qVLANStaticTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qVLANStaticTableKey",
@@ -2668,46 +1469,19 @@ func (dot1qVLANStaticTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qVLANStaticTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qVLANStaticTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qVLANStaticName.Key(), Dot1qVLANStaticEgressPorts.Key(), Dot1qVLANForbiddenEgressPorts.Key(), Dot1qVLANStaticUntaggedPorts.Key(), Dot1qVLANStaticRowStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qVlanStaticTable.Walk: column %s", c.OID()))
-			return &Dot1qVLANStaticTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qVLANStaticTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qPvid is the column dot1qPvid of table dot1qPortVlanTable.
+// Dot1qPvid is dot1qPvid.
 // The PVID, the VLAN-ID assigned to untagged frames or Priority-Tagged
 // frames received on this port. The value of this object MUST be retained
 // across reinitializations of the management system.
-var Dot1qPvid = snmp.NewColumn[VLANIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 1), snmp.KindUinteger32, func(vb snmp.VarBind) (VLANIndex, error) {
+var Dot1qPvid = snmp.NewFusedTableColumn[VLANIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 1), snmp.KindUinteger32, func(vb snmp.VarBind) (VLANIndex, error) {
 	v, err := snmp.DecodeUint32(vb)
 	if err != nil {
 		return VLANIndex(0), err
 	}
 	return VLANIndex(v), nil
-})
+}, snmp.RawGauge32As[VLANIndex], 0)
 
-// Dot1qPortAcceptableFrameTypes is the column dot1qPortAcceptableFrameTypes of table dot1qPortVlanTable.
+// Dot1qPortAcceptableFrameTypes is dot1qPortAcceptableFrameTypes.
 // When this is admitOnlyVlanTagged(2), the device will discard untagged
 // frames or Priority-Tagged frames received on this port. When
 // admitAll(1), untagged frames or Priority-Tagged frames received on this
@@ -2717,24 +1491,24 @@ var Dot1qPvid = snmp.NewColumn[VLANIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 
 // Protocol (STP). It does affect VLAN- dependent BPDU frames, such as
 // GMRP. The value of this object MUST be retained across reinitializations
 // of the management system.
-var Dot1qPortAcceptableFrameTypes = snmp.NewColumn[Dot1qPortAcceptableFrameTypesValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qPortAcceptableFrameTypesValue, error) {
+var Dot1qPortAcceptableFrameTypes = snmp.NewFusedTableColumn[Dot1qPortAcceptableFrameTypesValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qPortAcceptableFrameTypesValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1qPortAcceptableFrameTypesValue(0), err
 	}
 	return Dot1qPortAcceptableFrameTypesValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1qPortAcceptableFrameTypesValue], 1)
 
-// Dot1qPortIngressFiltering is the column dot1qPortIngressFiltering of table dot1qPortVlanTable.
+// Dot1qPortIngressFiltering is dot1qPortIngressFiltering.
 // When this is true(1), the device will discard incoming frames for VLANs
 // that do not include this Port in its Member set. When false(2), the port
 // will accept all incoming frames. This control does not affect
 // VLAN-independent BPDU frames, such as GVRP and STP. It does affect VLAN-
 // dependent BPDU frames, such as GMRP. The value of this object MUST be
 // retained across reinitializations of the management system.
-var Dot1qPortIngressFiltering = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue)
+var Dot1qPortIngressFiltering = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue, 2)
 
-// Dot1qPortGvrpStatus is the column dot1qPortGvrpStatus of table dot1qPortVlanTable.
+// Dot1qPortGvrpStatus is dot1qPortGvrpStatus.
 // The state of GVRP operation on this port. The value enabled(1) indicates
 // that GVRP is enabled on this port, as long as dot1qGvrpStatus is also
 // enabled for this device. When disabled(2) but dot1qGvrpStatus is still
@@ -2745,24 +1519,24 @@ var Dot1qPortIngressFiltering = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2,
 // enabled(1) will cause a reset of all GVRP state machines on this port.
 // The value of this object MUST be retained across reinitializations of
 // the management system.
-var Dot1qPortGvrpStatus = snmp.NewColumn[pbridgemib.EnabledStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (pbridgemib.EnabledStatus, error) {
+var Dot1qPortGvrpStatus = snmp.NewFusedTableColumn[pbridgemib.EnabledStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (pbridgemib.EnabledStatus, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return pbridgemib.EnabledStatus(0), err
 	}
 	return pbridgemib.EnabledStatus(v), nil
-})
+}, snmp.RawInteger32As[pbridgemib.EnabledStatus], 3)
 
-// Dot1qPortGvrpFailedRegistrations is the column dot1qPortGvrpFailedRegistrations of table dot1qPortVlanTable.
+// Dot1qPortGvrpFailedRegistrations is dot1qPortGvrpFailedRegistrations.
 // The total number of failed GVRP registrations, for any reason, on this
 // port.
-var Dot1qPortGvrpFailedRegistrations = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1qPortGvrpFailedRegistrations = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
 
-// Dot1qPortGvrpLastPduOrigin is the column dot1qPortGvrpLastPduOrigin of table dot1qPortVlanTable.
+// Dot1qPortGvrpLastPduOrigin is dot1qPortGvrpLastPduOrigin.
 // The Source MAC Address of the last GVRP message received on this port.
-var Dot1qPortGvrpLastPduOrigin = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress)
+var Dot1qPortGvrpLastPduOrigin = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress, 5)
 
-// Dot1qPortRestrictedVLANRegistration is the column dot1qPortRestrictedVlanRegistration of table dot1qPortVlanTable.
+// Dot1qPortRestrictedVLANRegistration is dot1qPortRestrictedVlanRegistration.
 // The state of Restricted VLAN Registration on this port. If the value of
 // this control is true(1), then creation of a new dynamic VLAN entry is
 // permitted only if there is a Static VLAN Registration Entry for the VLAN
@@ -2770,7 +1544,8 @@ var Dot1qPortGvrpLastPduOrigin = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1
 // port is Normal Registration. The value of this object MUST be retained
 // across reinitializations of the management system.
 var (
-	Dot1qPortRestrictedVLANRegistration = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 7), snmp.KindInteger32, snmp.DecodeTruthValue)
+	Dot1qPortRestrictedVLANRegistration = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 5, 1, 7), snmp.KindInteger32, snmp.DecodeTruthValue, 6)
+	dot1qPortVLANTableColumns           = []snmp.AnyColumn{Dot1qPvid, Dot1qPortAcceptableFrameTypes, Dot1qPortIngressFiltering, Dot1qPortGvrpStatus, Dot1qPortGvrpFailedRegistrations, Dot1qPortGvrpLastPduOrigin, Dot1qPortRestrictedVLANRegistration}
 	dot1qPortVLANTableIndexShapes       = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 )
 
@@ -2784,14 +1559,7 @@ func decodeDot1qPortVLANTableKey(idx snmp.OID) (bridgemib.Dot1dBasePortTableKey,
 	return bridgemib.Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true
 }
 
-// Dot1qPortVLANTableRow is one row of dot1qPortVlanTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qPortVLANTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qPortVLANTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qPortVLANTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qPortVLANTableRow struct {
 	Key                                 bridgemib.Dot1dBasePortTableKey
 	keyValid                            bool
@@ -2802,221 +1570,53 @@ type Dot1qPortVLANTableRow struct {
 	Dot1qPortGvrpFailedRegistrations    uint32
 	Dot1qPortGvrpLastPduOrigin          net.HardwareAddr
 	Dot1qPortRestrictedVLANRegistration bool
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                            [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qPortVLANTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qPortVLANTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qPvid.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qPortAcceptableFrameTypes.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qPortIngressFiltering.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1qPortGvrpStatus.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1qPortGvrpFailedRegistrations.Key():
-		return r.observed[0]&(1<<4) != 0
-	case Dot1qPortGvrpLastPduOrigin.Key():
-		return r.observed[0]&(1<<5) != 0
-	case Dot1qPortRestrictedVLANRegistration.Key():
-		return r.observed[0]&(1<<6) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qPortVLANTableColumns, col)
 }
 
-// Dot1qPortVLANTableWalker streams selected columns of dot1qPortVlanTable.
-// The zero value is not usable; construct via Dot1qPortVLANTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qPortVLANTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qPortVLANTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qPortVLANTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qPortVLANTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVLANTableRow] {
-	return func(yield func(snmp.OID, Dot1qPortVLANTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qPortVLANTableRow
-			row.Key, row.keyValid = decodeDot1qPortVLANTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qPvid.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.Dot1qPvid = VLANIndex(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qPvid.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qPvid = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1qPortAcceptableFrameTypes.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qPortAcceptableFrameTypes = Dot1qPortAcceptableFrameTypesValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qPortAcceptableFrameTypes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qPortAcceptableFrameTypes = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1qPortIngressFiltering.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qPortIngressFiltering.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qPortIngressFiltering = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case Dot1qPortGvrpStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qPortGvrpStatus = pbridgemib.EnabledStatus(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qPortGvrpStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qPortGvrpStatus = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case Dot1qPortGvrpFailedRegistrations.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qPortGvrpFailedRegistrations = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qPortGvrpFailedRegistrations.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qPortGvrpFailedRegistrations = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case Dot1qPortGvrpLastPduOrigin.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qPortGvrpLastPduOrigin.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qPortGvrpLastPduOrigin = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case Dot1qPortRestrictedVLANRegistration.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qPortRestrictedVLANRegistration.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qPortRestrictedVLANRegistration = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qPortVLANTableT struct {
+	snmp.Table[Dot1qPortVLANTableRow, *Dot1qPortVLANTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qPortVLANTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qPortVLANTableT is the singleton type of Dot1qPortVLANTable.
-type dot1qPortVLANTableT struct{}
 
 // Dot1qPortVLANTable is the descriptor for the dot1qPortVlanTable table.
-var Dot1qPortVLANTable dot1qPortVLANTableT
+var Dot1qPortVLANTable = dot1qPortVLANTableT{Table: snmp.NewTable("dot1qPortVlanTable", dot1qPortVLANTableColumns, func(idx snmp.OID, row *Dot1qPortVLANTableRow) {
+	row.Key, row.keyValid = decodeDot1qPortVLANTableKey(idx)
+}, func(row *Dot1qPortVLANTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qPvid, &row.Dot1qPvid, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qPortAcceptableFrameTypes, &row.Dot1qPortAcceptableFrameTypes, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qPortIngressFiltering, &row.Dot1qPortIngressFiltering, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1qPortGvrpStatus, &row.Dot1qPortGvrpStatus, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1qPortGvrpFailedRegistrations, &row.Dot1qPortGvrpFailedRegistrations, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, Dot1qPortGvrpLastPduOrigin, &row.Dot1qPortGvrpLastPduOrigin, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, Dot1qPortRestrictedVLANRegistration, &row.Dot1qPortRestrictedVLANRegistration, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qPortVLANTableRow]) *Dot1qPortVLANTableWalker {
+	return &Dot1qPortVLANTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qPortVLANTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qPortVLANTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVLANTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qPortVLANTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "bridgemib.Dot1dBasePortTableKey",
@@ -3024,70 +1624,46 @@ func (dot1qPortVLANTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qPortVLANTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qPortVLANTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qPvid.Key(), Dot1qPortAcceptableFrameTypes.Key(), Dot1qPortIngressFiltering.Key(), Dot1qPortGvrpStatus.Key(), Dot1qPortGvrpFailedRegistrations.Key(), Dot1qPortGvrpLastPduOrigin.Key(), Dot1qPortRestrictedVLANRegistration.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qPortVlanTable.Walk: column %s", c.OID()))
-			return &Dot1qPortVLANTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qPortVLANTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qTpVLANPortInFrames is the column dot1qTpVlanPortInFrames of table dot1qPortVlanStatisticsTable.
+// Dot1qTpVLANPortInFrames is dot1qTpVlanPortInFrames.
 // The number of valid frames received by this port from its segment that
 // were classified as belonging to this VLAN. Note that a frame received on
 // this port is counted by this object if and only if it is for a protocol
 // being processed by the local forwarding process for this VLAN. This
 // object includes received bridge management frames classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP.
-var Dot1qTpVLANPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 1), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1qTpVLANPortInFrames = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 1), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 0)
 
-// Dot1qTpVLANPortOutFrames is the column dot1qTpVlanPortOutFrames of table dot1qPortVlanStatisticsTable.
+// Dot1qTpVLANPortOutFrames is dot1qTpVlanPortOutFrames.
 // The number of valid frames transmitted by this port to its segment from
 // the local forwarding process for this VLAN. This includes bridge
 // management frames originated by this device that are classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP).
-var Dot1qTpVLANPortOutFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1qTpVLANPortOutFrames = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 2), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 1)
 
-// Dot1qTpVLANPortInDiscards is the column dot1qTpVlanPortInDiscards of table dot1qPortVlanStatisticsTable.
+// Dot1qTpVLANPortInDiscards is dot1qTpVlanPortInDiscards.
 // The number of valid frames received by this port from its segment that
 // were classified as belonging to this VLAN and that were discarded due to
 // VLAN-related reasons. Specifically, the IEEE 802.1Q counters for Discard
 // Inbound and Discard on Ingress Filtering.
-var Dot1qTpVLANPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1qTpVLANPortInDiscards = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 3), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 2)
 
-// Dot1qTpVLANPortInOverflowFrames is the column dot1qTpVlanPortInOverflowFrames of table dot1qPortVlanStatisticsTable.
+// Dot1qTpVLANPortInOverflowFrames is dot1qTpVlanPortInOverflowFrames.
 // The number of times the associated dot1qTpVlanPortInFrames counter has
 // overflowed.
-var Dot1qTpVLANPortInOverflowFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1qTpVLANPortInOverflowFrames = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 4), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
 
-// Dot1qTpVLANPortOutOverflowFrames is the column dot1qTpVlanPortOutOverflowFrames of table dot1qPortVlanStatisticsTable.
+// Dot1qTpVLANPortOutOverflowFrames is dot1qTpVlanPortOutOverflowFrames.
 // The number of times the associated dot1qTpVlanPortOutFrames counter has
 // overflowed.
-var Dot1qTpVLANPortOutOverflowFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1qTpVLANPortOutOverflowFrames = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
 
-// Dot1qTpVLANPortInOverflowDiscards is the column dot1qTpVlanPortInOverflowDiscards of table dot1qPortVlanStatisticsTable.
+// Dot1qTpVLANPortInOverflowDiscards is dot1qTpVlanPortInOverflowDiscards.
 // The number of times the associated dot1qTpVlanPortInDiscards counter has
 // overflowed.
-var Dot1qTpVLANPortInOverflowDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	Dot1qTpVLANPortInOverflowDiscards   = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 6, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 5)
+	dot1qPortVLANStatisticsTableColumns = []snmp.AnyColumn{Dot1qTpVLANPortInFrames, Dot1qTpVLANPortOutFrames, Dot1qTpVLANPortInDiscards, Dot1qTpVLANPortInOverflowFrames, Dot1qTpVLANPortOutOverflowFrames, Dot1qTpVLANPortInOverflowDiscards}
+)
 
 // Dot1qPortVLANStatisticsTableKey is the decoded INDEX of one dot1qPortVlanStatisticsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3108,14 +1684,7 @@ func decodeDot1qPortVLANStatisticsTableKey(idx snmp.OID) (Dot1qPortVLANStatistic
 	return Dot1qPortVLANStatisticsTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1qVLANIndex: VLANIndex(parts[1].Integer)}, true
 }
 
-// Dot1qPortVLANStatisticsTableRow is one row of dot1qPortVlanStatisticsTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qPortVLANStatisticsTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qPortVLANStatisticsTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qPortVLANStatisticsTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qPortVLANStatisticsTableRow struct {
 	Key                               Dot1qPortVLANStatisticsTableKey
 	keyValid                          bool
@@ -3125,216 +1694,51 @@ type Dot1qPortVLANStatisticsTableRow struct {
 	Dot1qTpVLANPortInOverflowFrames   uint32
 	Dot1qTpVLANPortOutOverflowFrames  uint32
 	Dot1qTpVLANPortInOverflowDiscards uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                          [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qPortVLANStatisticsTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qPortVLANStatisticsTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qTpVLANPortInFrames.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qTpVLANPortOutFrames.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qTpVLANPortInDiscards.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1qTpVLANPortInOverflowFrames.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1qTpVLANPortOutOverflowFrames.Key():
-		return r.observed[0]&(1<<4) != 0
-	case Dot1qTpVLANPortInOverflowDiscards.Key():
-		return r.observed[0]&(1<<5) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qPortVLANStatisticsTableColumns, col)
 }
 
-// Dot1qPortVLANStatisticsTableWalker streams selected columns of dot1qPortVlanStatisticsTable.
-// The zero value is not usable; construct via Dot1qPortVLANStatisticsTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qPortVLANStatisticsTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qPortVLANStatisticsTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qPortVLANStatisticsTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qPortVLANStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVLANStatisticsTableRow] {
-	return func(yield func(snmp.OID, Dot1qPortVLANStatisticsTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qPortVLANStatisticsTableRow
-			row.Key, row.keyValid = decodeDot1qPortVLANStatisticsTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qTpVLANPortInFrames.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVLANPortInFrames = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortInFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortInFrames = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1qTpVLANPortOutFrames.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVLANPortOutFrames = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortOutFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortOutFrames = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1qTpVLANPortInDiscards.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVLANPortInDiscards = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortInDiscards.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortInDiscards = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case Dot1qTpVLANPortInOverflowFrames.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVLANPortInOverflowFrames = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortInOverflowFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortInOverflowFrames = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case Dot1qTpVLANPortOutOverflowFrames.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVLANPortOutOverflowFrames = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortOutOverflowFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortOutOverflowFrames = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case Dot1qTpVLANPortInOverflowDiscards.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1qTpVLANPortInOverflowDiscards = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortInOverflowDiscards.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortInOverflowDiscards = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qPortVLANStatisticsTableT struct {
+	snmp.Table[Dot1qPortVLANStatisticsTableRow, *Dot1qPortVLANStatisticsTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qPortVLANStatisticsTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qPortVLANStatisticsTableT is the singleton type of Dot1qPortVLANStatisticsTable.
-type dot1qPortVLANStatisticsTableT struct{}
 
 // Dot1qPortVLANStatisticsTable is the descriptor for the dot1qPortVlanStatisticsTable table.
-var Dot1qPortVLANStatisticsTable dot1qPortVLANStatisticsTableT
+var Dot1qPortVLANStatisticsTable = dot1qPortVLANStatisticsTableT{Table: snmp.NewTable("dot1qPortVlanStatisticsTable", dot1qPortVLANStatisticsTableColumns, func(idx snmp.OID, row *Dot1qPortVLANStatisticsTableRow) {
+	row.Key, row.keyValid = decodeDot1qPortVLANStatisticsTableKey(idx)
+}, func(row *Dot1qPortVLANStatisticsTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortInFrames, &row.Dot1qTpVLANPortInFrames, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortOutFrames, &row.Dot1qTpVLANPortOutFrames, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortInDiscards, &row.Dot1qTpVLANPortInDiscards, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortInOverflowFrames, &row.Dot1qTpVLANPortInOverflowFrames, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortOutOverflowFrames, &row.Dot1qTpVLANPortOutOverflowFrames, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortInOverflowDiscards, &row.Dot1qTpVLANPortInOverflowDiscards, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qPortVLANStatisticsTableRow]) *Dot1qPortVLANStatisticsTableWalker {
+	return &Dot1qPortVLANStatisticsTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qPortVLANStatisticsTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qPortVLANStatisticsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVLANStatisticsTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qPortVLANStatisticsTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qPortVLANStatisticsTableKey",
@@ -3342,55 +1746,31 @@ func (dot1qPortVLANStatisticsTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qPortVLANStatisticsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qPortVLANStatisticsTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qTpVLANPortInFrames.Key(), Dot1qTpVLANPortOutFrames.Key(), Dot1qTpVLANPortInDiscards.Key(), Dot1qTpVLANPortInOverflowFrames.Key(), Dot1qTpVLANPortOutOverflowFrames.Key(), Dot1qTpVLANPortInOverflowDiscards.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qPortVlanStatisticsTable.Walk: column %s", c.OID()))
-			return &Dot1qPortVLANStatisticsTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qPortVLANStatisticsTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qTpVLANPortHCInFrames is the column dot1qTpVlanPortHCInFrames of table dot1qPortVlanHCStatisticsTable.
+// Dot1qTpVLANPortHCInFrames is dot1qTpVlanPortHCInFrames.
 // The number of valid frames received by this port from its segment that
 // were classified as belonging to this VLAN. Note that a frame received on
 // this port is counted by this object if and only if it is for a protocol
 // being processed by the local forwarding process for this VLAN. This
 // object includes received bridge management frames classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP).
-var Dot1qTpVLANPortHCInFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 1), snmp.KindCounter64, snmp.DecodeUint64)
+var Dot1qTpVLANPortHCInFrames = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 1), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 0)
 
-// Dot1qTpVLANPortHCOutFrames is the column dot1qTpVlanPortHCOutFrames of table dot1qPortVlanHCStatisticsTable.
+// Dot1qTpVLANPortHCOutFrames is dot1qTpVlanPortHCOutFrames.
 // The number of valid frames transmitted by this port to its segment from
 // the local forwarding process for this VLAN. This includes bridge
 // management frames originated by this device that are classified as
 // belonging to this VLAN (e.g., GMRP, but not GVRP or STP).
-var Dot1qTpVLANPortHCOutFrames = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 2), snmp.KindCounter64, snmp.DecodeUint64)
+var Dot1qTpVLANPortHCOutFrames = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 2), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 1)
 
-// Dot1qTpVLANPortHCInDiscards is the column dot1qTpVlanPortHCInDiscards of table dot1qPortVlanHCStatisticsTable.
+// Dot1qTpVLANPortHCInDiscards is dot1qTpVlanPortHCInDiscards.
 // The number of valid frames received by this port from its segment that
 // were classified as belonging to this VLAN and that were discarded due to
 // VLAN-related reasons. Specifically, the IEEE 802.1Q counters for Discard
 // Inbound and Discard on Ingress Filtering.
-var Dot1qTpVLANPortHCInDiscards = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 3), snmp.KindCounter64, snmp.DecodeUint64)
+var (
+	Dot1qTpVLANPortHCInDiscards           = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 7, 1, 3), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 2)
+	dot1qPortVLANHCStatisticsTableColumns = []snmp.AnyColumn{Dot1qTpVLANPortHCInFrames, Dot1qTpVLANPortHCOutFrames, Dot1qTpVLANPortHCInDiscards}
+)
 
 // Dot1qPortVLANHCStatisticsTableKey is the decoded INDEX of one dot1qPortVlanHCStatisticsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3411,170 +1791,52 @@ func decodeDot1qPortVLANHCStatisticsTableKey(idx snmp.OID) (Dot1qPortVLANHCStati
 	return Dot1qPortVLANHCStatisticsTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1qVLANIndex: VLANIndex(parts[1].Integer)}, true
 }
 
-// Dot1qPortVLANHCStatisticsTableRow is one row of dot1qPortVlanHCStatisticsTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qPortVLANHCStatisticsTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qPortVLANHCStatisticsTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qPortVLANHCStatisticsTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qPortVLANHCStatisticsTableRow struct {
 	Key                         Dot1qPortVLANHCStatisticsTableKey
 	keyValid                    bool
 	Dot1qTpVLANPortHCInFrames   uint64
 	Dot1qTpVLANPortHCOutFrames  uint64
 	Dot1qTpVLANPortHCInDiscards uint64
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qPortVLANHCStatisticsTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qPortVLANHCStatisticsTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qTpVLANPortHCInFrames.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qTpVLANPortHCOutFrames.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1qTpVLANPortHCInDiscards.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qPortVLANHCStatisticsTableColumns, col)
 }
 
-// Dot1qPortVLANHCStatisticsTableWalker streams selected columns of dot1qPortVlanHCStatisticsTable.
-// The zero value is not usable; construct via Dot1qPortVLANHCStatisticsTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qPortVLANHCStatisticsTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qPortVLANHCStatisticsTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qPortVLANHCStatisticsTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qPortVLANHCStatisticsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qPortVLANHCStatisticsTableRow] {
-	return func(yield func(snmp.OID, Dot1qPortVLANHCStatisticsTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qPortVLANHCStatisticsTableRow
-			row.Key, row.keyValid = decodeDot1qPortVLANHCStatisticsTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qTpVLANPortHCInFrames.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot1qTpVLANPortHCInFrames = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortHCInFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortHCInFrames = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1qTpVLANPortHCOutFrames.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot1qTpVLANPortHCOutFrames = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortHCOutFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortHCOutFrames = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1qTpVLANPortHCInDiscards.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.Dot1qTpVLANPortHCInDiscards = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qTpVLANPortHCInDiscards.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qTpVLANPortHCInDiscards = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qPortVLANHCStatisticsTableT struct {
+	snmp.Table[Dot1qPortVLANHCStatisticsTableRow, *Dot1qPortVLANHCStatisticsTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qPortVLANHCStatisticsTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qPortVLANHCStatisticsTableT is the singleton type of Dot1qPortVLANHCStatisticsTable.
-type dot1qPortVLANHCStatisticsTableT struct{}
 
 // Dot1qPortVLANHCStatisticsTable is the descriptor for the dot1qPortVlanHCStatisticsTable table.
-var Dot1qPortVLANHCStatisticsTable dot1qPortVLANHCStatisticsTableT
+var Dot1qPortVLANHCStatisticsTable = dot1qPortVLANHCStatisticsTableT{Table: snmp.NewTable("dot1qPortVlanHCStatisticsTable", dot1qPortVLANHCStatisticsTableColumns, func(idx snmp.OID, row *Dot1qPortVLANHCStatisticsTableRow) {
+	row.Key, row.keyValid = decodeDot1qPortVLANHCStatisticsTableKey(idx)
+}, func(row *Dot1qPortVLANHCStatisticsTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortHCInFrames, &row.Dot1qTpVLANPortHCInFrames, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortHCOutFrames, &row.Dot1qTpVLANPortHCOutFrames, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1qTpVLANPortHCInDiscards, &row.Dot1qTpVLANPortHCInDiscards, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qPortVLANHCStatisticsTableRow]) *Dot1qPortVLANHCStatisticsTableWalker {
+	return &Dot1qPortVLANHCStatisticsTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qPortVLANHCStatisticsTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qPortVLANHCStatisticsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qPortVLANHCStatisticsTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qPortVLANHCStatisticsTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qPortVLANHCStatisticsTableKey",
@@ -3582,50 +1844,26 @@ func (dot1qPortVLANHCStatisticsTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qPortVLANHCStatisticsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qPortVLANHCStatisticsTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qTpVLANPortHCInFrames.Key(), Dot1qTpVLANPortHCOutFrames.Key(), Dot1qTpVLANPortHCInDiscards.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qPortVlanHCStatisticsTable.Walk: column %s", c.OID()))
-			return &Dot1qPortVLANHCStatisticsTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qPortVLANHCStatisticsTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1qConstraintType is the column dot1qConstraintType of table dot1qLearningConstraintsTable.
+// Dot1qConstraintType is dot1qConstraintType.
 // The type of constraint this entry defines. independent(1) - the VLAN,
 // dot1qConstraintVlan, uses a filtering database independent from all
 // other VLANs in the same set, defined by dot1qConstraintSet. shared(2) -
 // the VLAN, dot1qConstraintVlan, shares the same filtering database as all
 // other VLANs in the same set, defined by dot1qConstraintSet.
-var Dot1qConstraintType = snmp.NewColumn[Dot1qConstraintTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qConstraintTypeValue, error) {
+var Dot1qConstraintType = snmp.NewFusedTableColumn[Dot1qConstraintTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1qConstraintTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1qConstraintTypeValue(0), err
 	}
 	return Dot1qConstraintTypeValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1qConstraintTypeValue], 0)
 
-// Dot1qConstraintStatus is the column dot1qConstraintStatus of table dot1qLearningConstraintsTable.
+// Dot1qConstraintStatus is dot1qConstraintStatus.
 // The status of this entry.
-var Dot1qConstraintStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus)
+var (
+	Dot1qConstraintStatus                = snmp.NewTableColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 4, 8, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus, 1)
+	dot1qLearningConstraintsTableColumns = []snmp.AnyColumn{Dot1qConstraintType, Dot1qConstraintStatus}
+)
 
 // Dot1qLearningConstraintsTableKey is the decoded INDEX of one dot1qLearningConstraintsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3646,144 +1884,49 @@ func decodeDot1qLearningConstraintsTableKey(idx snmp.OID) (Dot1qLearningConstrai
 	return Dot1qLearningConstraintsTableKey{Dot1qConstraintVLAN: VLANIndex(parts[0].Integer), Dot1qConstraintSet: int32(parts[1].Integer)}, true
 }
 
-// Dot1qLearningConstraintsTableRow is one row of dot1qLearningConstraintsTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1qLearningConstraintsTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1qLearningConstraintsTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1qLearningConstraintsTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1qLearningConstraintsTableRow struct {
 	Key                   Dot1qLearningConstraintsTableKey
 	keyValid              bool
 	Dot1qConstraintType   Dot1qConstraintTypeValue
 	Dot1qConstraintStatus snmp.RowStatus
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed              [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1qLearningConstraintsTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1qLearningConstraintsTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1qConstraintType.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1qConstraintStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1qLearningConstraintsTableColumns, col)
 }
 
-// Dot1qLearningConstraintsTableWalker streams selected columns of dot1qLearningConstraintsTable.
-// The zero value is not usable; construct via Dot1qLearningConstraintsTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1qLearningConstraintsTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1qLearningConstraintsTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1qLearningConstraintsTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1qLearningConstraintsTableWalker) Iter() iter.Seq2[snmp.OID, Dot1qLearningConstraintsTableRow] {
-	return func(yield func(snmp.OID, Dot1qLearningConstraintsTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1qLearningConstraintsTableRow
-			row.Key, row.keyValid = decodeDot1qLearningConstraintsTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1qConstraintType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1qConstraintType = Dot1qConstraintTypeValue(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1qConstraintType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1qConstraintType = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1qConstraintStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1qConstraintStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1qConstraintStatus = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1qLearningConstraintsTableT struct {
+	snmp.Table[Dot1qLearningConstraintsTableRow, *Dot1qLearningConstraintsTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1qLearningConstraintsTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1qLearningConstraintsTableT is the singleton type of Dot1qLearningConstraintsTable.
-type dot1qLearningConstraintsTableT struct{}
 
 // Dot1qLearningConstraintsTable is the descriptor for the dot1qLearningConstraintsTable table.
-var Dot1qLearningConstraintsTable dot1qLearningConstraintsTableT
+var Dot1qLearningConstraintsTable = dot1qLearningConstraintsTableT{Table: snmp.NewTable("dot1qLearningConstraintsTable", dot1qLearningConstraintsTableColumns, func(idx snmp.OID, row *Dot1qLearningConstraintsTableRow) {
+	row.Key, row.keyValid = decodeDot1qLearningConstraintsTableKey(idx)
+}, func(row *Dot1qLearningConstraintsTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1qConstraintType, &row.Dot1qConstraintType, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1qConstraintStatus, &row.Dot1qConstraintStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1qLearningConstraintsTableRow]) *Dot1qLearningConstraintsTableWalker {
+	return &Dot1qLearningConstraintsTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1qLearningConstraintsTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1qLearningConstraintsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1qLearningConstraintsTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1qLearningConstraintsTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1qLearningConstraintsTableKey",
@@ -3791,41 +1934,17 @@ func (dot1qLearningConstraintsTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1qLearningConstraintsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1qLearningConstraintsTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1qConstraintType.Key(), Dot1qConstraintStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1qLearningConstraintsTable.Walk: column %s", c.OID()))
-			return &Dot1qLearningConstraintsTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1qLearningConstraintsTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1vProtocolGroupID is the column dot1vProtocolGroupId of table dot1vProtocolGroupTable.
+// Dot1vProtocolGroupID is dot1vProtocolGroupId.
 // Represents a group of protocols that are associated together when
 // assigning a VID to a frame.
-var Dot1vProtocolGroupID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1vProtocolGroupID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// Dot1vProtocolGroupRowStatus is the column dot1vProtocolGroupRowStatus of table dot1vProtocolGroupTable.
+// Dot1vProtocolGroupRowStatus is dot1vProtocolGroupRowStatus.
 // This object indicates the status of this entry.
-var Dot1vProtocolGroupRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus)
+var (
+	Dot1vProtocolGroupRowStatus    = snmp.NewTableColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 1, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus, 1)
+	dot1vProtocolGroupTableColumns = []snmp.AnyColumn{Dot1vProtocolGroupID, Dot1vProtocolGroupRowStatus}
+)
 
 // Dot1vProtocolGroupTableKey is the decoded INDEX of one dot1vProtocolGroupTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3846,144 +1965,49 @@ func decodeDot1vProtocolGroupTableKey(idx snmp.OID) (Dot1vProtocolGroupTableKey,
 	return Dot1vProtocolGroupTableKey{Dot1vProtocolTemplateFrameType: int32(parts[0].Integer), Dot1vProtocolTemplateProtocolValue: string(parts[1].Octets)}, true
 }
 
-// Dot1vProtocolGroupTableRow is one row of dot1vProtocolGroupTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1vProtocolGroupTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1vProtocolGroupTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1vProtocolGroupTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1vProtocolGroupTableRow struct {
 	Key                         Dot1vProtocolGroupTableKey
 	keyValid                    bool
 	Dot1vProtocolGroupID        int32
 	Dot1vProtocolGroupRowStatus snmp.RowStatus
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1vProtocolGroupTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1vProtocolGroupTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1vProtocolGroupID.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1vProtocolGroupRowStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1vProtocolGroupTableColumns, col)
 }
 
-// Dot1vProtocolGroupTableWalker streams selected columns of dot1vProtocolGroupTable.
-// The zero value is not usable; construct via Dot1vProtocolGroupTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1vProtocolGroupTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1vProtocolGroupTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1vProtocolGroupTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1vProtocolGroupTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtocolGroupTableRow] {
-	return func(yield func(snmp.OID, Dot1vProtocolGroupTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1vProtocolGroupTableRow
-			row.Key, row.keyValid = decodeDot1vProtocolGroupTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1vProtocolGroupID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1vProtocolGroupID = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1vProtocolGroupID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1vProtocolGroupID = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1vProtocolGroupRowStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1vProtocolGroupRowStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1vProtocolGroupRowStatus = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1vProtocolGroupTableT struct {
+	snmp.Table[Dot1vProtocolGroupTableRow, *Dot1vProtocolGroupTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1vProtocolGroupTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1vProtocolGroupTableT is the singleton type of Dot1vProtocolGroupTable.
-type dot1vProtocolGroupTableT struct{}
 
 // Dot1vProtocolGroupTable is the descriptor for the dot1vProtocolGroupTable table.
-var Dot1vProtocolGroupTable dot1vProtocolGroupTableT
+var Dot1vProtocolGroupTable = dot1vProtocolGroupTableT{Table: snmp.NewTable("dot1vProtocolGroupTable", dot1vProtocolGroupTableColumns, func(idx snmp.OID, row *Dot1vProtocolGroupTableRow) {
+	row.Key, row.keyValid = decodeDot1vProtocolGroupTableKey(idx)
+}, func(row *Dot1vProtocolGroupTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1vProtocolGroupID, &row.Dot1vProtocolGroupID, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1vProtocolGroupRowStatus, &row.Dot1vProtocolGroupRowStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1vProtocolGroupTableRow]) *Dot1vProtocolGroupTableWalker {
+	return &Dot1vProtocolGroupTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1vProtocolGroupTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1vProtocolGroupTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1vProtocolGroupTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1vProtocolGroupTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1vProtocolGroupTableKey",
@@ -3991,40 +2015,16 @@ func (dot1vProtocolGroupTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1vProtocolGroupTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1vProtocolGroupTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1vProtocolGroupID.Key(), Dot1vProtocolGroupRowStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1vProtocolGroupTable.Walk: column %s", c.OID()))
-			return &Dot1vProtocolGroupTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1vProtocolGroupTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1vProtocolPortGroupVid is the column dot1vProtocolPortGroupVid of table dot1vProtocolPortTable.
+// Dot1vProtocolPortGroupVid is dot1vProtocolPortGroupVid.
 // The VID associated with a group of protocols for each port.
-var Dot1vProtocolPortGroupVid = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1vProtocolPortGroupVid = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// Dot1vProtocolPortRowStatus is the column dot1vProtocolPortRowStatus of table dot1vProtocolPortTable.
+// Dot1vProtocolPortRowStatus is dot1vProtocolPortRowStatus.
 // This object indicates the status of this entry.
-var Dot1vProtocolPortRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 3), snmp.KindInteger32, snmp.DecodeRowStatus)
+var (
+	Dot1vProtocolPortRowStatus    = snmp.NewTableColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2, 1, 3), snmp.KindInteger32, snmp.DecodeRowStatus, 1)
+	dot1vProtocolPortTableColumns = []snmp.AnyColumn{Dot1vProtocolPortGroupVid, Dot1vProtocolPortRowStatus}
+)
 
 // Dot1vProtocolPortTableKey is the decoded INDEX of one dot1vProtocolPortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4045,175 +2045,53 @@ func decodeDot1vProtocolPortTableKey(idx snmp.OID) (Dot1vProtocolPortTableKey, b
 	return Dot1vProtocolPortTableKey{Dot1dBasePort: int32(parts[0].Integer), Dot1vProtocolPortGroupID: int32(parts[1].Integer)}, true
 }
 
-// Dot1vProtocolPortTableRow is one row of dot1vProtocolPortTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1vProtocolPortTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1vProtocolPortTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1vProtocolPortTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1vProtocolPortTableRow struct {
 	Key                        Dot1vProtocolPortTableKey
 	keyValid                   bool
 	Dot1vProtocolPortGroupVid  int32
 	Dot1vProtocolPortRowStatus snmp.RowStatus
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                   [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1vProtocolPortTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1vProtocolPortTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1vProtocolPortGroupVid.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1vProtocolPortRowStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1vProtocolPortTableColumns, col)
 }
 
-// Dot1vProtocolPortTableWalker streams selected columns of dot1vProtocolPortTable.
-// The zero value is not usable; construct via Dot1vProtocolPortTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1vProtocolPortTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1vProtocolPortTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1vProtocolPortTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1vProtocolPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1vProtocolPortTableRow] {
-	return func(yield func(snmp.OID, Dot1vProtocolPortTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1vProtocolPortTableRow
-			row.Key, row.keyValid = decodeDot1vProtocolPortTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1vProtocolPortGroupVid.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1vProtocolPortGroupVid = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1vProtocolPortGroupVid.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1vProtocolPortGroupVid = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1vProtocolPortRowStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1vProtocolPortRowStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1vProtocolPortRowStatus = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1vProtocolPortTableT struct {
+	snmp.Table[Dot1vProtocolPortTableRow, *Dot1vProtocolPortTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1vProtocolPortTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1vProtocolPortTableT is the singleton type of Dot1vProtocolPortTable.
-type dot1vProtocolPortTableT struct{}
 
 // Dot1vProtocolPortTable is the descriptor for the dot1vProtocolPortTable table.
-var Dot1vProtocolPortTable dot1vProtocolPortTableT
+var Dot1vProtocolPortTable = dot1vProtocolPortTableT{Table: snmp.NewTable("dot1vProtocolPortTable", dot1vProtocolPortTableColumns, func(idx snmp.OID, row *Dot1vProtocolPortTableRow) {
+	row.Key, row.keyValid = decodeDot1vProtocolPortTableKey(idx)
+}, func(row *Dot1vProtocolPortTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1vProtocolPortGroupVid, &row.Dot1vProtocolPortGroupVid, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1vProtocolPortRowStatus, &row.Dot1vProtocolPortRowStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1vProtocolPortTableRow]) *Dot1vProtocolPortTableWalker {
+	return &Dot1vProtocolPortTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1vProtocolPortTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1vProtocolPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1vProtocolPortTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1vProtocolPortTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1vProtocolPortTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 7, 1, 5, 2),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1vProtocolPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1vProtocolPortTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1vProtocolPortGroupVid.Key(), Dot1vProtocolPortRowStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1vProtocolPortTable.Walk: column %s", c.OID()))
-			return &Dot1vProtocolPortTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1vProtocolPortTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

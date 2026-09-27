@@ -61,7 +61,7 @@ import { UiButton, UiStatusBadge } from './ui'
 </script>
 
 <template>
-  <UiButton variant="primary" type="submit">Save assignment</UiButton>
+  <UiButton variant="primary" @click="poll">Poll now</UiButton>
   <UiStatusBadge status="Degraded" />
 </template>
 ```

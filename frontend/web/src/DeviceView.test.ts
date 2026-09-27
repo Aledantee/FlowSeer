@@ -28,6 +28,9 @@ async function mountDeviceView(device: Device, fleet: Device[]) {
     fleet: ref(fleet),
     message: ref(''),
     reassign: () => {},
+    move: ref(undefined),
+    undoMove: () => {},
+    dismissNotice: () => {},
     siteName: (id: string) => sites.find((s) => s.id === id)?.name ?? '',
     tenantName: (siteId: string) =>
       tenants.find((t) => t.id === sites.find((s) => s.id === siteId)?.tenantId)

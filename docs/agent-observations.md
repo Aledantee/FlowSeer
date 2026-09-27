@@ -27,10 +27,10 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-09-26 delegate: codex update dialog dropped terminal to shell before brief was read
-Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, start command (codex branch).
-What happened: On 2026-09-26 with codex 0.157.0, answering the startup update dialog triggered `brew upgrade codex` and dropped the terminal to a shell ("Update ran successfully! Please restart Codex."). The lane never read its brief, and `wait` later reported idle. The step was followed as written; the option numbering or match string no longer matches current codex prompts.
-Suggested change: Detect a shell prompt or the "restart Codex" message after the update dialog and fail `start` with undo, or launch codex with update checks disabled.
+## 2026-09-27 verify-change: selects no gate for frontend web paths
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, path classification.
+What happened: running `.claude/skills/verify-change/scripts/verify-change.sh -- <paths>` on `.vue`, `.ts`, or `.css` files under `frontend/web/` failed with `FlowSeer verification FAILED (exit 2)` because `gates_selected` remained false. The verifier script classifies paths for Go, protobuf, MIB, and Markdown, but selects no build, lint, or test gate for web paths. The step was followed as written. Web verification was performed directly with `./node_modules/.bin/vue-tsc --noEmit`, `eslint .`, `prettier --check .`, and `vitest run` from `frontend/web`.
+Suggested change: add a path classification arm for `frontend/web/*` in `verify-change.sh` that selects a web gate running the `vue-tsc`, `eslint`, `prettier`, and `vitest` checks, calling local `node_modules/.bin/` binaries directly to avoid sandbox hangs under `pnpm <script>`.
 
 ## 2026-09-26 delegate: three-model fix round left no eligible review-seam model
 Skill or agent: `.claude/skills/delegate/SKILL.md`, step 3 (`model_differs_from` and `vendor_differs_from`).
@@ -56,3 +56,8 @@ Suggested change: State that when diff size requires multiple reviewers but pool
 Skill or agent: `.claude/skills/drive/SKILL.md`, step 3, and `.claude/skills/drive/scripts/plan-state.py`, dependency scheduling.
 What happened: The procedure was followed as written. Phase 3 became ready when Phase 2 had an implementation range in its parent `Landed:` field, although Phase 2 still needed review. The Phase 2 review fix loop then followed `review` step 6 and fixed every site in each defect class, including Phase 3 files that were now changing in parallel. Reconciling the accepted review branches produced content conflicts in `GlobalSearch.vue`, `a11y.test.ts`, `UiCombobox.vue` and its test, and the dropdown-menu and popover stories. The merge had to combine two independently verified fixes to the same mechanisms.
 Suggested change: Keep a phase that declares `After: <predecessor>` waiting until the predecessor reaches `done` through implementation, review, and compound. If implementation-only dependencies remain useful, give them a separate field instead of treating `Landed:` as completion for scheduling.
+
+## 2026-09-27 verify-change: a marked path missing on both sides never clears
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, dirty-marker clearing under `--base`.
+What happened: after merging `main` (whose binding-size work deleted 75 files under `generated/go/yang/`) into a branch that never touched `generated/`, `verify-change.sh --base main` ended `FlowSeer verification passed.` but kept `<Bash mutation; verify with --full>` and all 75 paths in `flowseer-verification-dirty`, plus an untracked `frontend/web/.impeccable/live/server.json` that no longer existed. Every listed path was absent from both `HEAD` and `main`, and `git diff --name-only main -- generated go.mod go.sum buf.lock` was empty. The `--full` remedy the land skill names is ruled out on this host because it builds and race-tests `generated/go/yang`. The fast-forward was handed to the person.
+Suggested change: treat a marked path that exists in neither the working tree nor the base ref as identical to the base when clearing the marker.

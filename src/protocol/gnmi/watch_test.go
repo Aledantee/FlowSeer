@@ -35,8 +35,8 @@ func syncResp() *gpb.SubscribeResponse {
 }
 
 // watchEvents pipes a watcher's events.
-func watchEvents(w *gnmi.Watcher[fixturemain.ServersServer, fixturemain.ServersServerKey]) <-chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey] {
-	ch := make(chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServersServerKey], 64)
+func watchEvents(w *gnmi.Watcher[fixturemain.ServersServer, fixturemain.ServerKey]) <-chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServerKey] {
+	ch := make(chan yang.WatchEvent[fixturemain.ServersServer, fixturemain.ServerKey], 64)
 	go func() {
 		defer close(ch)
 		for ev := range w.Iter() {
@@ -92,7 +92,7 @@ func TestStreamWatcherColdStartAndBatches(t *testing.T) {
 	s := dialFake(t, f)
 	defer close(release)
 
-	w, err := gnmi.Watch(context.Background(), s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+	w, err := gnmi.Watch(context.Background(), s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
@@ -155,14 +155,14 @@ func TestStreamWatcherNestedFlatRows(t *testing.T) {
 	s := dialFake(t, f)
 	defer close(release)
 
-	desc := fixturemain.ServersServerEndpointDescriptor()
+	desc := fixturemain.EndpointDescriptor()
 	w, err := gnmi.Watch(context.Background(), s, desc, gnmi.WatchOptions{})
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
 	defer func() { _ = w.Close() }()
 
-	ch := make(chan yang.WatchEvent[fixturemain.ServersServerEndpointFlatRow, fixturemain.ServersServerEndpointKey], 16)
+	ch := make(chan yang.WatchEvent[fixturemain.EndpointFlatRow, fixturemain.EndpointKey], 16)
 	go func() {
 		defer close(ch)
 		for ev := range w.Iter() {
@@ -171,7 +171,7 @@ func TestStreamWatcherNestedFlatRows(t *testing.T) {
 	}()
 
 	added := nextEvent(t, ch)
-	wantKey := fixturemain.ServersServerEndpointKey{ServerName: "a", Address: "10.0.0.1", Port: 443}
+	wantKey := fixturemain.EndpointKey{ServerName: "a", Address: "10.0.0.1", Port: 443}
 	if added.Kind != yang.Added || added.Key != wantKey {
 		t.Fatalf("event = %+v, want Added with ancestor-keyed identity %+v", added, wantKey)
 	}
@@ -204,7 +204,7 @@ func TestStreamWalkerOnce(t *testing.T) {
 	}
 	s := dialFake(t, f)
 
-	walker := gnmi.Walk(context.Background(), s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+	walker := gnmi.Walk(context.Background(), s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 	var names []string
 	for row := range walker.Iter() {
 		names = append(names, *row.Name)
@@ -237,7 +237,7 @@ func TestRecreatedWatcherColdStarts(t *testing.T) {
 	defer close(release)
 
 	for i := 0; i < 2; i++ {
-		w, err := gnmi.Watch(context.Background(), s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+		w, err := gnmi.Watch(context.Background(), s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 		if err != nil {
 			t.Fatalf("Watch #%d: %v", i, err)
 		}
@@ -278,7 +278,7 @@ func TestWatcherStopsQuietSubscription(t *testing.T) {
 			s := dialFake(t, f)
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
-			w, err := gnmi.Watch(ctx, s, fixturemain.ServersServerDescriptor(), gnmi.WatchOptions{})
+			w, err := gnmi.Watch(ctx, s, fixturemain.ServerDescriptor(), gnmi.WatchOptions{})
 			if err != nil {
 				t.Fatalf("Watch: %v", err)
 			}
@@ -349,7 +349,7 @@ func TestWatchDecodesLeafListIntoRow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	w, err := gnmi.Watch(ctx, s, ocif.InterfacesInterfaceDescriptor(), gnmi.WatchOptions{})
+	w, err := gnmi.Watch(ctx, s, ocif.InterfaceDescriptor(), gnmi.WatchOptions{})
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestWatchDecodesEmptyLeafListIntoRow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	w, err := gnmi.Watch(ctx, s, ocif.InterfacesInterfaceDescriptor(), gnmi.WatchOptions{})
+	w, err := gnmi.Watch(ctx, s, ocif.InterfaceDescriptor(), gnmi.WatchOptions{})
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}

@@ -30,8 +30,8 @@ func sampleGenServer() fixturemain.ServersServer {
 		Listen: &listen,
 		Proto:  &proto,
 		Ratio:  &ratio,
-		TLS:    &fixturemain.ServersServerTLS{MinVersion: &tlsMin},
-		Endpoint: []fixturemain.ServersServerEndpoint{
+		TLS:    &fixturemain.TLS{MinVersion: &tlsMin},
+		Endpoint: []fixturemain.Endpoint{
 			{Address: &addr, Port: &epPort, Enabled: &enabled},
 		},
 	}
@@ -39,7 +39,7 @@ func sampleGenServer() fixturemain.ServersServer {
 
 func TestGeneratedXMLRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX4d76e3, in)
+	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX9bc561, in)
 	if err != nil {
 		t.Fatalf("MarshalXMLStruct: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX4d76e3, data, &out); err != nil {
+	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX9bc561, data, &out); err != nil {
 		t.Fatalf("UnmarshalXMLStruct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -66,7 +66,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 
 func TestGeneratedJSONRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX4d76e3, in)
+	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX9bc561, in)
 	if err != nil {
 		t.Fatalf("MarshalJSON7951Struct: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX4d76e3, data, &out); err != nil {
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX9bc561, data, &out); err != nil {
 		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -93,7 +93,7 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 // a single leaf change in a keyed row, merge preserves unchanged
 // fields, and the key extractor produces the composite identity.
 func TestGeneratedRowMachinery(t *testing.T) {
-	codec := fixturemain.ServersServerDescriptor().Codec
+	codec := fixturemain.ServerDescriptor().Codec
 	base := sampleGenServer()
 
 	if !codec.Equal(base, sampleGenServer()) {
@@ -115,7 +115,7 @@ func TestGeneratedRowMachinery(t *testing.T) {
 		t.Errorf("merge dropped unchanged fields: %+v", merged)
 	}
 
-	if key := codec.Key(base); key != (fixturemain.ServersServerKey{Name: "edge-1"}) {
+	if key := codec.Key(base); key != (fixturemain.ServerKey{Name: "edge-1"}) {
 		t.Errorf("key = %+v", key)
 	}
 }
@@ -134,15 +134,15 @@ func TestGeneratedNestedFlatRows(t *testing.T) {
 		`</server>` +
 		`</servers></data>`
 
-	rows, err := fixturemain.ServersServerEndpointDescriptor().Codec.DecodeXML([]byte(payload))
+	rows, err := fixturemain.EndpointDescriptor().Codec.DecodeXML([]byte(payload))
 	if err != nil {
 		t.Fatalf("DecodeXML: %v", err)
 	}
 	if len(rows) != 3 {
 		t.Fatalf("decoded %d flat rows, want 3", len(rows))
 	}
-	keyOf := fixturemain.ServersServerEndpointDescriptor().Codec.Key
-	want := []fixturemain.ServersServerEndpointKey{
+	keyOf := fixturemain.EndpointDescriptor().Codec.Key
+	want := []fixturemain.EndpointKey{
 		{ServerName: "a", Address: "10.0.0.1", Port: 443},
 		{ServerName: "a", Address: "10.0.0.2", Port: 444},
 		{ServerName: "b", Address: "10.0.1.1", Port: 443},
@@ -156,7 +156,7 @@ func TestGeneratedNestedFlatRows(t *testing.T) {
 	jsonPayload := `{"fixture-main:server":[` +
 		`{"name":"a","endpoint":[{"address":"10.0.0.1","port":443}]},` +
 		`{"name":"b","endpoint":[{"address":"10.0.1.1","port":443}]}]}`
-	jrows, err := fixturemain.ServersServerEndpointDescriptor().Codec.DecodeJSON([]byte(jsonPayload))
+	jrows, err := fixturemain.EndpointDescriptor().Codec.DecodeJSON([]byte(jsonPayload))
 	if err != nil {
 		t.Fatalf("DecodeJSON: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestGeneratedNestedFlatRows(t *testing.T) {
 // TestGeneratedDescriptorPaths asserts the descriptor paths render to
 // the three wire forms.
 func TestGeneratedDescriptorPaths(t *testing.T) {
-	p := fixturemain.ServersServerDescriptor().Path
+	p := fixturemain.ServerDescriptor().Path
 	if got := p.String(); got != "/fixture-main:servers/server" {
 		t.Errorf("gNMI path = %q", got)
 	}
@@ -190,7 +190,7 @@ func TestGeneratedDescriptorPaths(t *testing.T) {
 func TestGeneratedVisitLeaves(t *testing.T) {
 	v := sampleGenServer()
 	var leaves []string
-	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX4d76e3, v, func(p yang.Path, val yang.Value) bool {
+	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX9bc561, v, func(p yang.Path, val yang.Value) bool {
 		canon, cerr := val.Canonical()
 		if cerr != nil {
 			t.Fatal(cerr)
@@ -211,5 +211,111 @@ func TestGeneratedVisitLeaves(t *testing.T) {
 		if !strings.Contains(joined, frag) {
 			t.Errorf("leaves missing %q:\n%s", frag, joined)
 		}
+	}
+}
+
+// TestGroupingInstantiatingModuleRoundTrip asserts that nodes instantiated
+// from another module's grouping decode JSON with the instantiating module's
+// qualification and XML in its namespace, through each container that uses
+// the grouping.
+func TestGroupingInstantiatingModuleRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		container string
+		decode    func(json bool, data []byte) (*fixturemain.Item, error)
+	}{
+		{"primary-group", func(json bool, data []byte) (*fixturemain.Item, error) {
+			var got fixturemain.PrimaryGroup
+			if json {
+				err := yang.UnmarshalJSON7951Struct(fixturemain.PrimaryGroupSchema, data, &got)
+				return got.Item, err
+			}
+			err := yang.UnmarshalXMLStruct(fixturemain.PrimaryGroupSchema, data, &got)
+			return got.Item, err
+		}},
+		{"secondary-group", func(json bool, data []byte) (*fixturemain.Item, error) {
+			var got fixturemain.SecondaryGroup
+			if json {
+				err := yang.UnmarshalJSON7951Struct(fixturemain.SecondaryGroupSchema, data, &got)
+				return got.Item, err
+			}
+			err := yang.UnmarshalXMLStruct(fixturemain.SecondaryGroupSchema, data, &got)
+			return got.Item, err
+		}},
+	} {
+		t.Run(tc.container, func(t *testing.T) {
+			jsonPayload := []byte(`{"fixture-main:item":{"fixture-main:buffer-size":4096}}`)
+			item, err := tc.decode(true, jsonPayload)
+			if err != nil {
+				t.Fatalf("decode JSON: %v", err)
+			}
+			if item == nil || item.BufferSize == nil || *item.BufferSize != 4096 {
+				t.Errorf("JSON item = %+v, want BufferSize 4096", item)
+			}
+
+			xmlPayload := []byte(`<` + tc.container + ` xmlns="urn:flowseer:fixture-main"><item><buffer-size>8192</buffer-size></item></` + tc.container + `>`)
+			item, err = tc.decode(false, xmlPayload)
+			if err != nil {
+				t.Fatalf("decode XML: %v", err)
+			}
+			if item == nil || item.BufferSize == nil || *item.BufferSize != 8192 {
+				t.Errorf("XML item = %+v, want BufferSize 8192", item)
+			}
+		})
+	}
+}
+
+// TestGeneratedSeparatedShapesDecodeTheirOwnWireForm asserts that nodes the
+// shape key keeps apart decode what their own schema path carries: a string
+// where the sibling holds a uint32, a leaf qualified by its augmenting module,
+// and a presence container, and that the shared list's descriptors address
+// their own container.
+func TestGeneratedSeparatedShapesDecodeTheirOwnWireForm(t *testing.T) {
+	var byType fixturemain.ByTypeB
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByTypeBSchema, []byte(`{"setting":{"value":"eth0"}}`), &byType); err != nil {
+		t.Fatalf("by-type-b: %v", err)
+	}
+	if byType.Setting == nil || byType.Setting.Value == nil || *byType.Setting.Value != "eth0" {
+		t.Errorf("by-type-b setting = %+v, want Value eth0", byType.Setting)
+	}
+
+	payload := []byte(`{"slot":{"fixture-aug:value":7}}`)
+	var byModuleB fixturemain.ByModuleB
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleBSchema, payload, &byModuleB); err != nil {
+		t.Fatalf("by-module-b: %v", err)
+	}
+	if byModuleB.Slot == nil || byModuleB.Slot.Value == nil || *byModuleB.Slot.Value != 7 {
+		t.Errorf("by-module-b slot = %+v, want fixture-aug:value 7", byModuleB.Slot)
+	}
+	var byModuleA fixturemain.ByModuleA
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleASchema, payload, &byModuleA); err != nil {
+		t.Fatalf("by-module-a: %v", err)
+	}
+	if byModuleA.Slot != nil && byModuleA.Slot.Value != nil {
+		t.Errorf("by-module-a decoded fixture-aug:value %d into its fixture-main leaf", *byModuleA.Slot.Value)
+	}
+
+	if !fixturemain.ByPresenceBMarkerSchema.Presence || fixturemain.ByPresenceAMarkerSchema.Presence {
+		t.Errorf("marker presence: a=%v b=%v, want a=false b=true",
+			fixturemain.ByPresenceAMarkerSchema.Presence, fixturemain.ByPresenceBMarkerSchema.Presence)
+	}
+
+	for _, tc := range []struct {
+		path string
+		got  yang.Path
+	}{
+		{"/fixture-main:primary-group/peer", fixturemain.PrimaryGroupPeerDescriptor().Path},
+		{"/fixture-main:secondary-group/peer", fixturemain.SecondaryGroupPeerDescriptor().Path},
+	} {
+		if got := tc.got.String(); got != tc.path {
+			t.Errorf("peer descriptor path = %q, want %q", got, tc.path)
+		}
+	}
+	rows, err := fixturemain.SecondaryGroupPeerDescriptor().Codec.DecodeJSON([]byte(`{"fixture-main:peer":[{"name":"p1","weight":3}]}`))
+	if err != nil {
+		t.Fatalf("peer DecodeJSON: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Weight == nil || *rows[0].Weight != 3 ||
+		fixturemain.SecondaryGroupPeerDescriptor().Codec.Key(rows[0]) != (fixturemain.SecondaryGroupPeerKey{Name: "p1"}) {
+		t.Errorf("peer rows = %+v, want one row p1 weight 3", rows)
 	}
 }
