@@ -43,13 +43,13 @@ export const Default: Story = {
     template: `
       <div class="p-6 max-w-5xl mx-auto font-sans text-foreground bg-background space-y-10">
         <div>
-          <h1 class="text-2xl font-bold mb-2">Shape &amp; Spacing</h1>
-          <p class="text-sm text-muted-foreground">Border radii, card shadows, and spacing scale steps 1 to 8.</p>
+          <div role="heading" aria-level="1" class="text-2xl font-bold mb-2">Shape &amp; Spacing</div>
+          <div class="text-sm text-muted-foreground">Border radii, card shadows, and spacing scale steps 1 to 8.</div>
         </div>
 
         <!-- Radii -->
         <section>
-          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-border">Corner Radii</h2>
+          <div role="heading" aria-level="2" class="text-lg font-semibold mb-4 pb-2 border-b border-border">Corner Radii</div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div
               v-for="r in radii"
@@ -69,7 +69,7 @@ export const Default: Story = {
 
         <!-- Shadows -->
         <section>
-          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-border">Card Shadows</h2>
+          <div role="heading" aria-level="2" class="text-lg font-semibold mb-4 pb-2 border-b border-border">Card Shadows</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             <div
               v-for="s in shadows"
@@ -78,31 +78,31 @@ export const Default: Story = {
               :class="s.className"
             >
               <span class="font-mono text-xs font-semibold block mb-1">shadow-{{ s.name }}</span>
-              <p class="text-xs text-muted-foreground">
+              <div class="text-xs text-muted-foreground">
                 {{ s.elevation }}
-              </p>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- Spacing -->
         <section>
-          <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-border">Spacing (Steps 1 to 8)</h2>
+          <div role="heading" aria-level="2" class="text-lg font-semibold mb-4 pb-2 border-b border-border">Spacing (Steps 1 to 8)</div>
           <div class="border border-border rounded-panel overflow-hidden bg-card shadow-xs">
             <table class="w-full text-left border-collapse">
               <caption class="sr-only">Spacing scale steps 1 through 8</caption>
               <thead>
                 <tr class="border-b border-border bg-subtle text-foreground">
-                  <th scope="col" class="py-2.5 px-4 font-semibold text-xs uppercase tracking-wider">Step</th>
-                  <th scope="col" class="py-2.5 px-4 font-semibold text-xs uppercase tracking-wider">Size (rem / px)</th>
-                  <th scope="col" class="py-2.5 px-4 font-semibold text-xs uppercase tracking-wider">Visual</th>
+                  <th scope="col"><span class="font-semibold text-xs uppercase tracking-wider text-foreground">Step</span></th>
+                  <th scope="col"><span class="font-semibold text-xs uppercase tracking-wider text-foreground">Size (rem / px)</span></th>
+                  <th scope="col"><span class="font-semibold text-xs uppercase tracking-wider text-foreground">Visual</span></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-border">
                 <tr v-for="s in spacing" :key="s.step" class="hover:bg-hover transition-colors">
-                  <td class="py-2.5 px-4 font-mono text-xs font-semibold">{{ s.step }}</td>
-                  <td class="py-2.5 px-4 font-mono text-xs text-muted-foreground">{{ s.rem }} ({{ s.px }})</td>
-                  <td class="py-2.5 px-4">
+                  <td class="font-mono"><span class="text-xs font-semibold text-foreground">{{ s.step }}</span></td>
+                  <td class="font-mono"><span class="text-xs text-muted-foreground">{{ s.rem }} ({{ s.px }})</span></td>
+                  <td>
                     <div class="h-4 bg-accent rounded-sm" :class="s.className" aria-hidden="true" />
                   </td>
                 </tr>
