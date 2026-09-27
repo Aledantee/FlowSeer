@@ -1,3 +1,12 @@
+/* The selection ring: coral immediately around the target, a quieter cyan
+   halo outside it. Kept as one token so the value stays a variable the
+   stylelint token gate can read. */
+:root {
+  --ai-selection-ring:
+    0 0 0 2px var(--primary),
+    0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 /* The pending shimmer for an AI summary: a narrow coral-to-cyan sweep over
    a muted bar. It reads the semantic tokens so it follows the theme, and
    stops under reduced motion, where the bars stay static and the loading

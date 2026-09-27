@@ -313,9 +313,7 @@ function submit() {
   position: fixed;
   pointer-events: none;
   border-radius: var(--radius-control);
-  box-shadow:
-    0 0 0 2px var(--primary),
-    0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: var(--ai-selection-ring);
 }
 .ai-ask {
   position: fixed;
