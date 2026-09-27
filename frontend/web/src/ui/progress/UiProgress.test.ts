@@ -32,11 +32,18 @@ describe('UiProgress', () => {
     const indicator = el.querySelector('[data-max]') as HTMLElement
     expect(indicator).not.toBeNull()
     expect(indicator.style.transform).toContain('translateX(-55%)')
+    expect(indicator.className).not.toContain('animate-progress-slide')
+    expect(indicator.className).not.toContain('animate-pulse')
   })
 
-  it('indeterminate progress sets data-state="indeterminate"', () => {
+  it('indeterminate progress sets data-state="indeterminate" and applies sliding animation', () => {
     const { el } = mountProgress({ modelValue: null })
     expect(el.getAttribute('data-state')).toBe('indeterminate')
     expect(el.getAttribute('aria-valuenow')).toBeNull()
+    const indicator = el.querySelector('[data-max]') as HTMLElement
+    expect(indicator).not.toBeNull()
+    expect(indicator.className).toContain('animate-progress-slide')
+    expect(indicator.className).not.toContain('animate-pulse')
+    expect(indicator.className).toContain('motion-reduce:animate-none')
   })
 })

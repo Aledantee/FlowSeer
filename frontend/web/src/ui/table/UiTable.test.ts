@@ -153,12 +153,10 @@ describe('UiTable context and layout', () => {
     expect(secondRowEl?.textContent).toContain('Beta')
     expect(secondRowEl?.textContent).toContain('200 Mbps')
 
-    // Mutate telemetry values in place (e.g. Alpha throughput increases beyond Beta)
     items.value[0]!.throughput = 500
     await nextTick()
 
     const rowsAfter = host.querySelectorAll('tbody tr')
-    // DOM elements should remain the exact same nodes in the exact same positions
     expect(rowsAfter[0]).toBe(firstRowEl)
     expect(rowsAfter[1]).toBe(secondRowEl)
     expect(rowsAfter[0]?.textContent).toContain('500 Mbps')

@@ -27,7 +27,6 @@ function mountPagination(props: Record<string, unknown> = {}) {
 
 describe('UiPagination', () => {
   it('renders correct number of pages and ellipsis for large item counts', () => {
-    // 100 items, 10 per page = 10 pages, showEdges creates ellipsis
     const { el } = mountPagination({
       total: 100,
       itemsPerPage: 10,
@@ -36,7 +35,6 @@ describe('UiPagination', () => {
     })
     const buttons = el.querySelectorAll('button')
     expect(buttons.length).toBeGreaterThan(0)
-    // Ellipsis should be rendered
     const ellipsis = el.textContent
     expect(ellipsis).toContain('…')
   })
@@ -50,7 +48,6 @@ describe('UiPagination', () => {
       'onUpdate:page': onUpdatePage,
     })
 
-    // Find page 2 button
     const buttons = Array.from(el.querySelectorAll('button'))
     const page2Btn = buttons.find((b) => b.textContent?.trim() === '2')
     expect(page2Btn).toBeDefined()
