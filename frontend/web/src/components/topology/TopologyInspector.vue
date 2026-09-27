@@ -111,7 +111,7 @@ function deviceLink(id: string) {
       </template>
       <template v-else-if="port">
         <button
-          class="icon-button"
+          class="icon-button grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded-control bg-transparent text-muted-foreground hover:bg-hover hover:text-accent-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px] max-[560px]:min-w-[44px] [&>svg]:w-3.5 [&>svg]:h-3.5"
           :aria-label="`Back to ${port.owner.name}`"
           @click="live.select({ kind: 'device', id: port.owner.id })"
         >
@@ -131,7 +131,7 @@ function deviceLink(id: string) {
         ></span
       >
       <button
-        class="icon-button"
+        class="icon-button grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded-control bg-transparent text-muted-foreground hover:bg-hover hover:text-accent-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px] max-[560px]:min-w-[44px] [&>svg]:w-3.5 [&>svg]:h-3.5"
         aria-label="Close details"
         @click="live.select(undefined)"
       >
@@ -592,5 +592,42 @@ function deviceLink(id: string) {
 }
 .panel-link:hover {
   text-decoration: underline;
+}
+
+.topology-inspector header .icon-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 90ms ease-out,
+    color 90ms ease-out;
+}
+
+.topology-inspector header .icon-button:hover {
+  background: var(--hover);
+  color: var(--accent-foreground);
+}
+
+.topology-inspector header .icon-button :deep(svg) {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 560px) {
+  .topology-inspector header .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.mono {
+  font-family: var(--font-mono);
 }
 </style>

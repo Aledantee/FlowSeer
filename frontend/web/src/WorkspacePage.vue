@@ -167,7 +167,6 @@ function rememberList(event: MouseEvent) {
   <TopologyGraph
     v-if="view === 'topology'"
     :focus="query('focus')"
-    class="topology-canvas"
     :fleet="fleet"
     :sites="visibleSites"
     :site-name="siteName"
@@ -216,7 +215,9 @@ function rememberList(event: MouseEvent) {
     </UiEmptyState>
   </template>
   <template v-else>
-    <div class="flex justify-between items-center gap-5 mb-6">
+    <div
+      class="flex justify-between items-center gap-5 mb-6 max-[800px]:items-start max-[560px]:block"
+    >
       <div>
         <span
           class="block text-2xs font-semibold tracking-wider text-muted-foreground mb-1.5 uppercase"
@@ -224,7 +225,9 @@ function rememberList(event: MouseEvent) {
           NETWORK OPERATIONS
         </span>
         <h1 class="text-2xl font-bold text-foreground">{{ title }}</h1>
-        <p class="text-sm text-muted-foreground mt-1.5">
+        <p
+          class="text-sm text-muted-foreground mt-1.5 max-[800px]:max-w-[330px]"
+        >
           {{
             view === 'dashboard'
               ? scopeSummary
@@ -274,11 +277,20 @@ function rememberList(event: MouseEvent) {
         <b>{{ healthy }} healthy</b> · {{ scope.length - healthy }} need
         attention
       </UiMetricCard>
-      <UiMetricCard label="Connected clients" :value="clients">
+      <UiMetricCard
+        class="max-[560px]:hidden"
+        label="Connected clients"
+        :value="clients"
+      >
         <template #icon><AppIcon name="topology" /></template>
         Reported by access points
       </UiMetricCard>
-      <UiMetricCard label="Device traffic" :value="throughput" unit="Mbps">
+      <UiMetricCard
+        class="max-[560px]:hidden"
+        label="Device traffic"
+        :value="throughput"
+        unit="Mbps"
+      >
         <template #icon><AppIcon name="pulse" /></template>
         Updates every 2.5s
       </UiMetricCard>
@@ -286,7 +298,7 @@ function rememberList(event: MouseEvent) {
     <template v-if="view === 'devices'">
       <div
         v-if="scope.some((device) => device.health !== 'Healthy')"
-        class="flex items-center p-3.5 px-4 bg-warning-surface border border-warning-border rounded-panel mb-6 gap-3.5 text-xs text-foreground"
+        class="flex items-center p-3.5 px-4 bg-warning-surface border border-warning-border rounded-panel mb-6 gap-3.5 text-xs text-foreground max-[560px]:items-start max-[560px]:p-3 max-[560px]:gap-2.5 max-[560px]:flex-wrap"
       >
         <span
           class="w-4.5 h-4.5 border border-warning-foreground text-warning-foreground font-semibold rounded-full grid place-items-center text-xs shrink-0"
@@ -299,12 +311,14 @@ function rememberList(event: MouseEvent) {
             {{ scope.length - healthy === 1 ? 'device needs' : 'devices need' }}
             attention
           </strong>
-          <span class="text-xs text-warning-foreground ml-2.5">
+          <span
+            class="text-xs text-warning-foreground ml-2.5 max-[1150px]:block max-[1150px]:ml-0 max-[1150px]:mt-1"
+          >
             Review degraded or offline devices in the current scope.
           </span>
         </div>
         <button
-          class="ml-auto inline-flex items-center gap-2 text-xs p-1 text-warning-foreground hover:underline whitespace-nowrap cursor-pointer"
+          class="ml-auto inline-flex items-center gap-2 text-xs p-1 text-warning-foreground hover:underline whitespace-nowrap cursor-pointer max-[800px]:text-[11px] max-[560px]:ml-7"
           @click="setQuery('health', query('health') ? '' : 'attention')"
         >
           {{ query('health') ? 'Show all devices' : 'Review devices' }}
@@ -315,7 +329,9 @@ function rememberList(event: MouseEvent) {
         class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
         aria-labelledby="inventory-title"
       >
-        <div class="px-6 py-5 pb-4 flex items-center justify-between gap-3">
+        <div
+          class="px-6 py-5 pb-4 flex items-center justify-between gap-3 max-[560px]:p-[18px_14px]"
+        >
           <div>
             <h2
               id="inventory-title"
@@ -330,8 +346,10 @@ function rememberList(event: MouseEvent) {
             </h2>
           </div>
         </div>
-        <div class="flex items-center gap-3 px-6 pb-5">
-          <div class="relative flex items-center w-[340px]">
+        <div
+          class="flex items-center gap-3 px-6 pb-5 max-[560px]:flex-wrap max-[560px]:p-[0_14px_15px] max-[560px]:gap-2.5"
+        >
+          <div class="relative flex items-center w-[340px] max-[560px]:w-full">
             <AppIcon
               name="search"
               class="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10"
@@ -344,7 +362,7 @@ function rememberList(event: MouseEvent) {
               @update:model-value="setQuery('search', $event)"
             />
           </div>
-          <div class="w-44">
+          <div class="w-44 max-[560px]:w-full">
             <UiSelect
               :model-value="query('health') || 'all'"
               :options="statusOptions"
@@ -572,3 +590,10 @@ function rememberList(event: MouseEvent) {
     </section>
   </template>
 </template>
+
+<style scoped>
+:deep(tbody tr.peeked) {
+  background: color-mix(in srgb, var(--info-surface) 60%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent-foreground);
+}
+</style>
