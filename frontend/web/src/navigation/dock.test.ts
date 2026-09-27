@@ -91,8 +91,15 @@ describe('page locations', () => {
       view: 'device',
       deviceId: 'dev-2',
     })
+    expect(viewOf('/devices/dev%202')).toEqual({
+      view: 'device',
+      deviceId: 'dev 2',
+    })
     expect(viewOf('/nowhere').view).toBe('dashboard')
     expect(viewOf('/components')).toEqual({ view: 'dashboard' })
+  })
+  it('keeps a malformed device segment literal', () => {
+    expect(viewOf('/devices/%')).toEqual({ view: 'device', deviceId: '%' })
   })
   it('keeps the path when a target names none and drops cleared keys', () => {
     expect(

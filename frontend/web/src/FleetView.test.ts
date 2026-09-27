@@ -58,17 +58,59 @@ async function mountFleet(path: string) {
   await settle()
 }
 
-function workspaceShortcut() {
+function workspaceShortcut(repeat = false) {
   return new KeyboardEvent('keydown', {
     key: '\\',
     code: 'Backslash',
     bubbles: true,
     cancelable: true,
+    repeat,
     ...(isMac() ? { metaKey: true } : { ctrlKey: true }),
   })
 }
 
 describe('FleetView workspace shortcuts', () => {
+  it('runs a held workspace command once per key press', async () => {
+    await mountFleet('/dashboard')
+
+    const pressed = workspaceShortcut()
+    window.dispatchEvent(pressed)
+    await settle()
+
+    expect(document.querySelector('.panes.split')).not.toBeNull()
+    expect(pressed.defaultPrevented).toBe(true)
+
+    const repeated = workspaceShortcut(true)
+    window.dispatchEvent(repeated)
+    await settle()
+
+    expect(document.querySelector('.panes.split')).not.toBeNull()
+    expect(repeated.defaultPrevented).toBe(true)
+  })
+
+  it('keeps repeated unmodified arrow navigation available', async () => {
+    await mountFleet('/devices')
+
+    document
+      .querySelector<HTMLButtonElement>('[aria-label^="Peek at "]')
+      ?.click()
+    await settle()
+    const firstTitle = document.title
+
+    const repeated = new KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      bubbles: true,
+      cancelable: true,
+      repeat: true,
+    })
+    window.dispatchEvent(repeated)
+    await settle()
+
+    expect(repeated.defaultPrevented).toBe(true)
+    expect(document.title).not.toBe(firstTitle)
+  })
+
   it('does not run a workspace shortcut behind a modal dialog', async () => {
     await mountFleet('/dashboard')
 
@@ -146,5 +188,46 @@ describe('FleetView workspace shortcuts', () => {
 
     expect(document.querySelector('.panes.split')).toBeNull()
     expect(allowed.defaultPrevented).toBe(true)
+  })
+})
+
+describe('FleetView split resizing', () => {
+  it('clears the resize session when input is cancelled', async () => {
+    await mountFleet('/dashboard')
+    window.dispatchEvent(workspaceShortcut())
+    await settle()
+
+    const divider = document.querySelector<HTMLElement>(
+      '[aria-label="Resize split view"]',
+    )
+    divider?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    expect(document.body.classList.contains('resizing-panes')).toBe(true)
+
+    window.dispatchEvent(new PointerEvent('pointercancel'))
+
+    expect(document.body.classList.contains('resizing-panes')).toBe(false)
+
+    divider?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    expect(document.body.classList.contains('resizing-panes')).toBe(true)
+
+    window.dispatchEvent(new Event('blur'))
+
+    expect(document.body.classList.contains('resizing-panes')).toBe(false)
+  })
+
+  it('clears the resize session when the view unmounts', async () => {
+    await mountFleet('/dashboard')
+    window.dispatchEvent(workspaceShortcut())
+    await settle()
+
+    document
+      .querySelector<HTMLElement>('[aria-label="Resize split view"]')
+      ?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    expect(document.body.classList.contains('resizing-panes')).toBe(true)
+
+    dispose()
+    dispose = () => {}
+
+    expect(document.body.classList.contains('resizing-panes')).toBe(false)
   })
 })
