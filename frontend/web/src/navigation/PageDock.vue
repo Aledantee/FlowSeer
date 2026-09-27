@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { UiTooltip } from '../ui'
+import { UiScrollArea, UiTooltip } from '../ui'
 import { dockTabShortcut, keysOf } from './shortcuts'
 import AppIcon from '../components/AppIcon.vue'
-import ScrollArea from '../components/ScrollArea.vue'
 import type { Health } from '../domain/fleet'
 import type { DockTab } from './dock'
 defineProps<{
@@ -30,7 +29,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
 
 <template>
   <nav v-if="tabs.length" class="page-dock" aria-label="Minimized pages">
-    <ScrollArea axis="x" class="dock-scroll">
+    <UiScrollArea axis="x" class="dock-scroll">
       <TransitionGroup name="dock" tag="ul">
         <li
           v-for="(tab, index) in tabs"
@@ -107,6 +106,6 @@ function badge(health: Health | undefined, attention: number | undefined) {
           </UiTooltip>
         </li>
       </TransitionGroup>
-    </ScrollArea>
+    </UiScrollArea>
   </nav>
 </template>

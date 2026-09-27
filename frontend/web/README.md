@@ -146,6 +146,22 @@ Data display components under `src/ui/` present tables, metrics, and progress:
 - `UiProgress`: determinate and indeterminate progress bars wrapping Reka UI with semantic status variants.
 - `UiPagination`: page navigation wrapping Reka UI with first, previous, page number, ellipsis, and next controls.
 
+### Overlay, navigation, and command components
+
+Overlay, navigation, and command primitives under `src/ui/` wrap Reka UI headless components styled with semantic tokens:
+
+- `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, and keyboard escape dismissal.
+- `UiPopover`: floating popover anchored to triggers with configurable alignment and collision padding.
+- `UiDropdownMenu` suite: dropdown action menus with nested submenus, roving focus, keyboard navigation, and separators (`UiDropdownMenuItem`, `UiDropdownMenuSeparator`).
+- `UiTabs`: tabbed page navigation with accessible roving tab list focus and tab panel synchronization (`UiTabsList`, `UiTabsTrigger`, `UiTabsContent`).
+- `UiBreadcrumb` suite: hierarchical breadcrumb navigation (`UiBreadcrumbList`, `UiBreadcrumbItem`, `UiBreadcrumbLink`, `UiBreadcrumbPage`, `UiBreadcrumbSeparator`, `UiBreadcrumbEllipsis`) featuring responsive auto-collapsing of intermediate links into a dropdown menu on narrow viewports.
+- `UiScrollArea` suite: custom-styled scroll containers wrapping Reka ScrollArea primitives, exposing underlying viewport element references for programmatic scrolling.
+- `UiToast` suite: reactive notification toasts with variants (`default`, `success`, `warning`, `danger`), auto-dismissal, and `useToast` dispatch composable.
+- `UiCombobox`: searchable select combobox with option grouping, avatar icons, keyboard roving focus, and custom trigger slots.
+- `UiCommand` suite: command palette primitives (`UiCommand`, `UiCommandDialog`, `UiCommandInput`, `UiCommandList`, `UiCommandEmpty`, `UiCommandGroup`, `UiCommandItem`, `UiCommandSeparator`, `UiCommandShortcut`) supporting modal presentation and custom filtering.
+
+Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
+
 ### Chart color tokens and accessibility
 
 Data visualizations consume 6 categorical tokens (`--chart-1` through `--chart-6`), mapped across cyan, coral, violet, green, amber, and blue. Each token maintains at least 3:1 contrast against card and panel surfaces for non-text graphical elements.

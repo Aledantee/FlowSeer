@@ -1,26 +1,29 @@
 <script setup lang="ts">
-import { UiTooltip } from '../ui'
 import { ref } from 'vue'
+import {
+  UiButton,
+  UiDialog,
+  UiField,
+  UiInput,
+  UiTextarea,
+  UiTooltip,
+} from '../ui'
 import AppIcon from './AppIcon.vue'
-import { useMotionFeedback } from '../motion/useMotionFeedback'
 
-const dialog = ref<HTMLDialogElement>()
+const open = ref(false)
 const summary = ref('')
 const description = ref('')
 const page = ref('')
 const feedback = ref('')
 const fallback = ref('')
-const { play } = useMotionFeedback()
+
 function openReport() {
   page.value = window.location.pathname
   feedback.value = ''
   fallback.value = ''
-  dialog.value?.showModal()
-  play(dialog.value, {
-    opacity: [0.75, 1],
-    transform: ['translateY(4px)', 'none'],
-  })
+  open.value = true
 }
+
 async function copyReport() {
   const report = `${summary.value.trim()}\n\nPage: ${page.value}\n\n${description.value.trim()}`
   try {
@@ -36,54 +39,58 @@ async function copyReport() {
 </script>
 
 <template>
-  <UiTooltip label="Report a bug">
-    <button
-      class="help-button"
-      type="button"
-      aria-label="Report bug"
-      @click="openReport"
-    >
-      <AppIcon name="bug" />
-    </button>
-  </UiTooltip>
-  <dialog ref="dialog" class="help-dialog" aria-labelledby="report-bug-title">
-    <div class="help-heading">
-      <h2 id="report-bug-title">Report a bug</h2>
-      <button
-        class="icon-button"
-        aria-label="Close bug report"
-        @click="dialog?.close()"
-      >
-        <AppIcon name="close" />
-      </button>
-    </div>
-    <p>
+  <UiDialog v-model:open="open" title="Report a bug">
+    <template #trigger>
+      <UiTooltip label="Report a bug">
+        <button
+          class="help-button"
+          type="button"
+          aria-label="Report bug"
+          @click="openReport"
+        >
+          <AppIcon name="bug" />
+        </button>
+      </UiTooltip>
+    </template>
+
+    <p class="text-sm text-muted-foreground mb-4">
       Describe the issue, then copy the report to share with your support team.
     </p>
-    <form class="bug-report-form" @submit.prevent="copyReport">
-      <label for="bug-summary">Summary</label>
-      <input id="bug-summary" v-model="summary" required maxlength="200" />
-      <label for="bug-description">What happened?</label>
-      <textarea
-        id="bug-description"
-        v-model="description"
-        required
-        maxlength="5000"
-        rows="5"
-        placeholder="Steps to reproduce and what you expected to happen"
-      ></textarea>
-      <p>Page: {{ page }}</p>
-      <button class="primary" type="submit">Copy report</button>
-      <p role="status">{{ feedback }}</p>
+
+    <form class="flex flex-col gap-4" @submit.prevent="copyReport">
+      <UiField id="bug-summary" label="Summary" required>
+        <UiInput id="bug-summary" v-model="summary" required maxlength="200" />
+      </UiField>
+
+      <UiField id="bug-description" label="What happened?" required>
+        <UiTextarea
+          id="bug-description"
+          v-model="description"
+          required
+          maxlength="5000"
+          :rows="5"
+          placeholder="Steps to reproduce and what you expected to happen"
+        />
+      </UiField>
+
+      <p class="text-xs text-muted-foreground">Page: {{ page }}</p>
+
+      <UiButton type="submit" variant="primary">Copy report</UiButton>
+
+      <p v-if="feedback" role="status" class="text-xs text-foreground">
+        {{ feedback }}
+      </p>
+
       <template v-if="fallback">
-        <label for="bug-report-copy">Report text</label>
-        <textarea
-          id="bug-report-copy"
-          :value="fallback"
-          readonly
-          rows="6"
-        ></textarea>
+        <UiField id="bug-report-copy" label="Report text">
+          <UiTextarea
+            id="bug-report-copy"
+            :model-value="fallback"
+            readonly
+            :rows="6"
+          />
+        </UiField>
       </template>
     </form>
-  </dialog>
+  </UiDialog>
 </template>

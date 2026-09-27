@@ -1,9 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
-import UiDropdownMenu, {
-  type UiDropdownMenuProps,
-} from './UiDropdownMenu.vue'
+import UiDropdownMenu, { type UiDropdownMenuProps } from './UiDropdownMenu.vue'
 import UiDropdownMenuItem from './UiDropdownMenuItem.vue'
 import UiDropdownMenuSeparator from './UiDropdownMenuSeparator.vue'
 

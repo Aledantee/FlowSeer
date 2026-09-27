@@ -1,9 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
-import UiAlertDialog, {
-  type UiAlertDialogProps,
-} from './UiAlertDialog.vue'
+import UiAlertDialog, { type UiAlertDialogProps } from './UiAlertDialog.vue'
 
 let dispose = () => {}
 afterEach(() => {

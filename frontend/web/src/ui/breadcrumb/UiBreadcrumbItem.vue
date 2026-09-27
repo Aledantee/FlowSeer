@@ -9,10 +9,7 @@ withDefaults(defineProps<UiBreadcrumbItemProps>(), {
 </script>
 
 <template>
-  <component
-    :is="as"
-    class="inline-flex items-center gap-1.5"
-  >
+  <component :is="as" class="inline-flex items-center gap-1.5">
     <slot />
   </component>
 </template>

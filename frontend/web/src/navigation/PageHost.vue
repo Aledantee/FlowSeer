@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, provide, ref } from 'vue'
 import WorkspacePage from '../WorkspacePage.vue'
-import ScrollArea from '../components/ScrollArea.vue'
+import { UiScrollArea } from '../ui'
 import { pageContext } from './page'
 import type { PageContext } from './page'
 const props = defineProps<{ context: PageContext }>()
 provide(pageContext, props.context)
-const scroller = ref<InstanceType<typeof ScrollArea>>()
+const scroller = ref<InstanceType<typeof UiScrollArea>>()
 // The element that scrolls the page.
 const pane = computed(() => scroller.value?.element)
 // Each page, and each device page, animates in as its own view; scope
@@ -25,7 +25,7 @@ defineExpose({ pane })
 <template>
   <div :class="['pane', { 'canvas-view': displayed === 'topology' }]">
     <slot />
-    <ScrollArea ref="scroller" viewport-class="pane-scroll" label="Page">
+    <UiScrollArea ref="scroller" viewport-class="pane-scroll" label="Page">
       <Transition
         name="page"
         mode="out-in"
@@ -36,6 +36,6 @@ defineExpose({ pane })
           <WorkspacePage />
         </div>
       </Transition>
-    </ScrollArea>
+    </UiScrollArea>
   </div>
 </template>

@@ -72,6 +72,8 @@ describe('tenant switcher', () => {
     await nextTick()
     const trigger = host.querySelector('button.scope-trigger')
     expect(trigger).not.toBeNull()
-    expect(trigger?.getAttribute('aria-label')).toBe('Tenant scope: Aurora Hospitality')
+    expect(trigger?.getAttribute('aria-label')).toBe(
+      'Tenant scope: Aurora Hospitality',
+    )
   })
 })

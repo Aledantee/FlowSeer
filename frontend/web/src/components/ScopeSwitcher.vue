@@ -60,11 +60,7 @@ const name = computed(
             alt=""
           />
           <span class="flex-1 truncate">{{ option.label }}</span>
-          <AppIcon
-            v-if="isSelected"
-            class="scope-check"
-            name="check"
-          />
+          <AppIcon v-if="isSelected" class="scope-check" name="check" />
         </div>
       </template>
     </UiCombobox>

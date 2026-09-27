@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import ScrollArea from './components/ScrollArea.vue'
 import { computed } from 'vue'
 import AppIcon from './components/AppIcon.vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import {
+  UiScrollArea,
   UiSegmentedMeter,
   UiStatusBadge,
   UiTable,
@@ -136,7 +136,7 @@ const roles = computed(() => {
           <p>Select a site to focus the dashboard on it.</p>
         </div>
       </header>
-      <ScrollArea axis="x" viewport-class="table-scroll">
+      <UiScrollArea axis="x" viewport-class="table-scroll">
         <UiTable>
           <UiTableHeader>
             <UiTableRow>
@@ -185,7 +185,7 @@ const roles = computed(() => {
             </UiTableRow>
           </UiTableBody>
         </UiTable>
-      </ScrollArea>
+      </UiScrollArea>
     </section>
 
     <section v-else class="dash-panel dash-sites" aria-labelledby="roles-title">

@@ -65,7 +65,9 @@ const dialogVariants = tv({
           <DialogTitle>Dialog</DialogTitle>
         </VisuallyHidden>
         <VisuallyHidden v-if="!description && !$slots.description" as-child>
-          <DialogDescription>{{ title || 'Dialog description' }}</DialogDescription>
+          <DialogDescription>{{
+            title || 'Dialog description'
+          }}</DialogDescription>
         </VisuallyHidden>
         <div
           v-if="title || $slots.title || description || $slots.description"

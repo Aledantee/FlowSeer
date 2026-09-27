@@ -48,11 +48,7 @@ defineProps<UiBreadcrumbEllipsisProps>()
     <slot name="menu">
       <slot>
         <template v-if="items && items.length">
-          <UiDropdownMenuItem
-            v-for="item in items"
-            :key="item.label"
-            as-child
-          >
+          <UiDropdownMenuItem v-for="item in items" :key="item.label" as-child>
             <a :href="item.href || '#'" class="w-full">
               {{ item.label }}
             </a>
