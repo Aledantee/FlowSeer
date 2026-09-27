@@ -383,7 +383,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 	}
 
 	// Register a broadcaster tail subscriber to test cleanup on delete
-	subCh, unsub := h.broadcaster.Subscribe(sessionID)
+	sub, unsub := h.broadcaster.Subscribe(sessionID)
 	defer unsub()
 
 	// Get existing session
@@ -408,7 +408,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 
 	// Broadcaster channel must be closed
 	select {
-	case _, ok := <-subCh:
+	case _, ok := <-sub.Items():
 		if ok {
 			t.Fatal("expected subscriber channel to be closed upon session deletion")
 		}
@@ -639,6 +639,102 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	}
 	if stream.Err() != nil {
 		t.Fatalf("got stream termination error %v, want nil", stream.Err())
+	}
+}
+
+func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newOperatorTestHarness(t)
+	sessID := "0192e6a0-0000-7000-8000-000000000045"
+	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
+	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	tailReq := operatorcapturev1.TailCaptureSessionRequest_builder{
+		Session: cfg.GetRef(),
+	}.Build()
+	stream, err := h.client.TailCaptureSession(ctx, connect.NewRequest(tailReq))
+	if err != nil {
+		t.Fatalf("tail session: %v", err)
+	}
+	defer func() { _ = stream.Close() }()
+
+	if !stream.Receive() {
+		t.Fatalf("expected the attached marker, stream ended: %v", stream.Err())
+	}
+	if !stream.Msg().GetAttached() {
+		t.Fatalf("got opening tail frame %+v, want attached marker", stream.Msg())
+	}
+
+	// Wait for the handler to subscribe, then flood far past the 128-item buffer
+	// while this consumer holds off reading. The handler blocks on the transport,
+	// the subscription overflows, and the final chunk is dropped into the gap —
+	// so the drain below also exercises the terminal flush before EOF. Large
+	// payloads guarantee the transport back-pressures rather than absorbing the
+	// whole flood.
+	deadline := time.Now().Add(5 * time.Second)
+	for h.broadcaster.SubscriberCount(sessID) == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("tail never subscribed")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	const total = 400
+	payload := bytes.Repeat([]byte("x"), 32*1024)
+	for seq := uint64(1); seq <= total; seq++ {
+		chunk := modelcapturev1.CapturePacketChunk_builder{
+			Session:       cfg.GetRef(),
+			FirstSequence: proto.Uint64(seq),
+			Packets:       []*netcapturev1.PacketRecord{testPacketRecord(seq, payload)},
+			Final:         proto.Bool(seq == total),
+		}.Build()
+		h.broadcaster.Broadcast(sessID, chunk)
+	}
+	h.broadcaster.CloseSession(sessID)
+
+	// However the loss splits between delivered chunks and gaps, the delivered
+	// sequences and the gap-covered spans must tile 1..total with no hole and no
+	// overlap, in order: that is what an in-band gap buys over a silent drop.
+	var expected uint64 = 1
+	gaps := 0
+	for stream.Receive() {
+		msg := stream.Msg()
+		switch msg.WhichBody() {
+		case operatorcapturev1.TailCaptureSessionResponse_Chunk_case:
+			c := msg.GetChunk()
+			if c.GetFirstSequence() != expected {
+				t.Fatalf("chunk starts at %d, want %d — a hole opened in the tail", c.GetFirstSequence(), expected)
+			}
+			expected += uint64(len(c.GetPackets()))
+		case operatorcapturev1.TailCaptureSessionResponse_Gap_case:
+			gaps++
+			g := msg.GetGap()
+			if g.GetDroppedChunks() == 0 {
+				t.Fatalf("gap reports zero dropped chunks: %+v", g)
+			}
+			if g.GetFirstDroppedSequence() != expected {
+				t.Fatalf("gap starts at %d, want %d — the gap does not abut the delivered chunks", g.GetFirstDroppedSequence(), expected)
+			}
+			if g.GetLastDroppedSequence() < g.GetFirstDroppedSequence() {
+				t.Fatalf("gap range inverted: %+v", g)
+			}
+			expected = g.GetLastDroppedSequence() + 1
+		default:
+			t.Fatalf("unexpected tail frame: %+v", msg)
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("tail stream ended with error: %v", err)
+	}
+	if expected != total+1 {
+		t.Fatalf("tail covered sequences up to %d, want %d — packets went missing with no gap", expected-1, total)
+	}
+	if gaps == 0 {
+		t.Fatal("expected at least one in-band gap when the consumer lagged behind a flood")
 	}
 }
 
