@@ -354,6 +354,22 @@ func TestOIDWalkOps_LazyDecodeAllocations(t *testing.T) {
 	if allocs1 != allocs2 {
 		t.Fatalf("allocations diverge: 1 marker = %v, 49 markers = %v", allocs1, allocs2)
 	}
+
+	// Verify decoded fallback projection maintains exact count, capacity, and key mapping.
+	pDec := &pdu{varbinds: list1}
+	opsDec := &oidWalkOps{w: NewWalker(context.Background(), 64), root: root}
+	itemsDec, err := opsDec.items(pDec)
+	if err != nil {
+		t.Fatalf("decoded items: %v", err)
+	}
+	if len(itemsDec) != len(list1) || cap(itemsDec) != len(list1) {
+		t.Fatalf("decoded items len %d cap %d, want %d", len(itemsDec), cap(itemsDec), len(list1))
+	}
+	for i, it := range itemsDec {
+		if k := opsDec.key(it); !k.Equal(list1[i].GetHeader().OID) {
+			t.Fatalf("item %d key %v != %v", i, k, list1[i].GetHeader().OID)
+		}
+	}
 }
 
 func TestSession_Set(t *testing.T) {
