@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import UiCard from './UiCard.vue'
 
-defineProps<{
+export interface UiMetricCardProps {
   label: string
   value: number
   unit?: string
-}>()
+}
+
+defineProps<UiMetricCardProps>()
 </script>
 
 <template>
-  <UiCard class="metric-card">
+  <UiCard as="article" class="metric-card">
     <div
       class="flex items-center justify-between text-xs text-muted-foreground font-medium"
     >
-      <span class="metric-label">{{ label }}</span>
+      <span>{{ label }}</span>
       <span v-if="$slots.icon" class="metric-icon">
         <slot name="icon" />
       </span>
@@ -24,17 +26,11 @@ defineProps<{
       >
         {{ value }}
       </span>
-      <span
-        v-if="unit"
-        class="text-xs text-muted-foreground font-mono metric-unit"
-      >
+      <span v-if="unit" class="text-xs text-muted-foreground font-mono">
         {{ unit }}
       </span>
     </div>
-    <div
-      v-if="$slots.default"
-      class="text-xs text-muted-foreground mt-1 metric-note"
-    >
+    <div v-if="$slots.default" class="text-xs text-muted-foreground mt-1">
       <slot />
     </div>
   </UiCard>

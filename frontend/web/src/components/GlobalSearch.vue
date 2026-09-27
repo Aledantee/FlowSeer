@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
+  type UiCommandItemSelectEvent,
   UiCommandDialog,
   UiCommandEmpty,
   UiCommandGroup,
@@ -144,11 +145,9 @@ function forget() {
 
 function handleItemSelect(
   result: SearchResult,
-  event?: MouseEvent | KeyboardEvent,
+  event: UiCommandItemSelectEvent,
 ) {
-  const beside = event
-    ? event.shiftKey || event.metaKey || event.ctrlKey
-    : false
+  const beside = event.shiftKey || event.metaKey || event.ctrlKey
   choose(result, beside)
 }
 
@@ -241,7 +240,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
             :key="resultKey(result)"
             :value="resultKey(result)"
             class="search-result"
-            @select="handleItemSelect(result)"
+            @select="handleItemSelect(result, $event)"
           >
             <AppIcon :name="iconFor(result, group.icon)" />
             <span>
@@ -252,8 +251,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
               <UiTooltip
                 v-if="canSplit"
                 label="Open side by side"
-                hint="Shift+Enter"
+                :shortcut="{ code: 'Enter', shift: true }"
                 side="left"
+                inline
               >
                 <button
                   type="button"
@@ -267,8 +267,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
               <UiTooltip
                 v-if="!(result.kind === 'page' && result.id.startsWith('tab:'))"
                 label="Send to dock"
-                hint="Alt+Enter"
+                :shortcut="{ code: 'Enter', alt: true }"
                 side="left"
+                inline
               >
                 <button
                   type="button"

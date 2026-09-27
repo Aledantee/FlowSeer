@@ -53,3 +53,23 @@ export const Vertical: Story = {
     `,
   }),
 }
+
+export const Decorative: Story = {
+  args: {
+    orientation: 'horizontal',
+    decorative: true,
+  },
+  render: (args) => ({
+    components: { UiSeparator },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="w-64 space-y-3 p-4 bg-card border border-border rounded-panel text-sm text-foreground">
+        <div>Decorative separator</div>
+        <UiSeparator v-bind="args" />
+        <div>Below separator</div>
+      </div>
+    `,
+  }),
+}

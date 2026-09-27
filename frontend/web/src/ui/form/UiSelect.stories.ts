@@ -55,3 +55,18 @@ export const Disabled: Story = {
     ariaLabel: 'Site location select',
   },
 }
+
+export const Focus: Story = {
+  args: {
+    options: sampleOptions,
+    placeholder: 'Choose site location...',
+    ariaLabel: 'Site location select',
+  },
+  render: (args) => ({
+    components: { UiSelect },
+    setup() {
+      return { args }
+    },
+    template: '<UiSelect v-bind="args" autofocus />',
+  }),
+}

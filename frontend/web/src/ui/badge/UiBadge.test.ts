@@ -25,7 +25,10 @@ function mount(
     },
   })
   app.mount(host)
-  dispose = () => app.unmount()
+  dispose = () => {
+    app.unmount()
+    dispose = () => {}
+  }
   const el = host.firstElementChild as HTMLElement
   return { host, el }
 }
@@ -36,7 +39,7 @@ describe('UiBadge', () => {
       { variant: 'default' as const, expected: 'bg-subtle' },
       { variant: 'outline' as const, expected: 'bg-transparent' },
       { variant: 'primary' as const, expected: 'bg-primary' },
-      { variant: 'accent' as const, expected: 'bg-accent' },
+      { variant: 'accent' as const, expected: 'text-accent-foreground' },
       {
         variant: 'success' as const,
         expected: 'bg-success-surface',

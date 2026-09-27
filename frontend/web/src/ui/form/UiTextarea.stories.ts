@@ -38,3 +38,17 @@ export const Disabled: Story = {
     ariaLabel: 'Disabled notes textarea',
   },
 }
+
+export const Focus: Story = {
+  args: {
+    placeholder: 'Focused notes textarea...',
+    ariaLabel: 'Focused notes textarea',
+  },
+  render: (args) => ({
+    components: { UiTextarea },
+    setup() {
+      return { args }
+    },
+    template: '<UiTextarea v-bind="args" autofocus />',
+  }),
+}

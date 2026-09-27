@@ -143,6 +143,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             <UiButton
               type="submit"
               variant="primary"
+              class="w-full mt-4"
               :disabled="destination === device.siteId"
             >
               Save assignment

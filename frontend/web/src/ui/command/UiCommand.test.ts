@@ -6,7 +6,9 @@ import UiCommandDialog from './UiCommandDialog.vue'
 import UiCommandEmpty from './UiCommandEmpty.vue'
 import UiCommandGroup from './UiCommandGroup.vue'
 import UiCommandInput from './UiCommandInput.vue'
-import UiCommandItem from './UiCommandItem.vue'
+import UiCommandItem, {
+  type UiCommandItemSelectEvent,
+} from './UiCommandItem.vue'
 import UiCommandList from './UiCommandList.vue'
 import UiCommandSeparator from './UiCommandSeparator.vue'
 import UiCommandShortcut from './UiCommandShortcut.vue'
@@ -107,8 +109,8 @@ describe('UiCommand', () => {
             UiCommandItem,
             {
               value: 'item-1',
-              onSelect: (val: string) => {
-                selected.value = val
+              onSelect: (event: UiCommandItemSelectEvent) => {
+                selected.value = event.value
               },
             },
             () => 'Item 1',
@@ -117,8 +119,8 @@ describe('UiCommand', () => {
             UiCommandItem,
             {
               value: 'item-2',
-              onSelect: (val: string) => {
-                selected.value = val
+              onSelect: (event: UiCommandItemSelectEvent) => {
+                selected.value = event.value
               },
             },
             () => 'Item 2',
@@ -308,7 +310,8 @@ describe('UiCommand', () => {
               UiCommandItem,
               {
                 value: 'item-1',
-                onSelect: (v: string) => ordinarySelects.push(v),
+                onSelect: (event: UiCommandItemSelectEvent) =>
+                  ordinarySelects.push(event.value),
               },
               () => 'Item 1',
             ),
@@ -316,7 +319,8 @@ describe('UiCommand', () => {
               UiCommandItem,
               {
                 value: 'item-2',
-                onSelect: (v: string) => ordinarySelects.push(v),
+                onSelect: (event: UiCommandItemSelectEvent) =>
+                  ordinarySelects.push(event.value),
               },
               () => 'Item 2',
             ),

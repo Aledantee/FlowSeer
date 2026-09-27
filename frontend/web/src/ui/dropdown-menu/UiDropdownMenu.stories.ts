@@ -13,15 +13,18 @@ export default meta
 type Story = StoryObj<typeof UiDropdownMenu>
 
 export const Default: Story = {
-  render: () => ({
+  render: (args) => ({
     components: {
       UiDropdownMenu,
       UiDropdownMenuItem,
       UiDropdownMenuSeparator,
       UiButton,
     },
+    setup() {
+      return { args }
+    },
     template: `
-      <UiDropdownMenu>
+      <UiDropdownMenu v-bind="args">
         <template #trigger>
           <UiButton variant="secondary">Open Options</UiButton>
         </template>
@@ -34,7 +37,8 @@ export const Default: Story = {
   }),
 }
 
-export const Open: Story = {
+export const AccessibilityAudit: Story = {
+  name: 'Accessibility Audit (Open, Nonmodal)',
   render: () => ({
     components: {
       UiDropdownMenu,
@@ -42,7 +46,7 @@ export const Open: Story = {
       UiDropdownMenuSeparator,
     },
     template: `
-      <UiDropdownMenu :default-open="true" :modal="false">
+      <UiDropdownMenu :open="true" :modal="false">
         <UiDropdownMenuItem>Account settings</UiDropdownMenuItem>
         <UiDropdownMenuItem>Billing & invoices</UiDropdownMenuItem>
         <UiDropdownMenuSeparator />

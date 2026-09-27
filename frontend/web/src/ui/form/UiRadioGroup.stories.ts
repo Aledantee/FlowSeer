@@ -42,3 +42,18 @@ export const Disabled: Story = {
     disabled: true,
   },
 }
+
+export const Focus: Story = {
+  args: {
+    modelValue: 'all',
+    options: sampleOptions,
+    orientation: 'vertical',
+  },
+  render: (args) => ({
+    components: { UiRadioGroup },
+    setup() {
+      return { args }
+    },
+    template: '<UiRadioGroup v-bind="args" autofocus />',
+  }),
+}

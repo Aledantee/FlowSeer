@@ -237,7 +237,7 @@ describe('UiCombobox', () => {
     expect(selectEmissions[0]).toBe('')
   })
 
-  it('supports string array modelValue including empty string', async () => {
+  it('selects and deselects array values including the empty option', async () => {
     const selected = ref<string[]>([''])
     const options: ComboboxOption[] = [
       { value: '', label: 'All' },
@@ -246,21 +246,42 @@ describe('UiCombobox', () => {
     ]
 
     mountApp(() =>
-      h(UiCombobox, {
-        options,
-        defaultOpen: true,
-        modelValue: selected.value,
-        'onUpdate:modelValue': (v: string | string[]) => {
-          selected.value = v as string[]
+      h(
+        UiCombobox,
+        {
+          options,
+          defaultOpen: true,
+          modelValue: selected.value,
+          'onUpdate:modelValue': (value: string | string[]) => {
+            if (Array.isArray(value)) selected.value = value
+          },
         },
-      }),
+        {
+          item: ({ option }: { option: ComboboxOption }) =>
+            h('span', { 'data-value': option.value }, option.label),
+        },
+      ),
     )
 
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    const renderedOptions = document.body.querySelectorAll('[role="option"]')
-    expect(renderedOptions.length).toBe(3)
+    const option = (value: string) =>
+      document.body
+        .querySelector<HTMLElement>(`[data-value="${value}"]`)
+        ?.closest<HTMLElement>('[role="option"]')
+
+    expect(option('')?.getAttribute('aria-selected')).toBe('true')
+
+    option('alpha')?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(selected.value).toEqual(['', 'alpha'])
+
+    option('')?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(selected.value).toEqual(['alpha'])
   })
 
   it('forwards public highlight event and supplies scoped active state to item slot', async () => {
@@ -458,5 +479,67 @@ describe('UiCombobox', () => {
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
     expect(document.getElementById(ariaControls!)).not.toBeNull()
+  })
+
+  it('shows public labels in a custom-trigger input and keeps filtering usable', async () => {
+    const selected = ref('')
+    const host = mountApp(() =>
+      h(
+        UiCombobox,
+        {
+          options: [
+            { value: '', label: 'All sites' },
+            { value: 'berlin', label: 'Berlin Mitte' },
+            { value: 'hamburg', label: 'Hamburg Hafen' },
+          ],
+          modelValue: selected.value,
+          placeholder: 'Search sites',
+          'onUpdate:modelValue': (value: string | string[]) => {
+            if (typeof value === 'string') selected.value = value
+          },
+        },
+        {
+          trigger: () => h('button', { class: 'scope-trigger' }, 'Sites'),
+        },
+      ),
+    )
+
+    const trigger = host.querySelector<HTMLButtonElement>('.scope-trigger')
+    trigger?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    let input = document.body.querySelector<HTMLInputElement>(
+      'input[placeholder="Search sites"]',
+    )
+    expect(input?.value).toBe('All sites')
+    expect(input?.value).not.toContain('__ui_combobox_empty__')
+
+    const berlin = Array.from(
+      document.body.querySelectorAll<HTMLElement>('[role="option"]'),
+    ).find((option) => option.textContent?.includes('Berlin Mitte'))
+    berlin?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(selected.value).toBe('berlin')
+
+    trigger?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    input = document.body.querySelector<HTMLInputElement>(
+      'input[placeholder="Search sites"]',
+    )
+    expect(input?.value).toBe('Berlin Mitte')
+
+    if (input) {
+      input.value = 'ham'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const visibleOptions = document.body.querySelectorAll('[role="option"]')
+    expect(visibleOptions).toHaveLength(1)
+    expect(visibleOptions[0]?.textContent).toContain('Hamburg Hafen')
   })
 })

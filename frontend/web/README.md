@@ -78,9 +78,8 @@ Prettier owns formatting; ESLint checks code and Vue semantics with the standard
 Prettier compatibility configuration.
 
 The [design language](design/language.md) documents spacing, control states, and
-font research. Inter Variable is the interface font; DM Sans remains available
-in the comparison specimen. m3connect uses GT Standard, which remains a brand
-option with supplied licensed files.
+font research. Inter Variable is the interface font. m3connect uses GT Standard,
+which remains a brand option with supplied licensed files.
 
 ## Design direction
 
@@ -154,12 +153,27 @@ Overlay, navigation, and command primitives under `src/ui/` wrap Reka UI headles
 - `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, and keyboard escape dismissal.
 - `UiPopover`: floating popover anchored to triggers with configurable alignment and collision padding.
 - `UiDropdownMenu` suite: dropdown action menus with nested submenus, roving focus, keyboard navigation, and separators (`UiDropdownMenuItem`, `UiDropdownMenuSeparator`).
-- `UiTabs`: tabbed page navigation with accessible roving tab list focus and tab panel synchronization (`UiTabsList`, `UiTabsTrigger`, `UiTabsContent`).
+- `UiTabs`: a single tab container that creates accessible triggers and panels from the `tabs` prop. Use `v-model` for controlled selection or `defaultValue` for initial selection; `trigger-${value}` and `${value}` slots replace a tab's label and panel content.
 - `UiBreadcrumb` suite: hierarchical breadcrumb navigation (`UiBreadcrumbList`, `UiBreadcrumbItem`, `UiBreadcrumbLink`, `UiBreadcrumbPage`, `UiBreadcrumbSeparator`, `UiBreadcrumbEllipsis`) featuring responsive auto-collapsing of intermediate links into a dropdown menu on narrow viewports.
 - `UiScrollArea` suite: custom-styled scroll containers wrapping Reka ScrollArea primitives, exposing underlying viewport element references for programmatic scrolling.
 - `UiToast` suite: reactive notification toasts with variants (`default`, `success`, `warning`, `danger`), auto-dismissal, and `useToast` dispatch composable.
 - `UiCombobox`: searchable select combobox with option grouping, avatar icons, keyboard roving focus, and custom trigger slots.
 - `UiCommand` suite: command palette primitives (`UiCommand`, `UiCommandDialog`, `UiCommandInput`, `UiCommandList`, `UiCommandEmpty`, `UiCommandGroup`, `UiCommandItem`, `UiCommandSeparator`, `UiCommandShortcut`) supporting modal presentation and custom filtering.
+
+```vue
+<script setup lang="ts">
+import { UiTabs } from './ui'
+
+const tabs = [
+  { value: 'overview', label: 'Overview', content: 'Current fleet status' },
+  { value: 'alerts', label: 'Alerts', content: 'Open alerts' },
+]
+</script>
+
+<template>
+  <UiTabs default-value="overview" :tabs="tabs" />
+</template>
+```
 
 Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
 

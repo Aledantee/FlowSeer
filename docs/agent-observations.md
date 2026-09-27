@@ -41,3 +41,13 @@ Suggested change: State that a re-review is split by the writer of each commit w
 Skill or agent: `.codex/hooks.json` or `.claude/skills/delegate/scripts/orca-worker.sh`.
 What happened: A codex lane printed "Hook failed — hook exited with code 127" early in its turn on worker fix-delegate2 on 2026-09-26. Cause was uninvestigated; likely a command registered in `.codex/hooks.json` was missing from PATH in the worker environment. The step was followed as written.
 Suggested change: Verify that all commands invoked by `.codex/hooks.json` exist on PATH or provide fallbacks when missing.
+
+## 2026-09-27 verify-change: no build, test, or lint gate mapping for frontend web files
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, path dispatching (`gates_selected`).
+What happened: The step was followed as written. When running `verify-change.sh` against changed paths in `frontend/web/`, the verifier reported "FlowSeer verification selected no build, test or lint gate for these paths" and exited with code 2. The script dispatches Go, Proto, MIB, and Markdown paths, but has no gate mapping for TypeScript, Vue, or CSS files under `frontend/web/`. As a result, web build, test, lint, and formatting checks had to run manually.
+Suggested change: Add path matching for `frontend/web/` in `verify-change.sh` to trigger web workspace gates (such as `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm format:check`).
+
+## 2026-09-27 review: hot pool dropped second reviewer on diff exceeding 1,500 lines
+Skill or agent: `.claude/skills/review/SKILL.md`, step 3 ("Dispatch the reviewer"), and `.claude/skills/delegate/SKILL.md`, step 3.
+What happened: Phase 4 changed 2,410 lines across 40 files, exceeding the 1,500-line threshold where review step 3 requires dispatching multiple reviewers by subsystem in parallel. Because the executor was gemini-3.8-flash, delegate step 3 excluded Google models for review independence. When the claude pool was hot (>85%), claude-opus-5-5 was dropped, leaving only gpt-5.6-sol. Neither skill defines how to size review lanes when diff volume exceeds one reviewer but pool headroom leaves only a single model eligible. The coordinator dispatched a single reviewer on gpt-5.6-sol covering the entire diff, noting that the second reviewer was dropped due to the hot pool. The step could not be followed as written.
+Suggested change: State that when diff size requires multiple reviewers but pool headroom and vendor exclusion leave a single model eligible, the coordinator may split subsystem reviews across multiple lanes on that single model/pool if slots permit, or proceed with a single reviewer and log the reduced redundancy.

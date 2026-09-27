@@ -56,17 +56,31 @@ const emit = defineEmits<{
   (e: 'select', value: string): void
 }>()
 
-const PREFIX = 'cb:'
+const emptyOptionValue = computed(() => {
+  let value = '__ui_combobox_empty__'
+  const publicValues = new Set(props.options.map((option) => option.value))
+
+  while (publicValues.has(value)) value += '_'
+
+  return value
+})
 
 function toInternalValue(val: string): string {
-  return `${PREFIX}${val}`
+  return val === '' ? emptyOptionValue.value : val
 }
 
 function toPublicValue(val: string): string {
-  if (val.startsWith(PREFIX)) {
-    return val.slice(PREFIX.length)
-  }
-  return val
+  return val === emptyOptionValue.value ? '' : val
+}
+
+function displayValue(value: unknown): string {
+  if (typeof value !== 'string') return ''
+
+  const publicValue = toPublicValue(value)
+  return (
+    props.options.find((option) => option.value === publicValue)?.label ??
+    publicValue
+  )
 }
 
 const highlightedValue = ref<string | null>(null)
@@ -185,6 +199,7 @@ function UiCustomComboboxTrigger(
 <template>
   <ComboboxRoot
     :model-value="internalModelValue"
+    :multiple="Array.isArray(modelValue)"
     :open="open"
     :default-open="defaultOpen"
     :ignore-filter="ignoreFilter"
@@ -212,6 +227,7 @@ function UiCustomComboboxTrigger(
     <slot v-else name="input">
       <ComboboxInput
         :placeholder="placeholder"
+        :display-value="displayValue"
         class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
       />
     </slot>
@@ -226,6 +242,7 @@ function UiCustomComboboxTrigger(
         <div v-if="$slots.trigger" class="p-1 border-b border-border mb-1">
           <ComboboxInput
             :placeholder="placeholder"
+            :display-value="displayValue"
             class="flex h-8 w-full rounded-xs border border-border bg-input px-2 py-1 text-xs shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
           />
         </div>

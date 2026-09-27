@@ -77,3 +77,23 @@ export const Disabled: Story = {
     `,
   }),
 }
+
+export const Focus: Story = {
+  args: {
+    id: 'switch-focus',
+  },
+  render: (args) => ({
+    components: { UiSwitch },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="flex items-center gap-3">
+        <UiSwitch v-bind="args" autofocus />
+        <label for="switch-focus" class="text-sm font-medium text-foreground cursor-pointer select-none">
+          Focused switch
+        </label>
+      </div>
+    `,
+  }),
+}

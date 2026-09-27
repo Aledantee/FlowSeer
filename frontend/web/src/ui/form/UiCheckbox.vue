@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
 import { CheckboxIndicator, CheckboxRoot } from 'reka-ui'
+import { useFormReset } from './useFormReset'
 
 export interface UiCheckboxProps {
   modelValue?: boolean | 'indeterminate'
@@ -10,8 +12,8 @@ export interface UiCheckboxProps {
   value?: string
 }
 
-withDefaults(defineProps<UiCheckboxProps>(), {
-  modelValue: false,
+const props = withDefaults(defineProps<UiCheckboxProps>(), {
+  modelValue: undefined,
   name: undefined,
   required: false,
   disabled: false,
@@ -22,24 +24,58 @@ withDefaults(defineProps<UiCheckboxProps>(), {
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean | 'indeterminate'): void
 }>()
+
+const rootRef = ref<{ $el?: unknown } | null>(null)
+const internalValue = ref<boolean | 'indeterminate'>(props.modelValue ?? false)
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    internalValue.value = val ?? false
+  },
+)
+
+const currentValue = computed<boolean | 'indeterminate'>(() =>
+  props.modelValue !== undefined ? props.modelValue : internalValue.value,
+)
+
+let initialValue: boolean | 'indeterminate' = false
+onMounted(() => {
+  initialValue =
+    props.modelValue !== undefined ? props.modelValue : internalValue.value
+})
+
+useFormReset({
+  elementRef: rootRef,
+  onReset: () => {
+    internalValue.value = initialValue
+    emit('update:modelValue', initialValue)
+  },
+})
+
+function handleUpdate(val: boolean | 'indeterminate') {
+  internalValue.value = val
+  emit('update:modelValue', val)
+}
 </script>
 
 <template>
   <CheckboxRoot
     :id="id"
-    :model-value="modelValue"
+    ref="rootRef"
+    :model-value="currentValue"
     :name="name"
     :required="required"
     :disabled="disabled"
     :value="value"
-    class="peer h-4 w-4 shrink-0 rounded-sm border border-input bg-card text-primary-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:border-primary transition-colors flex items-center justify-center"
-    @update:model-value="emit('update:modelValue', $event)"
+    class="peer h-4 w-4 shrink-0 !p-0 !rounded-sm !border !border-input !bg-card !text-primary-foreground focus-visible:!outline-none focus-visible:!ring-1 focus-visible:!ring-ring disabled:!cursor-not-allowed disabled:!opacity-50 data-[state=checked]:!bg-primary data-[state=checked]:!border-primary data-[state=indeterminate]:!bg-primary data-[state=indeterminate]:!border-primary transition-colors flex items-center justify-center"
+    @update:model-value="handleUpdate"
   >
     <CheckboxIndicator
       class="flex items-center justify-center text-primary-foreground"
     >
       <svg
-        v-if="modelValue === 'indeterminate'"
+        v-if="currentValue === 'indeterminate'"
         class="h-3 w-3"
         viewBox="0 0 24 24"
         fill="none"

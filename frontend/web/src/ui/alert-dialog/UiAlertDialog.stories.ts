@@ -41,6 +41,21 @@ export const Default: Story = {
   }),
 }
 
+export const AccessibilityAudit: Story = {
+  name: 'Accessibility Audit (Open)',
+  args: {
+    ...Default.args,
+    open: true,
+  },
+  render: (args) => ({
+    components: { UiAlertDialog },
+    setup() {
+      return { args }
+    },
+    template: '<UiAlertDialog v-bind="args" />',
+  }),
+}
+
 export const NonDestructive: Story = {
   args: {
     title: 'Restart Collector Service',

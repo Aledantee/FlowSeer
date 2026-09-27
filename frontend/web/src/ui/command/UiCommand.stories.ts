@@ -70,8 +70,8 @@ export const Default: Story = {
   }),
 }
 
-export const DialogMode: Story = {
-  render: () => ({
+function renderDialogMode(initiallyOpen: boolean, showTrigger: boolean) {
+  return {
     components: {
       UiCommandDialog,
       UiCommandInput,
@@ -84,12 +84,12 @@ export const DialogMode: Story = {
       UiButton,
     },
     setup() {
-      const open = ref(false)
-      return { open }
+      const open = ref(initiallyOpen)
+      return { open, showTrigger }
     },
     template: `
       <div>
-        <UiButton @click="open = true">Open Command Palette</UiButton>
+        <UiButton v-if="showTrigger" @click="open = true">Open Command Palette</UiButton>
         <UiCommandDialog v-model:open="open">
           <UiCommandInput placeholder="Search everything..." />
           <UiCommandList>
@@ -108,7 +108,16 @@ export const DialogMode: Story = {
         </UiCommandDialog>
       </div>
     `,
-  }),
+  }
+}
+
+export const DialogMode: Story = {
+  render: () => renderDialogMode(false, true),
+}
+
+export const AccessibilityAudit: Story = {
+  name: 'Dialog Accessibility Audit (Open)',
+  render: () => renderDialogMode(true, false),
 }
 
 export const DialogModeOpen: Story = {
