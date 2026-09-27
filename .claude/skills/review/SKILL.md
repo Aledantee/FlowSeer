@@ -302,4 +302,9 @@ same mechanism without a clean one the work goes to `plan` with what the
 rounds established, as `implement` does with a unit still red after three
 verifier rounds.
 
+Before the final report, each fix worker's lane is stopped: `orca worktree
+list --json` lists no worktree whose `parentWorktreeId` is this one, other
+than those the report names with the reason they stayed. A lane left behind
+blocks the coordinator's `stop` of this worktree.
+
 A correction to this procedure is logged as `compound`, Observe describes.

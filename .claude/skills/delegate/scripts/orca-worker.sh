@@ -354,6 +354,12 @@ case "$cmd" in
     # A stalled lane shows the working hint over a turn that will not end.
     [[ $stalled == true ]] || ! working "$(screen "$term")" \
       || die "$name is still working; wait for it, or pass --stalled after wait printed stalled"
+    # Orca drops the lineage of a removed worktree's children, so a lane that
+    # started lanes of its own would leave them top-level, unmerged work and all.
+    children=$(orca worktree show --worktree "id:$wt" --json 2>/dev/null \
+      | json '" ".join(d["result"]["worktree"]["childWorktreeIds"])') \
+      || die "cannot read the child worktrees of $name; nothing removed"
+    [[ -z $children ]] || die "$name has child worktrees of its own; merge and remove them first, nothing removed: $children"
     rm -f "$path/$brief_name" "$path/$note_name"
     dirty=$(git -C "$path" status --porcelain 2>/dev/null)
     [[ -z $dirty ]] || die "$path is dirty; nothing removed: $dirty"

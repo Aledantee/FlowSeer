@@ -61,7 +61,9 @@ names the lane; this file is the procedure.
   `run` to the run log. Re-grading appends another; scorers read the last.
 - `stop` refuses a lane that has no `grade` event for its `run`, is
   mid-turn (unless `--stalled`, after `wait` printed `stalled`),
-  whose checkout is dirty, or whose branch is not merged into this one. Before
+  whose checkout is dirty, whose branch is not merged into this one, or
+  whose worktree still has Orca child worktrees of its own: Orca drops a
+  removed worktree's lineage, so those children would turn top-level. Before
   removing the lane, it writes an `end` event with the branch head to the run
   log. `orca worktree rm` deletes the branch with the checkout, so no `git
   branch -d` follows, and an unmerged lane removed that way would lose its
@@ -99,6 +101,10 @@ on codex 0.157.1 on 2026-09-26.
   worker that left files uncommitted is left in place.
 - `stop` says the lane has no grade event: grade the lane with `orca-worker.sh grade`
   before stopping it.
+- `stop` says the lane has child worktrees: the worker started lanes and
+  left them. Each child's branch is merged into the lane (or dropped with
+  the user's agreement) and the child removed before the lane is stopped;
+  the ids it printed name them.
 - `start` says the hooks review remains or has no "Trust all and
   continue" option: Codex changed the dialog again. Its screen is in the
   error; update the match in `orca-worker.sh`, or run `codex` in the
