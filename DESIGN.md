@@ -267,6 +267,9 @@ column uses tabular figures, with its unit beside it, never above.
 **The Sentence Case Rule.** Labels are sentence case at regular or medium
 weight. Nothing is uppercase, heavy, and letter-spaced at once.
 
+**The 11px Floor Rule.** No text is smaller than 11px, units included, and
+anything read as a status is at least 12px.
+
 ## Layout
 
 A fixed navigation frame (228px sidebar, 63px top bar) wraps one scrolling
@@ -407,11 +410,8 @@ base. Glow strength is 30% in dark mode and 13% in light mode. It lives in
 
 ### Don't:
 
-- **Don't** set labels uppercase, heavy, and letter-spaced together. The
-  Components workspace eyebrows ("DESIGN WORKSPACE", 10px, 600, 1.5px
-  tracking) are drift to fix, not a pattern to copy. The sidebar's
-  "WORKSPACE" label is uppercase and tracked at regular weight; it sits at
-  the edge of this rule and should not spread.
+- **Don't** set labels uppercase, heavy, and letter-spaced together, and
+  don't put a kicker above a heading; the heading names its own topic.
 - **Don't** color text with raw brand hexes or `--m3-*` scale steps; use the
   semantic accent tokens.
 - **Don't** use coral or cyan to mean status.

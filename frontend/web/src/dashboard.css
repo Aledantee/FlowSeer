@@ -121,7 +121,7 @@
 }
 .traffic-grid text {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 .traffic-area {
@@ -159,7 +159,7 @@
   transform: translate(calc(-100% - 12px), -50%);
 }
 .traffic-tooltip small {
-  font-size: 10px;
+  font-size: 11px;
 }
 .traffic-tooltip strong {
   font-size: 14px;
@@ -167,7 +167,7 @@
   font-variant-numeric: tabular-nums;
 }
 .traffic-tooltip strong span {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   font-weight: 400;
 }

@@ -408,7 +408,6 @@ onUnmounted(() => {
         </svg>
         <span>FlowSeer</span>
       </div>
-      <div class="nav-label">WORKSPACE</div>
       <nav ref="navigation" aria-label="Main navigation">
         <RouterLink
           v-for="item in [
@@ -510,7 +509,6 @@ onUnmounted(() => {
         <template v-else>
           <div class="page-heading">
             <div>
-              <span class="eyebrow">NETWORK OPERATIONS</span>
               <h1>{{ title }}</h1>
               <p v-if="!scopeError">
                 {{
@@ -787,7 +785,7 @@ onUnmounted(() => {
                 class="site-card"
               >
                 <span class="site-symbol"><AppIcon name="sites" /></span
-                ><span class="eyebrow">{{ site.location }}</span>
+                ><small class="site-location">{{ site.location }}</small>
                 <h2>{{ site.name }}</h2>
                 <p>{{ tenantName(site.id) }}</p>
                 <div class="site-stats">

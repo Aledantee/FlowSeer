@@ -240,13 +240,6 @@ html:has(.shell) {
   color: var(--chrome-muted);
   margin-top: 4px;
 }
-.nav-label {
-  margin-top: 28px;
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  color: var(--chrome-muted);
-  padding: 0 12px 12px;
-}
 .sidebar nav a {
   position: relative;
   isolation: isolate;
@@ -408,14 +401,6 @@ main {
   align-items: center;
   gap: 20px;
   margin-bottom: var(--space-6);
-}
-.eyebrow {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  color: var(--muted);
-  margin-bottom: 7px;
 }
 .page-heading p {
   font-size: 13px;
@@ -730,7 +715,7 @@ td small {
   min-width: 91px;
 }
 .traffic span {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
 }
 .icon-button {
@@ -904,7 +889,7 @@ td small {
 }
 .node small {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 12px;
 }
 .node.degraded {
   border-color: var(--warning-border);
@@ -1165,7 +1150,7 @@ td small {
     font-size: 27px;
   }
   .metric-note {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 @media (max-width: 800px) {
@@ -1177,7 +1162,6 @@ td small {
     width: 100%;
     padding: 16px 20px 8px;
   }
-  .nav-label,
   .operator {
     display: none;
   }
@@ -1381,7 +1365,6 @@ td small {
   .sidebar-collapsed .main-shell {
     margin-left: 64px;
   }
-  .sidebar-collapsed .nav-label,
   .sidebar-collapsed .sidebar nav a span:not(.nav-highlight) {
     display: none;
   }
@@ -1742,7 +1725,7 @@ td small {
 .account-trigger .avatar {
   width: 26px;
   height: 26px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .account-trigger:hover,
 .account-trigger[aria-expanded='true'] {
@@ -1846,4 +1829,12 @@ td small {
     transparent 18px,
     #000 18.5px
   );
+}
+@media (min-width: 801px) {
+  .sidebar nav {
+    margin-top: var(--space-6);
+  }
+}
+.site-location {
+  margin-bottom: var(--space-2);
 }

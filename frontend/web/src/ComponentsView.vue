@@ -146,7 +146,6 @@ const swatches = [
   <div class="component-workspace">
     <div class="page-heading">
       <div>
-        <span class="eyebrow">DESIGN WORKSPACE</span>
         <h1>Components</h1>
         <p>A shared language for everything we build.</p>
       </div>
@@ -168,7 +167,6 @@ const swatches = [
 
     <div v-if="section === 'components'" class="workbench-layout">
       <aside class="component-index" aria-label="Choose a component">
-        <span class="eyebrow">LIBRARY</span>
         <button
           v-for="item in catalog"
           :key="item.id"
@@ -186,15 +184,15 @@ const swatches = [
       <div v-if="selected" class="component-detail">
         <header class="component-heading">
           <div>
-            <span class="eyebrow">{{ selected.category }}</span>
             <h2>{{ selected.name }}</h2>
+            <small class="component-category">{{ selected.category }}</small>
             <p>{{ selected.description }}</p>
           </div>
           <span class="draft-tag">{{ stage }}</span>
         </header>
         <section class="specimen-panel" aria-label="Live component preview">
           <div class="specimen-toolbar">
-            <span>LIVE PREVIEW</span><span>Uses current theme</span>
+            <span>Live preview</span><span>Uses current theme</span>
           </div>
           <div class="specimen-canvas">
             <template v-if="selectedId === 'buttons'"
@@ -272,7 +270,6 @@ const swatches = [
         <form class="component-planning" @submit.prevent="saveDraft">
           <div class="planning-heading">
             <div>
-              <span class="eyebrow">DEVELOP TOGETHER</span>
               <h3>Decisions & next steps</h3>
             </div>
             <label
@@ -305,8 +302,7 @@ const swatches = [
       <section class="foundation-panel">
         <div class="foundation-heading">
           <div>
-            <span class="eyebrow">01 / TYPOGRAPHY</span>
-            <h2>Clear at every size.</h2>
+            <h2>Typography</h2>
             <p>Inter for the interface. Monospace for device addresses.</p>
           </div>
           <label for="specimen-font"
@@ -356,8 +352,7 @@ const swatches = [
       <section class="foundation-panel">
         <div class="foundation-heading">
           <div>
-            <span class="eyebrow">02 / COLOR</span>
-            <h2>Color has a job.</h2>
+            <h2>Color</h2>
             <p>Neutral surfaces, brand accents, and distinct health states.</p>
           </div>
           <a
@@ -381,8 +376,7 @@ const swatches = [
         </div>
       </section>
       <section class="foundation-panel">
-        <span class="eyebrow">03 / RHYTHM & INTERACTION</span>
-        <h2>Consistent, without feeling rigid.</h2>
+        <h2>Rhythm and interaction</h2>
         <div class="rules-grid">
           <div>
             <h3>Space in steps of four</h3>

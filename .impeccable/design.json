@@ -294,6 +294,11 @@
         "section": "typography"
       },
       {
+        "name": "The 11px Floor Rule",
+        "body": "No text is smaller than 11px, units included, and anything read as a status is at least 12px.",
+        "section": "typography"
+      },
+      {
         "name": "The Sentence Case Rule",
         "body": "Labels are sentence case at regular or medium weight. Nothing is uppercase, heavy, and letter-spaced at once. ",
         "section": "typography"
@@ -318,7 +323,7 @@
       "**Do** keep tenant and site scope visible on every surface, phone included."
     ],
     "donts": [
-      "**Don't** set labels uppercase, heavy, and letter-spaced together. The Components workspace eyebrows (\"DESIGN WORKSPACE\", 10px, 600, 1.5px tracking) are drift to fix, not a pattern to copy. The sidebar's \"WORKSPACE\" label is uppercase and tracked at regular weight; it sits at the edge of this rule and should not spread.",
+      "**Don't** set labels uppercase, heavy, and letter-spaced together, and don't put a kicker above a heading; the heading names its own topic.",
       "**Don't** color text with raw brand hexes or `--m3-*` scale steps; use the semantic accent tokens.",
       "**Don't** use coral or cyan to mean status.",
       "**Don't** lift in-flow panels with visible shadows; that is reserved for menus, drawers, and dialogs.",
