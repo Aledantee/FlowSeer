@@ -36,7 +36,7 @@ describe('tailwind theme and utilities', () => {
       '.dark\\:bg-popover:where([data-theme=dark], [data-theme=dark] *)',
     )
     expect(darkOutput).toContain('background-color: var(--popover)')
-    expect(darkOutput).not.toContain('light')
+    expect(darkOutput).not.toContain('data-theme=light')
   })
 
   it('declares type scale with companion line-height', async () => {
@@ -51,5 +51,17 @@ describe('tailwind theme and utilities', () => {
     expect(textOutput).toContain('var(--text-base--line-height)')
     expect(textOutput).toContain('--text-base: 13px')
     expect(textOutput).toContain('--text-base--line-height: 20px')
+  })
+
+  it('emits preflight base resets and element normalizations', async () => {
+    const compiler = await compile(css, {
+      base: path.dirname(cssPath),
+      onDependency: () => {},
+    })
+
+    const baseOutput = compiler.build([])
+    expect(baseOutput).toContain('font-size: inherit')
+    expect(baseOutput).toContain('display: block')
+    expect(baseOutput).toContain('outline: none')
   })
 })

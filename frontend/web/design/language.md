@@ -37,9 +37,11 @@ the geometric family and its intended small-text use.
 
 ## Shared rules
 
-`src/theme/language.css` defines the interface and mono font stacks, spacing
-steps, control height, and corner radii. The semantic color tokens in
-`src/style.css` remain the contrast-tested layer over the [palette](README.md).
+`src/theme/tokens.css` defines the interface and mono font stacks, spacing
+steps, control heights, and corner radii via Tailwind theme directives, while
+Tailwind Preflight in `src/theme/tailwind.css` standardizes base element styles.
+The semantic color tokens in `src/theme/semantic.css` remain the contrast-tested
+layer over the [palette](README.md).
 
 Use 8px gaps within controls, 16px between related elements, and 24px panel
 padding. Controls have 8px corners; content panels have 12px corners. Page

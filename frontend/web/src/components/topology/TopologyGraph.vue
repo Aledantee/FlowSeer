@@ -391,3 +391,84 @@ function edgesChanged(changes: EdgeChange[]) {
     </p>
   </div>
 </template>
+
+<style scoped>
+.topology-graph {
+  position: relative;
+  height: 100%;
+  background: var(--background);
+}
+.topology-graph :deep(.vue-flow__background) {
+  color: var(--input);
+}
+.topology-graph :deep(.topology-inspector) {
+  top: calc(var(--topbar-height) + 14px);
+  max-height: calc(100% - var(--topbar-height) - 28px);
+}
+.topology-graph :deep(.vue-flow__node) {
+  cursor: pointer;
+  animation: topology-node-in 260ms ease both;
+}
+@keyframes topology-node-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topology-graph :deep(.vue-flow__node) {
+    animation: none;
+  }
+}
+.topology-graph :deep(.vue-flow__node-site) {
+  z-index: -1 !important;
+  cursor: grab;
+}
+.topology-graph :deep(.vue-flow__handle) {
+  width: 1px;
+  min-width: 0;
+  height: 1px;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.topology-graph :deep(.vue-flow__controls) {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+.topology-graph :deep(.vue-flow__controls-button) {
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  fill: currentColor;
+}
+.topology-graph :deep(.vue-flow__controls-button:hover) {
+  background: var(--hover);
+}
+.topology-graph :deep(.vue-flow__minimap) {
+  transition:
+    opacity 180ms ease,
+    visibility 180ms;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+.topology-graph :deep(.vue-flow__minimap.minimap-hidden) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .topology-graph :deep(.vue-flow__minimap) {
+    transition: none;
+  }
+}
+.topology-error {
+  position: absolute;
+  inset: auto 16px 16px;
+  font-size: var(--text-sm);
+  color: var(--danger-foreground);
+}
+</style>

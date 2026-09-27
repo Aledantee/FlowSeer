@@ -28,13 +28,25 @@ function badge(health: Health | undefined, attention: number | undefined) {
 </script>
 
 <template>
-  <nav v-if="tabs.length" class="page-dock" aria-label="Minimized pages">
-    <UiScrollArea axis="x" class="dock-scroll">
-      <TransitionGroup name="dock" tag="ul">
+  <nav
+    v-if="tabs.length"
+    class="page-dock absolute z-[7] inset-x-4 bottom-3 flex justify-center pointer-events-none"
+    aria-label="Minimized pages"
+  >
+    <UiScrollArea
+      axis="x"
+      class="dock-scroll max-w-full pointer-events-auto border border-chrome-border rounded-panel bg-chrome/88 backdrop-blur-xl shadow-lg"
+    >
+      <TransitionGroup
+        name="dock"
+        tag="ul"
+        class="flex gap-1.5 m-0 p-1.5 list-none"
+      >
         <li
           v-for="(tab, index) in tabs"
           :key="tab.id"
-          :class="['dock-tab', { pair: tab.beside }]"
+          class="dock-tab flex shrink-0 items-center border border-transparent rounded-control text-chrome-foreground hover:bg-chrome-hover"
+          :class="{ pair: tab.beside }"
         >
           <UiTooltip
             :label="`Open ${title(tab).label}`"
@@ -53,28 +65,42 @@ function badge(health: Health | undefined, attention: number | undefined) {
             side="top"
           >
             <button
-              class="dock-open"
+              class="dock-open flex items-center gap-2 max-w-[220px] py-1.5 pl-2.5 pr-1.5 border-0 bg-transparent text-inherit text-left cursor-pointer"
               @click="
                 $event.shiftKey && canSplit && !tab.beside
                   ? emit('split', tab.id)
                   : emit('open', tab.id)
               "
             >
-              <span class="dock-icon"
-                ><AppIcon :name="title(tab).icon" /><i
+              <span
+                class="dock-icon relative grid shrink-0 [&>svg]:w-3.5 [&>svg]:text-chrome-muted-foreground"
+              >
+                <AppIcon :name="title(tab).icon" />
+                <i
                   v-if="badge(title(tab).health, title(tab).attention)"
+                  class="dock-badge absolute -top-1 -right-1.5 min-w-[13px] h-[13px] px-0.5 rounded-full not-italic font-bold text-2xs leading-[13px] text-center text-chrome"
                   :class="[
-                    'dock-badge',
-                    (title(tab).health ?? 'Degraded').toLowerCase(),
+                    (title(tab).health ?? 'Degraded').toLowerCase() ===
+                    'offline'
+                      ? 'bg-danger-foreground'
+                      : 'bg-warning-foreground',
+                    { 'min-w-2 h-2 -top-0.5 -right-1': !title(tab).attention },
                   ]"
                   :aria-label="badge(title(tab).health, title(tab).attention)"
                   >{{ title(tab).attention ?? '' }}</i
-                ></span
-              >
-              <span
-                ><strong>{{ title(tab).label }}</strong
-                ><small>{{ title(tab).detail }}</small></span
-              >
+                >
+              </span>
+              <span class="min-w-0">
+                <strong
+                  class="block truncate text-xs font-semibold"
+                  :class="{ 'max-w-[180px]': tab.beside }"
+                  >{{ title(tab).label }}</strong
+                >
+                <small
+                  class="block truncate text-2xs text-chrome-muted-foreground max-[800px]:hidden"
+                  >{{ title(tab).detail }}</small
+                >
+              </span>
             </button>
           </UiTooltip>
           <UiTooltip
@@ -84,7 +110,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
             side="top"
           >
             <button
-              class="dock-action"
+              class="dock-action grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
               :aria-label="`Open ${title(tab).label} side by side`"
               @click="emit('split', tab.id)"
             >
@@ -93,7 +119,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
           </UiTooltip>
           <UiTooltip label="Remove from dock" side="top">
             <button
-              class="dock-action"
+              class="dock-action grid place-items-center w-6.5 h-6.5 mr-1 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
               :aria-label="`Close ${title(tab).label}`"
               @click="emit('close', tab.id)"
             >
@@ -105,3 +131,25 @@ function badge(health: Health | undefined, attention: number | undefined) {
     </UiScrollArea>
   </nav>
 </template>
+
+<style scoped>
+.dock-enter-active,
+.dock-leave-active,
+.dock-move {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+.dock-enter-from,
+.dock-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock-enter-active,
+  .dock-leave-active,
+  .dock-move {
+    transition: none;
+  }
+}
+</style>

@@ -38,3 +38,53 @@ const site = computed(() =>
     </header>
   </div>
 </template>
+
+<style scoped>
+.topology-site-node {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed var(--input);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+.topology-site-node.solo {
+  border-color: transparent;
+  background: transparent;
+}
+.topology-site-node header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+.topology-site-node strong,
+.topology-site-node small {
+  display: block;
+}
+.topology-site-node strong {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.topology-site-node small {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+.topology-site-link {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  color: var(--muted-foreground);
+}
+.topology-site-link:hover {
+  background: var(--hover);
+  color: var(--accent-foreground);
+}
+.topology-site-link :deep(svg),
+.topology-site-link svg {
+  width: 15px;
+}
+</style>

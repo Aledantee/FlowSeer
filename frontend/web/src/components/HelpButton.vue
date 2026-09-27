@@ -10,7 +10,11 @@ const open = ref(false)
   <UiDialog v-model:open="open" title="Workspace help">
     <template #trigger>
       <UiTooltip label="Help">
-        <button class="help-button" type="button" aria-label="Help">
+        <button
+          class="help-button grid place-items-center w-11 h-11 p-0 bg-transparent border-0 text-chrome-foreground rounded hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
+          type="button"
+          aria-label="Help"
+        >
           <AppIcon name="help" />
         </button>
       </UiTooltip>

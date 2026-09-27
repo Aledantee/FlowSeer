@@ -68,8 +68,9 @@ is contained in the content area.
   These are UI demo shapes, not protobuf message definitions.
 - `src/components/` holds shared presentation elements.
 - `src/ui/` holds design system components and headless primitives.
-- `src/style.css` defines the visual language and responsive layout.
-- `src/theme/language.css` defines shared typography, spacing, and control tokens.
+- `src/style.css` defines the shell layout, connected chrome frame, and brand glow ribbons.
+- `src/theme/tailwind.css` configures Tailwind v4 Preflight and base element normalizations.
+- `src/theme/tokens.css` wires semantic tokens, typography scales, shadows, and radii into Tailwind theme directives.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.
 The lockfile pins resolved dependencies. TypeScript stays on 6.0 because the
@@ -112,7 +113,12 @@ node --experimental-strip-types scripts/build-palette.ts
 
 Semantic tokens (`--background`, `--foreground`, `--card`, `--primary`, `--accent`, etc.) replace
 legacy custom properties (`--page`, `--text`, `--surface`, `--coral`, etc.), with light mode using
-a comfortable `neutral-5` background canvas.
+a comfortable `neutral-5` background canvas. Tailwind v4 Preflight is active in `src/theme/tailwind.css`
+to normalize element baselines across browsers. Legacy view-level stylesheets (`src/dashboard.css`,
+`src/theme/language.css`) are dissolved into `Ui*` primitives and Tailwind utilities, leaving
+`src/style.css` as a dedicated layout stylesheet for the connected navigation frame and brand glow.
+Token adherence is continuously enforced: `pnpm lint` runs stylelint to reject raw color, font-size,
+and box-shadow literals outside `src/theme/scales.css`.
 
 Foundation tokens and components are documented and visually audited in Storybook:
 

@@ -6,7 +6,9 @@ const emit = defineEmits<{ change: [tenantId: string] }>()
 </script>
 
 <template>
-  <div class="tenant-switcher">
+  <div
+    class="tenant-switcher relative flex items-center gap-2.5 min-w-0 text-chrome-foreground rounded"
+  >
     <ScopeSwitcher
       v-if="tenants.length > 1"
       label="Tenant scope"
@@ -23,8 +25,10 @@ const emit = defineEmits<{ change: [tenantId: string] }>()
       ]"
       @change="emit('change', $event)"
     />
-    <span v-else class="tenant-name">{{
-      tenants[0]?.name || 'No tenants available'
-    }}</span>
+    <span
+      v-else
+      class="tenant-name text-xs font-semibold truncate min-w-0 text-chrome-foreground"
+      >{{ tenants[0]?.name || 'No tenants available' }}</span
+    >
   </div>
 </template>

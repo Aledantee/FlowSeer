@@ -159,14 +159,102 @@ function step(event: KeyboardEvent) {
           label
         }}
       </caption>
-      <tr>
-        <th scope="col">Hour</th>
-        <th scope="col">Traffic (Mbps)</th>
-      </tr>
-      <tr v-for="(point, index) in points" :key="index">
-        <td>{{ hourLabel(point.hour) }}</td>
-        <td>{{ point.mbps }}</td>
-      </tr>
+      <thead>
+        <tr>
+          <th scope="col">Hour</th>
+          <th scope="col">Traffic (Mbps)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(point, index) in points" :key="index">
+          <td>{{ hourLabel(point.hour) }}</td>
+          <td>{{ point.mbps }}</td>
+        </tr>
+      </tbody>
     </table>
   </figure>
 </template>
+
+<style scoped>
+.traffic-chart {
+  margin: 0;
+  padding: 0 12px 12px;
+}
+
+.traffic-frame {
+  position: relative;
+  outline-offset: -3px;
+  touch-action: pan-y;
+}
+
+.traffic-frame svg {
+  display: block;
+}
+
+.traffic-grid line {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.traffic-grid text {
+  fill: var(--muted-foreground);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.traffic-area {
+  fill: color-mix(in srgb, var(--chart-1) 12%, transparent);
+}
+
+.traffic-line {
+  fill: none;
+  stroke: var(--chart-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.traffic-crosshair {
+  stroke: var(--chart-1);
+  stroke-width: 1;
+}
+
+.traffic-dot {
+  fill: var(--chart-1);
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+.traffic-tooltip {
+  position: absolute;
+  transform: translate(12px, -50%);
+  pointer-events: none;
+  background: var(--card-header);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+}
+
+.traffic-tooltip.flip {
+  transform: translate(calc(-100% - 12px), -50%);
+}
+
+.traffic-tooltip small {
+  font-size: var(--text-2xs);
+}
+
+.traffic-tooltip strong {
+  font-size: var(--text-md);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+
+.traffic-tooltip strong span {
+  font-size: var(--text-2xs);
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+</style>

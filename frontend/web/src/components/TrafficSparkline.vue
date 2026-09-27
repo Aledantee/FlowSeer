@@ -56,3 +56,17 @@ const fillColor = computed(
     />
   </svg>
 </template>
+
+<style scoped>
+.sparkline {
+  display: block;
+  width: 100%;
+  height: 44px;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+</style>

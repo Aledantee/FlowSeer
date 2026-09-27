@@ -78,7 +78,7 @@ onUnmounted(() => systemTheme.removeEventListener('change', syncSystemTheme))
 <template>
   <UiTooltip :label="`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`">
     <button
-      class="theme-switcher"
+      class="theme-switcher relative grid place-items-center w-11 h-11 p-0 bg-transparent text-chrome-foreground border-0 rounded hover:bg-chrome-hover cursor-pointer"
       type="button"
       role="switch"
       aria-label="Dark mode"
@@ -87,15 +87,15 @@ onUnmounted(() => systemTheme.removeEventListener('change', syncSystemTheme))
     >
       <span
         ref="sun"
-        class="theme-icon"
-        :class="{ 'is-active': theme === 'light' }"
+        class="theme-icon absolute inset-0 grid place-items-center opacity-0 pointer-events-none [&>svg]:w-5 [&>svg]:h-5"
+        :class="{ 'is-active opacity-100': theme === 'light' }"
         aria-hidden="true"
         ><AppIcon name="sun"
       /></span>
       <span
         ref="moon"
-        class="theme-icon"
-        :class="{ 'is-active': theme === 'dark' }"
+        class="theme-icon absolute inset-0 grid place-items-center opacity-0 pointer-events-none [&>svg]:w-5 [&>svg]:h-5"
+        :class="{ 'is-active opacity-100': theme === 'dark' }"
         aria-hidden="true"
         ><AppIcon name="moon"
       /></span>

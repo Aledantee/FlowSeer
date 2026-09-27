@@ -3,7 +3,6 @@ import { withThemeByDataAttribute } from '@storybook/addon-themes'
 import '@fontsource-variable/inter'
 import '../src/theme/tailwind.css'
 import '../src/style.css'
-import '../src/dashboard.css'
 
 const preview: Preview = {
   parameters: {

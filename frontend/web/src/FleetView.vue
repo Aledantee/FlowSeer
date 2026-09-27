@@ -811,7 +811,11 @@ onUnmounted(() => clearInterval(timer))
           </svg>
           <span>FlowSeer</span>
         </div>
-        <div class="nav-label">WORKSPACE</div>
+        <div
+          class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3"
+        >
+          WORKSPACE
+        </div>
         <nav ref="navigation" aria-label="Main navigation">
           <AppLink
             v-for="item in [
@@ -824,23 +828,29 @@ onUnmounted(() => clearInterval(timer))
             :key="item"
             :aria-label="item"
             :to="{ path: `/${item}`, query: mainScope }"
+            class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring"
             :class="{
               active: section === item,
               'desktop-navigation': item === 'topology',
             }"
             :aria-current="mainView === item ? 'page' : undefined"
-            ><span
-              v-if="section === item"
-              class="nav-highlight"
-              aria-hidden="true"
-            ></span
-            ><AppIcon :name="item" /><span class="nav-text">{{
-              item.charAt(0).toUpperCase() + item.slice(1)
-            }}</span
-            ><span v-if="item === 'devices'" class="nav-count">{{
-              fleet.length
-            }}</span></AppLink
           >
+            <span
+              v-if="section === item"
+              class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring"
+              aria-hidden="true"
+            ></span>
+            <AppIcon :name="item" />
+            <span class="nav-text">{{
+              item.charAt(0).toUpperCase() + item.slice(1)
+            }}</span>
+            <span
+              v-if="item === 'devices'"
+              class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
+            >
+              {{ fleet.length }}
+            </span>
+          </AppLink>
         </nav>
         <UiTooltip
           :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
@@ -870,9 +880,12 @@ onUnmounted(() => clearInterval(timer))
       </aside>
       <div ref="mainShell" class="main-shell">
         <span class="main-notch brand-glow" aria-hidden="true"></span>
-        <header ref="topbar" class="topbar">
+        <header
+          ref="topbar"
+          class="topbar sticky top-0 z-10 flex items-center justify-between min-h-[54px] px-6 py-2.5"
+        >
           <span class="topbar-glass brand-glow" aria-hidden="true"></span>
-          <div class="topbar-start">
+          <div class="topbar-start flex items-center gap-3 min-w-0 flex-1">
             <UiBreadcrumb v-slot="{ collapsed }" class="breadcrumb">
               <UiBreadcrumbList>
                 <template v-if="tenants.length > 1">
@@ -963,7 +976,7 @@ onUnmounted(() => clearInterval(timer))
               </button>
             </UiTooltip>
           </div>
-          <div class="topbar-tools">
+          <div class="topbar-tools flex items-center gap-1.5 shrink-0 ml-4">
             <GlobalSearch
               :fleet="fleet"
               :pages="searchPages"
@@ -990,7 +1003,7 @@ onUnmounted(() => clearInterval(timer))
             side="right"
           >
             <div
-              class="pane-divider"
+              class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
               role="separator"
               aria-orientation="vertical"
               aria-label="Resize split view"
@@ -1036,13 +1049,16 @@ onUnmounted(() => clearInterval(timer))
               >
                 <header
                   v-if="slot !== panes.mainSlot.value && sideTitle"
-                  class="pane-header"
+                  class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs"
                 >
-                  <AppIcon :name="sideTitle.icon" />
-                  <span class="pane-title"
+                  <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
+                  <span
+                    class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
                     ><strong>{{ sideTitle.label }}</strong></span
                   >
-                  <div class="pane-scope">
+                  <div
+                    class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
+                  >
                     <UiBreadcrumb>
                       <UiBreadcrumbList>
                         <template v-if="tenants.length > 1">
@@ -1074,7 +1090,7 @@ onUnmounted(() => clearInterval(timer))
                     </UiBreadcrumb>
                   </div>
                   <div
-                    class="pane-tools"
+                    class="pane-tools flex items-center gap-1"
                     role="toolbar"
                     aria-label="Split view"
                   >
@@ -1090,6 +1106,7 @@ onUnmounted(() => clearInterval(timer))
                       <button
                         :aria-pressed="linkClicks"
                         aria-label="Open links from the main page in the side page"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                         @click="linkClicks = !linkClicks"
                       >
                         <AppIcon name="link-clicks" />
@@ -1099,6 +1116,7 @@ onUnmounted(() => clearInterval(timer))
                     <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
                       <button
                         aria-label="Swap the two pages"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                         @click="swapPanes"
                       >
                         <AppIcon name="swap" />
@@ -1110,6 +1128,7 @@ onUnmounted(() => clearInterval(timer))
                     >
                       <button
                         aria-label="Dock both pages as a pair"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                         @click="dockPair"
                       >
                         <AppIcon name="dock-pair" />
@@ -1121,6 +1140,7 @@ onUnmounted(() => clearInterval(timer))
                     >
                       <button
                         aria-label="Minimize the side page to the dock"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                         @click="minimizePane('side')"
                       >
                         <AppIcon name="to-dock" />
@@ -1132,6 +1152,7 @@ onUnmounted(() => clearInterval(timer))
                     >
                       <button
                         aria-label="Close the side page"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                         @click="closeSide"
                       >
                         <AppIcon name="close" />
