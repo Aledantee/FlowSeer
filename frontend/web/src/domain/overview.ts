@@ -120,6 +120,7 @@ export function trafficHistory(
 }
 
 export function formatAgo(minutes: number): string {
+  if (minutes < 1) return 'just now'
   if (minutes < 60) return `${minutes} min ago`
   const hours = Math.floor(minutes / 60)
   return `${hours} h ago`

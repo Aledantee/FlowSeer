@@ -11,6 +11,22 @@ export interface Site {
   location: string
 }
 export type Health = 'Healthy' | 'Degraded' | 'Offline'
+export type Lifecycle = 'Active' | 'Retired'
+export type Reachability = 'Reachable' | 'Unreachable'
+// An Integration is the adapter FlowSeer reaches devices through; a Binding is
+// one device's path through one Integration. Reachability belongs to the
+// Binding and heals on its own, so it is tracked apart from the operator-owned
+// lifecycle.
+export interface Integration {
+  id: string
+  name: string
+  kind: string
+}
+export interface Binding {
+  integrationId: string
+  reachability: Reachability
+  observedMinutesAgo: number
+}
 export interface Device {
   id: string
   name: string
@@ -18,6 +34,9 @@ export interface Device {
   kind: string
   address: string
   health: Health
+  lifecycle: Lifecycle
+  lastSeenMinutes: number
+  bindings: Binding[]
   clients: number
   throughput: number
 }
@@ -62,25 +81,50 @@ export const sites: Site[] = [
     location: 'Cologne, DE',
   },
 ]
-export const devices: Device[] = sites.flatMap((site, index) =>
-  ['Gateway', 'Core switch', 'Lobby AP', 'Floor 02 AP'].map((kind, offset) => ({
-    id: `dev-${index * 4 + offset + 1}`,
-    name: `${site.id}-${['gw-01', 'sw-01', 'ap-01', 'ap-02'][offset]}`,
-    siteId: site.id,
-    kind,
-    address: `10.${index + 20}.0.${offset + 1}`,
-    health:
-      index === 1 && offset === 2
-        ? 'Degraded'
-        : index === 3 && offset === 3
-          ? 'Offline'
-          : 'Healthy',
-    clients:
-      offset < 2 || (index === 3 && offset === 3)
-        ? 0
-        : 28 + index * 9 + offset * 7,
-    throughput: index === 3 && offset === 3 ? 0 : 24 + index * 12 + offset * 8,
+export const integrations: Integration[] = [
+  ...sites.map((site) => ({
+    id: `lan-${site.id}`,
+    name: `${site.name} edge`,
+    kind: 'Local network',
   })),
+  ...tenants
+    .filter((tenant) => sites.some((site) => site.tenantId === tenant.id))
+    .map((tenant) => ({
+      id: `wlc-${tenant.id}`,
+      name: `${tenant.name} controller`,
+      kind: 'Wireless controller',
+    })),
+]
+export const devices: Device[] = sites.flatMap((site, index) =>
+  ['Gateway', 'Core switch', 'Lobby AP', 'Floor 02 AP'].map((kind, offset) => {
+    const offline = index === 3 && offset === 3
+    const seen = offline ? 38 : 1
+    const reachability: Reachability = offline ? 'Unreachable' : 'Reachable'
+    return {
+      id: `dev-${index * 4 + offset + 1}`,
+      name: `${site.id}-${['gw-01', 'sw-01', 'ap-01', 'ap-02'][offset]}`,
+      siteId: site.id,
+      kind,
+      address: `10.${index + 20}.0.${offset + 1}`,
+      health: (index === 1 && offset === 2
+        ? 'Degraded'
+        : offline
+          ? 'Offline'
+          : 'Healthy') as Health,
+      lifecycle: 'Active' as Lifecycle,
+      lastSeenMinutes: seen,
+      bindings: [
+        `lan-${site.id}`,
+        ...(offset > 1 ? [`wlc-${site.tenantId}`] : []),
+      ].map((integrationId) => ({
+        integrationId,
+        reachability,
+        observedMinutesAgo: seen,
+      })),
+      clients: offset < 2 || offline ? 0 : 28 + index * 9 + offset * 7,
+      throughput: offline ? 0 : 24 + index * 12 + offset * 8,
+    }
+  }),
 )
 export function tenantIds(id: string): string[] {
   if (!id) return tenants.map((tenant) => tenant.id)
@@ -128,4 +172,19 @@ export function moveDevice(device: Device, siteId: string): Device {
   if (!origin || !destination || origin.tenantId !== destination.tenantId)
     throw new Error('Choose a site owned by the same tenant.')
   return { ...device, siteId }
+}
+// A poll is an observation, not a status change: an unreachable device stays
+// offline and only the time of the failed attempt moves.
+export function pollDevice(device: Device): Device {
+  const answered = device.bindings.some(
+    (binding) => binding.reachability === 'Reachable',
+  )
+  return {
+    ...device,
+    lastSeenMinutes: answered ? 0 : device.lastSeenMinutes,
+    bindings: device.bindings.map((binding) => ({
+      ...binding,
+      observedMinutesAgo: 0,
+    })),
+  }
 }

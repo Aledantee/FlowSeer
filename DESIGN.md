@@ -189,7 +189,7 @@ dedicated status families that never borrow brand hues.
 ### Primary
 
 - **Signal Coral** (`signal-coral`): the primary action and nothing else.
-  "Save assignment" is coral; a filter or a navigation item never is. Text on
+  "Poll now" on a failing device is coral; a filter, a site move, or a navigation item never is. Text on
   it is near-black `on-coral`, not white. `accent-orange-text` is its
   readable text tone for the rare coral-voiced label.
 

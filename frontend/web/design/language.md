@@ -55,7 +55,7 @@ For example, use the same button and badge in a fleet flow and its workbench
 preview:
 
 ```vue
-<UiButton variant="primary" type="submit">Save assignment</UiButton>
+<UiButton variant="primary" @click="poll">Poll now</UiButton>
 <StatusBadge status="Degraded" />
 ```
 

@@ -15,9 +15,9 @@ The fonts are bundled locally. The app makes no requests to external services.
 ## Try the UI
 
 Choose **Aurora Hospitality** to see devices in its **Aurora Germany** sub-tenant.
-Select **Berlin Mitte**, then search for `gateway`. Open the device and assign it
-to **Hamburg Hafen**: it disappears from the Berlin scope because the assignment
-replaces its previous site. This demo permits moves within the owning tenant.
+Select **Berlin Mitte**, then search for `gateway`. Open the device, expand
+**Move to another site**, and move it to **Hamburg Hafen**: it disappears from
+the Berlin scope because the assignment replaces its previous site. This demo permits moves within the owning tenant.
 Reloading restores fixtures; URL scope and filters survive reloads.
 
 The app opens on the Dashboard, an overview of the current tenant and site
@@ -27,6 +27,14 @@ which replaces the list with the site's devices grouped by role. The traffic
 chart and event feed are synthetic fixtures in `src/domain/overview.ts`. The
 chart's right edge is the live aggregate from the metric cards. Hover the
 chart, or focus it and use the arrow keys, to read hourly values.
+
+Device details lead with why a device needs attention: its open warning and
+critical events, when it last answered, and each path FlowSeer reaches it
+through (an integration, whether it is reachable, and when that was checked).
+Lifecycle sits on its own line because an operator owns it, while
+reachability heals on its own. Open **hamburg-ap-01** or **cologne-ap-02** and
+choose **Poll now**: the fixture answers after a moment, and an unreachable
+device stays offline with only its check time refreshed.
 
 The Devices page supports search, status filters, name sorting, an attention view,
 and a keyboard-accessible details dialog. Sites opens the inventory for a location.
@@ -123,7 +131,7 @@ all light/dark tones and download the CSS or JSON.
 
 The [m3connect homepage](https://www.m3connect.de/) supplies coral `#FF451D` and
 cyan `#5ECAD8`. Large surfaces use neutral charcoal in dark mode and a neutral gray canvas and softly lifted cards in light mode to reduce the amount of saturated color in the workspace. Coral marks
-the primary assignment action; cyan identifies navigation. Health uses separate labeled green, amber, and red
+the primary action on a failing device; cyan identifies navigation. Health uses separate labeled green, amber, and red
 states so brand colors do not carry status meanings.
 
 The restrained borders, contextual details panel, and typography take cues from

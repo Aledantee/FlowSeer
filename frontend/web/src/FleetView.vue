@@ -16,13 +16,16 @@ import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import {
   devices,
+  integrations,
   sites,
   tenants,
   tenantIds,
   filterDevices,
   moveDevice,
+  pollDevice,
 } from './domain/fleet'
 import type { Device } from './domain/fleet'
+import { events, formatAgo } from './domain/overview'
 const { play, cancel } = useMotionFeedback()
 const workspace = ref<HTMLElement>()
 const sidebar = ref<HTMLElement>()
@@ -212,7 +215,47 @@ function tenantName(siteId: string) {
     )?.name || 'Unknown tenant'
   )
 }
+const selectedIssues = computed(() =>
+  events
+    .filter(
+      (event) =>
+        event.deviceId === selected.value?.id && event.severity !== 'info',
+    )
+    .sort((a, b) => a.minutesAgo - b.minutesAgo),
+)
+function integration(id: string) {
+  return integrations.find((item) => item.id === id)
+}
+const polling = ref(false)
+const pollResult = ref('')
+let pollTimer: ReturnType<typeof setTimeout> | undefined
+function stopPoll() {
+  clearTimeout(pollTimer)
+  polling.value = false
+  pollResult.value = ''
+}
+// The fixture answers after a short delay so the panel shows the difference
+// between a poll that was sent and one that was observed.
+function poll() {
+  const device = selected.value
+  if (!device || polling.value) return
+  polling.value = true
+  pollResult.value = ''
+  pollTimer = setTimeout(() => {
+    const updated = pollDevice(device)
+    fleet.value = fleet.value.map((item) =>
+      item.id === updated.id ? updated : item,
+    )
+    if (selected.value?.id === updated.id) selected.value = updated
+    polling.value = false
+    pollResult.value =
+      updated.lastSeenMinutes === 0
+        ? `Answered just now. Still ${updated.health.toLowerCase()}.`
+        : `Still not answering. Last answer ${formatAgo(updated.lastSeenMinutes)}.`
+  }, 1200)
+}
 async function openDevice(device: Device) {
+  stopPoll()
   selected.value = device
   destination.value = device.siteId
   await nextTick()
@@ -251,7 +294,10 @@ onMounted(() => {
     }
   }, 2500)
 })
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => {
+  clearInterval(timer)
+  clearTimeout(pollTimer)
+})
 </script>
 
 <template>
@@ -702,10 +748,17 @@ onUnmounted(() => clearInterval(timer))
         </template>
       </main>
     </div>
-    <dialog ref="detail" class="device-dialog" aria-labelledby="detail-title">
+    <dialog
+      ref="detail"
+      class="device-dialog"
+      aria-labelledby="detail-title"
+      @close="stopPoll"
+    >
       <template v-if="selected"
         ><div class="dialog-heading">
-          <span class="eyebrow">DEVICE DETAILS</span
+          <span class="dialog-scope"
+            >{{ tenantName(selected.siteId) }} /
+            {{ siteName(selected.siteId) }}</span
           ><button
             class="icon-button"
             aria-label="Close device details"
@@ -715,45 +768,105 @@ onUnmounted(() => clearInterval(timer))
           </button>
         </div>
         <h2 id="detail-title">{{ selected.name }}</h2>
-        <p>{{ selected.kind }} · {{ selected.address }}</p>
-        <StatusBadge :status="selected.health" />
-        <dl>
-          <div>
-            <dt>Tenant</dt>
-            <dd>{{ tenantName(selected.siteId) }}</dd>
-          </div>
-          <div>
-            <dt>Assigned site</dt>
-            <dd>{{ siteName(selected.siteId) }}</dd>
-          </div>
-          <div>
-            <dt>Clients</dt>
-            <dd>{{ selected.clients }}</dd>
-          </div>
-        </dl>
-        <form @submit.prevent="reassign">
-          <h3>Site assignment</h3>
-          <p>
-            A device belongs to one site. Changing the site replaces its current
-            assignment.
-          </p>
-          <label for="destination">Site within this tenant</label
-          ><select id="destination" v-model="destination">
-            <option
-              v-for="site in allowedSites"
-              :key="site.id"
-              :value="site.id"
-            >
-              {{ site.name }}
-            </option></select
-          ><UiButton
-            type="submit"
-            variant="primary"
-            :disabled="destination === selected.siteId"
+        <p class="device-meta">
+          {{ selected.kind }} · <span class="mono">{{ selected.address }}</span>
+        </p>
+        <div class="device-status">
+          <StatusBadge :status="selected.health" /><span
+            >Last answered {{ formatAgo(selected.lastSeenMinutes) }}</span
           >
-            Save assignment
-          </UiButton>
-        </form></template
+        </div>
+        <section class="device-section" aria-labelledby="issues-title">
+          <h3 id="issues-title">
+            {{
+              selected.health === 'Healthy'
+                ? 'No open issues'
+                : 'Why it needs attention'
+            }}
+          </h3>
+          <ol v-if="selectedIssues.length" class="device-issues">
+            <li
+              v-for="event in selectedIssues"
+              :key="event.id"
+              :class="event.severity"
+            >
+              <i aria-hidden="true"></i>
+              <div>
+                <strong>{{ event.summary }}</strong
+                ><small
+                  >{{ formatAgo(event.minutesAgo) }}
+                  <span class="sr-only">, severity {{ event.severity }}</span>
+                </small>
+              </div>
+            </li>
+          </ol>
+          <p v-else-if="selected.health === 'Healthy'">
+            Every path to this device answered its last poll.
+          </p>
+          <p v-else>No event explains this status yet.</p>
+          <div v-if="selected.health !== 'Healthy'" class="device-poll">
+            <UiButton variant="primary" :disabled="polling" @click="poll">
+              {{ polling ? 'Polling…' : 'Poll now' }}
+            </UiButton>
+            <p role="status">{{ pollResult }}</p>
+          </div>
+        </section>
+        <section class="device-section" aria-labelledby="paths-title">
+          <h3 id="paths-title">How FlowSeer reaches it</h3>
+          <ul class="device-paths">
+            <li
+              v-for="binding in selected.bindings"
+              :key="binding.integrationId"
+            >
+              <span
+                ><strong>{{ integration(binding.integrationId)?.name }}</strong
+                ><small>{{
+                  integration(binding.integrationId)?.kind
+                }}</small></span
+              ><span
+                :class="['reachability', binding.reachability.toLowerCase()]"
+                ><strong>{{ binding.reachability }}</strong
+                ><small
+                  >checked {{ formatAgo(binding.observedMinutesAgo) }}</small
+                ></span
+              >
+            </li>
+          </ul>
+          <dl>
+            <div>
+              <dt>Lifecycle</dt>
+              <dd>{{ selected.lifecycle }}</dd>
+            </div>
+            <div>
+              <dt>Clients</dt>
+              <dd>{{ selected.clients }}</dd>
+            </div>
+          </dl>
+        </section>
+        <details class="device-move">
+          <summary>Move to another site</summary>
+          <form @submit.prevent="reassign">
+            <p>
+              A device belongs to one site. Moving it replaces its current
+              assignment.
+            </p>
+            <label for="destination">Site within this tenant</label
+            ><select id="destination" v-model="destination">
+              <option
+                v-for="site in allowedSites"
+                :key="site.id"
+                :value="site.id"
+              >
+                {{ site.name }}
+              </option></select
+            ><UiButton
+              type="submit"
+              :disabled="destination === selected.siteId"
+            >
+              Move device
+            </UiButton>
+          </form>
+        </details></template
       >
     </dialog>
   </div>
