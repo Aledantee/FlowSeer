@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import AppIcon from './components/AppIcon.vue'
 import HealthBar from './components/HealthBar.vue'
 import StatusBadge from './components/StatusBadge.vue'
 import TrafficChart from './components/TrafficChart.vue'
@@ -131,7 +130,6 @@ const roles = computed(() => {
               <th class="numeric">Devices</th>
               <th class="numeric">Clients</th>
               <th class="numeric">Traffic</th>
-              <th><span class="sr-only">Open</span></th>
             </tr>
           </thead>
           <tbody>
@@ -161,15 +159,6 @@ const roles = computed(() => {
               <td class="numeric">{{ rollup.clients }}</td>
               <td class="numeric traffic">
                 {{ rollup.throughput }} <span>Mbps</span>
-              </td>
-              <td>
-                <button
-                  class="icon-button"
-                  :aria-label="`Focus on ${rollup.site.name}`"
-                  @click="$emit('site', rollup.site.id)"
-                >
-                  <AppIcon name="arrow" />
-                </button>
               </td>
             </tr>
           </tbody>

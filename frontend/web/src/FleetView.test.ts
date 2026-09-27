@@ -71,4 +71,15 @@ describe('fleet view', () => {
       site: 'berlin',
     })
   })
+  it('lists devices that need attention first', async () => {
+    const { host } = await mountAt('/devices')
+    const names = [...host.querySelectorAll('tbody tr strong')].map(
+      (item) => item.textContent,
+    )
+    expect(names.slice(0, 2)).toEqual(['cologne-ap-02', 'hamburg-ap-01'])
+  })
+  it('shows the fleet summary only on the dashboard', async () => {
+    const { host } = await mountAt('/devices')
+    expect(host.querySelector('.metrics')).toBeNull()
+  })
 })

@@ -44,8 +44,11 @@ with a way back, never an empty scope reported as healthy. Offline devices show
 "—" for traffic and clients rather than a measured zero, and **Clear search and
 status** keeps the tenant and site.
 
-The Devices page supports search, status filters, name sorting, an attention view,
-and a keyboard-accessible details dialog. Sites opens the inventory for a location.
+The Devices page lists offline and degraded devices first, and sorts by status,
+name, or site. It supports search, a status filter (including **Needs
+attention**), and a keyboard-accessible details dialog. The metric cards appear
+only on the Dashboard; other pages state the scope and attention count in the
+heading. Sites opens the inventory for a location.
 Topology illustrates connections and opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on

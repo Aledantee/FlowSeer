@@ -62,7 +62,16 @@ const move = ref<Move>()
 const detail = ref<HTMLDialogElement>()
 const selected = ref<Device>()
 const destination = ref('')
+type SortKey = 'status' | 'name' | 'site'
+// Problems sort first by default so an operator never scrolls past healthy
+// devices to find the one that needs attention.
+const sortKey = ref<SortKey>('status')
 const ascending = ref(true)
+const severity = { Offline: 0, Degraded: 1, Healthy: 2 }
+function sortBy(key: SortKey) {
+  ascending.value = sortKey.value === key ? !ascending.value : true
+  sortKey.value = key
+}
 const view = computed(() => String(route.params.view || 'dashboard'))
 const title = computed(
   () =>
@@ -149,11 +158,15 @@ const filtered = computed(() =>
     query('site'),
     query('search'),
     query('health'),
-  ).sort((a, b) =>
-    ascending.value
-      ? a.name.localeCompare(b.name)
-      : b.name.localeCompare(a.name),
-  ),
+  ).sort((a, b) => {
+    const order =
+      sortKey.value === 'status'
+        ? severity[a.health] - severity[b.health]
+        : sortKey.value === 'site'
+          ? siteName(a.siteId).localeCompare(siteName(b.siteId))
+          : 0
+    return (ascending.value ? 1 : -1) * (order || a.name.localeCompare(b.name))
+  }),
 )
 const scopedSites = computed(() =>
   sites.filter((site) => tenantIds(query('tenant')).includes(site.tenantId)),
@@ -230,6 +243,10 @@ const scopeError = computed(() => {
     }
   return undefined
 })
+async function focusSite(id: string) {
+  await setQuery('site', id)
+  workspace.value?.scrollTo({ top: 0 })
+}
 function valueOf(event: Event): string {
   return event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLSelectElement
@@ -418,7 +435,11 @@ onUnmounted(() => {
             'components',
           ]"
           :key="item"
-          :aria-label="item"
+          :aria-label="
+            item.charAt(0).toUpperCase() +
+            item.slice(1) +
+            (item === 'devices' ? `, ${fleet.length}` : '')
+          "
           :title="item.charAt(0).toUpperCase() + item.slice(1)"
           :to="{ path: `/${item}`, query: route.query }"
           :class="{
@@ -511,15 +532,10 @@ onUnmounted(() => {
             <div>
               <h1>{{ title }}</h1>
               <p v-if="!scopeError">
-                {{
-                  view === 'dashboard'
-                    ? scopeSummary
-                    : view === 'devices'
-                      ? 'Monitor health and keep your fleet connected.'
-                      : view === 'sites'
-                        ? 'A clear view of every location in your network.'
-                        : 'Explore the devices connected at each site.'
-                }}
+                {{ scopeSummary
+                }}<template v-if="view === 'devices' && scope.length > healthy">
+                  · {{ scope.length - healthy }} need attention</template
+                >
               </p>
             </div>
           </div>
@@ -557,7 +573,11 @@ onUnmounted(() => {
             }}</UiButton>
           </div>
           <template v-else>
-            <section class="metrics" aria-label="Fleet summary">
+            <section
+              v-if="view === 'dashboard'"
+              class="metrics"
+              aria-label="Fleet summary"
+            >
               <MetricCard
                 label="Devices in scope"
                 :value="scope.length"
@@ -593,34 +613,6 @@ onUnmounted(() => {
               >
             </section>
             <template v-if="view === 'devices'">
-              <div
-                v-if="scope.some((device) => device.health !== 'Healthy')"
-                class="attention"
-              >
-                <span class="attention-icon">!</span>
-                <div>
-                  <strong
-                    >{{ scope.length - healthy }}
-                    {{
-                      scope.length - healthy === 1
-                        ? 'device needs'
-                        : 'devices need'
-                    }}
-                    attention</strong
-                  ><span
-                    >Review degraded or offline devices in the current
-                    scope.</span
-                  >
-                </div>
-                <button
-                  @click="
-                    setQuery('health', query('health') ? '' : 'attention')
-                  "
-                >
-                  {{ query('health') ? 'Show all devices' : 'Review devices'
-                  }}<AppIcon name="arrow" />
-                </button>
-              </div>
               <section class="inventory" aria-labelledby="inventory-title">
                 <div class="section-heading">
                   <div>
@@ -644,7 +636,9 @@ onUnmounted(() => {
                       @change="setQuery('health', valueOf($event))"
                     >
                       <option value="">All statuses</option>
-                      <option value="attention">Needs attention</option>
+                      <option value="attention">
+                        Needs attention ({{ scope.length - healthy }})
+                      </option>
                       <option>Healthy</option>
                       <option>Degraded</option>
                       <option>Offline</option>
@@ -680,20 +674,36 @@ onUnmounted(() => {
                   <table>
                     <thead>
                       <tr>
-                        <th :aria-sort="ascending ? 'ascending' : 'descending'">
+                        <th
+                          v-for="column in [
+                            { key: 'name', label: 'Device name' },
+                            { key: 'status', label: 'Status' },
+                            { key: 'site', label: 'Site / tenant' },
+                          ] as const"
+                          :key="column.key"
+                          :aria-sort="
+                            sortKey === column.key
+                              ? ascending
+                                ? 'ascending'
+                                : 'descending'
+                              : undefined
+                          "
+                        >
                           <button
                             class="sort-button"
-                            @click="ascending = !ascending"
+                            @click="sortBy(column.key)"
                           >
-                            Device name {{ ascending ? '↑' : '↓' }}
+                            {{ column.label
+                            }}<span
+                              v-if="sortKey === column.key"
+                              aria-hidden="true"
+                              >{{ ascending ? ' ↑' : ' ↓' }}</span
+                            >
                           </button>
                         </th>
-                        <th>Status</th>
-                        <th>Site / tenant</th>
                         <th>IP address</th>
                         <th class="numeric">Clients</th>
                         <th class="numeric">Traffic</th>
-                        <th><span class="sr-only">Details</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -736,15 +746,6 @@ onUnmounted(() => {
                             >{{ device.throughput }} <span>Mbps</span></template
                           >
                         </td>
-                        <td>
-                          <button
-                            class="icon-button"
-                            :aria-label="`Details for ${device.name}`"
-                            @click="openDevice(device)"
-                          >
-                            <AppIcon name="arrow" />
-                          </button>
-                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -772,7 +773,7 @@ onUnmounted(() => {
               :site="sites.find((site) => site.id === query('site'))"
               :tenant-name="tenantName"
               @open="openDevice"
-              @site="setQuery('site', $event)"
+              @site="focusSite"
             />
             <section
               v-else-if="view === 'sites'"

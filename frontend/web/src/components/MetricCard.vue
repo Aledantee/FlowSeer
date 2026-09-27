@@ -7,7 +7,12 @@ defineProps<{ label: string; value: number; unit?: string; icon: string }>()
   <article class="metric-card">
     <span class="metric-label">{{ label }}<AppIcon :name="icon" /></span>
     <div class="metric-number">
-      {{ value }}<span v-if="unit" class="metric-unit">{{ unit }}</span>
+      {{ value
+      }}<span
+        v-if="unit"
+        :class="['metric-unit', { 'metric-unit--attached': unit === '%' }]"
+        >{{ unit }}</span
+      >
     </div>
     <span class="metric-note"><slot /></span>
   </article>
