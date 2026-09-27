@@ -80,15 +80,51 @@ describe('UiToast', () => {
     const { toast } = useToast()
     toast({
       title: 'Dismissable Toast',
-      duration: 30,
+      duration: 100,
     })
 
     await nextTick()
-    await new Promise((r) => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 20))
     expect(document.body.textContent).toContain('Dismissable Toast')
 
-    // Wait for auto dismiss
-    await new Promise((r) => setTimeout(r, 60))
+    await new Promise((r) => setTimeout(r, 120))
+    await nextTick()
+
+    expect(document.body.querySelector('ol li')).toBeNull()
+  })
+
+  it('provider duration governs dispatched toasts that omit duration', async () => {
+    mountApp(() => h(UiToastProvider, { duration: 100 }))
+
+    const { toast } = useToast()
+    toast({
+      title: 'Provider Duration Toast',
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(document.body.textContent).toContain('Provider Duration Toast')
+
+    await new Promise((r) => setTimeout(r, 120))
+    await nextTick()
+
+    expect(document.body.querySelector('ol li')).toBeNull()
+  })
+
+  it('per-toast duration overrides provider duration', async () => {
+    mountApp(() => h(UiToastProvider, { duration: 600 }))
+
+    const { toast } = useToast()
+    toast({
+      title: 'Per Toast Override',
+      duration: 100,
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(document.body.textContent).toContain('Per Toast Override')
+
+    await new Promise((r) => setTimeout(r, 120))
     await nextTick()
 
     expect(document.body.querySelector('ol li')).toBeNull()

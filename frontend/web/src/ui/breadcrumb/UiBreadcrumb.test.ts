@@ -67,7 +67,6 @@ describe('UiBreadcrumb', () => {
     )
     expect(ellipsisTrigger).not.toBeNull()
 
-    // Primary breadcrumb text has Fleet and Gateway 01, but not Europe West directly
     const list = host.querySelector('ol')
     expect(list?.textContent).toContain('Fleet')
     expect(list?.textContent).toContain('Gateway 01')

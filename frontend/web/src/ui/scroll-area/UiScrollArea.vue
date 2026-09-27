@@ -32,13 +32,16 @@ defineExpose({ element })
 
 <template>
   <ScrollAreaRoot
-    class="relative overflow-hidden"
+    class="scroll-area relative overflow-hidden"
     :type="type"
     :scroll-hide-delay="700"
   >
     <ScrollAreaViewport
       ref="viewport"
-      :class="['w-full h-full rounded-[inherit]', viewportClass]"
+      :class="[
+        'scroll-viewport w-full h-full rounded-[inherit]',
+        viewportClass,
+      ]"
       :aria-label="label"
     >
       <slot />

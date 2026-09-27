@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import { defineComponent } from 'vue'
+import { injectToastProviderContext, ToastProvider } from 'reka-ui'
 import UiToast from './UiToast.vue'
 import UiToastProvider from './UiToastProvider.vue'
 import UiButton from '../button/UiButton.vue'
@@ -52,6 +54,49 @@ export const Interactive: Story = {
           <UiButton variant="danger" @click="showDanger">Show Danger Toast</UiButton>
         </div>
       </UiToastProvider>
+    `,
+  }),
+}
+
+const ToastViewportSurface = defineComponent({
+  setup() {
+    const providerContext = injectToastProviderContext()
+    return {
+      setViewport: (el: unknown) => {
+        if (el instanceof HTMLElement) {
+          providerContext.onViewportChange(el)
+        }
+      },
+    }
+  },
+  template: `
+    <div
+      role="region"
+      aria-label="Notifications"
+      class="fixed bottom-0 right-0 z-50 p-4 pointer-events-none"
+    >
+      <ol
+        :ref="setViewport"
+        class="flex flex-col gap-2 w-full max-w-[420px]"
+      >
+        <slot />
+      </ol>
+    </div>
+  `,
+})
+
+export const VisibleToast: Story = {
+  render: () => ({
+    components: { ToastProvider, ToastViewportSurface, UiToast },
+    template: `
+      <ToastProvider>
+        <ToastViewportSurface />
+        <UiToast
+          title="Route Saved"
+          description="Gateway telemetry cache flushed successfully."
+          variant="success"
+        />
+      </ToastProvider>
     `,
   }),
 }

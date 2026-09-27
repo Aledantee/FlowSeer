@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
-import { createApp, h, type Component } from 'vue'
+import { createApp, h, nextTick, type Component } from 'vue'
 import axe from 'axe-core'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
 import UiInput from './form/UiInput.vue'
+import { useToast } from './toast/useToast'
 
 setProjectAnnotations(preview)
 
@@ -23,10 +24,10 @@ describe('accessibility (axe-core)', () => {
       cleanup()
     }
     cleanups = []
+    useToast().toasts.value = []
     document.body.replaceChildren()
   })
 
-  // Negative fixture: unlabelled UiInput must trigger an axe violation
   it('detects missing label violations on unlabelled input', async () => {
     const container = document.createElement('div')
     document.body.append(container)
@@ -55,9 +56,7 @@ describe('accessibility (axe-core)', () => {
     expect(labelViolation).toBeDefined()
   })
 
-  // Test all component stories across src/ui
   for (const [path, storyModule] of Object.entries(storyModules)) {
-    // Component stories under src/ui (exclude foundations docs if any)
     if (path.includes('/foundations/')) {
       continue
     }
@@ -74,6 +73,9 @@ describe('accessibility (axe-core)', () => {
           const app = createApp(StoryComponent as Component)
           app.mount(container)
           cleanups.push(() => app.unmount())
+
+          await nextTick()
+          await new Promise((r) => setTimeout(r, 20))
 
           const results = await axe.run(document.body, {
             runOnly: {

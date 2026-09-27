@@ -27,7 +27,7 @@ withDefaults(defineProps<UiToastProps>(), {
   title: undefined,
   description: undefined,
   variant: 'default',
-  duration: 5000,
+  duration: undefined,
   actionText: undefined,
   actionAltText: 'Action',
 })

@@ -43,3 +43,28 @@ export const Default: Story = {
     `,
   }),
 }
+
+export const Open: Story = {
+  args: {
+    side: 'bottom',
+    align: 'center',
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiPopover, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiPopover v-bind="args">
+        <template #trigger>
+          <UiButton variant="secondary">Open Popover</UiButton>
+        </template>
+        <div class="flex flex-col gap-2">
+          <p class="text-sm font-semibold">Quick Info</p>
+          <p class="text-xs text-muted-foreground">Detailed telemetry parameters for current gateway.</p>
+        </div>
+      </UiPopover>
+    `,
+  }),
+}

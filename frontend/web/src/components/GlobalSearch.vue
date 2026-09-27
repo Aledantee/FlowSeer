@@ -106,6 +106,7 @@ const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'
 
 function openSearch() {
   query.value = ''
+  selectedValue.value = ''
   recent.value = loadRecent()
   open.value = true
 }
@@ -153,15 +154,19 @@ function handleItemSelect(
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter') {
+    const isModified =
+      event.shiftKey || event.metaKey || event.ctrlKey || event.altKey
+    if (!isModified) return
+
     const target =
       results.value.find((r) => resultKey(r) === selectedValue.value) ||
       results.value[0]
     if (target) {
+      event.preventDefault()
+      event.stopPropagation()
       if (event.altKey) {
-        event.preventDefault()
         dock(target)
       } else if (event.shiftKey || event.metaKey || event.ctrlKey) {
-        event.preventDefault()
         choose(target, true)
       }
     }
@@ -193,9 +198,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
 
   <UiCommandDialog
     v-model:open="open"
-    v-model="selectedValue"
+    v-model:highlighted-value="selectedValue"
     :ignore-filter="true"
-    @keydown="handleKeydown"
+    @keydown.capture="handleKeydown"
   >
     <UiCommandInput
       v-model="query"
