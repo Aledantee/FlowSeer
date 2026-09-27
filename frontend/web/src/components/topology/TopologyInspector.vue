@@ -593,4 +593,45 @@ function deviceLink(id: string) {
 .panel-link:hover {
   text-decoration: underline;
 }
+
+.panel-link :deep(svg) {
+  width: 14px;
+}
+
+.topology-inspector header .icon-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 90ms ease-out,
+    color 90ms ease-out;
+}
+
+.topology-inspector header .icon-button:hover {
+  background: var(--hover);
+  color: var(--accent-foreground);
+}
+
+.topology-inspector header .icon-button :deep(svg) {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 560px) {
+  .topology-inspector header .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
 </style>

@@ -68,19 +68,23 @@ function to(path: string, extra: Record<string, string> = {}) {
     <dl
       class="grid grid-cols-4 max-[800px]:grid-cols-2 max-[500px]:grid-cols-1 m-0 border border-border rounded-panel bg-card-header overflow-hidden"
     >
-      <div class="p-4 sm:px-5 sm:py-4 border-l border-border first:border-l-0">
+      <div class="p-4 sm:px-5 sm:py-4 border-border">
         <dt class="text-xs text-muted-foreground">IP address</dt>
         <dd class="mt-1.5 text-base font-mono font-semibold text-foreground">
           {{ device.address }}
         </dd>
       </div>
-      <div class="p-4 sm:px-5 sm:py-4 border-l border-border first:border-l-0">
+      <div
+        class="p-4 sm:px-5 sm:py-4 border-border border-l max-[500px]:border-l-0 max-[500px]:border-t"
+      >
         <dt class="text-xs text-muted-foreground">Clients</dt>
         <dd class="mt-1.5 text-lg font-semibold text-foreground">
           {{ device.clients }}
         </dd>
       </div>
-      <div class="p-4 sm:px-5 sm:py-4 border-l border-border first:border-l-0">
+      <div
+        class="p-4 sm:px-5 sm:py-4 border-border border-l max-[800px]:border-l-0 max-[800px]:border-t"
+      >
         <dt class="text-xs text-muted-foreground">Traffic</dt>
         <dd class="mt-1.5 text-lg font-semibold text-foreground">
           {{ device.throughput }}
@@ -89,7 +93,9 @@ function to(path: string, extra: Record<string, string> = {}) {
           >
         </dd>
       </div>
-      <div class="p-4 sm:px-5 sm:py-4 border-l border-border first:border-l-0">
+      <div
+        class="p-4 sm:px-5 sm:py-4 border-border border-l max-[500px]:border-l-0 max-[800px]:border-t"
+      >
         <dt class="text-xs text-muted-foreground">Uplink</dt>
         <dd class="mt-1.5 text-lg font-semibold text-foreground">
           <AppLink

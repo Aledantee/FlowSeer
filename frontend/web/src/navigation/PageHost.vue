@@ -28,7 +28,7 @@ defineExpose({ pane })
     <UiScrollArea
       ref="scroller"
       class="h-full"
-      viewport-class="pane-scroll"
+      viewport-class="pane-scroll max-[560px]:!px-3.5"
       label="Page"
     >
       <Transition

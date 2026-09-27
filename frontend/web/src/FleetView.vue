@@ -767,9 +767,16 @@ onUnmounted(() => clearInterval(timer))
 
 <template>
   <TooltipProvider :delay-duration="350" :skip-delay-duration="250">
-    <div class="shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+    <div
+      class="shell max-[800px]:flex-col"
+      :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+    >
       <a class="skip-link" href="#main">Skip to main content</a>
-      <aside id="workspace-sidebar" ref="sidebar" class="sidebar brand-glow">
+      <aside
+        id="workspace-sidebar"
+        ref="sidebar"
+        class="sidebar brand-glow max-[800px]:p-[16px_20px_8px] max-[560px]:p-[14px_14px_6px]"
+      >
         <div
           class="product-brand"
           role="img"
@@ -812,11 +819,16 @@ onUnmounted(() => clearInterval(timer))
           <span>FlowSeer</span>
         </div>
         <div
-          class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3"
+          class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
         >
           WORKSPACE
         </div>
-        <nav ref="navigation" aria-label="Main navigation">
+        <nav
+          ref="navigation"
+          aria-label="Main navigation"
+          class="max-[800px]:flex max-[800px]:flex-row max-[800px]:gap-2 max-[800px]:mt-6 max-[560px]:gap-1"
+          :class="{ 'max-[800px]:!hidden': sidebarCollapsed }"
+        >
           <AppLink
             v-for="item in [
               'dashboard',
@@ -828,16 +840,16 @@ onUnmounted(() => clearInterval(timer))
             :key="item"
             :aria-label="item"
             :to="{ path: `/${item}`, query: mainScope }"
-            class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring"
+            class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring max-[800px]:mb-0 max-[800px]:p-2.5 max-[560px]:gap-1.5 max-[560px]:text-xs max-[560px]:p-[9px]"
             :class="{
               active: section === item,
-              'desktop-navigation': item === 'topology',
+              'max-[560px]:hidden': item === 'topology',
             }"
             :aria-current="mainView === item ? 'page' : undefined"
           >
             <span
               v-if="section === item"
-              class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring"
+              class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring max-[800px]:after:top-auto max-[800px]:after:bottom-0 max-[800px]:after:left-2.5 max-[800px]:after:right-2.5 max-[800px]:after:w-auto max-[800px]:after:h-0.5 max-[800px]:after:rounded-xs"
               aria-hidden="true"
             ></span>
             <AppIcon :name="item" />
@@ -857,7 +869,7 @@ onUnmounted(() => clearInterval(timer))
           side="right"
         >
           <button
-            class="sidebar-toggle"
+            class="sidebar-toggle max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
             type="button"
             aria-controls="workspace-sidebar"
             :aria-expanded="!sidebarCollapsed"
@@ -882,14 +894,19 @@ onUnmounted(() => clearInterval(timer))
         <span class="main-notch brand-glow" aria-hidden="true"></span>
         <header
           ref="topbar"
-          class="topbar sticky top-0 z-10 flex items-center justify-between min-h-[54px] px-6 py-2.5"
+          class="topbar sticky top-0 z-10 flex items-center justify-between min-h-[54px] px-6 py-2.5 max-[1150px]:px-6 max-[800px]:px-5 max-[650px]:flex-wrap max-[650px]:pt-1.5 max-[650px]:pb-2.5 max-[650px]:gap-1 max-[560px]:min-h-[50px] max-[560px]:px-3.5"
         >
           <span class="topbar-glass brand-glow" aria-hidden="true"></span>
-          <div class="topbar-start flex items-center gap-3 min-w-0 flex-1">
-            <UiBreadcrumb v-slot="{ collapsed }" class="breadcrumb">
-              <UiBreadcrumbList>
+          <div
+            class="topbar-start flex items-center gap-3 min-w-0 flex-1 max-[650px]:basis-full max-[560px]:gap-[9px]"
+          >
+            <UiBreadcrumb
+              v-slot="{ collapsed }"
+              class="breadcrumb min-w-0 max-[560px]:text-xs"
+            >
+              <UiBreadcrumbList class="min-w-0">
                 <template v-if="tenants.length > 1">
-                  <UiBreadcrumbItem>
+                  <UiBreadcrumbItem class="min-w-0 max-[560px]:max-w-[140px]">
                     <TenantSwitcher
                       :tenants="tenants"
                       :selected="query('tenant')"
@@ -898,7 +915,9 @@ onUnmounted(() => clearInterval(timer))
                   </UiBreadcrumbItem>
                   <UiBreadcrumbSeparator />
                 </template>
-                <UiBreadcrumbItem class="breadcrumb-scope">
+                <UiBreadcrumbItem
+                  class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
+                >
                   <ScopeSwitcher
                     label="Site scope"
                     placeholder="Search sites…"
@@ -947,7 +966,7 @@ onUnmounted(() => clearInterval(timer))
                 </template>
                 <UiBreadcrumbItem
                   v-if="view === 'device' && selected"
-                  class="breadcrumb-scope"
+                  class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
                 >
                   <ScopeSwitcher
                     label="Device"
@@ -968,7 +987,7 @@ onUnmounted(() => clearInterval(timer))
               :shortcut="SHORTCUTS.minimize"
             >
               <button
-                class="icon-button minimize-page"
+                class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
                 aria-label="Minimize this page to the dock"
                 @click="minimizePane('main')"
               >
@@ -976,7 +995,9 @@ onUnmounted(() => clearInterval(timer))
               </button>
             </UiTooltip>
           </div>
-          <div class="topbar-tools flex items-center gap-1.5 shrink-0 ml-4">
+          <div
+            class="topbar-tools flex items-center gap-1.5 shrink-0 ml-4 max-[650px]:order-first max-[650px]:w-full max-[650px]:ml-0 max-[650px]:justify-end"
+          >
             <GlobalSearch
               :fleet="fleet"
               :pages="searchPages"
@@ -1049,7 +1070,7 @@ onUnmounted(() => clearInterval(timer))
               >
                 <header
                   v-if="slot !== panes.mainSlot.value && sideTitle"
-                  class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs"
+                  class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
                 >
                   <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
                   <span
@@ -1090,7 +1111,7 @@ onUnmounted(() => clearInterval(timer))
                     </UiBreadcrumb>
                   </div>
                   <div
-                    class="pane-tools flex items-center gap-1"
+                    class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
                     role="toolbar"
                     aria-label="Split view"
                   >
@@ -1112,7 +1133,10 @@ onUnmounted(() => clearInterval(timer))
                         <AppIcon name="link-clicks" />
                       </button>
                     </UiTooltip>
-                    <span class="pane-tools-gap" aria-hidden="true"></span>
+                    <span
+                      class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
+                      aria-hidden="true"
+                    ></span>
                     <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
                       <button
                         aria-label="Swap the two pages"
@@ -1176,3 +1200,29 @@ onUnmounted(() => clearInterval(timer))
     </div>
   </TooltipProvider>
 </template>
+
+<style scoped>
+:deep(.pane.active-pane)::before {
+  content: '';
+  position: absolute;
+  z-index: 7;
+  top: var(--topbar-height);
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--accent-foreground) 70%, transparent);
+  pointer-events: none;
+}
+
+:deep(.split-pane.active-pane)::before {
+  display: none;
+}
+
+:deep(.split-pane.active-pane .pane-header) {
+  border-bottom-color: var(--accent-foreground);
+}
+
+.panes.docked :deep(.canvas-view .vue-flow__panel.bottom) {
+  bottom: 70px;
+}
+</style>

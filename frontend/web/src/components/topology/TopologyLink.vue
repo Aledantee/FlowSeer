@@ -161,7 +161,8 @@ const width = computed(() => {
   stroke: var(--danger-border);
   stroke-dasharray: 4 5;
 }
-.topology-link.selected :deep(.vue-flow__edge-path) {
+.topology-link.selected :deep(.vue-flow__edge-path),
+.topology-link:hover :deep(.vue-flow__edge-path) {
   stroke: var(--accent-foreground);
 }
 .topology-link-flow {

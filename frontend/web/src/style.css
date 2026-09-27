@@ -50,7 +50,11 @@ html:has(.shell) {
 .sidebar {
   z-index: 4;
   --sidebar-inset: 18px;
-  --glow-bar-fade: linear-gradient(to right, black 45%, transparent);
+  --glow-bar-fade: linear-gradient(
+    to right,
+    var(--foreground) 45%,
+    transparent
+  );
   flex-shrink: 0;
   position: fixed;
   inset: 0 auto 0 0;
@@ -242,7 +246,11 @@ html:has(.shell) {
 }
 
 .topbar-glass {
-  --glow-bar-fade: linear-gradient(to bottom, black 35%, transparent);
+  --glow-bar-fade: linear-gradient(
+    to bottom,
+    var(--foreground) 35%,
+    transparent
+  );
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -268,7 +276,7 @@ html:has(.shell) {
   mask-image: radial-gradient(
     circle at bottom right,
     transparent 18px,
-    black 18.5px
+    var(--foreground) 18.5px
   );
 }
 

@@ -10,8 +10,10 @@
   "ignoreFiles": ["src/theme/scales.css"],
   "rules": {
     "scale-unlimited/declaration-strict-value": [
-      ["/color$/", "font-size", "box-shadow"],
+      ["/color$/", "fill", "stroke", "font-size", "box-shadow"],
       {
+        "expandShorthand": true,
+        "recurseLonghand": true,
         "ignoreValues": {
           "": [
             "transparent",
@@ -19,14 +21,22 @@
             "initial",
             "unset",
             "currentColor",
-            "none",
-            "black",
-            "white"
+            "none"
           ],
           "box-shadow": ["none", "inset", "/^[-0-9]+(px)?$/"]
         }
       }
     ],
+    "color-no-hex": true,
+    "color-named": "never",
+    "declaration-property-value-disallowed-list": {
+      "/.*/": [
+        "/\\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|device-cmyk)\\((?!\\s*(?:from\\s+)?var\\()/i"
+      ],
+      "box-shadow": [
+        "/^(?!\\s*(?:none|inherit|initial|unset|revert(?:-layer)?)\\s*$)(?![\\s\\S]*var\\(--[\\s\\S]*$)[\\s\\S]+$/"
+      ]
+    },
     "at-rule-no-unknown": [
       true,
       {

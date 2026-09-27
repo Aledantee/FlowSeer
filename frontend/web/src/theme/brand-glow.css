@@ -2,6 +2,7 @@
   --glow-base: var(--chrome);
   --glow-teal: var(--accent);
   --glow-orange: var(--primary);
+  --glow-highlight: var(--popover);
   --glow-strength: 30%;
   --glow-height: 560px;
   --glow-ribbon-angle: 112deg;
@@ -23,14 +24,14 @@
       transparent 8%,
       rgb(from var(--glow-teal) r g b / 3%) 15%,
       rgb(from var(--glow-teal) r g b / 14%) 22%,
-      rgb(255 255 255 / 18%) 22.15%,
+      rgb(from var(--glow-highlight) r g b / 18%) 22.15%,
       rgb(from var(--glow-teal) r g b / 6%) 22.5%,
       transparent 31% 42%,
       rgb(from var(--glow-teal) r g b / 9%) 48%,
-      rgb(255 255 255 / 12%) 48.15%,
+      rgb(from var(--glow-highlight) r g b / 12%) 48.15%,
       transparent 48.5% 62%,
       rgb(from var(--glow-orange) r g b / 10%) 70%,
-      rgb(255 255 255 / 14%) 70.15%,
+      rgb(from var(--glow-highlight) r g b / 14%) 70.15%,
       rgb(from var(--glow-orange) r g b / 3%) 70.5%,
       transparent 84%
     ),
@@ -53,4 +54,8 @@
 
 :root:not([data-theme='dark']) {
   --glow-strength: 13%;
+}
+
+:root[data-theme='dark'] {
+  --glow-highlight: var(--foreground);
 }

@@ -53,7 +53,7 @@ describe('tailwind theme and utilities', () => {
     expect(textOutput).toContain('--text-base--line-height: 20px')
   })
 
-  it('emits preflight base resets and element normalizations', async () => {
+  it('emits preflight base resets and visible native button focus', async () => {
     const compiler = await compile(css, {
       base: path.dirname(cssPath),
       onDependency: () => {},
@@ -62,6 +62,8 @@ describe('tailwind theme and utilities', () => {
     const baseOutput = compiler.build([])
     expect(baseOutput).toContain('font-size: inherit')
     expect(baseOutput).toContain('display: block')
-    expect(baseOutput).toContain('outline: none')
+    expect(baseOutput).toContain('button:focus-visible')
+    expect(baseOutput).toContain('outline: 2px solid var(--ring)')
+    expect(baseOutput).toContain('outline-offset: 2px')
   })
 })
