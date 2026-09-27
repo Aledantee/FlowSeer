@@ -34,10 +34,12 @@ async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 20))
 }
 
-async function mountSearch(handlers: {
+interface SearchHandlers {
   onSelect?: (result: SearchResult, beside: boolean) => void
   onDock?: (result: SearchResult) => void
-}) {
+}
+
+async function mountSearchClosed(handlers: SearchHandlers = {}) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
@@ -53,6 +55,13 @@ async function mountSearch(handlers: {
   })
   app.mount(host)
   dispose = () => app.unmount()
+
+  await settle()
+  return { host }
+}
+
+async function mountSearch(handlers: SearchHandlers) {
+  const { host } = await mountSearchClosed(handlers)
 
   host.querySelector<HTMLButtonElement>('.search-trigger')?.click()
   await settle()
@@ -81,31 +90,6 @@ function keydown(input: HTMLInputElement, init: KeyboardEventInit) {
       ...init,
     }),
   )
-}
-
-async function mountSearchClosed(
-  handlers: {
-    onSelect?: (result: SearchResult, beside: boolean) => void
-    onDock?: (result: SearchResult) => void
-  } = {},
-) {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const app = createApp({
-    render: () =>
-      h(TooltipProvider, null, () =>
-        h(GlobalSearch, {
-          fleet: [],
-          pages,
-          canSplit: true,
-          ...handlers,
-        }),
-      ),
-  })
-  app.mount(host)
-  dispose = () => app.unmount()
-  await settle()
-  return { host }
 }
 
 describe('global search selection', () => {
