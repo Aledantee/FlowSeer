@@ -18,7 +18,8 @@ export interface Device {
   siteId: string
   kind: string
   role: DeviceRole
-  // The device this one takes its uplink from; absent on a site's root.
+  // Configured uplink target; active only when both endpoints exist in the
+  // same site. Absent on a site's root.
   uplinkId?: string
   address: string
   health: Health
@@ -134,6 +135,11 @@ export function moveDevice(device: Device, siteId: string): Device {
   if (!origin || !destination || origin.tenantId !== destination.tenantId)
     throw new Error('Choose a site owned by the same tenant.')
   return { ...device, siteId }
+}
+export function uplinkOf(fleet: Device[], device: Device): Device | undefined {
+  if (!device.uplinkId) return undefined
+  const peer = fleet.find((item) => item.id === device.uplinkId)
+  return peer && peer.siteId === device.siteId ? peer : undefined
 }
 export function downlinks(fleet: Device[], device: Device): Device[] {
   return fleet.filter(

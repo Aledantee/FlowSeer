@@ -33,4 +33,10 @@ describe('global search', () => {
   it('returns nothing for an empty query', () => {
     expect(searchAll('   ', devices)).toEqual([])
   })
+  it('counts descendant sites for a parent tenant', () => {
+    const tenant = searchAll('aurora', devices).find(
+      (item) => item.kind === 'tenant' && item.id === 'aurora',
+    )
+    expect(tenant?.detail).toBe('2 sites')
+  })
 })

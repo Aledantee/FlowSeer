@@ -1,5 +1,5 @@
 import type { Device } from './fleet'
-import { sites, tenants } from './fleet'
+import { sites, tenantIds, tenants } from './fleet'
 import { clientsOf } from './clients'
 import { portsOf } from './telemetry'
 
@@ -53,12 +53,15 @@ export function searchAll(raw: string, fleet: Device[]): SearchResult[] {
   )
   return [
     ...top(tenants, (tenant) => rank(query, [tenant.name, tenant.id])).map(
-      (tenant): SearchResult => ({
-        kind: 'tenant',
-        id: tenant.id,
-        title: tenant.name,
-        detail: `${sites.filter((site) => site.tenantId === tenant.id).length} sites`,
-      }),
+      (tenant): SearchResult => {
+        const scope = tenantIds(tenant.id)
+        return {
+          kind: 'tenant',
+          id: tenant.id,
+          title: tenant.name,
+          detail: `${sites.filter((site) => scope.includes(site.tenantId)).length} sites`,
+        }
+      },
     ),
     ...top(sites, (site) =>
       rank(query, [site.name, site.location, site.id]),

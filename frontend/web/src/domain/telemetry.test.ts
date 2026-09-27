@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { devices, linksOf } from './fleet'
+import { devices, linksOf, moveDevice, uplinkOf } from './fleet'
 import {
   linkDetailsOf,
   portDetailsOf,
@@ -35,6 +35,44 @@ describe('device telemetry', () => {
       (item) => item.neighborId === device('cologne-ap-02').id,
     )
     expect(port?.status).toBe('Down')
+  })
+  it('takes the uplink port down when an access point is reassigned across sites', () => {
+    const ap = device('berlin-ap-01')
+    const reassigned = moveDevice(ap, 'hamburg')
+    const fleet = devices.map((item) =>
+      item.id === reassigned.id ? reassigned : item,
+    )
+    expect(uplinkOf(fleet, reassigned)).toBeUndefined()
+    const [port] = portsOf(fleet, reassigned)
+    expect(port?.status).toBe('Down')
+    expect(port?.neighborId).toBeUndefined()
+    expect(port?.speed).toBeUndefined()
+  })
+  it('retains port names and neighbors on both ends of an offline link while down', () => {
+    const offline = device('cologne-ap-02')
+    const sw = device('cologne-sw-01')
+    const apPort = portsOf(devices, offline)[0]
+    expect(apPort?.name).toBe('eth0')
+    expect(apPort?.status).toBe('Down')
+    expect(apPort?.neighborId).toBe(sw.id)
+    expect(apPort?.speed).toBeUndefined()
+
+    const swPort = portsOf(devices, sw).find(
+      (port) => port.neighborId === offline.id,
+    )
+    expect(swPort?.name).toBe('ge-0/0/1')
+    expect(swPort?.status).toBe('Down')
+    expect(swPort?.neighborId).toBe(offline.id)
+
+    const link = linksOf(devices).find((item) => item.targetId === offline.id)
+    if (!link) throw new Error('Missing fixture')
+    const details = linkDetailsOf(devices, link)
+    expect(details.sourcePort?.name).toBe('ge-0/0/1')
+    expect(details.sourcePort?.neighborId).toBe(offline.id)
+    expect(details.sourcePort?.status).toBe('Down')
+    expect(details.targetPort?.name).toBe('eth0')
+    expect(details.targetPort?.neighborId).toBe(sw.id)
+    expect(details.targetPort?.status).toBe('Down')
   })
   it('splits an access point’s clients across its radios', () => {
     const ap = device('berlin-ap-01')

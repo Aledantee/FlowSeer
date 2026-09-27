@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import type { Device, Site } from './domain/fleet'
-import { downlinks } from './domain/fleet'
+import { downlinks, uplinkOf } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
@@ -23,9 +23,7 @@ watch(
   () => props.device.siteId,
   (siteId) => (destination.value = siteId),
 )
-const uplink = computed(() =>
-  props.fleet.find((item) => item.id === props.device.uplinkId),
-)
+const uplink = computed(() => uplinkOf(props.fleet, props.device))
 const links = computed(() => downlinks(props.fleet, props.device))
 const clients = computed(() => clientsOf([props.device]).slice(0, 8))
 const siteOptions = computed(() =>
