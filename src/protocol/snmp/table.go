@@ -55,6 +55,7 @@ type TableWalker[Row any] struct {
 	ordinals []int
 	bindKey  func(OID, *Row)
 	decode   func(*Row, int, RawVarBind) error
+	row      Row
 }
 
 // Err returns the first terminal error encountered during the walk.
@@ -81,10 +82,11 @@ func (w *TableWalker[Row]) Iter() iter.Seq2[OID, Row] {
 		if w == nil || w.cw == nil {
 			return
 		}
+		var zero Row
 		for idx, cells := range w.cw.Iter() {
-			var row Row
+			w.row = zero
 			if w.bindKey != nil {
-				w.bindKey(idx, &row)
+				w.bindKey(idx, &w.row)
 			}
 			var derr error
 			for _, cell := range cells {
@@ -93,7 +95,7 @@ func (w *TableWalker[Row]) Iter() iter.Seq2[OID, Row] {
 				}
 				ordinal := w.ordinals[cell.Column]
 				if w.decode != nil {
-					if err := w.decode(&row, ordinal, cell.Value); err != nil {
+					if err := w.decode(&w.row, ordinal, cell.Value); err != nil {
 						derr = err
 						break
 					}
@@ -103,7 +105,7 @@ func (w *TableWalker[Row]) Iter() iter.Seq2[OID, Row] {
 				w.cw.Fail(derr)
 				return
 			}
-			if !yield(idx, row) {
+			if !yield(idx, w.row) {
 				return
 			}
 		}

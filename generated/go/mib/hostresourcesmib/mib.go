@@ -12,7 +12,6 @@ package hostresourcesmib
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"iter"
 	"time"
 
@@ -33,39 +32,30 @@ import (
 // down(5) is used only when the agent has been informed that the device is
 // not available for any use.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrDeviceStatusValue int32
 
 const (
-	// HrDeviceStatusValueUnknown represents the SMI value unknown.
+	// HrDeviceStatusValueUnknown is unknown.
 	HrDeviceStatusValueUnknown HrDeviceStatusValue = 1
-	// HrDeviceStatusValueRunning represents the SMI value running.
+	// HrDeviceStatusValueRunning is running.
 	HrDeviceStatusValueRunning HrDeviceStatusValue = 2
-	// HrDeviceStatusValueWarning represents the SMI value warning.
+	// HrDeviceStatusValueWarning is warning.
 	HrDeviceStatusValueWarning HrDeviceStatusValue = 3
-	// HrDeviceStatusValueTesting represents the SMI value testing.
+	// HrDeviceStatusValueTesting is testing.
 	HrDeviceStatusValueTesting HrDeviceStatusValue = 4
-	// HrDeviceStatusValueDown represents the SMI value down.
+	// HrDeviceStatusValueDown is down.
 	HrDeviceStatusValueDown HrDeviceStatusValue = 5
 )
 
-// String returns the SMI label, or HrDeviceStatusValue(n) for an unrecognized value n.
-func (v HrDeviceStatusValue) String() string {
-	switch v {
-	case HrDeviceStatusValueUnknown:
-		return "unknown"
-	case HrDeviceStatusValueRunning:
-		return "running"
-	case HrDeviceStatusValueWarning:
-		return "warning"
-	case HrDeviceStatusValueTesting:
-		return "testing"
-	case HrDeviceStatusValueDown:
-		return "down"
-	}
+var (
+	hrDeviceStatusValueValues = []int32{1, 2, 3, 4, 5}
+	hrDeviceStatusValueNames  = []string{"unknown", "running", "warning", "testing", "down"}
+)
 
-	return fmt.Sprintf("HrDeviceStatusValue(%d)", v)
+// String returns the SMI label, or HrDeviceStatusValue(n) for an unknown value.
+func (v HrDeviceStatusValue) String() string {
+	return snmp.EnumString(int32(v), "HrDeviceStatusValue", hrDeviceStatusValueValues, hrDeviceStatusValueNames)
 }
 
 // HrDiskStorageAccessValue is the SMI enum hrDiskStorageAccess (inline).
@@ -73,78 +63,60 @@ func (v HrDeviceStatusValue) String() string {
 // or only readable. This should reflect the media type, any write-protect
 // mechanism, and any device configuration that affects the entire device.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrDiskStorageAccessValue int32
 
 const (
-	// HrDiskStorageAccessValueReadWrite represents the SMI value readWrite.
+	// HrDiskStorageAccessValueReadWrite is readWrite.
 	HrDiskStorageAccessValueReadWrite HrDiskStorageAccessValue = 1
-	// HrDiskStorageAccessValueReadOnly represents the SMI value readOnly.
+	// HrDiskStorageAccessValueReadOnly is readOnly.
 	HrDiskStorageAccessValueReadOnly HrDiskStorageAccessValue = 2
 )
 
-// String returns the SMI label, or HrDiskStorageAccessValue(n) for an unrecognized value n.
-func (v HrDiskStorageAccessValue) String() string {
-	switch v {
-	case HrDiskStorageAccessValueReadWrite:
-		return "readWrite"
-	case HrDiskStorageAccessValueReadOnly:
-		return "readOnly"
-	}
+var (
+	hrDiskStorageAccessValueValues = []int32{1, 2}
+	hrDiskStorageAccessValueNames  = []string{"readWrite", "readOnly"}
+)
 
-	return fmt.Sprintf("HrDiskStorageAccessValue(%d)", v)
+// String returns the SMI label, or HrDiskStorageAccessValue(n) for an unknown value.
+func (v HrDiskStorageAccessValue) String() string {
+	return snmp.EnumString(int32(v), "HrDiskStorageAccessValue", hrDiskStorageAccessValueValues, hrDiskStorageAccessValueNames)
 }
 
 // HrDiskStorageMediaValue is the SMI enum hrDiskStorageMedia (inline).
 // An indication of the type of media used in this long- term storage
 // device.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrDiskStorageMediaValue int32
 
 const (
-	// HrDiskStorageMediaValueOther represents the SMI value other.
+	// HrDiskStorageMediaValueOther is other.
 	HrDiskStorageMediaValueOther HrDiskStorageMediaValue = 1
-	// HrDiskStorageMediaValueUnknown represents the SMI value unknown.
+	// HrDiskStorageMediaValueUnknown is unknown.
 	HrDiskStorageMediaValueUnknown HrDiskStorageMediaValue = 2
-	// HrDiskStorageMediaValueHardDisk represents the SMI value hardDisk.
+	// HrDiskStorageMediaValueHardDisk is hardDisk.
 	HrDiskStorageMediaValueHardDisk HrDiskStorageMediaValue = 3
-	// HrDiskStorageMediaValueFloppyDisk represents the SMI value floppyDisk.
+	// HrDiskStorageMediaValueFloppyDisk is floppyDisk.
 	HrDiskStorageMediaValueFloppyDisk HrDiskStorageMediaValue = 4
-	// HrDiskStorageMediaValueOpticalDiskROM represents the SMI value opticalDiskROM.
+	// HrDiskStorageMediaValueOpticalDiskROM is opticalDiskROM.
 	HrDiskStorageMediaValueOpticalDiskROM HrDiskStorageMediaValue = 5
-	// HrDiskStorageMediaValueOpticalDiskWORM represents the SMI value opticalDiskWORM.
+	// HrDiskStorageMediaValueOpticalDiskWORM is opticalDiskWORM.
 	HrDiskStorageMediaValueOpticalDiskWORM HrDiskStorageMediaValue = 6
-	// HrDiskStorageMediaValueOpticalDiskRW represents the SMI value opticalDiskRW.
+	// HrDiskStorageMediaValueOpticalDiskRW is opticalDiskRW.
 	HrDiskStorageMediaValueOpticalDiskRW HrDiskStorageMediaValue = 7
-	// HrDiskStorageMediaValueRAMDisk represents the SMI value ramDisk.
+	// HrDiskStorageMediaValueRAMDisk is ramDisk.
 	HrDiskStorageMediaValueRAMDisk HrDiskStorageMediaValue = 8
 )
 
-// String returns the SMI label, or HrDiskStorageMediaValue(n) for an unrecognized value n.
-func (v HrDiskStorageMediaValue) String() string {
-	switch v {
-	case HrDiskStorageMediaValueOther:
-		return "other"
-	case HrDiskStorageMediaValueUnknown:
-		return "unknown"
-	case HrDiskStorageMediaValueHardDisk:
-		return "hardDisk"
-	case HrDiskStorageMediaValueFloppyDisk:
-		return "floppyDisk"
-	case HrDiskStorageMediaValueOpticalDiskROM:
-		return "opticalDiskROM"
-	case HrDiskStorageMediaValueOpticalDiskWORM:
-		return "opticalDiskWORM"
-	case HrDiskStorageMediaValueOpticalDiskRW:
-		return "opticalDiskRW"
-	case HrDiskStorageMediaValueRAMDisk:
-		return "ramDisk"
-	}
+var (
+	hrDiskStorageMediaValueValues = []int32{1, 2, 3, 4, 5, 6, 7, 8}
+	hrDiskStorageMediaValueNames  = []string{"other", "unknown", "hardDisk", "floppyDisk", "opticalDiskROM", "opticalDiskWORM", "opticalDiskRW", "ramDisk"}
+)
 
-	return fmt.Sprintf("HrDiskStorageMediaValue(%d)", v)
+// String returns the SMI label, or HrDiskStorageMediaValue(n) for an unknown value.
+func (v HrDiskStorageMediaValue) String() string {
+	return snmp.EnumString(int32(v), "HrDiskStorageMediaValue", hrDiskStorageMediaValueValues, hrDiskStorageMediaValueNames)
 }
 
 // HrFSAccessValue is the SMI enum hrFSAccess (inline).
@@ -153,99 +125,80 @@ func (v HrDiskStorageMediaValue) String() string {
 // not represent any local access-control policy, except one that is
 // applied to the file system as a whole.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrFSAccessValue int32
 
 const (
-	// HrFSAccessValueReadWrite represents the SMI value readWrite.
+	// HrFSAccessValueReadWrite is readWrite.
 	HrFSAccessValueReadWrite HrFSAccessValue = 1
-	// HrFSAccessValueReadOnly represents the SMI value readOnly.
+	// HrFSAccessValueReadOnly is readOnly.
 	HrFSAccessValueReadOnly HrFSAccessValue = 2
 )
 
-// String returns the SMI label, or HrFSAccessValue(n) for an unrecognized value n.
-func (v HrFSAccessValue) String() string {
-	switch v {
-	case HrFSAccessValueReadWrite:
-		return "readWrite"
-	case HrFSAccessValueReadOnly:
-		return "readOnly"
-	}
+var (
+	hrFSAccessValueValues = []int32{1, 2}
+	hrFSAccessValueNames  = []string{"readWrite", "readOnly"}
+)
 
-	return fmt.Sprintf("HrFSAccessValue(%d)", v)
+// String returns the SMI label, or HrFSAccessValue(n) for an unknown value.
+func (v HrFSAccessValue) String() string {
+	return snmp.EnumString(int32(v), "HrFSAccessValue", hrFSAccessValueValues, hrFSAccessValueNames)
 }
 
 // HrPrinterStatusValue is the SMI enum hrPrinterStatus (inline).
 // The current status of this printer device.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrPrinterStatusValue int32
 
 const (
-	// HrPrinterStatusValueOther represents the SMI value other.
+	// HrPrinterStatusValueOther is other.
 	HrPrinterStatusValueOther HrPrinterStatusValue = 1
-	// HrPrinterStatusValueUnknown represents the SMI value unknown.
+	// HrPrinterStatusValueUnknown is unknown.
 	HrPrinterStatusValueUnknown HrPrinterStatusValue = 2
-	// HrPrinterStatusValueIdle represents the SMI value idle.
+	// HrPrinterStatusValueIdle is idle.
 	HrPrinterStatusValueIdle HrPrinterStatusValue = 3
-	// HrPrinterStatusValuePrinting represents the SMI value printing.
+	// HrPrinterStatusValuePrinting is printing.
 	HrPrinterStatusValuePrinting HrPrinterStatusValue = 4
-	// HrPrinterStatusValueWarmup represents the SMI value warmup.
+	// HrPrinterStatusValueWarmup is warmup.
 	HrPrinterStatusValueWarmup HrPrinterStatusValue = 5
 )
 
-// String returns the SMI label, or HrPrinterStatusValue(n) for an unrecognized value n.
-func (v HrPrinterStatusValue) String() string {
-	switch v {
-	case HrPrinterStatusValueOther:
-		return "other"
-	case HrPrinterStatusValueUnknown:
-		return "unknown"
-	case HrPrinterStatusValueIdle:
-		return "idle"
-	case HrPrinterStatusValuePrinting:
-		return "printing"
-	case HrPrinterStatusValueWarmup:
-		return "warmup"
-	}
+var (
+	hrPrinterStatusValueValues = []int32{1, 2, 3, 4, 5}
+	hrPrinterStatusValueNames  = []string{"other", "unknown", "idle", "printing", "warmup"}
+)
 
-	return fmt.Sprintf("HrPrinterStatusValue(%d)", v)
+// String returns the SMI label, or HrPrinterStatusValue(n) for an unknown value.
+func (v HrPrinterStatusValue) String() string {
+	return snmp.EnumString(int32(v), "HrPrinterStatusValue", hrPrinterStatusValueValues, hrPrinterStatusValueNames)
 }
 
 // HrSWInstalledTypeValue is the SMI enum hrSWInstalledType (inline).
 // The type of this software.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrSWInstalledTypeValue int32
 
 const (
-	// HrSWInstalledTypeValueUnknown represents the SMI value unknown.
+	// HrSWInstalledTypeValueUnknown is unknown.
 	HrSWInstalledTypeValueUnknown HrSWInstalledTypeValue = 1
-	// HrSWInstalledTypeValueOperatingSystem represents the SMI value operatingSystem.
+	// HrSWInstalledTypeValueOperatingSystem is operatingSystem.
 	HrSWInstalledTypeValueOperatingSystem HrSWInstalledTypeValue = 2
-	// HrSWInstalledTypeValueDeviceDriver represents the SMI value deviceDriver.
+	// HrSWInstalledTypeValueDeviceDriver is deviceDriver.
 	HrSWInstalledTypeValueDeviceDriver HrSWInstalledTypeValue = 3
-	// HrSWInstalledTypeValueApplication represents the SMI value application.
+	// HrSWInstalledTypeValueApplication is application.
 	HrSWInstalledTypeValueApplication HrSWInstalledTypeValue = 4
 )
 
-// String returns the SMI label, or HrSWInstalledTypeValue(n) for an unrecognized value n.
-func (v HrSWInstalledTypeValue) String() string {
-	switch v {
-	case HrSWInstalledTypeValueUnknown:
-		return "unknown"
-	case HrSWInstalledTypeValueOperatingSystem:
-		return "operatingSystem"
-	case HrSWInstalledTypeValueDeviceDriver:
-		return "deviceDriver"
-	case HrSWInstalledTypeValueApplication:
-		return "application"
-	}
+var (
+	hrSWInstalledTypeValueValues = []int32{1, 2, 3, 4}
+	hrSWInstalledTypeValueNames  = []string{"unknown", "operatingSystem", "deviceDriver", "application"}
+)
 
-	return fmt.Sprintf("HrSWInstalledTypeValue(%d)", v)
+// String returns the SMI label, or HrSWInstalledTypeValue(n) for an unknown value.
+func (v HrSWInstalledTypeValue) String() string {
+	return snmp.EnumString(int32(v), "HrSWInstalledTypeValue", hrSWInstalledTypeValueValues, hrSWInstalledTypeValueNames)
 }
 
 // HrSWRunStatusValue is the SMI enum hrSWRunStatus (inline).
@@ -253,69 +206,55 @@ func (v HrSWInstalledTypeValue) String() string {
 // invalid(4) shall cause this software to stop running and to be unloaded.
 // Sets to other values are not valid.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrSWRunStatusValue int32
 
 const (
-	// HrSWRunStatusValueRunning represents the SMI value running.
+	// HrSWRunStatusValueRunning is running.
 	HrSWRunStatusValueRunning HrSWRunStatusValue = 1
-	// HrSWRunStatusValueRunnable represents the SMI value runnable.
+	// HrSWRunStatusValueRunnable is runnable.
 	HrSWRunStatusValueRunnable HrSWRunStatusValue = 2
-	// HrSWRunStatusValueNotRunnable represents the SMI value notRunnable.
+	// HrSWRunStatusValueNotRunnable is notRunnable.
 	HrSWRunStatusValueNotRunnable HrSWRunStatusValue = 3
-	// HrSWRunStatusValueInvalid represents the SMI value invalid.
+	// HrSWRunStatusValueInvalid is invalid.
 	HrSWRunStatusValueInvalid HrSWRunStatusValue = 4
 )
 
-// String returns the SMI label, or HrSWRunStatusValue(n) for an unrecognized value n.
-func (v HrSWRunStatusValue) String() string {
-	switch v {
-	case HrSWRunStatusValueRunning:
-		return "running"
-	case HrSWRunStatusValueRunnable:
-		return "runnable"
-	case HrSWRunStatusValueNotRunnable:
-		return "notRunnable"
-	case HrSWRunStatusValueInvalid:
-		return "invalid"
-	}
+var (
+	hrSWRunStatusValueValues = []int32{1, 2, 3, 4}
+	hrSWRunStatusValueNames  = []string{"running", "runnable", "notRunnable", "invalid"}
+)
 
-	return fmt.Sprintf("HrSWRunStatusValue(%d)", v)
+// String returns the SMI label, or HrSWRunStatusValue(n) for an unknown value.
+func (v HrSWRunStatusValue) String() string {
+	return snmp.EnumString(int32(v), "HrSWRunStatusValue", hrSWRunStatusValueValues, hrSWRunStatusValueNames)
 }
 
 // HrSWRunTypeValue is the SMI enum hrSWRunType (inline).
 // The type of this software.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type HrSWRunTypeValue int32
 
 const (
-	// HrSWRunTypeValueUnknown represents the SMI value unknown.
+	// HrSWRunTypeValueUnknown is unknown.
 	HrSWRunTypeValueUnknown HrSWRunTypeValue = 1
-	// HrSWRunTypeValueOperatingSystem represents the SMI value operatingSystem.
+	// HrSWRunTypeValueOperatingSystem is operatingSystem.
 	HrSWRunTypeValueOperatingSystem HrSWRunTypeValue = 2
-	// HrSWRunTypeValueDeviceDriver represents the SMI value deviceDriver.
+	// HrSWRunTypeValueDeviceDriver is deviceDriver.
 	HrSWRunTypeValueDeviceDriver HrSWRunTypeValue = 3
-	// HrSWRunTypeValueApplication represents the SMI value application.
+	// HrSWRunTypeValueApplication is application.
 	HrSWRunTypeValueApplication HrSWRunTypeValue = 4
 )
 
-// String returns the SMI label, or HrSWRunTypeValue(n) for an unrecognized value n.
-func (v HrSWRunTypeValue) String() string {
-	switch v {
-	case HrSWRunTypeValueUnknown:
-		return "unknown"
-	case HrSWRunTypeValueOperatingSystem:
-		return "operatingSystem"
-	case HrSWRunTypeValueDeviceDriver:
-		return "deviceDriver"
-	case HrSWRunTypeValueApplication:
-		return "application"
-	}
+var (
+	hrSWRunTypeValueValues = []int32{1, 2, 3, 4}
+	hrSWRunTypeValueNames  = []string{"unknown", "operatingSystem", "deviceDriver", "application"}
+)
 
-	return fmt.Sprintf("HrSWRunTypeValue(%d)", v)
+// String returns the SMI label, or HrSWRunTypeValue(n) for an unknown value.
+func (v HrSWRunTypeValue) String() string {
+	return snmp.EnumString(int32(v), "HrSWRunTypeValue", hrSWRunTypeValueValues, hrSWRunTypeValueNames)
 }
 
 // HrSystemUptimeGet reads the SMIv2 scalar hrSystemUptime.
@@ -532,27 +471,27 @@ func HrSWInstalledLastUpdateTimeGet(ctx context.Context, sess snmp.Session) (uin
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// HrStorageIndex is the column hrStorageIndex of table hrStorageTable.
+// HrStorageIndex is hrStorageIndex.
 // A unique value for each logical storage area contained by the host.
-var HrStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrStorageIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrStorageType is the column hrStorageType of table hrStorageTable.
+// HrStorageType is hrStorageType.
 // The type of storage represented by this entry.
-var HrStorageType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
+var HrStorageType = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 2), snmp.KindObjectID, snmp.DecodeOID, 1)
 
-// HrStorageDescr is the column hrStorageDescr of table hrStorageTable.
+// HrStorageDescr is hrStorageDescr.
 // A description of the type and instance of the storage described by this
 // entry.
-var HrStorageDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var HrStorageDescr = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// HrStorageAllocationUnits is the column hrStorageAllocationUnits of table hrStorageTable.
+// HrStorageAllocationUnits is hrStorageAllocationUnits.
 // The size, in bytes, of the data objects allocated from this pool. If
 // this entry is monitoring sectors, blocks, buffers, or packets, for
 // example, this number will commonly be greater than one. Otherwise this
 // number will typically be one.
-var HrStorageAllocationUnits = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var HrStorageAllocationUnits = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// HrStorageSize is the column hrStorageSize of table hrStorageTable.
+// HrStorageSize is hrStorageSize.
 // The size of the storage represented by this entry, in units of
 // hrStorageAllocationUnits. This object is writable to allow remote
 // configuration of the size of the storage area in those cases where such
@@ -560,21 +499,24 @@ var HrStorageAllocationUnits = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2,
 // example, the amount of main memory allocated to a buffer pool might be
 // modified or the amount of disk space allocated to virtual memory might
 // be modified.
-var HrStorageSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var HrStorageSize = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// HrStorageUsed is the column hrStorageUsed of table hrStorageTable.
+// HrStorageUsed is hrStorageUsed.
 // The amount of the storage represented by this entry that is allocated,
 // in units of hrStorageAllocationUnits.
-var HrStorageUsed = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var HrStorageUsed = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// HrStorageAllocationFailures is the column hrStorageAllocationFailures of table hrStorageTable.
+// HrStorageAllocationFailures is hrStorageAllocationFailures.
 // The number of requests for storage represented by this entry that could
 // not be honored due to not enough storage. It should be noted that as
 // this object has a SYNTAX of Counter32, that it does not have a defined
 // initial value. However, it is recommended that this object be
 // initialized to zero, even though management stations must not depend on
 // such an initialization.
-var HrStorageAllocationFailures = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	HrStorageAllocationFailures = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 7), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 6)
+	hrStorageTableColumns       = []snmp.AnyColumn{HrStorageIndex, HrStorageType, HrStorageDescr, HrStorageAllocationUnits, HrStorageSize, HrStorageUsed, HrStorageAllocationFailures}
+)
 
 // HrStorageTableKey is the decoded INDEX of one hrStorageTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -594,14 +536,7 @@ func decodeHrStorageTableKey(idx snmp.OID) (HrStorageTableKey, bool) {
 	return HrStorageTableKey{HrStorageIndex: int32(parts[0].Integer)}, true
 }
 
-// HrStorageTableRow is one row of hrStorageTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrStorageTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrStorageTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrStorageTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrStorageTableRow struct {
 	Key                         HrStorageTableKey
 	keyValid                    bool
@@ -612,226 +547,53 @@ type HrStorageTableRow struct {
 	HrStorageSize               int32
 	HrStorageUsed               int32
 	HrStorageAllocationFailures uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrStorageTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrStorageTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrStorageIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrStorageType.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrStorageDescr.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrStorageAllocationUnits.Key():
-		return r.observed[0]&(1<<3) != 0
-	case HrStorageSize.Key():
-		return r.observed[0]&(1<<4) != 0
-	case HrStorageUsed.Key():
-		return r.observed[0]&(1<<5) != 0
-	case HrStorageAllocationFailures.Key():
-		return r.observed[0]&(1<<6) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrStorageTableColumns, col)
 }
 
-// HrStorageTableWalker streams selected columns of hrStorageTable.
-// The zero value is not usable; construct via HrStorageTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrStorageTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrStorageTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrStorageTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
-	return func(yield func(snmp.OID, HrStorageTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrStorageTableRow
-			row.Key, row.keyValid = decodeHrStorageTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrStorageIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrStorageIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrStorageIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrStorageType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrStorageType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrStorageType = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case HrStorageDescr.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrStorageDescr.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrStorageDescr = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrStorageAllocationUnits.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageAllocationUnits = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrStorageAllocationUnits.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrStorageAllocationUnits = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case HrStorageSize.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageSize = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrStorageSize.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrStorageSize = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case HrStorageUsed.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrStorageUsed = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrStorageUsed.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrStorageUsed = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case HrStorageAllocationFailures.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.HrStorageAllocationFailures = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrStorageAllocationFailures.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrStorageAllocationFailures = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrStorageTableT struct {
+	snmp.Table[HrStorageTableRow, *HrStorageTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrStorageTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrStorageTableT is the singleton type of HrStorageTable.
-type hrStorageTableT struct{}
 
 // HrStorageTable is the descriptor for the hrStorageTable table.
-var HrStorageTable hrStorageTableT
+var HrStorageTable = hrStorageTableT{Table: snmp.NewTable("hrStorageTable", hrStorageTableColumns, func(idx snmp.OID, row *HrStorageTableRow) {
+	row.Key, row.keyValid = decodeHrStorageTableKey(idx)
+}, func(row *HrStorageTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrStorageIndex, &row.HrStorageIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrStorageType, &row.HrStorageType, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrStorageDescr, &row.HrStorageDescr, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrStorageAllocationUnits, &row.HrStorageAllocationUnits, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, HrStorageSize, &row.HrStorageSize, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, HrStorageUsed, &row.HrStorageUsed, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, HrStorageAllocationFailures, &row.HrStorageAllocationFailures, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrStorageTableRow]) *HrStorageTableWalker {
+	return &HrStorageTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrStorageTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrStorageTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrStorageTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrStorageTableKey",
@@ -839,40 +601,13 @@ func (hrStorageTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrStorageTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrStorageIndex.Key(), HrStorageType.Key(), HrStorageDescr.Key(), HrStorageAllocationUnits.Key(), HrStorageSize.Key(), HrStorageUsed.Key(), HrStorageAllocationFailures.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrStorageTable.Walk: column %s", c.OID()))
-			return &HrStorageTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrStorageTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrDeviceIndex is the column hrDeviceIndex of table hrDeviceTable.
+// HrDeviceIndex is hrDeviceIndex.
 // A unique value for each device contained by the host. The value for each
 // device must remain constant at least from one re-initialization of the
 // agent to the next re-initialization.
-var HrDeviceIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrDeviceIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrDeviceType is the column hrDeviceType of table hrDeviceTable.
+// HrDeviceType is hrDeviceType.
 // An indication of the type of device. If this value is `hrDeviceProcessor
 // { hrDeviceTypes 3 }' then an entry exists in the hrProcessorTable which
 // corresponds to this device. If this value is `hrDeviceNetwork {
@@ -882,18 +617,18 @@ var HrDeviceIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 
 // corresponds to this device. If this value is `hrDeviceDiskStorage {
 // hrDeviceTypes 6 }', then an entry exists in the hrDiskStorageTable which
 // corresponds to this device.
-var HrDeviceType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 2), snmp.KindObjectID, snmp.DecodeOID)
+var HrDeviceType = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 2), snmp.KindObjectID, snmp.DecodeOID, 1)
 
-// HrDeviceDescr is the column hrDeviceDescr of table hrDeviceTable.
+// HrDeviceDescr is hrDeviceDescr.
 // A textual description of this device, including the device's
 // manufacturer and revision, and optionally, its serial number.
-var HrDeviceDescr = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var HrDeviceDescr = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// HrDeviceID is the column hrDeviceID of table hrDeviceTable.
+// HrDeviceID is hrDeviceID.
 // The product ID for this device.
-var HrDeviceID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 4), snmp.KindObjectID, snmp.DecodeOID)
+var HrDeviceID = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 4), snmp.KindObjectID, snmp.DecodeOID, 3)
 
-// HrDeviceStatus is the column hrDeviceStatus of table hrDeviceTable.
+// HrDeviceStatus is hrDeviceStatus.
 // The current operational state of the device described by this row of the
 // table. A value unknown(1) indicates that the current state of the device
 // is unknown. running(2) indicates that the device is up and running and
@@ -905,21 +640,24 @@ var HrDeviceID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 
 // not available for use because it is in the testing state. The state of
 // down(5) is used only when the agent has been informed that the device is
 // not available for any use.
-var HrDeviceStatus = snmp.NewColumn[HrDeviceStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (HrDeviceStatusValue, error) {
+var HrDeviceStatus = snmp.NewFusedTableColumn[HrDeviceStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (HrDeviceStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrDeviceStatusValue(0), err
 	}
 	return HrDeviceStatusValue(v), nil
-})
+}, snmp.RawInteger32As[HrDeviceStatusValue], 4)
 
-// HrDeviceErrors is the column hrDeviceErrors of table hrDeviceTable.
+// HrDeviceErrors is hrDeviceErrors.
 // The number of errors detected on this device. It should be noted that as
 // this object has a SYNTAX of Counter32, that it does not have a defined
 // initial value. However, it is recommended that this object be
 // initialized to zero, even though management stations must not depend on
 // such an initialization.
-var HrDeviceErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	HrDeviceErrors       = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 5)
+	hrDeviceTableColumns = []snmp.AnyColumn{HrDeviceIndex, HrDeviceType, HrDeviceDescr, HrDeviceID, HrDeviceStatus, HrDeviceErrors}
+)
 
 // HrDeviceTableKey is the decoded INDEX of one hrDeviceTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -939,14 +677,7 @@ func decodeHrDeviceTableKey(idx snmp.OID) (HrDeviceTableKey, bool) {
 	return HrDeviceTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
 }
 
-// HrDeviceTableRow is one row of hrDeviceTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrDeviceTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrDeviceTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrDeviceTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrDeviceTableRow struct {
 	Key            HrDeviceTableKey
 	keyValid       bool
@@ -956,201 +687,51 @@ type HrDeviceTableRow struct {
 	HrDeviceID     snmp.OID
 	HrDeviceStatus HrDeviceStatusValue
 	HrDeviceErrors uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrDeviceTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrDeviceTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrDeviceIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrDeviceType.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrDeviceDescr.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrDeviceID.Key():
-		return r.observed[0]&(1<<3) != 0
-	case HrDeviceStatus.Key():
-		return r.observed[0]&(1<<4) != 0
-	case HrDeviceErrors.Key():
-		return r.observed[0]&(1<<5) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrDeviceTableColumns, col)
 }
 
-// HrDeviceTableWalker streams selected columns of hrDeviceTable.
-// The zero value is not usable; construct via HrDeviceTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrDeviceTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrDeviceTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrDeviceTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
-	return func(yield func(snmp.OID, HrDeviceTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrDeviceTableRow
-			row.Key, row.keyValid = decodeHrDeviceTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrDeviceIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDeviceIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrDeviceIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrDeviceIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrDeviceType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrDeviceType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrDeviceType = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case HrDeviceDescr.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrDeviceDescr.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrDeviceDescr = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrDeviceID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrDeviceID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrDeviceID = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case HrDeviceStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDeviceStatus = HrDeviceStatusValue(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrDeviceStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrDeviceStatus = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case HrDeviceErrors.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.HrDeviceErrors = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrDeviceErrors.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrDeviceErrors = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrDeviceTableT struct {
+	snmp.Table[HrDeviceTableRow, *HrDeviceTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrDeviceTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrDeviceTableT is the singleton type of HrDeviceTable.
-type hrDeviceTableT struct{}
 
 // HrDeviceTable is the descriptor for the hrDeviceTable table.
-var HrDeviceTable hrDeviceTableT
+var HrDeviceTable = hrDeviceTableT{Table: snmp.NewTable("hrDeviceTable", hrDeviceTableColumns, func(idx snmp.OID, row *HrDeviceTableRow) {
+	row.Key, row.keyValid = decodeHrDeviceTableKey(idx)
+}, func(row *HrDeviceTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrDeviceIndex, &row.HrDeviceIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrDeviceType, &row.HrDeviceType, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrDeviceDescr, &row.HrDeviceDescr, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrDeviceID, &row.HrDeviceID, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, HrDeviceStatus, &row.HrDeviceStatus, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, HrDeviceErrors, &row.HrDeviceErrors, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrDeviceTableRow]) *HrDeviceTableWalker {
+	return &HrDeviceTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrDeviceTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrDeviceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrDeviceTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrDeviceTableKey",
@@ -1158,42 +739,18 @@ func (hrDeviceTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrDeviceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrDeviceIndex.Key(), HrDeviceType.Key(), HrDeviceDescr.Key(), HrDeviceID.Key(), HrDeviceStatus.Key(), HrDeviceErrors.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrDeviceTable.Walk: column %s", c.OID()))
-			return &HrDeviceTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrDeviceTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrProcessorFrwID is the column hrProcessorFrwID of table hrProcessorTable.
+// HrProcessorFrwID is hrProcessorFrwID.
 // The product ID of the firmware associated with the processor.
-var HrProcessorFrwID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 1), snmp.KindObjectID, snmp.DecodeOID)
+var HrProcessorFrwID = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 1), snmp.KindObjectID, snmp.DecodeOID, 0)
 
-// HrProcessorLoad is the column hrProcessorLoad of table hrProcessorTable.
+// HrProcessorLoad is hrProcessorLoad.
 // The average, over the last minute, of the percentage of time that this
 // processor was not idle. Implementations may approximate this one minute
 // smoothing period if necessary.
-var HrProcessorLoad = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	HrProcessorLoad         = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
+	hrProcessorTableColumns = []snmp.AnyColumn{HrProcessorFrwID, HrProcessorLoad}
+)
 
 // HrProcessorTableKey is the decoded INDEX of one hrProcessorTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1213,144 +770,49 @@ func decodeHrProcessorTableKey(idx snmp.OID) (HrProcessorTableKey, bool) {
 	return HrProcessorTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
 }
 
-// HrProcessorTableRow is one row of hrProcessorTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrProcessorTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrProcessorTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrProcessorTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrProcessorTableRow struct {
 	Key              HrProcessorTableKey
 	keyValid         bool
 	HrProcessorFrwID snmp.OID
 	HrProcessorLoad  int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed         [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrProcessorTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrProcessorTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrProcessorFrwID.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrProcessorLoad.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrProcessorTableColumns, col)
 }
 
-// HrProcessorTableWalker streams selected columns of hrProcessorTable.
-// The zero value is not usable; construct via HrProcessorTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrProcessorTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrProcessorTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrProcessorTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow] {
-	return func(yield func(snmp.OID, HrProcessorTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrProcessorTableRow
-			row.Key, row.keyValid = decodeHrProcessorTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrProcessorFrwID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrProcessorFrwID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrProcessorFrwID = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case HrProcessorLoad.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrProcessorLoad = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrProcessorLoad.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrProcessorLoad = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrProcessorTableT struct {
+	snmp.Table[HrProcessorTableRow, *HrProcessorTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrProcessorTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrProcessorTableT is the singleton type of HrProcessorTable.
-type hrProcessorTableT struct{}
 
 // HrProcessorTable is the descriptor for the hrProcessorTable table.
-var HrProcessorTable hrProcessorTableT
+var HrProcessorTable = hrProcessorTableT{Table: snmp.NewTable("hrProcessorTable", hrProcessorTableColumns, func(idx snmp.OID, row *HrProcessorTableRow) {
+	row.Key, row.keyValid = decodeHrProcessorTableKey(idx)
+}, func(row *HrProcessorTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrProcessorFrwID, &row.HrProcessorFrwID, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrProcessorLoad, &row.HrProcessorLoad, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrProcessorTableRow]) *HrProcessorTableWalker {
+	return &HrProcessorTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrProcessorTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrProcessorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrProcessorTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrProcessorTableKey",
@@ -1358,37 +820,13 @@ func (hrProcessorTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrProcessorTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrProcessorFrwID.Key(), HrProcessorLoad.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrProcessorTable.Walk: column %s", c.OID()))
-			return &HrProcessorTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrProcessorTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrNetworkIfIndex is the column hrNetworkIfIndex of table hrNetworkTable.
+// HrNetworkIfIndex is hrNetworkIfIndex.
 // The value of ifIndex which corresponds to this network device. If this
 // device is not represented in the ifTable, then this value shall be zero.
-var HrNetworkIfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	HrNetworkIfIndex      = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
+	hrNetworkTableColumns = []snmp.AnyColumn{HrNetworkIfIndex}
+)
 
 // HrNetworkTableKey is the decoded INDEX of one hrNetworkTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1408,126 +846,46 @@ func decodeHrNetworkTableKey(idx snmp.OID) (HrNetworkTableKey, bool) {
 	return HrNetworkTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
 }
 
-// HrNetworkTableRow is one row of hrNetworkTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrNetworkTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrNetworkTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrNetworkTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrNetworkTableRow struct {
 	Key              HrNetworkTableKey
 	keyValid         bool
 	HrNetworkIfIndex int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed         [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrNetworkTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrNetworkTableRow) Observed(col snmp.AnyColumn) bool {
-	if col.Key() == HrNetworkIfIndex.Key() {
-		return r.observed[0]&(1<<0) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrNetworkTableColumns, col)
 }
 
-// HrNetworkTableWalker streams selected columns of hrNetworkTable.
-// The zero value is not usable; construct via HrNetworkTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrNetworkTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrNetworkTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrNetworkTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
-	return func(yield func(snmp.OID, HrNetworkTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrNetworkTableRow
-			row.Key, row.keyValid = decodeHrNetworkTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				if tw.cols[cell.Column].Key() == HrNetworkIfIndex.Key() {
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrNetworkIfIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrNetworkIfIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrNetworkIfIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrNetworkTableT struct {
+	snmp.Table[HrNetworkTableRow, *HrNetworkTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrNetworkTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrNetworkTableT is the singleton type of HrNetworkTable.
-type hrNetworkTableT struct{}
 
 // HrNetworkTable is the descriptor for the hrNetworkTable table.
-var HrNetworkTable hrNetworkTableT
+var HrNetworkTable = hrNetworkTableT{Table: snmp.NewTable("hrNetworkTable", hrNetworkTableColumns, func(idx snmp.OID, row *HrNetworkTableRow) {
+	row.Key, row.keyValid = decodeHrNetworkTableKey(idx)
+}, func(row *HrNetworkTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrNetworkIfIndex, &row.HrNetworkIfIndex, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrNetworkTableRow]) *HrNetworkTableWalker {
+	return &HrNetworkTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrNetworkTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrNetworkTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrNetworkTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrNetworkTableKey",
@@ -1535,44 +893,17 @@ func (hrNetworkTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrNetworkTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrNetworkIfIndex.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrNetworkTable.Walk: column %s", c.OID()))
-			return &HrNetworkTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrNetworkTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrPrinterStatus is the column hrPrinterStatus of table hrPrinterTable.
+// HrPrinterStatus is hrPrinterStatus.
 // The current status of this printer device.
-var HrPrinterStatus = snmp.NewColumn[HrPrinterStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (HrPrinterStatusValue, error) {
+var HrPrinterStatus = snmp.NewFusedTableColumn[HrPrinterStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (HrPrinterStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrPrinterStatusValue(0), err
 	}
 	return HrPrinterStatusValue(v), nil
-})
+}, snmp.RawInteger32As[HrPrinterStatusValue], 0)
 
-// HrPrinterDetectedErrorState is the column hrPrinterDetectedErrorState of table hrPrinterTable.
+// HrPrinterDetectedErrorState is hrPrinterDetectedErrorState.
 // This object represents any error conditions detected by the printer. The
 // error conditions are encoded as bits in an octet string, with the
 // following definitions: Condition Bit # lowPaper 0 noPaper 1 lowToner 2
@@ -1586,7 +917,10 @@ var HrPrinterStatus = snmp.NewColumn[HrPrinterStatusValue](snmp.MustOID(1, 3, 6,
 // encodes that the condition was not detected. This object is useful for
 // alerting an operator to specific warning or error conditions that may
 // occur, especially those requiring human intervention.
-var HrPrinterDetectedErrorState = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var (
+	HrPrinterDetectedErrorState = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
+	hrPrinterTableColumns       = []snmp.AnyColumn{HrPrinterStatus, HrPrinterDetectedErrorState}
+)
 
 // HrPrinterTableKey is the decoded INDEX of one hrPrinterTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1606,144 +940,49 @@ func decodeHrPrinterTableKey(idx snmp.OID) (HrPrinterTableKey, bool) {
 	return HrPrinterTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
 }
 
-// HrPrinterTableRow is one row of hrPrinterTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrPrinterTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrPrinterTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrPrinterTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrPrinterTableRow struct {
 	Key                         HrPrinterTableKey
 	keyValid                    bool
 	HrPrinterStatus             HrPrinterStatusValue
 	HrPrinterDetectedErrorState []byte
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrPrinterTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrPrinterTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrPrinterStatus.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrPrinterDetectedErrorState.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrPrinterTableColumns, col)
 }
 
-// HrPrinterTableWalker streams selected columns of hrPrinterTable.
-// The zero value is not usable; construct via HrPrinterTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrPrinterTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrPrinterTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrPrinterTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
-	return func(yield func(snmp.OID, HrPrinterTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrPrinterTableRow
-			row.Key, row.keyValid = decodeHrPrinterTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrPrinterStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPrinterStatus = HrPrinterStatusValue(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrPrinterStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrPrinterStatus = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrPrinterDetectedErrorState.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrPrinterDetectedErrorState.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrPrinterDetectedErrorState = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrPrinterTableT struct {
+	snmp.Table[HrPrinterTableRow, *HrPrinterTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrPrinterTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrPrinterTableT is the singleton type of HrPrinterTable.
-type hrPrinterTableT struct{}
 
 // HrPrinterTable is the descriptor for the hrPrinterTable table.
-var HrPrinterTable hrPrinterTableT
+var HrPrinterTable = hrPrinterTableT{Table: snmp.NewTable("hrPrinterTable", hrPrinterTableColumns, func(idx snmp.OID, row *HrPrinterTableRow) {
+	row.Key, row.keyValid = decodeHrPrinterTableKey(idx)
+}, func(row *HrPrinterTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrPrinterStatus, &row.HrPrinterStatus, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrPrinterDetectedErrorState, &row.HrPrinterDetectedErrorState, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrPrinterTableRow]) *HrPrinterTableWalker {
+	return &HrPrinterTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrPrinterTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrPrinterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrPrinterTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrPrinterTableKey",
@@ -1751,64 +990,40 @@ func (hrPrinterTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrPrinterTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrPrinterStatus.Key(), HrPrinterDetectedErrorState.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrPrinterTable.Walk: column %s", c.OID()))
-			return &HrPrinterTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrPrinterTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrDiskStorageAccess is the column hrDiskStorageAccess of table hrDiskStorageTable.
+// HrDiskStorageAccess is hrDiskStorageAccess.
 // An indication if this long-term storage device is readable and writable
 // or only readable. This should reflect the media type, any write-protect
 // mechanism, and any device configuration that affects the entire device.
-var HrDiskStorageAccess = snmp.NewColumn[HrDiskStorageAccessValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (HrDiskStorageAccessValue, error) {
+var HrDiskStorageAccess = snmp.NewFusedTableColumn[HrDiskStorageAccessValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (HrDiskStorageAccessValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrDiskStorageAccessValue(0), err
 	}
 	return HrDiskStorageAccessValue(v), nil
-})
+}, snmp.RawInteger32As[HrDiskStorageAccessValue], 0)
 
-// HrDiskStorageMedia is the column hrDiskStorageMedia of table hrDiskStorageTable.
+// HrDiskStorageMedia is hrDiskStorageMedia.
 // An indication of the type of media used in this long- term storage
 // device.
-var HrDiskStorageMedia = snmp.NewColumn[HrDiskStorageMediaValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (HrDiskStorageMediaValue, error) {
+var HrDiskStorageMedia = snmp.NewFusedTableColumn[HrDiskStorageMediaValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (HrDiskStorageMediaValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrDiskStorageMediaValue(0), err
 	}
 	return HrDiskStorageMediaValue(v), nil
-})
+}, snmp.RawInteger32As[HrDiskStorageMediaValue], 1)
 
-// HrDiskStorageRemoveble is the column hrDiskStorageRemoveble of table hrDiskStorageTable.
+// HrDiskStorageRemoveble is hrDiskStorageRemoveble.
 // Denotes whether or not the disk media may be removed from the drive.
-var HrDiskStorageRemoveble = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue)
+var HrDiskStorageRemoveble = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 3), snmp.KindInteger32, snmp.DecodeTruthValue, 2)
 
-// HrDiskStorageCapacity is the column hrDiskStorageCapacity of table hrDiskStorageTable.
+// HrDiskStorageCapacity is hrDiskStorageCapacity.
 // The total size for this long-term storage device. If the media is
 // removable and is currently removed, this value should be zero.
-var HrDiskStorageCapacity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	HrDiskStorageCapacity     = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
+	hrDiskStorageTableColumns = []snmp.AnyColumn{HrDiskStorageAccess, HrDiskStorageMedia, HrDiskStorageRemoveble, HrDiskStorageCapacity}
+)
 
 // HrDiskStorageTableKey is the decoded INDEX of one hrDiskStorageTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1828,14 +1043,7 @@ func decodeHrDiskStorageTableKey(idx snmp.OID) (HrDiskStorageTableKey, bool) {
 	return HrDiskStorageTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
 }
 
-// HrDiskStorageTableRow is one row of hrDiskStorageTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrDiskStorageTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrDiskStorageTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrDiskStorageTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrDiskStorageTableRow struct {
 	Key                    HrDiskStorageTableKey
 	keyValid               bool
@@ -1843,171 +1051,47 @@ type HrDiskStorageTableRow struct {
 	HrDiskStorageMedia     HrDiskStorageMediaValue
 	HrDiskStorageRemoveble bool
 	HrDiskStorageCapacity  int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed               [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrDiskStorageTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrDiskStorageTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrDiskStorageAccess.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrDiskStorageMedia.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrDiskStorageRemoveble.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrDiskStorageCapacity.Key():
-		return r.observed[0]&(1<<3) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrDiskStorageTableColumns, col)
 }
 
-// HrDiskStorageTableWalker streams selected columns of hrDiskStorageTable.
-// The zero value is not usable; construct via HrDiskStorageTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrDiskStorageTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrDiskStorageTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrDiskStorageTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTableRow] {
-	return func(yield func(snmp.OID, HrDiskStorageTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrDiskStorageTableRow
-			row.Key, row.keyValid = decodeHrDiskStorageTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrDiskStorageAccess.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDiskStorageAccess = HrDiskStorageAccessValue(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrDiskStorageAccess.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrDiskStorageAccess = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrDiskStorageMedia.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDiskStorageMedia = HrDiskStorageMediaValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrDiskStorageMedia.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrDiskStorageMedia = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case HrDiskStorageRemoveble.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrDiskStorageRemoveble.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrDiskStorageRemoveble = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrDiskStorageCapacity.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrDiskStorageCapacity = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrDiskStorageCapacity.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrDiskStorageCapacity = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrDiskStorageTableT struct {
+	snmp.Table[HrDiskStorageTableRow, *HrDiskStorageTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrDiskStorageTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrDiskStorageTableT is the singleton type of HrDiskStorageTable.
-type hrDiskStorageTableT struct{}
 
 // HrDiskStorageTable is the descriptor for the hrDiskStorageTable table.
-var HrDiskStorageTable hrDiskStorageTableT
+var HrDiskStorageTable = hrDiskStorageTableT{Table: snmp.NewTable("hrDiskStorageTable", hrDiskStorageTableColumns, func(idx snmp.OID, row *HrDiskStorageTableRow) {
+	row.Key, row.keyValid = decodeHrDiskStorageTableKey(idx)
+}, func(row *HrDiskStorageTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrDiskStorageAccess, &row.HrDiskStorageAccess, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrDiskStorageMedia, &row.HrDiskStorageMedia, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrDiskStorageRemoveble, &row.HrDiskStorageRemoveble, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrDiskStorageCapacity, &row.HrDiskStorageCapacity, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrDiskStorageTableRow]) *HrDiskStorageTableWalker {
+	return &HrDiskStorageTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrDiskStorageTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrDiskStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrDiskStorageTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrDiskStorageTableKey",
@@ -2015,60 +1099,36 @@ func (hrDiskStorageTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrDiskStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrDiskStorageAccess.Key(), HrDiskStorageMedia.Key(), HrDiskStorageRemoveble.Key(), HrDiskStorageCapacity.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrDiskStorageTable.Walk: column %s", c.OID()))
-			return &HrDiskStorageTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrDiskStorageTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrPartitionIndex is the column hrPartitionIndex of table hrPartitionTable.
+// HrPartitionIndex is hrPartitionIndex.
 // A unique value for each partition on this long-term storage device. The
 // value for each long-term storage device must remain constant at least
 // from one re- initialization of the agent to the next re- initialization.
-var HrPartitionIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrPartitionIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrPartitionLabel is the column hrPartitionLabel of table hrPartitionTable.
+// HrPartitionLabel is hrPartitionLabel.
 // A textual description of this partition.
-var HrPartitionLabel = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var HrPartitionLabel = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// HrPartitionID is the column hrPartitionID of table hrPartitionTable.
+// HrPartitionID is hrPartitionID.
 // A descriptor which uniquely represents this partition to the responsible
 // operating system. On some systems, this might take on a binary
 // representation.
-var HrPartitionID = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var HrPartitionID = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 2)
 
-// HrPartitionSize is the column hrPartitionSize of table hrPartitionTable.
+// HrPartitionSize is hrPartitionSize.
 // The size of this partition.
-var HrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var HrPartitionSize = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// HrPartitionFSIndex is the column hrPartitionFSIndex of table hrPartitionTable.
+// HrPartitionFSIndex is hrPartitionFSIndex.
 // The index of the file system mounted on this partition. If no file
 // system is mounted on this partition, then this value shall be zero. Note
 // that multiple partitions may point to one file system, denoting that
 // that file system resides on those partitions. Multiple file systems may
 // not reside on one partition.
-var HrPartitionFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	HrPartitionFSIndex      = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
+	hrPartitionTableColumns = []snmp.AnyColumn{HrPartitionIndex, HrPartitionLabel, HrPartitionID, HrPartitionSize, HrPartitionFSIndex}
+)
 
 // HrPartitionTableKey is the decoded INDEX of one hrPartitionTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2089,14 +1149,7 @@ func decodeHrPartitionTableKey(idx snmp.OID) (HrPartitionTableKey, bool) {
 	return HrPartitionTableKey{HrDeviceIndex: int32(parts[0].Integer), HrPartitionIndex: int32(parts[1].Integer)}, true
 }
 
-// HrPartitionTableRow is one row of hrPartitionTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrPartitionTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrPartitionTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrPartitionTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrPartitionTableRow struct {
 	Key                HrPartitionTableKey
 	keyValid           bool
@@ -2105,186 +1158,49 @@ type HrPartitionTableRow struct {
 	HrPartitionID      []byte
 	HrPartitionSize    int32
 	HrPartitionFSIndex int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed           [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrPartitionTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrPartitionIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrPartitionLabel.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrPartitionID.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrPartitionSize.Key():
-		return r.observed[0]&(1<<3) != 0
-	case HrPartitionFSIndex.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrPartitionTableColumns, col)
 }
 
-// HrPartitionTableWalker streams selected columns of hrPartitionTable.
-// The zero value is not usable; construct via HrPartitionTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrPartitionTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrPartitionTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrPartitionTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow] {
-	return func(yield func(snmp.OID, HrPartitionTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrPartitionTableRow
-			row.Key, row.keyValid = decodeHrPartitionTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrPartitionIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPartitionIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrPartitionIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrPartitionIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrPartitionLabel.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrPartitionLabel.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrPartitionLabel = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case HrPartitionID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrPartitionID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrPartitionID = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrPartitionSize.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPartitionSize = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrPartitionSize.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrPartitionSize = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case HrPartitionFSIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrPartitionFSIndex = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrPartitionFSIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrPartitionFSIndex = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrPartitionTableT struct {
+	snmp.Table[HrPartitionTableRow, *HrPartitionTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrPartitionTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrPartitionTableT is the singleton type of HrPartitionTable.
-type hrPartitionTableT struct{}
 
 // HrPartitionTable is the descriptor for the hrPartitionTable table.
-var HrPartitionTable hrPartitionTableT
+var HrPartitionTable = hrPartitionTableT{Table: snmp.NewTable("hrPartitionTable", hrPartitionTableColumns, func(idx snmp.OID, row *HrPartitionTableRow) {
+	row.Key, row.keyValid = decodeHrPartitionTableKey(idx)
+}, func(row *HrPartitionTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrPartitionIndex, &row.HrPartitionIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrPartitionLabel, &row.HrPartitionLabel, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrPartitionID, &row.HrPartitionID, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrPartitionSize, &row.HrPartitionSize, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, HrPartitionFSIndex, &row.HrPartitionFSIndex, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrPartitionTableRow]) *HrPartitionTableWalker {
+	return &HrPartitionTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrPartitionTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrPartitionTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrPartitionTableKey",
@@ -2292,95 +1208,71 @@ func (hrPartitionTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrPartitionIndex.Key(), HrPartitionLabel.Key(), HrPartitionID.Key(), HrPartitionSize.Key(), HrPartitionFSIndex.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrPartitionTable.Walk: column %s", c.OID()))
-			return &HrPartitionTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrPartitionTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrFSIndex is the column hrFSIndex of table hrFSTable.
+// HrFSIndex is hrFSIndex.
 // A unique value for each file system local to this host. The value for
 // each file system must remain constant at least from one
 // re-initialization of the agent to the next re-initialization.
-var HrFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrFSIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrFSMountPoint is the column hrFSMountPoint of table hrFSTable.
+// HrFSMountPoint is hrFSMountPoint.
 // The path name of the root of this file system.
-var HrFSMountPoint = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var HrFSMountPoint = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// HrFSRemoteMountPoint is the column hrFSRemoteMountPoint of table hrFSTable.
+// HrFSRemoteMountPoint is hrFSRemoteMountPoint.
 // A description of the name and/or address of the server that this file
 // system is mounted from. This may also include parameters such as the
 // mount point on the remote file system. If this is not a remote file
 // system, this string should have a length of zero.
-var HrFSRemoteMountPoint = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var HrFSRemoteMountPoint = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 2)
 
-// HrFSType is the column hrFSType of table hrFSTable.
+// HrFSType is hrFSType.
 // The value of this object identifies the type of this file system.
-var HrFSType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 4), snmp.KindObjectID, snmp.DecodeOID)
+var HrFSType = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 4), snmp.KindObjectID, snmp.DecodeOID, 3)
 
-// HrFSAccess is the column hrFSAccess of table hrFSTable.
+// HrFSAccess is hrFSAccess.
 // An indication if this file system is logically configured by the
 // operating system to be readable and writable or only readable. This does
 // not represent any local access-control policy, except one that is
 // applied to the file system as a whole.
-var HrFSAccess = snmp.NewColumn[HrFSAccessValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (HrFSAccessValue, error) {
+var HrFSAccess = snmp.NewFusedTableColumn[HrFSAccessValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (HrFSAccessValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrFSAccessValue(0), err
 	}
 	return HrFSAccessValue(v), nil
-})
+}, snmp.RawInteger32As[HrFSAccessValue], 4)
 
-// HrFSBootable is the column hrFSBootable of table hrFSTable.
+// HrFSBootable is hrFSBootable.
 // A flag indicating whether this file system is bootable.
-var HrFSBootable = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue)
+var HrFSBootable = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 6), snmp.KindInteger32, snmp.DecodeTruthValue, 5)
 
-// HrFSStorageIndex is the column hrFSStorageIndex of table hrFSTable.
+// HrFSStorageIndex is hrFSStorageIndex.
 // The index of the hrStorageEntry that represents information about this
 // file system. If there is no such information available, then this value
 // shall be zero. The relevant storage entry will be useful in tracking the
 // percent usage of this file system and diagnosing errors that may occur
 // when it runs out of space.
-var HrFSStorageIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var HrFSStorageIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// HrFSLastFullBackupDate is the column hrFSLastFullBackupDate of table hrFSTable.
+// HrFSLastFullBackupDate is hrFSLastFullBackupDate.
 // The last date at which this complete file system was copied to another
 // storage device for backup. This information is useful for ensuring that
 // backups are being performed regularly. If this information is not known,
 // then this variable shall have the value corresponding to January 1, year
 // 0000, 00:00:00.0, which is encoded as (hex)'00 00 01 01 00 00 00 00'.
-var HrFSLastFullBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 8), snmp.KindOctetString, snmp.DecodeDateAndTime)
+var HrFSLastFullBackupDate = snmp.NewTableColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 8), snmp.KindOctetString, snmp.DecodeDateAndTime, 7)
 
-// HrFSLastPartialBackupDate is the column hrFSLastPartialBackupDate of table hrFSTable.
+// HrFSLastPartialBackupDate is hrFSLastPartialBackupDate.
 // The last date at which a portion of this file system was copied to
 // another storage device for backup. This information is useful for
 // ensuring that backups are being performed regularly. If this information
 // is not known, then this variable shall have the value corresponding to
 // January 1, year 0000, 00:00:00.0, which is encoded as (hex)'00 00 01 01
 // 00 00 00 00'.
-var HrFSLastPartialBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 9), snmp.KindOctetString, snmp.DecodeDateAndTime)
+var (
+	HrFSLastPartialBackupDate = snmp.NewTableColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8, 1, 9), snmp.KindOctetString, snmp.DecodeDateAndTime, 8)
+	hrFSTableColumns          = []snmp.AnyColumn{HrFSIndex, HrFSMountPoint, HrFSRemoteMountPoint, HrFSType, HrFSAccess, HrFSBootable, HrFSStorageIndex, HrFSLastFullBackupDate, HrFSLastPartialBackupDate}
+)
 
 // HrFSTableKey is the decoded INDEX of one hrFSTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2400,14 +1292,7 @@ func decodeHrFSTableKey(idx snmp.OID) (HrFSTableKey, bool) {
 	return HrFSTableKey{HrFSIndex: int32(parts[0].Integer)}, true
 }
 
-// HrFSTableRow is one row of hrFSTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrFSTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrFSTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrFSTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrFSTableRow struct {
 	Key                       HrFSTableKey
 	keyValid                  bool
@@ -2420,246 +1305,57 @@ type HrFSTableRow struct {
 	HrFSStorageIndex          int32
 	HrFSLastFullBackupDate    time.Time
 	HrFSLastPartialBackupDate time.Time
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                  [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrFSTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrFSTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrFSIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrFSMountPoint.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrFSRemoteMountPoint.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrFSType.Key():
-		return r.observed[0]&(1<<3) != 0
-	case HrFSAccess.Key():
-		return r.observed[0]&(1<<4) != 0
-	case HrFSBootable.Key():
-		return r.observed[0]&(1<<5) != 0
-	case HrFSStorageIndex.Key():
-		return r.observed[0]&(1<<6) != 0
-	case HrFSLastFullBackupDate.Key():
-		return r.observed[0]&(1<<7) != 0
-	case HrFSLastPartialBackupDate.Key():
-		return r.observed[0]&(1<<8) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrFSTableColumns, col)
 }
 
-// HrFSTableWalker streams selected columns of hrFSTable.
-// The zero value is not usable; construct via HrFSTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrFSTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrFSTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrFSTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
-	return func(yield func(snmp.OID, HrFSTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrFSTableRow
-			row.Key, row.keyValid = decodeHrFSTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrFSIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrFSIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrFSIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrFSIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrFSMountPoint.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrFSMountPoint.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrFSMountPoint = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case HrFSRemoteMountPoint.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrFSRemoteMountPoint.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrFSRemoteMountPoint = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrFSType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrFSType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrFSType = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case HrFSAccess.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrFSAccess = HrFSAccessValue(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrFSAccess.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrFSAccess = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case HrFSBootable.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrFSBootable.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrFSBootable = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case HrFSStorageIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrFSStorageIndex = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrFSStorageIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrFSStorageIndex = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case HrFSLastFullBackupDate.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrFSLastFullBackupDate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrFSLastFullBackupDate = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				case HrFSLastPartialBackupDate.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrFSLastPartialBackupDate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrFSLastPartialBackupDate = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrFSTableT struct {
+	snmp.Table[HrFSTableRow, *HrFSTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrFSTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrFSTableT is the singleton type of HrFSTable.
-type hrFSTableT struct{}
 
 // HrFSTable is the descriptor for the hrFSTable table.
-var HrFSTable hrFSTableT
+var HrFSTable = hrFSTableT{Table: snmp.NewTable("hrFSTable", hrFSTableColumns, func(idx snmp.OID, row *HrFSTableRow) {
+	row.Key, row.keyValid = decodeHrFSTableKey(idx)
+}, func(row *HrFSTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrFSIndex, &row.HrFSIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrFSMountPoint, &row.HrFSMountPoint, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrFSRemoteMountPoint, &row.HrFSRemoteMountPoint, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrFSType, &row.HrFSType, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, HrFSAccess, &row.HrFSAccess, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, HrFSBootable, &row.HrFSBootable, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, HrFSStorageIndex, &row.HrFSStorageIndex, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, HrFSLastFullBackupDate, &row.HrFSLastFullBackupDate, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, HrFSLastPartialBackupDate, &row.HrFSLastPartialBackupDate, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrFSTableRow]) *HrFSTableWalker {
+	return &HrFSTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrFSTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrFSTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrFSTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrFSTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrFSTableKey",
@@ -2667,81 +1363,55 @@ func (hrFSTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrFSTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrFSTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrFSIndex.Key(), HrFSMountPoint.Key(), HrFSRemoteMountPoint.Key(), HrFSType.Key(), HrFSAccess.Key(), HrFSBootable.Key(), HrFSStorageIndex.Key(), HrFSLastFullBackupDate.Key(), HrFSLastPartialBackupDate.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrFSTable.Walk: column %s", c.OID()))
-			return &HrFSTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrFSTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrSWRunIndex is the column hrSWRunIndex of table hrSWRunTable.
+// HrSWRunIndex is hrSWRunIndex.
 // A unique value for each piece of software running on the host. Wherever
 // possible, this should be the system's native, unique identification
 // number.
-var HrSWRunIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrSWRunIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrSWRunName is the column hrSWRunName of table hrSWRunTable.
+// HrSWRunName is hrSWRunName.
 // A textual description of this running piece of software, including the
 // manufacturer, revision, and the name by which it is commonly known. If
 // this software was installed locally, this should be the same string as
 // used in the corresponding hrSWInstalledName.
-var HrSWRunName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var HrSWRunName = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// HrSWRunID is the column hrSWRunID of table hrSWRunTable.
+// HrSWRunID is hrSWRunID.
 // The product ID of this running piece of software.
-var HrSWRunID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
+var HrSWRunID = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 3), snmp.KindObjectID, snmp.DecodeOID, 2)
 
-// HrSWRunPath is the column hrSWRunPath of table hrSWRunTable.
+// HrSWRunPath is hrSWRunPath.
 // A description of the location on long-term storage (e.g. a disk drive)
 // from which this software was loaded.
-var HrSWRunPath = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes)
+var HrSWRunPath = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 4), snmp.KindOctetString, snmp.DecodeBytes, 3)
 
-// HrSWRunParameters is the column hrSWRunParameters of table hrSWRunTable.
+// HrSWRunParameters is hrSWRunParameters.
 // A description of the parameters supplied to this software when it was
 // initially loaded.
-var HrSWRunParameters = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBytes)
+var HrSWRunParameters = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 5), snmp.KindOctetString, snmp.DecodeBytes, 4)
 
-// HrSWRunType is the column hrSWRunType of table hrSWRunTable.
+// HrSWRunType is hrSWRunType.
 // The type of this software.
-var HrSWRunType = snmp.NewColumn[HrSWRunTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (HrSWRunTypeValue, error) {
+var HrSWRunType = snmp.NewFusedTableColumn[HrSWRunTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (HrSWRunTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrSWRunTypeValue(0), err
 	}
 	return HrSWRunTypeValue(v), nil
-})
+}, snmp.RawInteger32As[HrSWRunTypeValue], 5)
 
-// HrSWRunStatus is the column hrSWRunStatus of table hrSWRunTable.
+// HrSWRunStatus is hrSWRunStatus.
 // The status of this running piece of software. Setting this value to
 // invalid(4) shall cause this software to stop running and to be unloaded.
 // Sets to other values are not valid.
-var HrSWRunStatus = snmp.NewColumn[HrSWRunStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (HrSWRunStatusValue, error) {
+var HrSWRunStatus = snmp.NewFusedTableColumn[HrSWRunStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (HrSWRunStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrSWRunStatusValue(0), err
 	}
 	return HrSWRunStatusValue(v), nil
-})
+}, snmp.RawInteger32As[HrSWRunStatusValue], 6)
+var hrSWRunTableColumns = []snmp.AnyColumn{HrSWRunIndex, HrSWRunName, HrSWRunID, HrSWRunPath, HrSWRunParameters, HrSWRunType, HrSWRunStatus}
 
 // HrSWRunTableKey is the decoded INDEX of one hrSWRunTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2761,14 +1431,7 @@ func decodeHrSWRunTableKey(idx snmp.OID) (HrSWRunTableKey, bool) {
 	return HrSWRunTableKey{HrSWRunIndex: int32(parts[0].Integer)}, true
 }
 
-// HrSWRunTableRow is one row of hrSWRunTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrSWRunTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrSWRunTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrSWRunTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrSWRunTableRow struct {
 	Key               HrSWRunTableKey
 	keyValid          bool
@@ -2779,216 +1442,53 @@ type HrSWRunTableRow struct {
 	HrSWRunParameters []byte
 	HrSWRunType       HrSWRunTypeValue
 	HrSWRunStatus     HrSWRunStatusValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed          [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrSWRunTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrSWRunTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrSWRunIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrSWRunName.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrSWRunID.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrSWRunPath.Key():
-		return r.observed[0]&(1<<3) != 0
-	case HrSWRunParameters.Key():
-		return r.observed[0]&(1<<4) != 0
-	case HrSWRunType.Key():
-		return r.observed[0]&(1<<5) != 0
-	case HrSWRunStatus.Key():
-		return r.observed[0]&(1<<6) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrSWRunTableColumns, col)
 }
 
-// HrSWRunTableWalker streams selected columns of hrSWRunTable.
-// The zero value is not usable; construct via HrSWRunTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrSWRunTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrSWRunTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrSWRunTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
-	return func(yield func(snmp.OID, HrSWRunTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrSWRunTableRow
-			row.Key, row.keyValid = decodeHrSWRunTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrSWRunIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWRunIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWRunIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrSWRunName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWRunName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWRunName = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case HrSWRunID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWRunID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWRunID = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrSWRunPath.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWRunPath.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWRunPath = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case HrSWRunParameters.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWRunParameters.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWRunParameters = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case HrSWRunType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunType = HrSWRunTypeValue(v)
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWRunType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWRunType = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case HrSWRunStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunStatus = HrSWRunStatusValue(v)
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWRunStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWRunStatus = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrSWRunTableT struct {
+	snmp.Table[HrSWRunTableRow, *HrSWRunTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrSWRunTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrSWRunTableT is the singleton type of HrSWRunTable.
-type hrSWRunTableT struct{}
 
 // HrSWRunTable is the descriptor for the hrSWRunTable table.
-var HrSWRunTable hrSWRunTableT
+var HrSWRunTable = hrSWRunTableT{Table: snmp.NewTable("hrSWRunTable", hrSWRunTableColumns, func(idx snmp.OID, row *HrSWRunTableRow) {
+	row.Key, row.keyValid = decodeHrSWRunTableKey(idx)
+}, func(row *HrSWRunTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrSWRunIndex, &row.HrSWRunIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrSWRunName, &row.HrSWRunName, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrSWRunID, &row.HrSWRunID, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrSWRunPath, &row.HrSWRunPath, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, HrSWRunParameters, &row.HrSWRunParameters, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, HrSWRunType, &row.HrSWRunType, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, HrSWRunStatus, &row.HrSWRunStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrSWRunTableRow]) *HrSWRunTableWalker {
+	return &HrSWRunTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrSWRunTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrSWRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrSWRunTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrSWRunTableKey",
@@ -2996,44 +1496,18 @@ func (hrSWRunTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrSWRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrSWRunIndex.Key(), HrSWRunName.Key(), HrSWRunID.Key(), HrSWRunPath.Key(), HrSWRunParameters.Key(), HrSWRunType.Key(), HrSWRunStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrSWRunTable.Walk: column %s", c.OID()))
-			return &HrSWRunTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrSWRunTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrSWRunPerfCPU is the column hrSWRunPerfCPU of table hrSWRunPerfTable.
+// HrSWRunPerfCPU is hrSWRunPerfCPU.
 // The number of centi-seconds of the total system's CPU resources consumed
 // by this process. Note that on a multi-processor system, this value may
 // increment by more than one centi-second in one centi-second of real
 // (wall clock) time.
-var HrSWRunPerfCPU = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrSWRunPerfCPU = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrSWRunPerfMem is the column hrSWRunPerfMem of table hrSWRunPerfTable.
+// HrSWRunPerfMem is hrSWRunPerfMem.
 // The total amount of real system memory allocated to this process.
 var (
-	HrSWRunPerfMem              = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+	HrSWRunPerfMem              = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
+	hrSWRunPerfTableColumns     = []snmp.AnyColumn{HrSWRunPerfCPU, HrSWRunPerfMem}
 	hrSWRunPerfTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 )
 
@@ -3047,149 +1521,49 @@ func decodeHrSWRunPerfTableKey(idx snmp.OID) (HrSWRunTableKey, bool) {
 	return HrSWRunTableKey{HrSWRunIndex: int32(parts[0].Integer)}, true
 }
 
-// HrSWRunPerfTableRow is one row of hrSWRunPerfTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrSWRunPerfTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrSWRunPerfTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrSWRunPerfTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrSWRunPerfTableRow struct {
 	Key            HrSWRunTableKey
 	keyValid       bool
 	HrSWRunPerfCPU int32
 	HrSWRunPerfMem int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrSWRunPerfTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrSWRunPerfTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrSWRunPerfCPU.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrSWRunPerfMem.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrSWRunPerfTableColumns, col)
 }
 
-// HrSWRunPerfTableWalker streams selected columns of hrSWRunPerfTable.
-// The zero value is not usable; construct via HrSWRunPerfTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrSWRunPerfTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrSWRunPerfTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrSWRunPerfTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow] {
-	return func(yield func(snmp.OID, HrSWRunPerfTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrSWRunPerfTableRow
-			row.Key, row.keyValid = decodeHrSWRunPerfTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrSWRunPerfCPU.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunPerfCPU = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWRunPerfCPU.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWRunPerfCPU = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrSWRunPerfMem.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWRunPerfMem = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWRunPerfMem.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWRunPerfMem = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrSWRunPerfTableT struct {
+	snmp.Table[HrSWRunPerfTableRow, *HrSWRunPerfTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrSWRunPerfTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrSWRunPerfTableT is the singleton type of HrSWRunPerfTable.
-type hrSWRunPerfTableT struct{}
 
 // HrSWRunPerfTable is the descriptor for the hrSWRunPerfTable table.
-var HrSWRunPerfTable hrSWRunPerfTableT
+var HrSWRunPerfTable = hrSWRunPerfTableT{Table: snmp.NewTable("hrSWRunPerfTable", hrSWRunPerfTableColumns, func(idx snmp.OID, row *HrSWRunPerfTableRow) {
+	row.Key, row.keyValid = decodeHrSWRunPerfTableKey(idx)
+}, func(row *HrSWRunPerfTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrSWRunPerfCPU, &row.HrSWRunPerfCPU, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrSWRunPerfMem, &row.HrSWRunPerfMem, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrSWRunPerfTableRow]) *HrSWRunPerfTableWalker {
+	return &HrSWRunPerfTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrSWRunPerfTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrSWRunPerfTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrSWRunPerfTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "HrSWRunTableKey",
@@ -3197,65 +1571,41 @@ func (hrSWRunPerfTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrSWRunPerfTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrSWRunPerfCPU.Key(), HrSWRunPerfMem.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrSWRunPerfTable.Walk: column %s", c.OID()))
-			return &HrSWRunPerfTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrSWRunPerfTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// HrSWInstalledIndex is the column hrSWInstalledIndex of table hrSWInstalledTable.
+// HrSWInstalledIndex is hrSWInstalledIndex.
 // A unique value for each piece of software installed on the host. This
 // value shall be in the range from 1 to the number of pieces of software
 // installed on the host.
-var HrSWInstalledIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var HrSWInstalledIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// HrSWInstalledName is the column hrSWInstalledName of table hrSWInstalledTable.
+// HrSWInstalledName is hrSWInstalledName.
 // A textual description of this installed piece of software, including the
 // manufacturer, revision, the name by which it is commonly known, and
 // optionally, its serial number.
-var HrSWInstalledName = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var HrSWInstalledName = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// HrSWInstalledID is the column hrSWInstalledID of table hrSWInstalledTable.
+// HrSWInstalledID is hrSWInstalledID.
 // The product ID of this installed piece of software.
-var HrSWInstalledID = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
+var HrSWInstalledID = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 3), snmp.KindObjectID, snmp.DecodeOID, 2)
 
-// HrSWInstalledType is the column hrSWInstalledType of table hrSWInstalledTable.
+// HrSWInstalledType is hrSWInstalledType.
 // The type of this software.
-var HrSWInstalledType = snmp.NewColumn[HrSWInstalledTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (HrSWInstalledTypeValue, error) {
+var HrSWInstalledType = snmp.NewFusedTableColumn[HrSWInstalledTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (HrSWInstalledTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return HrSWInstalledTypeValue(0), err
 	}
 	return HrSWInstalledTypeValue(v), nil
-})
+}, snmp.RawInteger32As[HrSWInstalledTypeValue], 3)
 
-// HrSWInstalledDate is the column hrSWInstalledDate of table hrSWInstalledTable.
+// HrSWInstalledDate is hrSWInstalledDate.
 // The last-modification date of this application as it would appear in a
 // directory listing. If this information is not known, then this variable
 // shall have the value corresponding to January 1, year 0000, 00:00:00.0,
 // which is encoded as (hex)'00 00 01 01 00 00 00 00'.
-var HrSWInstalledDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 5), snmp.KindOctetString, snmp.DecodeDateAndTime)
+var (
+	HrSWInstalledDate         = snmp.NewTableColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 5), snmp.KindOctetString, snmp.DecodeDateAndTime, 4)
+	hrSWInstalledTableColumns = []snmp.AnyColumn{HrSWInstalledIndex, HrSWInstalledName, HrSWInstalledID, HrSWInstalledType, HrSWInstalledDate}
+)
 
 // HrSWInstalledTableKey is the decoded INDEX of one hrSWInstalledTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3275,14 +1625,7 @@ func decodeHrSWInstalledTableKey(idx snmp.OID) (HrSWInstalledTableKey, bool) {
 	return HrSWInstalledTableKey{HrSWInstalledIndex: int32(parts[0].Integer)}, true
 }
 
-// HrSWInstalledTableRow is one row of hrSWInstalledTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [HrSWInstalledTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [HrSWInstalledTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// HrSWInstalledTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type HrSWInstalledTableRow struct {
 	Key                HrSWInstalledTableKey
 	keyValid           bool
@@ -3291,213 +1634,54 @@ type HrSWInstalledTableRow struct {
 	HrSWInstalledID    snmp.OID
 	HrSWInstalledType  HrSWInstalledTypeValue
 	HrSWInstalledDate  time.Time
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed           [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r HrSWInstalledTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r HrSWInstalledTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case HrSWInstalledIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case HrSWInstalledName.Key():
-		return r.observed[0]&(1<<1) != 0
-	case HrSWInstalledID.Key():
-		return r.observed[0]&(1<<2) != 0
-	case HrSWInstalledType.Key():
-		return r.observed[0]&(1<<3) != 0
-	case HrSWInstalledDate.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], hrSWInstalledTableColumns, col)
 }
 
-// HrSWInstalledTableWalker streams selected columns of hrSWInstalledTable.
-// The zero value is not usable; construct via HrSWInstalledTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// HrSWInstalledTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type HrSWInstalledTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[HrSWInstalledTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTableRow] {
-	return func(yield func(snmp.OID, HrSWInstalledTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row HrSWInstalledTableRow
-			row.Key, row.keyValid = decodeHrSWInstalledTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case HrSWInstalledIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWInstalledIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWInstalledIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWInstalledIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case HrSWInstalledName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWInstalledName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWInstalledName = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case HrSWInstalledID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWInstalledID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWInstalledID = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case HrSWInstalledType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.HrSWInstalledType = HrSWInstalledTypeValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := HrSWInstalledType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.HrSWInstalledType = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case HrSWInstalledDate.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := HrSWInstalledDate.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.HrSWInstalledDate = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type hrSWInstalledTableT struct {
+	snmp.Table[HrSWInstalledTableRow, *HrSWInstalledTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *HrSWInstalledTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// hrSWInstalledTableT is the singleton type of HrSWInstalledTable.
-type hrSWInstalledTableT struct{}
 
 // HrSWInstalledTable is the descriptor for the hrSWInstalledTable table.
-var HrSWInstalledTable hrSWInstalledTableT
+var HrSWInstalledTable = hrSWInstalledTableT{Table: snmp.NewTable("hrSWInstalledTable", hrSWInstalledTableColumns, func(idx snmp.OID, row *HrSWInstalledTableRow) {
+	row.Key, row.keyValid = decodeHrSWInstalledTableKey(idx)
+}, func(row *HrSWInstalledTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, HrSWInstalledIndex, &row.HrSWInstalledIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, HrSWInstalledName, &row.HrSWInstalledName, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, HrSWInstalledID, &row.HrSWInstalledID, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, HrSWInstalledType, &row.HrSWInstalledType, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, HrSWInstalledDate, &row.HrSWInstalledDate, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[HrSWInstalledTableRow]) *HrSWInstalledTableWalker {
+	return &HrSWInstalledTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *HrSWInstalledTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t hrSWInstalledTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (hrSWInstalledTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		Indicator: HrSWInstalledTableIndicator,
 		KeyType:   "HrSWInstalledTableKey",
 		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (hrSWInstalledTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case HrSWInstalledIndex.Key(), HrSWInstalledName.Key(), HrSWInstalledID.Key(), HrSWInstalledType.Key(), HrSWInstalledDate.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "hrSWInstalledTable.Walk: column %s", c.OID()))
-			return &HrSWInstalledTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &HrSWInstalledTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

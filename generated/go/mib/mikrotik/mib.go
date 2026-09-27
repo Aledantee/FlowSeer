@@ -11,8 +11,6 @@ package mikrotik
 
 import (
 	"context"
-	"fmt"
-	"iter"
 	"net"
 	"time"
 
@@ -23,424 +21,301 @@ import (
 // BoolValue is the SMI enum BoolValue.
 // Boolean value.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type BoolValue int32
 
 const (
-	// BoolValueFalse represents the SMI value false.
+	// BoolValueFalse is false.
 	BoolValueFalse BoolValue = 0
-	// BoolValueTrue represents the SMI value true.
+	// BoolValueTrue is true.
 	BoolValueTrue BoolValue = 1
 )
 
-// String returns the SMI label, or BoolValue(n) for an unrecognized value n.
-func (v BoolValue) String() string {
-	switch v {
-	case BoolValueFalse:
-		return "false"
-	case BoolValueTrue:
-		return "true"
-	}
+var (
+	boolValueValues = []int32{0, 1}
+	boolValueNames  = []string{"false", "true"}
+)
 
-	return fmt.Sprintf("BoolValue(%d)", v)
+// String returns the SMI label, or BoolValue(n) for an unknown value.
+func (v BoolValue) String() string {
+	return snmp.EnumString(int32(v), "BoolValue", boolValueValues, boolValueNames)
 }
 
 // MtxrAlarmSocketStatusValue is the SMI enum mtxrAlarmSocketStatus (inline).
 // Alarm socket status
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrAlarmSocketStatusValue int32
 
 const (
-	// MtxrAlarmSocketStatusValueInactive represents the SMI value inactive.
+	// MtxrAlarmSocketStatusValueInactive is inactive.
 	MtxrAlarmSocketStatusValueInactive MtxrAlarmSocketStatusValue = 0
-	// MtxrAlarmSocketStatusValueActive represents the SMI value active.
+	// MtxrAlarmSocketStatusValueActive is active.
 	MtxrAlarmSocketStatusValueActive MtxrAlarmSocketStatusValue = 1
 )
 
-// String returns the SMI label, or MtxrAlarmSocketStatusValue(n) for an unrecognized value n.
-func (v MtxrAlarmSocketStatusValue) String() string {
-	switch v {
-	case MtxrAlarmSocketStatusValueInactive:
-		return "inactive"
-	case MtxrAlarmSocketStatusValueActive:
-		return "active"
-	}
+var (
+	mtxrAlarmSocketStatusValueValues = []int32{0, 1}
+	mtxrAlarmSocketStatusValueNames  = []string{"inactive", "active"}
+)
 
-	return fmt.Sprintf("MtxrAlarmSocketStatusValue(%d)", v)
+// String returns the SMI label, or MtxrAlarmSocketStatusValue(n) for an unknown value.
+func (v MtxrAlarmSocketStatusValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrAlarmSocketStatusValue", mtxrAlarmSocketStatusValueValues, mtxrAlarmSocketStatusValueNames)
 }
 
 // MtxrGaugeUnitValue is the SMI enum mtxrGaugeUnit (inline).
 // units
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrGaugeUnitValue int32
 
 const (
-	// MtxrGaugeUnitValueCelsius represents the SMI value celsius.
+	// MtxrGaugeUnitValueCelsius is celsius.
 	MtxrGaugeUnitValueCelsius MtxrGaugeUnitValue = 1
-	// MtxrGaugeUnitValueRpm represents the SMI value rpm.
+	// MtxrGaugeUnitValueRpm is rpm.
 	MtxrGaugeUnitValueRpm MtxrGaugeUnitValue = 2
-	// MtxrGaugeUnitValueDV represents the SMI value dV.
+	// MtxrGaugeUnitValueDV is dV.
 	MtxrGaugeUnitValueDV MtxrGaugeUnitValue = 3
-	// MtxrGaugeUnitValueDA represents the SMI value dA.
+	// MtxrGaugeUnitValueDA is dA.
 	MtxrGaugeUnitValueDA MtxrGaugeUnitValue = 4
-	// MtxrGaugeUnitValueDW represents the SMI value dW.
+	// MtxrGaugeUnitValueDW is dW.
 	MtxrGaugeUnitValueDW MtxrGaugeUnitValue = 5
-	// MtxrGaugeUnitValueStatus represents the SMI value status.
+	// MtxrGaugeUnitValueStatus is status.
 	MtxrGaugeUnitValueStatus MtxrGaugeUnitValue = 6
 )
 
-// String returns the SMI label, or MtxrGaugeUnitValue(n) for an unrecognized value n.
-func (v MtxrGaugeUnitValue) String() string {
-	switch v {
-	case MtxrGaugeUnitValueCelsius:
-		return "celsius"
-	case MtxrGaugeUnitValueRpm:
-		return "rpm"
-	case MtxrGaugeUnitValueDV:
-		return "dV"
-	case MtxrGaugeUnitValueDA:
-		return "dA"
-	case MtxrGaugeUnitValueDW:
-		return "dW"
-	case MtxrGaugeUnitValueStatus:
-		return "status"
-	}
+var (
+	mtxrGaugeUnitValueValues = []int32{1, 2, 3, 4, 5, 6}
+	mtxrGaugeUnitValueNames  = []string{"celsius", "rpm", "dV", "dA", "dW", "status"}
+)
 
-	return fmt.Sprintf("MtxrGaugeUnitValue(%d)", v)
+// String returns the SMI label, or MtxrGaugeUnitValue(n) for an unknown value.
+func (v MtxrGaugeUnitValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrGaugeUnitValue", mtxrGaugeUnitValueValues, mtxrGaugeUnitValueNames)
 }
 
 // MtxrIkeSAStateValue is the SMI enum mtxrIkeSAState (inline).
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrIkeSAStateValue int32
 
 const (
-	// MtxrIkeSAStateValueExchange represents the SMI value exchange.
+	// MtxrIkeSAStateValueExchange is exchange.
 	MtxrIkeSAStateValueExchange MtxrIkeSAStateValue = 1
-	// MtxrIkeSAStateValueEstablished represents the SMI value established.
+	// MtxrIkeSAStateValueEstablished is established.
 	MtxrIkeSAStateValueEstablished MtxrIkeSAStateValue = 2
-	// MtxrIkeSAStateValueExpired represents the SMI value expired.
+	// MtxrIkeSAStateValueExpired is expired.
 	MtxrIkeSAStateValueExpired MtxrIkeSAStateValue = 3
-	// MtxrIkeSAStateValueEap represents the SMI value eap.
+	// MtxrIkeSAStateValueEap is eap.
 	MtxrIkeSAStateValueEap MtxrIkeSAStateValue = 4
 )
 
-// String returns the SMI label, or MtxrIkeSAStateValue(n) for an unrecognized value n.
-func (v MtxrIkeSAStateValue) String() string {
-	switch v {
-	case MtxrIkeSAStateValueExchange:
-		return "exchange"
-	case MtxrIkeSAStateValueEstablished:
-		return "established"
-	case MtxrIkeSAStateValueExpired:
-		return "expired"
-	case MtxrIkeSAStateValueEap:
-		return "eap"
-	}
+var (
+	mtxrIkeSAStateValueValues = []int32{1, 2, 3, 4}
+	mtxrIkeSAStateValueNames  = []string{"exchange", "established", "expired", "eap"}
+)
 
-	return fmt.Sprintf("MtxrIkeSAStateValue(%d)", v)
+// String returns the SMI label, or MtxrIkeSAStateValue(n) for an unknown value.
+func (v MtxrIkeSAStateValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrIkeSAStateValue", mtxrIkeSAStateValueValues, mtxrIkeSAStateValueNames)
 }
 
 // MtxrLTEModemAccessTechnologyValue is the SMI enum mtxrLTEModemAccessTechnology (inline).
 // as reported by +CREG
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrLTEModemAccessTechnologyValue int32
 
 const (
-	// MtxrLTEModemAccessTechnologyValueUnknown represents the SMI value unknown.
+	// MtxrLTEModemAccessTechnologyValueUnknown is unknown.
 	MtxrLTEModemAccessTechnologyValueUnknown MtxrLTEModemAccessTechnologyValue = -1
-	// MtxrLTEModemAccessTechnologyValueGsmcompact represents the SMI value gsmcompact.
+	// MtxrLTEModemAccessTechnologyValueGsmcompact is gsmcompact.
 	MtxrLTEModemAccessTechnologyValueGsmcompact MtxrLTEModemAccessTechnologyValue = 0
-	// MtxrLTEModemAccessTechnologyValueGsm represents the SMI value gsm.
+	// MtxrLTEModemAccessTechnologyValueGsm is gsm.
 	MtxrLTEModemAccessTechnologyValueGsm MtxrLTEModemAccessTechnologyValue = 1
-	// MtxrLTEModemAccessTechnologyValueUtran represents the SMI value utran.
+	// MtxrLTEModemAccessTechnologyValueUtran is utran.
 	MtxrLTEModemAccessTechnologyValueUtran MtxrLTEModemAccessTechnologyValue = 2
-	// MtxrLTEModemAccessTechnologyValueEgprs represents the SMI value egprs.
+	// MtxrLTEModemAccessTechnologyValueEgprs is egprs.
 	MtxrLTEModemAccessTechnologyValueEgprs MtxrLTEModemAccessTechnologyValue = 3
-	// MtxrLTEModemAccessTechnologyValueHsdpa represents the SMI value hsdpa.
+	// MtxrLTEModemAccessTechnologyValueHsdpa is hsdpa.
 	MtxrLTEModemAccessTechnologyValueHsdpa MtxrLTEModemAccessTechnologyValue = 4
-	// MtxrLTEModemAccessTechnologyValueHsupa represents the SMI value hsupa.
+	// MtxrLTEModemAccessTechnologyValueHsupa is hsupa.
 	MtxrLTEModemAccessTechnologyValueHsupa MtxrLTEModemAccessTechnologyValue = 5
-	// MtxrLTEModemAccessTechnologyValueHsdpahsupa represents the SMI value hsdpahsupa.
+	// MtxrLTEModemAccessTechnologyValueHsdpahsupa is hsdpahsupa.
 	MtxrLTEModemAccessTechnologyValueHsdpahsupa MtxrLTEModemAccessTechnologyValue = 6
-	// MtxrLTEModemAccessTechnologyValueEutran represents the SMI value eutran.
+	// MtxrLTEModemAccessTechnologyValueEutran is eutran.
 	MtxrLTEModemAccessTechnologyValueEutran MtxrLTEModemAccessTechnologyValue = 7
-	// MtxrLTEModemAccessTechnologyValueNrSa represents the SMI value nr-sa.
+	// MtxrLTEModemAccessTechnologyValueNrSa is nr-sa.
 	MtxrLTEModemAccessTechnologyValueNrSa MtxrLTEModemAccessTechnologyValue = 11
-	// MtxrLTEModemAccessTechnologyValueNrNsa represents the SMI value nr-nsa.
+	// MtxrLTEModemAccessTechnologyValueNrNsa is nr-nsa.
 	MtxrLTEModemAccessTechnologyValueNrNsa MtxrLTEModemAccessTechnologyValue = 13
 )
 
-// String returns the SMI label, or MtxrLTEModemAccessTechnologyValue(n) for an unrecognized value n.
-func (v MtxrLTEModemAccessTechnologyValue) String() string {
-	switch v {
-	case MtxrLTEModemAccessTechnologyValueUnknown:
-		return "unknown"
-	case MtxrLTEModemAccessTechnologyValueGsmcompact:
-		return "gsmcompact"
-	case MtxrLTEModemAccessTechnologyValueGsm:
-		return "gsm"
-	case MtxrLTEModemAccessTechnologyValueUtran:
-		return "utran"
-	case MtxrLTEModemAccessTechnologyValueEgprs:
-		return "egprs"
-	case MtxrLTEModemAccessTechnologyValueHsdpa:
-		return "hsdpa"
-	case MtxrLTEModemAccessTechnologyValueHsupa:
-		return "hsupa"
-	case MtxrLTEModemAccessTechnologyValueHsdpahsupa:
-		return "hsdpahsupa"
-	case MtxrLTEModemAccessTechnologyValueEutran:
-		return "eutran"
-	case MtxrLTEModemAccessTechnologyValueNrSa:
-		return "nr-sa"
-	case MtxrLTEModemAccessTechnologyValueNrNsa:
-		return "nr-nsa"
-	}
+var (
+	mtxrLTEModemAccessTechnologyValueValues = []int32{-1, 0, 1, 2, 3, 4, 5, 6, 7, 11, 13}
+	mtxrLTEModemAccessTechnologyValueNames  = []string{"unknown", "gsmcompact", "gsm", "utran", "egprs", "hsdpa", "hsupa", "hsdpahsupa", "eutran", "nr-sa", "nr-nsa"}
+)
 
-	return fmt.Sprintf("MtxrLTEModemAccessTechnologyValue(%d)", v)
+// String returns the SMI label, or MtxrLTEModemAccessTechnologyValue(n) for an unknown value.
+func (v MtxrLTEModemAccessTechnologyValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrLTEModemAccessTechnologyValue", mtxrLTEModemAccessTechnologyValueValues, mtxrLTEModemAccessTechnologyValueNames)
 }
 
 // MtxrOpticalConnectorTypeValue is the SMI enum mtxrOpticalConnectorType (inline).
 // Transceiver connector type, SFF-8024 connector value
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrOpticalConnectorTypeValue int32
 
 const (
-	// MtxrOpticalConnectorTypeValueUnknown represents the SMI value unknown.
+	// MtxrOpticalConnectorTypeValueUnknown is unknown.
 	MtxrOpticalConnectorTypeValueUnknown MtxrOpticalConnectorTypeValue = 0
-	// MtxrOpticalConnectorTypeValueSc represents the SMI value sc.
+	// MtxrOpticalConnectorTypeValueSc is sc.
 	MtxrOpticalConnectorTypeValueSc MtxrOpticalConnectorTypeValue = 1
-	// MtxrOpticalConnectorTypeValueLc represents the SMI value lc.
+	// MtxrOpticalConnectorTypeValueLc is lc.
 	MtxrOpticalConnectorTypeValueLc MtxrOpticalConnectorTypeValue = 7
-	// MtxrOpticalConnectorTypeValueOpticalPigtail represents the SMI value opticalPigtail.
+	// MtxrOpticalConnectorTypeValueOpticalPigtail is opticalPigtail.
 	MtxrOpticalConnectorTypeValueOpticalPigtail MtxrOpticalConnectorTypeValue = 11
-	// MtxrOpticalConnectorTypeValueMpo1x12 represents the SMI value mpo1x12.
+	// MtxrOpticalConnectorTypeValueMpo1x12 is mpo1x12.
 	MtxrOpticalConnectorTypeValueMpo1x12 MtxrOpticalConnectorTypeValue = 12
-	// MtxrOpticalConnectorTypeValueMpo2x16 represents the SMI value mpo2x16.
+	// MtxrOpticalConnectorTypeValueMpo2x16 is mpo2x16.
 	MtxrOpticalConnectorTypeValueMpo2x16 MtxrOpticalConnectorTypeValue = 13
-	// MtxrOpticalConnectorTypeValueHssdc2 represents the SMI value hssdc2.
+	// MtxrOpticalConnectorTypeValueHssdc2 is hssdc2.
 	MtxrOpticalConnectorTypeValueHssdc2 MtxrOpticalConnectorTypeValue = 32
-	// MtxrOpticalConnectorTypeValueCopperPigtail represents the SMI value copperPigtail.
+	// MtxrOpticalConnectorTypeValueCopperPigtail is copperPigtail.
 	MtxrOpticalConnectorTypeValueCopperPigtail MtxrOpticalConnectorTypeValue = 33
-	// MtxrOpticalConnectorTypeValueRj45 represents the SMI value rj45.
+	// MtxrOpticalConnectorTypeValueRj45 is rj45.
 	MtxrOpticalConnectorTypeValueRj45 MtxrOpticalConnectorTypeValue = 34
-	// MtxrOpticalConnectorTypeValueNoSeparableConnector represents the SMI value noSeparableConnector.
+	// MtxrOpticalConnectorTypeValueNoSeparableConnector is noSeparableConnector.
 	MtxrOpticalConnectorTypeValueNoSeparableConnector MtxrOpticalConnectorTypeValue = 35
-	// MtxrOpticalConnectorTypeValueMpo2x12 represents the SMI value mpo2x12.
+	// MtxrOpticalConnectorTypeValueMpo2x12 is mpo2x12.
 	MtxrOpticalConnectorTypeValueMpo2x12 MtxrOpticalConnectorTypeValue = 39
-	// MtxrOpticalConnectorTypeValueMpo1x16 represents the SMI value mpo1x16.
+	// MtxrOpticalConnectorTypeValueMpo1x16 is mpo1x16.
 	MtxrOpticalConnectorTypeValueMpo1x16 MtxrOpticalConnectorTypeValue = 40
 )
 
-// String returns the SMI label, or MtxrOpticalConnectorTypeValue(n) for an unrecognized value n.
-func (v MtxrOpticalConnectorTypeValue) String() string {
-	switch v {
-	case MtxrOpticalConnectorTypeValueUnknown:
-		return "unknown"
-	case MtxrOpticalConnectorTypeValueSc:
-		return "sc"
-	case MtxrOpticalConnectorTypeValueLc:
-		return "lc"
-	case MtxrOpticalConnectorTypeValueOpticalPigtail:
-		return "opticalPigtail"
-	case MtxrOpticalConnectorTypeValueMpo1x12:
-		return "mpo1x12"
-	case MtxrOpticalConnectorTypeValueMpo2x16:
-		return "mpo2x16"
-	case MtxrOpticalConnectorTypeValueHssdc2:
-		return "hssdc2"
-	case MtxrOpticalConnectorTypeValueCopperPigtail:
-		return "copperPigtail"
-	case MtxrOpticalConnectorTypeValueRj45:
-		return "rj45"
-	case MtxrOpticalConnectorTypeValueNoSeparableConnector:
-		return "noSeparableConnector"
-	case MtxrOpticalConnectorTypeValueMpo2x12:
-		return "mpo2x12"
-	case MtxrOpticalConnectorTypeValueMpo1x16:
-		return "mpo1x16"
-	}
+var (
+	mtxrOpticalConnectorTypeValueValues = []int32{0, 1, 7, 11, 12, 13, 32, 33, 34, 35, 39, 40}
+	mtxrOpticalConnectorTypeValueNames  = []string{"unknown", "sc", "lc", "opticalPigtail", "mpo1x12", "mpo2x16", "hssdc2", "copperPigtail", "rj45", "noSeparableConnector", "mpo2x12", "mpo1x16"}
+)
 
-	return fmt.Sprintf("MtxrOpticalConnectorTypeValue(%d)", v)
+// String returns the SMI label, or MtxrOpticalConnectorTypeValue(n) for an unknown value.
+func (v MtxrOpticalConnectorTypeValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrOpticalConnectorTypeValue", mtxrOpticalConnectorTypeValueValues, mtxrOpticalConnectorTypeValueNames)
 }
 
 // MtxrOpticalTypeValue is the SMI enum mtxrOpticalType (inline).
 // Transceiver module type, SFF-8024 identifier value
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrOpticalTypeValue int32
 
 const (
-	// MtxrOpticalTypeValueUnknown represents the SMI value unknown.
+	// MtxrOpticalTypeValueUnknown is unknown.
 	MtxrOpticalTypeValueUnknown MtxrOpticalTypeValue = 0
-	// MtxrOpticalTypeValueGbic represents the SMI value gbic.
+	// MtxrOpticalTypeValueGbic is gbic.
 	MtxrOpticalTypeValueGbic MtxrOpticalTypeValue = 1
-	// MtxrOpticalTypeValueSoldered represents the SMI value soldered.
+	// MtxrOpticalTypeValueSoldered is soldered.
 	MtxrOpticalTypeValueSoldered MtxrOpticalTypeValue = 2
-	// MtxrOpticalTypeValueSfp represents the SMI value sfp.
+	// MtxrOpticalTypeValueSfp is sfp.
 	MtxrOpticalTypeValueSfp MtxrOpticalTypeValue = 3
-	// MtxrOpticalTypeValueDwdmSfp represents the SMI value dwdmSfp.
+	// MtxrOpticalTypeValueDwdmSfp is dwdmSfp.
 	MtxrOpticalTypeValueDwdmSfp MtxrOpticalTypeValue = 11
-	// MtxrOpticalTypeValueQsfp represents the SMI value qsfp.
+	// MtxrOpticalTypeValueQsfp is qsfp.
 	MtxrOpticalTypeValueQsfp MtxrOpticalTypeValue = 12
-	// MtxrOpticalTypeValueQsfpPlus represents the SMI value qsfpPlus.
+	// MtxrOpticalTypeValueQsfpPlus is qsfpPlus.
 	MtxrOpticalTypeValueQsfpPlus MtxrOpticalTypeValue = 13
-	// MtxrOpticalTypeValueQsfp28 represents the SMI value qsfp28.
+	// MtxrOpticalTypeValueQsfp28 is qsfp28.
 	MtxrOpticalTypeValueQsfp28 MtxrOpticalTypeValue = 17
-	// MtxrOpticalTypeValueQsfpDD represents the SMI value qsfpDD.
+	// MtxrOpticalTypeValueQsfpDD is qsfpDD.
 	MtxrOpticalTypeValueQsfpDD MtxrOpticalTypeValue = 24
-	// MtxrOpticalTypeValueQsfpCmis represents the SMI value qsfpCmis.
+	// MtxrOpticalTypeValueQsfpCmis is qsfpCmis.
 	MtxrOpticalTypeValueQsfpCmis MtxrOpticalTypeValue = 30
 )
 
-// String returns the SMI label, or MtxrOpticalTypeValue(n) for an unrecognized value n.
-func (v MtxrOpticalTypeValue) String() string {
-	switch v {
-	case MtxrOpticalTypeValueUnknown:
-		return "unknown"
-	case MtxrOpticalTypeValueGbic:
-		return "gbic"
-	case MtxrOpticalTypeValueSoldered:
-		return "soldered"
-	case MtxrOpticalTypeValueSfp:
-		return "sfp"
-	case MtxrOpticalTypeValueDwdmSfp:
-		return "dwdmSfp"
-	case MtxrOpticalTypeValueQsfp:
-		return "qsfp"
-	case MtxrOpticalTypeValueQsfpPlus:
-		return "qsfpPlus"
-	case MtxrOpticalTypeValueQsfp28:
-		return "qsfp28"
-	case MtxrOpticalTypeValueQsfpDD:
-		return "qsfpDD"
-	case MtxrOpticalTypeValueQsfpCmis:
-		return "qsfpCmis"
-	}
+var (
+	mtxrOpticalTypeValueValues = []int32{0, 1, 2, 3, 11, 12, 13, 17, 24, 30}
+	mtxrOpticalTypeValueNames  = []string{"unknown", "gbic", "soldered", "sfp", "dwdmSfp", "qsfp", "qsfpPlus", "qsfp28", "qsfpDD", "qsfpCmis"}
+)
 
-	return fmt.Sprintf("MtxrOpticalTypeValue(%d)", v)
+// String returns the SMI label, or MtxrOpticalTypeValue(n) for an unknown value.
+func (v MtxrOpticalTypeValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrOpticalTypeValue", mtxrOpticalTypeValueValues, mtxrOpticalTypeValueNames)
 }
 
 // MtxrPOEStatusValue is the SMI enum mtxrPOEStatus (inline).
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrPOEStatusValue int32
 
 const (
-	// MtxrPOEStatusValueDisabled represents the SMI value disabled.
+	// MtxrPOEStatusValueDisabled is disabled.
 	MtxrPOEStatusValueDisabled MtxrPOEStatusValue = 1
-	// MtxrPOEStatusValueWaitingForLoad represents the SMI value waitingForLoad.
+	// MtxrPOEStatusValueWaitingForLoad is waitingForLoad.
 	MtxrPOEStatusValueWaitingForLoad MtxrPOEStatusValue = 2
-	// MtxrPOEStatusValuePoweredOn represents the SMI value poweredOn.
+	// MtxrPOEStatusValuePoweredOn is poweredOn.
 	MtxrPOEStatusValuePoweredOn MtxrPOEStatusValue = 3
-	// MtxrPOEStatusValueOverload represents the SMI value overload.
+	// MtxrPOEStatusValueOverload is overload.
 	MtxrPOEStatusValueOverload MtxrPOEStatusValue = 4
-	// MtxrPOEStatusValueShortCircuit represents the SMI value shortCircuit.
+	// MtxrPOEStatusValueShortCircuit is shortCircuit.
 	MtxrPOEStatusValueShortCircuit MtxrPOEStatusValue = 5
-	// MtxrPOEStatusValueVoltageTooLow represents the SMI value voltageTooLow.
+	// MtxrPOEStatusValueVoltageTooLow is voltageTooLow.
 	MtxrPOEStatusValueVoltageTooLow MtxrPOEStatusValue = 6
-	// MtxrPOEStatusValueCurrentTooLow represents the SMI value currentTooLow.
+	// MtxrPOEStatusValueCurrentTooLow is currentTooLow.
 	MtxrPOEStatusValueCurrentTooLow MtxrPOEStatusValue = 7
-	// MtxrPOEStatusValuePowerReset represents the SMI value powerReset.
+	// MtxrPOEStatusValuePowerReset is powerReset.
 	MtxrPOEStatusValuePowerReset MtxrPOEStatusValue = 8
-	// MtxrPOEStatusValueVoltageTooHigh represents the SMI value voltageTooHigh.
+	// MtxrPOEStatusValueVoltageTooHigh is voltageTooHigh.
 	MtxrPOEStatusValueVoltageTooHigh MtxrPOEStatusValue = 9
-	// MtxrPOEStatusValueControllerError represents the SMI value controllerError.
+	// MtxrPOEStatusValueControllerError is controllerError.
 	MtxrPOEStatusValueControllerError MtxrPOEStatusValue = 10
-	// MtxrPOEStatusValueControllerUpgrade represents the SMI value controllerUpgrade.
+	// MtxrPOEStatusValueControllerUpgrade is controllerUpgrade.
 	MtxrPOEStatusValueControllerUpgrade MtxrPOEStatusValue = 11
-	// MtxrPOEStatusValuePoeInDetected represents the SMI value poeInDetected.
+	// MtxrPOEStatusValuePoeInDetected is poeInDetected.
 	MtxrPOEStatusValuePoeInDetected MtxrPOEStatusValue = 12
-	// MtxrPOEStatusValueNoValidPsu represents the SMI value noValidPsu.
+	// MtxrPOEStatusValueNoValidPsu is noValidPsu.
 	MtxrPOEStatusValueNoValidPsu MtxrPOEStatusValue = 13
-	// MtxrPOEStatusValueControllerInit represents the SMI value controllerInit.
+	// MtxrPOEStatusValueControllerInit is controllerInit.
 	MtxrPOEStatusValueControllerInit MtxrPOEStatusValue = 14
-	// MtxrPOEStatusValueLowVoltageTooLow represents the SMI value lowVoltageTooLow.
+	// MtxrPOEStatusValueLowVoltageTooLow is lowVoltageTooLow.
 	MtxrPOEStatusValueLowVoltageTooLow MtxrPOEStatusValue = 15
 )
 
-// String returns the SMI label, or MtxrPOEStatusValue(n) for an unrecognized value n.
-func (v MtxrPOEStatusValue) String() string {
-	switch v {
-	case MtxrPOEStatusValueDisabled:
-		return "disabled"
-	case MtxrPOEStatusValueWaitingForLoad:
-		return "waitingForLoad"
-	case MtxrPOEStatusValuePoweredOn:
-		return "poweredOn"
-	case MtxrPOEStatusValueOverload:
-		return "overload"
-	case MtxrPOEStatusValueShortCircuit:
-		return "shortCircuit"
-	case MtxrPOEStatusValueVoltageTooLow:
-		return "voltageTooLow"
-	case MtxrPOEStatusValueCurrentTooLow:
-		return "currentTooLow"
-	case MtxrPOEStatusValuePowerReset:
-		return "powerReset"
-	case MtxrPOEStatusValueVoltageTooHigh:
-		return "voltageTooHigh"
-	case MtxrPOEStatusValueControllerError:
-		return "controllerError"
-	case MtxrPOEStatusValueControllerUpgrade:
-		return "controllerUpgrade"
-	case MtxrPOEStatusValuePoeInDetected:
-		return "poeInDetected"
-	case MtxrPOEStatusValueNoValidPsu:
-		return "noValidPsu"
-	case MtxrPOEStatusValueControllerInit:
-		return "controllerInit"
-	case MtxrPOEStatusValueLowVoltageTooLow:
-		return "lowVoltageTooLow"
-	}
+var (
+	mtxrPOEStatusValueValues = []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	mtxrPOEStatusValueNames  = []string{"disabled", "waitingForLoad", "poweredOn", "overload", "shortCircuit", "voltageTooLow", "currentTooLow", "powerReset", "voltageTooHigh", "controllerError", "controllerUpgrade", "poeInDetected", "noValidPsu", "controllerInit", "lowVoltageTooLow"}
+)
 
-	return fmt.Sprintf("MtxrPOEStatusValue(%d)", v)
+// String returns the SMI label, or MtxrPOEStatusValue(n) for an unknown value.
+func (v MtxrPOEStatusValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrPOEStatusValue", mtxrPOEStatusValueValues, mtxrPOEStatusValueNames)
 }
 
 // MtxrWl60GModeValue is the SMI enum mtxrWl60GMode (inline).
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type MtxrWl60GModeValue int32
 
 const (
-	// MtxrWl60GModeValueApBridge represents the SMI value apBridge.
+	// MtxrWl60GModeValueApBridge is apBridge.
 	MtxrWl60GModeValueApBridge MtxrWl60GModeValue = 0
-	// MtxrWl60GModeValueStationBridge represents the SMI value stationBridge.
+	// MtxrWl60GModeValueStationBridge is stationBridge.
 	MtxrWl60GModeValueStationBridge MtxrWl60GModeValue = 1
-	// MtxrWl60GModeValueSniff represents the SMI value sniff.
+	// MtxrWl60GModeValueSniff is sniff.
 	MtxrWl60GModeValueSniff MtxrWl60GModeValue = 2
-	// MtxrWl60GModeValueBridge represents the SMI value bridge.
+	// MtxrWl60GModeValueBridge is bridge.
 	MtxrWl60GModeValueBridge MtxrWl60GModeValue = 3
 )
 
-// String returns the SMI label, or MtxrWl60GModeValue(n) for an unrecognized value n.
-func (v MtxrWl60GModeValue) String() string {
-	switch v {
-	case MtxrWl60GModeValueApBridge:
-		return "apBridge"
-	case MtxrWl60GModeValueStationBridge:
-		return "stationBridge"
-	case MtxrWl60GModeValueSniff:
-		return "sniff"
-	case MtxrWl60GModeValueBridge:
-		return "bridge"
-	}
+var (
+	mtxrWl60GModeValueValues = []int32{0, 1, 2, 3}
+	mtxrWl60GModeValueNames  = []string{"apBridge", "stationBridge", "sniff", "bridge"}
+)
 
-	return fmt.Sprintf("MtxrWl60GModeValue(%d)", v)
+// String returns the SMI label, or MtxrWl60GModeValue(n) for an unknown value.
+func (v MtxrWl60GModeValue) String() string {
+	return snmp.EnumString(int32(v), "MtxrWl60GModeValue", mtxrWl60GModeValueValues, mtxrWl60GModeValueNames)
 }
 
 // ObjectIndex is the textual convention ObjectIndex. A value identifies one row of
@@ -2009,36 +1884,39 @@ func MtxrCtIP6EntriesGet(ctx context.Context, sess snmp.Session) (uint32, error)
 	return snmp.DecodeUint32(vbs[0])
 }
 
-// MtxrWlStatTxRate is the column mtxrWlStatTxRate of table mtxrWlStatTable.
+// MtxrWlStatTxRate is mtxrWlStatTxRate.
 // bits per second
-var MtxrWlStatTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlStatTxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 0)
 
-// MtxrWlStatRxRate is the column mtxrWlStatRxRate of table mtxrWlStatTable.
+// MtxrWlStatRxRate is mtxrWlStatRxRate.
 // bits per second
-var MtxrWlStatRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 3), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlStatRxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 3), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 1)
 
-// MtxrWlStatStrength is the column mtxrWlStatStrength of table mtxrWlStatTable.
+// MtxrWlStatStrength is mtxrWlStatStrength.
 // dBm
-var MtxrWlStatStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWlStatStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// MtxrWlStatSsid is the column mtxrWlStatSsid of table mtxrWlStatTable.
-var MtxrWlStatSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlStatSsid is mtxrWlStatSsid.
+var MtxrWlStatSsid = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString, 3)
 
-// MtxrWlStatBssid is the column mtxrWlStatBssid of table mtxrWlStatTable.
-var MtxrWlStatBssid = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrWlStatBssid is mtxrWlStatBssid.
+var MtxrWlStatBssid = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress, 4)
 
-// MtxrWlStatFreq is the column mtxrWlStatFreq of table mtxrWlStatTable.
+// MtxrWlStatFreq is mtxrWlStatFreq.
 // megahertz
-var MtxrWlStatFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWlStatFreq = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// MtxrWlStatBand is the column mtxrWlStatBand of table mtxrWlStatTable.
-var MtxrWlStatBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlStatBand is mtxrWlStatBand.
+var MtxrWlStatBand = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString, 6)
 
-// MtxrWlStatTxCCQ is the column mtxrWlStatTxCCQ of table mtxrWlStatTable.
-var MtxrWlStatTxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlStatTxCCQ is mtxrWlStatTxCCQ.
+var MtxrWlStatTxCCQ = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 7)
 
-// MtxrWlStatRxCCQ is the column mtxrWlStatRxCCQ of table mtxrWlStatTable.
-var MtxrWlStatRxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlStatRxCCQ is mtxrWlStatRxCCQ.
+var (
+	MtxrWlStatRxCCQ        = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 8)
+	mtxrWlStatTableColumns = []snmp.AnyColumn{MtxrWlStatTxRate, MtxrWlStatRxRate, MtxrWlStatStrength, MtxrWlStatSsid, MtxrWlStatBssid, MtxrWlStatFreq, MtxrWlStatBand, MtxrWlStatTxCCQ, MtxrWlStatRxCCQ}
+)
 
 // MtxrWlStatTableKey is the decoded INDEX of one mtxrWlStatTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2058,14 +1936,7 @@ func decodeMtxrWlStatTableKey(idx snmp.OID) (MtxrWlStatTableKey, bool) {
 	return MtxrWlStatTableKey{MtxrWlStatIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWlStatTableRow is one row of mtxrWlStatTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWlStatTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWlStatTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWlStatTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWlStatTableRow struct {
 	Key                MtxrWlStatTableKey
 	keyValid           bool
@@ -2078,261 +1949,57 @@ type MtxrWlStatTableRow struct {
 	MtxrWlStatBand     string
 	MtxrWlStatTxCCQ    uint32
 	MtxrWlStatRxCCQ    uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed           [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWlStatTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWlStatTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWlStatTxRate.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWlStatRxRate.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWlStatStrength.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWlStatSsid.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWlStatBssid.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWlStatFreq.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWlStatBand.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWlStatTxCCQ.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrWlStatRxCCQ.Key():
-		return r.observed[0]&(1<<8) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWlStatTableColumns, col)
 }
 
-// MtxrWlStatTableWalker streams selected columns of mtxrWlStatTable.
-// The zero value is not usable; construct via MtxrWlStatTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWlStatTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWlStatTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWlStatTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWlStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlStatTableRow] {
-	return func(yield func(snmp.OID, MtxrWlStatTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWlStatTableRow
-			row.Key, row.keyValid = decodeMtxrWlStatTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWlStatTxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlStatTxRate = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlStatTxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlStatTxRate = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrWlStatRxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlStatRxRate = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlStatRxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlStatRxRate = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrWlStatStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlStatStrength = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlStatStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlStatStrength = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrWlStatSsid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlStatSsid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlStatSsid = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrWlStatBssid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlStatBssid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlStatBssid = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case MtxrWlStatFreq.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlStatFreq = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlStatFreq.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlStatFreq = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrWlStatBand.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlStatBand.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlStatBand = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				case MtxrWlStatTxCCQ.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlStatTxCCQ = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlStatTxCCQ.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlStatTxCCQ = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrWlStatRxCCQ.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlStatRxCCQ = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlStatRxCCQ.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlStatRxCCQ = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWlStatTableT struct {
+	snmp.Table[MtxrWlStatTableRow, *MtxrWlStatTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWlStatTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWlStatTableT is the singleton type of MtxrWlStatTable.
-type mtxrWlStatTableT struct{}
 
 // MtxrWlStatTable is the descriptor for the mtxrWlStatTable table.
-var MtxrWlStatTable mtxrWlStatTableT
+var MtxrWlStatTable = mtxrWlStatTableT{Table: snmp.NewTable("mtxrWlStatTable", mtxrWlStatTableColumns, func(idx snmp.OID, row *MtxrWlStatTableRow) {
+	row.Key, row.keyValid = decodeMtxrWlStatTableKey(idx)
+}, func(row *MtxrWlStatTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWlStatTxRate, &row.MtxrWlStatTxRate, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWlStatRxRate, &row.MtxrWlStatRxRate, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWlStatStrength, &row.MtxrWlStatStrength, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWlStatSsid, &row.MtxrWlStatSsid, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWlStatBssid, &row.MtxrWlStatBssid, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWlStatFreq, &row.MtxrWlStatFreq, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWlStatBand, &row.MtxrWlStatBand, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWlStatTxCCQ, &row.MtxrWlStatTxCCQ, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrWlStatRxCCQ, &row.MtxrWlStatRxCCQ, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWlStatTableRow]) *MtxrWlStatTableWalker {
+	return &MtxrWlStatTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWlStatTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWlStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlStatTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWlStatTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWlStatTableKey",
@@ -2340,92 +2007,68 @@ func (mtxrWlStatTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWlStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlStatTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWlStatTxRate.Key(), MtxrWlStatRxRate.Key(), MtxrWlStatStrength.Key(), MtxrWlStatSsid.Key(), MtxrWlStatBssid.Key(), MtxrWlStatFreq.Key(), MtxrWlStatBand.Key(), MtxrWlStatTxCCQ.Key(), MtxrWlStatRxCCQ.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlStatTable.Walk: column %s", c.OID()))
-			return &MtxrWlStatTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWlStatTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrWlRtabStrength is the column mtxrWlRtabStrength of table mtxrWlRtabTable.
+// MtxrWlRtabStrength is mtxrWlRtabStrength.
 // dBm
-var MtxrWlRtabStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWlRtabStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// MtxrWlRtabTxBytes is the column mtxrWlRtabTxBytes of table mtxrWlRtabTable.
-var MtxrWlRtabTxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlRtabTxBytes is mtxrWlRtabTxBytes.
+var MtxrWlRtabTxBytes = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 4), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 1)
 
-// MtxrWlRtabRxBytes is the column mtxrWlRtabRxBytes of table mtxrWlRtabTable.
-var MtxrWlRtabRxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlRtabRxBytes is mtxrWlRtabRxBytes.
+var MtxrWlRtabRxBytes = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 2)
 
-// MtxrWlRtabTxPackets is the column mtxrWlRtabTxPackets of table mtxrWlRtabTable.
-var MtxrWlRtabTxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlRtabTxPackets is mtxrWlRtabTxPackets.
+var MtxrWlRtabTxPackets = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
 
-// MtxrWlRtabRxPackets is the column mtxrWlRtabRxPackets of table mtxrWlRtabTable.
-var MtxrWlRtabRxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlRtabRxPackets is mtxrWlRtabRxPackets.
+var MtxrWlRtabRxPackets = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 7), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
 
-// MtxrWlRtabTxRate is the column mtxrWlRtabTxRate of table mtxrWlRtabTable.
+// MtxrWlRtabTxRate is mtxrWlRtabTxRate.
 // bits per second
-var MtxrWlRtabTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlRtabTxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 8), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 5)
 
-// MtxrWlRtabRxRate is the column mtxrWlRtabRxRate of table mtxrWlRtabTable.
+// MtxrWlRtabRxRate is mtxrWlRtabRxRate.
 // bits per second
-var MtxrWlRtabRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 9), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlRtabRxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 9), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 6)
 
-// MtxrWlRtabRouterOSVersion is the column mtxrWlRtabRouterOSVersion of table mtxrWlRtabTable.
+// MtxrWlRtabRouterOSVersion is mtxrWlRtabRouterOSVersion.
 // RouterOS version
-var MtxrWlRtabRouterOSVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWlRtabRouterOSVersion = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString, 7)
 
-// MtxrWlRtabUptime is the column mtxrWlRtabUptime of table mtxrWlRtabTable.
+// MtxrWlRtabUptime is mtxrWlRtabUptime.
 // uptime
-var MtxrWlRtabUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 11), snmp.KindTimeTicks, snmp.DecodeUint32)
+var MtxrWlRtabUptime = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 11), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 8)
 
-// MtxrWlRtabSignalToNoise is the column mtxrWlRtabSignalToNoise of table mtxrWlRtabTable.
+// MtxrWlRtabSignalToNoise is mtxrWlRtabSignalToNoise.
 // Measured in dB, if value does not exist it is indicated with 0
-var MtxrWlRtabSignalToNoise = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWlRtabSignalToNoise = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 12), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 9)
 
-// MtxrWlRtabTxStrengthCh0 is the column mtxrWlRtabTxStrengthCh0 of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrengthCh0 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 13), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabTxStrengthCh0 is mtxrWlRtabTxStrengthCh0.
+var MtxrWlRtabTxStrengthCh0 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 13), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 10)
 
-// MtxrWlRtabRxStrengthCh0 is the column mtxrWlRtabRxStrengthCh0 of table mtxrWlRtabTable.
-var MtxrWlRtabRxStrengthCh0 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 14), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabRxStrengthCh0 is mtxrWlRtabRxStrengthCh0.
+var MtxrWlRtabRxStrengthCh0 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 14), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 11)
 
-// MtxrWlRtabTxStrengthCh1 is the column mtxrWlRtabTxStrengthCh1 of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrengthCh1 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabTxStrengthCh1 is mtxrWlRtabTxStrengthCh1.
+var MtxrWlRtabTxStrengthCh1 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 15), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 12)
 
-// MtxrWlRtabRxStrengthCh1 is the column mtxrWlRtabRxStrengthCh1 of table mtxrWlRtabTable.
-var MtxrWlRtabRxStrengthCh1 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabRxStrengthCh1 is mtxrWlRtabRxStrengthCh1.
+var MtxrWlRtabRxStrengthCh1 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 16), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 13)
 
-// MtxrWlRtabTxStrengthCh2 is the column mtxrWlRtabTxStrengthCh2 of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrengthCh2 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabTxStrengthCh2 is mtxrWlRtabTxStrengthCh2.
+var MtxrWlRtabTxStrengthCh2 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 17), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 14)
 
-// MtxrWlRtabRxStrengthCh2 is the column mtxrWlRtabRxStrengthCh2 of table mtxrWlRtabTable.
-var MtxrWlRtabRxStrengthCh2 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabRxStrengthCh2 is mtxrWlRtabRxStrengthCh2.
+var MtxrWlRtabRxStrengthCh2 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 18), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 15)
 
-// MtxrWlRtabTxStrength is the column mtxrWlRtabTxStrength of table mtxrWlRtabTable.
-var MtxrWlRtabTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlRtabTxStrength is mtxrWlRtabTxStrength.
+var MtxrWlRtabTxStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 19), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 16)
 
-// MtxrWlRtabRadioName is the column mtxrWlRtabRadioName of table mtxrWlRtabTable.
-var MtxrWlRtabRadioName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 20), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlRtabRadioName is mtxrWlRtabRadioName.
+var (
+	MtxrWlRtabRadioName    = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 2, 1, 20), snmp.KindOctetString, snmp.DecodeDisplayString, 17)
+	mtxrWlRtabTableColumns = []snmp.AnyColumn{MtxrWlRtabStrength, MtxrWlRtabTxBytes, MtxrWlRtabRxBytes, MtxrWlRtabTxPackets, MtxrWlRtabRxPackets, MtxrWlRtabTxRate, MtxrWlRtabRxRate, MtxrWlRtabRouterOSVersion, MtxrWlRtabUptime, MtxrWlRtabSignalToNoise, MtxrWlRtabTxStrengthCh0, MtxrWlRtabRxStrengthCh0, MtxrWlRtabTxStrengthCh1, MtxrWlRtabRxStrengthCh1, MtxrWlRtabTxStrengthCh2, MtxrWlRtabRxStrengthCh2, MtxrWlRtabTxStrength, MtxrWlRtabRadioName}
+)
 
 // MtxrWlRtabTableKey is the decoded INDEX of one mtxrWlRtabTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2449,14 +2092,7 @@ func decodeMtxrWlRtabTableKey(idx snmp.OID) (MtxrWlRtabTableKey, bool) {
 	return MtxrWlRtabTableKey{MtxrWlRtabAddr: string(parts[0].Octets), MtxrWlRtabIface: ObjectIndex(parts[1].Integer)}, true
 }
 
-// MtxrWlRtabTableRow is one row of mtxrWlRtabTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWlRtabTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWlRtabTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWlRtabTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWlRtabTableRow struct {
 	Key                       MtxrWlRtabTableKey
 	keyValid                  bool
@@ -2478,446 +2114,75 @@ type MtxrWlRtabTableRow struct {
 	MtxrWlRtabRxStrengthCh2   int32
 	MtxrWlRtabTxStrength      int32
 	MtxrWlRtabRadioName       string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                  [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWlRtabTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWlRtabTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWlRtabStrength.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWlRtabTxBytes.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWlRtabRxBytes.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWlRtabTxPackets.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWlRtabRxPackets.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWlRtabTxRate.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWlRtabRxRate.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWlRtabRouterOSVersion.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrWlRtabUptime.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrWlRtabSignalToNoise.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrWlRtabTxStrengthCh0.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrWlRtabRxStrengthCh0.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrWlRtabTxStrengthCh1.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrWlRtabRxStrengthCh1.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrWlRtabTxStrengthCh2.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrWlRtabRxStrengthCh2.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrWlRtabTxStrength.Key():
-		return r.observed[0]&(1<<16) != 0
-	case MtxrWlRtabRadioName.Key():
-		return r.observed[0]&(1<<17) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWlRtabTableColumns, col)
 }
 
-// MtxrWlRtabTableWalker streams selected columns of mtxrWlRtabTable.
-// The zero value is not usable; construct via MtxrWlRtabTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWlRtabTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWlRtabTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWlRtabTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWlRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlRtabTableRow] {
-	return func(yield func(snmp.OID, MtxrWlRtabTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWlRtabTableRow
-			row.Key, row.keyValid = decodeMtxrWlRtabTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWlRtabStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabStrength = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabStrength = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrWlRtabTxBytes.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabTxBytes = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxBytes = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrWlRtabRxBytes.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabRxBytes = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabRxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabRxBytes = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrWlRtabTxPackets.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabTxPackets = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxPackets = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrWlRtabRxPackets.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlRtabRxPackets = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabRxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabRxPackets = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrWlRtabTxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlRtabTxRate = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxRate = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrWlRtabRxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlRtabRxRate = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabRxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabRxRate = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrWlRtabRouterOSVersion.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRouterOSVersion.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRouterOSVersion = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				case MtxrWlRtabUptime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrWlRtabUptime = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabUptime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabUptime = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrWlRtabSignalToNoise.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabSignalToNoise = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabSignalToNoise.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabSignalToNoise = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrWlRtabTxStrengthCh0.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrengthCh0 = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxStrengthCh0.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxStrengthCh0 = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case MtxrWlRtabRxStrengthCh0.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabRxStrengthCh0 = v
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabRxStrengthCh0.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabRxStrengthCh0 = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case MtxrWlRtabTxStrengthCh1.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrengthCh1 = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxStrengthCh1.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxStrengthCh1 = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case MtxrWlRtabRxStrengthCh1.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabRxStrengthCh1 = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabRxStrengthCh1.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabRxStrengthCh1 = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case MtxrWlRtabTxStrengthCh2.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrengthCh2 = v
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxStrengthCh2.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxStrengthCh2 = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case MtxrWlRtabRxStrengthCh2.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabRxStrengthCh2 = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabRxStrengthCh2.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabRxStrengthCh2 = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case MtxrWlRtabTxStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlRtabTxStrength = v
-						row.observed[0] |= 1 << 16
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlRtabTxStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlRtabTxStrength = dv
-								row.observed[0] |= 1 << 16
-							}
-						}
-					}
-				case MtxrWlRtabRadioName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlRtabRadioName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlRtabRadioName = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWlRtabTableT struct {
+	snmp.Table[MtxrWlRtabTableRow, *MtxrWlRtabTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWlRtabTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWlRtabTableT is the singleton type of MtxrWlRtabTable.
-type mtxrWlRtabTableT struct{}
 
 // MtxrWlRtabTable is the descriptor for the mtxrWlRtabTable table.
-var MtxrWlRtabTable mtxrWlRtabTableT
+var MtxrWlRtabTable = mtxrWlRtabTableT{Table: snmp.NewTable("mtxrWlRtabTable", mtxrWlRtabTableColumns, func(idx snmp.OID, row *MtxrWlRtabTableRow) {
+	row.Key, row.keyValid = decodeMtxrWlRtabTableKey(idx)
+}, func(row *MtxrWlRtabTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWlRtabStrength, &row.MtxrWlRtabStrength, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxBytes, &row.MtxrWlRtabTxBytes, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRxBytes, &row.MtxrWlRtabRxBytes, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxPackets, &row.MtxrWlRtabTxPackets, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRxPackets, &row.MtxrWlRtabRxPackets, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxRate, &row.MtxrWlRtabTxRate, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRxRate, &row.MtxrWlRtabRxRate, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRouterOSVersion, &row.MtxrWlRtabRouterOSVersion, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrWlRtabUptime, &row.MtxrWlRtabUptime, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrWlRtabSignalToNoise, &row.MtxrWlRtabSignalToNoise, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxStrengthCh0, &row.MtxrWlRtabTxStrengthCh0, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRxStrengthCh0, &row.MtxrWlRtabRxStrengthCh0, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxStrengthCh1, &row.MtxrWlRtabTxStrengthCh1, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRxStrengthCh1, &row.MtxrWlRtabRxStrengthCh1, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxStrengthCh2, &row.MtxrWlRtabTxStrengthCh2, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRxStrengthCh2, &row.MtxrWlRtabRxStrengthCh2, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrWlRtabTxStrength, &row.MtxrWlRtabTxStrength, row.observed[:])
+	case 17:
+		return snmp.DecodeColumn(rv, MtxrWlRtabRadioName, &row.MtxrWlRtabRadioName, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWlRtabTableRow]) *MtxrWlRtabTableWalker {
+	return &MtxrWlRtabTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWlRtabTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWlRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlRtabTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWlRtabTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWlRtabTableKey",
@@ -2925,65 +2190,41 @@ func (mtxrWlRtabTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWlRtabTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlRtabTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWlRtabStrength.Key(), MtxrWlRtabTxBytes.Key(), MtxrWlRtabRxBytes.Key(), MtxrWlRtabTxPackets.Key(), MtxrWlRtabRxPackets.Key(), MtxrWlRtabTxRate.Key(), MtxrWlRtabRxRate.Key(), MtxrWlRtabRouterOSVersion.Key(), MtxrWlRtabUptime.Key(), MtxrWlRtabSignalToNoise.Key(), MtxrWlRtabTxStrengthCh0.Key(), MtxrWlRtabRxStrengthCh0.Key(), MtxrWlRtabTxStrengthCh1.Key(), MtxrWlRtabRxStrengthCh1.Key(), MtxrWlRtabTxStrengthCh2.Key(), MtxrWlRtabRxStrengthCh2.Key(), MtxrWlRtabTxStrength.Key(), MtxrWlRtabRadioName.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlRtabTable.Walk: column %s", c.OID()))
-			return &MtxrWlRtabTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWlRtabTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrWlApTxRate is the column mtxrWlApTxRate of table mtxrWlApTable.
+// MtxrWlApTxRate is mtxrWlApTxRate.
 // bits per second
-var MtxrWlApTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlApTxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 2), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 0)
 
-// MtxrWlApRxRate is the column mtxrWlApRxRate of table mtxrWlApTable.
+// MtxrWlApRxRate is mtxrWlApRxRate.
 // bits per second
-var MtxrWlApRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 3), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlApRxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 3), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 1)
 
-// MtxrWlApSsid is the column mtxrWlApSsid of table mtxrWlApTable.
-var MtxrWlApSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlApSsid is mtxrWlApSsid.
+var MtxrWlApSsid = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrWlApBssid is the column mtxrWlApBssid of table mtxrWlApTable.
-var MtxrWlApBssid = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 5), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrWlApBssid is mtxrWlApBssid.
+var MtxrWlApBssid = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 5), snmp.KindOctetString, snmp.DecodeMacAddress, 3)
 
-// MtxrWlApClientCount is the column mtxrWlApClientCount of table mtxrWlApTable.
-var MtxrWlApClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlApClientCount is mtxrWlApClientCount.
+var MtxrWlApClientCount = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
 
-// MtxrWlApFreq is the column mtxrWlApFreq of table mtxrWlApTable.
+// MtxrWlApFreq is mtxrWlApFreq.
 // megahertz
-var MtxrWlApFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWlApFreq = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// MtxrWlApBand is the column mtxrWlApBand of table mtxrWlApTable.
-var MtxrWlApBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlApBand is mtxrWlApBand.
+var MtxrWlApBand = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString, 6)
 
-// MtxrWlApNoiseFloor is the column mtxrWlApNoiseFloor of table mtxrWlApTable.
-var MtxrWlApNoiseFloor = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlApNoiseFloor is mtxrWlApNoiseFloor.
+var MtxrWlApNoiseFloor = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
 
-// MtxrWlApOverallTxCCQ is the column mtxrWlApOverallTxCCQ of table mtxrWlApTable.
-var MtxrWlApOverallTxCCQ = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlApOverallTxCCQ is mtxrWlApOverallTxCCQ.
+var MtxrWlApOverallTxCCQ = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 10), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 8)
 
-// MtxrWlApAuthClientCount is the column mtxrWlApAuthClientCount of table mtxrWlApTable.
-var MtxrWlApAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlApAuthClientCount is mtxrWlApAuthClientCount.
+var (
+	MtxrWlApAuthClientCount = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 3, 1, 11), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 9)
+	mtxrWlApTableColumns    = []snmp.AnyColumn{MtxrWlApTxRate, MtxrWlApRxRate, MtxrWlApSsid, MtxrWlApBssid, MtxrWlApClientCount, MtxrWlApFreq, MtxrWlApBand, MtxrWlApNoiseFloor, MtxrWlApOverallTxCCQ, MtxrWlApAuthClientCount}
+)
 
 // MtxrWlApTableKey is the decoded INDEX of one mtxrWlApTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3003,14 +2244,7 @@ func decodeMtxrWlApTableKey(idx snmp.OID) (MtxrWlApTableKey, bool) {
 	return MtxrWlApTableKey{MtxrWlApIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWlApTableRow is one row of mtxrWlApTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWlApTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWlApTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWlApTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWlApTableRow struct {
 	Key                     MtxrWlApTableKey
 	keyValid                bool
@@ -3024,281 +2258,59 @@ type MtxrWlApTableRow struct {
 	MtxrWlApNoiseFloor      int32
 	MtxrWlApOverallTxCCQ    uint32
 	MtxrWlApAuthClientCount uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWlApTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWlApTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWlApTxRate.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWlApRxRate.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWlApSsid.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWlApBssid.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWlApClientCount.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWlApFreq.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWlApBand.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWlApNoiseFloor.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrWlApOverallTxCCQ.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrWlApAuthClientCount.Key():
-		return r.observed[0]&(1<<9) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWlApTableColumns, col)
 }
 
-// MtxrWlApTableWalker streams selected columns of mtxrWlApTable.
-// The zero value is not usable; construct via MtxrWlApTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWlApTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWlApTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWlApTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWlApTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlApTableRow] {
-	return func(yield func(snmp.OID, MtxrWlApTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWlApTableRow
-			row.Key, row.keyValid = decodeMtxrWlApTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWlApTxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlApTxRate = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApTxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApTxRate = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrWlApRxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlApRxRate = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApRxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApRxRate = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrWlApSsid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlApSsid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlApSsid = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrWlApBssid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlApBssid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlApBssid = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrWlApClientCount.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlApClientCount = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApClientCount.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApClientCount = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrWlApFreq.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlApFreq = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApFreq.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApFreq = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrWlApBand.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlApBand.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlApBand = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				case MtxrWlApNoiseFloor.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlApNoiseFloor = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApNoiseFloor.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApNoiseFloor = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrWlApOverallTxCCQ.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlApOverallTxCCQ = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApOverallTxCCQ.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApOverallTxCCQ = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrWlApAuthClientCount.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlApAuthClientCount = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlApAuthClientCount.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlApAuthClientCount = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWlApTableT struct {
+	snmp.Table[MtxrWlApTableRow, *MtxrWlApTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWlApTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWlApTableT is the singleton type of MtxrWlApTable.
-type mtxrWlApTableT struct{}
 
 // MtxrWlApTable is the descriptor for the mtxrWlApTable table.
-var MtxrWlApTable mtxrWlApTableT
+var MtxrWlApTable = mtxrWlApTableT{Table: snmp.NewTable("mtxrWlApTable", mtxrWlApTableColumns, func(idx snmp.OID, row *MtxrWlApTableRow) {
+	row.Key, row.keyValid = decodeMtxrWlApTableKey(idx)
+}, func(row *MtxrWlApTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWlApTxRate, &row.MtxrWlApTxRate, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWlApRxRate, &row.MtxrWlApRxRate, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWlApSsid, &row.MtxrWlApSsid, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWlApBssid, &row.MtxrWlApBssid, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWlApClientCount, &row.MtxrWlApClientCount, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWlApFreq, &row.MtxrWlApFreq, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWlApBand, &row.MtxrWlApBand, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWlApNoiseFloor, &row.MtxrWlApNoiseFloor, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrWlApOverallTxCCQ, &row.MtxrWlApOverallTxCCQ, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrWlApAuthClientCount, &row.MtxrWlApAuthClientCount, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWlApTableRow]) *MtxrWlApTableWalker {
+	return &MtxrWlApTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWlApTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWlApTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlApTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWlApTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWlApTableKey",
@@ -3306,71 +2318,47 @@ func (mtxrWlApTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWlApTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlApTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWlApTxRate.Key(), MtxrWlApRxRate.Key(), MtxrWlApSsid.Key(), MtxrWlApBssid.Key(), MtxrWlApClientCount.Key(), MtxrWlApFreq.Key(), MtxrWlApBand.Key(), MtxrWlApNoiseFloor.Key(), MtxrWlApOverallTxCCQ.Key(), MtxrWlApAuthClientCount.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlApTable.Walk: column %s", c.OID()))
-			return &MtxrWlApTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWlApTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrWlCMRtabAddr is mtxrWlCMRtabAddr.
+var MtxrWlCMRtabAddr = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress, 0)
 
-// MtxrWlCMRtabAddr is the column mtxrWlCMRtabAddr of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabAddr = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
-
-// MtxrWlCMRtabUptime is the column mtxrWlCMRtabUptime of table mtxrWlCMRtabTable.
+// MtxrWlCMRtabUptime is mtxrWlCMRtabUptime.
 // uptime
-var MtxrWlCMRtabUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 3), snmp.KindTimeTicks, snmp.DecodeUint32)
+var MtxrWlCMRtabUptime = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 3), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 1)
 
-// MtxrWlCMRtabTxBytes is the column mtxrWlCMRtabTxBytes of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabTxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMRtabTxBytes is mtxrWlCMRtabTxBytes.
+var MtxrWlCMRtabTxBytes = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 4), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 2)
 
-// MtxrWlCMRtabRxBytes is the column mtxrWlCMRtabRxBytes of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabRxBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMRtabRxBytes is mtxrWlCMRtabRxBytes.
+var MtxrWlCMRtabRxBytes = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
 
-// MtxrWlCMRtabTxPackets is the column mtxrWlCMRtabTxPackets of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabTxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMRtabTxPackets is mtxrWlCMRtabTxPackets.
+var MtxrWlCMRtabTxPackets = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
 
-// MtxrWlCMRtabRxPackets is the column mtxrWlCMRtabRxPackets of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabRxPackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMRtabRxPackets is mtxrWlCMRtabRxPackets.
+var MtxrWlCMRtabRxPackets = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 7), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 5)
 
-// MtxrWlCMRtabTxRate is the column mtxrWlCMRtabTxRate of table mtxrWlCMRtabTable.
+// MtxrWlCMRtabTxRate is mtxrWlCMRtabTxRate.
 // bits per second
-var MtxrWlCMRtabTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlCMRtabTxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 8), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 6)
 
-// MtxrWlCMRtabRxRate is the column mtxrWlCMRtabRxRate of table mtxrWlCMRtabTable.
+// MtxrWlCMRtabRxRate is mtxrWlCMRtabRxRate.
 // bits per second
-var MtxrWlCMRtabRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 9), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWlCMRtabRxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 9), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 7)
 
-// MtxrWlCMRtabTxStrength is the column mtxrWlCMRtabTxStrength of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlCMRtabTxStrength is mtxrWlCMRtabTxStrength.
+var MtxrWlCMRtabTxStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 8)
 
-// MtxrWlCMRtabRxStrength is the column mtxrWlCMRtabRxStrength of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabRxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWlCMRtabRxStrength is mtxrWlCMRtabRxStrength.
+var MtxrWlCMRtabRxStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 11), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 9)
 
-// MtxrWlCMRtabSsid is the column mtxrWlCMRtabSsid of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlCMRtabSsid is mtxrWlCMRtabSsid.
+var MtxrWlCMRtabSsid = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString, 10)
 
-// MtxrWlCMRtabEapIdent is the column mtxrWlCMRtabEapIdent of table mtxrWlCMRtabTable.
-var MtxrWlCMRtabEapIdent = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlCMRtabEapIdent is mtxrWlCMRtabEapIdent.
+var (
+	MtxrWlCMRtabEapIdent     = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 5, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString, 11)
+	mtxrWlCMRtabTableColumns = []snmp.AnyColumn{MtxrWlCMRtabAddr, MtxrWlCMRtabUptime, MtxrWlCMRtabTxBytes, MtxrWlCMRtabRxBytes, MtxrWlCMRtabTxPackets, MtxrWlCMRtabRxPackets, MtxrWlCMRtabTxRate, MtxrWlCMRtabRxRate, MtxrWlCMRtabTxStrength, MtxrWlCMRtabRxStrength, MtxrWlCMRtabSsid, MtxrWlCMRtabEapIdent}
+)
 
 // MtxrWlCMRtabTableKey is the decoded INDEX of one mtxrWlCMRtabTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3394,14 +2382,7 @@ func decodeMtxrWlCMRtabTableKey(idx snmp.OID) (MtxrWlCMRtabTableKey, bool) {
 	return MtxrWlCMRtabTableKey{MtxrWlCMRtabAddr: string(parts[0].Octets), MtxrWlCMRtabIface: ObjectIndex(parts[1].Integer)}, true
 }
 
-// MtxrWlCMRtabTableRow is one row of mtxrWlCMRtabTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWlCMRtabTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWlCMRtabTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWlCMRtabTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWlCMRtabTableRow struct {
 	Key                    MtxrWlCMRtabTableKey
 	keyValid               bool
@@ -3417,321 +2398,63 @@ type MtxrWlCMRtabTableRow struct {
 	MtxrWlCMRtabRxStrength int32
 	MtxrWlCMRtabSsid       string
 	MtxrWlCMRtabEapIdent   string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed               [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWlCMRtabTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWlCMRtabTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWlCMRtabAddr.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWlCMRtabUptime.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWlCMRtabTxBytes.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWlCMRtabRxBytes.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWlCMRtabTxPackets.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWlCMRtabRxPackets.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWlCMRtabTxRate.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWlCMRtabRxRate.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrWlCMRtabTxStrength.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrWlCMRtabRxStrength.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrWlCMRtabSsid.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrWlCMRtabEapIdent.Key():
-		return r.observed[0]&(1<<11) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWlCMRtabTableColumns, col)
 }
 
-// MtxrWlCMRtabTableWalker streams selected columns of mtxrWlCMRtabTable.
-// The zero value is not usable; construct via MtxrWlCMRtabTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWlCMRtabTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWlCMRtabTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWlCMRtabTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWlCMRtabTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRtabTableRow] {
-	return func(yield func(snmp.OID, MtxrWlCMRtabTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWlCMRtabTableRow
-			row.Key, row.keyValid = decodeMtxrWlCMRtabTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWlCMRtabAddr.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabAddr.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabAddr = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrWlCMRtabUptime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrWlCMRtabUptime = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabUptime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabUptime = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrWlCMRtabTxBytes.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabTxBytes = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabTxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabTxBytes = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrWlCMRtabRxBytes.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabRxBytes = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabRxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabRxBytes = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrWlCMRtabTxPackets.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabTxPackets = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabTxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabTxPackets = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrWlCMRtabRxPackets.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRtabRxPackets = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabRxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabRxPackets = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrWlCMRtabTxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlCMRtabTxRate = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabTxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabTxRate = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrWlCMRtabRxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWlCMRtabRxRate = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabRxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabRxRate = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrWlCMRtabTxStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlCMRtabTxStrength = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabTxStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabTxStrength = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrWlCMRtabRxStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWlCMRtabRxStrength = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRtabRxStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRtabRxStrength = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrWlCMRtabSsid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabSsid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabSsid = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				case MtxrWlCMRtabEapIdent.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRtabEapIdent.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRtabEapIdent = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWlCMRtabTableT struct {
+	snmp.Table[MtxrWlCMRtabTableRow, *MtxrWlCMRtabTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWlCMRtabTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWlCMRtabTableT is the singleton type of MtxrWlCMRtabTable.
-type mtxrWlCMRtabTableT struct{}
 
 // MtxrWlCMRtabTable is the descriptor for the mtxrWlCMRtabTable table.
-var MtxrWlCMRtabTable mtxrWlCMRtabTableT
+var MtxrWlCMRtabTable = mtxrWlCMRtabTableT{Table: snmp.NewTable("mtxrWlCMRtabTable", mtxrWlCMRtabTableColumns, func(idx snmp.OID, row *MtxrWlCMRtabTableRow) {
+	row.Key, row.keyValid = decodeMtxrWlCMRtabTableKey(idx)
+}, func(row *MtxrWlCMRtabTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabAddr, &row.MtxrWlCMRtabAddr, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabUptime, &row.MtxrWlCMRtabUptime, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabTxBytes, &row.MtxrWlCMRtabTxBytes, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabRxBytes, &row.MtxrWlCMRtabRxBytes, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabTxPackets, &row.MtxrWlCMRtabTxPackets, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabRxPackets, &row.MtxrWlCMRtabRxPackets, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabTxRate, &row.MtxrWlCMRtabTxRate, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabRxRate, &row.MtxrWlCMRtabRxRate, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabTxStrength, &row.MtxrWlCMRtabTxStrength, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabRxStrength, &row.MtxrWlCMRtabRxStrength, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabSsid, &row.MtxrWlCMRtabSsid, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrWlCMRtabEapIdent, &row.MtxrWlCMRtabEapIdent, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWlCMRtabTableRow]) *MtxrWlCMRtabTableWalker {
+	return &MtxrWlCMRtabTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWlCMRtabTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWlCMRtabTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRtabTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWlCMRtabTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWlCMRtabTableKey",
@@ -3739,45 +2462,21 @@ func (mtxrWlCMRtabTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWlCMRtabTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlCMRtabTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWlCMRtabAddr.Key(), MtxrWlCMRtabUptime.Key(), MtxrWlCMRtabTxBytes.Key(), MtxrWlCMRtabRxBytes.Key(), MtxrWlCMRtabTxPackets.Key(), MtxrWlCMRtabRxPackets.Key(), MtxrWlCMRtabTxRate.Key(), MtxrWlCMRtabRxRate.Key(), MtxrWlCMRtabTxStrength.Key(), MtxrWlCMRtabRxStrength.Key(), MtxrWlCMRtabSsid.Key(), MtxrWlCMRtabEapIdent.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlCMRtabTable.Walk: column %s", c.OID()))
-			return &MtxrWlCMRtabTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWlCMRtabTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrWlCMRegClientCount is mtxrWlCMRegClientCount.
+var MtxrWlCMRegClientCount = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 2), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 0)
 
-// MtxrWlCMRegClientCount is the column mtxrWlCMRegClientCount of table mtxrWlCMTable.
-var MtxrWlCMRegClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 2), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMAuthClientCount is mtxrWlCMAuthClientCount.
+var MtxrWlCMAuthClientCount = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 3), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 1)
 
-// MtxrWlCMAuthClientCount is the column mtxrWlCMAuthClientCount of table mtxrWlCMTable.
-var MtxrWlCMAuthClientCount = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMState is mtxrWlCMState.
+var MtxrWlCMState = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrWlCMState is the column mtxrWlCMState of table mtxrWlCMTable.
-var MtxrWlCMState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrWlCMChannel is the column mtxrWlCMChannel of table mtxrWlCMTable.
+// MtxrWlCMChannel is mtxrWlCMChannel.
 // for master only
-var MtxrWlCMChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
+var (
+	MtxrWlCMChannel      = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 7, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString, 3)
+	mtxrWlCMTableColumns = []snmp.AnyColumn{MtxrWlCMRegClientCount, MtxrWlCMAuthClientCount, MtxrWlCMState, MtxrWlCMChannel}
+)
 
 // MtxrWlCMTableKey is the decoded INDEX of one mtxrWlCMTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -3797,14 +2496,7 @@ func decodeMtxrWlCMTableKey(idx snmp.OID) (MtxrWlCMTableKey, bool) {
 	return MtxrWlCMTableKey{MtxrWlCMIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWlCMTableRow is one row of mtxrWlCMTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWlCMTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWlCMTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWlCMTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWlCMTableRow struct {
 	Key                     MtxrWlCMTableKey
 	keyValid                bool
@@ -3812,166 +2504,47 @@ type MtxrWlCMTableRow struct {
 	MtxrWlCMAuthClientCount uint32
 	MtxrWlCMState           string
 	MtxrWlCMChannel         string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWlCMTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWlCMTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWlCMRegClientCount.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWlCMAuthClientCount.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWlCMState.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWlCMChannel.Key():
-		return r.observed[0]&(1<<3) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWlCMTableColumns, col)
 }
 
-// MtxrWlCMTableWalker streams selected columns of mtxrWlCMTable.
-// The zero value is not usable; construct via MtxrWlCMTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWlCMTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWlCMTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWlCMTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWlCMTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMTableRow] {
-	return func(yield func(snmp.OID, MtxrWlCMTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWlCMTableRow
-			row.Key, row.keyValid = decodeMtxrWlCMTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWlCMRegClientCount.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRegClientCount = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRegClientCount.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRegClientCount = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrWlCMAuthClientCount.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMAuthClientCount = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMAuthClientCount.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMAuthClientCount = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrWlCMState.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMState.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMState = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrWlCMChannel.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMChannel.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMChannel = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWlCMTableT struct {
+	snmp.Table[MtxrWlCMTableRow, *MtxrWlCMTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWlCMTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWlCMTableT is the singleton type of MtxrWlCMTable.
-type mtxrWlCMTableT struct{}
 
 // MtxrWlCMTable is the descriptor for the mtxrWlCMTable table.
-var MtxrWlCMTable mtxrWlCMTableT
+var MtxrWlCMTable = mtxrWlCMTableT{Table: snmp.NewTable("mtxrWlCMTable", mtxrWlCMTableColumns, func(idx snmp.OID, row *MtxrWlCMTableRow) {
+	row.Key, row.keyValid = decodeMtxrWlCMTableKey(idx)
+}, func(row *MtxrWlCMTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWlCMRegClientCount, &row.MtxrWlCMRegClientCount, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWlCMAuthClientCount, &row.MtxrWlCMAuthClientCount, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWlCMState, &row.MtxrWlCMState, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWlCMChannel, &row.MtxrWlCMChannel, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWlCMTableRow]) *MtxrWlCMTableWalker {
+	return &MtxrWlCMTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWlCMTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWlCMTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWlCMTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWlCMTableKey",
@@ -3979,78 +2552,54 @@ func (mtxrWlCMTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWlCMTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlCMTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWlCMRegClientCount.Key(), MtxrWlCMAuthClientCount.Key(), MtxrWlCMState.Key(), MtxrWlCMChannel.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlCMTable.Walk: column %s", c.OID()))
-			return &MtxrWlCMTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWlCMTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrWl60GMode is the column mtxrWl60GMode of table mtxrWl60GTable.
-var MtxrWl60GMode = snmp.NewColumn[MtxrWl60GModeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrWl60GModeValue, error) {
+// MtxrWl60GMode is mtxrWl60GMode.
+var MtxrWl60GMode = snmp.NewFusedTableColumn[MtxrWl60GModeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrWl60GModeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrWl60GModeValue(0), err
 	}
 	return MtxrWl60GModeValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrWl60GModeValue], 0)
 
-// MtxrWl60GSsid is the column mtxrWl60GSsid of table mtxrWl60GTable.
-var MtxrWl60GSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWl60GSsid is mtxrWl60GSsid.
+var MtxrWl60GSsid = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrWl60GConnected is the column mtxrWl60GConnected of table mtxrWl60GTable.
-var MtxrWl60GConnected = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+// MtxrWl60GConnected is mtxrWl60GConnected.
+var MtxrWl60GConnected = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 2)
 
-// MtxrWl60GRemote is the column mtxrWl60GRemote of table mtxrWl60GTable.
-var MtxrWl60GRemote = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 5), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrWl60GRemote is mtxrWl60GRemote.
+var MtxrWl60GRemote = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 5), snmp.KindOctetString, snmp.DecodeMacAddress, 3)
 
-// MtxrWl60GFreq is the column mtxrWl60GFreq of table mtxrWl60GTable.
+// MtxrWl60GFreq is mtxrWl60GFreq.
 // Mhz
-var MtxrWl60GFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWl60GFreq = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// MtxrWl60GMcs is the column mtxrWl60GMcs of table mtxrWl60GTable.
-var MtxrWl60GMcs = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GMcs is mtxrWl60GMcs.
+var MtxrWl60GMcs = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// MtxrWl60GSignal is the column mtxrWl60GSignal of table mtxrWl60GTable.
-var MtxrWl60GSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GSignal is mtxrWl60GSignal.
+var MtxrWl60GSignal = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 8), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// MtxrWl60GTxSector is the column mtxrWl60GTxSector of table mtxrWl60GTable.
-var MtxrWl60GTxSector = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GTxSector is mtxrWl60GTxSector.
+var MtxrWl60GTxSector = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
 
-// MtxrWl60GTxSectorInfo is the column mtxrWl60GTxSectorInfo of table mtxrWl60GTable.
-var MtxrWl60GTxSectorInfo = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWl60GTxSectorInfo is mtxrWl60GTxSectorInfo.
+var MtxrWl60GTxSectorInfo = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString, 8)
 
-// MtxrWl60GRssi is the column mtxrWl60GRssi of table mtxrWl60GTable.
-var MtxrWl60GRssi = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GRssi is mtxrWl60GRssi.
+var MtxrWl60GRssi = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 12), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 9)
 
-// MtxrWl60GPhyRate is the column mtxrWl60GPhyRate of table mtxrWl60GTable.
-var MtxrWl60GPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 13), snmp.KindGauge32, snmp.DecodeUint32)
+// MtxrWl60GPhyRate is mtxrWl60GPhyRate.
+var (
+	MtxrWl60GPhyRate      = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 8, 1, 13), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 10)
+	mtxrWl60GTableColumns = []snmp.AnyColumn{MtxrWl60GMode, MtxrWl60GSsid, MtxrWl60GConnected, MtxrWl60GRemote, MtxrWl60GFreq, MtxrWl60GMcs, MtxrWl60GSignal, MtxrWl60GTxSector, MtxrWl60GTxSectorInfo, MtxrWl60GRssi, MtxrWl60GPhyRate}
+)
 
 // MtxrWl60GTableKey is the decoded INDEX of one mtxrWl60GTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4070,14 +2619,7 @@ func decodeMtxrWl60GTableKey(idx snmp.OID) (MtxrWl60GTableKey, bool) {
 	return MtxrWl60GTableKey{MtxrWl60GIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWl60GTableRow is one row of mtxrWl60GTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWl60GTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWl60GTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWl60GTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWl60GTableRow struct {
 	Key                   MtxrWl60GTableKey
 	keyValid              bool
@@ -4092,301 +2634,61 @@ type MtxrWl60GTableRow struct {
 	MtxrWl60GTxSectorInfo string
 	MtxrWl60GRssi         int32
 	MtxrWl60GPhyRate      uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed              [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWl60GTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWl60GTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWl60GMode.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWl60GSsid.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWl60GConnected.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWl60GRemote.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWl60GFreq.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWl60GMcs.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWl60GSignal.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWl60GTxSector.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrWl60GTxSectorInfo.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrWl60GRssi.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrWl60GPhyRate.Key():
-		return r.observed[0]&(1<<10) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWl60GTableColumns, col)
 }
 
-// MtxrWl60GTableWalker streams selected columns of mtxrWl60GTable.
-// The zero value is not usable; construct via MtxrWl60GTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWl60GTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWl60GTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWl60GTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWl60GTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GTableRow] {
-	return func(yield func(snmp.OID, MtxrWl60GTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWl60GTableRow
-			row.Key, row.keyValid = decodeMtxrWl60GTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWl60GMode.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GMode = MtxrWl60GModeValue(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GMode.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GMode = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrWl60GSsid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GSsid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GSsid = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrWl60GConnected.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GConnected = BoolValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GConnected.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GConnected = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrWl60GRemote.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GRemote.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GRemote = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrWl60GFreq.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GFreq = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GFreq.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GFreq = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrWl60GMcs.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GMcs = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GMcs.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GMcs = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrWl60GSignal.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GSignal = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GSignal.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GSignal = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrWl60GTxSector.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GTxSector = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GTxSector.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GTxSector = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrWl60GTxSectorInfo.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GTxSectorInfo.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GTxSectorInfo = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				case MtxrWl60GRssi.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GRssi = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GRssi.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GRssi = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrWl60GPhyRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWl60GPhyRate = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GPhyRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GPhyRate = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWl60GTableT struct {
+	snmp.Table[MtxrWl60GTableRow, *MtxrWl60GTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWl60GTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWl60GTableT is the singleton type of MtxrWl60GTable.
-type mtxrWl60GTableT struct{}
 
 // MtxrWl60GTable is the descriptor for the mtxrWl60GTable table.
-var MtxrWl60GTable mtxrWl60GTableT
+var MtxrWl60GTable = mtxrWl60GTableT{Table: snmp.NewTable("mtxrWl60GTable", mtxrWl60GTableColumns, func(idx snmp.OID, row *MtxrWl60GTableRow) {
+	row.Key, row.keyValid = decodeMtxrWl60GTableKey(idx)
+}, func(row *MtxrWl60GTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWl60GMode, &row.MtxrWl60GMode, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWl60GSsid, &row.MtxrWl60GSsid, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWl60GConnected, &row.MtxrWl60GConnected, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWl60GRemote, &row.MtxrWl60GRemote, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWl60GFreq, &row.MtxrWl60GFreq, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWl60GMcs, &row.MtxrWl60GMcs, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWl60GSignal, &row.MtxrWl60GSignal, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWl60GTxSector, &row.MtxrWl60GTxSector, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrWl60GTxSectorInfo, &row.MtxrWl60GTxSectorInfo, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrWl60GRssi, &row.MtxrWl60GRssi, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrWl60GPhyRate, &row.MtxrWl60GPhyRate, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWl60GTableRow]) *MtxrWl60GTableWalker {
+	return &MtxrWl60GTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWl60GTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWl60GTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWl60GTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWl60GTableKey",
@@ -4394,64 +2696,40 @@ func (mtxrWl60GTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWl60GTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWl60GTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWl60GMode.Key(), MtxrWl60GSsid.Key(), MtxrWl60GConnected.Key(), MtxrWl60GRemote.Key(), MtxrWl60GFreq.Key(), MtxrWl60GMcs.Key(), MtxrWl60GSignal.Key(), MtxrWl60GTxSector.Key(), MtxrWl60GTxSectorInfo.Key(), MtxrWl60GRssi.Key(), MtxrWl60GPhyRate.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWl60GTable.Walk: column %s", c.OID()))
-			return &MtxrWl60GTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWl60GTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrWl60GStaConnected is the column mtxrWl60GStaConnected of table mtxrWl60GStaTable.
-var MtxrWl60GStaConnected = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+// MtxrWl60GStaConnected is mtxrWl60GStaConnected.
+var MtxrWl60GStaConnected = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 0)
 
-// MtxrWl60GStaRemote is the column mtxrWl60GStaRemote of table mtxrWl60GStaTable.
-var MtxrWl60GStaRemote = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrWl60GStaRemote is mtxrWl60GStaRemote.
+var MtxrWl60GStaRemote = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress, 1)
 
-// MtxrWl60GStaMcs is the column mtxrWl60GStaMcs of table mtxrWl60GStaTable.
-var MtxrWl60GStaMcs = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GStaMcs is mtxrWl60GStaMcs.
+var MtxrWl60GStaMcs = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// MtxrWl60GStaSignal is the column mtxrWl60GStaSignal of table mtxrWl60GStaTable.
-var MtxrWl60GStaSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GStaSignal is mtxrWl60GStaSignal.
+var MtxrWl60GStaSignal = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// MtxrWl60GStaTxSector is the column mtxrWl60GStaTxSector of table mtxrWl60GStaTable.
-var MtxrWl60GStaTxSector = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GStaTxSector is mtxrWl60GStaTxSector.
+var MtxrWl60GStaTxSector = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// MtxrWl60GStaPhyRate is the column mtxrWl60GStaPhyRate of table mtxrWl60GStaTable.
+// MtxrWl60GStaPhyRate is mtxrWl60GStaPhyRate.
 // Mbits per second
-var MtxrWl60GStaPhyRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWl60GStaPhyRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 8), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 5)
 
-// MtxrWl60GStaRssi is the column mtxrWl60GStaRssi of table mtxrWl60GStaTable.
-var MtxrWl60GStaRssi = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrWl60GStaRssi is mtxrWl60GStaRssi.
+var MtxrWl60GStaRssi = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// MtxrWl60GStaDistance is the column mtxrWl60GStaDistance of table mtxrWl60GStaTable.
+// MtxrWl60GStaDistance is mtxrWl60GStaDistance.
 // meters
-var MtxrWl60GStaDistance = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	MtxrWl60GStaDistance     = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 9, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
+	mtxrWl60GStaTableColumns = []snmp.AnyColumn{MtxrWl60GStaConnected, MtxrWl60GStaRemote, MtxrWl60GStaMcs, MtxrWl60GStaSignal, MtxrWl60GStaTxSector, MtxrWl60GStaPhyRate, MtxrWl60GStaRssi, MtxrWl60GStaDistance}
+)
 
 // MtxrWl60GStaTableKey is the decoded INDEX of one mtxrWl60GStaTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4471,14 +2749,7 @@ func decodeMtxrWl60GStaTableKey(idx snmp.OID) (MtxrWl60GStaTableKey, bool) {
 	return MtxrWl60GStaTableKey{MtxrWl60GStaIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWl60GStaTableRow is one row of mtxrWl60GStaTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWl60GStaTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWl60GStaTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWl60GStaTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWl60GStaTableRow struct {
 	Key                   MtxrWl60GStaTableKey
 	keyValid              bool
@@ -4490,251 +2761,55 @@ type MtxrWl60GStaTableRow struct {
 	MtxrWl60GStaPhyRate   uint32
 	MtxrWl60GStaRssi      int32
 	MtxrWl60GStaDistance  int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed              [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWl60GStaTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWl60GStaTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWl60GStaConnected.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWl60GStaRemote.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWl60GStaMcs.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWl60GStaSignal.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWl60GStaTxSector.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWl60GStaPhyRate.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWl60GStaRssi.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWl60GStaDistance.Key():
-		return r.observed[0]&(1<<7) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWl60GStaTableColumns, col)
 }
 
-// MtxrWl60GStaTableWalker streams selected columns of mtxrWl60GStaTable.
-// The zero value is not usable; construct via MtxrWl60GStaTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWl60GStaTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWl60GStaTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWl60GStaTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWl60GStaTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWl60GStaTableRow] {
-	return func(yield func(snmp.OID, MtxrWl60GStaTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWl60GStaTableRow
-			row.Key, row.keyValid = decodeMtxrWl60GStaTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWl60GStaConnected.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaConnected = BoolValue(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaConnected.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaConnected = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrWl60GStaRemote.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWl60GStaRemote.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWl60GStaRemote = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrWl60GStaMcs.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaMcs = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaMcs.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaMcs = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrWl60GStaSignal.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaSignal = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaSignal.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaSignal = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrWl60GStaTxSector.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaTxSector = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaTxSector.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaTxSector = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrWl60GStaPhyRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWl60GStaPhyRate = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaPhyRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaPhyRate = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrWl60GStaRssi.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaRssi = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaRssi.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaRssi = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrWl60GStaDistance.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWl60GStaDistance = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWl60GStaDistance.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWl60GStaDistance = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWl60GStaTableT struct {
+	snmp.Table[MtxrWl60GStaTableRow, *MtxrWl60GStaTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWl60GStaTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWl60GStaTableT is the singleton type of MtxrWl60GStaTable.
-type mtxrWl60GStaTableT struct{}
 
 // MtxrWl60GStaTable is the descriptor for the mtxrWl60GStaTable table.
-var MtxrWl60GStaTable mtxrWl60GStaTableT
+var MtxrWl60GStaTable = mtxrWl60GStaTableT{Table: snmp.NewTable("mtxrWl60GStaTable", mtxrWl60GStaTableColumns, func(idx snmp.OID, row *MtxrWl60GStaTableRow) {
+	row.Key, row.keyValid = decodeMtxrWl60GStaTableKey(idx)
+}, func(row *MtxrWl60GStaTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaConnected, &row.MtxrWl60GStaConnected, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaRemote, &row.MtxrWl60GStaRemote, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaMcs, &row.MtxrWl60GStaMcs, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaSignal, &row.MtxrWl60GStaSignal, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaTxSector, &row.MtxrWl60GStaTxSector, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaPhyRate, &row.MtxrWl60GStaPhyRate, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaRssi, &row.MtxrWl60GStaRssi, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWl60GStaDistance, &row.MtxrWl60GStaDistance, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWl60GStaTableRow]) *MtxrWl60GStaTableWalker {
+	return &MtxrWl60GStaTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWl60GStaTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWl60GStaTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWl60GStaTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWl60GStaTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWl60GStaTableKey",
@@ -4742,44 +2817,20 @@ func (mtxrWl60GStaTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWl60GStaTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWl60GStaTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWl60GStaConnected.Key(), MtxrWl60GStaRemote.Key(), MtxrWl60GStaMcs.Key(), MtxrWl60GStaSignal.Key(), MtxrWl60GStaTxSector.Key(), MtxrWl60GStaPhyRate.Key(), MtxrWl60GStaRssi.Key(), MtxrWl60GStaDistance.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWl60GStaTable.Walk: column %s", c.OID()))
-			return &MtxrWl60GStaTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWl60GStaTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrWlCMRemoteName is mtxrWlCMRemoteName.
+var MtxrWlCMRemoteName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrWlCMRemoteName is the column mtxrWlCMRemoteName of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlCMRemoteState is mtxrWlCMRemoteState.
+var MtxrWlCMRemoteState = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrWlCMRemoteState is the column mtxrWlCMRemoteState of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrWlCMRemoteAddress is mtxrWlCMRemoteAddress.
+var MtxrWlCMRemoteAddress = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrWlCMRemoteAddress is the column mtxrWlCMRemoteAddress of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteAddress = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrWlCMRemoteRadios is the column mtxrWlCMRemoteRadios of table mtxrWlCMRemoteTable.
-var MtxrWlCMRemoteRadios = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrWlCMRemoteRadios is mtxrWlCMRemoteRadios.
+var (
+	MtxrWlCMRemoteRadios       = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 1, 11, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
+	mtxrWlCMRemoteTableColumns = []snmp.AnyColumn{MtxrWlCMRemoteName, MtxrWlCMRemoteState, MtxrWlCMRemoteAddress, MtxrWlCMRemoteRadios}
+)
 
 // MtxrWlCMRemoteTableKey is the decoded INDEX of one mtxrWlCMRemoteTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -4799,14 +2850,7 @@ func decodeMtxrWlCMRemoteTableKey(idx snmp.OID) (MtxrWlCMRemoteTableKey, bool) {
 	return MtxrWlCMRemoteTableKey{MtxrWlCMRemoteIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWlCMRemoteTableRow is one row of mtxrWlCMRemoteTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWlCMRemoteTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWlCMRemoteTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWlCMRemoteTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWlCMRemoteTableRow struct {
 	Key                   MtxrWlCMRemoteTableKey
 	keyValid              bool
@@ -4814,161 +2858,47 @@ type MtxrWlCMRemoteTableRow struct {
 	MtxrWlCMRemoteState   string
 	MtxrWlCMRemoteAddress string
 	MtxrWlCMRemoteRadios  uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed              [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWlCMRemoteTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWlCMRemoteTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWlCMRemoteName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWlCMRemoteState.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWlCMRemoteAddress.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWlCMRemoteRadios.Key():
-		return r.observed[0]&(1<<3) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWlCMRemoteTableColumns, col)
 }
 
-// MtxrWlCMRemoteTableWalker streams selected columns of mtxrWlCMRemoteTable.
-// The zero value is not usable; construct via MtxrWlCMRemoteTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWlCMRemoteTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWlCMRemoteTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWlCMRemoteTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWlCMRemoteTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWlCMRemoteTableRow] {
-	return func(yield func(snmp.OID, MtxrWlCMRemoteTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWlCMRemoteTableRow
-			row.Key, row.keyValid = decodeMtxrWlCMRemoteTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWlCMRemoteName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRemoteName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRemoteName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrWlCMRemoteState.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRemoteState.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRemoteState = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrWlCMRemoteAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWlCMRemoteAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWlCMRemoteAddress = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrWlCMRemoteRadios.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrWlCMRemoteRadios = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWlCMRemoteRadios.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWlCMRemoteRadios = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWlCMRemoteTableT struct {
+	snmp.Table[MtxrWlCMRemoteTableRow, *MtxrWlCMRemoteTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWlCMRemoteTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWlCMRemoteTableT is the singleton type of MtxrWlCMRemoteTable.
-type mtxrWlCMRemoteTableT struct{}
 
 // MtxrWlCMRemoteTable is the descriptor for the mtxrWlCMRemoteTable table.
-var MtxrWlCMRemoteTable mtxrWlCMRemoteTableT
+var MtxrWlCMRemoteTable = mtxrWlCMRemoteTableT{Table: snmp.NewTable("mtxrWlCMRemoteTable", mtxrWlCMRemoteTableColumns, func(idx snmp.OID, row *MtxrWlCMRemoteTableRow) {
+	row.Key, row.keyValid = decodeMtxrWlCMRemoteTableKey(idx)
+}, func(row *MtxrWlCMRemoteTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWlCMRemoteName, &row.MtxrWlCMRemoteName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWlCMRemoteState, &row.MtxrWlCMRemoteState, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWlCMRemoteAddress, &row.MtxrWlCMRemoteAddress, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWlCMRemoteRadios, &row.MtxrWlCMRemoteRadios, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWlCMRemoteTableRow]) *MtxrWlCMRemoteTableWalker {
+	return &MtxrWlCMRemoteTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWlCMRemoteTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWlCMRemoteTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWlCMRemoteTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWlCMRemoteTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWlCMRemoteTableKey",
@@ -4976,81 +2906,57 @@ func (mtxrWlCMRemoteTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWlCMRemoteTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWlCMRemoteTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWlCMRemoteName.Key(), MtxrWlCMRemoteState.Key(), MtxrWlCMRemoteAddress.Key(), MtxrWlCMRemoteRadios.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWlCMRemoteTable.Walk: column %s", c.OID()))
-			return &MtxrWlCMRemoteTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWlCMRemoteTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrQueueSimpleName is mtxrQueueSimpleName.
+var MtxrQueueSimpleName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrQueueSimpleName is the column mtxrQueueSimpleName of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrQueueSimpleSrcAddr is mtxrQueueSimpleSrcAddr.
+var MtxrQueueSimpleSrcAddr = snmp.NewTableColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 3), snmp.KindIPAddress, snmp.DecodeIP, 1)
 
-// MtxrQueueSimpleSrcAddr is the column mtxrQueueSimpleSrcAddr of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleSrcAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 3), snmp.KindIPAddress, snmp.DecodeIP)
+// MtxrQueueSimpleSrcMask is mtxrQueueSimpleSrcMask.
+var MtxrQueueSimpleSrcMask = snmp.NewTableColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 4), snmp.KindIPAddress, snmp.DecodeIP, 2)
 
-// MtxrQueueSimpleSrcMask is the column mtxrQueueSimpleSrcMask of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleSrcMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 4), snmp.KindIPAddress, snmp.DecodeIP)
+// MtxrQueueSimpleDstAddr is mtxrQueueSimpleDstAddr.
+var MtxrQueueSimpleDstAddr = snmp.NewTableColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 5), snmp.KindIPAddress, snmp.DecodeIP, 3)
 
-// MtxrQueueSimpleDstAddr is the column mtxrQueueSimpleDstAddr of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDstAddr = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 5), snmp.KindIPAddress, snmp.DecodeIP)
+// MtxrQueueSimpleDstMask is mtxrQueueSimpleDstMask.
+var MtxrQueueSimpleDstMask = snmp.NewTableColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 6), snmp.KindIPAddress, snmp.DecodeIP, 4)
 
-// MtxrQueueSimpleDstMask is the column mtxrQueueSimpleDstMask of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDstMask = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 6), snmp.KindIPAddress, snmp.DecodeIP)
-
-// MtxrQueueSimpleIface is the column mtxrQueueSimpleIface of table mtxrQueueSimpleTable.
+// MtxrQueueSimpleIface is mtxrQueueSimpleIface.
 // interface index
-var MtxrQueueSimpleIface = snmp.NewColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
+var MtxrQueueSimpleIface = snmp.NewFusedTableColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ObjectIndex(0), err
 	}
 	return ObjectIndex(v), nil
-})
+}, snmp.RawInteger32As[ObjectIndex], 5)
 
-// MtxrQueueSimpleBytesIn is the column mtxrQueueSimpleBytesIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 8), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrQueueSimpleBytesIn is mtxrQueueSimpleBytesIn.
+var MtxrQueueSimpleBytesIn = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 8), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 6)
 
-// MtxrQueueSimpleBytesOut is the column mtxrQueueSimpleBytesOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 9), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrQueueSimpleBytesOut is mtxrQueueSimpleBytesOut.
+var MtxrQueueSimpleBytesOut = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 9), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 7)
 
-// MtxrQueueSimplePacketsIn is the column mtxrQueueSimplePacketsIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePacketsIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueSimplePacketsIn is mtxrQueueSimplePacketsIn.
+var MtxrQueueSimplePacketsIn = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 8)
 
-// MtxrQueueSimplePacketsOut is the column mtxrQueueSimplePacketsOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePacketsOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 11), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueSimplePacketsOut is mtxrQueueSimplePacketsOut.
+var MtxrQueueSimplePacketsOut = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 11), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 9)
 
-// MtxrQueueSimplePCQQueuesIn is the column mtxrQueueSimplePCQQueuesIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePCQQueuesIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 12), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueSimplePCQQueuesIn is mtxrQueueSimplePCQQueuesIn.
+var MtxrQueueSimplePCQQueuesIn = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 12), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 10)
 
-// MtxrQueueSimplePCQQueuesOut is the column mtxrQueueSimplePCQQueuesOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimplePCQQueuesOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 13), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueSimplePCQQueuesOut is mtxrQueueSimplePCQQueuesOut.
+var MtxrQueueSimplePCQQueuesOut = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 13), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 11)
 
-// MtxrQueueSimpleDroppedIn is the column mtxrQueueSimpleDroppedIn of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDroppedIn = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 14), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueSimpleDroppedIn is mtxrQueueSimpleDroppedIn.
+var MtxrQueueSimpleDroppedIn = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 14), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 12)
 
-// MtxrQueueSimpleDroppedOut is the column mtxrQueueSimpleDroppedOut of table mtxrQueueSimpleTable.
-var MtxrQueueSimpleDroppedOut = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 15), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueSimpleDroppedOut is mtxrQueueSimpleDroppedOut.
+var (
+	MtxrQueueSimpleDroppedOut   = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 1, 1, 15), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 13)
+	mtxrQueueSimpleTableColumns = []snmp.AnyColumn{MtxrQueueSimpleName, MtxrQueueSimpleSrcAddr, MtxrQueueSimpleSrcMask, MtxrQueueSimpleDstAddr, MtxrQueueSimpleDstMask, MtxrQueueSimpleIface, MtxrQueueSimpleBytesIn, MtxrQueueSimpleBytesOut, MtxrQueueSimplePacketsIn, MtxrQueueSimplePacketsOut, MtxrQueueSimplePCQQueuesIn, MtxrQueueSimplePCQQueuesOut, MtxrQueueSimpleDroppedIn, MtxrQueueSimpleDroppedOut}
+)
 
 // MtxrQueueSimpleTableKey is the decoded INDEX of one mtxrQueueSimpleTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -5070,14 +2976,7 @@ func decodeMtxrQueueSimpleTableKey(idx snmp.OID) (MtxrQueueSimpleTableKey, bool)
 	return MtxrQueueSimpleTableKey{MtxrQueueSimpleIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrQueueSimpleTableRow is one row of mtxrQueueSimpleTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrQueueSimpleTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrQueueSimpleTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrQueueSimpleTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrQueueSimpleTableRow struct {
 	Key                         MtxrQueueSimpleTableKey
 	keyValid                    bool
@@ -5095,351 +2994,67 @@ type MtxrQueueSimpleTableRow struct {
 	MtxrQueueSimplePCQQueuesOut uint32
 	MtxrQueueSimpleDroppedIn    uint32
 	MtxrQueueSimpleDroppedOut   uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrQueueSimpleTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrQueueSimpleTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrQueueSimpleName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrQueueSimpleSrcAddr.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrQueueSimpleSrcMask.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrQueueSimpleDstAddr.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrQueueSimpleDstMask.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrQueueSimpleIface.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrQueueSimpleBytesIn.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrQueueSimpleBytesOut.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrQueueSimplePacketsIn.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrQueueSimplePacketsOut.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrQueueSimplePCQQueuesIn.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrQueueSimplePCQQueuesOut.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrQueueSimpleDroppedIn.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrQueueSimpleDroppedOut.Key():
-		return r.observed[0]&(1<<13) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrQueueSimpleTableColumns, col)
 }
 
-// MtxrQueueSimpleTableWalker streams selected columns of mtxrQueueSimpleTable.
-// The zero value is not usable; construct via MtxrQueueSimpleTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrQueueSimpleTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrQueueSimpleTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrQueueSimpleTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrQueueSimpleTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueSimpleTableRow] {
-	return func(yield func(snmp.OID, MtxrQueueSimpleTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrQueueSimpleTableRow
-			row.Key, row.keyValid = decodeMtxrQueueSimpleTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrQueueSimpleName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrQueueSimpleSrcAddr.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleSrcAddr.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleSrcAddr = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrQueueSimpleSrcMask.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleSrcMask.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleSrcMask = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrQueueSimpleDstAddr.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleDstAddr.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleDstAddr = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrQueueSimpleDstMask.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueSimpleDstMask.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueSimpleDstMask = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case MtxrQueueSimpleIface.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrQueueSimpleIface = ObjectIndex(v)
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimpleIface.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimpleIface = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrQueueSimpleBytesIn.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrQueueSimpleBytesIn = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimpleBytesIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimpleBytesIn = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrQueueSimpleBytesOut.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrQueueSimpleBytesOut = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimpleBytesOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimpleBytesOut = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrQueueSimplePacketsIn.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePacketsIn = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimplePacketsIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimplePacketsIn = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrQueueSimplePacketsOut.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePacketsOut = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimplePacketsOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimplePacketsOut = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrQueueSimplePCQQueuesIn.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePCQQueuesIn = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimplePCQQueuesIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimplePCQQueuesIn = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case MtxrQueueSimplePCQQueuesOut.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimplePCQQueuesOut = v
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimplePCQQueuesOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimplePCQQueuesOut = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case MtxrQueueSimpleDroppedIn.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimpleDroppedIn = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimpleDroppedIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimpleDroppedIn = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case MtxrQueueSimpleDroppedOut.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueSimpleDroppedOut = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueSimpleDroppedOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueSimpleDroppedOut = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrQueueSimpleTableT struct {
+	snmp.Table[MtxrQueueSimpleTableRow, *MtxrQueueSimpleTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrQueueSimpleTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrQueueSimpleTableT is the singleton type of MtxrQueueSimpleTable.
-type mtxrQueueSimpleTableT struct{}
 
 // MtxrQueueSimpleTable is the descriptor for the mtxrQueueSimpleTable table.
-var MtxrQueueSimpleTable mtxrQueueSimpleTableT
+var MtxrQueueSimpleTable = mtxrQueueSimpleTableT{Table: snmp.NewTable("mtxrQueueSimpleTable", mtxrQueueSimpleTableColumns, func(idx snmp.OID, row *MtxrQueueSimpleTableRow) {
+	row.Key, row.keyValid = decodeMtxrQueueSimpleTableKey(idx)
+}, func(row *MtxrQueueSimpleTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleName, &row.MtxrQueueSimpleName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleSrcAddr, &row.MtxrQueueSimpleSrcAddr, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleSrcMask, &row.MtxrQueueSimpleSrcMask, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleDstAddr, &row.MtxrQueueSimpleDstAddr, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleDstMask, &row.MtxrQueueSimpleDstMask, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleIface, &row.MtxrQueueSimpleIface, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleBytesIn, &row.MtxrQueueSimpleBytesIn, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleBytesOut, &row.MtxrQueueSimpleBytesOut, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrQueueSimplePacketsIn, &row.MtxrQueueSimplePacketsIn, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrQueueSimplePacketsOut, &row.MtxrQueueSimplePacketsOut, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrQueueSimplePCQQueuesIn, &row.MtxrQueueSimplePCQQueuesIn, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrQueueSimplePCQQueuesOut, &row.MtxrQueueSimplePCQQueuesOut, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleDroppedIn, &row.MtxrQueueSimpleDroppedIn, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrQueueSimpleDroppedOut, &row.MtxrQueueSimpleDroppedOut, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrQueueSimpleTableRow]) *MtxrQueueSimpleTableWalker {
+	return &MtxrQueueSimpleTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrQueueSimpleTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrQueueSimpleTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueSimpleTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrQueueSimpleTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrQueueSimpleTableKey",
@@ -5447,64 +3062,40 @@ func (mtxrQueueSimpleTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrQueueSimpleTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrQueueSimpleTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrQueueSimpleName.Key(), MtxrQueueSimpleSrcAddr.Key(), MtxrQueueSimpleSrcMask.Key(), MtxrQueueSimpleDstAddr.Key(), MtxrQueueSimpleDstMask.Key(), MtxrQueueSimpleIface.Key(), MtxrQueueSimpleBytesIn.Key(), MtxrQueueSimpleBytesOut.Key(), MtxrQueueSimplePacketsIn.Key(), MtxrQueueSimplePacketsOut.Key(), MtxrQueueSimplePCQQueuesIn.Key(), MtxrQueueSimplePCQQueuesOut.Key(), MtxrQueueSimpleDroppedIn.Key(), MtxrQueueSimpleDroppedOut.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrQueueSimpleTable.Walk: column %s", c.OID()))
-			return &MtxrQueueSimpleTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrQueueSimpleTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrQueueTreeName is mtxrQueueTreeName.
+var MtxrQueueTreeName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrQueueTreeName is the column mtxrQueueTreeName of table mtxrQueueTreeTable.
-var MtxrQueueTreeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrQueueTreeFlow is the column mtxrQueueTreeFlow of table mtxrQueueTreeTable.
+// MtxrQueueTreeFlow is mtxrQueueTreeFlow.
 // flowmark
-var MtxrQueueTreeFlow = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrQueueTreeFlow = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrQueueTreeParentIndex is the column mtxrQueueTreeParentIndex of table mtxrQueueTreeTable.
+// MtxrQueueTreeParentIndex is mtxrQueueTreeParentIndex.
 // index of parent tree queue or parent interface
-var MtxrQueueTreeParentIndex = snmp.NewColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
+var MtxrQueueTreeParentIndex = snmp.NewFusedTableColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ObjectIndex(0), err
 	}
 	return ObjectIndex(v), nil
-})
+}, snmp.RawInteger32As[ObjectIndex], 2)
 
-// MtxrQueueTreeBytes is the column mtxrQueueTreeBytes of table mtxrQueueTreeTable.
-var MtxrQueueTreeBytes = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueTreeBytes is mtxrQueueTreeBytes.
+var MtxrQueueTreeBytes = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
 
-// MtxrQueueTreePackets is the column mtxrQueueTreePackets of table mtxrQueueTreeTable.
-var MtxrQueueTreePackets = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueTreePackets is mtxrQueueTreePackets.
+var MtxrQueueTreePackets = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
 
-// MtxrQueueTreeHCBytes is the column mtxrQueueTreeHCBytes of table mtxrQueueTreeTable.
-var MtxrQueueTreeHCBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 7), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrQueueTreeHCBytes is mtxrQueueTreeHCBytes.
+var MtxrQueueTreeHCBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 7), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 5)
 
-// MtxrQueueTreePCQQueues is the column mtxrQueueTreePCQQueues of table mtxrQueueTreeTable.
-var MtxrQueueTreePCQQueues = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueTreePCQQueues is mtxrQueueTreePCQQueues.
+var MtxrQueueTreePCQQueues = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 8), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 6)
 
-// MtxrQueueTreeDropped is the column mtxrQueueTreeDropped of table mtxrQueueTreeTable.
-var MtxrQueueTreeDropped = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
+// MtxrQueueTreeDropped is mtxrQueueTreeDropped.
+var (
+	MtxrQueueTreeDropped      = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 2, 2, 1, 9), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 7)
+	mtxrQueueTreeTableColumns = []snmp.AnyColumn{MtxrQueueTreeName, MtxrQueueTreeFlow, MtxrQueueTreeParentIndex, MtxrQueueTreeBytes, MtxrQueueTreePackets, MtxrQueueTreeHCBytes, MtxrQueueTreePCQQueues, MtxrQueueTreeDropped}
+)
 
 // MtxrQueueTreeTableKey is the decoded INDEX of one mtxrQueueTreeTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -5524,14 +3115,7 @@ func decodeMtxrQueueTreeTableKey(idx snmp.OID) (MtxrQueueTreeTableKey, bool) {
 	return MtxrQueueTreeTableKey{MtxrQueueTreeIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrQueueTreeTableRow is one row of mtxrQueueTreeTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrQueueTreeTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrQueueTreeTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrQueueTreeTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrQueueTreeTableRow struct {
 	Key                      MtxrQueueTreeTableKey
 	keyValid                 bool
@@ -5543,246 +3127,55 @@ type MtxrQueueTreeTableRow struct {
 	MtxrQueueTreeHCBytes     uint64
 	MtxrQueueTreePCQQueues   uint32
 	MtxrQueueTreeDropped     uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                 [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrQueueTreeTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrQueueTreeTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrQueueTreeName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrQueueTreeFlow.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrQueueTreeParentIndex.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrQueueTreeBytes.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrQueueTreePackets.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrQueueTreeHCBytes.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrQueueTreePCQQueues.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrQueueTreeDropped.Key():
-		return r.observed[0]&(1<<7) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrQueueTreeTableColumns, col)
 }
 
-// MtxrQueueTreeTableWalker streams selected columns of mtxrQueueTreeTable.
-// The zero value is not usable; construct via MtxrQueueTreeTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrQueueTreeTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrQueueTreeTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrQueueTreeTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrQueueTreeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrQueueTreeTableRow] {
-	return func(yield func(snmp.OID, MtxrQueueTreeTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrQueueTreeTableRow
-			row.Key, row.keyValid = decodeMtxrQueueTreeTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrQueueTreeName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueTreeName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueTreeName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrQueueTreeFlow.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrQueueTreeFlow.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrQueueTreeFlow = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrQueueTreeParentIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrQueueTreeParentIndex = ObjectIndex(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueTreeParentIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueTreeParentIndex = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrQueueTreeBytes.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreeBytes = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueTreeBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueTreeBytes = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrQueueTreePackets.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreePackets = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueTreePackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueTreePackets = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrQueueTreeHCBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrQueueTreeHCBytes = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueTreeHCBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueTreeHCBytes = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrQueueTreePCQQueues.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreePCQQueues = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueTreePCQQueues.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueTreePCQQueues = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrQueueTreeDropped.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrQueueTreeDropped = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrQueueTreeDropped.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrQueueTreeDropped = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrQueueTreeTableT struct {
+	snmp.Table[MtxrQueueTreeTableRow, *MtxrQueueTreeTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrQueueTreeTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrQueueTreeTableT is the singleton type of MtxrQueueTreeTable.
-type mtxrQueueTreeTableT struct{}
 
 // MtxrQueueTreeTable is the descriptor for the mtxrQueueTreeTable table.
-var MtxrQueueTreeTable mtxrQueueTreeTableT
+var MtxrQueueTreeTable = mtxrQueueTreeTableT{Table: snmp.NewTable("mtxrQueueTreeTable", mtxrQueueTreeTableColumns, func(idx snmp.OID, row *MtxrQueueTreeTableRow) {
+	row.Key, row.keyValid = decodeMtxrQueueTreeTableKey(idx)
+}, func(row *MtxrQueueTreeTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrQueueTreeName, &row.MtxrQueueTreeName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrQueueTreeFlow, &row.MtxrQueueTreeFlow, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrQueueTreeParentIndex, &row.MtxrQueueTreeParentIndex, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrQueueTreeBytes, &row.MtxrQueueTreeBytes, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrQueueTreePackets, &row.MtxrQueueTreePackets, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrQueueTreeHCBytes, &row.MtxrQueueTreeHCBytes, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrQueueTreePCQQueues, &row.MtxrQueueTreePCQQueues, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrQueueTreeDropped, &row.MtxrQueueTreeDropped, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrQueueTreeTableRow]) *MtxrQueueTreeTableWalker {
+	return &MtxrQueueTreeTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrQueueTreeTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrQueueTreeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrQueueTreeTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrQueueTreeTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrQueueTreeTableKey",
@@ -5790,48 +3183,22 @@ func (mtxrQueueTreeTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrQueueTreeTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrQueueTreeTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrQueueTreeName.Key(), MtxrQueueTreeFlow.Key(), MtxrQueueTreeParentIndex.Key(), MtxrQueueTreeBytes.Key(), MtxrQueueTreePackets.Key(), MtxrQueueTreeHCBytes.Key(), MtxrQueueTreePCQQueues.Key(), MtxrQueueTreeDropped.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrQueueTreeTable.Walk: column %s", c.OID()))
-			return &MtxrQueueTreeTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrQueueTreeTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrGaugeName is mtxrGaugeName.
+var MtxrGaugeName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrGaugeName is the column mtxrGaugeName of table mtxrGaugeTable.
-var MtxrGaugeName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrGaugeValue is mtxrGaugeValue.
+var MtxrGaugeValue = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// MtxrGaugeValue is the column mtxrGaugeValue of table mtxrGaugeTable.
-var MtxrGaugeValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
-
-// MtxrGaugeUnit is the column mtxrGaugeUnit of table mtxrGaugeTable.
+// MtxrGaugeUnit is mtxrGaugeUnit.
 // units
-var MtxrGaugeUnit = snmp.NewColumn[MtxrGaugeUnitValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrGaugeUnitValue, error) {
+var MtxrGaugeUnit = snmp.NewFusedTableColumn[MtxrGaugeUnitValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 3, 100, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrGaugeUnitValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrGaugeUnitValue(0), err
 	}
 	return MtxrGaugeUnitValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrGaugeUnitValue], 2)
+var mtxrGaugeTableColumns = []snmp.AnyColumn{MtxrGaugeName, MtxrGaugeValue, MtxrGaugeUnit}
 
 // MtxrGaugeTableKey is the decoded INDEX of one mtxrGaugeTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -5851,165 +3218,52 @@ func decodeMtxrGaugeTableKey(idx snmp.OID) (MtxrGaugeTableKey, bool) {
 	return MtxrGaugeTableKey{MtxrGaugeIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrGaugeTableRow is one row of mtxrGaugeTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrGaugeTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrGaugeTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrGaugeTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrGaugeTableRow struct {
 	Key            MtxrGaugeTableKey
 	keyValid       bool
 	MtxrGaugeName  string
 	MtxrGaugeValue int32
 	MtxrGaugeUnit  MtxrGaugeUnitValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrGaugeTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrGaugeTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrGaugeName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrGaugeValue.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrGaugeUnit.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrGaugeTableColumns, col)
 }
 
-// MtxrGaugeTableWalker streams selected columns of mtxrGaugeTable.
-// The zero value is not usable; construct via MtxrGaugeTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrGaugeTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrGaugeTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrGaugeTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrGaugeTableWalker) Iter() iter.Seq2[snmp.OID, MtxrGaugeTableRow] {
-	return func(yield func(snmp.OID, MtxrGaugeTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrGaugeTableRow
-			row.Key, row.keyValid = decodeMtxrGaugeTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrGaugeName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrGaugeName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrGaugeName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrGaugeValue.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrGaugeValue = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrGaugeValue.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrGaugeValue = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrGaugeUnit.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrGaugeUnit = MtxrGaugeUnitValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrGaugeUnit.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrGaugeUnit = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrGaugeTableT struct {
+	snmp.Table[MtxrGaugeTableRow, *MtxrGaugeTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrGaugeTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrGaugeTableT is the singleton type of MtxrGaugeTable.
-type mtxrGaugeTableT struct{}
 
 // MtxrGaugeTable is the descriptor for the mtxrGaugeTable table.
-var MtxrGaugeTable mtxrGaugeTableT
+var MtxrGaugeTable = mtxrGaugeTableT{Table: snmp.NewTable("mtxrGaugeTable", mtxrGaugeTableColumns, func(idx snmp.OID, row *MtxrGaugeTableRow) {
+	row.Key, row.keyValid = decodeMtxrGaugeTableKey(idx)
+}, func(row *MtxrGaugeTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrGaugeName, &row.MtxrGaugeName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrGaugeValue, &row.MtxrGaugeValue, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrGaugeUnit, &row.MtxrGaugeUnit, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrGaugeTableRow]) *MtxrGaugeTableWalker {
+	return &MtxrGaugeTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrGaugeTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrGaugeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrGaugeTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrGaugeTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrGaugeTableKey",
@@ -6017,89 +3271,65 @@ func (mtxrGaugeTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrGaugeTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrGaugeTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrGaugeName.Key(), MtxrGaugeValue.Key(), MtxrGaugeUnit.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrGaugeTable.Walk: column %s", c.OID()))
-			return &MtxrGaugeTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrGaugeTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrHotspotActiveUserServerID is mtxrHotspotActiveUserServerID.
+var MtxrHotspotActiveUserServerID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// MtxrHotspotActiveUserServerID is the column mtxrHotspotActiveUserServerID of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserServerID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserName is mtxrHotspotActiveUserName.
+var MtxrHotspotActiveUserName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrHotspotActiveUserName is the column mtxrHotspotActiveUserName of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrHotspotActiveUserDomain is mtxrHotspotActiveUserDomain.
+var MtxrHotspotActiveUserDomain = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrHotspotActiveUserDomain is the column mtxrHotspotActiveUserDomain of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserDomain = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrHotspotActiveUserIP is mtxrHotspotActiveUserIP.
+var MtxrHotspotActiveUserIP = snmp.NewTableColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 5), snmp.KindIPAddress, snmp.DecodeIP, 3)
 
-// MtxrHotspotActiveUserIP is the column mtxrHotspotActiveUserIP of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserIP = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 5), snmp.KindIPAddress, snmp.DecodeIP)
+// MtxrHotspotActiveUserMAC is mtxrHotspotActiveUserMAC.
+var MtxrHotspotActiveUserMAC = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress, 4)
 
-// MtxrHotspotActiveUserMAC is the column mtxrHotspotActiveUserMAC of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserMAC = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 6), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrHotspotActiveUserConnectTime is mtxrHotspotActiveUserConnectTime.
+var MtxrHotspotActiveUserConnectTime = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// MtxrHotspotActiveUserConnectTime is the column mtxrHotspotActiveUserConnectTime of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserConnectTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserValidTillTime is mtxrHotspotActiveUserValidTillTime.
+var MtxrHotspotActiveUserValidTillTime = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// MtxrHotspotActiveUserValidTillTime is the column mtxrHotspotActiveUserValidTillTime of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserValidTillTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserIdleStartTime is mtxrHotspotActiveUserIdleStartTime.
+var MtxrHotspotActiveUserIdleStartTime = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
 
-// MtxrHotspotActiveUserIdleStartTime is the column mtxrHotspotActiveUserIdleStartTime of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserIdleStartTime = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserIdleTimeout is mtxrHotspotActiveUserIdleTimeout.
+var MtxrHotspotActiveUserIdleTimeout = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 8)
 
-// MtxrHotspotActiveUserIdleTimeout is the column mtxrHotspotActiveUserIdleTimeout of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserIdleTimeout = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserPingTimeout is mtxrHotspotActiveUserPingTimeout.
+var MtxrHotspotActiveUserPingTimeout = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 9)
 
-// MtxrHotspotActiveUserPingTimeout is the column mtxrHotspotActiveUserPingTimeout of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserPingTimeout = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserBytesIn is mtxrHotspotActiveUserBytesIn.
+var MtxrHotspotActiveUserBytesIn = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 12), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 10)
 
-// MtxrHotspotActiveUserBytesIn is the column mtxrHotspotActiveUserBytesIn of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 12), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrHotspotActiveUserBytesOut is mtxrHotspotActiveUserBytesOut.
+var MtxrHotspotActiveUserBytesOut = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 11)
 
-// MtxrHotspotActiveUserBytesOut is the column mtxrHotspotActiveUserBytesOut of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrHotspotActiveUserPacketsIn is mtxrHotspotActiveUserPacketsIn.
+var MtxrHotspotActiveUserPacketsIn = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 12)
 
-// MtxrHotspotActiveUserPacketsIn is the column mtxrHotspotActiveUserPacketsIn of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserPacketsIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrHotspotActiveUserPacketsOut is mtxrHotspotActiveUserPacketsOut.
+var MtxrHotspotActiveUserPacketsOut = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 15), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 13)
 
-// MtxrHotspotActiveUserPacketsOut is the column mtxrHotspotActiveUserPacketsOut of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserPacketsOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 15), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrHotspotActiveUserLimitBytesIn is mtxrHotspotActiveUserLimitBytesIn.
+var MtxrHotspotActiveUserLimitBytesIn = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 16), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 14)
 
-// MtxrHotspotActiveUserLimitBytesIn is the column mtxrHotspotActiveUserLimitBytesIn of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserLimitBytesIn = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 16), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrHotspotActiveUserLimitBytesOut is mtxrHotspotActiveUserLimitBytesOut.
+var MtxrHotspotActiveUserLimitBytesOut = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 17), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 15)
 
-// MtxrHotspotActiveUserLimitBytesOut is the column mtxrHotspotActiveUserLimitBytesOut of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserLimitBytesOut = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 17), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrHotspotActiveUserAdvertStatus is mtxrHotspotActiveUserAdvertStatus.
+var MtxrHotspotActiveUserAdvertStatus = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 16)
 
-// MtxrHotspotActiveUserAdvertStatus is the column mtxrHotspotActiveUserAdvertStatus of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserAdvertStatus = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserRadius is mtxrHotspotActiveUserRadius.
+var MtxrHotspotActiveUserRadius = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 17)
 
-// MtxrHotspotActiveUserRadius is the column mtxrHotspotActiveUserRadius of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserRadius = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
-
-// MtxrHotspotActiveUserBlockedByAdvert is the column mtxrHotspotActiveUserBlockedByAdvert of table mtxrHotspotActiveUsersTable.
-var MtxrHotspotActiveUserBlockedByAdvert = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 20), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrHotspotActiveUserBlockedByAdvert is mtxrHotspotActiveUserBlockedByAdvert.
+var (
+	MtxrHotspotActiveUserBlockedByAdvert = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 5, 1, 1, 20), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 18)
+	mtxrHotspotActiveUsersTableColumns   = []snmp.AnyColumn{MtxrHotspotActiveUserServerID, MtxrHotspotActiveUserName, MtxrHotspotActiveUserDomain, MtxrHotspotActiveUserIP, MtxrHotspotActiveUserMAC, MtxrHotspotActiveUserConnectTime, MtxrHotspotActiveUserValidTillTime, MtxrHotspotActiveUserIdleStartTime, MtxrHotspotActiveUserIdleTimeout, MtxrHotspotActiveUserPingTimeout, MtxrHotspotActiveUserBytesIn, MtxrHotspotActiveUserBytesOut, MtxrHotspotActiveUserPacketsIn, MtxrHotspotActiveUserPacketsOut, MtxrHotspotActiveUserLimitBytesIn, MtxrHotspotActiveUserLimitBytesOut, MtxrHotspotActiveUserAdvertStatus, MtxrHotspotActiveUserRadius, MtxrHotspotActiveUserBlockedByAdvert}
+)
 
 // MtxrHotspotActiveUsersTableKey is the decoded INDEX of one mtxrHotspotActiveUsersTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -6119,14 +3349,7 @@ func decodeMtxrHotspotActiveUsersTableKey(idx snmp.OID) (MtxrHotspotActiveUsersT
 	return MtxrHotspotActiveUsersTableKey{MtxrHotspotActiveUserIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrHotspotActiveUsersTableRow is one row of mtxrHotspotActiveUsersTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrHotspotActiveUsersTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrHotspotActiveUsersTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrHotspotActiveUsersTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrHotspotActiveUsersTableRow struct {
 	Key                                  MtxrHotspotActiveUsersTableKey
 	keyValid                             bool
@@ -6149,456 +3372,77 @@ type MtxrHotspotActiveUsersTableRow struct {
 	MtxrHotspotActiveUserAdvertStatus    int32
 	MtxrHotspotActiveUserRadius          int32
 	MtxrHotspotActiveUserBlockedByAdvert int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                             [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrHotspotActiveUsersTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrHotspotActiveUsersTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrHotspotActiveUserServerID.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrHotspotActiveUserName.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrHotspotActiveUserDomain.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrHotspotActiveUserIP.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrHotspotActiveUserMAC.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrHotspotActiveUserConnectTime.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrHotspotActiveUserValidTillTime.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrHotspotActiveUserIdleStartTime.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrHotspotActiveUserIdleTimeout.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrHotspotActiveUserPingTimeout.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrHotspotActiveUserBytesIn.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrHotspotActiveUserBytesOut.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrHotspotActiveUserPacketsIn.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrHotspotActiveUserPacketsOut.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrHotspotActiveUserLimitBytesIn.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrHotspotActiveUserLimitBytesOut.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrHotspotActiveUserAdvertStatus.Key():
-		return r.observed[0]&(1<<16) != 0
-	case MtxrHotspotActiveUserRadius.Key():
-		return r.observed[0]&(1<<17) != 0
-	case MtxrHotspotActiveUserBlockedByAdvert.Key():
-		return r.observed[0]&(1<<18) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrHotspotActiveUsersTableColumns, col)
 }
 
-// MtxrHotspotActiveUsersTableWalker streams selected columns of mtxrHotspotActiveUsersTable.
-// The zero value is not usable; construct via MtxrHotspotActiveUsersTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrHotspotActiveUsersTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrHotspotActiveUsersTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrHotspotActiveUsersTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrHotspotActiveUsersTableWalker) Iter() iter.Seq2[snmp.OID, MtxrHotspotActiveUsersTableRow] {
-	return func(yield func(snmp.OID, MtxrHotspotActiveUsersTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrHotspotActiveUsersTableRow
-			row.Key, row.keyValid = decodeMtxrHotspotActiveUsersTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrHotspotActiveUserServerID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserServerID = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserServerID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserServerID = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrHotspotActiveUserName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserName = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrHotspotActiveUserDomain.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserDomain.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserDomain = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrHotspotActiveUserIP.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserIP.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserIP = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrHotspotActiveUserMAC.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrHotspotActiveUserMAC.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrHotspotActiveUserMAC = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case MtxrHotspotActiveUserConnectTime.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserConnectTime = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserConnectTime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserConnectTime = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrHotspotActiveUserValidTillTime.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserValidTillTime = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserValidTillTime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserValidTillTime = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrHotspotActiveUserIdleStartTime.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserIdleStartTime = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserIdleStartTime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserIdleStartTime = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrHotspotActiveUserIdleTimeout.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserIdleTimeout = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserIdleTimeout.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserIdleTimeout = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrHotspotActiveUserPingTimeout.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserPingTimeout = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserPingTimeout.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserPingTimeout = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrHotspotActiveUserBytesIn.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserBytesIn = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserBytesIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserBytesIn = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case MtxrHotspotActiveUserBytesOut.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserBytesOut = v
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserBytesOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserBytesOut = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case MtxrHotspotActiveUserPacketsIn.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserPacketsIn = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserPacketsIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserPacketsIn = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case MtxrHotspotActiveUserPacketsOut.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserPacketsOut = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserPacketsOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserPacketsOut = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case MtxrHotspotActiveUserLimitBytesIn.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserLimitBytesIn = v
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserLimitBytesIn.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserLimitBytesIn = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case MtxrHotspotActiveUserLimitBytesOut.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrHotspotActiveUserLimitBytesOut = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserLimitBytesOut.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserLimitBytesOut = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case MtxrHotspotActiveUserAdvertStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserAdvertStatus = v
-						row.observed[0] |= 1 << 16
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserAdvertStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserAdvertStatus = dv
-								row.observed[0] |= 1 << 16
-							}
-						}
-					}
-				case MtxrHotspotActiveUserRadius.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserRadius = v
-						row.observed[0] |= 1 << 17
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserRadius.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserRadius = dv
-								row.observed[0] |= 1 << 17
-							}
-						}
-					}
-				case MtxrHotspotActiveUserBlockedByAdvert.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrHotspotActiveUserBlockedByAdvert = v
-						row.observed[0] |= 1 << 18
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrHotspotActiveUserBlockedByAdvert.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrHotspotActiveUserBlockedByAdvert = dv
-								row.observed[0] |= 1 << 18
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrHotspotActiveUsersTableT struct {
+	snmp.Table[MtxrHotspotActiveUsersTableRow, *MtxrHotspotActiveUsersTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrHotspotActiveUsersTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrHotspotActiveUsersTableT is the singleton type of MtxrHotspotActiveUsersTable.
-type mtxrHotspotActiveUsersTableT struct{}
 
 // MtxrHotspotActiveUsersTable is the descriptor for the mtxrHotspotActiveUsersTable table.
-var MtxrHotspotActiveUsersTable mtxrHotspotActiveUsersTableT
+var MtxrHotspotActiveUsersTable = mtxrHotspotActiveUsersTableT{Table: snmp.NewTable("mtxrHotspotActiveUsersTable", mtxrHotspotActiveUsersTableColumns, func(idx snmp.OID, row *MtxrHotspotActiveUsersTableRow) {
+	row.Key, row.keyValid = decodeMtxrHotspotActiveUsersTableKey(idx)
+}, func(row *MtxrHotspotActiveUsersTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserServerID, &row.MtxrHotspotActiveUserServerID, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserName, &row.MtxrHotspotActiveUserName, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserDomain, &row.MtxrHotspotActiveUserDomain, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserIP, &row.MtxrHotspotActiveUserIP, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserMAC, &row.MtxrHotspotActiveUserMAC, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserConnectTime, &row.MtxrHotspotActiveUserConnectTime, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserValidTillTime, &row.MtxrHotspotActiveUserValidTillTime, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserIdleStartTime, &row.MtxrHotspotActiveUserIdleStartTime, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserIdleTimeout, &row.MtxrHotspotActiveUserIdleTimeout, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserPingTimeout, &row.MtxrHotspotActiveUserPingTimeout, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserBytesIn, &row.MtxrHotspotActiveUserBytesIn, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserBytesOut, &row.MtxrHotspotActiveUserBytesOut, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserPacketsIn, &row.MtxrHotspotActiveUserPacketsIn, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserPacketsOut, &row.MtxrHotspotActiveUserPacketsOut, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserLimitBytesIn, &row.MtxrHotspotActiveUserLimitBytesIn, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserLimitBytesOut, &row.MtxrHotspotActiveUserLimitBytesOut, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserAdvertStatus, &row.MtxrHotspotActiveUserAdvertStatus, row.observed[:])
+	case 17:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserRadius, &row.MtxrHotspotActiveUserRadius, row.observed[:])
+	case 18:
+		return snmp.DecodeColumn(rv, MtxrHotspotActiveUserBlockedByAdvert, &row.MtxrHotspotActiveUserBlockedByAdvert, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrHotspotActiveUsersTableRow]) *MtxrHotspotActiveUsersTableWalker {
+	return &MtxrHotspotActiveUsersTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrHotspotActiveUsersTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrHotspotActiveUsersTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrHotspotActiveUsersTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrHotspotActiveUsersTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrHotspotActiveUsersTableKey",
@@ -6606,39 +3450,15 @@ func (mtxrHotspotActiveUsersTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrHotspotActiveUsersTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrHotspotActiveUsersTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrHotspotActiveUserServerID.Key(), MtxrHotspotActiveUserName.Key(), MtxrHotspotActiveUserDomain.Key(), MtxrHotspotActiveUserIP.Key(), MtxrHotspotActiveUserMAC.Key(), MtxrHotspotActiveUserConnectTime.Key(), MtxrHotspotActiveUserValidTillTime.Key(), MtxrHotspotActiveUserIdleStartTime.Key(), MtxrHotspotActiveUserIdleTimeout.Key(), MtxrHotspotActiveUserPingTimeout.Key(), MtxrHotspotActiveUserBytesIn.Key(), MtxrHotspotActiveUserBytesOut.Key(), MtxrHotspotActiveUserPacketsIn.Key(), MtxrHotspotActiveUserPacketsOut.Key(), MtxrHotspotActiveUserLimitBytesIn.Key(), MtxrHotspotActiveUserLimitBytesOut.Key(), MtxrHotspotActiveUserAdvertStatus.Key(), MtxrHotspotActiveUserRadius.Key(), MtxrHotspotActiveUserBlockedByAdvert.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrHotspotActiveUsersTable.Walk: column %s", c.OID()))
-			return &MtxrHotspotActiveUsersTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrHotspotActiveUsersTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrScriptName is mtxrScriptName.
+var MtxrScriptName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrScriptName is the column mtxrScriptName of table mtxrScriptTable.
-var MtxrScriptName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrScriptRunCmd is the column mtxrScriptRunCmd of table mtxrScriptTable.
+// MtxrScriptRunCmd is mtxrScriptRunCmd.
 // set non zero to run
-var MtxrScriptRunCmd = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	MtxrScriptRunCmd       = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 8, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
+	mtxrScriptTableColumns = []snmp.AnyColumn{MtxrScriptName, MtxrScriptRunCmd}
+)
 
 // MtxrScriptTableKey is the decoded INDEX of one mtxrScriptTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -6658,144 +3478,49 @@ func decodeMtxrScriptTableKey(idx snmp.OID) (MtxrScriptTableKey, bool) {
 	return MtxrScriptTableKey{MtxrScriptIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrScriptTableRow is one row of mtxrScriptTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrScriptTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrScriptTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrScriptTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrScriptTableRow struct {
 	Key              MtxrScriptTableKey
 	keyValid         bool
 	MtxrScriptName   string
 	MtxrScriptRunCmd int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed         [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrScriptTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrScriptTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrScriptName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrScriptRunCmd.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrScriptTableColumns, col)
 }
 
-// MtxrScriptTableWalker streams selected columns of mtxrScriptTable.
-// The zero value is not usable; construct via MtxrScriptTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrScriptTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrScriptTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrScriptTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrScriptTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptTableRow] {
-	return func(yield func(snmp.OID, MtxrScriptTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrScriptTableRow
-			row.Key, row.keyValid = decodeMtxrScriptTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrScriptName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrScriptName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrScriptName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrScriptRunCmd.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrScriptRunCmd = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrScriptRunCmd.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrScriptRunCmd = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrScriptTableT struct {
+	snmp.Table[MtxrScriptTableRow, *MtxrScriptTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrScriptTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrScriptTableT is the singleton type of MtxrScriptTable.
-type mtxrScriptTableT struct{}
 
 // MtxrScriptTable is the descriptor for the mtxrScriptTable table.
-var MtxrScriptTable mtxrScriptTableT
+var MtxrScriptTable = mtxrScriptTableT{Table: snmp.NewTable("mtxrScriptTable", mtxrScriptTableColumns, func(idx snmp.OID, row *MtxrScriptTableRow) {
+	row.Key, row.keyValid = decodeMtxrScriptTableKey(idx)
+}, func(row *MtxrScriptTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrScriptName, &row.MtxrScriptName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrScriptRunCmd, &row.MtxrScriptRunCmd, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrScriptTableRow]) *MtxrScriptTableWalker {
+	return &MtxrScriptTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrScriptTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrScriptTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrScriptTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrScriptTableKey",
@@ -6803,52 +3528,28 @@ func (mtxrScriptTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrScriptTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrScriptTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrScriptName.Key(), MtxrScriptRunCmd.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrScriptTable.Walk: column %s", c.OID()))
-			return &MtxrScriptTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrScriptTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrDnStatTxRate is the column mtxrDnStatTxRate of table mtxrDnStatTable.
+// MtxrDnStatTxRate is mtxrDnStatTxRate.
 // bits per second
-var MtxrDnStatTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrDnStatTxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 2), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 0)
 
-// MtxrDnStatRxRate is the column mtxrDnStatRxRate of table mtxrDnStatTable.
+// MtxrDnStatRxRate is mtxrDnStatRxRate.
 // bits per second
-var MtxrDnStatRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 3), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrDnStatRxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 3), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 1)
 
-// MtxrDnStatTxStrength is the column mtxrDnStatTxStrength of table mtxrDnStatTable.
+// MtxrDnStatTxStrength is mtxrDnStatTxStrength.
 // dBm
-var MtxrDnStatTxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrDnStatTxStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// MtxrDnStatRxStrength is the column mtxrDnStatRxStrength of table mtxrDnStatTable.
+// MtxrDnStatRxStrength is mtxrDnStatRxStrength.
 // dBm
-var MtxrDnStatRxStrength = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrDnStatRxStrength = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// MtxrDnConnected is the column mtxrDnConnected of table mtxrDnStatTable.
+// MtxrDnConnected is mtxrDnConnected.
 // 0 - not connected, connected otherwise
-var MtxrDnConnected = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	MtxrDnConnected        = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 10, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
+	mtxrDnStatTableColumns = []snmp.AnyColumn{MtxrDnStatTxRate, MtxrDnStatRxRate, MtxrDnStatTxStrength, MtxrDnStatRxStrength, MtxrDnConnected}
+)
 
 // MtxrDnStatTableKey is the decoded INDEX of one mtxrDnStatTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -6868,14 +3569,7 @@ func decodeMtxrDnStatTableKey(idx snmp.OID) (MtxrDnStatTableKey, bool) {
 	return MtxrDnStatTableKey{MtxrDnStatIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrDnStatTableRow is one row of mtxrDnStatTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrDnStatTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrDnStatTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrDnStatTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrDnStatTableRow struct {
 	Key                  MtxrDnStatTableKey
 	keyValid             bool
@@ -6884,196 +3578,49 @@ type MtxrDnStatTableRow struct {
 	MtxrDnStatTxStrength int32
 	MtxrDnStatRxStrength int32
 	MtxrDnConnected      int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed             [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrDnStatTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrDnStatTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrDnStatTxRate.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrDnStatRxRate.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrDnStatTxStrength.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrDnStatRxStrength.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrDnConnected.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrDnStatTableColumns, col)
 }
 
-// MtxrDnStatTableWalker streams selected columns of mtxrDnStatTable.
-// The zero value is not usable; construct via MtxrDnStatTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrDnStatTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrDnStatTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrDnStatTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrDnStatTableWalker) Iter() iter.Seq2[snmp.OID, MtxrDnStatTableRow] {
-	return func(yield func(snmp.OID, MtxrDnStatTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrDnStatTableRow
-			row.Key, row.keyValid = decodeMtxrDnStatTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrDnStatTxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrDnStatTxRate = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrDnStatTxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrDnStatTxRate = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrDnStatRxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrDnStatRxRate = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrDnStatRxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrDnStatRxRate = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrDnStatTxStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrDnStatTxStrength = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrDnStatTxStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrDnStatTxStrength = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrDnStatRxStrength.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrDnStatRxStrength = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrDnStatRxStrength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrDnStatRxStrength = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrDnConnected.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrDnConnected = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrDnConnected.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrDnConnected = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrDnStatTableT struct {
+	snmp.Table[MtxrDnStatTableRow, *MtxrDnStatTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrDnStatTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrDnStatTableT is the singleton type of MtxrDnStatTable.
-type mtxrDnStatTableT struct{}
 
 // MtxrDnStatTable is the descriptor for the mtxrDnStatTable table.
-var MtxrDnStatTable mtxrDnStatTableT
+var MtxrDnStatTable = mtxrDnStatTableT{Table: snmp.NewTable("mtxrDnStatTable", mtxrDnStatTableColumns, func(idx snmp.OID, row *MtxrDnStatTableRow) {
+	row.Key, row.keyValid = decodeMtxrDnStatTableKey(idx)
+}, func(row *MtxrDnStatTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrDnStatTxRate, &row.MtxrDnStatTxRate, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrDnStatRxRate, &row.MtxrDnStatRxRate, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrDnStatTxStrength, &row.MtxrDnStatTxStrength, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrDnStatRxStrength, &row.MtxrDnStatRxStrength, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrDnConnected, &row.MtxrDnConnected, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrDnStatTableRow]) *MtxrDnStatTableWalker {
+	return &MtxrDnStatTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrDnStatTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrDnStatTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrDnStatTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrDnStatTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrDnStatTableKey",
@@ -7081,59 +3628,33 @@ func (mtxrDnStatTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrDnStatTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrDnStatTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrDnStatTxRate.Key(), MtxrDnStatRxRate.Key(), MtxrDnStatTxStrength.Key(), MtxrDnStatRxStrength.Key(), MtxrDnConnected.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrDnStatTable.Walk: column %s", c.OID()))
-			return &MtxrDnStatTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrDnStatTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrNeighborIPAddress is mtxrNeighborIpAddress.
+var MtxrNeighborIPAddress = snmp.NewTableColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2), snmp.KindIPAddress, snmp.DecodeIP, 0)
 
-// MtxrNeighborIPAddress is the column mtxrNeighborIpAddress of table mtxrNeighborTable.
-var MtxrNeighborIPAddress = snmp.NewColumn[net.IP](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 2), snmp.KindIPAddress, snmp.DecodeIP)
+// MtxrNeighborMACAddress is mtxrNeighborMacAddress.
+var MtxrNeighborMACAddress = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress, 1)
 
-// MtxrNeighborMACAddress is the column mtxrNeighborMacAddress of table mtxrNeighborTable.
-var MtxrNeighborMACAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 3), snmp.KindOctetString, snmp.DecodeMacAddress)
+// MtxrNeighborVersion is mtxrNeighborVersion.
+var MtxrNeighborVersion = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrNeighborVersion is the column mtxrNeighborVersion of table mtxrNeighborTable.
-var MtxrNeighborVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrNeighborPlatform is mtxrNeighborPlatform.
+var MtxrNeighborPlatform = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString, 3)
 
-// MtxrNeighborPlatform is the column mtxrNeighborPlatform of table mtxrNeighborTable.
-var MtxrNeighborPlatform = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrNeighborIdentity is mtxrNeighborIdentity.
+var MtxrNeighborIdentity = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString, 4)
 
-// MtxrNeighborIdentity is the column mtxrNeighborIdentity of table mtxrNeighborTable.
-var MtxrNeighborIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrNeighborSoftwareID is mtxrNeighborSoftwareID.
+var MtxrNeighborSoftwareID = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString, 5)
 
-// MtxrNeighborSoftwareID is the column mtxrNeighborSoftwareID of table mtxrNeighborTable.
-var MtxrNeighborSoftwareID = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrNeighborInterfaceID is the column mtxrNeighborInterfaceID of table mtxrNeighborTable.
-var MtxrNeighborInterfaceID = snmp.NewColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
+// MtxrNeighborInterfaceID is mtxrNeighborInterfaceID.
+var MtxrNeighborInterfaceID = snmp.NewFusedTableColumn[ObjectIndex](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 11, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (ObjectIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ObjectIndex(0), err
 	}
 	return ObjectIndex(v), nil
-})
+}, snmp.RawInteger32As[ObjectIndex], 6)
+var mtxrNeighborTableColumns = []snmp.AnyColumn{MtxrNeighborIPAddress, MtxrNeighborMACAddress, MtxrNeighborVersion, MtxrNeighborPlatform, MtxrNeighborIdentity, MtxrNeighborSoftwareID, MtxrNeighborInterfaceID}
 
 // MtxrNeighborTableKey is the decoded INDEX of one mtxrNeighborTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -7153,14 +3674,7 @@ func decodeMtxrNeighborTableKey(idx snmp.OID) (MtxrNeighborTableKey, bool) {
 	return MtxrNeighborTableKey{MtxrNeighborIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrNeighborTableRow is one row of mtxrNeighborTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrNeighborTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrNeighborTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrNeighborTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrNeighborTableRow struct {
 	Key                     MtxrNeighborTableKey
 	keyValid                bool
@@ -7171,206 +3685,53 @@ type MtxrNeighborTableRow struct {
 	MtxrNeighborIdentity    string
 	MtxrNeighborSoftwareID  string
 	MtxrNeighborInterfaceID ObjectIndex
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrNeighborTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrNeighborTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrNeighborIPAddress.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrNeighborMACAddress.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrNeighborVersion.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrNeighborPlatform.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrNeighborIdentity.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrNeighborSoftwareID.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrNeighborInterfaceID.Key():
-		return r.observed[0]&(1<<6) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrNeighborTableColumns, col)
 }
 
-// MtxrNeighborTableWalker streams selected columns of mtxrNeighborTable.
-// The zero value is not usable; construct via MtxrNeighborTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrNeighborTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrNeighborTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrNeighborTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrNeighborTableWalker) Iter() iter.Seq2[snmp.OID, MtxrNeighborTableRow] {
-	return func(yield func(snmp.OID, MtxrNeighborTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrNeighborTableRow
-			row.Key, row.keyValid = decodeMtxrNeighborTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrNeighborIPAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrNeighborIPAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrNeighborIPAddress = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrNeighborMACAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrNeighborMACAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrNeighborMACAddress = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrNeighborVersion.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrNeighborVersion.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrNeighborVersion = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrNeighborPlatform.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrNeighborPlatform.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrNeighborPlatform = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrNeighborIdentity.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrNeighborIdentity.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrNeighborIdentity = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case MtxrNeighborSoftwareID.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrNeighborSoftwareID.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrNeighborSoftwareID = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case MtxrNeighborInterfaceID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrNeighborInterfaceID = ObjectIndex(v)
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrNeighborInterfaceID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrNeighborInterfaceID = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrNeighborTableT struct {
+	snmp.Table[MtxrNeighborTableRow, *MtxrNeighborTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrNeighborTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrNeighborTableT is the singleton type of MtxrNeighborTable.
-type mtxrNeighborTableT struct{}
 
 // MtxrNeighborTable is the descriptor for the mtxrNeighborTable table.
-var MtxrNeighborTable mtxrNeighborTableT
+var MtxrNeighborTable = mtxrNeighborTableT{Table: snmp.NewTable("mtxrNeighborTable", mtxrNeighborTableColumns, func(idx snmp.OID, row *MtxrNeighborTableRow) {
+	row.Key, row.keyValid = decodeMtxrNeighborTableKey(idx)
+}, func(row *MtxrNeighborTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrNeighborIPAddress, &row.MtxrNeighborIPAddress, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrNeighborMACAddress, &row.MtxrNeighborMACAddress, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrNeighborVersion, &row.MtxrNeighborVersion, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrNeighborPlatform, &row.MtxrNeighborPlatform, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrNeighborIdentity, &row.MtxrNeighborIdentity, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrNeighborSoftwareID, &row.MtxrNeighborSoftwareID, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrNeighborInterfaceID, &row.MtxrNeighborInterfaceID, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrNeighborTableRow]) *MtxrNeighborTableWalker {
+	return &MtxrNeighborTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrNeighborTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrNeighborTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrNeighborTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrNeighborTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrNeighborTableKey",
@@ -7378,236 +3739,212 @@ func (mtxrNeighborTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrNeighborTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrNeighborTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrNeighborIPAddress.Key(), MtxrNeighborMACAddress.Key(), MtxrNeighborVersion.Key(), MtxrNeighborPlatform.Key(), MtxrNeighborIdentity.Key(), MtxrNeighborSoftwareID.Key(), MtxrNeighborInterfaceID.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrNeighborTable.Walk: column %s", c.OID()))
-			return &MtxrNeighborTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrNeighborTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrInterfaceStatsName is mtxrInterfaceStatsName.
+var MtxrInterfaceStatsName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrInterfaceStatsName is the column mtxrInterfaceStatsName of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrInterfaceStatsDriverRxBytes is mtxrInterfaceStatsDriverRxBytes.
+var MtxrInterfaceStatsDriverRxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 11), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 1)
 
-// MtxrInterfaceStatsDriverRxBytes is the column mtxrInterfaceStatsDriverRxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 11), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsDriverRxPackets is mtxrInterfaceStatsDriverRxPackets.
+var MtxrInterfaceStatsDriverRxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 12), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 2)
 
-// MtxrInterfaceStatsDriverRxPackets is the column mtxrInterfaceStatsDriverRxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 12), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsDriverTxBytes is mtxrInterfaceStatsDriverTxBytes.
+var MtxrInterfaceStatsDriverTxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 3)
 
-// MtxrInterfaceStatsDriverTxBytes is the column mtxrInterfaceStatsDriverTxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsDriverTxPackets is mtxrInterfaceStatsDriverTxPackets.
+var MtxrInterfaceStatsDriverTxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 4)
 
-// MtxrInterfaceStatsDriverTxPackets is the column mtxrInterfaceStatsDriverTxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsDriverTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx64 is mtxrInterfaceStatsTxRx64.
+var MtxrInterfaceStatsTxRx64 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 15), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 5)
 
-// MtxrInterfaceStatsTxRx64 is the column mtxrInterfaceStatsTxRx64 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 15), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx65To127 is mtxrInterfaceStatsTxRx65To127.
+var MtxrInterfaceStatsTxRx65To127 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 16), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 6)
 
-// MtxrInterfaceStatsTxRx65To127 is the column mtxrInterfaceStatsTxRx65To127 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 16), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx128To255 is mtxrInterfaceStatsTxRx128To255.
+var MtxrInterfaceStatsTxRx128To255 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 17), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 7)
 
-// MtxrInterfaceStatsTxRx128To255 is the column mtxrInterfaceStatsTxRx128To255 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 17), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx256To511 is mtxrInterfaceStatsTxRx256To511.
+var MtxrInterfaceStatsTxRx256To511 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 18), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 8)
 
-// MtxrInterfaceStatsTxRx256To511 is the column mtxrInterfaceStatsTxRx256To511 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 18), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx512To1023 is mtxrInterfaceStatsTxRx512To1023.
+var MtxrInterfaceStatsTxRx512To1023 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 19), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 9)
 
-// MtxrInterfaceStatsTxRx512To1023 is the column mtxrInterfaceStatsTxRx512To1023 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 19), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx1024To1518 is mtxrInterfaceStatsTxRx1024To1518.
+var MtxrInterfaceStatsTxRx1024To1518 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 20), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 10)
 
-// MtxrInterfaceStatsTxRx1024To1518 is the column mtxrInterfaceStatsTxRx1024To1518 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 20), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx1519ToMax is mtxrInterfaceStatsTxRx1519ToMax.
+var MtxrInterfaceStatsTxRx1519ToMax = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 21), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 11)
 
-// MtxrInterfaceStatsTxRx1519ToMax is the column mtxrInterfaceStatsTxRx1519ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxBytes is mtxrInterfaceStatsRxBytes.
+var MtxrInterfaceStatsRxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 31), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 12)
 
-// MtxrInterfaceStatsRxBytes is the column mtxrInterfaceStatsRxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 31), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxPackets is mtxrInterfaceStatsRxPackets.
+var MtxrInterfaceStatsRxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 32), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 13)
 
-// MtxrInterfaceStatsRxPackets is the column mtxrInterfaceStatsRxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 32), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxTooShort is mtxrInterfaceStatsRxTooShort.
+var MtxrInterfaceStatsRxTooShort = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 33), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 14)
 
-// MtxrInterfaceStatsRxTooShort is the column mtxrInterfaceStatsRxTooShort of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxTooShort = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 33), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx64 is mtxrInterfaceStatsRx64.
+var MtxrInterfaceStatsRx64 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 34), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 15)
 
-// MtxrInterfaceStatsRx64 is the column mtxrInterfaceStatsRx64 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 34), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx65To127 is mtxrInterfaceStatsRx65To127.
+var MtxrInterfaceStatsRx65To127 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 35), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 16)
 
-// MtxrInterfaceStatsRx65To127 is the column mtxrInterfaceStatsRx65To127 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 35), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx128To255 is mtxrInterfaceStatsRx128To255.
+var MtxrInterfaceStatsRx128To255 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 36), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 17)
 
-// MtxrInterfaceStatsRx128To255 is the column mtxrInterfaceStatsRx128To255 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 36), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx256To511 is mtxrInterfaceStatsRx256To511.
+var MtxrInterfaceStatsRx256To511 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 37), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 18)
 
-// MtxrInterfaceStatsRx256To511 is the column mtxrInterfaceStatsRx256To511 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 37), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx512To1023 is mtxrInterfaceStatsRx512To1023.
+var MtxrInterfaceStatsRx512To1023 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 38), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 19)
 
-// MtxrInterfaceStatsRx512To1023 is the column mtxrInterfaceStatsRx512To1023 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 38), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx1024To1518 is mtxrInterfaceStatsRx1024To1518.
+var MtxrInterfaceStatsRx1024To1518 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 39), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 20)
 
-// MtxrInterfaceStatsRx1024To1518 is the column mtxrInterfaceStatsRx1024To1518 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 39), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRx1519ToMax is mtxrInterfaceStatsRx1519ToMax.
+var MtxrInterfaceStatsRx1519ToMax = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 40), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 21)
 
-// MtxrInterfaceStatsRx1519ToMax is the column mtxrInterfaceStatsRx1519ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 40), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxTooLong is mtxrInterfaceStatsRxTooLong.
+var MtxrInterfaceStatsRxTooLong = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 41), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 22)
 
-// MtxrInterfaceStatsRxTooLong is the column mtxrInterfaceStatsRxTooLong of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxTooLong = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 41), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxBroadcast is mtxrInterfaceStatsRxBroadcast.
+var MtxrInterfaceStatsRxBroadcast = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 42), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 23)
 
-// MtxrInterfaceStatsRxBroadcast is the column mtxrInterfaceStatsRxBroadcast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxBroadcast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 42), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxPause is mtxrInterfaceStatsRxPause.
+var MtxrInterfaceStatsRxPause = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 43), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 24)
 
-// MtxrInterfaceStatsRxPause is the column mtxrInterfaceStatsRxPause of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxPause = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 43), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxMulticast is mtxrInterfaceStatsRxMulticast.
+var MtxrInterfaceStatsRxMulticast = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 44), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 25)
 
-// MtxrInterfaceStatsRxMulticast is the column mtxrInterfaceStatsRxMulticast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxMulticast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 44), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxFCSError is mtxrInterfaceStatsRxFCSError.
+var MtxrInterfaceStatsRxFCSError = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 45), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 26)
 
-// MtxrInterfaceStatsRxFCSError is the column mtxrInterfaceStatsRxFCSError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxFCSError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 45), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxAlignError is mtxrInterfaceStatsRxAlignError.
+var MtxrInterfaceStatsRxAlignError = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 46), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 27)
 
-// MtxrInterfaceStatsRxAlignError is the column mtxrInterfaceStatsRxAlignError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxAlignError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 46), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxFragment is mtxrInterfaceStatsRxFragment.
+var MtxrInterfaceStatsRxFragment = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 47), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 28)
 
-// MtxrInterfaceStatsRxFragment is the column mtxrInterfaceStatsRxFragment of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxFragment = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 47), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxOverflow is mtxrInterfaceStatsRxOverflow.
+var MtxrInterfaceStatsRxOverflow = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 48), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 29)
 
-// MtxrInterfaceStatsRxOverflow is the column mtxrInterfaceStatsRxOverflow of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxOverflow = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 48), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxControl is mtxrInterfaceStatsRxControl.
+var MtxrInterfaceStatsRxControl = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 49), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 30)
 
-// MtxrInterfaceStatsRxControl is the column mtxrInterfaceStatsRxControl of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxControl = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 49), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxUnknownOp is mtxrInterfaceStatsRxUnknownOp.
+var MtxrInterfaceStatsRxUnknownOp = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 50), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 31)
 
-// MtxrInterfaceStatsRxUnknownOp is the column mtxrInterfaceStatsRxUnknownOp of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxUnknownOp = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 50), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxLengthError is mtxrInterfaceStatsRxLengthError.
+var MtxrInterfaceStatsRxLengthError = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 51), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 32)
 
-// MtxrInterfaceStatsRxLengthError is the column mtxrInterfaceStatsRxLengthError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxLengthError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 51), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxCodeError is mtxrInterfaceStatsRxCodeError.
+var MtxrInterfaceStatsRxCodeError = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 52), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 33)
 
-// MtxrInterfaceStatsRxCodeError is the column mtxrInterfaceStatsRxCodeError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxCodeError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 52), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxCarrierError is mtxrInterfaceStatsRxCarrierError.
+var MtxrInterfaceStatsRxCarrierError = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 53), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 34)
 
-// MtxrInterfaceStatsRxCarrierError is the column mtxrInterfaceStatsRxCarrierError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxCarrierError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 53), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxJabber is mtxrInterfaceStatsRxJabber.
+var MtxrInterfaceStatsRxJabber = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 54), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 35)
 
-// MtxrInterfaceStatsRxJabber is the column mtxrInterfaceStatsRxJabber of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxJabber = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 54), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsRxDrop is mtxrInterfaceStatsRxDrop.
+var MtxrInterfaceStatsRxDrop = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 55), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 36)
 
-// MtxrInterfaceStatsRxDrop is the column mtxrInterfaceStatsRxDrop of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsRxDrop = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 55), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxBytes is mtxrInterfaceStatsTxBytes.
+var MtxrInterfaceStatsTxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 61), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 37)
 
-// MtxrInterfaceStatsTxBytes is the column mtxrInterfaceStatsTxBytes of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 61), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxPackets is mtxrInterfaceStatsTxPackets.
+var MtxrInterfaceStatsTxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 62), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 38)
 
-// MtxrInterfaceStatsTxPackets is the column mtxrInterfaceStatsTxPackets of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 62), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxTooShort is mtxrInterfaceStatsTxTooShort.
+var MtxrInterfaceStatsTxTooShort = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 63), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 39)
 
-// MtxrInterfaceStatsTxTooShort is the column mtxrInterfaceStatsTxTooShort of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxTooShort = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 63), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx64 is mtxrInterfaceStatsTx64.
+var MtxrInterfaceStatsTx64 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 64), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 40)
 
-// MtxrInterfaceStatsTx64 is the column mtxrInterfaceStatsTx64 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx64 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 64), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx65To127 is mtxrInterfaceStatsTx65To127.
+var MtxrInterfaceStatsTx65To127 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 65), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 41)
 
-// MtxrInterfaceStatsTx65To127 is the column mtxrInterfaceStatsTx65To127 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx65To127 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 65), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx128To255 is mtxrInterfaceStatsTx128To255.
+var MtxrInterfaceStatsTx128To255 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 66), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 42)
 
-// MtxrInterfaceStatsTx128To255 is the column mtxrInterfaceStatsTx128To255 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx128To255 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 66), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx256To511 is mtxrInterfaceStatsTx256To511.
+var MtxrInterfaceStatsTx256To511 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 67), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 43)
 
-// MtxrInterfaceStatsTx256To511 is the column mtxrInterfaceStatsTx256To511 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx256To511 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 67), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx512To1023 is mtxrInterfaceStatsTx512To1023.
+var MtxrInterfaceStatsTx512To1023 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 68), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 44)
 
-// MtxrInterfaceStatsTx512To1023 is the column mtxrInterfaceStatsTx512To1023 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx512To1023 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 68), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx1024To1518 is mtxrInterfaceStatsTx1024To1518.
+var MtxrInterfaceStatsTx1024To1518 = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 69), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 45)
 
-// MtxrInterfaceStatsTx1024To1518 is the column mtxrInterfaceStatsTx1024To1518 of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx1024To1518 = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 69), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTx1519ToMax is mtxrInterfaceStatsTx1519ToMax.
+var MtxrInterfaceStatsTx1519ToMax = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 70), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 46)
 
-// MtxrInterfaceStatsTx1519ToMax is the column mtxrInterfaceStatsTx1519ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTx1519ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 70), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxTooLong is mtxrInterfaceStatsTxTooLong.
+var MtxrInterfaceStatsTxTooLong = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 71), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 47)
 
-// MtxrInterfaceStatsTxTooLong is the column mtxrInterfaceStatsTxTooLong of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxTooLong = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 71), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxBroadcast is mtxrInterfaceStatsTxBroadcast.
+var MtxrInterfaceStatsTxBroadcast = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 72), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 48)
 
-// MtxrInterfaceStatsTxBroadcast is the column mtxrInterfaceStatsTxBroadcast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxBroadcast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 72), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxPause is mtxrInterfaceStatsTxPause.
+var MtxrInterfaceStatsTxPause = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 73), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 49)
 
-// MtxrInterfaceStatsTxPause is the column mtxrInterfaceStatsTxPause of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxPause = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 73), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxMulticast is mtxrInterfaceStatsTxMulticast.
+var MtxrInterfaceStatsTxMulticast = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 74), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 50)
 
-// MtxrInterfaceStatsTxMulticast is the column mtxrInterfaceStatsTxMulticast of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxMulticast = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 74), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxUnderrun is mtxrInterfaceStatsTxUnderrun.
+var MtxrInterfaceStatsTxUnderrun = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 75), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 51)
 
-// MtxrInterfaceStatsTxUnderrun is the column mtxrInterfaceStatsTxUnderrun of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxUnderrun = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 75), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxCollision is mtxrInterfaceStatsTxCollision.
+var MtxrInterfaceStatsTxCollision = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 76), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 52)
 
-// MtxrInterfaceStatsTxCollision is the column mtxrInterfaceStatsTxCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 76), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxExcessiveCollision is mtxrInterfaceStatsTxExcessiveCollision.
+var MtxrInterfaceStatsTxExcessiveCollision = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 77), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 53)
 
-// MtxrInterfaceStatsTxExcessiveCollision is the column mtxrInterfaceStatsTxExcessiveCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxExcessiveCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 77), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxMultipleCollision is mtxrInterfaceStatsTxMultipleCollision.
+var MtxrInterfaceStatsTxMultipleCollision = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 78), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 54)
 
-// MtxrInterfaceStatsTxMultipleCollision is the column mtxrInterfaceStatsTxMultipleCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxMultipleCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 78), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxSingleCollision is mtxrInterfaceStatsTxSingleCollision.
+var MtxrInterfaceStatsTxSingleCollision = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 79), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 55)
 
-// MtxrInterfaceStatsTxSingleCollision is the column mtxrInterfaceStatsTxSingleCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxSingleCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 79), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxExcessiveDeferred is mtxrInterfaceStatsTxExcessiveDeferred.
+var MtxrInterfaceStatsTxExcessiveDeferred = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 80), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 56)
 
-// MtxrInterfaceStatsTxExcessiveDeferred is the column mtxrInterfaceStatsTxExcessiveDeferred of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxExcessiveDeferred = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 80), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxDeferred is mtxrInterfaceStatsTxDeferred.
+var MtxrInterfaceStatsTxDeferred = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 81), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 57)
 
-// MtxrInterfaceStatsTxDeferred is the column mtxrInterfaceStatsTxDeferred of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxDeferred = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 81), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxLateCollision is mtxrInterfaceStatsTxLateCollision.
+var MtxrInterfaceStatsTxLateCollision = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 82), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 58)
 
-// MtxrInterfaceStatsTxLateCollision is the column mtxrInterfaceStatsTxLateCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxLateCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 82), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxTotalCollision is mtxrInterfaceStatsTxTotalCollision.
+var MtxrInterfaceStatsTxTotalCollision = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 83), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 59)
 
-// MtxrInterfaceStatsTxTotalCollision is the column mtxrInterfaceStatsTxTotalCollision of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxTotalCollision = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 83), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxPauseHonored is mtxrInterfaceStatsTxPauseHonored.
+var MtxrInterfaceStatsTxPauseHonored = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 84), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 60)
 
-// MtxrInterfaceStatsTxPauseHonored is the column mtxrInterfaceStatsTxPauseHonored of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxPauseHonored = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 84), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxDrop is mtxrInterfaceStatsTxDrop.
+var MtxrInterfaceStatsTxDrop = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 85), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 61)
 
-// MtxrInterfaceStatsTxDrop is the column mtxrInterfaceStatsTxDrop of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxDrop = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 85), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxJabber is mtxrInterfaceStatsTxJabber.
+var MtxrInterfaceStatsTxJabber = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 86), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 62)
 
-// MtxrInterfaceStatsTxJabber is the column mtxrInterfaceStatsTxJabber of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxJabber = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 86), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxFCSError is mtxrInterfaceStatsTxFCSError.
+var MtxrInterfaceStatsTxFCSError = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 87), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 63)
 
-// MtxrInterfaceStatsTxFCSError is the column mtxrInterfaceStatsTxFCSError of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxFCSError = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 87), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxControl is mtxrInterfaceStatsTxControl.
+var MtxrInterfaceStatsTxControl = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 88), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 64)
 
-// MtxrInterfaceStatsTxControl is the column mtxrInterfaceStatsTxControl of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxControl = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 88), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxFragment is mtxrInterfaceStatsTxFragment.
+var MtxrInterfaceStatsTxFragment = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 89), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 65)
 
-// MtxrInterfaceStatsTxFragment is the column mtxrInterfaceStatsTxFragment of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxFragment = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 89), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsLinkDowns is mtxrInterfaceStatsLinkDowns.
+var MtxrInterfaceStatsLinkDowns = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 90), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 66)
 
-// MtxrInterfaceStatsLinkDowns is the column mtxrInterfaceStatsLinkDowns of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsLinkDowns = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 90), snmp.KindCounter32, snmp.DecodeUint32)
-
-// MtxrInterfaceStatsTxRx1024ToMax is the column mtxrInterfaceStatsTxRx1024ToMax of table mtxrInterfaceStatsTable.
-var MtxrInterfaceStatsTxRx1024ToMax = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 91), snmp.KindCounter64, snmp.DecodeUint64)
+// MtxrInterfaceStatsTxRx1024ToMax is mtxrInterfaceStatsTxRx1024ToMax.
+var (
+	MtxrInterfaceStatsTxRx1024ToMax = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 14, 1, 1, 91), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 67)
+	mtxrInterfaceStatsTableColumns  = []snmp.AnyColumn{MtxrInterfaceStatsName, MtxrInterfaceStatsDriverRxBytes, MtxrInterfaceStatsDriverRxPackets, MtxrInterfaceStatsDriverTxBytes, MtxrInterfaceStatsDriverTxPackets, MtxrInterfaceStatsTxRx64, MtxrInterfaceStatsTxRx65To127, MtxrInterfaceStatsTxRx128To255, MtxrInterfaceStatsTxRx256To511, MtxrInterfaceStatsTxRx512To1023, MtxrInterfaceStatsTxRx1024To1518, MtxrInterfaceStatsTxRx1519ToMax, MtxrInterfaceStatsRxBytes, MtxrInterfaceStatsRxPackets, MtxrInterfaceStatsRxTooShort, MtxrInterfaceStatsRx64, MtxrInterfaceStatsRx65To127, MtxrInterfaceStatsRx128To255, MtxrInterfaceStatsRx256To511, MtxrInterfaceStatsRx512To1023, MtxrInterfaceStatsRx1024To1518, MtxrInterfaceStatsRx1519ToMax, MtxrInterfaceStatsRxTooLong, MtxrInterfaceStatsRxBroadcast, MtxrInterfaceStatsRxPause, MtxrInterfaceStatsRxMulticast, MtxrInterfaceStatsRxFCSError, MtxrInterfaceStatsRxAlignError, MtxrInterfaceStatsRxFragment, MtxrInterfaceStatsRxOverflow, MtxrInterfaceStatsRxControl, MtxrInterfaceStatsRxUnknownOp, MtxrInterfaceStatsRxLengthError, MtxrInterfaceStatsRxCodeError, MtxrInterfaceStatsRxCarrierError, MtxrInterfaceStatsRxJabber, MtxrInterfaceStatsRxDrop, MtxrInterfaceStatsTxBytes, MtxrInterfaceStatsTxPackets, MtxrInterfaceStatsTxTooShort, MtxrInterfaceStatsTx64, MtxrInterfaceStatsTx65To127, MtxrInterfaceStatsTx128To255, MtxrInterfaceStatsTx256To511, MtxrInterfaceStatsTx512To1023, MtxrInterfaceStatsTx1024To1518, MtxrInterfaceStatsTx1519ToMax, MtxrInterfaceStatsTxTooLong, MtxrInterfaceStatsTxBroadcast, MtxrInterfaceStatsTxPause, MtxrInterfaceStatsTxMulticast, MtxrInterfaceStatsTxUnderrun, MtxrInterfaceStatsTxCollision, MtxrInterfaceStatsTxExcessiveCollision, MtxrInterfaceStatsTxMultipleCollision, MtxrInterfaceStatsTxSingleCollision, MtxrInterfaceStatsTxExcessiveDeferred, MtxrInterfaceStatsTxDeferred, MtxrInterfaceStatsTxLateCollision, MtxrInterfaceStatsTxTotalCollision, MtxrInterfaceStatsTxPauseHonored, MtxrInterfaceStatsTxDrop, MtxrInterfaceStatsTxJabber, MtxrInterfaceStatsTxFCSError, MtxrInterfaceStatsTxControl, MtxrInterfaceStatsTxFragment, MtxrInterfaceStatsLinkDowns, MtxrInterfaceStatsTxRx1024ToMax}
+)
 
 // MtxrInterfaceStatsTableKey is the decoded INDEX of one mtxrInterfaceStatsTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -7627,14 +3964,7 @@ func decodeMtxrInterfaceStatsTableKey(idx snmp.OID) (MtxrInterfaceStatsTableKey,
 	return MtxrInterfaceStatsTableKey{MtxrInterfaceStatsIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrInterfaceStatsTableRow is one row of mtxrInterfaceStatsTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrInterfaceStatsTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrInterfaceStatsTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrInterfaceStatsTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrInterfaceStatsTableRow struct {
 	Key                                    MtxrInterfaceStatsTableKey
 	keyValid                               bool
@@ -7706,1451 +4036,175 @@ type MtxrInterfaceStatsTableRow struct {
 	MtxrInterfaceStatsTxFragment           uint64
 	MtxrInterfaceStatsLinkDowns            uint32
 	MtxrInterfaceStatsTxRx1024ToMax        uint64
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [2]uint64
+	observed                               [2]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrInterfaceStatsTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrInterfaceStatsTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrInterfaceStatsName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrInterfaceStatsDriverRxBytes.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrInterfaceStatsDriverRxPackets.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrInterfaceStatsDriverTxBytes.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrInterfaceStatsDriverTxPackets.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrInterfaceStatsTxRx64.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrInterfaceStatsTxRx65To127.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrInterfaceStatsTxRx128To255.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrInterfaceStatsTxRx256To511.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrInterfaceStatsTxRx512To1023.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrInterfaceStatsTxRx1024To1518.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrInterfaceStatsTxRx1519ToMax.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrInterfaceStatsRxBytes.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrInterfaceStatsRxPackets.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrInterfaceStatsRxTooShort.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrInterfaceStatsRx64.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrInterfaceStatsRx65To127.Key():
-		return r.observed[0]&(1<<16) != 0
-	case MtxrInterfaceStatsRx128To255.Key():
-		return r.observed[0]&(1<<17) != 0
-	case MtxrInterfaceStatsRx256To511.Key():
-		return r.observed[0]&(1<<18) != 0
-	case MtxrInterfaceStatsRx512To1023.Key():
-		return r.observed[0]&(1<<19) != 0
-	case MtxrInterfaceStatsRx1024To1518.Key():
-		return r.observed[0]&(1<<20) != 0
-	case MtxrInterfaceStatsRx1519ToMax.Key():
-		return r.observed[0]&(1<<21) != 0
-	case MtxrInterfaceStatsRxTooLong.Key():
-		return r.observed[0]&(1<<22) != 0
-	case MtxrInterfaceStatsRxBroadcast.Key():
-		return r.observed[0]&(1<<23) != 0
-	case MtxrInterfaceStatsRxPause.Key():
-		return r.observed[0]&(1<<24) != 0
-	case MtxrInterfaceStatsRxMulticast.Key():
-		return r.observed[0]&(1<<25) != 0
-	case MtxrInterfaceStatsRxFCSError.Key():
-		return r.observed[0]&(1<<26) != 0
-	case MtxrInterfaceStatsRxAlignError.Key():
-		return r.observed[0]&(1<<27) != 0
-	case MtxrInterfaceStatsRxFragment.Key():
-		return r.observed[0]&(1<<28) != 0
-	case MtxrInterfaceStatsRxOverflow.Key():
-		return r.observed[0]&(1<<29) != 0
-	case MtxrInterfaceStatsRxControl.Key():
-		return r.observed[0]&(1<<30) != 0
-	case MtxrInterfaceStatsRxUnknownOp.Key():
-		return r.observed[0]&(1<<31) != 0
-	case MtxrInterfaceStatsRxLengthError.Key():
-		return r.observed[0]&(1<<32) != 0
-	case MtxrInterfaceStatsRxCodeError.Key():
-		return r.observed[0]&(1<<33) != 0
-	case MtxrInterfaceStatsRxCarrierError.Key():
-		return r.observed[0]&(1<<34) != 0
-	case MtxrInterfaceStatsRxJabber.Key():
-		return r.observed[0]&(1<<35) != 0
-	case MtxrInterfaceStatsRxDrop.Key():
-		return r.observed[0]&(1<<36) != 0
-	case MtxrInterfaceStatsTxBytes.Key():
-		return r.observed[0]&(1<<37) != 0
-	case MtxrInterfaceStatsTxPackets.Key():
-		return r.observed[0]&(1<<38) != 0
-	case MtxrInterfaceStatsTxTooShort.Key():
-		return r.observed[0]&(1<<39) != 0
-	case MtxrInterfaceStatsTx64.Key():
-		return r.observed[0]&(1<<40) != 0
-	case MtxrInterfaceStatsTx65To127.Key():
-		return r.observed[0]&(1<<41) != 0
-	case MtxrInterfaceStatsTx128To255.Key():
-		return r.observed[0]&(1<<42) != 0
-	case MtxrInterfaceStatsTx256To511.Key():
-		return r.observed[0]&(1<<43) != 0
-	case MtxrInterfaceStatsTx512To1023.Key():
-		return r.observed[0]&(1<<44) != 0
-	case MtxrInterfaceStatsTx1024To1518.Key():
-		return r.observed[0]&(1<<45) != 0
-	case MtxrInterfaceStatsTx1519ToMax.Key():
-		return r.observed[0]&(1<<46) != 0
-	case MtxrInterfaceStatsTxTooLong.Key():
-		return r.observed[0]&(1<<47) != 0
-	case MtxrInterfaceStatsTxBroadcast.Key():
-		return r.observed[0]&(1<<48) != 0
-	case MtxrInterfaceStatsTxPause.Key():
-		return r.observed[0]&(1<<49) != 0
-	case MtxrInterfaceStatsTxMulticast.Key():
-		return r.observed[0]&(1<<50) != 0
-	case MtxrInterfaceStatsTxUnderrun.Key():
-		return r.observed[0]&(1<<51) != 0
-	case MtxrInterfaceStatsTxCollision.Key():
-		return r.observed[0]&(1<<52) != 0
-	case MtxrInterfaceStatsTxExcessiveCollision.Key():
-		return r.observed[0]&(1<<53) != 0
-	case MtxrInterfaceStatsTxMultipleCollision.Key():
-		return r.observed[0]&(1<<54) != 0
-	case MtxrInterfaceStatsTxSingleCollision.Key():
-		return r.observed[0]&(1<<55) != 0
-	case MtxrInterfaceStatsTxExcessiveDeferred.Key():
-		return r.observed[0]&(1<<56) != 0
-	case MtxrInterfaceStatsTxDeferred.Key():
-		return r.observed[0]&(1<<57) != 0
-	case MtxrInterfaceStatsTxLateCollision.Key():
-		return r.observed[0]&(1<<58) != 0
-	case MtxrInterfaceStatsTxTotalCollision.Key():
-		return r.observed[0]&(1<<59) != 0
-	case MtxrInterfaceStatsTxPauseHonored.Key():
-		return r.observed[0]&(1<<60) != 0
-	case MtxrInterfaceStatsTxDrop.Key():
-		return r.observed[0]&(1<<61) != 0
-	case MtxrInterfaceStatsTxJabber.Key():
-		return r.observed[0]&(1<<62) != 0
-	case MtxrInterfaceStatsTxFCSError.Key():
-		return r.observed[0]&(1<<63) != 0
-	case MtxrInterfaceStatsTxControl.Key():
-		return r.observed[1]&(1<<0) != 0
-	case MtxrInterfaceStatsTxFragment.Key():
-		return r.observed[1]&(1<<1) != 0
-	case MtxrInterfaceStatsLinkDowns.Key():
-		return r.observed[1]&(1<<2) != 0
-	case MtxrInterfaceStatsTxRx1024ToMax.Key():
-		return r.observed[1]&(1<<3) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrInterfaceStatsTableColumns, col)
 }
 
-// MtxrInterfaceStatsTableWalker streams selected columns of mtxrInterfaceStatsTable.
-// The zero value is not usable; construct via MtxrInterfaceStatsTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrInterfaceStatsTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrInterfaceStatsTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrInterfaceStatsTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrInterfaceStatsTableWalker) Iter() iter.Seq2[snmp.OID, MtxrInterfaceStatsTableRow] {
-	return func(yield func(snmp.OID, MtxrInterfaceStatsTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrInterfaceStatsTableRow
-			row.Key, row.keyValid = decodeMtxrInterfaceStatsTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrInterfaceStatsName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrInterfaceStatsName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrInterfaceStatsName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrInterfaceStatsDriverRxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverRxBytes = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsDriverRxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsDriverRxBytes = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrInterfaceStatsDriverRxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverRxPackets = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsDriverRxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsDriverRxPackets = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrInterfaceStatsDriverTxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverTxBytes = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsDriverTxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsDriverTxBytes = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrInterfaceStatsDriverTxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsDriverTxPackets = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsDriverTxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsDriverTxPackets = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx64.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx64 = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx64.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx64 = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx65To127.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx65To127 = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx65To127.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx65To127 = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx128To255.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx128To255 = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx128To255.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx128To255 = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx256To511.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx256To511 = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx256To511.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx256To511 = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx512To1023.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx512To1023 = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx512To1023.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx512To1023 = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx1024To1518.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx1024To1518 = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx1024To1518.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx1024To1518 = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx1519ToMax.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx1519ToMax = v
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx1519ToMax.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx1519ToMax = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxBytes = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxBytes = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxPackets = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxPackets = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxTooShort.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxTooShort = v
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxTooShort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxTooShort = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx64.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx64 = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx64.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx64 = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx65To127.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx65To127 = v
-						row.observed[0] |= 1 << 16
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx65To127.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx65To127 = dv
-								row.observed[0] |= 1 << 16
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx128To255.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx128To255 = v
-						row.observed[0] |= 1 << 17
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx128To255.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx128To255 = dv
-								row.observed[0] |= 1 << 17
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx256To511.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx256To511 = v
-						row.observed[0] |= 1 << 18
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx256To511.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx256To511 = dv
-								row.observed[0] |= 1 << 18
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx512To1023.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx512To1023 = v
-						row.observed[0] |= 1 << 19
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx512To1023.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx512To1023 = dv
-								row.observed[0] |= 1 << 19
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx1024To1518.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx1024To1518 = v
-						row.observed[0] |= 1 << 20
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx1024To1518.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx1024To1518 = dv
-								row.observed[0] |= 1 << 20
-							}
-						}
-					}
-				case MtxrInterfaceStatsRx1519ToMax.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRx1519ToMax = v
-						row.observed[0] |= 1 << 21
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRx1519ToMax.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRx1519ToMax = dv
-								row.observed[0] |= 1 << 21
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxTooLong.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxTooLong = v
-						row.observed[0] |= 1 << 22
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxTooLong.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxTooLong = dv
-								row.observed[0] |= 1 << 22
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxBroadcast.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxBroadcast = v
-						row.observed[0] |= 1 << 23
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxBroadcast.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxBroadcast = dv
-								row.observed[0] |= 1 << 23
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxPause.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxPause = v
-						row.observed[0] |= 1 << 24
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxPause.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxPause = dv
-								row.observed[0] |= 1 << 24
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxMulticast.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxMulticast = v
-						row.observed[0] |= 1 << 25
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxMulticast.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxMulticast = dv
-								row.observed[0] |= 1 << 25
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxFCSError.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxFCSError = v
-						row.observed[0] |= 1 << 26
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxFCSError.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxFCSError = dv
-								row.observed[0] |= 1 << 26
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxAlignError.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxAlignError = v
-						row.observed[0] |= 1 << 27
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxAlignError.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxAlignError = dv
-								row.observed[0] |= 1 << 27
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxFragment.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxFragment = v
-						row.observed[0] |= 1 << 28
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxFragment.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxFragment = dv
-								row.observed[0] |= 1 << 28
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxOverflow.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxOverflow = v
-						row.observed[0] |= 1 << 29
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxOverflow.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxOverflow = dv
-								row.observed[0] |= 1 << 29
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxControl.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxControl = v
-						row.observed[0] |= 1 << 30
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxControl.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxControl = dv
-								row.observed[0] |= 1 << 30
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxUnknownOp.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxUnknownOp = v
-						row.observed[0] |= 1 << 31
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxUnknownOp.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxUnknownOp = dv
-								row.observed[0] |= 1 << 31
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxLengthError.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxLengthError = v
-						row.observed[0] |= 1 << 32
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxLengthError.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxLengthError = dv
-								row.observed[0] |= 1 << 32
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxCodeError.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxCodeError = v
-						row.observed[0] |= 1 << 33
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxCodeError.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxCodeError = dv
-								row.observed[0] |= 1 << 33
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxCarrierError.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxCarrierError = v
-						row.observed[0] |= 1 << 34
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxCarrierError.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxCarrierError = dv
-								row.observed[0] |= 1 << 34
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxJabber.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxJabber = v
-						row.observed[0] |= 1 << 35
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxJabber.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxJabber = dv
-								row.observed[0] |= 1 << 35
-							}
-						}
-					}
-				case MtxrInterfaceStatsRxDrop.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsRxDrop = v
-						row.observed[0] |= 1 << 36
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsRxDrop.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsRxDrop = dv
-								row.observed[0] |= 1 << 36
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxBytes = v
-						row.observed[0] |= 1 << 37
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxBytes = dv
-								row.observed[0] |= 1 << 37
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxPackets = v
-						row.observed[0] |= 1 << 38
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxPackets = dv
-								row.observed[0] |= 1 << 38
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxTooShort.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxTooShort = v
-						row.observed[0] |= 1 << 39
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxTooShort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxTooShort = dv
-								row.observed[0] |= 1 << 39
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx64.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx64 = v
-						row.observed[0] |= 1 << 40
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx64.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx64 = dv
-								row.observed[0] |= 1 << 40
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx65To127.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx65To127 = v
-						row.observed[0] |= 1 << 41
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx65To127.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx65To127 = dv
-								row.observed[0] |= 1 << 41
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx128To255.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx128To255 = v
-						row.observed[0] |= 1 << 42
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx128To255.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx128To255 = dv
-								row.observed[0] |= 1 << 42
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx256To511.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx256To511 = v
-						row.observed[0] |= 1 << 43
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx256To511.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx256To511 = dv
-								row.observed[0] |= 1 << 43
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx512To1023.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx512To1023 = v
-						row.observed[0] |= 1 << 44
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx512To1023.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx512To1023 = dv
-								row.observed[0] |= 1 << 44
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx1024To1518.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx1024To1518 = v
-						row.observed[0] |= 1 << 45
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx1024To1518.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx1024To1518 = dv
-								row.observed[0] |= 1 << 45
-							}
-						}
-					}
-				case MtxrInterfaceStatsTx1519ToMax.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTx1519ToMax = v
-						row.observed[0] |= 1 << 46
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTx1519ToMax.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTx1519ToMax = dv
-								row.observed[0] |= 1 << 46
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxTooLong.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxTooLong = v
-						row.observed[0] |= 1 << 47
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxTooLong.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxTooLong = dv
-								row.observed[0] |= 1 << 47
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxBroadcast.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxBroadcast = v
-						row.observed[0] |= 1 << 48
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxBroadcast.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxBroadcast = dv
-								row.observed[0] |= 1 << 48
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxPause.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxPause = v
-						row.observed[0] |= 1 << 49
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxPause.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxPause = dv
-								row.observed[0] |= 1 << 49
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxMulticast.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxMulticast = v
-						row.observed[0] |= 1 << 50
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxMulticast.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxMulticast = dv
-								row.observed[0] |= 1 << 50
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxUnderrun.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxUnderrun = v
-						row.observed[0] |= 1 << 51
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxUnderrun.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxUnderrun = dv
-								row.observed[0] |= 1 << 51
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxCollision.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxCollision = v
-						row.observed[0] |= 1 << 52
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxCollision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxCollision = dv
-								row.observed[0] |= 1 << 52
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxExcessiveCollision.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxExcessiveCollision = v
-						row.observed[0] |= 1 << 53
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxExcessiveCollision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxExcessiveCollision = dv
-								row.observed[0] |= 1 << 53
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxMultipleCollision.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxMultipleCollision = v
-						row.observed[0] |= 1 << 54
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxMultipleCollision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxMultipleCollision = dv
-								row.observed[0] |= 1 << 54
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxSingleCollision.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxSingleCollision = v
-						row.observed[0] |= 1 << 55
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxSingleCollision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxSingleCollision = dv
-								row.observed[0] |= 1 << 55
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxExcessiveDeferred.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxExcessiveDeferred = v
-						row.observed[0] |= 1 << 56
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxExcessiveDeferred.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxExcessiveDeferred = dv
-								row.observed[0] |= 1 << 56
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxDeferred.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxDeferred = v
-						row.observed[0] |= 1 << 57
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxDeferred.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxDeferred = dv
-								row.observed[0] |= 1 << 57
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxLateCollision.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxLateCollision = v
-						row.observed[0] |= 1 << 58
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxLateCollision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxLateCollision = dv
-								row.observed[0] |= 1 << 58
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxTotalCollision.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxTotalCollision = v
-						row.observed[0] |= 1 << 59
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxTotalCollision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxTotalCollision = dv
-								row.observed[0] |= 1 << 59
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxPauseHonored.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxPauseHonored = v
-						row.observed[0] |= 1 << 60
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxPauseHonored.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxPauseHonored = dv
-								row.observed[0] |= 1 << 60
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxDrop.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxDrop = v
-						row.observed[0] |= 1 << 61
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxDrop.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxDrop = dv
-								row.observed[0] |= 1 << 61
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxJabber.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxJabber = v
-						row.observed[0] |= 1 << 62
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxJabber.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxJabber = dv
-								row.observed[0] |= 1 << 62
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxFCSError.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxFCSError = v
-						row.observed[0] |= 1 << 63
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxFCSError.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxFCSError = dv
-								row.observed[0] |= 1 << 63
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxControl.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxControl = v
-						row.observed[1] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxControl.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxControl = dv
-								row.observed[1] |= 1 << 0
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxFragment.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxFragment = v
-						row.observed[1] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxFragment.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxFragment = dv
-								row.observed[1] |= 1 << 1
-							}
-						}
-					}
-				case MtxrInterfaceStatsLinkDowns.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.MtxrInterfaceStatsLinkDowns = v
-						row.observed[1] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsLinkDowns.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsLinkDowns = dv
-								row.observed[1] |= 1 << 2
-							}
-						}
-					}
-				case MtxrInterfaceStatsTxRx1024ToMax.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrInterfaceStatsTxRx1024ToMax = v
-						row.observed[1] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrInterfaceStatsTxRx1024ToMax.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrInterfaceStatsTxRx1024ToMax = dv
-								row.observed[1] |= 1 << 3
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrInterfaceStatsTableT struct {
+	snmp.Table[MtxrInterfaceStatsTableRow, *MtxrInterfaceStatsTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrInterfaceStatsTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrInterfaceStatsTableT is the singleton type of MtxrInterfaceStatsTable.
-type mtxrInterfaceStatsTableT struct{}
 
 // MtxrInterfaceStatsTable is the descriptor for the mtxrInterfaceStatsTable table.
-var MtxrInterfaceStatsTable mtxrInterfaceStatsTableT
+var MtxrInterfaceStatsTable = mtxrInterfaceStatsTableT{Table: snmp.NewTable("mtxrInterfaceStatsTable", mtxrInterfaceStatsTableColumns, func(idx snmp.OID, row *MtxrInterfaceStatsTableRow) {
+	row.Key, row.keyValid = decodeMtxrInterfaceStatsTableKey(idx)
+}, func(row *MtxrInterfaceStatsTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsName, &row.MtxrInterfaceStatsName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsDriverRxBytes, &row.MtxrInterfaceStatsDriverRxBytes, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsDriverRxPackets, &row.MtxrInterfaceStatsDriverRxPackets, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsDriverTxBytes, &row.MtxrInterfaceStatsDriverTxBytes, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsDriverTxPackets, &row.MtxrInterfaceStatsDriverTxPackets, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx64, &row.MtxrInterfaceStatsTxRx64, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx65To127, &row.MtxrInterfaceStatsTxRx65To127, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx128To255, &row.MtxrInterfaceStatsTxRx128To255, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx256To511, &row.MtxrInterfaceStatsTxRx256To511, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx512To1023, &row.MtxrInterfaceStatsTxRx512To1023, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx1024To1518, &row.MtxrInterfaceStatsTxRx1024To1518, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx1519ToMax, &row.MtxrInterfaceStatsTxRx1519ToMax, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxBytes, &row.MtxrInterfaceStatsRxBytes, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxPackets, &row.MtxrInterfaceStatsRxPackets, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxTooShort, &row.MtxrInterfaceStatsRxTooShort, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx64, &row.MtxrInterfaceStatsRx64, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx65To127, &row.MtxrInterfaceStatsRx65To127, row.observed[:])
+	case 17:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx128To255, &row.MtxrInterfaceStatsRx128To255, row.observed[:])
+	case 18:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx256To511, &row.MtxrInterfaceStatsRx256To511, row.observed[:])
+	case 19:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx512To1023, &row.MtxrInterfaceStatsRx512To1023, row.observed[:])
+	case 20:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx1024To1518, &row.MtxrInterfaceStatsRx1024To1518, row.observed[:])
+	case 21:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRx1519ToMax, &row.MtxrInterfaceStatsRx1519ToMax, row.observed[:])
+	case 22:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxTooLong, &row.MtxrInterfaceStatsRxTooLong, row.observed[:])
+	case 23:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxBroadcast, &row.MtxrInterfaceStatsRxBroadcast, row.observed[:])
+	case 24:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxPause, &row.MtxrInterfaceStatsRxPause, row.observed[:])
+	case 25:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxMulticast, &row.MtxrInterfaceStatsRxMulticast, row.observed[:])
+	case 26:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxFCSError, &row.MtxrInterfaceStatsRxFCSError, row.observed[:])
+	case 27:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxAlignError, &row.MtxrInterfaceStatsRxAlignError, row.observed[:])
+	case 28:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxFragment, &row.MtxrInterfaceStatsRxFragment, row.observed[:])
+	case 29:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxOverflow, &row.MtxrInterfaceStatsRxOverflow, row.observed[:])
+	case 30:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxControl, &row.MtxrInterfaceStatsRxControl, row.observed[:])
+	case 31:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxUnknownOp, &row.MtxrInterfaceStatsRxUnknownOp, row.observed[:])
+	case 32:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxLengthError, &row.MtxrInterfaceStatsRxLengthError, row.observed[:])
+	case 33:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxCodeError, &row.MtxrInterfaceStatsRxCodeError, row.observed[:])
+	case 34:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxCarrierError, &row.MtxrInterfaceStatsRxCarrierError, row.observed[:])
+	case 35:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxJabber, &row.MtxrInterfaceStatsRxJabber, row.observed[:])
+	case 36:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsRxDrop, &row.MtxrInterfaceStatsRxDrop, row.observed[:])
+	case 37:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxBytes, &row.MtxrInterfaceStatsTxBytes, row.observed[:])
+	case 38:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxPackets, &row.MtxrInterfaceStatsTxPackets, row.observed[:])
+	case 39:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxTooShort, &row.MtxrInterfaceStatsTxTooShort, row.observed[:])
+	case 40:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx64, &row.MtxrInterfaceStatsTx64, row.observed[:])
+	case 41:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx65To127, &row.MtxrInterfaceStatsTx65To127, row.observed[:])
+	case 42:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx128To255, &row.MtxrInterfaceStatsTx128To255, row.observed[:])
+	case 43:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx256To511, &row.MtxrInterfaceStatsTx256To511, row.observed[:])
+	case 44:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx512To1023, &row.MtxrInterfaceStatsTx512To1023, row.observed[:])
+	case 45:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx1024To1518, &row.MtxrInterfaceStatsTx1024To1518, row.observed[:])
+	case 46:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTx1519ToMax, &row.MtxrInterfaceStatsTx1519ToMax, row.observed[:])
+	case 47:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxTooLong, &row.MtxrInterfaceStatsTxTooLong, row.observed[:])
+	case 48:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxBroadcast, &row.MtxrInterfaceStatsTxBroadcast, row.observed[:])
+	case 49:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxPause, &row.MtxrInterfaceStatsTxPause, row.observed[:])
+	case 50:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxMulticast, &row.MtxrInterfaceStatsTxMulticast, row.observed[:])
+	case 51:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxUnderrun, &row.MtxrInterfaceStatsTxUnderrun, row.observed[:])
+	case 52:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxCollision, &row.MtxrInterfaceStatsTxCollision, row.observed[:])
+	case 53:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxExcessiveCollision, &row.MtxrInterfaceStatsTxExcessiveCollision, row.observed[:])
+	case 54:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxMultipleCollision, &row.MtxrInterfaceStatsTxMultipleCollision, row.observed[:])
+	case 55:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxSingleCollision, &row.MtxrInterfaceStatsTxSingleCollision, row.observed[:])
+	case 56:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxExcessiveDeferred, &row.MtxrInterfaceStatsTxExcessiveDeferred, row.observed[:])
+	case 57:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxDeferred, &row.MtxrInterfaceStatsTxDeferred, row.observed[:])
+	case 58:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxLateCollision, &row.MtxrInterfaceStatsTxLateCollision, row.observed[:])
+	case 59:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxTotalCollision, &row.MtxrInterfaceStatsTxTotalCollision, row.observed[:])
+	case 60:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxPauseHonored, &row.MtxrInterfaceStatsTxPauseHonored, row.observed[:])
+	case 61:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxDrop, &row.MtxrInterfaceStatsTxDrop, row.observed[:])
+	case 62:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxJabber, &row.MtxrInterfaceStatsTxJabber, row.observed[:])
+	case 63:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxFCSError, &row.MtxrInterfaceStatsTxFCSError, row.observed[:])
+	case 64:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxControl, &row.MtxrInterfaceStatsTxControl, row.observed[:])
+	case 65:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxFragment, &row.MtxrInterfaceStatsTxFragment, row.observed[:])
+	case 66:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsLinkDowns, &row.MtxrInterfaceStatsLinkDowns, row.observed[:])
+	case 67:
+		return snmp.DecodeColumn(rv, MtxrInterfaceStatsTxRx1024ToMax, &row.MtxrInterfaceStatsTxRx1024ToMax, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrInterfaceStatsTableRow]) *MtxrInterfaceStatsTableWalker {
+	return &MtxrInterfaceStatsTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrInterfaceStatsTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrInterfaceStatsTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrInterfaceStatsTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrInterfaceStatsTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrInterfaceStatsTableKey",
@@ -9158,56 +4212,32 @@ func (mtxrInterfaceStatsTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrInterfaceStatsTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrInterfaceStatsTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrInterfaceStatsName.Key(), MtxrInterfaceStatsDriverRxBytes.Key(), MtxrInterfaceStatsDriverRxPackets.Key(), MtxrInterfaceStatsDriverTxBytes.Key(), MtxrInterfaceStatsDriverTxPackets.Key(), MtxrInterfaceStatsTxRx64.Key(), MtxrInterfaceStatsTxRx65To127.Key(), MtxrInterfaceStatsTxRx128To255.Key(), MtxrInterfaceStatsTxRx256To511.Key(), MtxrInterfaceStatsTxRx512To1023.Key(), MtxrInterfaceStatsTxRx1024To1518.Key(), MtxrInterfaceStatsTxRx1519ToMax.Key(), MtxrInterfaceStatsRxBytes.Key(), MtxrInterfaceStatsRxPackets.Key(), MtxrInterfaceStatsRxTooShort.Key(), MtxrInterfaceStatsRx64.Key(), MtxrInterfaceStatsRx65To127.Key(), MtxrInterfaceStatsRx128To255.Key(), MtxrInterfaceStatsRx256To511.Key(), MtxrInterfaceStatsRx512To1023.Key(), MtxrInterfaceStatsRx1024To1518.Key(), MtxrInterfaceStatsRx1519ToMax.Key(), MtxrInterfaceStatsRxTooLong.Key(), MtxrInterfaceStatsRxBroadcast.Key(), MtxrInterfaceStatsRxPause.Key(), MtxrInterfaceStatsRxMulticast.Key(), MtxrInterfaceStatsRxFCSError.Key(), MtxrInterfaceStatsRxAlignError.Key(), MtxrInterfaceStatsRxFragment.Key(), MtxrInterfaceStatsRxOverflow.Key(), MtxrInterfaceStatsRxControl.Key(), MtxrInterfaceStatsRxUnknownOp.Key(), MtxrInterfaceStatsRxLengthError.Key(), MtxrInterfaceStatsRxCodeError.Key(), MtxrInterfaceStatsRxCarrierError.Key(), MtxrInterfaceStatsRxJabber.Key(), MtxrInterfaceStatsRxDrop.Key(), MtxrInterfaceStatsTxBytes.Key(), MtxrInterfaceStatsTxPackets.Key(), MtxrInterfaceStatsTxTooShort.Key(), MtxrInterfaceStatsTx64.Key(), MtxrInterfaceStatsTx65To127.Key(), MtxrInterfaceStatsTx128To255.Key(), MtxrInterfaceStatsTx256To511.Key(), MtxrInterfaceStatsTx512To1023.Key(), MtxrInterfaceStatsTx1024To1518.Key(), MtxrInterfaceStatsTx1519ToMax.Key(), MtxrInterfaceStatsTxTooLong.Key(), MtxrInterfaceStatsTxBroadcast.Key(), MtxrInterfaceStatsTxPause.Key(), MtxrInterfaceStatsTxMulticast.Key(), MtxrInterfaceStatsTxUnderrun.Key(), MtxrInterfaceStatsTxCollision.Key(), MtxrInterfaceStatsTxExcessiveCollision.Key(), MtxrInterfaceStatsTxMultipleCollision.Key(), MtxrInterfaceStatsTxSingleCollision.Key(), MtxrInterfaceStatsTxExcessiveDeferred.Key(), MtxrInterfaceStatsTxDeferred.Key(), MtxrInterfaceStatsTxLateCollision.Key(), MtxrInterfaceStatsTxTotalCollision.Key(), MtxrInterfaceStatsTxPauseHonored.Key(), MtxrInterfaceStatsTxDrop.Key(), MtxrInterfaceStatsTxJabber.Key(), MtxrInterfaceStatsTxFCSError.Key(), MtxrInterfaceStatsTxControl.Key(), MtxrInterfaceStatsTxFragment.Key(), MtxrInterfaceStatsLinkDowns.Key(), MtxrInterfaceStatsTxRx1024ToMax.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrInterfaceStatsTable.Walk: column %s", c.OID()))
-			return &MtxrInterfaceStatsTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrInterfaceStatsTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrPOEName is mtxrPOEName.
+var MtxrPOEName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrPOEName is the column mtxrPOEName of table mtxrPOETable.
-var MtxrPOEName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrPOEStatus is the column mtxrPOEStatus of table mtxrPOETable.
-var MtxrPOEStatus = snmp.NewColumn[MtxrPOEStatusValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrPOEStatusValue, error) {
+// MtxrPOEStatus is mtxrPOEStatus.
+var MtxrPOEStatus = snmp.NewFusedTableColumn[MtxrPOEStatusValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrPOEStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrPOEStatusValue(0), err
 	}
 	return MtxrPOEStatusValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrPOEStatusValue], 1)
 
-// MtxrPOEVoltage is the column mtxrPOEVoltage of table mtxrPOETable.
+// MtxrPOEVoltage is mtxrPOEVoltage.
 // V
-var MtxrPOEVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrPOEVoltage = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// MtxrPOECurrent is the column mtxrPOECurrent of table mtxrPOETable.
+// MtxrPOECurrent is mtxrPOECurrent.
 // mA
-var MtxrPOECurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrPOECurrent = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// MtxrPOEPower is the column mtxrPOEPower of table mtxrPOETable.
+// MtxrPOEPower is mtxrPOEPower.
 // W
-var MtxrPOEPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	MtxrPOEPower        = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 15, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
+	mtxrPOETableColumns = []snmp.AnyColumn{MtxrPOEName, MtxrPOEStatus, MtxrPOEVoltage, MtxrPOECurrent, MtxrPOEPower}
+)
 
 // MtxrPOETableKey is the decoded INDEX of one mtxrPOETable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -9227,14 +4257,7 @@ func decodeMtxrPOETableKey(idx snmp.OID) (MtxrPOETableKey, bool) {
 	return MtxrPOETableKey{MtxrPOEInterfaceIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrPOETableRow is one row of mtxrPOETable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrPOETableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrPOETableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrPOETableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrPOETableRow struct {
 	Key            MtxrPOETableKey
 	keyValid       bool
@@ -9243,191 +4266,49 @@ type MtxrPOETableRow struct {
 	MtxrPOEVoltage int32
 	MtxrPOECurrent int32
 	MtxrPOEPower   int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrPOETableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrPOETableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrPOEName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrPOEStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrPOEVoltage.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrPOECurrent.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrPOEPower.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrPOETableColumns, col)
 }
 
-// MtxrPOETableWalker streams selected columns of mtxrPOETable.
-// The zero value is not usable; construct via MtxrPOETable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrPOETableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrPOETableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrPOETableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrPOETableWalker) Iter() iter.Seq2[snmp.OID, MtxrPOETableRow] {
-	return func(yield func(snmp.OID, MtxrPOETableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrPOETableRow
-			row.Key, row.keyValid = decodeMtxrPOETableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrPOEName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrPOEName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrPOEName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrPOEStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOEStatus = MtxrPOEStatusValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPOEStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPOEStatus = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrPOEVoltage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOEVoltage = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPOEVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPOEVoltage = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrPOECurrent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOECurrent = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPOECurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPOECurrent = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrPOEPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPOEPower = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPOEPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPOEPower = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrPOETableT struct {
+	snmp.Table[MtxrPOETableRow, *MtxrPOETableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrPOETableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrPOETableT is the singleton type of MtxrPOETable.
-type mtxrPOETableT struct{}
 
 // MtxrPOETable is the descriptor for the mtxrPOETable table.
-var MtxrPOETable mtxrPOETableT
+var MtxrPOETable = mtxrPOETableT{Table: snmp.NewTable("mtxrPOETable", mtxrPOETableColumns, func(idx snmp.OID, row *MtxrPOETableRow) {
+	row.Key, row.keyValid = decodeMtxrPOETableKey(idx)
+}, func(row *MtxrPOETableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrPOEName, &row.MtxrPOEName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrPOEStatus, &row.MtxrPOEStatus, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrPOEVoltage, &row.MtxrPOEVoltage, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrPOECurrent, &row.MtxrPOECurrent, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrPOEPower, &row.MtxrPOEPower, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrPOETableRow]) *MtxrPOETableWalker {
+	return &MtxrPOETableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrPOETableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrPOETableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPOETableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrPOETableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrPOETableKey",
@@ -9435,118 +4316,94 @@ func (mtxrPOETableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrPOETableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrPOETableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrPOEName.Key(), MtxrPOEStatus.Key(), MtxrPOEVoltage.Key(), MtxrPOECurrent.Key(), MtxrPOEPower.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrPOETable.Walk: column %s", c.OID()))
-			return &MtxrPOETableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrPOETableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrLTEModemSignalRSSI is the column mtxrLTEModemSignalRSSI of table mtxrLTEModemTable.
+// MtxrLTEModemSignalRSSI is mtxrLTEModemSignalRSSI.
 // dBm
-var MtxrLTEModemSignalRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTEModemSignalRSSI = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// MtxrLTEModemSignalRSRQ is the column mtxrLTEModemSignalRSRQ of table mtxrLTEModemTable.
+// MtxrLTEModemSignalRSRQ is mtxrLTEModemSignalRSRQ.
 // dB
 //
 // Deprecated: mtxrLTEModemSignalRSRQ is STATUS deprecated in MIKROTIK-MIB.
-var MtxrLTEModemSignalRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTEModemSignalRSRQ = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// MtxrLTEModemSignalRSRP is the column mtxrLTEModemSignalRSRP of table mtxrLTEModemTable.
+// MtxrLTEModemSignalRSRP is mtxrLTEModemSignalRSRP.
 // dBm
-var MtxrLTEModemSignalRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTEModemSignalRSRP = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// MtxrLTEModemCellID is the column mtxrLTEModemCellId of table mtxrLTEModemTable.
+// MtxrLTEModemCellID is mtxrLTEModemCellId.
 // current cell ID
-var MtxrLTEModemCellID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTEModemCellID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// MtxrLTEModemAccessTechnology is the column mtxrLTEModemAccessTechnology of table mtxrLTEModemTable.
+// MtxrLTEModemAccessTechnology is mtxrLTEModemAccessTechnology.
 // as reported by +CREG
-var MtxrLTEModemAccessTechnology = snmp.NewColumn[MtxrLTEModemAccessTechnologyValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrLTEModemAccessTechnologyValue, error) {
+var MtxrLTEModemAccessTechnology = snmp.NewFusedTableColumn[MtxrLTEModemAccessTechnologyValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrLTEModemAccessTechnologyValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrLTEModemAccessTechnologyValue(0), err
 	}
 	return MtxrLTEModemAccessTechnologyValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrLTEModemAccessTechnologyValue], 4)
 
-// MtxrLTEModemSignalSINR is the column mtxrLTEModemSignalSINR of table mtxrLTEModemTable.
+// MtxrLTEModemSignalSINR is mtxrLTEModemSignalSINR.
 // dB
-var MtxrLTEModemSignalSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTEModemSignalSINR = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// MtxrLTEModemEnbID is the column mtxrLTEModemEnbId of table mtxrLTEModemTable.
-var MtxrLTEModemEnbID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemEnbID is mtxrLTEModemEnbId.
+var MtxrLTEModemEnbID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// MtxrLTEModemSectorID is the column mtxrLTEModemSectorId of table mtxrLTEModemTable.
-var MtxrLTEModemSectorID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemSectorID is mtxrLTEModemSectorId.
+var MtxrLTEModemSectorID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
 
-// MtxrLTEModemLac is the column mtxrLTEModemLac of table mtxrLTEModemTable.
-var MtxrLTEModemLac = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemLac is mtxrLTEModemLac.
+var MtxrLTEModemLac = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 8)
 
-// MtxrLTEModemIMEI is the column mtxrLTEModemIMEI of table mtxrLTEModemTable.
-var MtxrLTEModemIMEI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemIMEI is mtxrLTEModemIMEI.
+var MtxrLTEModemIMEI = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString, 9)
 
-// MtxrLTEModemIMSI is the column mtxrLTEModemIMSI of table mtxrLTEModemTable.
-var MtxrLTEModemIMSI = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemIMSI is mtxrLTEModemIMSI.
+var MtxrLTEModemIMSI = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString, 10)
 
-// MtxrLTEModemUICC is the column mtxrLTEModemUICC of table mtxrLTEModemTable.
-var MtxrLTEModemUICC = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemUICC is mtxrLTEModemUICC.
+var MtxrLTEModemUICC = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 13), snmp.KindOctetString, snmp.DecodeDisplayString, 11)
 
-// MtxrLTEModemRAT is the column mtxrLTEModemRAT of table mtxrLTEModemTable.
-var MtxrLTEModemRAT = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 14), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemRAT is mtxrLTEModemRAT.
+var MtxrLTEModemRAT = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 14), snmp.KindOctetString, snmp.DecodeDisplayString, 12)
 
-// MtxrLTEModemPrimaryBand is the column mtxrLTEModemPrimaryBand of table mtxrLTEModemTable.
-var MtxrLTEModemPrimaryBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 15), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemPrimaryBand is mtxrLTEModemPrimaryBand.
+var MtxrLTEModemPrimaryBand = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 15), snmp.KindOctetString, snmp.DecodeDisplayString, 13)
 
-// MtxrLTEModemSessionUptime is the column mtxrLTEModemSessionUptime of table mtxrLTEModemTable.
-var MtxrLTEModemSessionUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 16), snmp.KindTimeTicks, snmp.DecodeUint32)
+// MtxrLTEModemSessionUptime is mtxrLTEModemSessionUptime.
+var MtxrLTEModemSessionUptime = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 16), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 14)
 
-// MtxrLTEModemRegStatus is the column mtxrLTEModemRegStatus of table mtxrLTEModemTable.
-var MtxrLTEModemRegStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 17), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemRegStatus is mtxrLTEModemRegStatus.
+var MtxrLTEModemRegStatus = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 17), snmp.KindOctetString, snmp.DecodeDisplayString, 15)
 
-// MtxrLTEModemPinStatus is the column mtxrLTEModemPinStatus of table mtxrLTEModemTable.
-var MtxrLTEModemPinStatus = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 18), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemPinStatus is mtxrLTEModemPinStatus.
+var MtxrLTEModemPinStatus = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 18), snmp.KindOctetString, snmp.DecodeDisplayString, 16)
 
-// MtxrLTEModemModel is the column mtxrLTEModemModel of table mtxrLTEModemTable.
-var MtxrLTEModemModel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 19), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemModel is mtxrLTEModemModel.
+var MtxrLTEModemModel = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 19), snmp.KindOctetString, snmp.DecodeDisplayString, 17)
 
-// MtxrLTEModemFirmware is the column mtxrLTEModemFirmware of table mtxrLTEModemTable.
-var MtxrLTEModemFirmware = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 20), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrLTEModemFirmware is mtxrLTEModemFirmware.
+var MtxrLTEModemFirmware = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 20), snmp.KindOctetString, snmp.DecodeDisplayString, 18)
 
-// MtxrLTEModemCQI is the column mtxrLTEModemCQI of table mtxrLTEModemTable.
-var MtxrLTEModemCQI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemCQI is mtxrLTEModemCQI.
+var MtxrLTEModemCQI = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 19)
 
-// MtxrLTEModemNrRSRP is the column mtxrLTEModemNrRSRP of table mtxrLTEModemTable.
-var MtxrLTEModemNrRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemNrRSRP is mtxrLTEModemNrRSRP.
+var MtxrLTEModemNrRSRP = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 20)
 
-// MtxrLTEModemNrRSRQ is the column mtxrLTEModemNrRSRQ of table mtxrLTEModemTable.
-var MtxrLTEModemNrRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemNrRSRQ is mtxrLTEModemNrRSRQ.
+var MtxrLTEModemNrRSRQ = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 21)
 
-// MtxrLTEModemNrSINR is the column mtxrLTEModemNrSINR of table mtxrLTEModemTable.
-var MtxrLTEModemNrSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemNrSINR is mtxrLTEModemNrSINR.
+var MtxrLTEModemNrSINR = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 22)
 
-// MtxrLTEModemSignalRSRQD10 is the column mtxrLTEModemSignalRSRQD10 of table mtxrLTEModemTable.
-var MtxrLTEModemSignalRSRQD10 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTEModemSignalRSRQD10 is mtxrLTEModemSignalRSRQD10.
+var (
+	MtxrLTEModemSignalRSRQD10 = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 23)
+	mtxrLTEModemTableColumns  = []snmp.AnyColumn{MtxrLTEModemSignalRSSI, MtxrLTEModemSignalRSRQ, MtxrLTEModemSignalRSRP, MtxrLTEModemCellID, MtxrLTEModemAccessTechnology, MtxrLTEModemSignalSINR, MtxrLTEModemEnbID, MtxrLTEModemSectorID, MtxrLTEModemLac, MtxrLTEModemIMEI, MtxrLTEModemIMSI, MtxrLTEModemUICC, MtxrLTEModemRAT, MtxrLTEModemPrimaryBand, MtxrLTEModemSessionUptime, MtxrLTEModemRegStatus, MtxrLTEModemPinStatus, MtxrLTEModemModel, MtxrLTEModemFirmware, MtxrLTEModemCQI, MtxrLTEModemNrRSRP, MtxrLTEModemNrRSRQ, MtxrLTEModemNrSINR, MtxrLTEModemSignalRSRQD10}
+)
 
 // MtxrLTEModemTableKey is the decoded INDEX of one mtxrLTEModemTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -9566,14 +4423,7 @@ func decodeMtxrLTEModemTableKey(idx snmp.OID) (MtxrLTEModemTableKey, bool) {
 	return MtxrLTEModemTableKey{MtxrLTEModemInterfaceIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrLTEModemTableRow is one row of mtxrLTEModemTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrLTEModemTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrLTEModemTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrLTEModemTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrLTEModemTableRow struct {
 	Key                          MtxrLTEModemTableKey
 	keyValid                     bool
@@ -9601,531 +4451,87 @@ type MtxrLTEModemTableRow struct {
 	MtxrLTEModemNrRSRQ           int32
 	MtxrLTEModemNrSINR           int32
 	MtxrLTEModemSignalRSRQD10    int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                     [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrLTEModemTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrLTEModemTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrLTEModemSignalRSSI.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrLTEModemSignalRSRQ.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrLTEModemSignalRSRP.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrLTEModemCellID.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrLTEModemAccessTechnology.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrLTEModemSignalSINR.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrLTEModemEnbID.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrLTEModemSectorID.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrLTEModemLac.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrLTEModemIMEI.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrLTEModemIMSI.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrLTEModemUICC.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrLTEModemRAT.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrLTEModemPrimaryBand.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrLTEModemSessionUptime.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrLTEModemRegStatus.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrLTEModemPinStatus.Key():
-		return r.observed[0]&(1<<16) != 0
-	case MtxrLTEModemModel.Key():
-		return r.observed[0]&(1<<17) != 0
-	case MtxrLTEModemFirmware.Key():
-		return r.observed[0]&(1<<18) != 0
-	case MtxrLTEModemCQI.Key():
-		return r.observed[0]&(1<<19) != 0
-	case MtxrLTEModemNrRSRP.Key():
-		return r.observed[0]&(1<<20) != 0
-	case MtxrLTEModemNrRSRQ.Key():
-		return r.observed[0]&(1<<21) != 0
-	case MtxrLTEModemNrSINR.Key():
-		return r.observed[0]&(1<<22) != 0
-	case MtxrLTEModemSignalRSRQD10.Key():
-		return r.observed[0]&(1<<23) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrLTEModemTableColumns, col)
 }
 
-// MtxrLTEModemTableWalker streams selected columns of mtxrLTEModemTable.
-// The zero value is not usable; construct via MtxrLTEModemTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrLTEModemTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrLTEModemTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrLTEModemTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrLTEModemTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTEModemTableRow] {
-	return func(yield func(snmp.OID, MtxrLTEModemTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrLTEModemTableRow
-			row.Key, row.keyValid = decodeMtxrLTEModemTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrLTEModemSignalRSSI.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSSI = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSignalRSSI.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSignalRSSI = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrLTEModemSignalRSRQ.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSRQ = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSignalRSRQ.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSignalRSRQ = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrLTEModemSignalRSRP.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSRP = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSignalRSRP.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSignalRSRP = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrLTEModemCellID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemCellID = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemCellID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemCellID = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrLTEModemAccessTechnology.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemAccessTechnology = MtxrLTEModemAccessTechnologyValue(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemAccessTechnology.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemAccessTechnology = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrLTEModemSignalSINR.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalSINR = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSignalSINR.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSignalSINR = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrLTEModemEnbID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemEnbID = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemEnbID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemEnbID = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrLTEModemSectorID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSectorID = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSectorID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSectorID = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrLTEModemLac.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemLac = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemLac.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemLac = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrLTEModemIMEI.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemIMEI.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemIMEI = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				case MtxrLTEModemIMSI.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemIMSI.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemIMSI = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				case MtxrLTEModemUICC.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemUICC.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemUICC = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				case MtxrLTEModemRAT.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemRAT.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemRAT = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				case MtxrLTEModemPrimaryBand.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemPrimaryBand.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemPrimaryBand = dv
-							row.observed[0] |= 1 << 13
-						}
-					}
-				case MtxrLTEModemSessionUptime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrLTEModemSessionUptime = v
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSessionUptime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSessionUptime = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case MtxrLTEModemRegStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemRegStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemRegStatus = dv
-							row.observed[0] |= 1 << 15
-						}
-					}
-				case MtxrLTEModemPinStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemPinStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemPinStatus = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				case MtxrLTEModemModel.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemModel.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemModel = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				case MtxrLTEModemFirmware.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTEModemFirmware.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTEModemFirmware = dv
-							row.observed[0] |= 1 << 18
-						}
-					}
-				case MtxrLTEModemCQI.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemCQI = v
-						row.observed[0] |= 1 << 19
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemCQI.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemCQI = dv
-								row.observed[0] |= 1 << 19
-							}
-						}
-					}
-				case MtxrLTEModemNrRSRP.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemNrRSRP = v
-						row.observed[0] |= 1 << 20
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemNrRSRP.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemNrRSRP = dv
-								row.observed[0] |= 1 << 20
-							}
-						}
-					}
-				case MtxrLTEModemNrRSRQ.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemNrRSRQ = v
-						row.observed[0] |= 1 << 21
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemNrRSRQ.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemNrRSRQ = dv
-								row.observed[0] |= 1 << 21
-							}
-						}
-					}
-				case MtxrLTEModemNrSINR.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemNrSINR = v
-						row.observed[0] |= 1 << 22
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemNrSINR.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemNrSINR = dv
-								row.observed[0] |= 1 << 22
-							}
-						}
-					}
-				case MtxrLTEModemSignalRSRQD10.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTEModemSignalRSRQD10 = v
-						row.observed[0] |= 1 << 23
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTEModemSignalRSRQD10.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTEModemSignalRSRQD10 = dv
-								row.observed[0] |= 1 << 23
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrLTEModemTableT struct {
+	snmp.Table[MtxrLTEModemTableRow, *MtxrLTEModemTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrLTEModemTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrLTEModemTableT is the singleton type of MtxrLTEModemTable.
-type mtxrLTEModemTableT struct{}
 
 // MtxrLTEModemTable is the descriptor for the mtxrLTEModemTable table.
-var MtxrLTEModemTable mtxrLTEModemTableT
+var MtxrLTEModemTable = mtxrLTEModemTableT{Table: snmp.NewTable("mtxrLTEModemTable", mtxrLTEModemTableColumns, func(idx snmp.OID, row *MtxrLTEModemTableRow) {
+	row.Key, row.keyValid = decodeMtxrLTEModemTableKey(idx)
+}, func(row *MtxrLTEModemTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSignalRSSI, &row.MtxrLTEModemSignalRSSI, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSignalRSRQ, &row.MtxrLTEModemSignalRSRQ, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSignalRSRP, &row.MtxrLTEModemSignalRSRP, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrLTEModemCellID, &row.MtxrLTEModemCellID, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrLTEModemAccessTechnology, &row.MtxrLTEModemAccessTechnology, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSignalSINR, &row.MtxrLTEModemSignalSINR, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrLTEModemEnbID, &row.MtxrLTEModemEnbID, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSectorID, &row.MtxrLTEModemSectorID, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrLTEModemLac, &row.MtxrLTEModemLac, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrLTEModemIMEI, &row.MtxrLTEModemIMEI, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrLTEModemIMSI, &row.MtxrLTEModemIMSI, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrLTEModemUICC, &row.MtxrLTEModemUICC, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrLTEModemRAT, &row.MtxrLTEModemRAT, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrLTEModemPrimaryBand, &row.MtxrLTEModemPrimaryBand, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSessionUptime, &row.MtxrLTEModemSessionUptime, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrLTEModemRegStatus, &row.MtxrLTEModemRegStatus, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrLTEModemPinStatus, &row.MtxrLTEModemPinStatus, row.observed[:])
+	case 17:
+		return snmp.DecodeColumn(rv, MtxrLTEModemModel, &row.MtxrLTEModemModel, row.observed[:])
+	case 18:
+		return snmp.DecodeColumn(rv, MtxrLTEModemFirmware, &row.MtxrLTEModemFirmware, row.observed[:])
+	case 19:
+		return snmp.DecodeColumn(rv, MtxrLTEModemCQI, &row.MtxrLTEModemCQI, row.observed[:])
+	case 20:
+		return snmp.DecodeColumn(rv, MtxrLTEModemNrRSRP, &row.MtxrLTEModemNrRSRP, row.observed[:])
+	case 21:
+		return snmp.DecodeColumn(rv, MtxrLTEModemNrRSRQ, &row.MtxrLTEModemNrRSRQ, row.observed[:])
+	case 22:
+		return snmp.DecodeColumn(rv, MtxrLTEModemNrSINR, &row.MtxrLTEModemNrSINR, row.observed[:])
+	case 23:
+		return snmp.DecodeColumn(rv, MtxrLTEModemSignalRSRQD10, &row.MtxrLTEModemSignalRSRQD10, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrLTEModemTableRow]) *MtxrLTEModemTableWalker {
+	return &MtxrLTEModemTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrLTEModemTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrLTEModemTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTEModemTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrLTEModemTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrLTEModemTableKey",
@@ -10133,71 +4539,47 @@ func (mtxrLTEModemTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrLTEModemTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrLTEModemTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrLTEModemSignalRSSI.Key(), MtxrLTEModemSignalRSRQ.Key(), MtxrLTEModemSignalRSRP.Key(), MtxrLTEModemCellID.Key(), MtxrLTEModemAccessTechnology.Key(), MtxrLTEModemSignalSINR.Key(), MtxrLTEModemEnbID.Key(), MtxrLTEModemSectorID.Key(), MtxrLTEModemLac.Key(), MtxrLTEModemIMEI.Key(), MtxrLTEModemIMSI.Key(), MtxrLTEModemUICC.Key(), MtxrLTEModemRAT.Key(), MtxrLTEModemPrimaryBand.Key(), MtxrLTEModemSessionUptime.Key(), MtxrLTEModemRegStatus.Key(), MtxrLTEModemPinStatus.Key(), MtxrLTEModemModel.Key(), MtxrLTEModemFirmware.Key(), MtxrLTEModemCQI.Key(), MtxrLTEModemNrRSRP.Key(), MtxrLTEModemNrRSRQ.Key(), MtxrLTEModemNrSINR.Key(), MtxrLTEModemSignalRSRQD10.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrLTEModemTable.Walk: column %s", c.OID()))
-			return &MtxrLTEModemTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrLTEModemTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrLTECarrierAggBand is mtxrLTECarrierAggBand.
+var MtxrLTECarrierAggBand = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// MtxrLTECarrierAggBand is the column mtxrLTECarrierAggBand of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggBand = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTECarrierAggEARFCN is mtxrLTECarrierAggEARFCN.
+var MtxrLTECarrierAggEARFCN = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// MtxrLTECarrierAggEARFCN is the column mtxrLTECarrierAggEARFCN of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggEARFCN = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
-
-// MtxrLTECarrierAggBandwidth is the column mtxrLTECarrierAggBandwidth of table mtxrLTECarrierAggTable.
+// MtxrLTECarrierAggBandwidth is mtxrLTECarrierAggBandwidth.
 // MHz
-var MtxrLTECarrierAggBandwidth = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTECarrierAggBandwidth = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// MtxrLTECarrierAggPhyCellID is the column mtxrLTECarrierAggPhyCellId of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggPhyCellID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrLTECarrierAggPhyCellID is mtxrLTECarrierAggPhyCellId.
+var MtxrLTECarrierAggPhyCellID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// MtxrLTECarrierAggRSSI is the column mtxrLTECarrierAggRSSI of table mtxrLTECarrierAggTable.
+// MtxrLTECarrierAggRSSI is mtxrLTECarrierAggRSSI.
 // dBm
-var MtxrLTECarrierAggRSSI = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTECarrierAggRSSI = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// MtxrLTECarrierAggRSRP is the column mtxrLTECarrierAggRSRP of table mtxrLTECarrierAggTable.
+// MtxrLTECarrierAggRSRP is mtxrLTECarrierAggRSRP.
 // dBm
-var MtxrLTECarrierAggRSRP = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTECarrierAggRSRP = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 8), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// MtxrLTECarrierAggRSRQ is the column mtxrLTECarrierAggRSRQ of table mtxrLTECarrierAggTable.
+// MtxrLTECarrierAggRSRQ is mtxrLTECarrierAggRSRQ.
 // dB
-var MtxrLTECarrierAggRSRQ = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTECarrierAggRSRQ = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// MtxrLTECarrierAggSINR is the column mtxrLTECarrierAggSINR of table mtxrLTECarrierAggTable.
+// MtxrLTECarrierAggSINR is mtxrLTECarrierAggSINR.
 // dB
-var MtxrLTECarrierAggSINR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTECarrierAggSINR = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
 
-// MtxrLTECarrierAggSNR is the column mtxrLTECarrierAggSNR of table mtxrLTECarrierAggTable.
+// MtxrLTECarrierAggSNR is mtxrLTECarrierAggSNR.
 // dB
-var MtxrLTECarrierAggSNR = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrLTECarrierAggSNR = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 8)
 
-// MtxrLTECarrierAggNR is the column mtxrLTECarrierAggNR of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggNR = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12), snmp.KindInteger32, snmp.DecodeTruthValue)
+// MtxrLTECarrierAggNR is mtxrLTECarrierAggNR.
+var MtxrLTECarrierAggNR = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 12), snmp.KindInteger32, snmp.DecodeTruthValue, 9)
 
-// MtxrLTECarrierAggUplink is the column mtxrLTECarrierAggUplink of table mtxrLTECarrierAggTable.
-var MtxrLTECarrierAggUplink = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 13), snmp.KindInteger32, snmp.DecodeTruthValue)
+// MtxrLTECarrierAggUplink is mtxrLTECarrierAggUplink.
+var (
+	MtxrLTECarrierAggUplink       = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 16, 2, 1, 1, 13), snmp.KindInteger32, snmp.DecodeTruthValue, 10)
+	mtxrLTECarrierAggTableColumns = []snmp.AnyColumn{MtxrLTECarrierAggBand, MtxrLTECarrierAggEARFCN, MtxrLTECarrierAggBandwidth, MtxrLTECarrierAggPhyCellID, MtxrLTECarrierAggRSSI, MtxrLTECarrierAggRSRP, MtxrLTECarrierAggRSRQ, MtxrLTECarrierAggSINR, MtxrLTECarrierAggSNR, MtxrLTECarrierAggNR, MtxrLTECarrierAggUplink}
+)
 
 // MtxrLTECarrierAggTableKey is the decoded INDEX of one mtxrLTECarrierAggTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -10218,14 +4600,7 @@ func decodeMtxrLTECarrierAggTableKey(idx snmp.OID) (MtxrLTECarrierAggTableKey, b
 	return MtxrLTECarrierAggTableKey{MtxrLTECarrierAggInterfaceIndex: ObjectIndex(parts[0].Integer), MtxrLTECarrierAggIndex: ObjectIndex(parts[1].Integer)}, true
 }
 
-// MtxrLTECarrierAggTableRow is one row of mtxrLTECarrierAggTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrLTECarrierAggTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrLTECarrierAggTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrLTECarrierAggTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrLTECarrierAggTableRow struct {
 	Key                        MtxrLTECarrierAggTableKey
 	keyValid                   bool
@@ -10240,306 +4615,61 @@ type MtxrLTECarrierAggTableRow struct {
 	MtxrLTECarrierAggSNR       int32
 	MtxrLTECarrierAggNR        bool
 	MtxrLTECarrierAggUplink    bool
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                   [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrLTECarrierAggTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrLTECarrierAggTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrLTECarrierAggBand.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrLTECarrierAggEARFCN.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrLTECarrierAggBandwidth.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrLTECarrierAggPhyCellID.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrLTECarrierAggRSSI.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrLTECarrierAggRSRP.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrLTECarrierAggRSRQ.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrLTECarrierAggSINR.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrLTECarrierAggSNR.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrLTECarrierAggNR.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrLTECarrierAggUplink.Key():
-		return r.observed[0]&(1<<10) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrLTECarrierAggTableColumns, col)
 }
 
-// MtxrLTECarrierAggTableWalker streams selected columns of mtxrLTECarrierAggTable.
-// The zero value is not usable; construct via MtxrLTECarrierAggTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrLTECarrierAggTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrLTECarrierAggTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrLTECarrierAggTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrLTECarrierAggTableWalker) Iter() iter.Seq2[snmp.OID, MtxrLTECarrierAggTableRow] {
-	return func(yield func(snmp.OID, MtxrLTECarrierAggTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrLTECarrierAggTableRow
-			row.Key, row.keyValid = decodeMtxrLTECarrierAggTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrLTECarrierAggBand.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggBand = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggBand.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggBand = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case MtxrLTECarrierAggEARFCN.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggEARFCN = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggEARFCN.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggEARFCN = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrLTECarrierAggBandwidth.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggBandwidth = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggBandwidth.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggBandwidth = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrLTECarrierAggPhyCellID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggPhyCellID = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggPhyCellID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggPhyCellID = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrLTECarrierAggRSSI.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggRSSI = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggRSSI.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggRSSI = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrLTECarrierAggRSRP.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggRSRP = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggRSRP.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggRSRP = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrLTECarrierAggRSRQ.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggRSRQ = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggRSRQ.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggRSRQ = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrLTECarrierAggSINR.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggSINR = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggSINR.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggSINR = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrLTECarrierAggSNR.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrLTECarrierAggSNR = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrLTECarrierAggSNR.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrLTECarrierAggSNR = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrLTECarrierAggNR.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggNR.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggNR = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				case MtxrLTECarrierAggUplink.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrLTECarrierAggUplink.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrLTECarrierAggUplink = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrLTECarrierAggTableT struct {
+	snmp.Table[MtxrLTECarrierAggTableRow, *MtxrLTECarrierAggTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrLTECarrierAggTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrLTECarrierAggTableT is the singleton type of MtxrLTECarrierAggTable.
-type mtxrLTECarrierAggTableT struct{}
 
 // MtxrLTECarrierAggTable is the descriptor for the mtxrLTECarrierAggTable table.
-var MtxrLTECarrierAggTable mtxrLTECarrierAggTableT
+var MtxrLTECarrierAggTable = mtxrLTECarrierAggTableT{Table: snmp.NewTable("mtxrLTECarrierAggTable", mtxrLTECarrierAggTableColumns, func(idx snmp.OID, row *MtxrLTECarrierAggTableRow) {
+	row.Key, row.keyValid = decodeMtxrLTECarrierAggTableKey(idx)
+}, func(row *MtxrLTECarrierAggTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggBand, &row.MtxrLTECarrierAggBand, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggEARFCN, &row.MtxrLTECarrierAggEARFCN, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggBandwidth, &row.MtxrLTECarrierAggBandwidth, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggPhyCellID, &row.MtxrLTECarrierAggPhyCellID, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggRSSI, &row.MtxrLTECarrierAggRSSI, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggRSRP, &row.MtxrLTECarrierAggRSRP, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggRSRQ, &row.MtxrLTECarrierAggRSRQ, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggSINR, &row.MtxrLTECarrierAggSINR, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggSNR, &row.MtxrLTECarrierAggSNR, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggNR, &row.MtxrLTECarrierAggNR, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrLTECarrierAggUplink, &row.MtxrLTECarrierAggUplink, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrLTECarrierAggTableRow]) *MtxrLTECarrierAggTableWalker {
+	return &MtxrLTECarrierAggTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrLTECarrierAggTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrLTECarrierAggTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrLTECarrierAggTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrLTECarrierAggTableKey",
@@ -10547,60 +4677,34 @@ func (mtxrLTECarrierAggTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrLTECarrierAggTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrLTECarrierAggTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrLTECarrierAggBand.Key(), MtxrLTECarrierAggEARFCN.Key(), MtxrLTECarrierAggBandwidth.Key(), MtxrLTECarrierAggPhyCellID.Key(), MtxrLTECarrierAggRSSI.Key(), MtxrLTECarrierAggRSRP.Key(), MtxrLTECarrierAggRSRQ.Key(), MtxrLTECarrierAggSINR.Key(), MtxrLTECarrierAggSNR.Key(), MtxrLTECarrierAggNR.Key(), MtxrLTECarrierAggUplink.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrLTECarrierAggTable.Walk: column %s", c.OID()))
-			return &MtxrLTECarrierAggTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrLTECarrierAggTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrPartitionName is mtxrPartitionName.
+var MtxrPartitionName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrPartitionName is the column mtxrPartitionName of table mtxrPartitionTable.
-var MtxrPartitionName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrPartitionSize is the column mtxrPartitionSize of table mtxrPartitionTable.
+// MtxrPartitionSize is mtxrPartitionSize.
 // MB
-var MtxrPartitionSize = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrPartitionSize = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// MtxrPartitionVersion is the column mtxrPartitionVersion of table mtxrPartitionTable.
-var MtxrPartitionVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrPartitionVersion is mtxrPartitionVersion.
+var MtxrPartitionVersion = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrPartitionActive is the column mtxrPartitionActive of table mtxrPartitionTable.
-var MtxrPartitionActive = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+// MtxrPartitionActive is mtxrPartitionActive.
+var MtxrPartitionActive = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 3)
 
-// MtxrPartitionRunning is the column mtxrPartitionRunning of table mtxrPartitionTable.
-var MtxrPartitionRunning = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+// MtxrPartitionRunning is mtxrPartitionRunning.
+var MtxrPartitionRunning = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 17, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 4)
+var mtxrPartitionTableColumns = []snmp.AnyColumn{MtxrPartitionName, MtxrPartitionSize, MtxrPartitionVersion, MtxrPartitionActive, MtxrPartitionRunning}
 
 // MtxrPartitionTableKey is the decoded INDEX of one mtxrPartitionTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -10620,14 +4724,7 @@ func decodeMtxrPartitionTableKey(idx snmp.OID) (MtxrPartitionTableKey, bool) {
 	return MtxrPartitionTableKey{MtxrPartitionIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrPartitionTableRow is one row of mtxrPartitionTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrPartitionTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrPartitionTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrPartitionTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrPartitionTableRow struct {
 	Key                  MtxrPartitionTableKey
 	keyValid             bool
@@ -10636,186 +4733,49 @@ type MtxrPartitionTableRow struct {
 	MtxrPartitionVersion string
 	MtxrPartitionActive  BoolValue
 	MtxrPartitionRunning BoolValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed             [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrPartitionTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrPartitionTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrPartitionName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrPartitionSize.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrPartitionVersion.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrPartitionActive.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrPartitionRunning.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrPartitionTableColumns, col)
 }
 
-// MtxrPartitionTableWalker streams selected columns of mtxrPartitionTable.
-// The zero value is not usable; construct via MtxrPartitionTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrPartitionTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrPartitionTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrPartitionTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, MtxrPartitionTableRow] {
-	return func(yield func(snmp.OID, MtxrPartitionTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrPartitionTableRow
-			row.Key, row.keyValid = decodeMtxrPartitionTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrPartitionName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrPartitionName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrPartitionName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrPartitionSize.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPartitionSize = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPartitionSize.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPartitionSize = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrPartitionVersion.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrPartitionVersion.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrPartitionVersion = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrPartitionActive.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPartitionActive = BoolValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPartitionActive.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPartitionActive = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrPartitionRunning.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrPartitionRunning = BoolValue(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrPartitionRunning.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrPartitionRunning = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrPartitionTableT struct {
+	snmp.Table[MtxrPartitionTableRow, *MtxrPartitionTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrPartitionTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrPartitionTableT is the singleton type of MtxrPartitionTable.
-type mtxrPartitionTableT struct{}
 
 // MtxrPartitionTable is the descriptor for the mtxrPartitionTable table.
-var MtxrPartitionTable mtxrPartitionTableT
+var MtxrPartitionTable = mtxrPartitionTableT{Table: snmp.NewTable("mtxrPartitionTable", mtxrPartitionTableColumns, func(idx snmp.OID, row *MtxrPartitionTableRow) {
+	row.Key, row.keyValid = decodeMtxrPartitionTableKey(idx)
+}, func(row *MtxrPartitionTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrPartitionName, &row.MtxrPartitionName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrPartitionSize, &row.MtxrPartitionSize, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrPartitionVersion, &row.MtxrPartitionVersion, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrPartitionActive, &row.MtxrPartitionActive, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrPartitionRunning, &row.MtxrPartitionRunning, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrPartitionTableRow]) *MtxrPartitionTableWalker {
+	return &MtxrPartitionTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrPartitionTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrPartitionTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrPartitionTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrPartitionTableKey",
@@ -10823,36 +4783,12 @@ func (mtxrPartitionTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrPartitionTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrPartitionName.Key(), MtxrPartitionSize.Key(), MtxrPartitionVersion.Key(), MtxrPartitionActive.Key(), MtxrPartitionRunning.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrPartitionTable.Walk: column %s", c.OID()))
-			return &MtxrPartitionTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrPartitionTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrScriptRunOutput is the column mtxrScriptRunOutput of table mtxrScriptRunTable.
+// MtxrScriptRunOutput is mtxrScriptRunOutput.
 // this oid on get request will run script and return it's output
-var MtxrScriptRunOutput = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+var (
+	MtxrScriptRunOutput       = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 18, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
+	mtxrScriptRunTableColumns = []snmp.AnyColumn{MtxrScriptRunOutput}
+)
 
 // MtxrScriptRunTableKey is the decoded INDEX of one mtxrScriptRunTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -10872,121 +4808,46 @@ func decodeMtxrScriptRunTableKey(idx snmp.OID) (MtxrScriptRunTableKey, bool) {
 	return MtxrScriptRunTableKey{MtxrScriptRunIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrScriptRunTableRow is one row of mtxrScriptRunTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrScriptRunTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrScriptRunTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrScriptRunTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrScriptRunTableRow struct {
 	Key                 MtxrScriptRunTableKey
 	keyValid            bool
 	MtxrScriptRunOutput string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed            [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrScriptRunTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrScriptRunTableRow) Observed(col snmp.AnyColumn) bool {
-	if col.Key() == MtxrScriptRunOutput.Key() {
-		return r.observed[0]&(1<<0) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrScriptRunTableColumns, col)
 }
 
-// MtxrScriptRunTableWalker streams selected columns of mtxrScriptRunTable.
-// The zero value is not usable; construct via MtxrScriptRunTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrScriptRunTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrScriptRunTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrScriptRunTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrScriptRunTableWalker) Iter() iter.Seq2[snmp.OID, MtxrScriptRunTableRow] {
-	return func(yield func(snmp.OID, MtxrScriptRunTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrScriptRunTableRow
-			row.Key, row.keyValid = decodeMtxrScriptRunTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				if tw.cols[cell.Column].Key() == MtxrScriptRunOutput.Key() {
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrScriptRunOutput.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrScriptRunOutput = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrScriptRunTableT struct {
+	snmp.Table[MtxrScriptRunTableRow, *MtxrScriptRunTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrScriptRunTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrScriptRunTableT is the singleton type of MtxrScriptRunTable.
-type mtxrScriptRunTableT struct{}
 
 // MtxrScriptRunTable is the descriptor for the mtxrScriptRunTable table.
-var MtxrScriptRunTable mtxrScriptRunTableT
+var MtxrScriptRunTable = mtxrScriptRunTableT{Table: snmp.NewTable("mtxrScriptRunTable", mtxrScriptRunTableColumns, func(idx snmp.OID, row *MtxrScriptRunTableRow) {
+	row.Key, row.keyValid = decodeMtxrScriptRunTableKey(idx)
+}, func(row *MtxrScriptRunTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrScriptRunOutput, &row.MtxrScriptRunOutput, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrScriptRunTableRow]) *MtxrScriptRunTableWalker {
+	return &MtxrScriptRunTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrScriptRunTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrScriptRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrScriptRunTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrScriptRunTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrScriptRunTableKey",
@@ -10994,119 +4855,95 @@ func (mtxrScriptRunTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrScriptRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrScriptRunTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrScriptRunOutput.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrScriptRunTable.Walk: column %s", c.OID()))
-			return &MtxrScriptRunTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrScriptRunTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
+// MtxrOpticalName is mtxrOpticalName.
+var MtxrOpticalName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrOpticalName is the column mtxrOpticalName of table mtxrOpticalTable.
-var MtxrOpticalName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
-
-// MtxrOpticalRxLoss is the column mtxrOpticalRxLoss of table mtxrOpticalTable.
-var MtxrOpticalRxLoss = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+// MtxrOpticalRxLoss is mtxrOpticalRxLoss.
+var MtxrOpticalRxLoss = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 1)
 
-// MtxrOpticalTxFault is the column mtxrOpticalTxFault of table mtxrOpticalTable.
-var MtxrOpticalTxFault = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+// MtxrOpticalTxFault is mtxrOpticalTxFault.
+var MtxrOpticalTxFault = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 2)
 
-// MtxrOpticalWavelength is the column mtxrOpticalWavelength of table mtxrOpticalTable.
-var MtxrOpticalWavelength = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5), snmp.KindGauge32, snmp.DecodeUint32)
+// MtxrOpticalWavelength is mtxrOpticalWavelength.
+var MtxrOpticalWavelength = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 5), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 3)
 
-// MtxrOpticalTemperature is the column mtxrOpticalTemperature of table mtxrOpticalTable.
-var MtxrOpticalTemperature = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 6), snmp.KindGauge32, snmp.DecodeUint32)
+// MtxrOpticalTemperature is mtxrOpticalTemperature.
+var MtxrOpticalTemperature = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 6), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 4)
 
-// MtxrOpticalSupplyVoltage is the column mtxrOpticalSupplyVoltage of table mtxrOpticalTable.
-var MtxrOpticalSupplyVoltage = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7), snmp.KindGauge32, snmp.DecodeUint32)
+// MtxrOpticalSupplyVoltage is mtxrOpticalSupplyVoltage.
+var MtxrOpticalSupplyVoltage = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 7), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 5)
 
-// MtxrOpticalTxBiasCurrent is the column mtxrOpticalTxBiasCurrent of table mtxrOpticalTable.
-var MtxrOpticalTxBiasCurrent = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 8), snmp.KindGauge32, snmp.DecodeUint32)
+// MtxrOpticalTxBiasCurrent is mtxrOpticalTxBiasCurrent.
+var MtxrOpticalTxBiasCurrent = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 8), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 6)
 
-// MtxrOpticalTxPower is the column mtxrOpticalTxPower of table mtxrOpticalTable.
-var MtxrOpticalTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrOpticalTxPower is mtxrOpticalTxPower.
+var MtxrOpticalTxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 7)
 
-// MtxrOpticalRxPower is the column mtxrOpticalRxPower of table mtxrOpticalTable.
-var MtxrOpticalRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrOpticalRxPower is mtxrOpticalRxPower.
+var MtxrOpticalRxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 8)
 
-// MtxrOpticalVendorName is the column mtxrOpticalVendorName of table mtxrOpticalTable.
-var MtxrOpticalVendorName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrOpticalVendorName is mtxrOpticalVendorName.
+var MtxrOpticalVendorName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 11), snmp.KindOctetString, snmp.DecodeDisplayString, 9)
 
-// MtxrOpticalVendorSerial is the column mtxrOpticalVendorSerial of table mtxrOpticalTable.
-var MtxrOpticalVendorSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString)
+// MtxrOpticalVendorSerial is mtxrOpticalVendorSerial.
+var MtxrOpticalVendorSerial = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 12), snmp.KindOctetString, snmp.DecodeDisplayString, 10)
 
-// MtxrOpticalModulePresent is the column mtxrOpticalModulePresent of table mtxrOpticalTable.
+// MtxrOpticalModulePresent is mtxrOpticalModulePresent.
 // Whether a transceiver module is inserted in the cage
-var MtxrOpticalModulePresent = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+var MtxrOpticalModulePresent = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 11)
 
-// MtxrOpticalVendorPartNumber is the column mtxrOpticalVendorPartNumber of table mtxrOpticalTable.
+// MtxrOpticalVendorPartNumber is mtxrOpticalVendorPartNumber.
 // Vendor part number of the transceiver module
-var MtxrOpticalVendorPartNumber = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 14), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrOpticalVendorPartNumber = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 14), snmp.KindOctetString, snmp.DecodeDisplayString, 12)
 
-// MtxrOpticalType is the column mtxrOpticalType of table mtxrOpticalTable.
+// MtxrOpticalType is mtxrOpticalType.
 // Transceiver module type, SFF-8024 identifier value
-var MtxrOpticalType = snmp.NewColumn[MtxrOpticalTypeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrOpticalTypeValue, error) {
+var MtxrOpticalType = snmp.NewFusedTableColumn[MtxrOpticalTypeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 15), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrOpticalTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrOpticalTypeValue(0), err
 	}
 	return MtxrOpticalTypeValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrOpticalTypeValue], 13)
 
-// MtxrOpticalConnectorType is the column mtxrOpticalConnectorType of table mtxrOpticalTable.
+// MtxrOpticalConnectorType is mtxrOpticalConnectorType.
 // Transceiver connector type, SFF-8024 connector value
-var MtxrOpticalConnectorType = snmp.NewColumn[MtxrOpticalConnectorTypeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrOpticalConnectorTypeValue, error) {
+var MtxrOpticalConnectorType = snmp.NewFusedTableColumn[MtxrOpticalConnectorTypeValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 16), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrOpticalConnectorTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrOpticalConnectorTypeValue(0), err
 	}
 	return MtxrOpticalConnectorTypeValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrOpticalConnectorTypeValue], 14)
 
-// MtxrOpticalLinkLengthCopperOM4 is the column mtxrOpticalLinkLengthCopperOM4 of table mtxrOpticalTable.
+// MtxrOpticalLinkLengthCopperOM4 is mtxrOpticalLinkLengthCopperOM4.
 // Supported link length for copper cable or OM4 fiber
-var MtxrOpticalLinkLengthCopperOM4 = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 17), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrOpticalLinkLengthCopperOM4 = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 17), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 15)
 
-// MtxrOpticalSupportedRates is the column mtxrOpticalSupportedRates of table mtxrOpticalTable.
+// MtxrOpticalSupportedRates is mtxrOpticalSupportedRates.
 // Comma separated list of link rates supported by the module
-var MtxrOpticalSupportedRates = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 18), snmp.KindOctetString, snmp.DecodeDisplayString)
+var (
+	MtxrOpticalSupportedRates = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 19, 1, 1, 18), snmp.KindOctetString, snmp.DecodeDisplayString, 16)
+	mtxrOpticalTableColumns   = []snmp.AnyColumn{MtxrOpticalName, MtxrOpticalRxLoss, MtxrOpticalTxFault, MtxrOpticalWavelength, MtxrOpticalTemperature, MtxrOpticalSupplyVoltage, MtxrOpticalTxBiasCurrent, MtxrOpticalTxPower, MtxrOpticalRxPower, MtxrOpticalVendorName, MtxrOpticalVendorSerial, MtxrOpticalModulePresent, MtxrOpticalVendorPartNumber, MtxrOpticalType, MtxrOpticalConnectorType, MtxrOpticalLinkLengthCopperOM4, MtxrOpticalSupportedRates}
+)
 
 // MtxrOpticalTableKey is the decoded INDEX of one mtxrOpticalTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -11126,14 +4963,7 @@ func decodeMtxrOpticalTableKey(idx snmp.OID) (MtxrOpticalTableKey, bool) {
 	return MtxrOpticalTableKey{MtxrOpticalIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrOpticalTableRow is one row of mtxrOpticalTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrOpticalTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrOpticalTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrOpticalTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrOpticalTableRow struct {
 	Key                            MtxrOpticalTableKey
 	keyValid                       bool
@@ -11154,411 +4984,73 @@ type MtxrOpticalTableRow struct {
 	MtxrOpticalConnectorType       MtxrOpticalConnectorTypeValue
 	MtxrOpticalLinkLengthCopperOM4 uint32
 	MtxrOpticalSupportedRates      string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrOpticalTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrOpticalTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrOpticalName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrOpticalRxLoss.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrOpticalTxFault.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrOpticalWavelength.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrOpticalTemperature.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrOpticalSupplyVoltage.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrOpticalTxBiasCurrent.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrOpticalTxPower.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrOpticalRxPower.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrOpticalVendorName.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrOpticalVendorSerial.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrOpticalModulePresent.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrOpticalVendorPartNumber.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrOpticalType.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrOpticalConnectorType.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrOpticalLinkLengthCopperOM4.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrOpticalSupportedRates.Key():
-		return r.observed[0]&(1<<16) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrOpticalTableColumns, col)
 }
 
-// MtxrOpticalTableWalker streams selected columns of mtxrOpticalTable.
-// The zero value is not usable; construct via MtxrOpticalTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrOpticalTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrOpticalTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrOpticalTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrOpticalTableWalker) Iter() iter.Seq2[snmp.OID, MtxrOpticalTableRow] {
-	return func(yield func(snmp.OID, MtxrOpticalTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrOpticalTableRow
-			row.Key, row.keyValid = decodeMtxrOpticalTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrOpticalName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrOpticalRxLoss.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalRxLoss = BoolValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalRxLoss.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalRxLoss = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case MtxrOpticalTxFault.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalTxFault = BoolValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalTxFault.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalTxFault = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrOpticalWavelength.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalWavelength = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalWavelength.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalWavelength = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrOpticalTemperature.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalTemperature = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalTemperature.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalTemperature = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrOpticalSupplyVoltage.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalSupplyVoltage = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalSupplyVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalSupplyVoltage = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrOpticalTxBiasCurrent.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalTxBiasCurrent = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalTxBiasCurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalTxBiasCurrent = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrOpticalTxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalTxPower = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalTxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalTxPower = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrOpticalRxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalRxPower = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalRxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalRxPower = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrOpticalVendorName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalVendorName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalVendorName = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				case MtxrOpticalVendorSerial.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalVendorSerial.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalVendorSerial = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				case MtxrOpticalModulePresent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalModulePresent = BoolValue(v)
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalModulePresent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalModulePresent = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case MtxrOpticalVendorPartNumber.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalVendorPartNumber.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalVendorPartNumber = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				case MtxrOpticalType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalType = MtxrOpticalTypeValue(v)
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalType = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case MtxrOpticalConnectorType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrOpticalConnectorType = MtxrOpticalConnectorTypeValue(v)
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalConnectorType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalConnectorType = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case MtxrOpticalLinkLengthCopperOM4.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrOpticalLinkLengthCopperOM4 = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrOpticalLinkLengthCopperOM4.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrOpticalLinkLengthCopperOM4 = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case MtxrOpticalSupportedRates.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrOpticalSupportedRates.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrOpticalSupportedRates = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrOpticalTableT struct {
+	snmp.Table[MtxrOpticalTableRow, *MtxrOpticalTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrOpticalTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrOpticalTableT is the singleton type of MtxrOpticalTable.
-type mtxrOpticalTableT struct{}
 
 // MtxrOpticalTable is the descriptor for the mtxrOpticalTable table.
-var MtxrOpticalTable mtxrOpticalTableT
+var MtxrOpticalTable = mtxrOpticalTableT{Table: snmp.NewTable("mtxrOpticalTable", mtxrOpticalTableColumns, func(idx snmp.OID, row *MtxrOpticalTableRow) {
+	row.Key, row.keyValid = decodeMtxrOpticalTableKey(idx)
+}, func(row *MtxrOpticalTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrOpticalName, &row.MtxrOpticalName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrOpticalRxLoss, &row.MtxrOpticalRxLoss, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrOpticalTxFault, &row.MtxrOpticalTxFault, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrOpticalWavelength, &row.MtxrOpticalWavelength, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrOpticalTemperature, &row.MtxrOpticalTemperature, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrOpticalSupplyVoltage, &row.MtxrOpticalSupplyVoltage, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrOpticalTxBiasCurrent, &row.MtxrOpticalTxBiasCurrent, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrOpticalTxPower, &row.MtxrOpticalTxPower, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrOpticalRxPower, &row.MtxrOpticalRxPower, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrOpticalVendorName, &row.MtxrOpticalVendorName, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrOpticalVendorSerial, &row.MtxrOpticalVendorSerial, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrOpticalModulePresent, &row.MtxrOpticalModulePresent, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrOpticalVendorPartNumber, &row.MtxrOpticalVendorPartNumber, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrOpticalType, &row.MtxrOpticalType, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrOpticalConnectorType, &row.MtxrOpticalConnectorType, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrOpticalLinkLengthCopperOM4, &row.MtxrOpticalLinkLengthCopperOM4, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrOpticalSupportedRates, &row.MtxrOpticalSupportedRates, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrOpticalTableRow]) *MtxrOpticalTableWalker {
+	return &MtxrOpticalTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrOpticalTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrOpticalTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrOpticalTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrOpticalTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrOpticalTableKey",
@@ -11566,129 +5058,105 @@ func (mtxrOpticalTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrOpticalTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrOpticalTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrOpticalName.Key(), MtxrOpticalRxLoss.Key(), MtxrOpticalTxFault.Key(), MtxrOpticalWavelength.Key(), MtxrOpticalTemperature.Key(), MtxrOpticalSupplyVoltage.Key(), MtxrOpticalTxBiasCurrent.Key(), MtxrOpticalTxPower.Key(), MtxrOpticalRxPower.Key(), MtxrOpticalVendorName.Key(), MtxrOpticalVendorSerial.Key(), MtxrOpticalModulePresent.Key(), MtxrOpticalVendorPartNumber.Key(), MtxrOpticalType.Key(), MtxrOpticalConnectorType.Key(), MtxrOpticalLinkLengthCopperOM4.Key(), MtxrOpticalSupportedRates.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrOpticalTable.Walk: column %s", c.OID()))
-			return &MtxrOpticalTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrOpticalTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrIkeSAInitiatorCookie is the column mtxrIkeSAInitiatorCookie of table mtxrIkeSATable.
+// MtxrIkeSAInitiatorCookie is mtxrIkeSAInitiatorCookie.
 // initiator SPI
-var MtxrIkeSAInitiatorCookie = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 2), snmp.KindOctetString, snmp.DecodeBytes)
+var MtxrIkeSAInitiatorCookie = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 2), snmp.KindOctetString, snmp.DecodeBytes, 0)
 
-// MtxrIkeSAResponderCookie is the column mtxrIkeSAResponderCookie of table mtxrIkeSATable.
+// MtxrIkeSAResponderCookie is mtxrIkeSAResponderCookie.
 // responder SPI
-var MtxrIkeSAResponderCookie = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var MtxrIkeSAResponderCookie = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 1)
 
-// MtxrIkeSAResponder is the column mtxrIkeSAResponder of table mtxrIkeSATable.
+// MtxrIkeSAResponder is mtxrIkeSAResponder.
 // IKE side
-var MtxrIkeSAResponder = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+var MtxrIkeSAResponder = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 2)
 
-// MtxrIkeSANatt is the column mtxrIkeSANatt of table mtxrIkeSATable.
+// MtxrIkeSANatt is mtxrIkeSANatt.
 // NAT is detected
-var MtxrIkeSANatt = snmp.NewColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
+var MtxrIkeSANatt = snmp.NewFusedTableColumn[BoolValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (BoolValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BoolValue(0), err
 	}
 	return BoolValue(v), nil
-})
+}, snmp.RawInteger32As[BoolValue], 3)
 
-// MtxrIkeSAVersion is the column mtxrIkeSAVersion of table mtxrIkeSATable.
+// MtxrIkeSAVersion is mtxrIkeSAVersion.
 // protocol version
-var MtxrIkeSAVersion = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 6), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrIkeSAVersion = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 6), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 4)
 
-// MtxrIkeSAState is the column mtxrIkeSAState of table mtxrIkeSATable.
-var MtxrIkeSAState = snmp.NewColumn[MtxrIkeSAStateValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrIkeSAStateValue, error) {
+// MtxrIkeSAState is mtxrIkeSAState.
+var MtxrIkeSAState = snmp.NewFusedTableColumn[MtxrIkeSAStateValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (MtxrIkeSAStateValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return MtxrIkeSAStateValue(0), err
 	}
 	return MtxrIkeSAStateValue(v), nil
-})
+}, snmp.RawInteger32As[MtxrIkeSAStateValue], 5)
 
-// MtxrIkeSAUptime is the column mtxrIkeSAUptime of table mtxrIkeSATable.
-var MtxrIkeSAUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 8), snmp.KindTimeTicks, snmp.DecodeUint32)
+// MtxrIkeSAUptime is mtxrIkeSAUptime.
+var MtxrIkeSAUptime = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 8), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 6)
 
-// MtxrIkeSASeen is the column mtxrIkeSASeen of table mtxrIkeSATable.
+// MtxrIkeSASeen is mtxrIkeSASeen.
 // time elapsed since last valid IKE packet
-var MtxrIkeSASeen = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 9), snmp.KindTimeTicks, snmp.DecodeUint32)
+var MtxrIkeSASeen = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 9), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 7)
 
-// MtxrIkeSAIdentity is the column mtxrIkeSAIdentity of table mtxrIkeSATable.
+// MtxrIkeSAIdentity is mtxrIkeSAIdentity.
 // peer identity
-var MtxrIkeSAIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrIkeSAIdentity = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 10), snmp.KindOctetString, snmp.DecodeDisplayString, 8)
 
-// MtxrIkeSAPh2Count is the column mtxrIkeSAPh2Count of table mtxrIkeSATable.
+// MtxrIkeSAPh2Count is mtxrIkeSAPh2Count.
 // total ph2 SA pairs
-var MtxrIkeSAPh2Count = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 11), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrIkeSAPh2Count = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 11), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 9)
 
-// MtxrIkeSALocalAddressType is the column mtxrIkeSALocalAddressType of table mtxrIkeSATable.
-var MtxrIkeSALocalAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrIkeSALocalAddressType is mtxrIkeSALocalAddressType.
+var MtxrIkeSALocalAddressType = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 12), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 10)
 
-// MtxrIkeSALocalAddress is the column mtxrIkeSALocalAddress of table mtxrIkeSATable.
-var MtxrIkeSALocalAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 13), snmp.KindOctetString, snmp.DecodeBytes)
+// MtxrIkeSALocalAddress is mtxrIkeSALocalAddress.
+var MtxrIkeSALocalAddress = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 13), snmp.KindOctetString, snmp.DecodeBytes, 11)
 
-// MtxrIkeSALocalPort is the column mtxrIkeSALocalPort of table mtxrIkeSATable.
-var MtxrIkeSALocalPort = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 14), snmp.KindUinteger32, snmp.DecodeUint32)
+// MtxrIkeSALocalPort is mtxrIkeSALocalPort.
+var MtxrIkeSALocalPort = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 14), snmp.KindUinteger32, snmp.DecodeUint32, snmp.RawGauge32, 12)
 
-// MtxrIkeSAPeerAddressType is the column mtxrIkeSAPeerAddressType of table mtxrIkeSATable.
-var MtxrIkeSAPeerAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrIkeSAPeerAddressType is mtxrIkeSAPeerAddressType.
+var MtxrIkeSAPeerAddressType = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 15), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 13)
 
-// MtxrIkeSAPeerAddress is the column mtxrIkeSAPeerAddress of table mtxrIkeSATable.
-var MtxrIkeSAPeerAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 16), snmp.KindOctetString, snmp.DecodeBytes)
+// MtxrIkeSAPeerAddress is mtxrIkeSAPeerAddress.
+var MtxrIkeSAPeerAddress = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 16), snmp.KindOctetString, snmp.DecodeBytes, 14)
 
-// MtxrIkeSAPeerPort is the column mtxrIkeSAPeerPort of table mtxrIkeSATable.
-var MtxrIkeSAPeerPort = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 17), snmp.KindUinteger32, snmp.DecodeUint32)
+// MtxrIkeSAPeerPort is mtxrIkeSAPeerPort.
+var MtxrIkeSAPeerPort = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 17), snmp.KindUinteger32, snmp.DecodeUint32, snmp.RawGauge32, 15)
 
-// MtxrIkeSADynamicAddressType is the column mtxrIkeSADynamicAddressType of table mtxrIkeSATable.
-var MtxrIkeSADynamicAddressType = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
+// MtxrIkeSADynamicAddressType is mtxrIkeSADynamicAddressType.
+var MtxrIkeSADynamicAddressType = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 18), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 16)
 
-// MtxrIkeSADynamicAddress is the column mtxrIkeSADynamicAddress of table mtxrIkeSATable.
+// MtxrIkeSADynamicAddress is mtxrIkeSADynamicAddress.
 // dynamic address allocated by mode config
-var MtxrIkeSADynamicAddress = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 19), snmp.KindOctetString, snmp.DecodeBytes)
+var MtxrIkeSADynamicAddress = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 19), snmp.KindOctetString, snmp.DecodeBytes, 17)
 
-// MtxrIkeSATxBytes is the column mtxrIkeSATxBytes of table mtxrIkeSATable.
+// MtxrIkeSATxBytes is mtxrIkeSATxBytes.
 // ph2 SA tx bytes
-var MtxrIkeSATxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 20), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrIkeSATxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 20), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 18)
 
-// MtxrIkeSARxBytes is the column mtxrIkeSARxBytes of table mtxrIkeSATable.
+// MtxrIkeSARxBytes is mtxrIkeSARxBytes.
 // ph2 SA rx bytes
-var MtxrIkeSARxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 21), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrIkeSARxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 21), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 19)
 
-// MtxrIkeSATxPackets is the column mtxrIkeSATxPackets of table mtxrIkeSATable.
+// MtxrIkeSATxPackets is mtxrIkeSATxPackets.
 // ph2 SA tx packets
-var MtxrIkeSATxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 22), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrIkeSATxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 22), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 20)
 
-// MtxrIkeSARxPackets is the column mtxrIkeSARxPackets of table mtxrIkeSATable.
+// MtxrIkeSARxPackets is mtxrIkeSARxPackets.
 // ph2 SA rx packets
-var MtxrIkeSARxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 23), snmp.KindCounter64, snmp.DecodeUint64)
+var (
+	MtxrIkeSARxPackets    = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 20, 2, 1, 23), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 21)
+	mtxrIkeSATableColumns = []snmp.AnyColumn{MtxrIkeSAInitiatorCookie, MtxrIkeSAResponderCookie, MtxrIkeSAResponder, MtxrIkeSANatt, MtxrIkeSAVersion, MtxrIkeSAState, MtxrIkeSAUptime, MtxrIkeSASeen, MtxrIkeSAIdentity, MtxrIkeSAPh2Count, MtxrIkeSALocalAddressType, MtxrIkeSALocalAddress, MtxrIkeSALocalPort, MtxrIkeSAPeerAddressType, MtxrIkeSAPeerAddress, MtxrIkeSAPeerPort, MtxrIkeSADynamicAddressType, MtxrIkeSADynamicAddress, MtxrIkeSATxBytes, MtxrIkeSARxBytes, MtxrIkeSATxPackets, MtxrIkeSARxPackets}
+)
 
 // MtxrIkeSATableKey is the decoded INDEX of one mtxrIkeSATable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -11708,14 +5176,7 @@ func decodeMtxrIkeSATableKey(idx snmp.OID) (MtxrIkeSATableKey, bool) {
 	return MtxrIkeSATableKey{MtxrIkeSAIndex: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrIkeSATableRow is one row of mtxrIkeSATable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrIkeSATableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrIkeSATableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrIkeSATableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrIkeSATableRow struct {
 	Key                         MtxrIkeSATableKey
 	keyValid                    bool
@@ -11741,506 +5202,83 @@ type MtxrIkeSATableRow struct {
 	MtxrIkeSARxBytes            uint64
 	MtxrIkeSATxPackets          uint64
 	MtxrIkeSARxPackets          uint64
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrIkeSATableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrIkeSATableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrIkeSAInitiatorCookie.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrIkeSAResponderCookie.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrIkeSAResponder.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrIkeSANatt.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrIkeSAVersion.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrIkeSAState.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrIkeSAUptime.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrIkeSASeen.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrIkeSAIdentity.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrIkeSAPh2Count.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrIkeSALocalAddressType.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrIkeSALocalAddress.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrIkeSALocalPort.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrIkeSAPeerAddressType.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrIkeSAPeerAddress.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrIkeSAPeerPort.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrIkeSADynamicAddressType.Key():
-		return r.observed[0]&(1<<16) != 0
-	case MtxrIkeSADynamicAddress.Key():
-		return r.observed[0]&(1<<17) != 0
-	case MtxrIkeSATxBytes.Key():
-		return r.observed[0]&(1<<18) != 0
-	case MtxrIkeSARxBytes.Key():
-		return r.observed[0]&(1<<19) != 0
-	case MtxrIkeSATxPackets.Key():
-		return r.observed[0]&(1<<20) != 0
-	case MtxrIkeSARxPackets.Key():
-		return r.observed[0]&(1<<21) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrIkeSATableColumns, col)
 }
 
-// MtxrIkeSATableWalker streams selected columns of mtxrIkeSATable.
-// The zero value is not usable; construct via MtxrIkeSATable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrIkeSATableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrIkeSATableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrIkeSATableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrIkeSATableWalker) Iter() iter.Seq2[snmp.OID, MtxrIkeSATableRow] {
-	return func(yield func(snmp.OID, MtxrIkeSATableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrIkeSATableRow
-			row.Key, row.keyValid = decodeMtxrIkeSATableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrIkeSAInitiatorCookie.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSAInitiatorCookie.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSAInitiatorCookie = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrIkeSAResponderCookie.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSAResponderCookie.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSAResponderCookie = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrIkeSAResponder.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSAResponder = BoolValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAResponder.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAResponder = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrIkeSANatt.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSANatt = BoolValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSANatt.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSANatt = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrIkeSAVersion.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSAVersion = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAVersion.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAVersion = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrIkeSAState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSAState = MtxrIkeSAStateValue(v)
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAState = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case MtxrIkeSAUptime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrIkeSAUptime = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAUptime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAUptime = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case MtxrIkeSASeen.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrIkeSASeen = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSASeen.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSASeen = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrIkeSAIdentity.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSAIdentity.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSAIdentity = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				case MtxrIkeSAPh2Count.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSAPh2Count = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAPh2Count.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAPh2Count = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrIkeSALocalAddressType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSALocalAddressType = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSALocalAddressType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSALocalAddressType = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case MtxrIkeSALocalAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSALocalAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSALocalAddress = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				case MtxrIkeSALocalPort.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSALocalPort = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSALocalPort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSALocalPort = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case MtxrIkeSAPeerAddressType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSAPeerAddressType = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAPeerAddressType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAPeerAddressType = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case MtxrIkeSAPeerAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSAPeerAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSAPeerAddress = dv
-							row.observed[0] |= 1 << 14
-						}
-					}
-				case MtxrIkeSAPeerPort.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrIkeSAPeerPort = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSAPeerPort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSAPeerPort = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case MtxrIkeSADynamicAddressType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrIkeSADynamicAddressType = v
-						row.observed[0] |= 1 << 16
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSADynamicAddressType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSADynamicAddressType = dv
-								row.observed[0] |= 1 << 16
-							}
-						}
-					}
-				case MtxrIkeSADynamicAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrIkeSADynamicAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrIkeSADynamicAddress = dv
-							row.observed[0] |= 1 << 17
-						}
-					}
-				case MtxrIkeSATxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSATxBytes = v
-						row.observed[0] |= 1 << 18
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSATxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSATxBytes = dv
-								row.observed[0] |= 1 << 18
-							}
-						}
-					}
-				case MtxrIkeSARxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSARxBytes = v
-						row.observed[0] |= 1 << 19
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSARxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSARxBytes = dv
-								row.observed[0] |= 1 << 19
-							}
-						}
-					}
-				case MtxrIkeSATxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSATxPackets = v
-						row.observed[0] |= 1 << 20
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSATxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSATxPackets = dv
-								row.observed[0] |= 1 << 20
-							}
-						}
-					}
-				case MtxrIkeSARxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrIkeSARxPackets = v
-						row.observed[0] |= 1 << 21
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrIkeSARxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrIkeSARxPackets = dv
-								row.observed[0] |= 1 << 21
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrIkeSATableT struct {
+	snmp.Table[MtxrIkeSATableRow, *MtxrIkeSATableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrIkeSATableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrIkeSATableT is the singleton type of MtxrIkeSATable.
-type mtxrIkeSATableT struct{}
 
 // MtxrIkeSATable is the descriptor for the mtxrIkeSATable table.
-var MtxrIkeSATable mtxrIkeSATableT
+var MtxrIkeSATable = mtxrIkeSATableT{Table: snmp.NewTable("mtxrIkeSATable", mtxrIkeSATableColumns, func(idx snmp.OID, row *MtxrIkeSATableRow) {
+	row.Key, row.keyValid = decodeMtxrIkeSATableKey(idx)
+}, func(row *MtxrIkeSATableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrIkeSAInitiatorCookie, &row.MtxrIkeSAInitiatorCookie, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrIkeSAResponderCookie, &row.MtxrIkeSAResponderCookie, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrIkeSAResponder, &row.MtxrIkeSAResponder, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrIkeSANatt, &row.MtxrIkeSANatt, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrIkeSAVersion, &row.MtxrIkeSAVersion, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrIkeSAState, &row.MtxrIkeSAState, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrIkeSAUptime, &row.MtxrIkeSAUptime, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrIkeSASeen, &row.MtxrIkeSASeen, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrIkeSAIdentity, &row.MtxrIkeSAIdentity, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrIkeSAPh2Count, &row.MtxrIkeSAPh2Count, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrIkeSALocalAddressType, &row.MtxrIkeSALocalAddressType, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrIkeSALocalAddress, &row.MtxrIkeSALocalAddress, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrIkeSALocalPort, &row.MtxrIkeSALocalPort, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrIkeSAPeerAddressType, &row.MtxrIkeSAPeerAddressType, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrIkeSAPeerAddress, &row.MtxrIkeSAPeerAddress, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrIkeSAPeerPort, &row.MtxrIkeSAPeerPort, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrIkeSADynamicAddressType, &row.MtxrIkeSADynamicAddressType, row.observed[:])
+	case 17:
+		return snmp.DecodeColumn(rv, MtxrIkeSADynamicAddress, &row.MtxrIkeSADynamicAddress, row.observed[:])
+	case 18:
+		return snmp.DecodeColumn(rv, MtxrIkeSATxBytes, &row.MtxrIkeSATxBytes, row.observed[:])
+	case 19:
+		return snmp.DecodeColumn(rv, MtxrIkeSARxBytes, &row.MtxrIkeSARxBytes, row.observed[:])
+	case 20:
+		return snmp.DecodeColumn(rv, MtxrIkeSATxPackets, &row.MtxrIkeSATxPackets, row.observed[:])
+	case 21:
+		return snmp.DecodeColumn(rv, MtxrIkeSARxPackets, &row.MtxrIkeSARxPackets, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrIkeSATableRow]) *MtxrIkeSATableWalker {
+	return &MtxrIkeSATableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrIkeSATableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrIkeSATableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrIkeSATableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrIkeSATableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrIkeSATableKey",
@@ -12248,64 +5286,40 @@ func (mtxrIkeSATableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrIkeSATableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrIkeSATableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrIkeSAInitiatorCookie.Key(), MtxrIkeSAResponderCookie.Key(), MtxrIkeSAResponder.Key(), MtxrIkeSANatt.Key(), MtxrIkeSAVersion.Key(), MtxrIkeSAState.Key(), MtxrIkeSAUptime.Key(), MtxrIkeSASeen.Key(), MtxrIkeSAIdentity.Key(), MtxrIkeSAPh2Count.Key(), MtxrIkeSALocalAddressType.Key(), MtxrIkeSALocalAddress.Key(), MtxrIkeSALocalPort.Key(), MtxrIkeSAPeerAddressType.Key(), MtxrIkeSAPeerAddress.Key(), MtxrIkeSAPeerPort.Key(), MtxrIkeSADynamicAddressType.Key(), MtxrIkeSADynamicAddress.Key(), MtxrIkeSATxBytes.Key(), MtxrIkeSARxBytes.Key(), MtxrIkeSATxPackets.Key(), MtxrIkeSARxPackets.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrIkeSATable.Walk: column %s", c.OID()))
-			return &MtxrIkeSATableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrIkeSATableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrRemoteCapAddress is the column mtxrRemoteCapAddress of table mtxrRemoteCapTable.
+// MtxrRemoteCapAddress is mtxrRemoteCapAddress.
 // IP address of the remote CAP.
-var MtxrRemoteCapAddress = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrRemoteCapAddress = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrRemoteCapIdentity is the column mtxrRemoteCapIdentity of table mtxrRemoteCapTable.
+// MtxrRemoteCapIdentity is mtxrRemoteCapIdentity.
 // Identity name of the remote CAP.
-var MtxrRemoteCapIdentity = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrRemoteCapIdentity = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrRemoteCapBoardName is the column mtxrRemoteCapBoardName of table mtxrRemoteCapTable.
+// MtxrRemoteCapBoardName is mtxrRemoteCapBoardName.
 // Board name of the remote CAP.
-var MtxrRemoteCapBoardName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrRemoteCapBoardName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrRemoteCapSerial is the column mtxrRemoteCapSerial of table mtxrRemoteCapTable.
+// MtxrRemoteCapSerial is mtxrRemoteCapSerial.
 // Serial number of the remote CAP.
-var MtxrRemoteCapSerial = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrRemoteCapSerial = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString, 3)
 
-// MtxrRemoteCapVersion is the column mtxrRemoteCapVersion of table mtxrRemoteCapTable.
+// MtxrRemoteCapVersion is mtxrRemoteCapVersion.
 // RouterOS version of the remote CAP.
-var MtxrRemoteCapVersion = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrRemoteCapVersion = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 6), snmp.KindOctetString, snmp.DecodeDisplayString, 4)
 
-// MtxrRemoteCapBaseMAC is the column mtxrRemoteCapBaseMac of table mtxrRemoteCapTable.
+// MtxrRemoteCapBaseMAC is mtxrRemoteCapBaseMac.
 // Base MAC address of the remote CAP.
-var MtxrRemoteCapBaseMAC = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7), snmp.KindOctetString, snmp.DecodeMacAddress)
+var MtxrRemoteCapBaseMAC = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 7), snmp.KindOctetString, snmp.DecodeMacAddress, 5)
 
-// MtxrRemoteCapCommonName is the column mtxrRemoteCapCommonName of table mtxrRemoteCapTable.
+// MtxrRemoteCapCommonName is mtxrRemoteCapCommonName.
 // Certificate common name of the remote CAP.
-var MtxrRemoteCapCommonName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrRemoteCapCommonName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString, 6)
 
-// MtxrRemoteCapState is the column mtxrRemoteCapState of table mtxrRemoteCapTable.
+// MtxrRemoteCapState is mtxrRemoteCapState.
 // State of the remote CAP (e.g., connected, disconnected).
-var MtxrRemoteCapState = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9), snmp.KindOctetString, snmp.DecodeDisplayString)
+var (
+	MtxrRemoteCapState        = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 3, 1, 9), snmp.KindOctetString, snmp.DecodeDisplayString, 7)
+	mtxrRemoteCapTableColumns = []snmp.AnyColumn{MtxrRemoteCapAddress, MtxrRemoteCapIdentity, MtxrRemoteCapBoardName, MtxrRemoteCapSerial, MtxrRemoteCapVersion, MtxrRemoteCapBaseMAC, MtxrRemoteCapCommonName, MtxrRemoteCapState}
+)
 
 // MtxrRemoteCapTableKey is the decoded INDEX of one mtxrRemoteCapTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -12325,14 +5339,7 @@ func decodeMtxrRemoteCapTableKey(idx snmp.OID) (MtxrRemoteCapTableKey, bool) {
 	return MtxrRemoteCapTableKey{MtxrRemoteCapID: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrRemoteCapTableRow is one row of mtxrRemoteCapTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrRemoteCapTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrRemoteCapTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrRemoteCapTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrRemoteCapTableRow struct {
 	Key                     MtxrRemoteCapTableKey
 	keyValid                bool
@@ -12344,216 +5351,55 @@ type MtxrRemoteCapTableRow struct {
 	MtxrRemoteCapBaseMAC    net.HardwareAddr
 	MtxrRemoteCapCommonName string
 	MtxrRemoteCapState      string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrRemoteCapTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrRemoteCapTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrRemoteCapAddress.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrRemoteCapIdentity.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrRemoteCapBoardName.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrRemoteCapSerial.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrRemoteCapVersion.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrRemoteCapBaseMAC.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrRemoteCapCommonName.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrRemoteCapState.Key():
-		return r.observed[0]&(1<<7) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrRemoteCapTableColumns, col)
 }
 
-// MtxrRemoteCapTableWalker streams selected columns of mtxrRemoteCapTable.
-// The zero value is not usable; construct via MtxrRemoteCapTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrRemoteCapTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrRemoteCapTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrRemoteCapTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrRemoteCapTableWalker) Iter() iter.Seq2[snmp.OID, MtxrRemoteCapTableRow] {
-	return func(yield func(snmp.OID, MtxrRemoteCapTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrRemoteCapTableRow
-			row.Key, row.keyValid = decodeMtxrRemoteCapTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrRemoteCapAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapAddress = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrRemoteCapIdentity.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapIdentity.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapIdentity = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrRemoteCapBoardName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapBoardName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapBoardName = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrRemoteCapSerial.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapSerial.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapSerial = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case MtxrRemoteCapVersion.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapVersion.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapVersion = dv
-							row.observed[0] |= 1 << 4
-						}
-					}
-				case MtxrRemoteCapBaseMAC.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapBaseMAC.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapBaseMAC = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case MtxrRemoteCapCommonName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapCommonName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapCommonName = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				case MtxrRemoteCapState.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrRemoteCapState.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrRemoteCapState = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrRemoteCapTableT struct {
+	snmp.Table[MtxrRemoteCapTableRow, *MtxrRemoteCapTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrRemoteCapTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrRemoteCapTableT is the singleton type of MtxrRemoteCapTable.
-type mtxrRemoteCapTableT struct{}
 
 // MtxrRemoteCapTable is the descriptor for the mtxrRemoteCapTable table.
-var MtxrRemoteCapTable mtxrRemoteCapTableT
+var MtxrRemoteCapTable = mtxrRemoteCapTableT{Table: snmp.NewTable("mtxrRemoteCapTable", mtxrRemoteCapTableColumns, func(idx snmp.OID, row *MtxrRemoteCapTableRow) {
+	row.Key, row.keyValid = decodeMtxrRemoteCapTableKey(idx)
+}, func(row *MtxrRemoteCapTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapAddress, &row.MtxrRemoteCapAddress, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapIdentity, &row.MtxrRemoteCapIdentity, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapBoardName, &row.MtxrRemoteCapBoardName, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapSerial, &row.MtxrRemoteCapSerial, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapVersion, &row.MtxrRemoteCapVersion, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapBaseMAC, &row.MtxrRemoteCapBaseMAC, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapCommonName, &row.MtxrRemoteCapCommonName, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrRemoteCapState, &row.MtxrRemoteCapState, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrRemoteCapTableRow]) *MtxrRemoteCapTableWalker {
+	return &MtxrRemoteCapTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrRemoteCapTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrRemoteCapTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrRemoteCapTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrRemoteCapTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrRemoteCapTableKey",
@@ -12561,100 +5407,76 @@ func (mtxrRemoteCapTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrRemoteCapTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrRemoteCapTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrRemoteCapAddress.Key(), MtxrRemoteCapIdentity.Key(), MtxrRemoteCapBoardName.Key(), MtxrRemoteCapSerial.Key(), MtxrRemoteCapVersion.Key(), MtxrRemoteCapBaseMAC.Key(), MtxrRemoteCapCommonName.Key(), MtxrRemoteCapState.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrRemoteCapTable.Walk: column %s", c.OID()))
-			return &MtxrRemoteCapTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrRemoteCapTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrWifiRegistrationMACAddress is the column mtxrWifiRegistrationMacAddress of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationMACAddress is mtxrWifiRegistrationMacAddress.
 // MAC address of the registered device.
-var MtxrWifiRegistrationMACAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
+var MtxrWifiRegistrationMACAddress = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress, 0)
 
-// MtxrWifiRegistrationSsid is the column mtxrWifiRegistrationSsid of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationSsid is mtxrWifiRegistrationSsid.
 // SSID of the connected access point.
-var MtxrWifiRegistrationSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWifiRegistrationSsid = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrWifiRegistrationUptime is the column mtxrWifiRegistrationUptime of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationUptime is mtxrWifiRegistrationUptime.
 // Uptime of the registered connection.
-var MtxrWifiRegistrationUptime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4), snmp.KindTimeTicks, snmp.DecodeUint32)
+var MtxrWifiRegistrationUptime = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 4), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 2)
 
-// MtxrWifiRegistrationLastActivity is the column mtxrWifiRegistrationLastActivity of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationLastActivity is mtxrWifiRegistrationLastActivity.
 // Time since the last activity of the registered device.
-var MtxrWifiRegistrationLastActivity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWifiRegistrationLastActivity = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// MtxrWifiRegistrationSignal is the column mtxrWifiRegistrationSignal of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationSignal is mtxrWifiRegistrationSignal.
 // Signal strength of the registered device.
-var MtxrWifiRegistrationSignal = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWifiRegistrationSignal = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// MtxrWifiRegistrationAuthType is the column mtxrWifiRegistrationAuthType of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationAuthType is mtxrWifiRegistrationAuthType.
 // Authentication type used by the registered device.
-var MtxrWifiRegistrationAuthType = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWifiRegistrationAuthType = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 7), snmp.KindOctetString, snmp.DecodeDisplayString, 5)
 
-// MtxrWifiRegistrationBand is the column mtxrWifiRegistrationBand of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationBand is mtxrWifiRegistrationBand.
 // Wireless band used by the registered device.
-var MtxrWifiRegistrationBand = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWifiRegistrationBand = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 8), snmp.KindOctetString, snmp.DecodeDisplayString, 6)
 
-// MtxrWifiRegistrationTxRate is the column mtxrWifiRegistrationTxRate of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationTxRate is mtxrWifiRegistrationTxRate.
 // Transmission rate of the registered device.
-var MtxrWifiRegistrationTxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 9), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWifiRegistrationTxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 9), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 7)
 
-// MtxrWifiRegistrationRxRate is the column mtxrWifiRegistrationRxRate of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationRxRate is mtxrWifiRegistrationRxRate.
 // Reception rate of the registered device.
-var MtxrWifiRegistrationRxRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10), snmp.KindGauge32, snmp.DecodeUint32)
+var MtxrWifiRegistrationRxRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 10), snmp.KindGauge32, snmp.DecodeUint32, snmp.RawGauge32, 8)
 
-// MtxrWifiRegistrationTxPackets is the column mtxrWifiRegistrationTxPackets of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationTxPackets is mtxrWifiRegistrationTxPackets.
 // Number of transmitted packets.
-var MtxrWifiRegistrationTxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrWifiRegistrationTxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 11), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 9)
 
-// MtxrWifiRegistrationRxPackets is the column mtxrWifiRegistrationRxPackets of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationRxPackets is mtxrWifiRegistrationRxPackets.
 // Number of received packets.
-var MtxrWifiRegistrationRxPackets = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrWifiRegistrationRxPackets = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 12), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 10)
 
-// MtxrWifiRegistrationTxBytes is the column mtxrWifiRegistrationTxBytes of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationTxBytes is mtxrWifiRegistrationTxBytes.
 // Number of transmitted bytes.
-var MtxrWifiRegistrationTxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 13), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrWifiRegistrationTxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 13), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 11)
 
-// MtxrWifiRegistrationRxBytes is the column mtxrWifiRegistrationRxBytes of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationRxBytes is mtxrWifiRegistrationRxBytes.
 // Number of received bytes.
-var MtxrWifiRegistrationRxBytes = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
+var MtxrWifiRegistrationRxBytes = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 14), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 12)
 
-// MtxrWifiRegistrationTxBitsPerSecond is the column mtxrWifiRegistrationTxBitsPerSecond of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationTxBitsPerSecond is mtxrWifiRegistrationTxBitsPerSecond.
 // Transmission rate in bits per second.
-var MtxrWifiRegistrationTxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWifiRegistrationTxBitsPerSecond = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 15), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 13)
 
-// MtxrWifiRegistrationRxBitsPerSecond is the column mtxrWifiRegistrationRxBitsPerSecond of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationRxBitsPerSecond is mtxrWifiRegistrationRxBitsPerSecond.
 // Reception rate in bits per second.
-var MtxrWifiRegistrationRxBitsPerSecond = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWifiRegistrationRxBitsPerSecond = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 16), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 14)
 
-// MtxrWifiRegistrationVLANID is the column mtxrWifiRegistrationVlanId of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationVLANID is mtxrWifiRegistrationVlanId.
 // VLAN ID of the registered device.
-var MtxrWifiRegistrationVLANID = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
+var MtxrWifiRegistrationVLANID = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 17), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 15)
 
-// MtxrWifiRegistrationAuthorized is the column mtxrWifiRegistrationAuthorized of table mtxrWifiRegistrationTable.
+// MtxrWifiRegistrationAuthorized is mtxrWifiRegistrationAuthorized.
 // Indicates whether the device is authorized.
-var MtxrWifiRegistrationAuthorized = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18), snmp.KindInteger32, snmp.DecodeTruthValue)
+var (
+	MtxrWifiRegistrationAuthorized   = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 4, 1, 18), snmp.KindInteger32, snmp.DecodeTruthValue, 16)
+	mtxrWifiRegistrationTableColumns = []snmp.AnyColumn{MtxrWifiRegistrationMACAddress, MtxrWifiRegistrationSsid, MtxrWifiRegistrationUptime, MtxrWifiRegistrationLastActivity, MtxrWifiRegistrationSignal, MtxrWifiRegistrationAuthType, MtxrWifiRegistrationBand, MtxrWifiRegistrationTxRate, MtxrWifiRegistrationRxRate, MtxrWifiRegistrationTxPackets, MtxrWifiRegistrationRxPackets, MtxrWifiRegistrationTxBytes, MtxrWifiRegistrationRxBytes, MtxrWifiRegistrationTxBitsPerSecond, MtxrWifiRegistrationRxBitsPerSecond, MtxrWifiRegistrationVLANID, MtxrWifiRegistrationAuthorized}
+)
 
 // MtxrWifiRegistrationTableKey is the decoded INDEX of one mtxrWifiRegistrationTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -12678,14 +5500,7 @@ func decodeMtxrWifiRegistrationTableKey(idx snmp.OID) (MtxrWifiRegistrationTable
 	return MtxrWifiRegistrationTableKey{MtxrWifiRegistrationMACAddress: string(parts[0].Octets), MtxrWifiRegistrationInterface: ObjectIndex(parts[1].Integer)}, true
 }
 
-// MtxrWifiRegistrationTableRow is one row of mtxrWifiRegistrationTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWifiRegistrationTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWifiRegistrationTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWifiRegistrationTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWifiRegistrationTableRow struct {
 	Key                                 MtxrWifiRegistrationTableKey
 	keyValid                            bool
@@ -12706,411 +5521,73 @@ type MtxrWifiRegistrationTableRow struct {
 	MtxrWifiRegistrationRxBitsPerSecond int32
 	MtxrWifiRegistrationVLANID          int32
 	MtxrWifiRegistrationAuthorized      bool
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                            [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWifiRegistrationTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWifiRegistrationTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWifiRegistrationMACAddress.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWifiRegistrationSsid.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWifiRegistrationUptime.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWifiRegistrationLastActivity.Key():
-		return r.observed[0]&(1<<3) != 0
-	case MtxrWifiRegistrationSignal.Key():
-		return r.observed[0]&(1<<4) != 0
-	case MtxrWifiRegistrationAuthType.Key():
-		return r.observed[0]&(1<<5) != 0
-	case MtxrWifiRegistrationBand.Key():
-		return r.observed[0]&(1<<6) != 0
-	case MtxrWifiRegistrationTxRate.Key():
-		return r.observed[0]&(1<<7) != 0
-	case MtxrWifiRegistrationRxRate.Key():
-		return r.observed[0]&(1<<8) != 0
-	case MtxrWifiRegistrationTxPackets.Key():
-		return r.observed[0]&(1<<9) != 0
-	case MtxrWifiRegistrationRxPackets.Key():
-		return r.observed[0]&(1<<10) != 0
-	case MtxrWifiRegistrationTxBytes.Key():
-		return r.observed[0]&(1<<11) != 0
-	case MtxrWifiRegistrationRxBytes.Key():
-		return r.observed[0]&(1<<12) != 0
-	case MtxrWifiRegistrationTxBitsPerSecond.Key():
-		return r.observed[0]&(1<<13) != 0
-	case MtxrWifiRegistrationRxBitsPerSecond.Key():
-		return r.observed[0]&(1<<14) != 0
-	case MtxrWifiRegistrationVLANID.Key():
-		return r.observed[0]&(1<<15) != 0
-	case MtxrWifiRegistrationAuthorized.Key():
-		return r.observed[0]&(1<<16) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWifiRegistrationTableColumns, col)
 }
 
-// MtxrWifiRegistrationTableWalker streams selected columns of mtxrWifiRegistrationTable.
-// The zero value is not usable; construct via MtxrWifiRegistrationTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWifiRegistrationTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWifiRegistrationTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWifiRegistrationTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWifiRegistrationTableWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiRegistrationTableRow] {
-	return func(yield func(snmp.OID, MtxrWifiRegistrationTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWifiRegistrationTableRow
-			row.Key, row.keyValid = decodeMtxrWifiRegistrationTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWifiRegistrationMACAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationMACAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationMACAddress = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrWifiRegistrationSsid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationSsid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationSsid = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrWifiRegistrationUptime.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.MtxrWifiRegistrationUptime = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationUptime.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationUptime = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case MtxrWifiRegistrationLastActivity.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationLastActivity = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationLastActivity.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationLastActivity = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case MtxrWifiRegistrationSignal.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationSignal = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationSignal.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationSignal = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case MtxrWifiRegistrationAuthType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationAuthType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationAuthType = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case MtxrWifiRegistrationBand.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationBand.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationBand = dv
-							row.observed[0] |= 1 << 6
-						}
-					}
-				case MtxrWifiRegistrationTxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWifiRegistrationTxRate = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationTxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationTxRate = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case MtxrWifiRegistrationRxRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.MtxrWifiRegistrationRxRate = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationRxRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationRxRate = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case MtxrWifiRegistrationTxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationTxPackets = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationTxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationTxPackets = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case MtxrWifiRegistrationRxPackets.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationRxPackets = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationRxPackets.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationRxPackets = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case MtxrWifiRegistrationTxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationTxBytes = v
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationTxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationTxBytes = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case MtxrWifiRegistrationRxBytes.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.MtxrWifiRegistrationRxBytes = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationRxBytes.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationRxBytes = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case MtxrWifiRegistrationTxBitsPerSecond.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationTxBitsPerSecond = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationTxBitsPerSecond.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationTxBitsPerSecond = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case MtxrWifiRegistrationRxBitsPerSecond.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationRxBitsPerSecond = v
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationRxBitsPerSecond.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationRxBitsPerSecond = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case MtxrWifiRegistrationVLANID.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.MtxrWifiRegistrationVLANID = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := MtxrWifiRegistrationVLANID.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.MtxrWifiRegistrationVLANID = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case MtxrWifiRegistrationAuthorized.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiRegistrationAuthorized.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiRegistrationAuthorized = dv
-							row.observed[0] |= 1 << 16
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWifiRegistrationTableT struct {
+	snmp.Table[MtxrWifiRegistrationTableRow, *MtxrWifiRegistrationTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWifiRegistrationTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWifiRegistrationTableT is the singleton type of MtxrWifiRegistrationTable.
-type mtxrWifiRegistrationTableT struct{}
 
 // MtxrWifiRegistrationTable is the descriptor for the mtxrWifiRegistrationTable table.
-var MtxrWifiRegistrationTable mtxrWifiRegistrationTableT
+var MtxrWifiRegistrationTable = mtxrWifiRegistrationTableT{Table: snmp.NewTable("mtxrWifiRegistrationTable", mtxrWifiRegistrationTableColumns, func(idx snmp.OID, row *MtxrWifiRegistrationTableRow) {
+	row.Key, row.keyValid = decodeMtxrWifiRegistrationTableKey(idx)
+}, func(row *MtxrWifiRegistrationTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationMACAddress, &row.MtxrWifiRegistrationMACAddress, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationSsid, &row.MtxrWifiRegistrationSsid, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationUptime, &row.MtxrWifiRegistrationUptime, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationLastActivity, &row.MtxrWifiRegistrationLastActivity, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationSignal, &row.MtxrWifiRegistrationSignal, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationAuthType, &row.MtxrWifiRegistrationAuthType, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationBand, &row.MtxrWifiRegistrationBand, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationTxRate, &row.MtxrWifiRegistrationTxRate, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationRxRate, &row.MtxrWifiRegistrationRxRate, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationTxPackets, &row.MtxrWifiRegistrationTxPackets, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationRxPackets, &row.MtxrWifiRegistrationRxPackets, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationTxBytes, &row.MtxrWifiRegistrationTxBytes, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationRxBytes, &row.MtxrWifiRegistrationRxBytes, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationTxBitsPerSecond, &row.MtxrWifiRegistrationTxBitsPerSecond, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationRxBitsPerSecond, &row.MtxrWifiRegistrationRxBitsPerSecond, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationVLANID, &row.MtxrWifiRegistrationVLANID, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, MtxrWifiRegistrationAuthorized, &row.MtxrWifiRegistrationAuthorized, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWifiRegistrationTableRow]) *MtxrWifiRegistrationTableWalker {
+	return &MtxrWifiRegistrationTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWifiRegistrationTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWifiRegistrationTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiRegistrationTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWifiRegistrationTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWifiRegistrationTableKey",
@@ -13118,49 +5595,25 @@ func (mtxrWifiRegistrationTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWifiRegistrationTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWifiRegistrationTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWifiRegistrationMACAddress.Key(), MtxrWifiRegistrationSsid.Key(), MtxrWifiRegistrationUptime.Key(), MtxrWifiRegistrationLastActivity.Key(), MtxrWifiRegistrationSignal.Key(), MtxrWifiRegistrationAuthType.Key(), MtxrWifiRegistrationBand.Key(), MtxrWifiRegistrationTxRate.Key(), MtxrWifiRegistrationRxRate.Key(), MtxrWifiRegistrationTxPackets.Key(), MtxrWifiRegistrationRxPackets.Key(), MtxrWifiRegistrationTxBytes.Key(), MtxrWifiRegistrationRxBytes.Key(), MtxrWifiRegistrationTxBitsPerSecond.Key(), MtxrWifiRegistrationRxBitsPerSecond.Key(), MtxrWifiRegistrationVLANID.Key(), MtxrWifiRegistrationAuthorized.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWifiRegistrationTable.Walk: column %s", c.OID()))
-			return &MtxrWifiRegistrationTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWifiRegistrationTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// MtxrWifiInterfacesName is the column mtxrWifiInterfacesName of table mtxrWifiInterfaces.
+// MtxrWifiInterfacesName is mtxrWifiInterfacesName.
 // Name of the WiFi interface
-var MtxrWifiInterfacesName = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWifiInterfacesName = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 2), snmp.KindOctetString, snmp.DecodeDisplayString, 0)
 
-// MtxrWifiInterfacesSsid is the column mtxrWifiInterfacesSsid of table mtxrWifiInterfaces.
+// MtxrWifiInterfacesSsid is mtxrWifiInterfacesSsid.
 // SSID associated with the WiFi interface
-var MtxrWifiInterfacesSsid = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWifiInterfacesSsid = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 3), snmp.KindOctetString, snmp.DecodeDisplayString, 1)
 
-// MtxrWifiInterfacesFreq is the column mtxrWifiInterfacesFreq of table mtxrWifiInterfaces.
+// MtxrWifiInterfacesFreq is mtxrWifiInterfacesFreq.
 // Frequency used by the WiFi interface
-var MtxrWifiInterfacesFreq = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString)
+var MtxrWifiInterfacesFreq = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 4), snmp.KindOctetString, snmp.DecodeDisplayString, 2)
 
-// MtxrWifiInterfacesCurrentChannel is the column mtxrWifiInterfacesCurrentChannel of table mtxrWifiInterfaces.
+// MtxrWifiInterfacesCurrentChannel is mtxrWifiInterfacesCurrentChannel.
 // Channel currently in use by the WiFi interface. Empty when the interface
 // is not running
-var MtxrWifiInterfacesCurrentChannel = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString)
+var (
+	MtxrWifiInterfacesCurrentChannel = snmp.NewTableColumn[string](snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5, 1, 5), snmp.KindOctetString, snmp.DecodeDisplayString, 3)
+	mtxrWifiInterfacesColumns        = []snmp.AnyColumn{MtxrWifiInterfacesName, MtxrWifiInterfacesSsid, MtxrWifiInterfacesFreq, MtxrWifiInterfacesCurrentChannel}
+)
 
 // MtxrWifiInterfacesKey is the decoded INDEX of one mtxrWifiInterfaces row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -13180,14 +5633,7 @@ func decodeMtxrWifiInterfacesKey(idx snmp.OID) (MtxrWifiInterfacesKey, bool) {
 	return MtxrWifiInterfacesKey{MtxrWifiInterfacesID: ObjectIndex(parts[0].Integer)}, true
 }
 
-// MtxrWifiInterfacesRow is one row of mtxrWifiInterfaces. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [MtxrWifiInterfacesRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [MtxrWifiInterfacesRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// MtxrWifiInterfacesRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type MtxrWifiInterfacesRow struct {
 	Key                              MtxrWifiInterfacesKey
 	keyValid                         bool
@@ -13195,187 +5641,51 @@ type MtxrWifiInterfacesRow struct {
 	MtxrWifiInterfacesSsid           string
 	MtxrWifiInterfacesFreq           string
 	MtxrWifiInterfacesCurrentChannel string
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                         [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r MtxrWifiInterfacesRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r MtxrWifiInterfacesRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case MtxrWifiInterfacesName.Key():
-		return r.observed[0]&(1<<0) != 0
-	case MtxrWifiInterfacesSsid.Key():
-		return r.observed[0]&(1<<1) != 0
-	case MtxrWifiInterfacesFreq.Key():
-		return r.observed[0]&(1<<2) != 0
-	case MtxrWifiInterfacesCurrentChannel.Key():
-		return r.observed[0]&(1<<3) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], mtxrWifiInterfacesColumns, col)
 }
 
-// MtxrWifiInterfacesWalker streams selected columns of mtxrWifiInterfaces.
-// The zero value is not usable; construct via MtxrWifiInterfaces.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// MtxrWifiInterfacesWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type MtxrWifiInterfacesWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[MtxrWifiInterfacesRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *MtxrWifiInterfacesWalker) Iter() iter.Seq2[snmp.OID, MtxrWifiInterfacesRow] {
-	return func(yield func(snmp.OID, MtxrWifiInterfacesRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row MtxrWifiInterfacesRow
-			row.Key, row.keyValid = decodeMtxrWifiInterfacesKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case MtxrWifiInterfacesName.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiInterfacesName.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiInterfacesName = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case MtxrWifiInterfacesSsid.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiInterfacesSsid.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiInterfacesSsid = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				case MtxrWifiInterfacesFreq.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiInterfacesFreq.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiInterfacesFreq = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case MtxrWifiInterfacesCurrentChannel.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := MtxrWifiInterfacesCurrentChannel.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.MtxrWifiInterfacesCurrentChannel = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type mtxrWifiInterfacesT struct {
+	snmp.Table[MtxrWifiInterfacesRow, *MtxrWifiInterfacesWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *MtxrWifiInterfacesWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// mtxrWifiInterfacesT is the singleton type of MtxrWifiInterfaces.
-type mtxrWifiInterfacesT struct{}
 
 // MtxrWifiInterfaces is the descriptor for the mtxrWifiInterfaces table.
-var MtxrWifiInterfaces mtxrWifiInterfacesT
+var MtxrWifiInterfaces = mtxrWifiInterfacesT{Table: snmp.NewTable("mtxrWifiInterfaces", mtxrWifiInterfacesColumns, func(idx snmp.OID, row *MtxrWifiInterfacesRow) {
+	row.Key, row.keyValid = decodeMtxrWifiInterfacesKey(idx)
+}, func(row *MtxrWifiInterfacesRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, MtxrWifiInterfacesName, &row.MtxrWifiInterfacesName, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, MtxrWifiInterfacesSsid, &row.MtxrWifiInterfacesSsid, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, MtxrWifiInterfacesFreq, &row.MtxrWifiInterfacesFreq, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, MtxrWifiInterfacesCurrentChannel, &row.MtxrWifiInterfacesCurrentChannel, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[MtxrWifiInterfacesRow]) *MtxrWifiInterfacesWalker {
+	return &MtxrWifiInterfacesWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *MtxrWifiInterfacesWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t mtxrWifiInterfacesT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *MtxrWifiInterfacesWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (mtxrWifiInterfacesT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "MtxrWifiInterfacesKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 14988, 1, 1, 21, 5),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (mtxrWifiInterfacesT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *MtxrWifiInterfacesWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case MtxrWifiInterfacesName.Key(), MtxrWifiInterfacesSsid.Key(), MtxrWifiInterfacesFreq.Key(), MtxrWifiInterfacesCurrentChannel.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "mtxrWifiInterfaces.Walk: column %s", c.OID()))
-			return &MtxrWifiInterfacesWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &MtxrWifiInterfacesWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
