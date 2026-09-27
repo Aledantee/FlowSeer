@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-27T09:07:15+00:00",
+  "title": "Design System: FlowSeer",
+  "extensions": {
+    "colorMeta": {
+      "signal-coral": {
+        "role": "primary",
+        "displayName": "Signal Coral",
+        "canonical": "oklch(0.661 0.2273 33.24)",
+        "tonalRamp": [
+          "oklch(0.348 0.0886 33.24)",
+          "oklch(0.521 0.2273 33.24)",
+          "oklch(0.622 0.2273 33.24)",
+          "oklch(0.661 0.2273 33.24)",
+          "oklch(0.685 0.1452 33.24)",
+          "oklch(0.801 0.1048 33.24)",
+          "oklch(0.875 0.0689 33.24)",
+          "oklch(0.94 0.0119 33.24)"
+        ]
+      },
+      "harbor-cyan": {
+        "role": "secondary",
+        "displayName": "Harbor Cyan",
+        "canonical": "oklch(0.781 0.1005 206.8)",
+        "tonalRamp": [
+          "oklch(0.332 0.065 206.8)",
+          "oklch(0.484 0.1496 206.8)",
+          "oklch(0.559 0.1405 206.8)",
+          "oklch(0.601 0.1496 206.8)",
+          "oklch(0.669 0.1353 206.8)",
+          "oklch(0.806 0.0813 206.8)",
+          "oklch(0.884 0.0508 206.8)",
+          "oklch(0.938 0.011 206.8)"
+        ]
+      },
+      "charcoal-desk": {
+        "role": "neutral",
+        "displayName": "Charcoal Desk",
+        "canonical": "#191b1e",
+        "tonalRamp": [
+          "oklch(0.241 0.011 250.9)",
+          "oklch(0.446 0.0155 250.9)",
+          "oklch(0.55 0.0179 250.9)",
+          "oklch(0.586 0.0183 250.9)",
+          "oklch(0.736 0.0178 250.9)",
+          "oklch(0.834 0.0103 250.9)",
+          "oklch(0.883 0.0068 250.9)",
+          "oklch(0.94 0.0033 250.9)"
+        ]
+      },
+      "overcast-page": {
+        "role": "neutral",
+        "displayName": "Overcast Gray",
+        "canonical": "#bec3ca",
+        "tonalRamp": [
+          "oklch(0.241 0.011 250.9)",
+          "oklch(0.446 0.0155 250.9)",
+          "oklch(0.55 0.0179 250.9)",
+          "oklch(0.586 0.0183 250.9)",
+          "oklch(0.736 0.0178 250.9)",
+          "oklch(0.834 0.0103 250.9)",
+          "oklch(0.883 0.0068 250.9)",
+          "oklch(0.94 0.0033 250.9)"
+        ]
+      },
+      "healthy-text": {
+        "role": "status",
+        "displayName": "Healthy",
+        "canonical": "#1e5135",
+        "tonalRamp": [
+          "oklch(0.344 0.0469 158.1)",
+          "oklch(0.459 0.0991 158.1)",
+          "oklch(0.458 0.0991 158.1)",
+          "oklch(0.507 0.0991 158.1)",
+          "oklch(0.664 0.1028 158.1)",
+          "oklch(0.803 0.067 158.1)",
+          "oklch(0.885 0.0427 158.1)",
+          "oklch(0.94 0.0095 158.1)"
+        ]
+      },
+      "warning-text": {
+        "role": "status",
+        "displayName": "Degraded",
+        "canonical": "#60450f",
+        "tonalRamp": [
+          "oklch(0.335 0.026 82.66)",
+          "oklch(0.465 0.0882 82.66)",
+          "oklch(0.621 0.1055 82.66)",
+          "oklch(0.661 0.1157 82.66)",
+          "oklch(0.691 0.098 82.66)",
+          "oklch(0.811 0.0642 82.66)",
+          "oklch(0.882 0.0412 82.66)",
+          "oklch(0.942 0.01 82.66)"
+        ]
+      },
+      "offline-text": {
+        "role": "status",
+        "displayName": "Offline",
+        "canonical": "#792e3b",
+        "tonalRamp": [
+          "oklch(0.341 0.0767 16.42)",
+          "oklch(0.494 0.1388 16.42)",
+          "oklch(0.482 0.1388 16.42)",
+          "oklch(0.53 0.1388 16.42)",
+          "oklch(0.69 0.072 16.42)",
+          "oklch(0.804 0.047 16.42)",
+          "oklch(0.88 0.0301 16.42)",
+          "oklch(0.941 0.0058 16.42)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Metric values with an inline unit; tabular figures."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The page heading, once per view."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section, panel, and dialog headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running copy and page descriptions in muted."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Table headers, badges, metric labels; sentence case."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Device addresses, serials, and MACs."
+      }
+    },
+    "shadows": [
+      {
+        "name": "whisper",
+        "value": "0 2px 3px #08232b03",
+        "purpose": "Metric and topology panels at rest."
+      },
+      {
+        "name": "field-hairline",
+        "value": "0 1px 2px #0a263608",
+        "purpose": "Search input."
+      },
+      {
+        "name": "popover",
+        "value": "0 12px 32px #00000026",
+        "purpose": "Scope and account menus."
+      },
+      {
+        "name": "drawer",
+        "value": "-15px 0 60px #092a3420",
+        "purpose": "Device details panel over a #09232b45 backdrop blurred 2px."
+      }
+    ],
+    "motion": [
+      {
+        "name": "hover",
+        "value": "90ms ease-out",
+        "purpose": "Hover feedback."
+      },
+      {
+        "name": "feedback",
+        "value": "100ms ease-out",
+        "purpose": "Button background changes."
+      },
+      {
+        "name": "nav-highlight",
+        "value": "140ms ease-out",
+        "purpose": "Active navigation fill sliding to the selected item."
+      },
+      {
+        "name": "panel",
+        "value": "100-160ms ease-out",
+        "purpose": "Scope changes, sidebar resize, details opening. Closing is immediate."
+      },
+      {
+        "name": "theme-icon",
+        "value": "160ms",
+        "purpose": "Sun/moon crossfade and rotation; theme colors switch immediately."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "560px"
+      },
+      {
+        "name": "compact",
+        "value": "650px"
+      },
+      {
+        "name": "stacked-nav",
+        "value": "800px"
+      },
+      {
+        "name": "narrow-sidebar",
+        "value": "1150px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action the operator came to take; one per view.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save assignment</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 14px;border:1px solid var(--control-border,#596570);border-radius:8px;font:550 13px/1.4 'Inter Variable',system-ui,sans-serif;background:var(--surface,#dce0e4);color:var(--text,#20262d);cursor:pointer;transition:background-color 100ms ease-out}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:3px solid var(--focus,#124d5d);outline-offset:3px}.ds-btn-primary{background:var(--coral,#ff451d);border-color:var(--coral,#ff451d);color:var(--on-coral,#061518)}.ds-btn-primary:hover{background:color-mix(in srgb,var(--coral,#ff451d) 88%,var(--on-coral,#061518))}"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Secondary actions and form controls.",
+      "html": "<button class=\"ds-btn-default\">Cancel</button>",
+      "css": ".ds-btn-default{display:inline-flex;align-items:center;min-height:36px;padding:8px 14px;border:1px solid var(--control-border,#596570);border-radius:8px;font:550 13px/1.4 'Inter Variable',system-ui,sans-serif;background:var(--surface,#dce0e4);color:var(--text,#20262d);cursor:pointer;transition:background-color 100ms ease-out}.ds-btn-default:hover{background:var(--surface-hover,#c1cbd3)}.ds-btn-default:active{transform:translateY(1px)}.ds-btn-default:focus-visible{outline:3px solid var(--focus,#124d5d);outline-offset:3px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-stakes action beside a primary.",
+      "html": "<button class=\"ds-btn-ghost\">View history</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;min-height:36px;padding:8px 14px;border:1px solid transparent;border-radius:8px;font:550 13px/1.4 'Inter Variable',system-ui,sans-serif;background:transparent;color:var(--accent-text,#125263);cursor:pointer;transition:background-color 100ms ease-out}.ds-btn-ghost:hover{background:var(--surface-hover,#c1cbd3)}.ds-btn-ghost:focus-visible{outline:3px solid var(--focus,#124d5d);outline-offset:3px}"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Device lookup with a leading icon.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m20 20-3.5-3.5\"/></svg><input placeholder=\"Search devices\" aria-label=\"Search devices\"></label>",
+      "css": ".ds-search{position:relative;display:flex;align-items:center;width:340px;max-width:100%}.ds-search svg{position:absolute;left:10px;color:var(--muted,#424b55)}.ds-search input{width:100%;padding:9px 10px 9px 32px;font:12px 'Inter Variable',system-ui,sans-serif;color:var(--text,#20262d);background:var(--surface,#dce0e4);border:1px solid var(--control-border,#596570);border-radius:8px;box-shadow:0 1px 2px #0a263608}.ds-search input::placeholder{color:var(--muted,#424b55)}.ds-search input:focus-visible{outline:3px solid var(--focus,#124d5d);outline-offset:3px}"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "status-healthy",
+      "description": "Health always as a word plus its own color family.",
+      "html": "<span class=\"ds-status\"><i></i>Healthy</span> <span class=\"ds-status ds-degraded\"><i></i>Degraded</span> <span class=\"ds-status ds-offline\"><i></i>Offline</span>",
+      "css": ".ds-status{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 8px;border-radius:4px;font:500 11px 'Inter Variable',system-ui,sans-serif;background:var(--healthy-surface,#c9ddd0);color:var(--healthy-text,#1e5135)}.ds-status i{width:5px;height:5px;border-radius:50%;background:currentColor}.ds-degraded{background:var(--warning-surface,#e8d9a7);color:var(--warning-text,#60450f)}.ds-offline{background:var(--offline-surface,#e3c9cf);color:var(--offline-text,#792e3b)}"
+    },
+    {
+      "name": "Metric Panel",
+      "kind": "card",
+      "refersTo": "metric-panel",
+      "description": "Live aggregates divided by vertical rules inside one panel.",
+      "html": "<div class=\"ds-metrics\"><article><span>Devices</span><strong>128</strong></article><article><span>Clients</span><strong>2,431</strong></article><article><span>Traffic</span><strong>4.2<small>Gbit/s</small></strong></article></div>",
+      "css": ".ds-metrics{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface,#dce0e4);border:1px solid var(--line,#929da8);border-radius:12px;box-shadow:0 2px 3px #08232b03;font-family:'Inter Variable',system-ui,sans-serif;color:var(--text,#20262d)}.ds-metrics article{padding:22px 24px;border-right:1px solid var(--line,#929da8)}.ds-metrics article:last-child{border:0}.ds-metrics span{font-size:12px;color:var(--muted,#424b55)}.ds-metrics strong{display:flex;align-items:baseline;gap:4px;margin-top:15px;font-size:32px;font-weight:550;letter-spacing:-0.8px;font-variant-numeric:tabular-nums}.ds-metrics small{font-size:13px;font-weight:500;color:var(--muted,#424b55)}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Glow-lit chrome with a cyan edge accent on the active item.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" class=\"ds-active\">Dashboard</a><a href=\"#\">Devices</a><a href=\"#\">Sites</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;width:228px;padding:10px 18px;background:#191b1e;font:500 13px 'Inter Variable',system-ui,sans-serif}.ds-nav a{position:relative;padding:11px 12px;margin-bottom:5px;border-radius:5px;color:#b0b7bf;text-decoration:none;transition:background-color 90ms ease-out}.ds-nav a:hover{background:color-mix(in srgb,#363d43 35%,transparent)}.ds-nav a:focus-visible{outline:3px solid #9ccbd3;outline-offset:3px}.ds-nav .ds-active{color:#9ccbd3;background:color-mix(in srgb,#2a2f34 48%,transparent)}.ds-nav .ds-active::after{content:'';position:absolute;top:6px;bottom:6px;right:0;width:3px;border-radius:3px 0 0 3px;background:#9ccbd3}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Shift Desk",
+    "overview": "An m3connect operator keeps this console open for a whole shift, across many hotels and campuses. The workspace stays calm and low in saturation so that the few signals that matter are the only things asking for attention: a labelled health state, a device that needs attention, the one action the operator is about to take. Dark mode is charcoal, light mode is an overcast gray with softly lifted panels, and both are complete, first-class themes.\n\nThe brand is present, but at the edge. Cyan-to-coral light falls across the navigation frame (sidebar, top bar, and the curved collapse tab share one fixed-position glow, so they read as one continuous piece of chrome), and inside the frame the content is quiet: 1px lines, tonal steps, tabular figures, stable rows. Density follows the desk. Tables are 64px rows at 12px text; phones get compact status cards and one-tap details instead.\n\nMotion is feedback, never decoration. It confirms a scope change or an opened panel in 100 to 160 ms and then gets out of the way.",
+    "keyCharacteristics": [
+      "Neutral charcoal and overcast-gray surfaces carry almost all of the screen.",
+      "Coral marks the one primary action; cyan marks where you are.",
+      "Health is always a word plus a color, on its own green, amber, and rose families.",
+      "Depth is tonal; shadows are barely there.",
+      "One continuous, glow-lit navigation frame around a scrolling content area."
+    ],
+    "rules": [
+      {
+        "name": "The One Coral Rule",
+        "body": "A view has at most one coral control, and it is the action the operator came to take. If two things feel primary, one of them is not.",
+        "section": "colors"
+      },
+      {
+        "name": "The Brand Is Not Status Rule",
+        "body": "Coral never means \"error\" and cyan never means \"healthy\". Status uses its own labelled families so that a brand color on screen can never be misread as an alarm.",
+        "section": "colors"
+      },
+      {
+        "name": "The Semantic Layer Rule",
+        "body": "Components consume the semantic tokens in `style.css`, never the `--m3-*` scale steps or raw brand hexes directly. The semantic layer is what the palette tests hold to WCAG contrast. ",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Any number that updates live or lines up in a column uses tabular figures, with its unit beside it, never above.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Labels are sentence case at regular or medium weight. Nothing is uppercase, heavy, and letter-spaced at once. ",
+        "section": "typography"
+      },
+      {
+        "name": "The Floating-Only Rule",
+        "body": "A shadow you can clearly see means the element floats above the page (menu, drawer, dialog). Anything in the page flow stays tonal.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Glass Is Chrome Rule",
+        "body": "Backdrop blur is for the navigation frame and overlay backdrops. Content panels are opaque, and the frame keeps a tinted base so it stays readable where blur is unavailable. ",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use exactly one coral control per view, for the action the operator came to take.",
+      "**Do** pair every status color with its word, and every live number with tabular figures and an inline unit.",
+      "**Do** consume semantic tokens from `style.css` so the palette tests keep covering the new surface.",
+      "**Do** keep a visible 3px focus outline on every interactive element.",
+      "**Do** keep motion to 100 to 160ms ease-out feedback and skip it entirely under reduced motion.",
+      "**Do** keep tenant and site scope visible on every surface, phone included."
+    ],
+    "donts": [
+      "**Don't** set labels uppercase, heavy, and letter-spaced together. The Components workspace eyebrows (\"DESIGN WORKSPACE\", 10px, 600, 1.5px tracking) are drift to fix, not a pattern to copy. The sidebar's \"WORKSPACE\" label is uppercase and tracked at regular weight; it sits at the edge of this rule and should not spread.",
+      "**Don't** color text with raw brand hexes or `--m3-*` scale steps; use the semantic accent tokens.",
+      "**Don't** use coral or cyan to mean status.",
+      "**Don't** lift in-flow panels with visible shadows; that is reserved for menus, drawers, and dialogs.",
+      "**Don't** animate live values, sorting, typing, or the header glow, and don't add staggered rows, counting numbers, spring overshoot, or looping effects.",
+      "**Don't** let closing a panel or dismissing a notice wait on an animation."
+    ]
+  }
+}
