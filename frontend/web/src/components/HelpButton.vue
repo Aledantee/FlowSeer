@@ -37,18 +37,20 @@ function openHelp() {
     </div>
     <h3>Choose your scope</h3>
     <p>
-      Use the tenant selector in the sidebar and the site selector in the
-      breadcrumb to focus on a customer or location.
+      Use the tenant and site selectors in the breadcrumb at the top of the page
+      to focus on a customer or location.
     </p>
     <h3>Find a device</h3>
     <p>
-      Search by name, type, or IP address. Filter by status to find devices
-      needing attention, then select a device to open its details.
+      Devices that need attention are listed first. Search by name, type, or IP
+      address, or filter by status, then select a device to see why it needs
+      attention and how FlowSeer reaches it.
     </p>
     <h3>Move a device</h3>
     <p>
-      Open device details and choose a site within its tenant. Saving replaces
-      the device’s previous site assignment.
+      Open device details, expand Move to another site, and choose a site within
+      its tenant. The move replaces the previous assignment once it is observed,
+      and the notice offers Undo.
     </p>
   </dialog>
 </template>

@@ -723,7 +723,7 @@ onUnmounted(() => {
                               ><AppIcon
                                 :name="
                                   device.kind.includes('AP')
-                                    ? 'pulse'
+                                    ? 'access-point'
                                     : 'devices'
                                 " /></span
                             ><span
@@ -868,7 +868,7 @@ onUnmounted(() => {
                         :class="['node', device.health.toLowerCase()]"
                         @click="openDevice(device)"
                       >
-                        <AppIcon name="pulse" /><strong>{{
+                        <AppIcon name="access-point" /><strong>{{
                           device.name
                         }}</strong
                         ><StatusBadge :status="device.health" />
