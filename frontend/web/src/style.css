@@ -1000,6 +1000,9 @@ td small {
   width: 100%;
   margin: var(--space-4) 0 0;
 }
+.device-poll.offline p {
+  min-height: 3.2em;
+}
 .device-poll p {
   min-height: 1.6em;
   margin-top: var(--space-2);

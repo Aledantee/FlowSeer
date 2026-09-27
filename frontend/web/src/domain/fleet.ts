@@ -119,7 +119,9 @@ export const devices: Device[] = sites.flatMap((site, index) =>
       ].map((integrationId) => ({
         integrationId,
         reachability,
-        observedMinutesAgo: seen,
+        // Monitoring keeps checking a device that stopped answering, so a
+        // path's last check is recent even when its last answer is not.
+        observedMinutesAgo: 1,
       })),
       clients: offset < 2 || offline ? 0 : 28 + index * 9 + offset * 7,
       throughput: offline ? 0 : 24 + index * 12 + offset * 8,

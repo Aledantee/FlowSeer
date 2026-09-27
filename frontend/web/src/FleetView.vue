@@ -356,12 +356,16 @@ async function copyEscalation() {
   }
 }
 const polling = ref(false)
+// After a poll the device did not answer, polling again is not the next
+// step; the one coral action moves to the escalation summary.
+const pollFailed = ref(false)
 const pollResult = ref('')
 let pollTimer: ReturnType<typeof setTimeout> | undefined
 function stopPoll() {
   clearTimeout(pollTimer)
   polling.value = false
   pollResult.value = ''
+  pollFailed.value = false
   copyState.value = ''
 }
 // The fixture answers after a short delay so the panel shows the difference
@@ -378,6 +382,7 @@ function poll() {
     )
     if (selected.value?.id === updated.id) selected.value = updated
     polling.value = false
+    pollFailed.value = updated.lastSeenMinutes !== 0
     pollResult.value =
       updated.lastSeenMinutes === 0
         ? `Answered just now. Still ${updated.health.toLowerCase()}.`
@@ -1100,8 +1105,15 @@ onUnmounted(() => {
             Every path to this device answered its last poll.
           </p>
           <p v-else>No event explains this status yet.</p>
-          <div v-if="selected.health !== 'Healthy'" class="device-poll">
-            <UiButton variant="primary" :disabled="polling" @click="poll">
+          <div
+            v-if="selected.health !== 'Healthy'"
+            :class="['device-poll', { offline: selected.health === 'Offline' }]"
+          >
+            <UiButton
+              :variant="pollFailed ? 'secondary' : 'primary'"
+              :disabled="polling"
+              @click="poll"
+            >
               {{ polling ? 'Polling…' : 'Poll now' }}
             </UiButton>
             <p role="status">{{ pollResult }}</p>
@@ -1120,7 +1132,9 @@ onUnmounted(() => {
               }}
             </p>
             <div class="device-next-actions">
-              <UiButton @click="copyEscalation"
+              <UiButton
+                :variant="pollFailed ? 'primary' : 'secondary'"
+                @click="copyEscalation"
                 >Copy escalation summary</UiButton
               ><RouterLink
                 class="device-next-link"
