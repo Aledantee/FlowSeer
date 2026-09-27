@@ -770,51 +770,6 @@ td small {
     transform: none;
   }
 }
-.site-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 18px;
-}
-.site-card {
-  padding: var(--space-6);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-}
-.site-symbol {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  background: var(--info-surface);
-  color: var(--accent-text);
-  border-radius: var(--radius-panel);
-  margin-bottom: 20px;
-}
-.site-card h2 {
-  font-size: 20px;
-  margin: 7px 0;
-}
-.site-card p {
-  font-size: 12px;
-}
-.site-stats {
-  display: flex;
-  justify-content: space-between;
-  margin: 25px 0 20px;
-  font-size: 12px;
-}
-.site-stats span {
-  color: var(--muted);
-}
-.site-card a {
-  border-top: 1px solid var(--line);
-  padding-top: 15px;
-  display: flex;
-  justify-content: space-between;
-  color: var(--accent-text);
-  font-size: 12px;
-}
 .topology-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1255,10 +1210,6 @@ td small {
     max-width: 330px;
   }
 
-  .site-grid,
-  .topology-grid {
-    grid-template-columns: 1fr;
-  }
   .topology-site:nth-child(odd) {
     border-right: 0;
   }
@@ -1436,8 +1387,8 @@ td small {
 @media (max-width: 560px) {
   .sidebar nav .desktop-navigation,
   .metrics article:nth-child(n + 3),
-  .inventory .table-scroll table,
-  .report-bug-button,
+  .inventory:not(.site-overview) .table-scroll table,
+  .topbar-tools .report-bug-button,
   .dash-table th:nth-child(n + 4),
   .dash-table td:nth-child(n + 4) {
     display: none;
@@ -1889,9 +1840,6 @@ td small {
     margin-top: var(--space-6);
   }
 }
-.site-location {
-  margin-bottom: var(--space-2);
-}
 /* On narrow screens the tools join the brand row so the chrome stays one
    row shorter; the content area scrolls beneath it. */
 @media (max-width: 800px) {
@@ -1904,5 +1852,39 @@ td small {
     right: 52px;
     z-index: 6;
     margin-left: 0;
+  }
+}
+.site-link {
+  display: block;
+}
+.site-link strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+}
+.site-link:hover strong {
+  color: var(--accent-text);
+}
+.site-link small {
+  margin-top: 4px;
+}
+.site-health {
+  min-width: 140px;
+}
+.site-health small {
+  margin-top: 6px;
+}
+.site-overview td small {
+  margin-top: 4px;
+}
+.muted {
+  color: var(--muted);
+}
+@media (max-width: 560px) {
+  .site-overview th:nth-child(3),
+  .site-overview td:nth-child(3),
+  .site-overview th:nth-child(4),
+  .site-overview td:nth-child(4) {
+    display: none;
   }
 }

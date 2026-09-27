@@ -3,6 +3,8 @@ import { devices, filterDevices, sites } from './fleet'
 import {
   events,
   healthCounts,
+  latestIssue,
+  rankSites,
   scopedEvents,
   siteRollups,
   trafficHistory,
@@ -38,5 +40,16 @@ describe('scope overview', () => {
     expect(history).toHaveLength(24)
     expect(history[0]?.hour).toBe(4)
     expect(history.at(-1)).toEqual({ hour: 3, mbps: live })
+  })
+  it('ranks the worst site first and names its newest issue', () => {
+    const ranked = rankSites(siteRollups(devices, sites)).map(
+      (rollup) => rollup.site.id,
+    )
+    expect(ranked.slice(0, 2)).toEqual(['cologne', 'hamburg'])
+    const cologne = sites.find((site) => site.id === 'cologne')
+    if (!cologne) throw new Error('Missing fixture')
+    expect(latestIssue(devices, cologne)?.summary).toBe(
+      'Stopped answering polls',
+    )
   })
 })

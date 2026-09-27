@@ -27,7 +27,14 @@ import {
   siteNeighbours,
 } from './domain/fleet'
 import type { Device } from './domain/fleet'
-import { events, formatAgo } from './domain/overview'
+import {
+  events,
+  formatAgo,
+  latestIssue,
+  rankSites,
+  siteRollups,
+} from './domain/overview'
+import HealthBar from './components/HealthBar.vue'
 const { play, cancel } = useMotionFeedback()
 // The Components workspace is a design tool for the team, not an operator
 // page, so production builds leave it out of navigation.
@@ -291,6 +298,16 @@ function tenantName(siteId: string) {
         tenant.id === sites.find((site) => site.id === siteId)?.tenantId,
     )?.name || 'Unknown tenant'
   )
+}
+const siteRows = computed(() =>
+  rankSites(siteRollups(scope.value, visibleSites.value)),
+)
+function healthLine(health: Record<Device['health'], number>) {
+  const parts = [
+    health.Offline ? `${health.Offline} offline` : '',
+    health.Degraded ? `${health.Degraded} degraded` : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'All healthy'
 }
 const selectedIssues = computed(() =>
   events
@@ -875,43 +892,84 @@ onUnmounted(() => {
             />
             <section
               v-else-if="view === 'sites'"
-              class="site-grid"
-              aria-label="Sites"
+              class="inventory site-overview"
+              aria-labelledby="sites-title"
             >
-              <article
-                v-for="site in visibleSites"
-                :key="site.id"
-                class="site-card"
-              >
-                <span class="site-symbol"><AppIcon name="sites" /></span
-                ><small class="site-location">{{ site.location }}</small>
-                <h2>{{ site.name }}</h2>
-                <p>{{ tenantName(site.id) }}</p>
-                <div class="site-stats">
-                  <strong
-                    >{{
-                      fleet.filter((device) => device.siteId === site.id).length
-                    }}
-                    devices</strong
-                  ><span
-                    >{{
-                      fleet.filter(
-                        (device) =>
-                          device.siteId === site.id &&
-                          device.health !== 'Healthy',
-                      ).length
-                    }}
-                    need attention</span
-                  >
+              <div class="section-heading">
+                <div>
+                  <h2 id="sites-title">
+                    Sites <span>{{ visibleSites.length }}</span>
+                  </h2>
                 </div>
-                <RouterLink
-                  :to="{
-                    path: '/devices',
-                    query: { tenant: query('tenant'), site: site.id },
-                  }"
-                  >View devices <AppIcon name="arrow"
-                /></RouterLink>
-              </article>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Site</th>
+                      <th>Health</th>
+                      <th>Newest issue</th>
+                      <th class="numeric">Devices</th>
+                      <th><span class="sr-only">Devices at this site</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="rollup in siteRows" :key="rollup.site.id">
+                      <td>
+                        <RouterLink
+                          class="site-link"
+                          :to="{
+                            path: '/dashboard',
+                            query: {
+                              tenant: rollup.site.tenantId,
+                              site: rollup.site.id,
+                            },
+                          }"
+                          ><strong>{{ rollup.site.name }}</strong
+                          ><small
+                            >{{ rollup.site.location }} ·
+                            {{ tenantName(rollup.site.id) }}</small
+                          ></RouterLink
+                        >
+                      </td>
+                      <td class="site-health">
+                        <HealthBar :counts="rollup.health" />
+                        <small>{{ healthLine(rollup.health) }}</small>
+                      </td>
+                      <td>
+                        <template v-if="latestIssue(scope, rollup.site)"
+                          >{{ latestIssue(scope, rollup.site)?.summary
+                          }}<small>{{
+                            formatAgo(
+                              latestIssue(scope, rollup.site)?.minutesAgo ?? 0,
+                            )
+                          }}</small></template
+                        ><span v-else class="muted">None</span>
+                      </td>
+                      <td class="numeric">
+                        {{
+                          rollup.health.Healthy +
+                          rollup.health.Degraded +
+                          rollup.health.Offline
+                        }}
+                      </td>
+                      <td>
+                        <RouterLink
+                          class="device-next-link"
+                          :to="{
+                            path: '/devices',
+                            query: {
+                              tenant: rollup.site.tenantId,
+                              site: rollup.site.id,
+                            },
+                          }"
+                          >Devices</RouterLink
+                        >
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
             <section v-else class="topology-panel">
               <div class="section-heading">

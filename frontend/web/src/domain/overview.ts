@@ -125,3 +125,24 @@ export function formatAgo(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   return `${hours} h ago`
 }
+
+// Worst site first: most offline, then most degraded devices, then by name.
+export function rankSites(rollups: SiteRollup[]): SiteRollup[] {
+  return [...rollups].sort(
+    (a, b) =>
+      b.health.Offline - a.health.Offline ||
+      b.health.Degraded - a.health.Degraded ||
+      a.site.name.localeCompare(b.site.name),
+  )
+}
+
+// The newest warning or critical event at a site, the one-line answer to
+// "what is wrong there".
+export function latestIssue(
+  scope: Device[],
+  site: Site,
+): FleetEvent | undefined {
+  return scopedEvents(scope.filter((device) => device.siteId === site.id)).find(
+    (event) => event.severity !== 'info',
+  )
+}

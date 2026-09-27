@@ -62,7 +62,10 @@ answered a poll so that a device offline for minutes and one offline for days
 look different. It supports search, a status filter (including **Needs
 attention**), and a keyboard-accessible details dialog. The metric cards appear
 only on the Dashboard; other pages state the scope and attention count in the
-heading. Sites opens the inventory for a location.
+heading. Sites lists every site in scope worst first, with a health bar and a
+line such as "1 offline", the newest warning or critical event and its age, and
+the device count; a site's name opens its dashboard and **Devices** opens its
+inventory.
 Topology draws each site's gateway and core switch with its access points side
 by side beneath them. Links are drawn dashed and a legend marks them as assumed until topology is
 discovered. Only nodes that are not healthy carry a status badge, so a degraded
