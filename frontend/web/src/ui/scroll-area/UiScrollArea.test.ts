@@ -37,6 +37,28 @@ describe('UiScrollArea', () => {
     expect(content?.textContent).toBe('Scrollable Text')
   })
 
+  it('preserves the stylesheet hooks on each scroll-area primitive', async () => {
+    const host = mountApp(() =>
+      h(
+        UiScrollArea,
+        {
+          axis: 'both',
+          type: 'always',
+        },
+        {
+          default: () => h('div', 'Content'),
+        },
+      ),
+    )
+
+    await nextTick()
+
+    expect(host.querySelector('.scroll-area')).not.toBeNull()
+    expect(host.querySelector('.scroll-viewport')).not.toBeNull()
+    expect(host.querySelectorAll('.scroll-bar')).toHaveLength(2)
+    expect(host.querySelectorAll('.scroll-thumb')).toHaveLength(2)
+  })
+
   it('exposes element reference pointing to the scrollable HTML element', async () => {
     const scrollAreaRef = ref<InstanceType<typeof UiScrollArea> | null>(null)
     mountApp(() =>

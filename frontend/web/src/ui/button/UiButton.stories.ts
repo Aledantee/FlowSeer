@@ -149,3 +149,16 @@ export const Loading: Story = {
     template: '<UiButton v-bind="args">Loading Button</UiButton>',
   }),
 }
+
+export const Focus: Story = {
+  args: {
+    variant: 'secondary',
+  },
+  render: (args) => ({
+    components: { UiButton },
+    setup() {
+      return { args }
+    },
+    template: '<UiButton v-bind="args" autofocus>Focused Button</UiButton>',
+  }),
+}

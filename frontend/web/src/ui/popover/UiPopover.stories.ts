@@ -43,3 +43,12 @@ export const Default: Story = {
     `,
   }),
 }
+
+export const AccessibilityAudit: Story = {
+  ...Default,
+  name: 'Accessibility Audit (Open)',
+  args: {
+    ...Default.args,
+    open: true,
+  },
+}

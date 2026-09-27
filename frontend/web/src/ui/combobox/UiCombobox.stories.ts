@@ -25,6 +25,25 @@ export const Default: Story = {
   },
 }
 
+export const AccessibilityAudit: Story = {
+  name: 'Accessibility Audit (Triggered)',
+  args: {
+    ...Default.args,
+  },
+  render: (args) => ({
+    components: { UiCombobox },
+    setup() {
+      return { args }
+    },
+    template: `
+      <label>
+        <span>Devices</span>
+        <UiCombobox v-bind="args" />
+      </label>
+    `,
+  }),
+}
+
 export const WithCustomTrigger: Story = {
   render: () => ({
     components: { UiCombobox, UiButton },

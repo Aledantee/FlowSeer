@@ -45,6 +45,29 @@ export const Default: Story = {
   }),
 }
 
+export const AccessibilityAudit: Story = {
+  name: 'Accessibility Audit (Open)',
+  args: {
+    ...Default.args,
+    open: true,
+  },
+  render: (args) => ({
+    components: { UiDialog, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiDialog v-bind="args">
+        <p class="text-sm text-foreground">Workspace settings content goes here.</p>
+        <template #footer>
+          <UiButton variant="secondary">Cancel</UiButton>
+          <UiButton variant="primary">Save changes</UiButton>
+        </template>
+      </UiDialog>
+    `,
+  }),
+}
+
 export const Small: Story = {
   args: {
     title: 'Confirm Reset',

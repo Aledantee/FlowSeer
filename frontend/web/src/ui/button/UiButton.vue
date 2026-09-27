@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue'
+import { computed } from 'vue'
 import { tv } from 'tailwind-variants'
 import UiSpinner from '../spinner/UiSpinner.vue'
 
@@ -21,22 +21,23 @@ const props = withDefaults(defineProps<UiButtonProps>(), {
   ariaLabel: undefined,
 })
 
-const attrs = useAttrs()
-
 const buttonVariants = tv({
-  base: 'inline-flex items-center justify-center gap-1.5 font-medium rounded-control transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed select-none',
+  base: 'inline-flex items-center justify-center gap-1.5 font-medium !rounded-control transition-colors focus-visible:!outline-none focus-visible:!ring-1 focus-visible:!ring-ring disabled:!opacity-50 disabled:!cursor-not-allowed select-none',
   variants: {
     variant: {
-      primary: 'bg-primary text-primary-foreground hover:brightness-105',
-      secondary: 'bg-card text-foreground border border-border hover:bg-hover',
-      ghost: 'bg-transparent text-foreground hover:bg-hover',
+      primary:
+        '!bg-primary !text-primary-foreground hover:brightness-105 !border-transparent',
+      secondary:
+        '!bg-card !text-foreground !border !border-border hover:!bg-hover',
+      ghost:
+        '!bg-transparent !text-foreground !border-transparent hover:!bg-hover',
       danger:
-        'bg-danger-surface text-danger-foreground border border-danger-border hover:brightness-95',
+        '!bg-danger-surface !text-danger-foreground !border !border-danger-border hover:brightness-95',
     },
     size: {
-      sm: 'h-7 px-2.5 text-xs',
-      md: 'h-8 px-3.5 text-sm',
-      icon: 'h-8 w-8 p-0',
+      sm: 'h-7 !px-2.5 !py-0 text-xs',
+      md: 'h-8 !px-3.5 !py-0 text-sm',
+      icon: 'h-8 w-8 !p-0',
     },
   },
   defaultVariants: {
@@ -46,7 +47,7 @@ const buttonVariants = tv({
 })
 
 const computedAriaLabel = computed(() => {
-  const label = props.ariaLabel ?? (attrs['aria-label'] as string | undefined)
+  const label = props.ariaLabel
   if (props.size === 'icon' && !label) {
     console.warn(
       '[UiButton] An accessible aria-label is required when size="icon"',
@@ -73,6 +74,6 @@ function handleClick(event: MouseEvent) {
     @click.capture="handleClick"
   >
     <UiSpinner v-if="loading" :size="size === 'sm' ? 'sm' : 'md'" />
-    <slot />
+    <slot v-if="!(loading && size === 'icon')" />
   </button>
 </template>

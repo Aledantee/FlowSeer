@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, inject, useAttrs, type Ref } from 'vue'
+import { computed, inject, onMounted, ref, useAttrs, type Ref } from 'vue'
+import { tv } from 'tailwind-variants'
+import { useFormReset } from './useFormReset'
 
 export interface UiInputProps {
   modelValue?: string | number
@@ -15,7 +17,7 @@ export interface UiInputProps {
 }
 
 const props = withDefaults(defineProps<UiInputProps>(), {
-  modelValue: '',
+  modelValue: undefined,
   id: undefined,
   type: 'text',
   placeholder: undefined,
@@ -39,29 +41,71 @@ const fieldContext = inject<{
   invalid: Ref<boolean>
 } | null>('ui-field-context', null)
 
+const inputRef = ref<HTMLInputElement | null>(null)
 const inputId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,
 )
-const computedAriaLabel = computed(
-  () => props.ariaLabel ?? (attrs['aria-label'] as string | undefined),
-)
-const ariaDescribedBy = computed(
-  () =>
-    (attrs['aria-describedby'] as string | undefined) ??
-    fieldContext?.describedBy.value,
+const computedAriaLabel = computed(() => {
+  if (props.ariaLabel !== undefined) return props.ariaLabel
+  const attr = attrs['aria-label']
+  return typeof attr === 'string' ? attr : undefined
+})
+const ariaDescribedBy = computed(() => {
+  const attr = attrs['aria-describedby']
+  if (typeof attr === 'string') return attr
+  return fieldContext?.describedBy.value
+})
+
+const inputVariants = tv({
+  base: 'w-full text-sm !px-3 !py-1.5 !rounded-control transition-colors !bg-card !text-foreground placeholder:text-muted-foreground disabled:!opacity-50 disabled:!cursor-not-allowed focus-visible:!outline-none !border',
+  variants: {
+    invalid: {
+      false:
+        '!border-input focus-visible:!ring-1 focus-visible:!ring-ring focus-visible:!border-ring',
+      true: '!border-danger-border !ring-danger-border focus-visible:!ring-danger-border focus-visible:!border-danger-border',
+    },
+  },
+  defaultVariants: {
+    invalid: false,
+  },
+})
+
+const valueBinding = computed(() =>
+  props.modelValue !== undefined ? { value: props.modelValue } : {},
 )
 
+let initialValue: string | number = ''
+onMounted(() => {
+  initialValue =
+    props.modelValue !== undefined
+      ? props.modelValue
+      : (inputRef.value?.value ?? '')
+})
+
+useFormReset({
+  elementRef: inputRef,
+  onReset: () => {
+    if (inputRef.value) {
+      inputRef.value.value = String(initialValue ?? '')
+    }
+    emit('update:modelValue', String(initialValue ?? ''))
+  },
+})
+
 function handleInput(event: Event) {
-  emit('update:modelValue', (event.target as HTMLInputElement).value)
+  if (event.target instanceof HTMLInputElement) {
+    emit('update:modelValue', event.target.value)
+  }
 }
 </script>
 
 <template>
   <input
     :id="inputId"
+    ref="inputRef"
     :type="type"
-    :value="modelValue"
+    v-bind="valueBinding"
     :name="name"
     :placeholder="placeholder"
     :disabled="disabled"
@@ -70,13 +114,7 @@ function handleInput(event: Event) {
     :aria-label="computedAriaLabel"
     :aria-invalid="isInvalid ? 'true' : undefined"
     :aria-describedby="ariaDescribedBy"
-    :class="[
-      'bg-card border border-input rounded-control text-sm px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-ring disabled:opacity-50 disabled:cursor-not-allowed w-full transition-colors',
-      {
-        'border-danger-border ring-danger-border focus-visible:ring-danger-border focus-visible:border-danger-border':
-          isInvalid,
-      },
-    ]"
+    :class="inputVariants({ invalid: isInvalid })"
     @input="handleInput"
   />
 </template>

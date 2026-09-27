@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
+  type UiCommandItemSelectEvent,
   UiCommandDialog,
   UiCommandEmpty,
   UiCommandGroup,
@@ -143,29 +144,33 @@ function forget() {
 
 function handleItemSelect(
   result: SearchResult,
-  event?: MouseEvent | KeyboardEvent,
+  event: UiCommandItemSelectEvent,
 ) {
-  const beside = event
-    ? event.shiftKey || event.metaKey || event.ctrlKey
-    : false
+  const beside = event.shiftKey || event.metaKey || event.ctrlKey
   choose(result, beside)
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Enter') {
-    const target =
-      results.value.find((r) => resultKey(r) === selectedValue.value) ||
-      results.value[0]
-    if (target) {
-      if (event.altKey) {
-        event.preventDefault()
-        dock(target)
-      } else if (event.shiftKey || event.metaKey || event.ctrlKey) {
-        event.preventDefault()
-        choose(target, true)
-      }
-    }
-  }
+  const modified =
+    event.altKey || event.shiftKey || event.metaKey || event.ctrlKey
+  if (event.key !== 'Enter' || !modified) return
+
+  const root = event.currentTarget
+  const highlightedKey =
+    root instanceof HTMLElement
+      ? root.querySelector<HTMLElement>(
+          '[role="option"][data-highlighted][data-command-value]',
+        )?.dataset.commandValue
+      : undefined
+  const target =
+    results.value.find((result) => resultKey(result) === highlightedKey) ??
+    results.value[0]
+  if (!target) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.altKey) dock(target)
+  else choose(target, true)
 }
 
 function shortcutKey(event: KeyboardEvent) {
@@ -195,7 +200,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
     v-model:open="open"
     v-model="selectedValue"
     :ignore-filter="true"
-    @keydown="handleKeydown"
+    @keydown.capture="handleKeydown"
   >
     <UiCommandInput
       v-model="query"
@@ -236,7 +241,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
             :key="resultKey(result)"
             :value="resultKey(result)"
             class="search-result"
-            @select="handleItemSelect(result)"
+            @select="handleItemSelect(result, $event)"
           >
             <AppIcon :name="iconFor(result, group.icon)" />
             <span>
@@ -247,8 +252,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
               <UiTooltip
                 v-if="canSplit"
                 label="Open side by side"
-                hint="Shift+Enter"
+                :shortcut="{ code: 'Enter', shift: true }"
                 side="left"
+                inline
               >
                 <button
                   type="button"
@@ -262,8 +268,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
               <UiTooltip
                 v-if="!(result.kind === 'page' && result.id.startsWith('tab:'))"
                 label="Send to dock"
-                hint="Alt+Enter"
+                :shortcut="{ code: 'Enter', alt: true }"
                 side="left"
+                inline
               >
                 <button
                   type="button"

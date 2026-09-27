@@ -22,7 +22,10 @@ function mountButton(
     },
   })
   app.mount(host)
-  dispose = () => app.unmount()
+  dispose = () => {
+    app.unmount()
+    dispose = () => {}
+  }
   const button = host.querySelector('button')
   if (!button) throw new Error('Missing button element')
   return { host, button }
@@ -41,6 +44,24 @@ describe('UiButton', () => {
       expect(button.className).toContain(expected)
       dispose()
     }
+  })
+
+  it('protects vertical padding and hover backgrounds against legacy cascade with important modifiers', () => {
+    const { button: smButton } = mountButton({ size: 'sm' })
+    expect(smButton.className).toContain('!py-0')
+    dispose()
+
+    const { button: mdButton } = mountButton({ size: 'md' })
+    expect(mdButton.className).toContain('!py-0')
+    dispose()
+
+    const { button: secondaryButton } = mountButton({ variant: 'secondary' })
+    expect(secondaryButton.className).toContain('hover:!bg-hover')
+    dispose()
+
+    const { button: ghostButton } = mountButton({ variant: 'ghost' })
+    expect(ghostButton.className).toContain('hover:!bg-hover')
+    dispose()
   })
 
   it('sets the HTML disabled attribute and suppresses click handlers when disabled', async () => {
@@ -62,5 +83,23 @@ describe('UiButton', () => {
     button.click()
     await nextTick()
     expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('warns when icon button lacks aria-label', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mountButton({ size: 'icon' })
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[UiButton] An accessible aria-label is required when size="icon"',
+    )
+    warnSpy.mockRestore()
+  })
+
+  it('does not render slot icon when loading and size is icon', () => {
+    const { button } = mountButton(
+      { size: 'icon', loading: true, ariaLabel: 'Settings' },
+      { default: () => h('span', { class: 'test-icon' }, 'Icon') },
+    )
+    expect(button.querySelector('.test-icon')).toBeNull()
+    expect(button.querySelector('svg')).not.toBeNull()
   })
 })

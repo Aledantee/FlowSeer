@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComboboxRootEmits } from 'reka-ui'
 import { computed } from 'vue'
 import {
   ComboboxContent,
@@ -54,6 +55,15 @@ const emit = defineEmits<{
   (e: 'select', value: string): void
 }>()
 
+const emptyOptionValue = computed(() => {
+  let value = '__ui_combobox_empty__'
+  const publicValues = new Set(props.options.map((option) => option.value))
+
+  while (publicValues.has(value)) value += '_'
+
+  return value
+})
+
 const groupedOptions = computed(() => {
   const groups = new Map<string | undefined, ComboboxOption[]>()
   for (const opt of props.options) {
@@ -63,23 +73,63 @@ const groupedOptions = computed(() => {
   }
   return groups
 })
+
+const internalModelValue = computed(() => {
+  if (Array.isArray(props.modelValue)) {
+    return props.modelValue.map(toInternalValue)
+  }
+  if (typeof props.modelValue === 'string')
+    return toInternalValue(props.modelValue)
+  return undefined
+})
+
+const selectedValues = computed<ReadonlySet<string>>(() => {
+  if (Array.isArray(props.modelValue)) return new Set(props.modelValue)
+  if (typeof props.modelValue === 'string') return new Set([props.modelValue])
+  return new Set()
+})
+
+function toInternalValue(value: string): string {
+  return value === '' ? emptyOptionValue.value : value
+}
+
+function toPublicValue(value: string): string {
+  return value === emptyOptionValue.value ? '' : value
+}
+
+function updateModelValue(value: unknown): void {
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+    emit('update:modelValue', value.map(toPublicValue))
+    return
+  }
+  if (typeof value === 'string') emit('update:modelValue', toPublicValue(value))
+}
+
+function updateHighlight(
+  item: ComboboxRootEmits<string>['highlight'][0],
+): void {
+  emit(
+    'highlight',
+    item ? { ...item, value: toPublicValue(item.value) } : undefined,
+  )
+}
+
+function isSelected(value: string): boolean {
+  return selectedValues.value.has(value)
+}
 </script>
 
 <template>
   <ComboboxRoot
-    :model-value="modelValue"
+    :model-value="internalModelValue"
+    :multiple="Array.isArray(modelValue)"
     :open="open"
     :default-open="defaultOpen"
     :ignore-filter="ignoreFilter"
     class="relative"
-    @update:model-value="
-      (val) => {
-        emit('update:modelValue', val as string | string[])
-        if (typeof val === 'string') emit('select', val)
-      }
-    "
+    @update:model-value="updateModelValue"
     @update:open="emit('update:open', $event)"
-    @highlight="emit('highlight', $event)"
+    @highlight="updateHighlight"
   >
     <ComboboxTrigger v-if="$slots.trigger" as-child>
       <slot name="trigger" />
@@ -123,7 +173,7 @@ const groupedOptions = computed(() => {
               <ComboboxItem
                 v-for="opt in opts"
                 :key="opt.value"
-                :value="opt.value"
+                :value="toInternalValue(opt.value)"
                 :disabled="opt.disabled"
                 class="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-foreground"
                 @select="emit('select', opt.value)"
@@ -131,7 +181,7 @@ const groupedOptions = computed(() => {
                 <slot
                   name="item"
                   :option="opt"
-                  :selected="modelValue === opt.value"
+                  :selected="isSelected(opt.value)"
                   :active="false"
                 >
                   <ComboboxItemIndicator
@@ -159,7 +209,7 @@ const groupedOptions = computed(() => {
               <ComboboxItem
                 v-for="opt in opts"
                 :key="opt.value"
-                :value="opt.value"
+                :value="toInternalValue(opt.value)"
                 :disabled="opt.disabled"
                 class="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-foreground"
                 @select="emit('select', opt.value)"
@@ -167,7 +217,7 @@ const groupedOptions = computed(() => {
                 <slot
                   name="item"
                   :option="opt"
-                  :selected="modelValue === opt.value"
+                  :selected="isSelected(opt.value)"
                   :active="false"
                 >
                   <ComboboxItemIndicator

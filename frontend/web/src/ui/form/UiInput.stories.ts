@@ -37,3 +37,17 @@ export const Disabled: Story = {
     ariaLabel: 'Disabled text input',
   },
 }
+
+export const Focus: Story = {
+  args: {
+    placeholder: 'Focused input...',
+    ariaLabel: 'Focused text input',
+  },
+  render: (args) => ({
+    components: { UiInput },
+    setup() {
+      return { args }
+    },
+    template: '<UiInput v-bind="args" autofocus />',
+  }),
+}

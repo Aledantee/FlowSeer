@@ -32,13 +32,16 @@ defineExpose({ element })
 
 <template>
   <ScrollAreaRoot
-    class="relative overflow-hidden"
+    class="scroll-area relative overflow-hidden"
     :type="type"
     :scroll-hide-delay="700"
   >
     <ScrollAreaViewport
       ref="viewport"
-      :class="['w-full h-full rounded-[inherit]', viewportClass]"
+      :class="[
+        'scroll-viewport w-full h-full rounded-[inherit]',
+        viewportClass,
+      ]"
       :aria-label="label"
     >
       <slot />
@@ -46,19 +49,19 @@ defineExpose({ element })
     <ScrollAreaScrollbar
       v-if="vertical"
       orientation="vertical"
-      class="flex select-none touch-none p-0.5 transition-colors duration-140 ease-out hover:bg-hover data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5"
+      class="scroll-bar flex select-none touch-none p-0.5 transition-colors duration-140 ease-out hover:bg-hover data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5"
     >
       <ScrollAreaThumb
-        class="relative flex-1 rounded-full bg-border hover:bg-muted-foreground transition-colors"
+        class="scroll-thumb relative flex-1 rounded-full bg-border hover:bg-muted-foreground transition-colors"
       />
     </ScrollAreaScrollbar>
     <ScrollAreaScrollbar
       v-if="horizontal"
       orientation="horizontal"
-      class="flex select-none touch-none p-0.5 transition-colors duration-140 ease-out hover:bg-hover data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5"
+      class="scroll-bar flex select-none touch-none p-0.5 transition-colors duration-140 ease-out hover:bg-hover data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5"
     >
       <ScrollAreaThumb
-        class="relative flex-1 rounded-full bg-border hover:bg-muted-foreground transition-colors"
+        class="scroll-thumb relative flex-1 rounded-full bg-border hover:bg-muted-foreground transition-colors"
       />
     </ScrollAreaScrollbar>
     <ScrollAreaCorner v-if="vertical && horizontal" />

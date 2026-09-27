@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { UiScrollArea, UiTooltip } from '../ui'
-import { dockTabShortcut, keysOf } from './shortcuts'
+import { dockTabShortcut } from './shortcuts'
 import AppIcon from '../components/AppIcon.vue'
 import type { Health } from '../domain/fleet'
 import type { DockTab } from './dock'
@@ -45,11 +45,11 @@ function badge(health: Health | undefined, attention: number | undefined) {
                 canSplit && !tab.beside
                   ? 'Shift-click opens it side by side'
                   : '',
-                index < 9 ? keysOf(dockTabShortcut(index + 1)).join('+') : '',
               ]
                 .filter(Boolean)
                 .join(' · ')
             "
+            :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
             side="top"
           >
             <button
@@ -80,11 +80,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
           <UiTooltip
             v-if="canSplit && !tab.beside"
             label="Open side by side"
-            :hint="
-              index < 9
-                ? keysOf(dockTabShortcut(index + 1, true)).join('+')
-                : undefined
-            "
+            :shortcut="index < 9 ? dockTabShortcut(index + 1, true) : undefined"
             side="top"
           >
             <button

@@ -26,7 +26,7 @@ const badgeVariants = tv({
       default: 'bg-subtle text-foreground border border-border',
       outline: 'bg-transparent text-foreground border border-border',
       primary: 'bg-primary text-primary-foreground',
-      accent: 'bg-accent text-accent-foreground',
+      accent: 'bg-subtle text-accent-foreground border border-border',
       success:
         'bg-success-surface text-success-foreground border border-success-border',
       warning:
