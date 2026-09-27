@@ -639,3 +639,102 @@ describe('AiActionLayer geometry', () => {
     expect(askButton()).toBeUndefined()
   })
 })
+
+describe('AiActionLayer placement invariant', () => {
+  const viewport = { width: 390, height: 844 }
+
+  async function render(target: Box, controls: Box[]) {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(viewport.width)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(viewport.height)
+    const { registry, element } = setup(target)
+    for (const control of controls) {
+      const node = document.createElement('button')
+      setBox(node, control)
+      document.body.append(node)
+    }
+    registry.highlight('a:devices:device:d1')
+    await settle()
+    return { element }
+  }
+
+  function expectClear(
+    button: HTMLButtonElement | undefined,
+    controls: Box[],
+  ): void {
+    expect(button).toBeDefined()
+    const ask = buttonBox(button)
+    expect(ask.left).toBeGreaterThanOrEqual(0)
+    expect(ask.top).toBeGreaterThanOrEqual(0)
+    expect(ask.left + ask.width).toBeLessThanOrEqual(viewport.width)
+    expect(ask.top + ask.height).toBeLessThanOrEqual(viewport.height)
+    for (const control of controls)
+      expect(boxesIntersect(ask, control)).toBe(false)
+  }
+
+  const card: Box = { top: 593, left: 29, width: 332, height: 98 }
+  const previousRow: Box = { top: 494, left: 29, width: 332, height: 98 }
+  const nextRow: Box = { top: 692, left: 29, width: 332, height: 98 }
+
+  it('keeps the 390px adjacent-card Ask on screen and off controls', async () => {
+    await render(card, [previousRow, nextRow])
+
+    const button = askButton()
+    expectClear(button, [previousRow, nextRow])
+    expect(buttonBox(button)).toEqual({
+      top: 631,
+      left: 363,
+      width: 26,
+      height: 22,
+    })
+  })
+
+  it('takes a clear alternative when a control blocks the right gutter', async () => {
+    const rightGutter: Box = { top: 631, left: 363, width: 40, height: 40 }
+    await render(card, [previousRow, nextRow, rightGutter])
+
+    const button = askButton()
+    expectClear(button, [previousRow, nextRow, rightGutter])
+    expect(buttonBox(button).left).toBe(1)
+  })
+
+  it('keeps a wider target clear of a control just below it', async () => {
+    const target: Box = { top: 120, left: 60, width: 320, height: 40 }
+    const below: Box = { top: 170, left: 60, width: 320, height: 40 }
+    await render(target, [below])
+
+    expectClear(askButton(), [below])
+  })
+
+  const rightColumn: Box = { top: 560, left: 330, width: 60, height: 210 }
+  const leftColumn: Box = { top: 600, left: 0, width: 29, height: 80 }
+
+  it('hides Ask when no candidate is both on screen and clear', async () => {
+    await render(card, [rightColumn, leftColumn])
+
+    const button = askButton()
+    expect(button).toBeDefined()
+    expect(button?.style.display).toBe('none')
+    expect(button?.style.top).toBe('')
+    expect(button?.style.left).toBe('')
+  })
+
+  it('keeps an open panel mounted while the trigger stays hidden', async () => {
+    const { element } = await render(card, [rightColumn, leftColumn])
+    element.focus()
+    await settle()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    expect(document.querySelector('form textarea')).not.toBeNull()
+    expect(askButton()?.style.display).toBe('none')
+  })
+})

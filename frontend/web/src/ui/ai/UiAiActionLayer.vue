@@ -6,7 +6,7 @@ import UiButton from '../button/UiButton.vue'
 import UiPopover from '../popover/UiPopover.vue'
 import UiTextarea from '../form/UiTextarea.vue'
 import { useAiRegistry } from './context'
-import { visibleRect } from './geometry'
+import { placeAsk, visibleRect } from './geometry'
 import type { Rect } from './geometry'
 
 // One overlay per app or Storybook canvas. It draws the selection outline and
@@ -69,54 +69,46 @@ const outlineStyle = computed(() => {
     height: `${rect.height}px`,
   }
 })
-const buttonStyle = computed(() => {
+// Ask is drawn only where placeAsk finds a spot that is both on screen and
+// clear of every measured control. When none exists the trigger is hidden, but
+// the popover stays mounted so an open panel is not torn down by the
+// measurement.
+const askPosition = computed(() => {
   const rect = box.value
   const element = layerTarget.value?.element
   if (!rect || !element) return undefined
-  const maxLeft = window.innerWidth - viewportInset - askButtonWidth
-  const maxTop = window.innerHeight - viewportInset - askButtonHeight
-  const alignedRight = Math.min(
-    Math.max(rect.right - askButtonWidth, viewportInset),
-    maxLeft,
-  )
-  const alignedTop = Math.min(Math.max(rect.top, viewportInset), maxTop)
-  const alignedMiddle = Math.min(
-    Math.max(rect.top + (rect.height - askButtonHeight) / 2, viewportInset),
-    maxTop,
-  )
-  const positions = [
-    { top: alignedMiddle, left: rect.right + askButtonGap },
-    {
-      top: alignedMiddle,
-      left: rect.left - askButtonGap - askButtonWidth,
-    },
-    { top: rect.top - askButtonGap - askButtonHeight, left: alignedRight },
-    { top: rect.bottom + askButtonGap, left: alignedRight },
-  ]
   const controls = [
     ...document.querySelectorAll<HTMLElement>(
       'a[href], button, input, select, textarea, [role="button"], [role="link"]',
     ),
   ]
     .filter(
-      (control) => control !== element && !layerRoot.value?.contains(control),
+      (control) =>
+        control !== element &&
+        !layerRoot.value?.contains(control) &&
+        !control.closest('[data-ai-ask-panel]'),
     )
     .map((control) => control.getBoundingClientRect())
     .filter((control) => control.width > 0 && control.height > 0)
-  const position = positions.find(
-    ({ top, left }) =>
-      top >= viewportInset &&
-      top <= maxTop &&
-      left >= viewportInset &&
-      left <= maxLeft &&
-      controls.every(
-        (obstacle) =>
-          left + askButtonWidth <= obstacle.left ||
-          left >= obstacle.right ||
-          top + askButtonHeight <= obstacle.top ||
-          top >= obstacle.bottom,
-      ),
-  ) ?? { top: alignedTop, left: alignedRight }
+  return placeAsk({
+    target: rect,
+    controls,
+    viewport: {
+      top: 0,
+      left: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    },
+    size: { width: askButtonWidth, height: askButtonHeight },
+    gap: askButtonGap,
+    inset: viewportInset,
+  })
+})
+const buttonStyle = computed(() => {
+  const position = askPosition.value
+  if (!position) return undefined
   return {
     top: `${position.top}px`,
     left: `${position.left}px`,
@@ -330,6 +322,7 @@ function submit() {
       >
         <template #trigger>
           <button
+            v-show="askPosition"
             type="button"
             tabindex="-1"
             class="ai-ask"
@@ -340,7 +333,11 @@ function submit() {
             Ask
           </button>
         </template>
-        <form class="flex w-72 flex-col gap-2" @submit.prevent="submit">
+        <form
+          data-ai-ask-panel=""
+          class="flex w-72 flex-col gap-2"
+          @submit.prevent="submit"
+        >
           <p class="text-xs font-medium text-foreground">
             Ask about
             <strong class="font-semibold">{{

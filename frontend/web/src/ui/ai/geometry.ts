@@ -11,6 +11,16 @@ export interface Rect {
   height: number
 }
 
+export interface Size {
+  width: number
+  height: number
+}
+
+export interface Point {
+  top: number
+  left: number
+}
+
 function toRect(rect: DOMRect | Rect): Rect {
   return {
     top: rect.top,
@@ -82,4 +92,71 @@ export function visibleRect(
   const visible = intersect(box, clip)
   if (visible.width <= 0 || visible.height <= 0) return undefined
   return visible
+}
+
+export interface AskPlacement {
+  target: Rect
+  controls: readonly Rect[]
+  viewport: Rect
+  size: Size
+  gap: number
+  inset: number
+}
+
+function clearsControls(
+  point: Point,
+  size: Size,
+  viewport: Rect,
+  controls: readonly Rect[],
+  inset: number,
+): boolean {
+  if (
+    point.left < inset ||
+    point.top < inset ||
+    point.left + size.width > viewport.right - inset ||
+    point.top + size.height > viewport.bottom - inset
+  )
+    return false
+  return controls.every(
+    (control) =>
+      point.left + size.width <= control.left ||
+      point.left >= control.right ||
+      point.top + size.height <= control.top ||
+      point.top >= control.bottom,
+  )
+}
+
+// Picks where the Ask affordance sits relative to its target. The four
+// candidates are the target's right, left, top, and bottom edges in that order;
+// the first one inside the inset viewport that overlaps no measured control
+// wins. Undefined means no candidate is both on screen and clear, and a caller
+// that renders nothing for undefined keeps Ask from covering a control when a
+// crowded page leaves no room.
+export function placeAsk({
+  target,
+  controls,
+  viewport,
+  size,
+  gap,
+  inset,
+}: AskPlacement): Point | undefined {
+  const maxLeft = viewport.right - inset - size.width
+  const maxTop = viewport.bottom - inset - size.height
+  const alignedRight = Math.min(
+    Math.max(target.right - size.width, inset),
+    maxLeft,
+  )
+  const alignedMiddle = Math.min(
+    Math.max(target.top + (target.height - size.height) / 2, inset),
+    maxTop,
+  )
+  const candidates: Point[] = [
+    { top: alignedMiddle, left: target.right + gap },
+    { top: alignedMiddle, left: target.left - gap - size.width },
+    { top: target.top - gap - size.height, left: alignedRight },
+    { top: target.bottom + gap, left: alignedRight },
+  ]
+  return candidates.find((candidate) =>
+    clearsControls(candidate, size, viewport, controls, inset),
+  )
 }
