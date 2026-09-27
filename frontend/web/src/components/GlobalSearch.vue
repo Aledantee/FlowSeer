@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { UiTooltip } from '../ui'
-import ScrollArea from './ScrollArea.vue'
-import { computed, nextTick, onMounted, onUnmounted, ref, useId } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import {
+  type UiCommandItemSelectEvent,
+  UiCommandDialog,
+  UiCommandEmpty,
+  UiCommandGroup,
+  UiCommandInput,
+  UiCommandItem,
+  UiCommandList,
+  UiTooltip,
+} from '../ui'
 import type { Device } from '../domain/fleet'
-import { searchAll } from '../domain/search'
+import { sites, tenants } from '../domain/fleet'
 import type { ResultKind, SearchResult } from '../domain/search'
+import { searchAll } from '../domain/search'
 import AppIcon from './AppIcon.vue'
 import { clearRecent, loadRecent, rememberRecent } from './recentSearches'
-import { sites, tenants } from '../domain/fleet'
 
 export interface SearchPage {
   id: string
@@ -15,23 +23,23 @@ export interface SearchPage {
   detail: string
   icon: string
 }
+
 const props = defineProps<{
   fleet: Device[]
-  // Workspace pages and docked tabs, offered alongside fleet objects.
   pages: SearchPage[]
   canSplit: boolean
 }>()
+
 const emit = defineEmits<{
   select: [result: SearchResult, beside: boolean]
   dock: [result: SearchResult]
 }>()
-const id = useId()
-const dialog = ref<HTMLDialogElement>()
-const input = ref<HTMLInputElement>()
+
+const open = ref(false)
 const query = ref('')
-const active = ref(0)
 const recent = ref<SearchResult[]>([])
-// A remembered result is offered only while what it points at still exists.
+const selectedValue = ref('')
+
 function exists(result: SearchResult) {
   if (result.kind === 'page')
     return props.pages.some((page) => page.id === result.id)
@@ -42,7 +50,9 @@ function exists(result: SearchResult) {
     result.kind === 'client' ? result.id.replace(/-client-\d+$/, '') : result.id
   return props.fleet.some((device) => device.id === deviceId)
 }
+
 const showingRecent = computed(() => !query.value.trim())
+
 const pageMatches = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return props.pages
@@ -57,11 +67,13 @@ const pageMatches = computed(() => {
       detail: page.detail,
     }))
 })
+
 const results = computed(() =>
   showingRecent.value
     ? recent.value.filter(exists)
     : [...pageMatches.value, ...searchAll(query.value, props.fleet)],
 )
+
 const groups: { kind: ResultKind; label: string; icon: string }[] = [
   { kind: 'page', label: 'Pages', icon: 'dashboard' },
   { kind: 'tenant', label: 'Tenants', icon: 'tenants' },
@@ -70,6 +82,7 @@ const groups: { kind: ResultKind; label: string; icon: string }[] = [
   { kind: 'client', label: 'Clients', icon: 'clients' },
   { kind: 'interface', label: 'Interfaces', icon: 'switch' },
 ]
+
 const grouped = computed(() =>
   showingRecent.value
     ? results.value.length
@@ -78,48 +91,44 @@ const grouped = computed(() =>
             kind: 'recent',
             label: 'Recent',
             icon: 'search',
-            items: results.value.map((result, index) => ({ result, index })),
+            items: results.value,
           },
         ]
       : []
     : groups
         .map((group) => ({
           ...group,
-          items: results.value
-            .map((result, index) => ({ result, index }))
-            .filter(({ result }) => result.kind === group.kind),
+          items: results.value.filter((result) => result.kind === group.kind),
         }))
         .filter((group) => group.items.length),
 )
+
 const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'
 
-async function open() {
+function openSearch() {
   query.value = ''
-  active.value = 0
   recent.value = loadRecent()
-  dialog.value?.showModal()
-  await nextTick()
-  input.value?.focus()
+  open.value = true
 }
-// Shift, Cmd, or Ctrl with Enter or a click opens the result beside the
-// current page.
+
+function resultKey(result: SearchResult): string {
+  return `${result.kind}:${result.id}:${result.port ?? ''}`
+}
+
 function choose(result: SearchResult | undefined, beside = false) {
   if (!result) return
-  dialog.value?.close()
+  open.value = false
   recent.value = rememberRecent(result)
   emit('select', result, beside && props.canSplit)
 }
-// Alt with Enter, or the row's dock button, keeps the result for later
-// without leaving the current page.
+
 function dock(result: SearchResult | undefined) {
   if (!result) return
-  dialog.value?.close()
+  open.value = false
   recent.value = rememberRecent(result)
   emit('dock', result)
 }
-function modified(event: KeyboardEvent | MouseEvent) {
-  return event.shiftKey || event.metaKey || event.ctrlKey
-}
+
 function iconFor(result: SearchResult, fallback: string) {
   if (result.kind === 'page')
     return props.pages.find((page) => page.id === result.id)?.icon ?? fallback
@@ -127,30 +136,43 @@ function iconFor(result: SearchResult, fallback: string) {
     ? (groups.find((group) => group.kind === result.kind)?.icon ?? fallback)
     : fallback
 }
+
 function forget() {
   clearRecent()
   recent.value = []
-  input.value?.focus()
 }
-function keydown(event: KeyboardEvent) {
-  const count = results.value.length
-  if (event.key === 'ArrowDown' && count)
-    active.value = (active.value + 1) % count
-  else if (event.key === 'ArrowUp' && count)
-    active.value = (active.value - 1 + count) % count
-  else if (event.key === 'Enter' && event.altKey)
-    dock(results.value[active.value])
-  else if (event.key === 'Enter')
-    choose(results.value[active.value], modified(event))
-  else return
+
+function handleItemSelect(
+  result: SearchResult,
+  event: UiCommandItemSelectEvent,
+) {
+  const beside = event.shiftKey || event.metaKey || event.ctrlKey
+  choose(result, beside)
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  const modified =
+    event.altKey || event.shiftKey || event.metaKey || event.ctrlKey
+  if (event.key !== 'Enter' || !modified) return
+
+  const root = event.currentTarget
+  const highlightedKey =
+    root instanceof HTMLElement
+      ? root.querySelector<HTMLElement>(
+          '[role="option"][data-highlighted][data-command-value]',
+        )?.dataset.commandValue
+      : undefined
+  const target =
+    results.value.find((result) => resultKey(result) === highlightedKey) ??
+    results.value[0]
+  if (!target) return
+
   event.preventDefault()
-  void nextTick(() =>
-    dialog.value
-      ?.querySelector(`#${CSS.escape(`${id}-${active.value}`)}`)
-      ?.scrollIntoView({ block: 'nearest' }),
-  )
+  event.stopPropagation()
+  if (event.altKey) dock(target)
+  else choose(target, true)
 }
-// ⌘K / Ctrl K anywhere, and "/" when focus is not in a text field.
+
 function shortcutKey(event: KeyboardEvent) {
   const typing =
     event.target instanceof HTMLInputElement ||
@@ -161,125 +183,119 @@ function shortcutKey(event: KeyboardEvent) {
     (event.key === '/' && !typing)
   ) {
     event.preventDefault()
-    if (!dialog.value?.open) void open()
+    if (!open.value) openSearch()
   }
 }
+
 onMounted(() => window.addEventListener('keydown', shortcutKey))
 onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
 </script>
 
 <template>
-  <button class="search-trigger" aria-haspopup="dialog" @click="open">
+  <button class="search-trigger" aria-haspopup="dialog" @click="openSearch">
     <AppIcon name="search" /><span>Search</span><kbd>{{ shortcut }}</kbd>
   </button>
-  <dialog
-    ref="dialog"
-    class="search-dialog"
-    aria-label="Search everything"
-    @click.self="dialog?.close()"
+
+  <UiCommandDialog
+    v-model:open="open"
+    v-model="selectedValue"
+    :ignore-filter="true"
+    @keydown.capture="handleKeydown"
   >
-    <div class="search-panel">
-      <label class="search-field"
-        ><AppIcon name="search" /><input
-          ref="input"
-          v-model="query"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded="true"
-          :aria-controls="`${id}-list`"
-          :aria-activedescendant="
-            results.length ? `${id}-${active}` : undefined
-          "
-          aria-label="Search tenants, sites, devices, clients, and interfaces"
-          placeholder="Search tenants, sites, devices, clients, interfaces…"
-          @input="active = 0"
-          @keydown="keydown"
-      /></label>
-      <ScrollArea class="search-scroll" viewport-class="search-viewport">
-        <div :id="`${id}-list`" role="listbox" class="search-results">
+    <UiCommandInput
+      v-model="query"
+      placeholder="Search tenants, sites, devices, clients, interfaces…"
+      label="Search tenants, sites, devices, clients, and interfaces"
+    />
+    <UiCommandList label="Search results" class="search-scroll">
+      <UiCommandEmpty>
+        <p v-if="query.trim() && !results.length" class="search-empty">
+          Nothing matches “{{ query.trim() }}”.
+        </p>
+        <p v-else class="search-empty">
+          Type a name, IP address, MAC address, or port.
+        </p>
+      </UiCommandEmpty>
+
+      <template v-for="group in grouped" :key="group.kind">
+        <UiCommandGroup
+          :heading="group.kind !== 'recent' ? group.label : undefined"
+        >
           <div
-            v-for="group in grouped"
-            :key="group.kind"
-            role="group"
-            :aria-label="group.label"
+            v-if="group.kind === 'recent'"
+            class="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-muted-foreground"
           >
-            <h3>
-              {{ group.label
-              }}<button
-                v-if="group.kind === 'recent'"
-                class="search-clear"
-                @mousedown.prevent
-                @click="forget"
-              >
-                Clear
-              </button>
-            </h3>
-            <div
-              v-for="{ result, index } in group.items"
-              :id="`${id}-${index}`"
-              :key="`${result.kind}-${result.id}-${result.port ?? ''}`"
-              role="option"
-              :aria-selected="index === active"
-              :class="['search-result', { active: index === active }]"
-              @mousemove="active = index"
+            <span>Recent</span>
+            <button
+              type="button"
+              class="search-clear text-xs text-muted-foreground hover:text-foreground cursor-pointer"
               @mousedown.prevent
-              @click="choose(result, modified($event))"
+              @click="forget"
             >
-              <AppIcon :name="iconFor(result, group.icon)" />
-              <span
-                ><strong>{{ result.title }}</strong
-                ><small>{{ result.detail }}</small></span
-              >
-              <span class="search-result-actions">
-                <UiTooltip
-                  v-if="canSplit"
-                  label="Open side by side"
-                  :shortcut="{ code: 'Enter', shift: true }"
-                  side="left"
-                  inline
-                >
-                  <button
-                    tabindex="-1"
-                    :aria-label="`Open ${result.title} side by side`"
-                    @click.stop="choose(result, true)"
-                  >
-                    <AppIcon name="panel-right" />
-                  </button>
-                </UiTooltip>
-                <UiTooltip
-                  v-if="
-                    !(result.kind === 'page' && result.id.startsWith('tab:'))
-                  "
-                  label="Send to dock"
-                  :shortcut="{ code: 'Enter', alt: true }"
-                  side="left"
-                  inline
-                >
-                  <button
-                    tabindex="-1"
-                    :aria-label="`Send ${result.title} to the dock`"
-                    @click.stop="dock(result)"
-                  >
-                    <AppIcon name="to-dock" />
-                  </button>
-                </UiTooltip>
-              </span>
-            </div>
+              Clear
+            </button>
           </div>
-          <p v-if="query.trim() && !results.length" class="search-empty">
-            Nothing matches “{{ query.trim() }}”.
-          </p>
-          <p v-else-if="!results.length" class="search-empty">
-            Type a name, IP address, MAC address, or port.
-          </p>
-        </div>
-      </ScrollArea>
-      <footer class="search-hints" aria-hidden="true">
-        <span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span
-        ><span v-if="canSplit"><kbd>⇧</kbd><kbd>↵</kbd> side by side</span
-        ><span><kbd>⌥</kbd><kbd>↵</kbd> to dock</span
-        ><span><kbd>esc</kbd> close</span>
-      </footer>
-    </div>
-  </dialog>
+
+          <UiCommandItem
+            v-for="result in group.items"
+            :key="resultKey(result)"
+            :value="resultKey(result)"
+            class="search-result"
+            @select="handleItemSelect(result, $event)"
+          >
+            <AppIcon :name="iconFor(result, group.icon)" />
+            <span>
+              <strong>{{ result.title }}</strong>
+              <small>{{ result.detail }}</small>
+            </span>
+            <span class="search-result-actions ml-auto flex items-center gap-1">
+              <UiTooltip
+                v-if="canSplit"
+                label="Open side by side"
+                :shortcut="{ code: 'Enter', shift: true }"
+                side="left"
+                inline
+              >
+                <button
+                  type="button"
+                  tabindex="-1"
+                  :aria-label="`Open ${result.title} side by side`"
+                  @click.stop="choose(result, true)"
+                >
+                  <AppIcon name="panel-right" />
+                </button>
+              </UiTooltip>
+              <UiTooltip
+                v-if="!(result.kind === 'page' && result.id.startsWith('tab:'))"
+                label="Send to dock"
+                :shortcut="{ code: 'Enter', alt: true }"
+                side="left"
+                inline
+              >
+                <button
+                  type="button"
+                  tabindex="-1"
+                  :aria-label="`Send ${result.title} to the dock`"
+                  @click.stop="dock(result)"
+                >
+                  <AppIcon name="to-dock" />
+                </button>
+              </UiTooltip>
+            </span>
+          </UiCommandItem>
+        </UiCommandGroup>
+      </template>
+    </UiCommandList>
+
+    <footer
+      class="search-hints flex items-center gap-3 border-t border-border px-3 py-2 text-xs text-muted-foreground"
+      aria-hidden="true"
+    >
+      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+      <span><kbd>↵</kbd> open</span>
+      <span v-if="canSplit"><kbd>⇧</kbd><kbd>↵</kbd> side by side</span>
+      <span><kbd>⌥</kbd><kbd>↵</kbd> to dock</span>
+      <span><kbd>esc</kbd> close</span>
+    </footer>
+  </UiCommandDialog>
 </template>

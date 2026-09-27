@@ -76,7 +76,8 @@ separate entry that only the new `src/ui/` code imports.
   every pair in both themes (checked 2026-09-26 with the U2 conversion).
   The alternative, regenerating the light
   scales against the darker canvas, is a manual Radix-tool session that
-  this phase does not take on. See Open questions.
+  this phase does not take on. The user kept the lighter canvas on
+  2026-09-27 after the before and after screenshots.
 - Legacy tokens are renamed in one sweep, following the table below, with
   no aliases. Why: the parent plan's rename decision.
 
@@ -441,9 +442,4 @@ user's judgment on the Open question, not a pass or fail check. Run
 
 ## Open questions
 
-- Is the lighter light canvas acceptable, or should the light scales be
-  regenerated in the Radix tool against `#BEC3CA` so that the old canvas
-  survives? The implementer shows the before and after screenshots and
-  asks the user before U3 lands.
-  Settled: Decisions already chose the lighter canvas (`neutral-5`). Computed
-  styles verified layout neutrality, and before/after screenshots were captured.
+- None.

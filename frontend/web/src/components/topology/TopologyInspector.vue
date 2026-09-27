@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import ScrollArea from '../ScrollArea.vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AppLink from '../../navigation/AppLink.vue'
 import { scopeOf, usePage } from '../../navigation/page'
 import AppIcon from '../AppIcon.vue'
 import DeviceIcon from '../DeviceIcon.vue'
 import TrafficSparkline from '../TrafficSparkline.vue'
-import { UiStatusBadge } from '../../ui'
+import { UiMeter, UiScrollArea, UiStatusBadge } from '../../ui'
 import DevicePorts from '../DevicePorts.vue'
-import ResourceMeter from '../ResourceMeter.vue'
 import {
   linkDetailsOf,
   portDetailsOf,
@@ -140,7 +138,7 @@ function deviceLink(id: string) {
         <AppIcon name="close" />
       </button>
     </header>
-    <ScrollArea viewport-class="inspector-viewport">
+    <UiScrollArea viewport-class="inspector-viewport">
       <template v-if="device && telemetry">
         <dl>
           <div>
@@ -180,10 +178,10 @@ function deviceLink(id: string) {
           class="topology-inspector-section"
         >
           <h3>Resources</h3>
-          <ResourceMeter label="CPU" :percent="telemetry.cpu" />
-          <ResourceMeter
+          <UiMeter label="CPU" :value="telemetry.cpu" />
+          <UiMeter
             label="Memory"
-            :percent="telemetry.memory"
+            :value="telemetry.memory"
             :detail="`${telemetry.memoryTotal / 1024} GB`"
           />
           <p class="topology-inspector-note">
@@ -299,9 +297,9 @@ function deviceLink(id: string) {
           />
         </section>
         <section class="topology-inspector-section">
-          <ResourceMeter
+          <UiMeter
             label="Utilization"
-            :percent="details.utilization"
+            :value="details.utilization"
             :detail="`of ${link.capacity.toLocaleString()} Mbps`"
           />
         </section>
@@ -422,6 +420,6 @@ function deviceLink(id: string) {
           /></AppLink>
         </template>
       </footer>
-    </ScrollArea>
+    </UiScrollArea>
   </aside>
 </template>

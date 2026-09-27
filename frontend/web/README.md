@@ -125,13 +125,62 @@ or `data-theme="dark"`), accessibility auditing (`@storybook/addon-a11y`), and s
 - **Colors**: renders every semantic token, its active theme step, and WCAG contrast audit against gated surfaces
 - **Typography**: renders the type scale steps (`2xs` through `3xl`) across Inter, Mono, and tabular figures
 - **Shape**: renders border radii, card elevation shadows, and spacing steps 1 to 8
-- **Components**: 16 design system components under `src/ui/` (buttons, badges, spinners, cards, tooltips, separators, kbd, and form controls) with CSF 3 stories and automated WCAG 2.1 AA checks via `axe-core`
+- **Components**: 23 design system components under `src/ui/` covering actions, inputs, feedback, and data presentation with CSF 3 stories and automated WCAG 2.1 AA checks via `axe-core`
 
 To build the static Storybook bundle:
 
 ```sh
 pnpm build-storybook
 ```
+
+### Data display components
+
+Data display components under `src/ui/` present tables, metrics, and progress:
+
+- `UiTable` suite: composable table with `UiTableHeader`, `UiTableBody`, `UiTableRow`, `UiTableHead`, `UiTableCell`, and `UiTableEmpty`. Provides `dense` compact padding, `stickyHeader` pinning, controlled sorting with `aria-sort`, and selected row states.
+- `UiEmptyState`: centered state indicator with `#icon`, title, description, and action buttons for empty filters or searches.
+- `UiSkeleton`: placeholder shape with `text`, `circular`, and `rectangular` variants, respecting `prefers-reduced-motion`.
+- `UiMeter`: single-metric resource gauge with automated threshold tones (`warning` at 75%, `critical` at 90%) and ARIA `role="meter"` attributes.
+- `UiSegmentedMeter`: multi-segment status bar for health distributions, computing accessible summary descriptions and optional dot legends.
+- `UiProgress`: determinate and indeterminate progress bars wrapping Reka UI with semantic status variants.
+- `UiPagination`: page navigation wrapping Reka UI with first, previous, page number, ellipsis, and next controls.
+
+### Overlay, navigation, and command components
+
+Overlay, navigation, and command primitives under `src/ui/` wrap Reka UI headless components styled with semantic tokens:
+
+- `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, and keyboard escape dismissal.
+- `UiPopover`: floating popover anchored to triggers with configurable alignment and collision padding.
+- `UiDropdownMenu` suite: dropdown action menus with nested submenus, roving focus, keyboard navigation, and separators (`UiDropdownMenuItem`, `UiDropdownMenuSeparator`).
+- `UiTabs`: a single tab container that creates accessible triggers and panels from the `tabs` prop. Use `v-model` for controlled selection or `defaultValue` for initial selection; `trigger-${value}` and `${value}` slots replace a tab's label and panel content.
+- `UiBreadcrumb` suite: hierarchical breadcrumb navigation (`UiBreadcrumbList`, `UiBreadcrumbItem`, `UiBreadcrumbLink`, `UiBreadcrumbPage`, `UiBreadcrumbSeparator`, `UiBreadcrumbEllipsis`) featuring responsive auto-collapsing of intermediate links into a dropdown menu on narrow viewports.
+- `UiScrollArea` suite: custom-styled scroll containers wrapping Reka ScrollArea primitives, exposing underlying viewport element references for programmatic scrolling.
+- `UiToast` suite: reactive notification toasts with variants (`default`, `success`, `warning`, `danger`), auto-dismissal, and `useToast` dispatch composable.
+- `UiCombobox`: searchable select combobox with option grouping, avatar icons, keyboard roving focus, and custom trigger slots.
+- `UiCommand` suite: command palette primitives (`UiCommand`, `UiCommandDialog`, `UiCommandInput`, `UiCommandList`, `UiCommandEmpty`, `UiCommandGroup`, `UiCommandItem`, `UiCommandSeparator`, `UiCommandShortcut`) supporting modal presentation and custom filtering.
+
+```vue
+<script setup lang="ts">
+import { UiTabs } from './ui'
+
+const tabs = [
+  { value: 'overview', label: 'Overview', content: 'Current fleet status' },
+  { value: 'alerts', label: 'Alerts', content: 'Open alerts' },
+]
+</script>
+
+<template>
+  <UiTabs default-value="overview" :tabs="tabs" />
+</template>
+```
+
+Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
+
+### Chart color tokens and accessibility
+
+Data visualizations consume 6 categorical tokens (`--chart-1` through `--chart-6`), mapped across cyan, coral, violet, green, amber, and blue. Each token maintains at least 3:1 contrast against card and panel surfaces for non-text graphical elements.
+
+Color alone never conveys information. Line and area charts include visible text labels, direct series legends, and a keyboard-navigable fallback `<table>` for screen readers.
 
 ### Mobile direction
 

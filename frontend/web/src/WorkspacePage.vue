@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import ScrollArea from './components/ScrollArea.vue'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import DashboardView from './DashboardView.vue'
 import DeviceView from './DeviceView.vue'
 import ClientsView from './ClientsView.vue'
-import { UiMetricCard, UiStatusBadge, UiTooltip } from './ui'
+import {
+  UiMetricCard,
+  UiScrollArea,
+  UiStatusBadge,
+  UiTable,
+  UiTableBody,
+  UiTableCell,
+  UiTableHead,
+  UiTableHeader,
+  UiTableRow,
+  UiTooltip,
+} from './ui'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import AppLink from './navigation/AppLink.vue'
@@ -306,52 +316,56 @@ function rememberList(event: MouseEvent) {
             </AppLink>
           </li>
         </ul>
-        <ScrollArea axis="x" viewport-class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th :aria-sort="ascending ? 'ascending' : 'descending'">
-                  <button class="sort-button" @click="ascending = !ascending">
-                    Device name {{ ascending ? '↑' : '↓' }}
-                  </button>
-                </th>
-                <th>Status</th>
-                <th>Site / tenant</th>
-                <th>IP address</th>
-                <th class="numeric">Clients</th>
-                <th class="numeric">Traffic</th>
-                <th><span class="sr-only">Details</span></th>
-              </tr>
-            </thead>
-            <tbody @click.capture="rememberList">
-              <tr
+        <UiScrollArea axis="x" viewport-class="table-scroll">
+          <UiTable>
+            <UiTableHeader>
+              <UiTableRow>
+                <UiTableHead
+                  sortable
+                  :sort-direction="ascending ? 'ascending' : 'descending'"
+                  @sort="ascending = !ascending"
+                >
+                  Device name
+                </UiTableHead>
+                <UiTableHead>Status</UiTableHead>
+                <UiTableHead>Site / tenant</UiTableHead>
+                <UiTableHead>IP address</UiTableHead>
+                <UiTableHead align="numeric">Clients</UiTableHead>
+                <UiTableHead align="numeric">Traffic</UiTableHead>
+                <UiTableHead><span class="sr-only">Details</span></UiTableHead>
+              </UiTableRow>
+            </UiTableHeader>
+            <UiTableBody @click.capture="rememberList">
+              <UiTableRow
                 v-for="device in filtered"
                 :key="device.id"
                 :class="{
                   peeked: page.primary && sideDeviceId === device.id,
                 }"
               >
-                <td>
+                <UiTableCell>
                   <AppLink class="device-button" :to="deviceLink(device)">
                     <DeviceIcon :role="device.role" /><span
                       ><strong>{{ device.name }}</strong
                       ><small>{{ device.kind }}</small></span
                     >
                   </AppLink>
-                </td>
-                <td>
+                </UiTableCell>
+                <UiTableCell>
                   <UiStatusBadge :status="device.health" />
-                </td>
-                <td>
+                </UiTableCell>
+                <UiTableCell>
                   <span class="site-name">{{ siteName(device.siteId) }}</span
                   ><small>{{ tenantName(device.siteId) }}</small>
-                </td>
-                <td class="mono">{{ device.address }}</td>
-                <td class="numeric">{{ device.clients || '—' }}</td>
-                <td class="numeric traffic">
+                </UiTableCell>
+                <UiTableCell mono>{{ device.address }}</UiTableCell>
+                <UiTableCell align="numeric">{{
+                  device.clients || '—'
+                }}</UiTableCell>
+                <UiTableCell align="numeric" class="traffic">
                   {{ device.throughput }} <span>Mbps</span>
-                </td>
-                <td class="row-actions">
+                </UiTableCell>
+                <UiTableCell class="row-actions">
                   <UiTooltip
                     label="Peek beside"
                     hint="Shift-click a name does the same; ↑ ↓ step through the list, Esc closes."
@@ -371,17 +385,17 @@ function rememberList(event: MouseEvent) {
                   >
                     <AppIcon name="arrow" />
                   </AppLink>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </UiTableCell>
+              </UiTableRow>
+            </UiTableBody>
+          </UiTable>
           <div v-if="!filtered.length" class="empty">
             <AppIcon name="search" />
             <h3>No devices match this view</h3>
             <p>Try a different search, status, or site.</p>
             <button @click="resetFilters">Reset all filters</button>
           </div>
-        </ScrollArea>
+        </UiScrollArea>
         <footer class="table-footer">
           <span
             >Showing {{ filtered.length }} of {{ scope.length }} devices</span

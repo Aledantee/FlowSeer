@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-const props = defineProps<{ values: number[]; label: string }>()
+
+export type ChartColor =
+  'chart-1' | 'chart-2' | 'chart-3' | 'chart-4' | 'chart-5' | 'chart-6'
+
+export interface TrafficSparklineProps {
+  values: number[]
+  label: string
+  color?: ChartColor
+}
+
+const props = withDefaults(defineProps<TrafficSparklineProps>(), {
+  color: 'chart-1',
+})
+
 const WIDTH = 240
 const HEIGHT = 44
 const line = computed(() => {
@@ -14,6 +27,11 @@ const line = computed(() => {
     )
     .join('')
 })
+
+const strokeColor = computed(() => `var(--${props.color})`)
+const fillColor = computed(
+  () => `color-mix(in srgb, var(--${props.color}) 14%, transparent)`,
+)
 </script>
 
 <template>
@@ -28,7 +46,13 @@ const line = computed(() => {
       v-if="values.length > 1"
       :d="`${line}L${WIDTH},${HEIGHT}L0,${HEIGHT}Z`"
       class="sparkline-area"
+      :style="{ fill: fillColor }"
     />
-    <path v-if="values.length > 1" :d="line" class="sparkline-line" />
+    <path
+      v-if="values.length > 1"
+      :d="line"
+      class="sparkline-line"
+      :style="{ stroke: strokeColor }"
+    />
   </svg>
 </template>

@@ -76,6 +76,16 @@ function step(event: KeyboardEvent) {
 <template>
   <figure class="traffic-chart">
     <div
+      class="traffic-legend flex items-center gap-2 text-xs text-muted-foreground mb-2"
+    >
+      <span
+        class="inline-block w-3 h-0.5 rounded-full"
+        style="background-color: var(--chart-1)"
+        aria-hidden="true"
+      />
+      <span class="font-medium text-foreground">{{ label }}</span>
+    </div>
+    <div
       ref="frame"
       class="traffic-frame"
       tabindex="0"

@@ -125,22 +125,21 @@
   font-variant-numeric: tabular-nums;
 }
 .traffic-area {
-  fill: var(--accent-foreground);
-  opacity: 0.12;
+  fill: color-mix(in srgb, var(--chart-1) 12%, transparent);
 }
 .traffic-line {
   fill: none;
-  stroke: var(--accent-foreground);
+  stroke: var(--chart-1);
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 .traffic-crosshair {
-  stroke: var(--muted-foreground);
+  stroke: var(--chart-1);
   stroke-width: 1;
 }
 .traffic-dot {
-  fill: var(--accent-foreground);
+  fill: var(--chart-1);
   stroke: var(--card);
   stroke-width: 2;
 }
