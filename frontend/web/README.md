@@ -50,7 +50,9 @@ with a way back, never an empty scope reported as healthy. Offline devices show
 status** keeps the tenant and site.
 
 The Devices page lists offline and degraded devices first, and sorts by status,
-name, or site. It supports search, a status filter (including **Needs
+name, site, or **Last answered**, which shows how long ago each device last
+answered a poll so that a device offline for minutes and one offline for days
+look different. It supports search, a status filter (including **Needs
 attention**), and a keyboard-accessible details dialog. The metric cards appear
 only on the Dashboard; other pages state the scope and attention count in the
 heading. Sites opens the inventory for a location.

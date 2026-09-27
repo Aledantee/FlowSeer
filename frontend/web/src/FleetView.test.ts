@@ -91,4 +91,17 @@ describe('fleet view', () => {
     )
     expect(host.querySelector('.nav-count')?.textContent?.trim()).toBe('4')
   })
+  it('shows how long ago each device last answered and sorts the stalest first', async () => {
+    const { host } = await mountAt('/devices')
+    const header = [...host.querySelectorAll('th button')].find((item) =>
+      item.textContent?.includes('Last answered'),
+    ) as HTMLButtonElement | undefined
+    header?.click()
+    await nextTick()
+    const first = host.querySelector('tbody tr')
+    expect(first?.querySelector('strong')?.textContent).toBe('cologne-ap-02')
+    expect(first?.querySelector('.seen')?.textContent?.trim()).toBe(
+      '38 min ago',
+    )
+  })
 })

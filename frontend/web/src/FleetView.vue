@@ -65,7 +65,7 @@ const move = ref<Move>()
 const detail = ref<HTMLDialogElement>()
 const selected = ref<Device>()
 const destination = ref('')
-type SortKey = 'status' | 'name' | 'site'
+type SortKey = 'status' | 'name' | 'site' | 'seen'
 // Problems sort first by default so an operator never scrolls past healthy
 // devices to find the one that needs attention.
 const sortKey = ref<SortKey>('status')
@@ -167,7 +167,9 @@ const filtered = computed(() =>
         ? severity[a.health] - severity[b.health]
         : sortKey.value === 'site'
           ? siteName(a.siteId).localeCompare(siteName(b.siteId))
-          : 0
+          : sortKey.value === 'seen'
+            ? b.lastSeenMinutes - a.lastSeenMinutes
+            : 0
     return (ascending.value ? 1 : -1) * (order || a.name.localeCompare(b.name))
   }),
 )
@@ -688,8 +690,8 @@ onUnmounted(() => {
                       <strong>{{ device.name }}</strong>
                       <StatusBadge :status="device.health" />
                       <small
-                        >{{ siteName(device.siteId) }} ·
-                        {{ device.address }}</small
+                        >{{ siteName(device.siteId) }} · {{ device.address }} ·
+                        answered {{ formatAgo(device.lastSeenMinutes) }}</small
                       >
                       <span class="mobile-device-action"
                         >View status <AppIcon name="arrow"
@@ -705,6 +707,7 @@ onUnmounted(() => {
                           v-for="column in [
                             { key: 'name', label: 'Device name' },
                             { key: 'status', label: 'Status' },
+                            { key: 'seen', label: 'Last answered' },
                             { key: 'site', label: 'Site / tenant' },
                           ] as const"
                           :key="column.key"
@@ -755,6 +758,9 @@ onUnmounted(() => {
                         </td>
                         <td>
                           <StatusBadge :status="device.health" />
+                        </td>
+                        <td class="seen">
+                          {{ formatAgo(device.lastSeenMinutes) }}
                         </td>
                         <td>
                           <span class="site-name">{{

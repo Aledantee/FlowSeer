@@ -663,6 +663,10 @@ td small {
 .site-name {
   font-weight: 450;
 }
+.seen {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
 .mono {
   font-family: var(--font-mono);
   font-size: 11px;
