@@ -17,6 +17,14 @@ import type { ResultKind, SearchResult } from '../domain/search'
 import { searchAll } from '../domain/search'
 import AppIcon from './AppIcon.vue'
 import { clearRecent, loadRecent, rememberRecent } from './recentSearches'
+import {
+  SHORTCUTS,
+  isMac,
+  keysOf,
+  matches,
+  modalOpen,
+  typingIn,
+} from '../navigation/shortcuts'
 
 export interface SearchPage {
   id: string
@@ -104,7 +112,9 @@ const grouped = computed(() =>
         .filter((group) => group.items.length),
 )
 
-const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'
+const shortcut = computed(() =>
+  keysOf(SHORTCUTS.search).join(isMac() ? '' : ' '),
+)
 
 function openSearch() {
   query.value = ''
@@ -174,13 +184,21 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 function shortcutKey(event: KeyboardEvent) {
-  const typing =
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLTextAreaElement ||
-    event.target instanceof HTMLSelectElement
+  if (!open.value && modalOpen()) return
+
+  if (matches(event, SHORTCUTS.search)) {
+    event.preventDefault()
+    if (!open.value) openSearch()
+    return
+  }
+
   if (
-    (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) ||
-    (event.key === '/' && !typing)
+    event.key === '/' &&
+    !event.shiftKey &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !typingIn(event.target)
   ) {
     event.preventDefault()
     if (!open.value) openSearch()

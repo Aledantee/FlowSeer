@@ -33,7 +33,13 @@ import {
   UiTooltip,
 } from './ui'
 import { TooltipProvider } from 'reka-ui'
-import { SHORTCUTS, dockTabShortcut, matches } from './navigation/shortcuts'
+import {
+  SHORTCUTS,
+  dockTabShortcut,
+  matches,
+  modalOpen,
+  typingIn,
+} from './navigation/shortcuts'
 import { usePanes } from './navigation/panes'
 import type { SlotId } from './navigation/panes'
 import AppLink from './navigation/AppLink.vue'
@@ -690,24 +696,6 @@ onUnmounted(() => stopResize?.())
 // Workspace shortcuts, from the registry the tooltips read. While a peek is
 // open the arrow keys step through the list that opened it and Escape closes
 // it.
-function typingIn(target: EventTarget | null) {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  )
-}
-function modalOpen() {
-  const dialogs = document.querySelectorAll<HTMLElement>(
-    '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
-  )
-  // Reka popovers also use role="dialog", but their content is nonmodal and
-  // lives inside the library's popper wrapper.
-  return [...dialogs].some(
-    (dialog) => !dialog.closest('[data-reka-popper-content-wrapper]'),
-  )
-}
 function workspaceKey(event: KeyboardEvent) {
   if (modalOpen()) return
   const run = (action: () => unknown) => {
