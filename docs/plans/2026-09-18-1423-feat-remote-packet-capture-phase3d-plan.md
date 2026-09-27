@@ -3,8 +3,10 @@ title: Remote Packet Capture Phase 3d, Lab Validation - Plan
 type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_readiness: implementation-ready
+status: implemented
+review: accept after fixes
+compound: docs/solutions/conventions/bpf-rawinstruction-never-satisfies-newvm.md
 execution: code
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 ---
@@ -13,25 +15,28 @@ parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 
 > Re-planned 2026-09-27 against the current tree: U3c is landed
 > (`4fdd8897..7144a6a6`, an ancestor of the re-plan branch), and the user
-> reports the ICX7150 and a MikroTik online. The read-only investigation added
-> here found that the two lab facts the phase turns on — a MikroTik that can
-> emit TZSP and a proven ICX7150 SPAN destination with its cabling to an edge
-> interface — are established by no evidence in the repository. The phase is
-> blocked on those facts rather than on code; the code it would validate is
-> landed and nothing in the tree can produce the hardware evidence.
+> reports the ICX7150 and a MikroTik online. A later live LLDP read confirmed
+> Kali `eth0` is cabled to ICX7150 port `1/1/2`, while `eth1.1000` keeps Kali's
+> management address. A temporary physical SPAN session produced a valid local
+> pcapng through the FlowSeer capture module. A parallel tcpdump comparison
+> exposed missing 802.1Q tags and a VLAN-filter failure; the local source was
+> corrected and the physical comparison repeated successfully. EVE-NG's
+> virtual RouterOS streamed TZSP to Kali; all 36 decoded frames matched
+> tcpdump's TZSP payloads byte for byte. The user ruled that this satisfies
+> the TZSP protocol check. Compatibility with a particular physical MikroTik
+> and firmware release is a separate question.
 
 ## Goal
 
-The capture path is validated against the two lab facts the containerised
-senders in U2 and the live-central harness in U3c cannot reach: an ICX7150
-local SPAN into the edge's capture interface, and a MikroTik TZSP stream to the
-edge's receiver, each producing an artifact `capinfos` reads. The means is a
-recorded lab run under the usual device-write approval, capturing what a
-shipping mirroring ASIC puts on the wire. This phase is complete when both runs
-have produced an artifact and the interoperability gap the parent's Verification
-names — no shipping-ASIC bytes exercising a mirror decapsulator — is closed for
-the local-SPAN and TZSP paths, and honestly restated for the ERSPAN path it
-still does not cover.
+Validate two capture paths the containerised senders in U2 and the
+live-central harness in U3c cannot directly observe: a physical ICX7150
+local SPAN into Kali's capture interface, and a RouterOS TZSP stream over
+the lab network into Kali's receiver. Each run produces a local pcapng artifact
+that `capinfos` reads, and an independent tcpdump capture agrees on the
+corresponding Ethernet frames. The physical ICX run proves the local SPAN
+path; EVE-NG's virtual RouterOS proves the TZSP protocol path. Neither
+establishes compatibility with a particular physical MikroTik firmware
+release or a hardware ERSPAN sender.
 
 ## Decisions
 
@@ -39,20 +44,35 @@ The parent plan's Decisions apply. What this phase decides when re-planned:
 
 - Which lab devices are in the run and what each one proves. The lab's
   ICX7150-24-POE is the FastIron model without ERSPAN, so it exercises the
-  local-interface source through local SPAN; the MikroTik exercises the TZSP
-  receiver. Neither produces ERSPAN, and none is borrowed for it, so ERSPAN
-  interoperability stays proven only against golden pcaps and containerised
-  senders — stated in the handoff rather than papered over.
-- The mirror-session setup on each device is by hand and is a device write,
-  so it needs the advance notice and approval the lab runbook requires; the
-  capture path itself is read-only from the device's point of view.
+  local-interface source through local SPAN. EVE-NG's virtual `LABSW34` runs
+  RouterOS 7.17 and exercises the TZSP receiver. Neither produces ERSPAN;
+  its interoperability stays proven only against fixtures and containerised
+  senders.
+- The ICX mirror session and RouterOS sniffer setup are device writes, so
+  each needs approval before the live run. The capture path itself is
+  read-only from each device's point of view.
+- Kali `labtest` is the proposed edge host. On 2026-09-27 the user moved its
+  `eth0` cable to ICX7150 port `1/1/2`; a live LLDP read confirmed that link,
+  while `eth1.1000` remained the management route. The local SPAN run uses
+  `eth0` as the capture interface so its destination is separate from the
+  management path.
+- Ruled: the local capture source applies cBPF after restoring a VLAN tag
+  stripped by receive offload, replacing Phase 2's kernel-attached filter.
+  Why: the live VLAN 1000 filter accepted zero packets when attached before
+  reconstruction, and captured the mirrored traffic after the change. Cost if
+  wrong: filtering in the capture process may raise drop rates on a busy SPAN
+  port; an offload-aware kernel filter would be needed to recover that margin.
+- On 2026-09-27 the user ruled that a successful EVE-NG RouterOS run satisfies
+  this phase's TZSP protocol check. Physical CRS317 validation is a separate
+  compatibility check if support for its RouterOS 6.49 firmware is claimed.
 
 ## Requirements
 
-Carried from the parent: R5 (loss attributable) and R6 (the stored artifact is
-a pcapng `capinfos` reads), each asserted against real hardware rather than a
-synthetic frame, and the parent's Verification lab check that R3's
-decapsulation holds for the TZSP path on real wire.
+For the lab portions of the parent's R5 and R6, record source drop counters
+and check that each local pcapng is readable by `capinfos`. U3c verifies the
+central artifact and streaming counters through its live service and agent
+test. For R3, compare the entire decoded Ethernet frame with the
+corresponding TZSP payload on the wire.
 
 ## Out of scope
 
@@ -60,12 +80,16 @@ decapsulation holds for the TZSP path on real wire.
   reach and the handoff says so.
 - Any device configuration beyond the by-hand mirror sessions the run depends
   on (parent Out of scope: configuring SPAN/RSPAN/ERSPAN on a managed device).
+- Physical CRS317 TZSP interoperability and a live lab upload to central.
+  U3c covers the edge-to-central round trip in its host integration test;
+  this phase checks live packet sources and local artifact fidelity.
 
-## Blockers
+## Device-specific follow-up
 
-Both are facts the run cannot invent and no evidence in the tree supplies.
+The following lab fact matters only if support for the physical CRS317
+running RouterOS 6.49.20 is claimed:
 
-- **The TZSP sender is unidentified.** The lab inventory records two MikroTik
+- **The physical TZSP sender is unidentified.** The lab inventory records two MikroTik
   devices and neither is usable as-is. LABSW02 (`172.16.0.2`) is a CSS326-24G-2S+
   running SwOS v2.18 (`docs/research/device-inventory/lab/labsw02-mikrotik-css326.md:19-20`),
   and SwOS "has no CLI, no API, and no SSH" (`docs/research/device-inventory/targets/mikrotik.md:160-162`);
@@ -85,65 +109,111 @@ Both are facts the run cannot invent and no evidence in the tree supplies.
   record's general claim that "MikroTik streams over TZSP"
   (`docs/architecture/2026-09-09-remote-packet-capture-direction.md:52-53`)
   names no device and settles nothing here.
-- **No SPAN destination port or cabling is proven.** The ICX7150 dossier
-  records port mirroring as "Not checked" (`labsw06-ruckus-icx7150.md:130`).
-  The single topology fact offered — Kali `labtest` (`172.16.0.21`) on ICX port
-  `1/1/12` over `eth1` (`labsw06-ruckus-icx7150.md:148`) — is an LLDP
-  adjacency, not a mirror destination: a SPAN destination port does not carry
-  ordinary host traffic in the way `1/1/12` does, so `eth1` on `1/1/12` cannot
-  be read as the capture interface without a second, spare link. The Kali host's
-  interfaces are `eth0` (on LABSW04 port 8, `labsw04-lancom-gs2326.md:195`),
-  `eth1` (on LABSW06 `1/1/12`), and `eth1.999` for netpen; no spare interface or
-  cable to an ICX mirror port is documented. Which ICX port would be the SPAN
-  destination, and which Kali interface is cabled to it, is unknown.
 
-Neither blocker is a code defect. The engine opens a local interface on
-`interface_name` and a UDP mirror receiver on `udp_port`, both from the
-operator's `CaptureSessionConfig` (`src/modules/capture/engine.go:90-104`), so
-once the sender and the cabling are known the run reduces to a deployment, a
-by-hand mirror session, and the two `capinfos` checks below.
+The engine opens a UDP mirror receiver on `udp_port` from the operator's
+`CaptureSessionConfig` (`src/modules/capture/engine.go:90-104`). The virtual
+RouterOS run establishes TZSP decoding without resolving that physical
+device's management address or sniffer capability.
+
+## Lab progress (2026-09-27)
+
+The user approved a temporary ICX7150 SPAN session. Kali's `eth0` was linked to
+ICX port `1/1/2` by LLDP; its management address and default route stayed on
+`eth1.1000` via port `1/1/12`. The switch mirrored both directions of `1/1/12`
+to `1/1/2`. A Linux build of the FlowSeer capture module ran on Kali with
+`interface_name=eth0`, a 128-byte snap length, and a 100-packet limit. It
+reported 100 accepted packets and zero interface or transport drops. The
+artifact is `/tmp/flowseer-capture-lab-20260927/icx-span-3.pcapng` on Kali.
+`capinfos` recognized it as pcapng with 100 packets and an inferred 128-byte
+packet limit. Standard `tcpdump -nn -r` independently decoded nine consecutive
+ICMP request/reply pairs between Kali (`172.16.0.21`) and its gateway
+(`172.16.0.1`). The ping sent 12 requests successfully; the capture stopped at
+its 100-packet limit, so nine pairs in the artifact do not establish loss.
+The mirror source and destination were removed after the run, and a read-only
+`show mirror` plus running-config check found no mirror configuration.
+
+A second approved mirror run captured both paths in parallel:
+`/tmp/flowseer-capture-lab-20260927/icx-span-tcpdump-live.pcap` (tcpdump) and
+`/tmp/flowseer-capture-lab-20260927/icx-span-flowseer-parallel.pcapng`
+(FlowSeer). Tcpdump recorded 24 ICMP frames (12 request/reply pairs), with
+zero kernel drops. FlowSeer recorded 100 total frames at its packet limit,
+including the first 22 of those ICMP frames (11 pairs), with zero reported
+interface or transport drops. Tcpdump and tshark decoded matching source,
+destination, ICMP identifier, type, and sequence for all 22 shared frames.
+Byte comparison found each tcpdump frame 102 bytes with an 802.1Q VLAN 1000
+tag, and each FlowSeer frame 98 bytes without it. All 22 shared Ethernet
+frames became byte-identical after removing that four-byte tag from the
+tcpdump copy. The missing final pair is explained by FlowSeer's 100-packet
+limit; the ping completed all 12 requests without loss. The mirror was again
+removed, and `show mirror` returned empty.
+
+The first comparison exposed two linked defects: Kali's `ethtool -k eth0`
+reported `rx-vlan-offload: on`, while FlowSeer's `AF_PACKET`/`Recvfrom` source
+had no `PACKET_AUXDATA` handling, and its kernel BPF filter ran before any
+tag could be restored. A VLAN 1000 filter captured zero packets during a
+four-ping live probe even though tcpdump saw the frames. The local source now
+reads the auxiliary VLAN metadata with `Recvmsg`, restores the tag and wire
+length, then evaluates its BPF program against the restored Ethernet frame.
+
+The final approved mirror run captured tcpdump and the corrected FlowSeer
+source in parallel. Tcpdump recorded 24 ICMP frames (12 request/reply pairs),
+zero kernel drops, in
+`/tmp/flowseer-capture-lab-20260927/icx-span-tcpdump-final.pcap` on Kali.
+FlowSeer used a VLAN 1000 filter and recorded 129 frames, including all 24
+ICMP frames, with zero interface or transport drops, in
+`/tmp/flowseer-capture-lab-20260927/icx-span-flowseer-final.pcapng`.
+`capinfos` recognized the pcapng and inferred its 128-byte packet limit;
+tcpdump and tshark decoded all 24 ICMP frames in each artifact. The full
+Ethernet bytes of every matching ICMP frame were identical, including the
+VLAN 1000 tag. The ping reported 12/12 replies, and `show mirror` returned
+empty after the session was removed.
+
+This validates the physical SPAN-to-local-capture path, VLAN fidelity, and
+local pcapng output. The full edge-to-central stored-artifact path has not
+been run in this lab, and no physical TZSP stream has been captured. Local
+filters now run after receive in the capture process so they see restored
+headers; the effect on drop rates under a busy SPAN port has not been measured.
+
+The user also approved a short run against EVE-NG's virtual
+RouterOS 7.17 `LABSW34` (`172.16.0.34`). Two attempts with
+`filter-stream=yes` emitted no packets to Kali, even though ICMP probes
+succeeded. With `filter-interface=all`, `filter-ip-protocol=icmp`, and
+`filter-stream=no`, RouterOS recorded 36 sniffed packets and streamed 36 TZSP
+datagrams. Kali's tcpdump recorded all 36 outer datagrams on `eth1.1000` with
+zero kernel drops in
+`/tmp/flowseer-capture-lab-20260927/eve-labsw34-tzsp-final-outer.pcap`.
+FlowSeer's TZSP receiver accepted 36 packets with zero reported transport
+drops and wrote
+`/tmp/flowseer-capture-lab-20260927/eve-labsw34-tzsp-final.pcapng`.
+`capinfos` recognized both files, and tshark decoded the outer TZSP and inner
+ICMP frames. All 36 decapsulated Ethernet frames matched the corresponding
+tcpdump TZSP payload byte for byte. The two failed settings also differed in
+interface or address filters, so this run does not isolate the effect of
+`filter-stream`. The sniffer was stopped and its original disabled settings
+restored. This proves the RouterOS-to-FlowSeer TZSP protocol path. It does not
+establish compatibility with the physical CRS317 or RouterOS 6.49.20.
 
 ## Verification
 
-Once the blockers clear, each run proves the parent's R6 and the TZSP arm of
-R3 on real wire:
+The completed runs prove local pcapng fidelity and the TZSP arm of R3 on the
+lab network. U3c's integration test covers the parent's central stored-artifact
+requirement:
 
 - Local SPAN: an ICX7150 mirror session sends a known active port's frames to
   the destination port; the edge captures on the cabled interface; the stored
-  artifact's `capinfos` reports the packet count, link type Ethernet, and the
+  local artifact's `capinfos` reports the packet count, link type Ethernet, and the
   session's snap length, and a frame known to be on the mirrored segment
   appears in it.
-- TZSP: the identified MikroTik streams the sniffed segment to the edge at
-  `udp_port` 37008 with encapsulation `TZSP`; the stored artifact's `capinfos`
-  reports the same three fields for the inner Ethernet frames, proving the
-  receiver decapsulated on the real wire rather than on a fixture.
+- TZSP: virtual `LABSW34` streamed sniffed frames to Kali at UDP port 37008;
+  `capinfos` recognized both tcpdump's outer pcap and FlowSeer's inner pcapng,
+  and all 36 inner frames matched the corresponding TZSP payload bytes.
 
-`.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3d-plan.md`
-for this re-plan; the run itself changes no code.
+Run the diff-aware verifier for the plan and changed local source paths.
 
 ## Open questions
 
-The decisions needed to unblock the run, each a lab fact only a person or a
-live read can supply:
-
-- Which device is the TZSP sender, what is its management address, and does its
-  firmware expose a streaming sniffer (`/tool sniffer` with `streaming-server`,
-  or SwOS's HTTP `.b` API)? Lab_SW01's address and credentials are not in the
-  repository, and RouterOS 6.49.20's TZSP support is unverified.
-- Which ICX7150 port is the SPAN destination, and which edge interface is cabled
-  to it? A second, spare link is required because the mirror destination cannot
-  be the Kali host's active `eth1` port.
-- Is the edge host the Kali `labtest` (`172.16.0.21`), and can it run the agent
-  with the raw-socket and UDP privileges the local-interface and mirror paths
-  need? The user proposed it; the repository records no interface or privilege
-  check for it.
-- Parked by drive: Which spare Kali interface is cabled to which ICX7150 SPAN
-  destination port? Options: cable a spare Kali interface to a spare ICX port |
-  name another edge host with an existing dedicated capture link. Recommended:
-  cable a spare Kali interface, because Kali is already on the ICX management
-  network and the active `eth1` link must remain available.
-- Parked by drive: Which MikroTik can emit TZSP to the edge, and how can its
-  capability be checked? Options: provide Lab_SW01's management endpoint for a
-  read-only RouterOS sniffer check | identify another TZSP-capable MikroTik.
-  Recommended: check Lab_SW01, because it is the lab's documented RouterOS
-  device and LABSW02 runs SwOS.
+- If FlowSeer is to claim compatibility with Lab_SW01's RouterOS 6.49.20,
+  identify its management address and confirm its sniffer capability in a
+  separate device-specific run.
+- A live lab edge-to-central upload remains untested. U3c's host integration
+  test covers the upload and download path with a live service and agent.

@@ -16,8 +16,8 @@ execution: mixed
 > agent gave a module no capture-shaped way to be reached. U3 is now four
 > phases — U3a shared transport, U3b command channel and central leg, U3c edge
 > wiring, U3d lab validation — with two Decisions added above and the
-> store-on-edge decision reversed. U3d waits for the closed lab; the rest is
-> landable now.
+> store-on-edge decision reversed. On 2026-09-27, U3d validated physical
+> ICX local SPAN and virtual RouterOS TZSP traffic against tcpdump captures.
 
 ## Goal
 
@@ -211,17 +211,19 @@ Landed: 2026-09-18, `4fdd8897..7144a6a6`.
 
 Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3d-plan.md`
 After: U3c
-Change: an ICX7150 local SPAN into the edge's capture interface and a MikroTik
-TZSP stream to the edge's receiver each produce an artifact `capinfos` reads,
-recording what a shipping mirroring ASIC exercises that the containerised
-senders cannot.
+Change: an ICX7150 local SPAN into the edge's capture interface and an
+EVE-NG RouterOS TZSP stream to the edge's receiver each produce an artifact
+`capinfos` reads, with decoded Ethernet frames matching tcpdump's captures.
+The ICX run exercises a physical switch; the virtual RouterOS run validates
+TZSP decoding without claiming compatibility with a particular physical
+MikroTik firmware release.
 Landed:
 
 Waves: U3a | U3b | U3c | U3d
 
-U3d cannot run while the lab is closed (2026-09-10,
-[the runbook](../runbooks/lab-icx7150-first-write.md)); it is planned so the
-evidence it owes is named, and it waits for the lab rather than for code.
+U3d's approved lab runs took place on 2026-09-27. Device-specific validation
+of the physical CRS317 remains a separate follow-up if that compatibility
+is claimed.
 
 ## Verification
 
@@ -252,20 +254,20 @@ ERSPAN is proved without hardware, in three layers:
   than versions 1 and 2, so the image pins a kernel that has it rather than
   taking the host's. Open vSwitch is the second sender, with `type=erspan
   options:erspan_ver=…`, for a differently-written encoder.
-- The lab for what emulation cannot reach: an ICX7150 local SPAN into the edge's
-  capture interface, and a MikroTik TZSP stream to the edge's receiver, each
-  producing an artifact `capinfos` reads. Both need the switches powered on,
-  which needs advance notice.
+- The lab checks a physical ICX7150 local SPAN into the edge's capture
+  interface and an EVE-NG RouterOS TZSP stream to the edge's receiver. Both
+  produce pcapng artifacts `capinfos` reads, and independent tcpdump captures
+  establish the frames each path received.
 
 The Linux sender does not cover everything, and with no vendor capture behind it
 the gap is wider than it first looks. Its Type III implementation omits the
 security group tag and the non-Ethernet frame type, and the optional platform
 subheader is dropped from the schema, so for those fields the only check is a
 fixture we wrote against a decoder we wrote — which proves the pair agree and
-nothing else. No shipping-ASIC bytes exercise any mirror decapsulator at any
-point in this plan. Interoperability with a real mirroring device stays
-unproven until hardware is in the loop; say so in the handoff rather than
-letting the sender count for more than it is.
+nothing else. The ICX run exercises local SPAN on physical hardware; the
+virtual RouterOS run independently exercises TZSP decoding over the lab
+network. No hardware ERSPAN sender or physical MikroTik TZSP sender was
+tested, so compatibility with those particular devices remains unproven.
 
 ## Definition of done
 
