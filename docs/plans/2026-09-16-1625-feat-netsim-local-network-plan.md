@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
 
 # Local Network Analysis - Plan
+
+> Implemented. All four phases landed; their plans and commit ranges are listed below.
 
 ## Goal
 
