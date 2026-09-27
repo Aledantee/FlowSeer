@@ -286,6 +286,7 @@ Files:
 - `frontend/web/src/components/TenantSwitcher.test.ts`
 - `frontend/web/src/components/AccountMenu.vue`
 - `frontend/web/src/FleetView.vue`
+- `frontend/web/src/ui/combobox/UiCombobox.vue`
 After: U4
 Change:
 - `ScopeSwitcher.vue`:
@@ -315,7 +316,7 @@ Tests:
 - Browser test verifies clicking AccountMenu opens dropdown and Escape dismisses it.
 - Browser test verifies narrowing viewport collapses middle breadcrumb items into ellipsis dropdown menu without flex wrapping.
 Verify:
-`.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-09-26-2329-feat-web-design-system-phase3-plan.md frontend/web/src/components/ScopeSwitcher.vue frontend/web/src/components/TenantSwitcher.vue frontend/web/src/components/TenantSwitcher.test.ts frontend/web/src/components/AccountMenu.vue frontend/web/src/FleetView.vue`
+`.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-09-26-2329-feat-web-design-system-phase3-plan.md frontend/web/src/components/ScopeSwitcher.vue frontend/web/src/components/TenantSwitcher.vue frontend/web/src/components/TenantSwitcher.test.ts frontend/web/src/components/AccountMenu.vue frontend/web/src/FleetView.vue frontend/web/src/ui/combobox/UiCombobox.vue`
 then `pnpm typecheck && pnpm test && pnpm lint && pnpm build` in `frontend/web/`.
 
 ### U6. Dialogs, search migration, and legacy ScrollArea removal

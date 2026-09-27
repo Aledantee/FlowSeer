@@ -98,6 +98,12 @@ const groupedOptions = computed(() => {
         :collision-padding="8"
         class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-50 max-h-60 overflow-y-auto min-w-[8rem] focus:outline-none"
       >
+        <div v-if="$slots.trigger" class="p-1 border-b border-border mb-1">
+          <ComboboxInput
+            :placeholder="placeholder"
+            class="flex h-8 w-full rounded-xs border border-border bg-input px-2 py-1 text-xs shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
+          />
+        </div>
         <ComboboxViewport class="p-1">
           <ComboboxEmpty class="py-6 text-center text-sm text-muted-foreground">
             <slot name="empty">No results found.</slot>
