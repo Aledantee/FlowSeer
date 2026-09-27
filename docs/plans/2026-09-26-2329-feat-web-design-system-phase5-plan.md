@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
 ---
 
 # Web Design System Phase 5, App Migration and Preflight - Plan
+
+> Implemented. 5 units, 2026-09-27T11:15:59Z to 2026-09-27T11:48:38Z. All checks green, app views and components migrated to Ui* primitives and Tailwind utilities, legacy stylesheets dissolved, Preflight enabled, and stylelint token gate enforced. Landed: `86517ce2..b3edbbe0`.
 
 ## Goal
 

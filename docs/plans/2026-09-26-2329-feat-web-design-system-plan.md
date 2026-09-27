@@ -4,11 +4,13 @@ type: feat
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Web Design System - Plan
+
+> Implemented. 5 phases landed: token foundations and Storybook (`37453a31..810273e4`), basic components (`ceb59875..922c2a51`), overlays and navigation (`b7a72cfd..7b38526d`), data display (`18de412d..a9b11bff`), and app migration with Preflight (`86517ce2..b3edbbe0`).
 
 ## Goal
 
@@ -111,7 +113,7 @@ Landed: `18de412d..a9b11bff`
 ### U5. App migration and Preflight
 Files: `docs/plans/2026-09-26-2329-feat-web-design-system-phase5-plan.md`
 After: U3, U4
-Landed:
+Landed: `86517ce2..b3edbbe0`
 
 Waves: U1 | U2 | U3 U4 | U5
 
