@@ -271,21 +271,24 @@ control. Motion lifecycle tests cover these cleanup paths and rapid replacement.
 ## AI targets
 
 The console can expose meaningful instances to an agent without an AI
-backend. A view marks an element with the `v-ai-target` directive bound to a
+backend. A view marks an element with the `v-ai-target` directive bound to an
 `AiTarget`; the directive registers the element while it is mounted and
-removes it when it unmounts, so a row that leaves a filter or a pane swap
-stops being addressable. IDs are qualified by the physical pane slot (`a`,
-`b`, or `standalone` for a Storybook story or a test), the view, the kind,
-an optional `mobile`/`desktop` segment, and the entity ID, for example
-`a:devices:device:d1`. Two elements that render the same entity in CSS-only
-layouts register distinct segments, and only the copy the viewport shows is
-listed.
+removes it when it unmounts, so a row that leaves a filter stops being
+addressable. Target IDs are qualified by physical pane slot (`a`, `b`, or
+`standalone` for a Storybook story or a test), keeping IDs stable across pane
+swaps even when primary and secondary roles change. Responsive components that
+mount simultaneous mobile and desktop layouts in CSS register distinct
+`mobile` and `desktop` segments, for example `a:devices:device:desktop:d1`.
+Only mounted elements in the active responsive segment that are not hidden by
+the `hidden` attribute or CSS (`display: none`, `visibility: hidden`, or
+`visibility: collapse` on the target or an ancestor) are listed or selectable.
+Offscreen elements remain addressable so `highlight()` can scroll them into view.
 
 `window.flowseerAi` is the inspectable contract:
 
 ```ts
 window.flowseerAi.listTargets() // visible targets, sorted by id
-window.flowseerAi.highlight('a:devices:device:d1') // true when the id is visible
+window.flowseerAi.highlight('a:devices:device:desktop:d1') // selects and scrolls into view; true when visible
 window.flowseerAi.clearHighlight()
 const unsubscribe = window.flowseerAi.onRequest(async (request) => {
   // request: { requestId, kind, targetId, label, context, prompt? }
@@ -294,12 +297,14 @@ const unsubscribe = window.flowseerAi.onRequest(async (request) => {
 unsubscribe()
 ```
 
-`onRequest` installs the asynchronous handler; the returned function removes
-it. With no handler installed, Ask and summary report **AI is unavailable**
-rather than inventing an answer — the application has no model provider yet.
-A handler that rejects produces an error state, and an answer whose target
-unmounted or was replaced before it resolved is discarded, so a result never
-lands on a different instance that reused the ID.
+`highlight(id)` selects and scrolls the exact mounted instance into view and
+returns `true`; unknown or CSS-hidden IDs return `false`. `onRequest` installs
+the asynchronous handler; the returned function removes it. With no handler
+installed, Ask and summary report **AI is unavailable** rather than inventing an
+answer — the application has no model provider yet. A handler that rejects
+produces an error state, and an answer whose target unmounted, was replaced, or
+became hidden before it resolved is discarded, so a result never lands on a
+different instance that reused the ID.
 
 The on-screen action layer draws the selection outline and the compact Ask
 button over the registered element without nesting controls inside rows,

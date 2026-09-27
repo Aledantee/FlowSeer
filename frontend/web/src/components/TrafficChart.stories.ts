@@ -57,11 +57,17 @@ export const DarkMode: Story = {
   render: (args) => ({
     components: { TrafficChart },
     setup() {
-      return { args }
+      const chartTarget = {
+        id: 'standalone:story:traffic-chart-dark:chart',
+        kind: 'chart',
+        label: 'Aggregate Fleet Throughput (24h)',
+        context: { points: String(samplePoints.length) },
+      }
+      return { args, chartTarget }
     },
     template: `
       <div data-theme="dark" class="p-6 bg-card border border-border rounded-panel max-w-3xl text-foreground">
-        <TrafficChart v-bind="args" />
+        <TrafficChart v-bind="args" v-ai-target="chartTarget" />
       </div>
     `,
   }),

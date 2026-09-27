@@ -6,7 +6,7 @@ import UiButton from '../button/UiButton.vue'
 import UiPopover from '../popover/UiPopover.vue'
 import UiTextarea from '../form/UiTextarea.vue'
 import { useAiRegistry } from './context'
-import { visibleRect } from './geometry'
+import { placeAsk, visibleRect } from './geometry'
 import type { Rect } from './geometry'
 
 // One overlay per app or Storybook canvas. It draws the selection outline and
@@ -28,16 +28,20 @@ const selected = computed<AiTargetView | undefined>(() => {
 })
 const hoveredId = ref<string>()
 const focusedId = ref<string>()
+let lastFocusedTargetId: string | undefined
+let lastFocusedElement: HTMLElement | undefined
 const hovered = computed(() =>
   hoveredId.value ? registry.view(hoveredId.value) : undefined,
 )
 const focused = computed(() =>
   focusedId.value ? registry.view(focusedId.value) : undefined,
 )
-const active = computed(() => selected.value ?? focused.value ?? hovered.value)
+const active = computed(() => focused.value ?? selected.value ?? hovered.value)
 
 const open = ref(false)
 const openForId = ref<string>()
+let requestGeneration = 0
+let returnFocusElement: HTMLElement | undefined
 // While the panel is open it stays on the target it opened for, even if the
 // pointer leaves that element.
 const layerTarget = computed<AiTargetView | undefined>(() => {
@@ -50,6 +54,10 @@ const layerTarget = computed<AiTargetView | undefined>(() => {
 
 const box = shallowRef<Rect>()
 const layerRoot = ref<HTMLElement>()
+const askButtonWidth = 26
+const askButtonHeight = 22
+const askButtonGap = 2
+const viewportInset = 1
 
 const outlineStyle = computed(() => {
   const rect = box.value
@@ -61,12 +69,49 @@ const outlineStyle = computed(() => {
     height: `${rect.height}px`,
   }
 })
-const buttonStyle = computed(() => {
+// Ask is drawn only where placeAsk finds a spot that is both on screen and
+// clear of every measured control. When none exists the trigger is hidden, but
+// the popover stays mounted so an open panel is not torn down by the
+// measurement.
+const askPosition = computed(() => {
   const rect = box.value
-  if (!rect) return undefined
+  const element = layerTarget.value?.element
+  if (!rect || !element) return undefined
+  const controls = [
+    ...document.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, [role="button"], [role="link"]',
+    ),
+  ]
+    .filter(
+      (control) =>
+        control !== element &&
+        !layerRoot.value?.contains(control) &&
+        !control.closest('[data-ai-ask-panel]'),
+    )
+    .map((control) => control.getBoundingClientRect())
+    .filter((control) => control.width > 0 && control.height > 0)
+  return placeAsk({
+    target: rect,
+    controls,
+    viewport: {
+      top: 0,
+      left: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    },
+    size: { width: askButtonWidth, height: askButtonHeight },
+    gap: askButtonGap,
+    inset: viewportInset,
+  })
+})
+const buttonStyle = computed(() => {
+  const position = askPosition.value
+  if (!position) return undefined
   return {
-    top: `${rect.top + 4}px`,
-    left: `${Math.max(rect.left, rect.right - 56)}px`,
+    top: `${position.top}px`,
+    left: `${position.left}px`,
   }
 })
 
@@ -105,11 +150,23 @@ function nearTarget(node: Node | null): AiTargetView | undefined {
 }
 
 function handleFocusIn(event: FocusEvent) {
-  focusedId.value = nearTarget(event.target as Node | null)?.target.id
+  const target = event.target
+  const view = nearTarget(target as Node | null)
+  if (!view && target instanceof Node && layerRoot.value?.contains(target))
+    return
+  focusedId.value = view?.target.id
+  if (view && target instanceof HTMLElement) {
+    lastFocusedTargetId = view.target.id
+    lastFocusedElement = target
+  }
 }
 function handleFocusOut(event: FocusEvent) {
   const next = event.relatedTarget as Node | null
-  if (next && focused.value?.element.contains(next)) return
+  if (
+    next &&
+    (focused.value?.element.contains(next) || layerRoot.value?.contains(next))
+  )
+    return
   focusedId.value = undefined
 }
 function handlePointerOver(event: PointerEvent) {
@@ -134,11 +191,16 @@ function handleKeydown(event: KeyboardEvent) {
   openAsk(view.target.id)
 }
 
+function handleResize() {
+  registry.refresh()
+  measure()
+}
+
 onMounted(() => {
   unsubscribe = registry.subscribe(() => {
     version.value += 1
   })
-  window.addEventListener('resize', measure)
+  window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
   document.addEventListener('scroll', measure, true)
   document.addEventListener('focusin', handleFocusIn)
@@ -149,7 +211,7 @@ onMounted(() => {
 onUnmounted(() => {
   unsubscribe()
   observer?.disconnect()
-  window.removeEventListener('resize', measure)
+  window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('scroll', measure, true)
   document.removeEventListener('focusin', handleFocusIn)
@@ -168,12 +230,18 @@ type AskState =
 const state = ref<AskState>({ kind: 'idle' })
 
 function openAsk(id: string) {
+  requestGeneration += 1
+  returnFocusElement =
+    lastFocusedTargetId === id && lastFocusedElement?.isConnected
+      ? lastFocusedElement
+      : undefined
   openForId.value = id
   prompt.value = ''
   state.value = { kind: 'idle' }
   open.value = true
 }
 function closeAsk() {
+  requestGeneration += 1
   open.value = false
   openForId.value = undefined
   prompt.value = ''
@@ -184,11 +252,24 @@ function onOpenChange(value: boolean) {
   if (value) open.value = true
   else closeAsk()
 }
+function handleCloseAutoFocus(event: Event) {
+  const target = returnFocusElement
+  returnFocusElement = undefined
+  if (!target?.isConnected) return
+  event.preventDefault()
+  target.focus()
+}
 
 async function runAsk() {
   const view = layerTarget.value
   const text = prompt.value.trim()
   if (!view || !text || pending.value) return
+  const generation = ++requestGeneration
+  const targetId = view.target.id
+  const isCurrent = () =>
+    generation === requestGeneration &&
+    open.value &&
+    openForId.value === targetId
   pending.value = true
   state.value = { kind: 'idle' }
   try {
@@ -196,8 +277,10 @@ async function runAsk() {
       kind: 'ask',
       prompt: text,
     })
+    if (!isCurrent()) return
     state.value = { kind: 'answer', answer }
   } catch (error: unknown) {
+    if (!isCurrent()) return
     if (error instanceof AiStaleError) {
       closeAsk()
       return
@@ -211,7 +294,7 @@ async function runAsk() {
           error instanceof Error ? error.message : 'Something went wrong.',
       }
   } finally {
-    pending.value = false
+    if (isCurrent()) pending.value = false
   }
 }
 function submit() {
@@ -226,6 +309,7 @@ function submit() {
       ref="layerRoot"
       class="ai-layer"
       data-ai-action-layer=""
+      :style="{ zIndex: 1 }"
     >
       <div class="ai-outline" :style="outlineStyle" aria-hidden="true"></div>
       <UiPopover
@@ -234,9 +318,11 @@ function submit() {
         align="end"
         :side-offset="6"
         @update:open="onOpenChange"
+        @close-auto-focus="handleCloseAutoFocus"
       >
         <template #trigger>
           <button
+            v-show="askPosition"
             type="button"
             tabindex="-1"
             class="ai-ask"
@@ -247,7 +333,11 @@ function submit() {
             Ask
           </button>
         </template>
-        <form class="flex w-72 flex-col gap-2" @submit.prevent="submit">
+        <form
+          data-ai-ask-panel=""
+          class="flex w-72 flex-col gap-2"
+          @submit.prevent="submit"
+        >
           <p class="text-xs font-medium text-foreground">
             Ask about
             <strong class="font-semibold">{{
@@ -306,7 +396,6 @@ function submit() {
 .ai-layer {
   position: fixed;
   inset: 0;
-  z-index: 60;
   pointer-events: none;
 }
 .ai-outline {
@@ -318,8 +407,9 @@ function submit() {
 .ai-ask {
   position: fixed;
   pointer-events: auto;
+  width: 26px;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 2px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--card);

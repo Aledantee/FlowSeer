@@ -473,4 +473,127 @@ describe('AI target coverage', () => {
     )
     expect(clientIds.length).toBeGreaterThan(0)
   })
+
+  it('updates the inventory view context with the active filters and results', async () => {
+    const { router } = await mountAt('/devices')
+    const id = 'a:devices:view:inventory'
+    expect(registry.view(id)?.target.context).toMatchObject({
+      search: 'none',
+      status: 'all',
+      total: '16',
+      matching: '16',
+    })
+
+    await router.push({
+      path: '/devices',
+      query: { search: 'cologne', health: 'Offline' },
+    })
+    await settle()
+
+    const filtered = registry.view(id)
+    expect(filtered?.target.id).toBe(id)
+    expect(filtered?.target.context).toMatchObject({
+      search: 'cologne',
+      status: 'Offline',
+      matching: '1',
+    })
+  })
+
+  it('registers the sites view root and its site rows with context', async () => {
+    const { host } = await mountAt('/sites')
+    const root = registry.view('a:sites:view:sites')
+    expect(root?.target.context).toMatchObject({ sites: '4' })
+    expect(root?.element).toBe(
+      host.querySelector('#sites-title')?.closest('section'),
+    )
+
+    const rows = listIds().filter((id) => id.startsWith('a:sites:site:'))
+    expect(rows.length).toBe(4)
+  })
+
+  it('registers the dashboard view root and its site rows with context', async () => {
+    await mountAt('/dashboard')
+    const root = registry.view('a:dashboard:view:all')
+    expect(root?.target.label).toBe('Dashboard · all sites')
+    expect(root?.target.context).toMatchObject({ devices: '16' })
+
+    const berlin = registry.view('a:dashboard:site:berlin')
+    expect(berlin?.target.kind).toBe('site')
+    expect(berlin?.target.context).toMatchObject({ name: 'Berlin Mitte' })
+  })
+
+  it('registers the clients view root and client rows with context', async () => {
+    await mountAt('/clients')
+    const root = registry.view('a:clients:view:all')
+    expect(root?.target.context).toMatchObject({
+      accessPoint: 'All access points',
+      search: 'none',
+    })
+
+    const clients = listIds().filter((id) => id.startsWith('a:clients:client:'))
+    expect(clients.length).toBeGreaterThan(0)
+    expect(registry.view(clients[0] ?? '')?.target.context.mac).toMatch(
+      /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/,
+    )
+  })
+
+  it('updates the clients view search context without changing its id', async () => {
+    const { router } = await mountAt('/clients')
+    await router.push({ path: '/clients', query: { q: 'printer' } })
+    await settle()
+
+    expect(registry.view('a:clients:view:all')?.target.context).toMatchObject({
+      search: 'printer',
+    })
+  })
+
+  it('updates the clients view context when the band filter changes', async () => {
+    const { host } = await mountAt('/clients')
+    const id = 'a:clients:view:all'
+    const before = registry.view(id)?.target.context
+    expect(before).toMatchObject({ band: 'all', matching: before?.count })
+
+    const trigger = host.querySelector<HTMLButtonElement>(
+      '[aria-label="Filter by band"]',
+    )
+    expect(trigger).not.toBeNull()
+    trigger?.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    )
+    trigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    )
+    await settle()
+    const option = [
+      ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+    ].find((item) => item.textContent?.includes('2.4 GHz'))
+    expect(option).toBeDefined()
+    option?.focus()
+    option?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    const after = registry.view(id)?.target.context
+    expect(after?.band).toBe('2.4 GHz')
+    expect(Number(after?.matching)).toBeLessThan(Number(after?.count))
+    expect(registry.view(id)?.target.id).toBe(id)
+  })
+
+  it('qualifies a view root by physical slot in each pane', async () => {
+    await mountAt('/sites')
+    window.dispatchEvent(workspaceShortcut())
+    await settle()
+
+    expect(listIds()).toContain('a:sites:view:sites')
+    expect(listIds()).toContain('b:sites:view:sites')
+  })
 })

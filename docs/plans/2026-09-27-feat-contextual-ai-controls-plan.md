@@ -5,6 +5,7 @@ date: 2026-09-27
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: code
 ---
 
@@ -33,7 +34,7 @@ Make meaningful instances in the web console and Storybook addressable by stable
 ## Requirements
 
 1. `listTargets()` returns visible mounted targets with stable IDs, labels, and explicit context. Example: after filtering out device `d1`, its row target is absent; returning to that filter restores the same ID. At desktop width, the CSS-hidden mobile copy is absent from the list.
-2. `highlight(id)` selects and scrolls the exact mounted instance and returns `true`; an unknown ID returns `false` and clears an old selection. Example: `highlight('a:devices:device:d1')` follows `d1` through a sort or pane swap and shows Ask at that row.
+2. `highlight(id)` selects and scrolls the exact mounted instance and returns `true`; an unknown ID returns `false` and clears an old selection. Example: `highlight('a:devices:device:desktop:d1')` follows `d1` through a sort or pane swap and shows Ask at that row.
 3. Ask submits only a nonempty prompt with the selected target snapshot. Example: submitting whitespace sends no request; submitting “Why offline?” sends one `kind: 'ask'` request with `d1` context and shows its returned answer.
 4. Missing and rejected handlers produce clear unavailable or error states. Example: Ask with no handler displays “AI is unavailable”; a rejection displays an error without a fabricated answer; unmounting the target before resolution discards the answer.
 5. `UiAiSummary` makes no request until “Generate summary” is activated; retry makes a new request ID. A pending request shows muted bars with a narrow coral and cyan shimmer; success and error stop it. Reduced motion gives static bars and a text loading status.

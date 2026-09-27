@@ -37,8 +37,10 @@ const viewTarget = computed(() =>
     label: 'Connected clients',
     context: {
       count: String(all.value.length),
+      matching: String(filtered.value.length),
       accessPoint: accessPoint.value?.name ?? 'All access points',
       search: search.value || 'none',
+      band: band.value || 'all',
     },
   }),
 )

@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, nextTick } from 'vue'
 import UiAiActionLayer from './UiAiActionLayer.vue'
 import { aiRegistryKey } from './context'
@@ -7,11 +9,15 @@ import { createAiRegistry } from '../../ai'
 import type { AiRegistry } from '../../ai'
 import type { AiRequest, AiTarget } from '../../ai'
 
+const appStyles = readFileSync(resolve(process.cwd(), 'src/style.css'), 'utf8')
+
 let dispose = () => {}
 afterEach(() => {
   dispose()
   dispose = () => {}
   document.body.replaceChildren()
+  document.head.querySelector('[data-test-app-styles]')?.remove()
+  vi.restoreAllMocks()
 })
 
 interface Box {
@@ -36,11 +42,34 @@ function setBox(element: HTMLElement, box: Box) {
     }) as DOMRect
 }
 
+function boxesIntersect(first: Box, second: Box): boolean {
+  return (
+    first.left < second.left + second.width &&
+    first.left + first.width > second.left &&
+    first.top < second.top + second.height &&
+    first.top + first.height > second.top
+  )
+}
+
+function buttonBox(button: HTMLButtonElement | undefined): Box {
+  if (!button) throw new Error('Missing Ask button')
+  return {
+    top: Number.parseFloat(button.style.top),
+    left: Number.parseFloat(button.style.left),
+    width: 26,
+    height: 22,
+  }
+}
+
 const box: Box = { top: 120, left: 60, width: 320, height: 40 }
 
-function setup(boxValue: Box = box) {
+function setup(
+  boxValue: Box = box,
+  viewport = () => ({ wide: true, narrow: false }),
+  targetOverrides: Partial<AiTarget> = {},
+) {
   const registry: AiRegistry = createAiRegistry({
-    viewport: () => ({ wide: true, narrow: false }),
+    viewport,
   })
   const element = document.createElement('div')
   element.tabIndex = 0
@@ -51,6 +80,7 @@ function setup(boxValue: Box = box) {
     kind: 'device',
     label: 'd1',
     context: { site: 'Berlin Mitte' },
+    ...targetOverrides,
   }
   registry.register(element, target)
 
@@ -61,6 +91,31 @@ function setup(boxValue: Box = box) {
   app.mount(host)
   dispose = () => app.unmount()
   return { registry, element, target, host }
+}
+
+function addTarget(registry: AiRegistry, id: string, label: string) {
+  const element = document.createElement('div')
+  element.tabIndex = 0
+  setBox(element, box)
+  document.body.prepend(element)
+  const target: AiTarget = {
+    id,
+    kind: 'device',
+    label,
+    context: { site: 'Hamburg Hafen' },
+  }
+  registry.register(element, target)
+  return { element, target }
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {}
+  let reject: (reason: unknown) => void = () => {}
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve
+    reject = onReject
+  })
+  return { promise, resolve, reject }
 }
 
 async function settle() {
@@ -89,6 +144,39 @@ function submitButton(): HTMLButtonElement {
   return button
 }
 
+function cancelButton(): HTMLButtonElement {
+  const button = [
+    ...document.querySelectorAll<HTMLButtonElement>('form button'),
+  ].find((candidate) => candidate.textContent?.trim() === 'Cancel')
+  if (!button) throw new Error('Missing cancel button')
+  return button
+}
+
+function pressTab() {
+  const current = document.activeElement
+  current?.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Tab',
+      code: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    }),
+  )
+  const elements = [...document.querySelectorAll<HTMLElement>('*')]
+  const currentIndex =
+    current instanceof HTMLElement ? elements.indexOf(current) : -1
+  const next = elements.slice(currentIndex + 1).find((element) => {
+    if (element.tabIndex < 0) return false
+    return (
+      element instanceof HTMLButtonElement ||
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element.tabIndex === 0
+    )
+  })
+  next?.focus()
+}
+
 describe('AiActionLayer selection and Ask', () => {
   it('reveals Ask for the selected target and hovers it in place', async () => {
     const { registry } = setup()
@@ -98,7 +186,7 @@ describe('AiActionLayer selection and Ask', () => {
     const button = askButton()
     expect(button).not.toBeNull()
     expect(button?.getAttribute('aria-label')).toBe('Ask about d1')
-    expect(button?.style.top).toBe('124px')
+    expect(button?.style.top).toBe('129px')
     expect(document.querySelector('.ai-outline')).not.toBeNull()
   })
 
@@ -192,6 +280,125 @@ describe('AiActionLayer selection and Ask', () => {
     expect(document.body.textContent).not.toContain('A late answer')
   })
 
+  it('does not let a late answer clear or replace a newer target request', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const firstRequest = deferred<string>()
+    const secondRequest = deferred<string>()
+    registry.onRequest((request) =>
+      request.targetId === 'a:devices:device:d1'
+        ? firstRequest.promise
+        : secondRequest.promise,
+    )
+    registry.highlight('a:devices:device:d1')
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('First question')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    cancelButton().click()
+    await settle()
+    registry.highlight(second.target.id)
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('Second question')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    firstRequest.resolve('Late first answer')
+    await settle()
+
+    expect(document.body.textContent).not.toContain('Late first answer')
+    expect(submitButton().getAttribute('aria-busy')).toBe('true')
+
+    secondRequest.resolve('Current answer')
+    await settle()
+    expect(document.body.textContent).toContain('Current answer')
+  })
+
+  it('does not show a late rejection in a newer target Ask', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const firstRequest = deferred<string>()
+    registry.onRequest(() => firstRequest.promise)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('First question')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    cancelButton().click()
+    await settle()
+    registry.highlight(second.target.id)
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('Second question')
+
+    firstRequest.reject(new Error('Late first failure'))
+    await settle()
+
+    expect(document.querySelector('textarea')).not.toBeNull()
+    expect(document.body.textContent).toContain('Ask about d2')
+    expect(document.body.textContent).not.toContain('Late first failure')
+    expect(submitButton().disabled).toBe(false)
+  })
+
+  it('prefers the focused target until focus leaves it', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    registry.highlight('a:devices:device:d1')
+    second.element.focus()
+    await settle()
+
+    expect(askButton()?.getAttribute('aria-label')).toBe('Ask about d2')
+
+    outside.focus()
+    await settle()
+    expect(askButton()?.getAttribute('aria-label')).toBe('Ask about d1')
+  })
+
+  it('keeps the focused target when its Ask trigger receives a pointer click', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const seen: AiRequest[] = []
+    registry.onRequest((request) => {
+      seen.push(request)
+      return 'Answer for d2'
+    })
+    registry.highlight('a:devices:device:d1')
+    second.element.focus()
+    await settle()
+
+    const button = askButton()
+    expect(button?.getAttribute('aria-label')).toBe('Ask about d2')
+    button?.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, cancelable: true }),
+    )
+    button?.focus()
+    button?.click()
+    await settle()
+
+    expect(document.body.textContent).toContain('Ask about d2')
+    type('Question for the focused target')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.targetId).toBe(second.target.id)
+  })
+
   it('opens Ask from the focused target with Alt+A', async () => {
     const { element } = setup()
     element.focus()
@@ -212,6 +419,67 @@ describe('AiActionLayer selection and Ask', () => {
     expect(document.querySelector('textarea')).not.toBeNull()
   })
 
+  it('returns focus to the originating control before the next Tab', async () => {
+    const { element } = setup()
+    const origin = document.createElement('button')
+    origin.textContent = 'Open device actions'
+    element.append(origin)
+    const next = document.createElement('button')
+    next.textContent = 'Next control'
+    element.after(next)
+    origin.focus()
+    await settle()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+    expect(document.activeElement).toBeInstanceOf(HTMLTextAreaElement)
+
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    expect(document.activeElement).toBe(origin)
+    pressTab()
+    expect(document.activeElement).toBe(next)
+  })
+
+  it('returns focus to the originating control after Cancel', async () => {
+    const { element } = setup()
+    const origin = document.createElement('button')
+    element.append(origin)
+    origin.focus()
+    await settle()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+    cancelButton().click()
+    await settle()
+
+    expect(document.activeElement).toBe(origin)
+  })
+
   it('reveals Ask on pointer entry', async () => {
     const { element } = setup()
     element.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
@@ -221,6 +489,118 @@ describe('AiActionLayer selection and Ask', () => {
 })
 
 describe('AiActionLayer geometry', () => {
+  it('keeps Ask off a selected mobile card status and link', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const card = { top: 494, left: 29, width: 332, height: 98 }
+    const status = { top: 510, left: 270, width: 91, height: 24 }
+    const link = { top: 544, left: 270, width: 91, height: 32 }
+    const { registry, element } = setup(card)
+    const page = document.createElement('div')
+    page.tabIndex = 0
+    setBox(page, { top: 114, left: 0, width: 390, height: 730 })
+    element.replaceWith(page)
+    page.append(element)
+    const statusElement = document.createElement('span')
+    const linkElement = document.createElement('span')
+    setBox(statusElement, status)
+    setBox(linkElement, link)
+    element.append(statusElement, linkElement)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const button = askButton()
+    expect(button?.style.top).toBe('532px')
+    expect(button?.style.left).toBe('363px')
+    expect(boxesIntersect(buttonBox(button), status)).toBe(false)
+    expect(boxesIntersect(buttonBox(button), link)).toBe(false)
+    button?.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, cancelable: true }),
+    )
+    button?.click()
+    await settle()
+    expect(document.querySelector('textarea')).not.toBeNull()
+  })
+
+  it('keeps Ask clear of controls in adjacent mobile rows', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const card = { top: 593, left: 29, width: 332, height: 98 }
+    const previousRow = { top: 494, left: 29, width: 332, height: 98 }
+    const nextRow = { top: 692, left: 29, width: 332, height: 98 }
+    const status = { top: 609, left: 270, width: 91, height: 24 }
+    const link = { top: 643, left: 270, width: 91, height: 32 }
+    const name = { top: 613, left: 29, width: 231, height: 16 }
+    const detail = { top: 643, left: 29, width: 231, height: 32 }
+    const { registry, element } = setup(card)
+    const statusElement = document.createElement('span')
+    const linkElement = document.createElement('span')
+    const nameElement = document.createElement('strong')
+    const detailElement = document.createElement('small')
+    const previousControl = document.createElement('button')
+    const nextControl = document.createElement('button')
+    setBox(statusElement, status)
+    setBox(linkElement, link)
+    setBox(nameElement, name)
+    setBox(detailElement, detail)
+    setBox(previousControl, previousRow)
+    setBox(nextControl, nextRow)
+    element.append(statusElement, linkElement, nameElement, detailElement)
+    element.before(previousControl)
+    element.after(nextControl)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const ask = buttonBox(askButton())
+    expect(ask).toEqual({ top: 631, left: 363, width: 26, height: 22 })
+    expect(boxesIntersect(ask, previousRow)).toBe(false)
+    expect(boxesIntersect(ask, nextRow)).toBe(false)
+    expect(boxesIntersect(ask, status)).toBe(false)
+    expect(boxesIntersect(ask, link)).toBe(false)
+    expect(boxesIntersect(ask, name)).toBe(false)
+    expect(boxesIntersect(ask, detail)).toBe(false)
+  })
+
+  it('keeps Ask visible outside a small target clipped by the viewport edge', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const clippedTarget = { top: -10, left: 380, width: 30, height: 20 }
+    const { registry } = setup(clippedTarget)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const button = askButton()
+    expect(button?.style.top).toBe('1px')
+    expect(button?.style.left).toBe('352px')
+    expect(
+      Number.parseFloat(button?.style.left ?? '') + 26,
+    ).toBeLessThanOrEqual(380)
+  })
+
+  it('stacks the action layer below the app chrome and modal layers', async () => {
+    const { registry } = setup()
+    const styles = document.createElement('style')
+    const topbarRule = appStyles.match(/\.topbar\s*\{[^}]*\}/)?.[0]
+    expect(topbarRule).toBeDefined()
+    styles.dataset.testAppStyles = ''
+    styles.textContent = topbarRule ?? ''
+    document.head.append(styles)
+    const topbar = document.createElement('header')
+    topbar.className = 'topbar z-50'
+    document.body.append(topbar)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const layer = document.querySelector<HTMLElement>('.ai-layer')
+    if (!layer) throw new Error('Missing action layer')
+    const layerZ = Number(getComputedStyle(layer).zIndex)
+    const topbarZ = Number(getComputedStyle(topbar).zIndex)
+    expect(layerZ).toBeGreaterThan(0)
+    expect(topbarZ).toBe(2)
+    expect(layerZ).toBeLessThan(topbarZ)
+    expect(layerZ).toBeLessThan(50)
+  })
+
   it('hides the affordance when the target is scrolled out of view', async () => {
     const { registry } = setup({ top: -400, left: 60, width: 320, height: 40 })
     registry.highlight('a:devices:device:d1')
@@ -233,12 +613,128 @@ describe('AiActionLayer geometry', () => {
     const { registry, element } = setup()
     registry.highlight('a:devices:device:d1')
     await settle()
-    expect(askButton()?.style.top).toBe('124px')
+    expect(askButton()?.style.top).toBe('129px')
 
     setBox(element, { top: 300, left: 60, width: 320, height: 40 })
     window.dispatchEvent(new Event('resize'))
     await settle()
 
-    expect(askButton()?.style.top).toBe('304px')
+    expect(askButton()?.style.top).toBe('309px')
+  })
+
+  it('drops a selected responsive copy when the viewport changes', async () => {
+    let wide = true
+    const { registry, target } = setup(box, () => ({ wide, narrow: !wide }), {
+      segment: 'desktop',
+    })
+    registry.highlight(target.id)
+    await settle()
+    expect(askButton()).not.toBeNull()
+
+    wide = false
+    window.dispatchEvent(new Event('resize'))
+    await settle()
+
+    expect(registry.selection()).toBeUndefined()
+    expect(askButton()).toBeUndefined()
+  })
+})
+
+describe('AiActionLayer placement invariant', () => {
+  const viewport = { width: 390, height: 844 }
+
+  async function render(target: Box, controls: Box[]) {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(viewport.width)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(viewport.height)
+    const { registry, element } = setup(target)
+    for (const control of controls) {
+      const node = document.createElement('button')
+      setBox(node, control)
+      document.body.append(node)
+    }
+    registry.highlight('a:devices:device:d1')
+    await settle()
+    return { element }
+  }
+
+  function expectClear(
+    button: HTMLButtonElement | undefined,
+    controls: Box[],
+  ): void {
+    expect(button).toBeDefined()
+    const ask = buttonBox(button)
+    expect(ask.left).toBeGreaterThanOrEqual(0)
+    expect(ask.top).toBeGreaterThanOrEqual(0)
+    expect(ask.left + ask.width).toBeLessThanOrEqual(viewport.width)
+    expect(ask.top + ask.height).toBeLessThanOrEqual(viewport.height)
+    for (const control of controls)
+      expect(boxesIntersect(ask, control)).toBe(false)
+  }
+
+  const card: Box = { top: 593, left: 29, width: 332, height: 98 }
+  const previousRow: Box = { top: 494, left: 29, width: 332, height: 98 }
+  const nextRow: Box = { top: 692, left: 29, width: 332, height: 98 }
+
+  it('keeps the 390px adjacent-card Ask on screen and off controls', async () => {
+    await render(card, [previousRow, nextRow])
+
+    const button = askButton()
+    expectClear(button, [previousRow, nextRow])
+    expect(buttonBox(button)).toEqual({
+      top: 631,
+      left: 363,
+      width: 26,
+      height: 22,
+    })
+  })
+
+  it('takes a clear alternative when a control blocks the right gutter', async () => {
+    const rightGutter: Box = { top: 631, left: 363, width: 40, height: 40 }
+    await render(card, [previousRow, nextRow, rightGutter])
+
+    const button = askButton()
+    expectClear(button, [previousRow, nextRow, rightGutter])
+    expect(buttonBox(button).left).toBe(1)
+  })
+
+  it('keeps a wider target clear of a control just below it', async () => {
+    const target: Box = { top: 120, left: 60, width: 320, height: 40 }
+    const below: Box = { top: 170, left: 60, width: 320, height: 40 }
+    await render(target, [below])
+
+    expectClear(askButton(), [below])
+  })
+
+  const rightColumn: Box = { top: 560, left: 330, width: 60, height: 210 }
+  const leftColumn: Box = { top: 600, left: 0, width: 29, height: 80 }
+
+  it('hides Ask when no candidate is both on screen and clear', async () => {
+    await render(card, [rightColumn, leftColumn])
+
+    const button = askButton()
+    expect(button).toBeDefined()
+    expect(button?.style.display).toBe('none')
+    expect(button?.style.top).toBe('')
+    expect(button?.style.left).toBe('')
+  })
+
+  it('keeps an open panel mounted while the trigger stays hidden', async () => {
+    const { element } = await render(card, [rightColumn, leftColumn])
+    element.focus()
+    await settle()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    expect(document.querySelector('form textarea')).not.toBeNull()
+    expect(askButton()?.style.display).toBe('none')
   })
 })

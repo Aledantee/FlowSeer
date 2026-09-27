@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
+import { createApp, h, nextTick, ref } from 'vue'
 import UiAiSummary from './UiAiSummary.vue'
 import { aiRegistryKey } from './context'
 import { createAiRegistry } from '../../ai'
@@ -21,21 +21,32 @@ const target: AiTarget = {
 }
 
 function mount(handler?: (request: AiRequest) => Promise<string> | string) {
+  const currentTarget = ref(target)
   const registry = createAiRegistry({
     viewport: () => ({ wide: true, narrow: false }),
   })
   const element = document.createElement('div')
   document.body.append(element)
-  registry.register(element, target)
+  registry.register(element, currentTarget.value)
   if (handler) registry.onRequest(handler)
 
   const host = document.createElement('div')
   document.body.append(host)
-  const app = createApp({ render: () => h(UiAiSummary, { target }) })
+  const app = createApp({
+    render: () => h(UiAiSummary, { target: currentTarget.value }),
+  })
   app.provide(aiRegistryKey, registry)
   app.mount(host)
   disposers.push(() => app.unmount())
-  return { registry, element, host }
+  return {
+    registry,
+    element,
+    host,
+    setTarget(next: AiTarget) {
+      currentTarget.value = next
+      registry.register(element, next)
+    },
+  }
 }
 
 async function settle() {
@@ -145,5 +156,53 @@ describe('UiAiSummary', () => {
 
     expect(document.body.textContent).not.toContain('A late summary')
     expect(button('Generate summary')).toBeDefined()
+  })
+
+  it('resets a result when the same target id gains new context', async () => {
+    const requests: AiRequest[] = []
+    const { setTarget } = mount((request) => {
+      requests.push(request)
+      return `Summary for ${request.context.site}`
+    })
+
+    await settle()
+    button('Generate summary')?.click()
+    await settle()
+    expect(document.body.textContent).toContain('Summary for Berlin Mitte')
+
+    setTarget({ ...target, context: { site: 'Hamburg Hafen' } })
+    await settle()
+    expect(document.body.textContent).not.toContain('Summary for Berlin Mitte')
+    expect(button('Generate summary')).toBeDefined()
+
+    button('Generate summary')?.click()
+    await settle()
+    expect(document.body.textContent).toContain('Summary for Hamburg Hafen')
+    expect(requests[1]?.context).toEqual({ site: 'Hamburg Hafen' })
+  })
+
+  it('ignores a late answer after the same target id changes context', async () => {
+    let releaseOld: ((answer: string) => void) | undefined
+    const { setTarget } = mount((request) => {
+      if (request.context.site === 'Berlin Mitte')
+        return new Promise<string>((resolve) => {
+          releaseOld = resolve
+        })
+      return 'Current summary'
+    })
+
+    await settle()
+    button('Generate summary')?.click()
+    await settle()
+    setTarget({ ...target, context: { site: 'Hamburg Hafen' } })
+    await settle()
+    button('Generate summary')?.click()
+    await settle()
+    expect(document.body.textContent).toContain('Current summary')
+
+    releaseOld?.('Outdated summary')
+    await settle()
+    expect(document.body.textContent).toContain('Current summary')
+    expect(document.body.textContent).not.toContain('Outdated summary')
   })
 })

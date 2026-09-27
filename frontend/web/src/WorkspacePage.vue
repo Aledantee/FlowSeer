@@ -201,7 +201,13 @@ const inventoryTarget = computed(() =>
     kind: 'view',
     entityId: 'inventory',
     label: 'Device inventory',
-    context: { scope: scopeSummary.value },
+    context: {
+      scope: scopeSummary.value,
+      search: query('search') || 'none',
+      status: query('health') || 'all',
+      total: String(scope.value.length),
+      matching: String(filtered.value.length),
+    },
   }),
 )
 const sitesViewTarget = computed(() =>
@@ -211,7 +217,10 @@ const sitesViewTarget = computed(() =>
     kind: 'view',
     entityId: 'sites',
     label: 'Sites',
-    context: { scope: scopeSummary.value },
+    context: {
+      scope: scopeSummary.value,
+      sites: String(visibleSites.value.length),
+    },
   }),
 )
 
