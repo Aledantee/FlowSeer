@@ -13,28 +13,36 @@
    status is the text that carries the meaning. */
 @keyframes flowseer-ai-shimmer {
   from {
-    background-position: 200% 0;
+    transform: translateX(-100%);
   }
   to {
-    background-position: -200% 0;
+    transform: translateX(800%);
   }
 }
 
 .ai-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--subtle);
+}
+
+.ai-shimmer::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 14%;
+  content: '';
   background: linear-gradient(
     90deg,
-    var(--subtle) 0%,
-    var(--primary) 40%,
-    var(--accent) 60%,
-    var(--subtle) 100%
+    transparent,
+    color-mix(in srgb, var(--primary) 75%, transparent),
+    color-mix(in srgb, var(--accent) 75%, transparent),
+    transparent
   );
-  background-size: 200% 100%;
   animation: flowseer-ai-shimmer 1.4s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-shimmer {
-    animation: none;
-    background: var(--subtle);
+  .ai-shimmer::after {
+    display: none;
   }
 }

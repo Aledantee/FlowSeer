@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { AiStaleError, AiUnavailableError } from '../../ai'
 import type { AiTarget } from '../../ai'
 import UiButton from '../button/UiButton.vue'
@@ -22,15 +22,38 @@ const state = ref<SummaryState>({ kind: 'idle' })
 // A newer request supersedes an older one; a late answer from the older
 // request is dropped.
 let token = 0
+
+function targetSnapshot(target: AiTarget): string {
+  return JSON.stringify([
+    target.id,
+    target.kind,
+    target.label,
+    target.segment,
+    Object.entries(target.context).sort(([a], [b]) => a.localeCompare(b)),
+  ])
+}
+
+watch(
+  () => targetSnapshot(props.target),
+  () => {
+    token += 1
+    state.value = { kind: 'idle' }
+  },
+  { flush: 'sync' },
+)
+
 async function generate() {
   const requestToken = (token += 1)
+  const snapshot = targetSnapshot(props.target)
   state.value = { kind: 'loading' }
   try {
     const answer = await registry.request(props.target, { kind: 'summary' })
-    if (requestToken !== token) return
+    if (requestToken !== token || snapshot !== targetSnapshot(props.target))
+      return
     state.value = { kind: 'result', answer }
   } catch (error: unknown) {
-    if (requestToken !== token) return
+    if (requestToken !== token || snapshot !== targetSnapshot(props.target))
+      return
     if (error instanceof AiStaleError) {
       state.value = { kind: 'idle' }
       return
