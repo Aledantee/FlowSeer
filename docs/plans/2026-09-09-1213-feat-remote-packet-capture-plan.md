@@ -217,7 +217,7 @@ EVE-NG RouterOS TZSP stream to the edge's receiver each produce an artifact
 The ICX run exercises a physical switch; the virtual RouterOS run validates
 TZSP decoding without claiming compatibility with a particular physical
 MikroTik firmware release.
-Landed:
+Landed: 2026-09-27, `2a3462db..15fb3e32`.
 
 Waves: U3a | U3b | U3c | U3d
 
