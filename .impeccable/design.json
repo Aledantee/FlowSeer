@@ -214,7 +214,7 @@
       "kind": "button",
       "refersTo": "button-primary",
       "description": "The one action the operator came to take; one per view.",
-      "html": "<button class=\"ds-btn ds-btn-primary\">Save assignment</button>",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Poll now</button>",
       "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 14px;border:1px solid var(--control-border,#596570);border-radius:8px;font:550 13px/1.4 'Inter Variable',system-ui,sans-serif;background:var(--surface,#dce0e4);color:var(--text,#20262d);cursor:pointer;transition:background-color 100ms ease-out}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:3px solid var(--focus,#124d5d);outline-offset:3px}.ds-btn-primary{background:var(--coral,#ff451d);border-color:var(--coral,#ff451d);color:var(--on-coral,#061518)}.ds-btn-primary:hover{background:color-mix(in srgb,var(--coral,#ff451d) 88%,var(--on-coral,#061518))}"
     },
     {

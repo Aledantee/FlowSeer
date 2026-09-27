@@ -59,8 +59,8 @@ preview:
 <StatusBadge status="Degraded" />
 ```
 
-`UiButton`, `StatusBadge`, and `MetricCard` are shared by the fleet and component
-views. Inputs and empty states demonstrate the console's CSS patterns; they do
+`UiButton` and `StatusBadge` are shared by the fleet and component views;
+`MetricCard` remains as a Components specimen. Inputs and empty states demonstrate the console's CSS patterns; they do
 not introduce additional wrapper components.
 
 ## Working on a component

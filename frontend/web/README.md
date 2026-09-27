@@ -64,8 +64,8 @@ attention**), and a keyboard-accessible details dialog. The Dashboard carries it
 totals (devices, clients, traffic, and the time of the last refresh) in the
 heading line rather than in metric cards; other pages state the scope and
 attention count there. Sites lists every site in scope worst first, with a health bar and a
-line such as "1 offline", the newest warning or critical event and its age, and
-the device count; a site's name opens its dashboard and **Devices** opens its
+line such as "1 offline", the newest open issue and its age (a warning on a device
+that has since recovered is history, not an open issue), and the device count; a site's name opens its dashboard and **Devices** opens its
 inventory.
 Topology draws each site's gateway and core switch with its access points side
 by side beneath them. Links are drawn dashed and a legend marks them as assumed until topology is

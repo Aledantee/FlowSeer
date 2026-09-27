@@ -3,7 +3,9 @@ import { devices, filterDevices, sites } from './fleet'
 import {
   events,
   healthCounts,
+  healthLine,
   latestIssue,
+  openIssues,
   rankSites,
   scopedEvents,
   siteRollups,
@@ -50,6 +52,16 @@ describe('scope overview', () => {
     if (!cologne) throw new Error('Missing fixture')
     expect(latestIssue(devices, cologne)?.summary).toBe(
       'Stopped answering polls',
+    )
+  })
+  it('treats a warning on a device that recovered as history, not an open issue', () => {
+    const open = openIssues(devices).map((event) => event.deviceId)
+    expect(open).toEqual(['dev-7', 'dev-16'])
+    const aachen = sites.find((site) => site.id === 'aachen')
+    if (!aachen) throw new Error('Missing fixture')
+    expect(latestIssue(devices, aachen)).toBeUndefined()
+    expect(healthLine({ Healthy: 3, Degraded: 0, Offline: 1 })).toBe(
+      '1 offline',
     )
   })
 })

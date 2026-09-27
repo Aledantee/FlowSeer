@@ -7,6 +7,7 @@ import type { Device, Site } from './domain/fleet'
 import {
   formatAgo,
   healthCounts,
+  healthLine,
   rankSites,
   scopedEvents,
   siteRollups,
@@ -164,6 +165,9 @@ const roles = computed(() => {
               </td>
               <td class="dash-health-col">
                 <HealthBar :counts="rollup.health" />
+                <small class="dash-health-line">{{
+                  healthLine(rollup.health)
+                }}</small>
               </td>
               <td class="numeric">
                 {{

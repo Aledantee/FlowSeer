@@ -27,9 +27,10 @@ import {
 } from './domain/fleet'
 import type { Device } from './domain/fleet'
 import {
-  events,
   formatAgo,
+  healthLine,
   latestIssue,
+  openIssues,
   rankSites,
   siteRollups,
 } from './domain/overview'
@@ -301,20 +302,12 @@ function tenantName(siteId: string) {
 const siteRows = computed(() =>
   rankSites(siteRollups(scope.value, visibleSites.value)),
 )
-function healthLine(health: Record<Device['health'], number>) {
-  const parts = [
-    health.Offline ? `${health.Offline} offline` : '',
-    health.Degraded ? `${health.Degraded} degraded` : '',
-  ].filter(Boolean)
-  return parts.length ? parts.join(' · ') : 'All healthy'
-}
 const selectedIssues = computed(() =>
-  events
-    .filter(
-      (event) =>
-        event.deviceId === selected.value?.id && event.severity !== 'info',
-    )
-    .sort((a, b) => a.minutesAgo - b.minutesAgo),
+  selected.value
+    ? openIssues(fleet.value).filter(
+        (event) => event.deviceId === selected.value?.id,
+      )
+    : [],
 )
 function integration(id: string) {
   return integrations.find((item) => item.id === id)
@@ -643,9 +636,7 @@ onUnmounted(() => {
                 }}<template v-if="view === 'dashboard'">
                   · {{ scope.length }}
                   {{ scope.length === 1 ? 'device' : 'devices' }} ·
-                  {{ clients }} clients ·
-                  <span class="summary-figure">{{ throughput }} Mbps</span> · as
-                  of
+                  {{ clients }} clients · {{ throughput }} Mbps · as of
                   {{
                     asOf.toLocaleTimeString([], {
                       hour: '2-digit',
@@ -887,7 +878,7 @@ onUnmounted(() => {
                     <tr>
                       <th>Site</th>
                       <th>Health</th>
-                      <th>Newest issue</th>
+                      <th>Open issue</th>
                       <th class="numeric">Devices</th>
                       <th><span class="sr-only">Devices at this site</span></th>
                     </tr>

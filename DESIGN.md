@@ -70,7 +70,7 @@ typography:
     fontWeight: 500
   mono:
     fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace"
-    fontSize: "12px"
+    fontSize: "11px"
 rounded:
   badge: "4px"
   nav: "5px"
@@ -254,8 +254,8 @@ website face, replaces it only once licensed files are supplied.
 
 ### Hierarchy
 
-- **Display** (550, 32px, -0.8px): metric values on the dashboard and fleet
-  panels, with the unit set smaller beside the number.
+- **Display** (550, 32px, -0.8px): the metric card specimen in the Components
+  workspace. Operator pages carry their totals in the heading line instead.
 - **Headline** (600, 28px, 1.3, -0.8px): the page heading, once per view.
 - **Title** (600, 15px, -0.2px): section and panel headings, dialog titles.
 - **Body** (400, 13px, 1.6): running copy and page descriptions in `muted`.
@@ -263,7 +263,7 @@ website face, replaces it only once licensed files are supplied.
   12px, sort buttons.
 - **Status** (500, 12px): status badges and the severity word beside an
   event. Anything read as a status uses this size or larger.
-- **Mono** (12px): device addresses, serials, MACs.
+- **Mono** (11px): device addresses, serials, MACs.
 
 ### Named Rules
 
@@ -291,7 +291,7 @@ Responsive steps: at 1150px the sidebar narrows to 195px; at 800px the
 navigation moves above the content with a horizontal underline highlight and
 the tenant selector moves with it, and the tools join the brand row; at 560px
 the device table becomes compact status cards, the Dashboard site table keeps
-only site and health, and topology and secondary traffic summaries drop out. Desktop
+site, health, and device count, and topology and secondary traffic summaries drop out. Desktop
 can also collapse the sidebar to a 64px icon rail through the curved tab on
 its edge.
 

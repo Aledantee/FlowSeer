@@ -100,18 +100,17 @@ export const devices: Device[] = sites.flatMap((site, index) =>
     const offline = index === 3 && offset === 3
     const seen = offline ? 38 : 1
     const reachability: Reachability = offline ? 'Unreachable' : 'Reachable'
+    const health: Health =
+      index === 1 && offset === 2 ? 'Degraded' : offline ? 'Offline' : 'Healthy'
+    const lifecycle: Lifecycle = 'Active'
     return {
       id: `dev-${index * 4 + offset + 1}`,
       name: `${site.id}-${['gw-01', 'sw-01', 'ap-01', 'ap-02'][offset]}`,
       siteId: site.id,
       kind,
       address: `10.${index + 20}.0.${offset + 1}`,
-      health: (index === 1 && offset === 2
-        ? 'Degraded'
-        : offline
-          ? 'Offline'
-          : 'Healthy') as Health,
-      lifecycle: 'Active' as Lifecycle,
+      health,
+      lifecycle,
       lastSeenMinutes: seen,
       bindings: [
         `lan-${site.id}`,

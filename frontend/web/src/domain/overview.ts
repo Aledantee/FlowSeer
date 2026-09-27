@@ -64,6 +64,23 @@ export const events: FleetEvent[] = [
   },
 ]
 
+// An issue stays open only while its device is not healthy; a warning on a
+// device that has since recovered is history, shown in the event feed.
+export function openIssues(scope: Device[]): FleetEvent[] {
+  const failing = new Set(
+    scope.filter((device) => device.health !== 'Healthy').map((d) => d.id),
+  )
+  return scopedEvents(scope).filter(
+    (event) => event.severity !== 'info' && failing.has(event.deviceId),
+  )
+}
+export function healthLine(health: Record<Health, number>): string {
+  const parts = [
+    health.Offline ? `${health.Offline} offline` : '',
+    health.Degraded ? `${health.Degraded} degraded` : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'All healthy'
+}
 export function scopedEvents(scope: Device[]): FleetEvent[] {
   const ids = new Set(scope.map((device) => device.id))
   return events
@@ -142,7 +159,5 @@ export function latestIssue(
   scope: Device[],
   site: Site,
 ): FleetEvent | undefined {
-  return scopedEvents(scope.filter((device) => device.siteId === site.id)).find(
-    (event) => event.severity !== 'info',
-  )
+  return openIssues(scope.filter((device) => device.siteId === site.id))[0]
 }

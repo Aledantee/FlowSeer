@@ -1891,6 +1891,9 @@ td small {
     display: none;
   }
 }
-.summary-figure {
+.page-heading p {
   font-variant-numeric: tabular-nums;
+}
+.dash-health-line {
+  margin-top: 6px;
 }
