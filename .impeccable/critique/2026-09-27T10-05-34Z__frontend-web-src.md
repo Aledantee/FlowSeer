@@ -2,7 +2,7 @@
 target: the console
 total_score: 27
 max_score: 40
-na_heuristics: 
+na_heuristics:
 p0_count: 0
 p1_count: 1
 target_identity: "file:/Users/aledante/orca/workspaces/FlowSeer/palolo/frontend/web/src"
