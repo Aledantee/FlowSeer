@@ -83,9 +83,13 @@ research dossier, a schema with no consumer).
 ## 4. Recommend and ask
 
 Report, outcome first: the one recommendation with its reason in a
-sentence, then the queue as the script printed it, trimmed to the open
-lines, then anything step 2 found stale or blocked. Then ask the user
-(`AGENTS.md`, Agent behavior) with these options, the recommended first:
+sentence, then every plan the script printed, `waiting` and `stale`
+included, then anything step 2 found stale or blocked. Name each plan by
+its full title as the script prints it, followed by its group and path; a
+slug, a date prefix, or a shortened title makes the reader open the file
+to learn what the plan is. The options below name plans the same way.
+Then ask the user (`AGENTS.md`, Agent behavior) with these options, the
+recommended first:
 
 - The top candidate with its skill: "implement `<plan>`", "re-plan
   `<phase>`", or "plan `<gap>`".
