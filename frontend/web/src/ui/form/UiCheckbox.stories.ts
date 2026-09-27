@@ -98,3 +98,23 @@ export const Disabled: Story = {
     `,
   }),
 }
+
+export const Focus: Story = {
+  args: {
+    id: 'chk-focus',
+  },
+  render: (args) => ({
+    components: { UiCheckbox },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="flex items-center gap-2">
+        <UiCheckbox v-bind="args" autofocus />
+        <label for="chk-focus" class="text-sm font-medium text-foreground cursor-pointer select-none">
+          Focused checkbox
+        </label>
+      </div>
+    `,
+  }),
+}

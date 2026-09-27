@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, inject, useAttrs, type Ref } from 'vue'
+import {
+  computed,
+  inject,
+  onMounted,
+  ref,
+  useAttrs,
+  watch,
+  type Ref,
+} from 'vue'
+import { tv } from 'tailwind-variants'
 import {
   SelectContent,
   SelectItem,
@@ -11,6 +20,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
+import { useFormReset } from './useFormReset'
 
 export interface SelectOption {
   value: string
@@ -54,6 +64,7 @@ const fieldContext = inject<{
   invalid: Ref<boolean>
 } | null>('ui-field-context', null)
 
+const triggerRef = ref<InstanceType<typeof SelectTrigger> | null>(null)
 const triggerId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,
@@ -66,34 +77,73 @@ const ariaDescribedBy = computed(
     (attrs['aria-describedby'] as string | undefined) ??
     fieldContext?.describedBy.value,
 )
+
+const selectTriggerVariants = tv({
+  base: 'w-full inline-flex items-center justify-between gap-2 text-sm !px-3 !py-1.5 !rounded-control transition-colors !bg-card !text-foreground disabled:!opacity-50 disabled:!cursor-not-allowed focus-visible:!outline-none !border',
+  variants: {
+    invalid: {
+      false:
+        '!border-input focus-visible:!ring-1 focus-visible:!ring-ring focus-visible:!border-ring',
+      true: '!border-danger-border !ring-danger-border focus-visible:!ring-danger-border focus-visible:!border-danger-border',
+    },
+  },
+  defaultVariants: {
+    invalid: false,
+  },
+})
+
+const isControlled = computed(() => props.modelValue !== undefined)
+const internalValue = ref<string>(props.modelValue ?? '')
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val !== undefined) {
+      internalValue.value = val
+    }
+  },
+)
+
+const currentValue = computed(() =>
+  isControlled.value ? (props.modelValue as string) : internalValue.value,
+)
+
+let initialValue = ''
+onMounted(() => {
+  initialValue =
+    props.modelValue !== undefined ? props.modelValue : internalValue.value
+})
+
+useFormReset({
+  elementRef: triggerRef,
+  onReset: () => {
+    internalValue.value = initialValue
+    emit('update:modelValue', initialValue)
+  },
+})
+
+function handleUpdate(val: string | null | undefined) {
+  const strVal = String(val ?? '')
+  internalValue.value = strVal
+  emit('update:modelValue', strVal)
+}
 </script>
 
 <template>
   <SelectRoot
-    :model-value="modelValue"
+    :model-value="currentValue"
     :disabled="disabled"
     :required="required"
-    @update:model-value="emit('update:modelValue', $event)"
+    :name="name"
+    @update:model-value="handleUpdate"
   >
-    <input
-      v-if="name"
-      type="hidden"
-      :name="name"
-      :value="modelValue"
-      :disabled="disabled"
-    />
     <SelectTrigger
       :id="triggerId"
+      ref="triggerRef"
       :aria-label="computedAriaLabel"
       :aria-invalid="isInvalid ? 'true' : undefined"
       :aria-describedby="ariaDescribedBy"
-      :class="[
-        'bg-card border border-input rounded-control px-3 py-1.5 text-sm inline-flex items-center justify-between gap-2 text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-ring disabled:opacity-50 disabled:cursor-not-allowed w-full transition-colors',
-        {
-          'border-danger-border ring-danger-border focus-visible:ring-danger-border focus-visible:border-danger-border':
-            isInvalid,
-        },
-      ]"
+      :class="selectTriggerVariants({ invalid: isInvalid })"
     >
       <SelectValue :placeholder="placeholder" />
       <svg

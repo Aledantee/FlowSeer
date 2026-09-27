@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
-import { createApp, h, type Component } from 'vue'
+import { createApp, h, nextTick, type Component } from 'vue'
 import axe from 'axe-core'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
@@ -10,10 +10,26 @@ setProjectAnnotations(preview)
 
 const storyModules = import.meta.glob<Record<string, unknown>>(
   './**/*.stories.ts',
-  {
-    eager: true,
-  },
+  { eager: true },
 )
+
+const componentModules = import.meta.glob('./**/Ui*.vue')
+
+const AXE_OPTIONS: axe.RunOptions = {
+  runOnly: {
+    type: 'tag',
+    values: ['wcag2a', 'wcag2aa', 'wcag21aa'],
+  },
+  rules: {
+    'color-contrast': { enabled: false },
+  },
+}
+
+async function runAudit(element: Element = document.body) {
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  return axe.run(element, AXE_OPTIONS)
+}
 
 describe('accessibility (axe-core)', () => {
   let cleanups: (() => void)[] = []
@@ -26,7 +42,19 @@ describe('accessibility (axe-core)', () => {
     document.body.replaceChildren()
   })
 
-  // Negative fixture: unlabelled UiInput must trigger an axe violation
+  it('discovers story files and pairs every component with a stories file', () => {
+    const storyPaths = Object.keys(storyModules)
+    expect(storyPaths.length).toBeGreaterThan(0)
+
+    const componentPaths = Object.keys(componentModules)
+    expect(componentPaths.length).toBeGreaterThan(0)
+
+    for (const compPath of componentPaths) {
+      const expectedStoryPath = compPath.replace(/\.vue$/, '.stories.ts')
+      expect(storyPaths).toContain(expectedStoryPath)
+    }
+  })
+
   it('detects missing label violations on unlabelled input', async () => {
     const container = document.createElement('div')
     document.body.append(container)
@@ -36,17 +64,12 @@ describe('accessibility (axe-core)', () => {
       },
     })
     app.mount(container)
-    cleanups.push(() => app.unmount())
-
-    const results = await axe.run(container, {
-      runOnly: {
-        type: 'tag',
-        values: ['wcag2a', 'wcag2aa', 'wcag21aa'],
-      },
-      rules: {
-        'color-contrast': { enabled: false },
-      },
+    cleanups.push(() => {
+      app.unmount()
+      container.remove()
     })
+
+    const results = await runAudit(document.body)
 
     expect(results.violations.length).toBeGreaterThan(0)
     const labelViolation = results.violations.find(
@@ -55,9 +78,7 @@ describe('accessibility (axe-core)', () => {
     expect(labelViolation).toBeDefined()
   })
 
-  // Test all component stories across src/ui
   for (const [path, storyModule] of Object.entries(storyModules)) {
-    // Component stories under src/ui (exclude foundations docs if any)
     if (path.includes('/foundations/')) {
       continue
     }
@@ -73,17 +94,12 @@ describe('accessibility (axe-core)', () => {
 
           const app = createApp(StoryComponent as Component)
           app.mount(container)
-          cleanups.push(() => app.unmount())
-
-          const results = await axe.run(container, {
-            runOnly: {
-              type: 'tag',
-              values: ['wcag2a', 'wcag2aa', 'wcag21aa'],
-            },
-            rules: {
-              'color-contrast': { enabled: false },
-            },
+          cleanups.push(() => {
+            app.unmount()
+            container.remove()
           })
+
+          const results = await runAudit(document.body)
 
           expect(
             results.violations,

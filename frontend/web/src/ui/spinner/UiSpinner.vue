@@ -1,29 +1,32 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { tv } from 'tailwind-variants'
 
-const props = withDefaults(
-  defineProps<{
-    size?: 'sm' | 'md' | 'lg'
-  }>(),
-  { size: 'md' },
-)
+export interface UiSpinnerProps {
+  size?: 'sm' | 'md' | 'lg'
+}
 
-const sizeClasses = computed(() => {
-  switch (props.size) {
-    case 'sm':
-      return 'h-3.5 w-3.5'
-    case 'lg':
-      return 'h-5 w-5'
-    case 'md':
-    default:
-      return 'h-4 w-4'
-  }
+withDefaults(defineProps<UiSpinnerProps>(), {
+  size: 'md',
+})
+
+const spinnerVariants = tv({
+  base: 'animate-spin text-current shrink-0',
+  variants: {
+    size: {
+      sm: 'h-3.5 w-3.5',
+      md: 'h-4 w-4',
+      lg: 'h-5 w-5',
+    },
+  },
+  defaultVariants: {
+    size: 'md',
+  },
 })
 </script>
 
 <template>
   <svg
-    :class="['animate-spin text-current shrink-0', sizeClasses]"
+    :class="spinnerVariants({ size })"
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
     viewBox="0 0 24 24"

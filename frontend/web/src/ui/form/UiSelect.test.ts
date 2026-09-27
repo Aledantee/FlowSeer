@@ -25,8 +25,45 @@ function mountSelect(
   }
   const app = createApp(UiSelect, props)
   app.mount(host)
-  dispose = () => app.unmount()
+  dispose = () => {
+    app.unmount()
+    dispose = () => {}
+  }
   return host
+}
+
+async function selectOption(host: HTMLElement, optionText: string) {
+  const trigger = host.querySelector('button')
+  if (!trigger) throw new Error('Missing trigger button')
+
+  trigger.dispatchEvent(
+    new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+    }),
+  )
+  trigger.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+  )
+  await nextTick()
+
+  const items = document.querySelectorAll('[role="option"]')
+  const targetItem = [...items].find((item) =>
+    item.textContent?.includes(optionText),
+  ) as HTMLElement
+  if (!targetItem) throw new Error(`Missing option item for ${optionText}`)
+  targetItem.focus()
+  targetItem.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    }),
+  )
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  await nextTick()
 }
 
 describe('UiSelect', () => {
@@ -40,38 +77,7 @@ describe('UiSelect', () => {
       },
     })
 
-    const trigger = host.querySelector('button')
-    if (!trigger) throw new Error('Missing trigger button')
-
-    trigger.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-      }),
-    )
-    trigger.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
-    )
-    await nextTick()
-
-    const items = document.querySelectorAll('[role="option"]')
-    const berlinItem = [...items].find((item) =>
-      item.textContent?.includes('Berlin'),
-    ) as HTMLElement
-    if (!berlinItem) throw new Error('Missing Berlin option item')
-    berlinItem.focus()
-    berlinItem.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Enter',
-        bubbles: true,
-        cancelable: true,
-      }),
-    )
-    await nextTick()
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    await nextTick()
-
+    await selectOption(host, 'Berlin')
     expect(selected.value).toBe('berlin')
   })
 
@@ -88,7 +94,7 @@ describe('UiSelect', () => {
     expect(hiddenControl).not.toBeNull()
   })
 
-  it('includes selected value in form submission', async () => {
+  it('submits selected value in uncontrolled use inside form', async () => {
     let submittedData: Record<string, string> = {}
     const form = document.createElement('form')
     document.body.append(form)
@@ -104,12 +110,13 @@ describe('UiSelect', () => {
     form.append(mountPoint)
     mountSelect(
       {
-        modelValue: 'hamburg',
         options,
         name: 'siteId',
       },
       mountPoint,
     )
+
+    await selectOption(mountPoint, 'Berlin')
 
     const submitBtn = document.createElement('button')
     submitBtn.type = 'submit'
@@ -118,6 +125,27 @@ describe('UiSelect', () => {
     submitBtn.click()
     await nextTick()
 
-    expect(submittedData.siteId).toBe('hamburg')
+    expect(submittedData.siteId).toBe('berlin')
+  })
+
+  it('validates native required constraint inside form', async () => {
+    const form = document.createElement('form')
+    document.body.append(form)
+
+    const mountPoint = document.createElement('div')
+    form.append(mountPoint)
+    mountSelect(
+      {
+        options,
+        name: 'siteId',
+        required: true,
+      },
+      mountPoint,
+    )
+
+    expect(form.checkValidity()).toBe(false)
+
+    await selectOption(mountPoint, 'Hamburg')
+    expect(form.checkValidity()).toBe(true)
   })
 })
