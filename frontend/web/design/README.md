@@ -113,10 +113,19 @@ mode. Exact brand anchors therefore remain separate from generated steps.
 ## Consume and regenerate
 
 `src/theme/scales.css` exposes `--m3-coral-1` through `--m3-blue-12`, with dark
-values selected by `data-theme="dark"`. The app imports these primitives through
-`src/style.css`. Semantic tokens are generated into `src/theme/semantic.css` from
-`design/palette-source.json` and reference scale steps; a full primitive ramp
-does not replace those decisions.
+values selected by `data-theme="dark"`. Semantic tokens are generated into
+`src/theme/semantic.css` from `design/palette-source.json` and reference scale
+steps. `src/theme/tokens.css` wires these semantic tokens and type/shadow/radius
+scales into Tailwind v4 via `@theme`. `src/theme/tailwind.css` enables Tailwind
+Preflight in `@layer base` alongside base element normalizations.
+
+Component styles are encapsulated in `src/ui/` and individual view templates
+using Tailwind utility classes. Legacy stylesheets (`dashboard.css`,
+`language.css`) are dissolved, leaving `src/style.css` as a dedicated layout
+stylesheet for the connected chrome frame, viewport brand glow ribbons, and
+custom scrollbars. A stylelint gate running during `pnpm lint` ensures no raw
+hex colors, font-size literals, or box-shadow values are introduced outside
+`src/theme/scales.css`.
 
 ```css
 .site-hint {

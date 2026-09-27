@@ -1,0 +1,62 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "plugins": ["stylelint-declaration-strict-value"],
+  "overrides": [
+    {
+      "files": ["*.vue", "**/*.vue"],
+      "customSyntax": "postcss-html"
+    }
+  ],
+  "ignoreFiles": ["src/theme/scales.css"],
+  "rules": {
+    "scale-unlimited/declaration-strict-value": [
+      ["/color$/", "font-size", "box-shadow"],
+      {
+        "ignoreValues": {
+          "": [
+            "transparent",
+            "inherit",
+            "initial",
+            "unset",
+            "currentColor",
+            "none",
+            "black",
+            "white"
+          ],
+          "box-shadow": ["none", "inset", "/^[-0-9]+(px)?$/"]
+        }
+      }
+    ],
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "theme",
+          "custom-variant",
+          "utility",
+          "source",
+          "reference",
+          "plugin"
+        ]
+      }
+    ],
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": ["deep", "slotted", "global"]
+      }
+    ],
+    "selector-class-pattern": null,
+    "custom-property-pattern": null,
+    "no-descending-specificity": null,
+    "rule-empty-line-before": null,
+    "at-rule-empty-line-before": null,
+    "declaration-empty-line-before": null,
+    "custom-property-empty-line-before": null,
+    "comment-empty-line-before": null,
+    "import-notation": null,
+    "media-feature-range-notation": null,
+    "value-keyword-case": null,
+    "no-duplicate-selectors": null
+  }
+}
