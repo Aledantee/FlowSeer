@@ -24,6 +24,7 @@ withDefaults(defineProps<UiPopoverProps>(), {
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
+  (e: 'closeAutoFocus', event: Event): void
 }>()
 </script>
 
@@ -43,6 +44,7 @@ const emit = defineEmits<{
         :side-offset="sideOffset"
         :collision-padding="8"
         class="bg-popover text-foreground border border-border shadow-lg rounded-control p-3 z-50 focus:outline-none max-w-xs"
+        @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <slot />
       </PopoverContent>

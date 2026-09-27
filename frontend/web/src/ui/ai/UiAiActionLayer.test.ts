@@ -38,9 +38,13 @@ function setBox(element: HTMLElement, box: Box) {
 
 const box: Box = { top: 120, left: 60, width: 320, height: 40 }
 
-function setup(boxValue: Box = box) {
+function setup(
+  boxValue: Box = box,
+  viewport = () => ({ wide: true, narrow: false }),
+  targetOverrides: Partial<AiTarget> = {},
+) {
   const registry: AiRegistry = createAiRegistry({
-    viewport: () => ({ wide: true, narrow: false }),
+    viewport,
   })
   const element = document.createElement('div')
   element.tabIndex = 0
@@ -51,6 +55,7 @@ function setup(boxValue: Box = box) {
     kind: 'device',
     label: 'd1',
     context: { site: 'Berlin Mitte' },
+    ...targetOverrides,
   }
   registry.register(element, target)
 
@@ -61,6 +66,31 @@ function setup(boxValue: Box = box) {
   app.mount(host)
   dispose = () => app.unmount()
   return { registry, element, target, host }
+}
+
+function addTarget(registry: AiRegistry, id: string, label: string) {
+  const element = document.createElement('div')
+  element.tabIndex = 0
+  setBox(element, box)
+  document.body.prepend(element)
+  const target: AiTarget = {
+    id,
+    kind: 'device',
+    label,
+    context: { site: 'Hamburg Hafen' },
+  }
+  registry.register(element, target)
+  return { element, target }
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {}
+  let reject: (reason: unknown) => void = () => {}
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve
+    reject = onReject
+  })
+  return { promise, resolve, reject }
 }
 
 async function settle() {
@@ -87,6 +117,39 @@ function submitButton(): HTMLButtonElement {
   )
   if (!button) throw new Error('Missing ask submit')
   return button
+}
+
+function cancelButton(): HTMLButtonElement {
+  const button = [
+    ...document.querySelectorAll<HTMLButtonElement>('form button'),
+  ].find((candidate) => candidate.textContent?.trim() === 'Cancel')
+  if (!button) throw new Error('Missing cancel button')
+  return button
+}
+
+function pressTab() {
+  const current = document.activeElement
+  current?.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Tab',
+      code: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    }),
+  )
+  const elements = [...document.querySelectorAll<HTMLElement>('*')]
+  const currentIndex =
+    current instanceof HTMLElement ? elements.indexOf(current) : -1
+  const next = elements.slice(currentIndex + 1).find((element) => {
+    if (element.tabIndex < 0) return false
+    return (
+      element instanceof HTMLButtonElement ||
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element.tabIndex === 0
+    )
+  })
+  next?.focus()
 }
 
 describe('AiActionLayer selection and Ask', () => {
@@ -192,6 +255,125 @@ describe('AiActionLayer selection and Ask', () => {
     expect(document.body.textContent).not.toContain('A late answer')
   })
 
+  it('does not let a late answer clear or replace a newer target request', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const firstRequest = deferred<string>()
+    const secondRequest = deferred<string>()
+    registry.onRequest((request) =>
+      request.targetId === 'a:devices:device:d1'
+        ? firstRequest.promise
+        : secondRequest.promise,
+    )
+    registry.highlight('a:devices:device:d1')
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('First question')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    cancelButton().click()
+    await settle()
+    registry.highlight(second.target.id)
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('Second question')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    firstRequest.resolve('Late first answer')
+    await settle()
+
+    expect(document.body.textContent).not.toContain('Late first answer')
+    expect(submitButton().getAttribute('aria-busy')).toBe('true')
+
+    secondRequest.resolve('Current answer')
+    await settle()
+    expect(document.body.textContent).toContain('Current answer')
+  })
+
+  it('does not show a late rejection in a newer target Ask', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const firstRequest = deferred<string>()
+    registry.onRequest(() => firstRequest.promise)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('First question')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    cancelButton().click()
+    await settle()
+    registry.highlight(second.target.id)
+    await settle()
+    askButton()?.click()
+    await settle()
+    type('Second question')
+
+    firstRequest.reject(new Error('Late first failure'))
+    await settle()
+
+    expect(document.querySelector('textarea')).not.toBeNull()
+    expect(document.body.textContent).toContain('Ask about d2')
+    expect(document.body.textContent).not.toContain('Late first failure')
+    expect(submitButton().disabled).toBe(false)
+  })
+
+  it('prefers the focused target until focus leaves it', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    registry.highlight('a:devices:device:d1')
+    second.element.focus()
+    await settle()
+
+    expect(askButton()?.getAttribute('aria-label')).toBe('Ask about d2')
+
+    outside.focus()
+    await settle()
+    expect(askButton()?.getAttribute('aria-label')).toBe('Ask about d1')
+  })
+
+  it('keeps the focused target when its Ask trigger receives a pointer click', async () => {
+    const { registry } = setup()
+    const second = addTarget(registry, 'a:devices:device:d2', 'd2')
+    const seen: AiRequest[] = []
+    registry.onRequest((request) => {
+      seen.push(request)
+      return 'Answer for d2'
+    })
+    registry.highlight('a:devices:device:d1')
+    second.element.focus()
+    await settle()
+
+    const button = askButton()
+    expect(button?.getAttribute('aria-label')).toBe('Ask about d2')
+    button?.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, cancelable: true }),
+    )
+    button?.focus()
+    button?.click()
+    await settle()
+
+    expect(document.body.textContent).toContain('Ask about d2')
+    type('Question for the focused target')
+    await settle()
+    submitButton().click()
+    await settle()
+
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.targetId).toBe(second.target.id)
+  })
+
   it('opens Ask from the focused target with Alt+A', async () => {
     const { element } = setup()
     element.focus()
@@ -210,6 +392,67 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
 
     expect(document.querySelector('textarea')).not.toBeNull()
+  })
+
+  it('returns focus to the originating control before the next Tab', async () => {
+    const { element } = setup()
+    const origin = document.createElement('button')
+    origin.textContent = 'Open device actions'
+    element.append(origin)
+    const next = document.createElement('button')
+    next.textContent = 'Next control'
+    element.after(next)
+    origin.focus()
+    await settle()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+    expect(document.activeElement).toBeInstanceOf(HTMLTextAreaElement)
+
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+
+    expect(document.activeElement).toBe(origin)
+    pressTab()
+    expect(document.activeElement).toBe(next)
+  })
+
+  it('returns focus to the originating control after Cancel', async () => {
+    const { element } = setup()
+    const origin = document.createElement('button')
+    element.append(origin)
+    origin.focus()
+    await settle()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await settle()
+    cancelButton().click()
+    await settle()
+
+    expect(document.activeElement).toBe(origin)
   })
 
   it('reveals Ask on pointer entry', async () => {
@@ -240,5 +483,22 @@ describe('AiActionLayer geometry', () => {
     await settle()
 
     expect(askButton()?.style.top).toBe('304px')
+  })
+
+  it('drops a selected responsive copy when the viewport changes', async () => {
+    let wide = true
+    const { registry, target } = setup(box, () => ({ wide, narrow: !wide }), {
+      segment: 'desktop',
+    })
+    registry.highlight(target.id)
+    await settle()
+    expect(askButton()).not.toBeNull()
+
+    wide = false
+    window.dispatchEvent(new Event('resize'))
+    await settle()
+
+    expect(registry.selection()).toBeUndefined()
+    expect(askButton()).toBeUndefined()
   })
 })
