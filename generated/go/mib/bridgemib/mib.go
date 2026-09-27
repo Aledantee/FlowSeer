@@ -11,8 +11,6 @@ package bridgemib
 
 import (
 	"context"
-	"fmt"
-	"iter"
 	"net"
 
 	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
@@ -25,35 +23,28 @@ import (
 // actually performing a certain type of bridging, this will be indicated
 // by entries in the port table for the given type.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1dBaseTypeValue int32
 
 const (
-	// Dot1dBaseTypeValueUnknown represents the SMI value unknown.
+	// Dot1dBaseTypeValueUnknown is unknown.
 	Dot1dBaseTypeValueUnknown Dot1dBaseTypeValue = 1
-	// Dot1dBaseTypeValueTransparentOnly represents the SMI value transparent-only.
+	// Dot1dBaseTypeValueTransparentOnly is transparent-only.
 	Dot1dBaseTypeValueTransparentOnly Dot1dBaseTypeValue = 2
-	// Dot1dBaseTypeValueSourcerouteOnly represents the SMI value sourceroute-only.
+	// Dot1dBaseTypeValueSourcerouteOnly is sourceroute-only.
 	Dot1dBaseTypeValueSourcerouteOnly Dot1dBaseTypeValue = 3
-	// Dot1dBaseTypeValueSrt represents the SMI value srt.
+	// Dot1dBaseTypeValueSrt is srt.
 	Dot1dBaseTypeValueSrt Dot1dBaseTypeValue = 4
 )
 
-// String returns the SMI label, or Dot1dBaseTypeValue(n) for an unrecognized value n.
-func (v Dot1dBaseTypeValue) String() string {
-	switch v {
-	case Dot1dBaseTypeValueUnknown:
-		return "unknown"
-	case Dot1dBaseTypeValueTransparentOnly:
-		return "transparent-only"
-	case Dot1dBaseTypeValueSourcerouteOnly:
-		return "sourceroute-only"
-	case Dot1dBaseTypeValueSrt:
-		return "srt"
-	}
+var (
+	dot1dBaseTypeValueValues = []int32{1, 2, 3, 4}
+	dot1dBaseTypeValueNames  = []string{"unknown", "transparent-only", "sourceroute-only", "srt"}
+)
 
-	return fmt.Sprintf("Dot1dBaseTypeValue(%d)", v)
+// String returns the SMI label, or Dot1dBaseTypeValue(n) for an unknown value.
+func (v Dot1dBaseTypeValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1dBaseTypeValue", dot1dBaseTypeValueValues, dot1dBaseTypeValueNames)
 }
 
 // Dot1dStaticStatusValue is the SMI enum dot1dStaticStatus (inline).
@@ -67,65 +58,53 @@ func (v Dot1dBaseTypeValue) String() string {
 // of the bridge. deleteOnTimeout(5) - this entry is currently in use and
 // will remain so until it is aged out.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1dStaticStatusValue int32
 
 const (
-	// Dot1dStaticStatusValueOther represents the SMI value other.
+	// Dot1dStaticStatusValueOther is other.
 	Dot1dStaticStatusValueOther Dot1dStaticStatusValue = 1
-	// Dot1dStaticStatusValueInvalid represents the SMI value invalid.
+	// Dot1dStaticStatusValueInvalid is invalid.
 	Dot1dStaticStatusValueInvalid Dot1dStaticStatusValue = 2
-	// Dot1dStaticStatusValuePermanent represents the SMI value permanent.
+	// Dot1dStaticStatusValuePermanent is permanent.
 	Dot1dStaticStatusValuePermanent Dot1dStaticStatusValue = 3
-	// Dot1dStaticStatusValueDeleteOnReset represents the SMI value deleteOnReset.
+	// Dot1dStaticStatusValueDeleteOnReset is deleteOnReset.
 	Dot1dStaticStatusValueDeleteOnReset Dot1dStaticStatusValue = 4
-	// Dot1dStaticStatusValueDeleteOnTimeout represents the SMI value deleteOnTimeout.
+	// Dot1dStaticStatusValueDeleteOnTimeout is deleteOnTimeout.
 	Dot1dStaticStatusValueDeleteOnTimeout Dot1dStaticStatusValue = 5
 )
 
-// String returns the SMI label, or Dot1dStaticStatusValue(n) for an unrecognized value n.
-func (v Dot1dStaticStatusValue) String() string {
-	switch v {
-	case Dot1dStaticStatusValueOther:
-		return "other"
-	case Dot1dStaticStatusValueInvalid:
-		return "invalid"
-	case Dot1dStaticStatusValuePermanent:
-		return "permanent"
-	case Dot1dStaticStatusValueDeleteOnReset:
-		return "deleteOnReset"
-	case Dot1dStaticStatusValueDeleteOnTimeout:
-		return "deleteOnTimeout"
-	}
+var (
+	dot1dStaticStatusValueValues = []int32{1, 2, 3, 4, 5}
+	dot1dStaticStatusValueNames  = []string{"other", "invalid", "permanent", "deleteOnReset", "deleteOnTimeout"}
+)
 
-	return fmt.Sprintf("Dot1dStaticStatusValue(%d)", v)
+// String returns the SMI label, or Dot1dStaticStatusValue(n) for an unknown value.
+func (v Dot1dStaticStatusValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1dStaticStatusValue", dot1dStaticStatusValueValues, dot1dStaticStatusValueNames)
 }
 
 // Dot1dStpPortEnableValue is the SMI enum dot1dStpPortEnable (inline).
 // The enabled/disabled status of the port.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1dStpPortEnableValue int32
 
 const (
-	// Dot1dStpPortEnableValueEnabled represents the SMI value enabled.
+	// Dot1dStpPortEnableValueEnabled is enabled.
 	Dot1dStpPortEnableValueEnabled Dot1dStpPortEnableValue = 1
-	// Dot1dStpPortEnableValueDisabled represents the SMI value disabled.
+	// Dot1dStpPortEnableValueDisabled is disabled.
 	Dot1dStpPortEnableValueDisabled Dot1dStpPortEnableValue = 2
 )
 
-// String returns the SMI label, or Dot1dStpPortEnableValue(n) for an unrecognized value n.
-func (v Dot1dStpPortEnableValue) String() string {
-	switch v {
-	case Dot1dStpPortEnableValueEnabled:
-		return "enabled"
-	case Dot1dStpPortEnableValueDisabled:
-		return "disabled"
-	}
+var (
+	dot1dStpPortEnableValueValues = []int32{1, 2}
+	dot1dStpPortEnableValueNames  = []string{"enabled", "disabled"}
+)
 
-	return fmt.Sprintf("Dot1dStpPortEnableValue(%d)", v)
+// String returns the SMI label, or Dot1dStpPortEnableValue(n) for an unknown value.
+func (v Dot1dStpPortEnableValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1dStpPortEnableValue", dot1dStpPortEnableValueValues, dot1dStpPortEnableValueNames)
 }
 
 // Dot1dStpPortStateValue is the SMI enum dot1dStpPortState (inline).
@@ -135,43 +114,32 @@ func (v Dot1dStpPortEnableValue) String() string {
 // place that port into the broken(6) state. For ports that are disabled
 // (see dot1dStpPortEnable), this object will have a value of disabled(1).
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1dStpPortStateValue int32
 
 const (
-	// Dot1dStpPortStateValueDisabled represents the SMI value disabled.
+	// Dot1dStpPortStateValueDisabled is disabled.
 	Dot1dStpPortStateValueDisabled Dot1dStpPortStateValue = 1
-	// Dot1dStpPortStateValueBlocking represents the SMI value blocking.
+	// Dot1dStpPortStateValueBlocking is blocking.
 	Dot1dStpPortStateValueBlocking Dot1dStpPortStateValue = 2
-	// Dot1dStpPortStateValueListening represents the SMI value listening.
+	// Dot1dStpPortStateValueListening is listening.
 	Dot1dStpPortStateValueListening Dot1dStpPortStateValue = 3
-	// Dot1dStpPortStateValueLearning represents the SMI value learning.
+	// Dot1dStpPortStateValueLearning is learning.
 	Dot1dStpPortStateValueLearning Dot1dStpPortStateValue = 4
-	// Dot1dStpPortStateValueForwarding represents the SMI value forwarding.
+	// Dot1dStpPortStateValueForwarding is forwarding.
 	Dot1dStpPortStateValueForwarding Dot1dStpPortStateValue = 5
-	// Dot1dStpPortStateValueBroken represents the SMI value broken.
+	// Dot1dStpPortStateValueBroken is broken.
 	Dot1dStpPortStateValueBroken Dot1dStpPortStateValue = 6
 )
 
-// String returns the SMI label, or Dot1dStpPortStateValue(n) for an unrecognized value n.
-func (v Dot1dStpPortStateValue) String() string {
-	switch v {
-	case Dot1dStpPortStateValueDisabled:
-		return "disabled"
-	case Dot1dStpPortStateValueBlocking:
-		return "blocking"
-	case Dot1dStpPortStateValueListening:
-		return "listening"
-	case Dot1dStpPortStateValueLearning:
-		return "learning"
-	case Dot1dStpPortStateValueForwarding:
-		return "forwarding"
-	case Dot1dStpPortStateValueBroken:
-		return "broken"
-	}
+var (
+	dot1dStpPortStateValueValues = []int32{1, 2, 3, 4, 5, 6}
+	dot1dStpPortStateValueNames  = []string{"disabled", "blocking", "listening", "learning", "forwarding", "broken"}
+)
 
-	return fmt.Sprintf("Dot1dStpPortStateValue(%d)", v)
+// String returns the SMI label, or Dot1dStpPortStateValue(n) for an unknown value.
+func (v Dot1dStpPortStateValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1dStpPortStateValue", dot1dStpPortStateValueValues, dot1dStpPortStateValueNames)
 }
 
 // Dot1dStpProtocolSpecificationValue is the SMI enum dot1dStpProtocolSpecification (inline).
@@ -182,31 +150,26 @@ func (v Dot1dStpPortStateValue) String() string {
 // incompatible with the current version are released a new value will be
 // defined.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1dStpProtocolSpecificationValue int32
 
 const (
-	// Dot1dStpProtocolSpecificationValueUnknown represents the SMI value unknown.
+	// Dot1dStpProtocolSpecificationValueUnknown is unknown.
 	Dot1dStpProtocolSpecificationValueUnknown Dot1dStpProtocolSpecificationValue = 1
-	// Dot1dStpProtocolSpecificationValueDecLb100 represents the SMI value decLb100.
+	// Dot1dStpProtocolSpecificationValueDecLb100 is decLb100.
 	Dot1dStpProtocolSpecificationValueDecLb100 Dot1dStpProtocolSpecificationValue = 2
-	// Dot1dStpProtocolSpecificationValueIeee8021d represents the SMI value ieee8021d.
+	// Dot1dStpProtocolSpecificationValueIeee8021d is ieee8021d.
 	Dot1dStpProtocolSpecificationValueIeee8021d Dot1dStpProtocolSpecificationValue = 3
 )
 
-// String returns the SMI label, or Dot1dStpProtocolSpecificationValue(n) for an unrecognized value n.
-func (v Dot1dStpProtocolSpecificationValue) String() string {
-	switch v {
-	case Dot1dStpProtocolSpecificationValueUnknown:
-		return "unknown"
-	case Dot1dStpProtocolSpecificationValueDecLb100:
-		return "decLb100"
-	case Dot1dStpProtocolSpecificationValueIeee8021d:
-		return "ieee8021d"
-	}
+var (
+	dot1dStpProtocolSpecificationValueValues = []int32{1, 2, 3}
+	dot1dStpProtocolSpecificationValueNames  = []string{"unknown", "decLb100", "ieee8021d"}
+)
 
-	return fmt.Sprintf("Dot1dStpProtocolSpecificationValue(%d)", v)
+// String returns the SMI label, or Dot1dStpProtocolSpecificationValue(n) for an unknown value.
+func (v Dot1dStpProtocolSpecificationValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1dStpProtocolSpecificationValue", dot1dStpProtocolSpecificationValueValues, dot1dStpProtocolSpecificationValueNames)
 }
 
 // Dot1dTpFdbStatusValue is the SMI enum dot1dTpFdbStatus (inline).
@@ -225,39 +188,30 @@ func (v Dot1dStpProtocolSpecificationValue) String() string {
 // mgmt(5) - the value of the corresponding instance of dot1dTpFdbAddress
 // is also the value of an existing instance of dot1dStaticAddress.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type Dot1dTpFdbStatusValue int32
 
 const (
-	// Dot1dTpFdbStatusValueOther represents the SMI value other.
+	// Dot1dTpFdbStatusValueOther is other.
 	Dot1dTpFdbStatusValueOther Dot1dTpFdbStatusValue = 1
-	// Dot1dTpFdbStatusValueInvalid represents the SMI value invalid.
+	// Dot1dTpFdbStatusValueInvalid is invalid.
 	Dot1dTpFdbStatusValueInvalid Dot1dTpFdbStatusValue = 2
-	// Dot1dTpFdbStatusValueLearned represents the SMI value learned.
+	// Dot1dTpFdbStatusValueLearned is learned.
 	Dot1dTpFdbStatusValueLearned Dot1dTpFdbStatusValue = 3
-	// Dot1dTpFdbStatusValueSelf represents the SMI value self.
+	// Dot1dTpFdbStatusValueSelf is self.
 	Dot1dTpFdbStatusValueSelf Dot1dTpFdbStatusValue = 4
-	// Dot1dTpFdbStatusValueMgmt represents the SMI value mgmt.
+	// Dot1dTpFdbStatusValueMgmt is mgmt.
 	Dot1dTpFdbStatusValueMgmt Dot1dTpFdbStatusValue = 5
 )
 
-// String returns the SMI label, or Dot1dTpFdbStatusValue(n) for an unrecognized value n.
-func (v Dot1dTpFdbStatusValue) String() string {
-	switch v {
-	case Dot1dTpFdbStatusValueOther:
-		return "other"
-	case Dot1dTpFdbStatusValueInvalid:
-		return "invalid"
-	case Dot1dTpFdbStatusValueLearned:
-		return "learned"
-	case Dot1dTpFdbStatusValueSelf:
-		return "self"
-	case Dot1dTpFdbStatusValueMgmt:
-		return "mgmt"
-	}
+var (
+	dot1dTpFdbStatusValueValues = []int32{1, 2, 3, 4, 5}
+	dot1dTpFdbStatusValueNames  = []string{"other", "invalid", "learned", "self", "mgmt"}
+)
 
-	return fmt.Sprintf("Dot1dTpFdbStatusValue(%d)", v)
+// String returns the SMI label, or Dot1dTpFdbStatusValue(n) for an unknown value.
+func (v Dot1dTpFdbStatusValue) String() string {
+	return snmp.EnumString(int32(v), "Dot1dTpFdbStatusValue", dot1dTpFdbStatusValueValues, dot1dTpFdbStatusValueNames)
 }
 
 // Dot1dBaseBridgeAddressGet reads the SMIv2 scalar dot1dBaseBridgeAddress.
@@ -653,23 +607,23 @@ func Dot1dTpAgingTimeGet(ctx context.Context, sess snmp.Session) (int32, error) 
 	return snmp.DecodeInt32(vbs[0])
 }
 
-// Dot1dBasePort is the column dot1dBasePort of table dot1dBasePortTable.
+// Dot1dBasePort is dot1dBasePort.
 // The port number of the port for which this entry contains bridge
 // management information.
-var Dot1dBasePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dBasePort = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// Dot1dBasePortIfIndex is the column dot1dBasePortIfIndex of table dot1dBasePortTable.
+// Dot1dBasePortIfIndex is dot1dBasePortIfIndex.
 // The value of the instance of the ifIndex object, defined in IF-MIB, for
 // the interface corresponding to this port.
-var Dot1dBasePortIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
+var Dot1dBasePortIfIndex = snmp.NewFusedTableColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ifmib.InterfaceIndex(0), err
 	}
 	return ifmib.InterfaceIndex(v), nil
-})
+}, snmp.RawInteger32As[ifmib.InterfaceIndex], 1)
 
-// Dot1dBasePortCircuit is the column dot1dBasePortCircuit of table dot1dBasePortTable.
+// Dot1dBasePortCircuit is dot1dBasePortCircuit.
 // For a port that (potentially) has the same value of dot1dBasePortIfIndex
 // as another port on the same bridge. This object contains the name of an
 // object instance unique to this port. For example, in the case where
@@ -678,18 +632,21 @@ var Dot1dBasePortIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 
 // associated with the X.25 virtual circuit corresponding to this port. For
 // a port which has a unique value of dot1dBasePortIfIndex, this object can
 // have the value { 0 0 }.
-var Dot1dBasePortCircuit = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
+var Dot1dBasePortCircuit = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 3), snmp.KindObjectID, snmp.DecodeOID, 2)
 
-// Dot1dBasePortDelayExceededDiscards is the column dot1dBasePortDelayExceededDiscards of table dot1dBasePortTable.
+// Dot1dBasePortDelayExceededDiscards is dot1dBasePortDelayExceededDiscards.
 // The number of frames discarded by this port due to excessive transit
 // delay through the bridge. It is incremented by both transparent and
 // source route bridges.
-var Dot1dBasePortDelayExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1dBasePortDelayExceededDiscards = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
 
-// Dot1dBasePortMTUExceededDiscards is the column dot1dBasePortMtuExceededDiscards of table dot1dBasePortTable.
+// Dot1dBasePortMTUExceededDiscards is dot1dBasePortMtuExceededDiscards.
 // The number of frames discarded by this port due to an excessive size. It
 // is incremented by both transparent and source route bridges.
-var Dot1dBasePortMTUExceededDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	Dot1dBasePortMTUExceededDiscards = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
+	dot1dBasePortTableColumns        = []snmp.AnyColumn{Dot1dBasePort, Dot1dBasePortIfIndex, Dot1dBasePortCircuit, Dot1dBasePortDelayExceededDiscards, Dot1dBasePortMTUExceededDiscards}
+)
 
 // Dot1dBasePortTableKey is the decoded INDEX of one dot1dBasePortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -709,14 +666,7 @@ func decodeDot1dBasePortTableKey(idx snmp.OID) (Dot1dBasePortTableKey, bool) {
 	return Dot1dBasePortTableKey{Dot1dBasePort: int32(parts[0].Integer)}, true
 }
 
-// Dot1dBasePortTableRow is one row of dot1dBasePortTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1dBasePortTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1dBasePortTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1dBasePortTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1dBasePortTableRow struct {
 	Key                                Dot1dBasePortTableKey
 	keyValid                           bool
@@ -725,191 +675,49 @@ type Dot1dBasePortTableRow struct {
 	Dot1dBasePortCircuit               snmp.OID
 	Dot1dBasePortDelayExceededDiscards uint32
 	Dot1dBasePortMTUExceededDiscards   uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                           [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1dBasePortTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1dBasePortTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1dBasePort.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1dBasePortIfIndex.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1dBasePortCircuit.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1dBasePortDelayExceededDiscards.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1dBasePortMTUExceededDiscards.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1dBasePortTableColumns, col)
 }
 
-// Dot1dBasePortTableWalker streams selected columns of dot1dBasePortTable.
-// The zero value is not usable; construct via Dot1dBasePortTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1dBasePortTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1dBasePortTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1dBasePortTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1dBasePortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dBasePortTableRow] {
-	return func(yield func(snmp.OID, Dot1dBasePortTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1dBasePortTableRow
-			row.Key, row.keyValid = decodeDot1dBasePortTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1dBasePort.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dBasePort = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dBasePort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dBasePort = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1dBasePortIfIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dBasePortIfIndex = ifmib.InterfaceIndex(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dBasePortIfIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dBasePortIfIndex = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1dBasePortCircuit.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dBasePortCircuit.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dBasePortCircuit = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case Dot1dBasePortDelayExceededDiscards.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dBasePortDelayExceededDiscards = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dBasePortDelayExceededDiscards.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dBasePortDelayExceededDiscards = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case Dot1dBasePortMTUExceededDiscards.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dBasePortMTUExceededDiscards = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dBasePortMTUExceededDiscards.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dBasePortMTUExceededDiscards = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1dBasePortTableT struct {
+	snmp.Table[Dot1dBasePortTableRow, *Dot1dBasePortTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1dBasePortTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1dBasePortTableT is the singleton type of Dot1dBasePortTable.
-type dot1dBasePortTableT struct{}
 
 // Dot1dBasePortTable is the descriptor for the dot1dBasePortTable table.
-var Dot1dBasePortTable dot1dBasePortTableT
+var Dot1dBasePortTable = dot1dBasePortTableT{Table: snmp.NewTable("dot1dBasePortTable", dot1dBasePortTableColumns, func(idx snmp.OID, row *Dot1dBasePortTableRow) {
+	row.Key, row.keyValid = decodeDot1dBasePortTableKey(idx)
+}, func(row *Dot1dBasePortTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1dBasePort, &row.Dot1dBasePort, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1dBasePortIfIndex, &row.Dot1dBasePortIfIndex, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1dBasePortCircuit, &row.Dot1dBasePortCircuit, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1dBasePortDelayExceededDiscards, &row.Dot1dBasePortDelayExceededDiscards, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1dBasePortMTUExceededDiscards, &row.Dot1dBasePortMTUExceededDiscards, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1dBasePortTableRow]) *Dot1dBasePortTableWalker {
+	return &Dot1dBasePortTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1dBasePortTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1dBasePortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dBasePortTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1dBasePortTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1dBasePortTableKey",
@@ -917,71 +725,44 @@ func (dot1dBasePortTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1dBasePortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dBasePortTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1dBasePort.Key(), Dot1dBasePortIfIndex.Key(), Dot1dBasePortCircuit.Key(), Dot1dBasePortDelayExceededDiscards.Key(), Dot1dBasePortMTUExceededDiscards.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dBasePortTable.Walk: column %s", c.OID()))
-			return &Dot1dBasePortTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1dBasePortTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1dStpPort is the column dot1dStpPort of table dot1dStpPortTable.
+// Dot1dStpPort is dot1dStpPort.
 // The port number of the port for which this entry contains Spanning Tree
 // Protocol management information.
-var Dot1dStpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dStpPort = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// Dot1dStpPortPriority is the column dot1dStpPortPriority of table dot1dStpPortTable.
+// Dot1dStpPortPriority is dot1dStpPortPriority.
 // The value of the priority field that is contained in the first (in
 // network byte order) octet of the (2 octet long) Port ID. The other octet
 // of the Port ID is given by the value of dot1dStpPort. On bridges
 // supporting IEEE 802.1t or IEEE 802.1w, permissible values are 0-240, in
 // steps of 16.
-var Dot1dStpPortPriority = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dStpPortPriority = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// Dot1dStpPortState is the column dot1dStpPortState of table dot1dStpPortTable.
+// Dot1dStpPortState is dot1dStpPortState.
 // The port's current state, as defined by application of the Spanning Tree
 // Protocol. This state controls what action a port takes on reception of a
 // frame. If the bridge has detected a port that is malfunctioning, it will
 // place that port into the broken(6) state. For ports that are disabled
 // (see dot1dStpPortEnable), this object will have a value of disabled(1).
-var Dot1dStpPortState = snmp.NewColumn[Dot1dStpPortStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dStpPortStateValue, error) {
+var Dot1dStpPortState = snmp.NewFusedTableColumn[Dot1dStpPortStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dStpPortStateValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1dStpPortStateValue(0), err
 	}
 	return Dot1dStpPortStateValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1dStpPortStateValue], 2)
 
-// Dot1dStpPortEnable is the column dot1dStpPortEnable of table dot1dStpPortTable.
+// Dot1dStpPortEnable is dot1dStpPortEnable.
 // The enabled/disabled status of the port.
-var Dot1dStpPortEnable = snmp.NewColumn[Dot1dStpPortEnableValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dStpPortEnableValue, error) {
+var Dot1dStpPortEnable = snmp.NewFusedTableColumn[Dot1dStpPortEnableValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dStpPortEnableValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1dStpPortEnableValue(0), err
 	}
 	return Dot1dStpPortEnableValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1dStpPortEnableValue], 3)
 
-// Dot1dStpPortPathCost is the column dot1dStpPortPathCost of table dot1dStpPortTable.
+// Dot1dStpPortPathCost is dot1dStpPortPathCost.
 // The contribution of this port to the path cost of paths towards the
 // spanning tree root which include this port. 802.1D-1998 recommends that
 // the default value of this parameter be in inverse proportion to the
@@ -990,42 +771,45 @@ var Dot1dStpPortEnable = snmp.NewColumn[Dot1dStpPortEnableValue](snmp.MustOID(1,
 // of this object then this object should report the maximum value, namely
 // 65535. Applications should try to read the dot1dStpPortPathCost32 object
 // if this object reports the maximum value.
-var Dot1dStpPortPathCost = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dStpPortPathCost = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// Dot1dStpPortDesignatedRoot is the column dot1dStpPortDesignatedRoot of table dot1dStpPortTable.
+// Dot1dStpPortDesignatedRoot is dot1dStpPortDesignatedRoot.
 // The unique Bridge Identifier of the Bridge recorded as the Root in the
 // Configuration BPDUs transmitted by the Designated Bridge for the segment
 // to which the port is attached.
-var Dot1dStpPortDesignatedRoot = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 6), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1dStpPortDesignatedRoot = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 6), snmp.KindOctetString, snmp.DecodeBytes, 5)
 
-// Dot1dStpPortDesignatedCost is the column dot1dStpPortDesignatedCost of table dot1dStpPortTable.
+// Dot1dStpPortDesignatedCost is dot1dStpPortDesignatedCost.
 // The path cost of the Designated Port of the segment connected to this
 // port. This value is compared to the Root Path Cost field in received
 // bridge PDUs.
-var Dot1dStpPortDesignatedCost = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dStpPortDesignatedCost = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// Dot1dStpPortDesignatedBridge is the column dot1dStpPortDesignatedBridge of table dot1dStpPortTable.
+// Dot1dStpPortDesignatedBridge is dot1dStpPortDesignatedBridge.
 // The Bridge Identifier of the bridge that this port considers to be the
 // Designated Bridge for this port's segment.
-var Dot1dStpPortDesignatedBridge = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 8), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1dStpPortDesignatedBridge = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 8), snmp.KindOctetString, snmp.DecodeBytes, 7)
 
-// Dot1dStpPortDesignatedPort is the column dot1dStpPortDesignatedPort of table dot1dStpPortTable.
+// Dot1dStpPortDesignatedPort is dot1dStpPortDesignatedPort.
 // The Port Identifier of the port on the Designated Bridge for this port's
 // segment.
-var Dot1dStpPortDesignatedPort = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 9), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1dStpPortDesignatedPort = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 9), snmp.KindOctetString, snmp.DecodeBytes, 8)
 
-// Dot1dStpPortForwardTransitions is the column dot1dStpPortForwardTransitions of table dot1dStpPortTable.
+// Dot1dStpPortForwardTransitions is dot1dStpPortForwardTransitions.
 // The number of times this port has transitioned from the Learning state
 // to the Forwarding state.
-var Dot1dStpPortForwardTransitions = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1dStpPortForwardTransitions = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 10), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 9)
 
-// Dot1dStpPortPathCost32 is the column dot1dStpPortPathCost32 of table dot1dStpPortTable.
+// Dot1dStpPortPathCost32 is dot1dStpPortPathCost32.
 // The contribution of this port to the path cost of paths towards the
 // spanning tree root which include this port. 802.1D-1998 recommends that
 // the default value of this parameter be in inverse proportion to the
 // speed of the attached LAN. This object replaces dot1dStpPortPathCost to
 // support IEEE 802.1t.
-var Dot1dStpPortPathCost32 = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	Dot1dStpPortPathCost32   = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 2, 15, 1, 11), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 10)
+	dot1dStpPortTableColumns = []snmp.AnyColumn{Dot1dStpPort, Dot1dStpPortPriority, Dot1dStpPortState, Dot1dStpPortEnable, Dot1dStpPortPathCost, Dot1dStpPortDesignatedRoot, Dot1dStpPortDesignatedCost, Dot1dStpPortDesignatedBridge, Dot1dStpPortDesignatedPort, Dot1dStpPortForwardTransitions, Dot1dStpPortPathCost32}
+)
 
 // Dot1dStpPortTableKey is the decoded INDEX of one dot1dStpPortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1045,14 +829,7 @@ func decodeDot1dStpPortTableKey(idx snmp.OID) (Dot1dStpPortTableKey, bool) {
 	return Dot1dStpPortTableKey{Dot1dStpPort: int32(parts[0].Integer)}, true
 }
 
-// Dot1dStpPortTableRow is one row of dot1dStpPortTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1dStpPortTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1dStpPortTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1dStpPortTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1dStpPortTableRow struct {
 	Key                            Dot1dStpPortTableKey
 	keyValid                       bool
@@ -1067,301 +844,61 @@ type Dot1dStpPortTableRow struct {
 	Dot1dStpPortDesignatedPort     []byte
 	Dot1dStpPortForwardTransitions uint32
 	Dot1dStpPortPathCost32         int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1dStpPortTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1dStpPortTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1dStpPort.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1dStpPortPriority.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1dStpPortState.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1dStpPortEnable.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1dStpPortPathCost.Key():
-		return r.observed[0]&(1<<4) != 0
-	case Dot1dStpPortDesignatedRoot.Key():
-		return r.observed[0]&(1<<5) != 0
-	case Dot1dStpPortDesignatedCost.Key():
-		return r.observed[0]&(1<<6) != 0
-	case Dot1dStpPortDesignatedBridge.Key():
-		return r.observed[0]&(1<<7) != 0
-	case Dot1dStpPortDesignatedPort.Key():
-		return r.observed[0]&(1<<8) != 0
-	case Dot1dStpPortForwardTransitions.Key():
-		return r.observed[0]&(1<<9) != 0
-	case Dot1dStpPortPathCost32.Key():
-		return r.observed[0]&(1<<10) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1dStpPortTableColumns, col)
 }
 
-// Dot1dStpPortTableWalker streams selected columns of dot1dStpPortTable.
-// The zero value is not usable; construct via Dot1dStpPortTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1dStpPortTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1dStpPortTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1dStpPortTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1dStpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStpPortTableRow] {
-	return func(yield func(snmp.OID, Dot1dStpPortTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1dStpPortTableRow
-			row.Key, row.keyValid = decodeDot1dStpPortTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1dStpPort.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPort = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPort = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1dStpPortPriority.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortPriority = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortPriority.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortPriority = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1dStpPortState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortState = Dot1dStpPortStateValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortState = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case Dot1dStpPortEnable.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortEnable = Dot1dStpPortEnableValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortEnable.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortEnable = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case Dot1dStpPortPathCost.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortPathCost = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortPathCost.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortPathCost = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case Dot1dStpPortDesignatedRoot.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStpPortDesignatedRoot.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStpPortDesignatedRoot = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case Dot1dStpPortDesignatedCost.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortDesignatedCost = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortDesignatedCost.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortDesignatedCost = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case Dot1dStpPortDesignatedBridge.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStpPortDesignatedBridge.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStpPortDesignatedBridge = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				case Dot1dStpPortDesignatedPort.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStpPortDesignatedPort.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStpPortDesignatedPort = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				case Dot1dStpPortForwardTransitions.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dStpPortForwardTransitions = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortForwardTransitions.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortForwardTransitions = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case Dot1dStpPortPathCost32.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStpPortPathCost32 = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStpPortPathCost32.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStpPortPathCost32 = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1dStpPortTableT struct {
+	snmp.Table[Dot1dStpPortTableRow, *Dot1dStpPortTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1dStpPortTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1dStpPortTableT is the singleton type of Dot1dStpPortTable.
-type dot1dStpPortTableT struct{}
 
 // Dot1dStpPortTable is the descriptor for the dot1dStpPortTable table.
-var Dot1dStpPortTable dot1dStpPortTableT
+var Dot1dStpPortTable = dot1dStpPortTableT{Table: snmp.NewTable("dot1dStpPortTable", dot1dStpPortTableColumns, func(idx snmp.OID, row *Dot1dStpPortTableRow) {
+	row.Key, row.keyValid = decodeDot1dStpPortTableKey(idx)
+}, func(row *Dot1dStpPortTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1dStpPort, &row.Dot1dStpPort, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1dStpPortPriority, &row.Dot1dStpPortPriority, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1dStpPortState, &row.Dot1dStpPortState, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1dStpPortEnable, &row.Dot1dStpPortEnable, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1dStpPortPathCost, &row.Dot1dStpPortPathCost, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, Dot1dStpPortDesignatedRoot, &row.Dot1dStpPortDesignatedRoot, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, Dot1dStpPortDesignatedCost, &row.Dot1dStpPortDesignatedCost, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, Dot1dStpPortDesignatedBridge, &row.Dot1dStpPortDesignatedBridge, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, Dot1dStpPortDesignatedPort, &row.Dot1dStpPortDesignatedPort, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, Dot1dStpPortForwardTransitions, &row.Dot1dStpPortForwardTransitions, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, Dot1dStpPortPathCost32, &row.Dot1dStpPortPathCost32, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1dStpPortTableRow]) *Dot1dStpPortTableWalker {
+	return &Dot1dStpPortTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1dStpPortTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1dStpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStpPortTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1dStpPortTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1dStpPortTableKey",
@@ -1369,39 +906,12 @@ func (dot1dStpPortTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1dStpPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dStpPortTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1dStpPort.Key(), Dot1dStpPortPriority.Key(), Dot1dStpPortState.Key(), Dot1dStpPortEnable.Key(), Dot1dStpPortPathCost.Key(), Dot1dStpPortDesignatedRoot.Key(), Dot1dStpPortDesignatedCost.Key(), Dot1dStpPortDesignatedBridge.Key(), Dot1dStpPortDesignatedPort.Key(), Dot1dStpPortForwardTransitions.Key(), Dot1dStpPortPathCost32.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dStpPortTable.Walk: column %s", c.OID()))
-			return &Dot1dStpPortTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1dStpPortTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1dTpFdbAddress is the column dot1dTpFdbAddress of table dot1dTpFdbTable.
+// Dot1dTpFdbAddress is dot1dTpFdbAddress.
 // A unicast MAC address for which the bridge has forwarding and/or
 // filtering information.
-var Dot1dTpFdbAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
+var Dot1dTpFdbAddress = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress, 0)
 
-// Dot1dTpFdbPort is the column dot1dTpFdbPort of table dot1dTpFdbTable.
+// Dot1dTpFdbPort is dot1dTpFdbPort.
 // Either the value '0', or the port number of the port on which a frame
 // having a source address equal to the value of the corresponding instance
 // of dot1dTpFdbAddress has been seen. A value of '0' indicates that the
@@ -1410,9 +920,9 @@ var Dot1dTpFdbAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1
 // dot1dStaticTable). Implementors are encouraged to assign the port value
 // to this object whenever it is learned, even for addresses for which the
 // corresponding value of dot1dTpFdbStatus is not learned(3).
-var Dot1dTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dTpFdbPort = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// Dot1dTpFdbStatus is the column dot1dTpFdbStatus of table dot1dTpFdbTable.
+// Dot1dTpFdbStatus is dot1dTpFdbStatus.
 // The status of this entry. The meanings of the values are: other(1) -
 // none of the following. This would include the case where some other MIB
 // object (not the corresponding instance of dot1dTpFdbPort, nor an entry
@@ -1427,13 +937,14 @@ var Dot1dTpFdbPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4,
 // dot1dTpFdbPort indicates which of the bridge's ports has this address.
 // mgmt(5) - the value of the corresponding instance of dot1dTpFdbAddress
 // is also the value of an existing instance of dot1dStaticAddress.
-var Dot1dTpFdbStatus = snmp.NewColumn[Dot1dTpFdbStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dTpFdbStatusValue, error) {
+var Dot1dTpFdbStatus = snmp.NewFusedTableColumn[Dot1dTpFdbStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dTpFdbStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1dTpFdbStatusValue(0), err
 	}
 	return Dot1dTpFdbStatusValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1dTpFdbStatusValue], 2)
+var dot1dTpFdbTableColumns = []snmp.AnyColumn{Dot1dTpFdbAddress, Dot1dTpFdbPort, Dot1dTpFdbStatus}
 
 // Dot1dTpFdbTableKey is the decoded INDEX of one dot1dTpFdbTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1456,165 +967,52 @@ func decodeDot1dTpFdbTableKey(idx snmp.OID) (Dot1dTpFdbTableKey, bool) {
 	return Dot1dTpFdbTableKey{Dot1dTpFdbAddress: string(parts[0].Octets)}, true
 }
 
-// Dot1dTpFdbTableRow is one row of dot1dTpFdbTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1dTpFdbTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1dTpFdbTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1dTpFdbTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1dTpFdbTableRow struct {
 	Key               Dot1dTpFdbTableKey
 	keyValid          bool
 	Dot1dTpFdbAddress net.HardwareAddr
 	Dot1dTpFdbPort    int32
 	Dot1dTpFdbStatus  Dot1dTpFdbStatusValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed          [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1dTpFdbTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1dTpFdbTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1dTpFdbAddress.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1dTpFdbPort.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1dTpFdbStatus.Key():
-		return r.observed[0]&(1<<2) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1dTpFdbTableColumns, col)
 }
 
-// Dot1dTpFdbTableWalker streams selected columns of dot1dTpFdbTable.
-// The zero value is not usable; construct via Dot1dTpFdbTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1dTpFdbTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1dTpFdbTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1dTpFdbTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1dTpFdbTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpFdbTableRow] {
-	return func(yield func(snmp.OID, Dot1dTpFdbTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1dTpFdbTableRow
-			row.Key, row.keyValid = decodeDot1dTpFdbTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1dTpFdbAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dTpFdbAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dTpFdbAddress = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1dTpFdbPort.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpFdbPort = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpFdbPort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpFdbPort = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1dTpFdbStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpFdbStatus = Dot1dTpFdbStatusValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpFdbStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpFdbStatus = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1dTpFdbTableT struct {
+	snmp.Table[Dot1dTpFdbTableRow, *Dot1dTpFdbTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1dTpFdbTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1dTpFdbTableT is the singleton type of Dot1dTpFdbTable.
-type dot1dTpFdbTableT struct{}
 
 // Dot1dTpFdbTable is the descriptor for the dot1dTpFdbTable table.
-var Dot1dTpFdbTable dot1dTpFdbTableT
+var Dot1dTpFdbTable = dot1dTpFdbTableT{Table: snmp.NewTable("dot1dTpFdbTable", dot1dTpFdbTableColumns, func(idx snmp.OID, row *Dot1dTpFdbTableRow) {
+	row.Key, row.keyValid = decodeDot1dTpFdbTableKey(idx)
+}, func(row *Dot1dTpFdbTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1dTpFdbAddress, &row.Dot1dTpFdbAddress, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1dTpFdbPort, &row.Dot1dTpFdbPort, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1dTpFdbStatus, &row.Dot1dTpFdbStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1dTpFdbTableRow]) *Dot1dTpFdbTableWalker {
+	return &Dot1dTpFdbTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1dTpFdbTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1dTpFdbTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpFdbTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1dTpFdbTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1dTpFdbTableKey",
@@ -1622,63 +1020,39 @@ func (dot1dTpFdbTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1dTpFdbTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dTpFdbTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1dTpFdbAddress.Key(), Dot1dTpFdbPort.Key(), Dot1dTpFdbStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dTpFdbTable.Walk: column %s", c.OID()))
-			return &Dot1dTpFdbTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1dTpFdbTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1dTpPort is the column dot1dTpPort of table dot1dTpPortTable.
+// Dot1dTpPort is dot1dTpPort.
 // The port number of the port for which this entry contains Transparent
 // bridging management information.
-var Dot1dTpPort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dTpPort = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// Dot1dTpPortMaxInfo is the column dot1dTpPortMaxInfo of table dot1dTpPortTable.
+// Dot1dTpPortMaxInfo is dot1dTpPortMaxInfo.
 // The maximum size of the INFO (non-MAC) field that this port will receive
 // or transmit.
-var Dot1dTpPortMaxInfo = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dTpPortMaxInfo = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// Dot1dTpPortInFrames is the column dot1dTpPortInFrames of table dot1dTpPortTable.
+// Dot1dTpPortInFrames is dot1dTpPortInFrames.
 // The number of frames that have been received by this port from its
 // segment. Note that a frame received on the interface corresponding to
 // this port is only counted by this object if and only if it is for a
 // protocol being processed by the local bridging function, including
 // bridge management frames.
-var Dot1dTpPortInFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 3), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1dTpPortInFrames = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 3), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 2)
 
-// Dot1dTpPortOutFrames is the column dot1dTpPortOutFrames of table dot1dTpPortTable.
+// Dot1dTpPortOutFrames is dot1dTpPortOutFrames.
 // The number of frames that have been transmitted by this port to its
 // segment. Note that a frame transmitted on the interface corresponding to
 // this port is only counted by this object if and only if it is for a
 // protocol being processed by the local bridging function, including
 // bridge management frames.
-var Dot1dTpPortOutFrames = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32)
+var Dot1dTpPortOutFrames = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 4), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 3)
 
-// Dot1dTpPortInDiscards is the column dot1dTpPortInDiscards of table dot1dTpPortTable.
+// Dot1dTpPortInDiscards is dot1dTpPortInDiscards.
 // Count of received valid frames that were discarded (i.e., filtered) by
 // the Forwarding Process.
-var Dot1dTpPortInDiscards = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	Dot1dTpPortInDiscards   = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 4, 4, 1, 5), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 4)
+	dot1dTpPortTableColumns = []snmp.AnyColumn{Dot1dTpPort, Dot1dTpPortMaxInfo, Dot1dTpPortInFrames, Dot1dTpPortOutFrames, Dot1dTpPortInDiscards}
+)
 
 // Dot1dTpPortTableKey is the decoded INDEX of one dot1dTpPortTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1698,14 +1072,7 @@ func decodeDot1dTpPortTableKey(idx snmp.OID) (Dot1dTpPortTableKey, bool) {
 	return Dot1dTpPortTableKey{Dot1dTpPort: int32(parts[0].Integer)}, true
 }
 
-// Dot1dTpPortTableRow is one row of dot1dTpPortTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1dTpPortTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1dTpPortTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1dTpPortTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1dTpPortTableRow struct {
 	Key                   Dot1dTpPortTableKey
 	keyValid              bool
@@ -1714,196 +1081,49 @@ type Dot1dTpPortTableRow struct {
 	Dot1dTpPortInFrames   uint32
 	Dot1dTpPortOutFrames  uint32
 	Dot1dTpPortInDiscards uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed              [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1dTpPortTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1dTpPortTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1dTpPort.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1dTpPortMaxInfo.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1dTpPortInFrames.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1dTpPortOutFrames.Key():
-		return r.observed[0]&(1<<3) != 0
-	case Dot1dTpPortInDiscards.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1dTpPortTableColumns, col)
 }
 
-// Dot1dTpPortTableWalker streams selected columns of dot1dTpPortTable.
-// The zero value is not usable; construct via Dot1dTpPortTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1dTpPortTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1dTpPortTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1dTpPortTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1dTpPortTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dTpPortTableRow] {
-	return func(yield func(snmp.OID, Dot1dTpPortTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1dTpPortTableRow
-			row.Key, row.keyValid = decodeDot1dTpPortTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1dTpPort.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpPort = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpPort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpPort = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case Dot1dTpPortMaxInfo.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dTpPortMaxInfo = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpPortMaxInfo.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpPortMaxInfo = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1dTpPortInFrames.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dTpPortInFrames = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpPortInFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpPortInFrames = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case Dot1dTpPortOutFrames.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dTpPortOutFrames = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpPortOutFrames.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpPortOutFrames = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case Dot1dTpPortInDiscards.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.Dot1dTpPortInDiscards = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dTpPortInDiscards.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dTpPortInDiscards = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1dTpPortTableT struct {
+	snmp.Table[Dot1dTpPortTableRow, *Dot1dTpPortTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1dTpPortTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1dTpPortTableT is the singleton type of Dot1dTpPortTable.
-type dot1dTpPortTableT struct{}
 
 // Dot1dTpPortTable is the descriptor for the dot1dTpPortTable table.
-var Dot1dTpPortTable dot1dTpPortTableT
+var Dot1dTpPortTable = dot1dTpPortTableT{Table: snmp.NewTable("dot1dTpPortTable", dot1dTpPortTableColumns, func(idx snmp.OID, row *Dot1dTpPortTableRow) {
+	row.Key, row.keyValid = decodeDot1dTpPortTableKey(idx)
+}, func(row *Dot1dTpPortTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1dTpPort, &row.Dot1dTpPort, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1dTpPortMaxInfo, &row.Dot1dTpPortMaxInfo, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1dTpPortInFrames, &row.Dot1dTpPortInFrames, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1dTpPortOutFrames, &row.Dot1dTpPortOutFrames, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, Dot1dTpPortInDiscards, &row.Dot1dTpPortInDiscards, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1dTpPortTableRow]) *Dot1dTpPortTableWalker {
+	return &Dot1dTpPortTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1dTpPortTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1dTpPortTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dTpPortTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1dTpPortTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1dTpPortTableKey",
@@ -1911,47 +1131,20 @@ func (dot1dTpPortTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1dTpPortTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dTpPortTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1dTpPort.Key(), Dot1dTpPortMaxInfo.Key(), Dot1dTpPortInFrames.Key(), Dot1dTpPortOutFrames.Key(), Dot1dTpPortInDiscards.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dTpPortTable.Walk: column %s", c.OID()))
-			return &Dot1dTpPortTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1dTpPortTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// Dot1dStaticAddress is the column dot1dStaticAddress of table dot1dStaticTable.
+// Dot1dStaticAddress is dot1dStaticAddress.
 // The destination MAC address in a frame to which this entry's filtering
 // information applies. This object can take the value of a unicast
 // address, a group address, or the broadcast address.
-var Dot1dStaticAddress = snmp.NewColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress)
+var Dot1dStaticAddress = snmp.NewTableColumn[net.HardwareAddr](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 1), snmp.KindOctetString, snmp.DecodeMacAddress, 0)
 
-// Dot1dStaticReceivePort is the column dot1dStaticReceivePort of table dot1dStaticTable.
+// Dot1dStaticReceivePort is dot1dStaticReceivePort.
 // Either the value '0', or the port number of the port from which a frame
 // must be received in order for this entry's filtering information to
 // apply. A value of zero indicates that this entry applies on all ports of
 // the bridge for which there is no other applicable entry.
-var Dot1dStaticReceivePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var Dot1dStaticReceivePort = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// Dot1dStaticAllowedToGoTo is the column dot1dStaticAllowedToGoTo of table dot1dStaticTable.
+// Dot1dStaticAllowedToGoTo is dot1dStaticAllowedToGoTo.
 // The set of ports to which frames received from a specific port and
 // destined for a specific MAC address, are allowed to be forwarded. Each
 // octet within the value of this object specifies a set of eight ports,
@@ -1969,9 +1162,9 @@ var Dot1dStaticReceivePort = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // transport (484 bytes, in the case of SNMP over UDP, see RFC 3417,
 // section 3.2). SNMP engines on bridges supporting a large number of ports
 // must support appropriate maximum message sizes.
-var Dot1dStaticAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes)
+var Dot1dStaticAllowedToGoTo = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 3), snmp.KindOctetString, snmp.DecodeBytes, 2)
 
-// Dot1dStaticStatus is the column dot1dStaticStatus of table dot1dStaticTable.
+// Dot1dStaticStatus is dot1dStaticStatus.
 // This object indicates the status of this entry. The default value is
 // permanent(3). other(1) - this entry is currently in use but the
 // conditions under which it will remain so are different from each of the
@@ -1981,13 +1174,14 @@ var Dot1dStaticAllowedToGoTo = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2
 // - this entry is currently in use and will remain so until the next reset
 // of the bridge. deleteOnTimeout(5) - this entry is currently in use and
 // will remain so until it is aged out.
-var Dot1dStaticStatus = snmp.NewColumn[Dot1dStaticStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dStaticStatusValue, error) {
+var Dot1dStaticStatus = snmp.NewFusedTableColumn[Dot1dStaticStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (Dot1dStaticStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return Dot1dStaticStatusValue(0), err
 	}
 	return Dot1dStaticStatusValue(v), nil
-})
+}, snmp.RawInteger32As[Dot1dStaticStatusValue], 3)
+var dot1dStaticTableColumns = []snmp.AnyColumn{Dot1dStaticAddress, Dot1dStaticReceivePort, Dot1dStaticAllowedToGoTo, Dot1dStaticStatus}
 
 // Dot1dStaticTableKey is the decoded INDEX of one dot1dStaticTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2011,14 +1205,7 @@ func decodeDot1dStaticTableKey(idx snmp.OID) (Dot1dStaticTableKey, bool) {
 	return Dot1dStaticTableKey{Dot1dStaticAddress: string(parts[0].Octets), Dot1dStaticReceivePort: int32(parts[1].Integer)}, true
 }
 
-// Dot1dStaticTableRow is one row of dot1dStaticTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [Dot1dStaticTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [Dot1dStaticTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// Dot1dStaticTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type Dot1dStaticTableRow struct {
 	Key                      Dot1dStaticTableKey
 	keyValid                 bool
@@ -2026,197 +1213,51 @@ type Dot1dStaticTableRow struct {
 	Dot1dStaticReceivePort   int32
 	Dot1dStaticAllowedToGoTo []byte
 	Dot1dStaticStatus        Dot1dStaticStatusValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                 [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r Dot1dStaticTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r Dot1dStaticTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case Dot1dStaticAddress.Key():
-		return r.observed[0]&(1<<0) != 0
-	case Dot1dStaticReceivePort.Key():
-		return r.observed[0]&(1<<1) != 0
-	case Dot1dStaticAllowedToGoTo.Key():
-		return r.observed[0]&(1<<2) != 0
-	case Dot1dStaticStatus.Key():
-		return r.observed[0]&(1<<3) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dot1dStaticTableColumns, col)
 }
 
-// Dot1dStaticTableWalker streams selected columns of dot1dStaticTable.
-// The zero value is not usable; construct via Dot1dStaticTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// Dot1dStaticTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type Dot1dStaticTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[Dot1dStaticTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *Dot1dStaticTableWalker) Iter() iter.Seq2[snmp.OID, Dot1dStaticTableRow] {
-	return func(yield func(snmp.OID, Dot1dStaticTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row Dot1dStaticTableRow
-			row.Key, row.keyValid = decodeDot1dStaticTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case Dot1dStaticAddress.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStaticAddress.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStaticAddress = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case Dot1dStaticReceivePort.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStaticReceivePort = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStaticReceivePort.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStaticReceivePort = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case Dot1dStaticAllowedToGoTo.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := Dot1dStaticAllowedToGoTo.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.Dot1dStaticAllowedToGoTo = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case Dot1dStaticStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.Dot1dStaticStatus = Dot1dStaticStatusValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := Dot1dStaticStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.Dot1dStaticStatus = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dot1dStaticTableT struct {
+	snmp.Table[Dot1dStaticTableRow, *Dot1dStaticTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *Dot1dStaticTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dot1dStaticTableT is the singleton type of Dot1dStaticTable.
-type dot1dStaticTableT struct{}
 
 // Dot1dStaticTable is the descriptor for the dot1dStaticTable table.
-var Dot1dStaticTable dot1dStaticTableT
+var Dot1dStaticTable = dot1dStaticTableT{Table: snmp.NewTable("dot1dStaticTable", dot1dStaticTableColumns, func(idx snmp.OID, row *Dot1dStaticTableRow) {
+	row.Key, row.keyValid = decodeDot1dStaticTableKey(idx)
+}, func(row *Dot1dStaticTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, Dot1dStaticAddress, &row.Dot1dStaticAddress, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, Dot1dStaticReceivePort, &row.Dot1dStaticReceivePort, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, Dot1dStaticAllowedToGoTo, &row.Dot1dStaticAllowedToGoTo, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, Dot1dStaticStatus, &row.Dot1dStaticStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[Dot1dStaticTableRow]) *Dot1dStaticTableWalker {
+	return &Dot1dStaticTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *Dot1dStaticTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dot1dStaticTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *Dot1dStaticTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dot1dStaticTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "Dot1dStaticTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 17, 5, 1),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dot1dStaticTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *Dot1dStaticTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case Dot1dStaticAddress.Key(), Dot1dStaticReceivePort.Key(), Dot1dStaticAllowedToGoTo.Key(), Dot1dStaticStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dot1dStaticTable.Walk: column %s", c.OID()))
-			return &Dot1dStaticTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &Dot1dStaticTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

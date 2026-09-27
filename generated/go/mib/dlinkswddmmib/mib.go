@@ -11,8 +11,6 @@ package dlinkswddmmib
 
 import (
 	"context"
-	"fmt"
-	"iter"
 
 	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
@@ -23,93 +21,78 @@ import (
 // This object is used by dDdmAlarmTrap and dDdmWarningTrap to indicate the
 // abnormal level.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DDdmNotifyInfoAbnormalLevelValue int32
 
 const (
-	// DDdmNotifyInfoAbnormalLevelValueHigh represents the SMI value high.
+	// DDdmNotifyInfoAbnormalLevelValueHigh is high.
 	DDdmNotifyInfoAbnormalLevelValueHigh DDdmNotifyInfoAbnormalLevelValue = 1
-	// DDdmNotifyInfoAbnormalLevelValueLow represents the SMI value low.
+	// DDdmNotifyInfoAbnormalLevelValueLow is low.
 	DDdmNotifyInfoAbnormalLevelValueLow DDdmNotifyInfoAbnormalLevelValue = 2
 )
 
-// String returns the SMI label, or DDdmNotifyInfoAbnormalLevelValue(n) for an unrecognized value n.
-func (v DDdmNotifyInfoAbnormalLevelValue) String() string {
-	switch v {
-	case DDdmNotifyInfoAbnormalLevelValueHigh:
-		return "high"
-	case DDdmNotifyInfoAbnormalLevelValueLow:
-		return "low"
-	}
+var (
+	dDdmNotifyInfoAbnormalLevelValueValues = []int32{1, 2}
+	dDdmNotifyInfoAbnormalLevelValueNames  = []string{"high", "low"}
+)
 
-	return fmt.Sprintf("DDdmNotifyInfoAbnormalLevelValue(%d)", v)
+// String returns the SMI label, or DDdmNotifyInfoAbnormalLevelValue(n) for an unknown value.
+func (v DDdmNotifyInfoAbnormalLevelValue) String() string {
+	return snmp.EnumString(int32(v), "DDdmNotifyInfoAbnormalLevelValue", dDdmNotifyInfoAbnormalLevelValueValues, dDdmNotifyInfoAbnormalLevelValueNames)
 }
 
 // DDdmNotifyInfoComponentValue is the SMI enum dDdmNotifyInfoComponent (inline).
 // This object is used by dDdmAlarmTrap and dDdmWarningTrap to indicate the
 // abnormal component.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DDdmNotifyInfoComponentValue int32
 
 const (
-	// DDdmNotifyInfoComponentValueTemperature represents the SMI value temperature.
+	// DDdmNotifyInfoComponentValueTemperature is temperature.
 	DDdmNotifyInfoComponentValueTemperature DDdmNotifyInfoComponentValue = 1
-	// DDdmNotifyInfoComponentValueVoltage represents the SMI value voltage.
+	// DDdmNotifyInfoComponentValueVoltage is voltage.
 	DDdmNotifyInfoComponentValueVoltage DDdmNotifyInfoComponentValue = 2
-	// DDdmNotifyInfoComponentValueBiasCurrent represents the SMI value biasCurrent.
+	// DDdmNotifyInfoComponentValueBiasCurrent is biasCurrent.
 	DDdmNotifyInfoComponentValueBiasCurrent DDdmNotifyInfoComponentValue = 3
-	// DDdmNotifyInfoComponentValueTxPowerMw represents the SMI value txPowerMw.
+	// DDdmNotifyInfoComponentValueTxPowerMw is txPowerMw.
 	DDdmNotifyInfoComponentValueTxPowerMw DDdmNotifyInfoComponentValue = 4
-	// DDdmNotifyInfoComponentValueRxPowerMw represents the SMI value rxPowerMw.
+	// DDdmNotifyInfoComponentValueRxPowerMw is rxPowerMw.
 	DDdmNotifyInfoComponentValueRxPowerMw DDdmNotifyInfoComponentValue = 5
 )
 
-// String returns the SMI label, or DDdmNotifyInfoComponentValue(n) for an unrecognized value n.
-func (v DDdmNotifyInfoComponentValue) String() string {
-	switch v {
-	case DDdmNotifyInfoComponentValueTemperature:
-		return "temperature"
-	case DDdmNotifyInfoComponentValueVoltage:
-		return "voltage"
-	case DDdmNotifyInfoComponentValueBiasCurrent:
-		return "biasCurrent"
-	case DDdmNotifyInfoComponentValueTxPowerMw:
-		return "txPowerMw"
-	case DDdmNotifyInfoComponentValueRxPowerMw:
-		return "rxPowerMw"
-	}
+var (
+	dDdmNotifyInfoComponentValueValues = []int32{1, 2, 3, 4, 5}
+	dDdmNotifyInfoComponentValueNames  = []string{"temperature", "voltage", "biasCurrent", "txPowerMw", "rxPowerMw"}
+)
 
-	return fmt.Sprintf("DDdmNotifyInfoComponentValue(%d)", v)
+// String returns the SMI label, or DDdmNotifyInfoComponentValue(n) for an unknown value.
+func (v DDdmNotifyInfoComponentValue) String() string {
+	return snmp.EnumString(int32(v), "DDdmNotifyInfoComponentValue", dDdmNotifyInfoComponentValueValues, dDdmNotifyInfoComponentValueNames)
 }
 
 // DDdmNotifyInfoThresholdExceedOrRecoverValue is the SMI enum dDdmNotifyInfoThresholdExceedOrRecover (inline).
 // This object is used by dDdmAlarmTrap and dDdmWarningTrap to indicate the
 // GBIC is exceeding its threshold or recover to normal status.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DDdmNotifyInfoThresholdExceedOrRecoverValue int32
 
 const (
-	// DDdmNotifyInfoThresholdExceedOrRecoverValueExceed represents the SMI value exceed.
+	// DDdmNotifyInfoThresholdExceedOrRecoverValueExceed is exceed.
 	DDdmNotifyInfoThresholdExceedOrRecoverValueExceed DDdmNotifyInfoThresholdExceedOrRecoverValue = 1
-	// DDdmNotifyInfoThresholdExceedOrRecoverValueRecover represents the SMI value recover.
+	// DDdmNotifyInfoThresholdExceedOrRecoverValueRecover is recover.
 	DDdmNotifyInfoThresholdExceedOrRecoverValueRecover DDdmNotifyInfoThresholdExceedOrRecoverValue = 2
 )
 
-// String returns the SMI label, or DDdmNotifyInfoThresholdExceedOrRecoverValue(n) for an unrecognized value n.
-func (v DDdmNotifyInfoThresholdExceedOrRecoverValue) String() string {
-	switch v {
-	case DDdmNotifyInfoThresholdExceedOrRecoverValueExceed:
-		return "exceed"
-	case DDdmNotifyInfoThresholdExceedOrRecoverValueRecover:
-		return "recover"
-	}
+var (
+	dDdmNotifyInfoThresholdExceedOrRecoverValueValues = []int32{1, 2}
+	dDdmNotifyInfoThresholdExceedOrRecoverValueNames  = []string{"exceed", "recover"}
+)
 
-	return fmt.Sprintf("DDdmNotifyInfoThresholdExceedOrRecoverValue(%d)", v)
+// String returns the SMI label, or DDdmNotifyInfoThresholdExceedOrRecoverValue(n) for an unknown value.
+func (v DDdmNotifyInfoThresholdExceedOrRecoverValue) String() string {
+	return snmp.EnumString(int32(v), "DDdmNotifyInfoThresholdExceedOrRecoverValue", dDdmNotifyInfoThresholdExceedOrRecoverValueValues, dDdmNotifyInfoThresholdExceedOrRecoverValueNames)
 }
 
 // DDdmShutdownLevelValue is the SMI enum dDdmShutdownLevel (inline).
@@ -117,31 +100,26 @@ func (v DDdmNotifyInfoThresholdExceedOrRecoverValue) String() string {
 // errDisabled state. A value of 'none' indicates the shutdown action is
 // disabled.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DDdmShutdownLevelValue int32
 
 const (
-	// DDdmShutdownLevelValueNone represents the SMI value none.
+	// DDdmShutdownLevelValueNone is none.
 	DDdmShutdownLevelValueNone DDdmShutdownLevelValue = 1
-	// DDdmShutdownLevelValueAlarm represents the SMI value alarm.
+	// DDdmShutdownLevelValueAlarm is alarm.
 	DDdmShutdownLevelValueAlarm DDdmShutdownLevelValue = 2
-	// DDdmShutdownLevelValueWarning represents the SMI value warning.
+	// DDdmShutdownLevelValueWarning is warning.
 	DDdmShutdownLevelValueWarning DDdmShutdownLevelValue = 3
 )
 
-// String returns the SMI label, or DDdmShutdownLevelValue(n) for an unrecognized value n.
-func (v DDdmShutdownLevelValue) String() string {
-	switch v {
-	case DDdmShutdownLevelValueNone:
-		return "none"
-	case DDdmShutdownLevelValueAlarm:
-		return "alarm"
-	case DDdmShutdownLevelValueWarning:
-		return "warning"
-	}
+var (
+	dDdmShutdownLevelValueValues = []int32{1, 2, 3}
+	dDdmShutdownLevelValueNames  = []string{"none", "alarm", "warning"}
+)
 
-	return fmt.Sprintf("DDdmShutdownLevelValue(%d)", v)
+// String returns the SMI label, or DDdmShutdownLevelValue(n) for an unknown value.
+func (v DDdmShutdownLevelValue) String() string {
+	return snmp.EnumString(int32(v), "DDdmShutdownLevelValue", dDdmShutdownLevelValueValues, dDdmShutdownLevelValueNames)
 }
 
 // DDdmThresholdComponentValue is the SMI enum dDdmThresholdComponent (inline).
@@ -150,81 +128,61 @@ func (v DDdmShutdownLevelValue) String() string {
 // rxPowerDbm(7) can be configured on an interface. In the above two cases,
 // the existed entry will be deleted when the other new entry is created.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DDdmThresholdComponentValue int32
 
 const (
-	// DDdmThresholdComponentValueTemperature represents the SMI value temperature.
+	// DDdmThresholdComponentValueTemperature is temperature.
 	DDdmThresholdComponentValueTemperature DDdmThresholdComponentValue = 1
-	// DDdmThresholdComponentValueVoltage represents the SMI value voltage.
+	// DDdmThresholdComponentValueVoltage is voltage.
 	DDdmThresholdComponentValueVoltage DDdmThresholdComponentValue = 2
-	// DDdmThresholdComponentValueBiasCurrent represents the SMI value biasCurrent.
+	// DDdmThresholdComponentValueBiasCurrent is biasCurrent.
 	DDdmThresholdComponentValueBiasCurrent DDdmThresholdComponentValue = 3
-	// DDdmThresholdComponentValueTxPowerMw represents the SMI value txPowerMw.
+	// DDdmThresholdComponentValueTxPowerMw is txPowerMw.
 	DDdmThresholdComponentValueTxPowerMw DDdmThresholdComponentValue = 4
-	// DDdmThresholdComponentValueTxPowerDbm represents the SMI value txPowerDbm.
+	// DDdmThresholdComponentValueTxPowerDbm is txPowerDbm.
 	DDdmThresholdComponentValueTxPowerDbm DDdmThresholdComponentValue = 5
-	// DDdmThresholdComponentValueRxPowerMw represents the SMI value rxPowerMw.
+	// DDdmThresholdComponentValueRxPowerMw is rxPowerMw.
 	DDdmThresholdComponentValueRxPowerMw DDdmThresholdComponentValue = 6
-	// DDdmThresholdComponentValueRxPowerDbm represents the SMI value rxPowerDbm.
+	// DDdmThresholdComponentValueRxPowerDbm is rxPowerDbm.
 	DDdmThresholdComponentValueRxPowerDbm DDdmThresholdComponentValue = 7
 )
 
-// String returns the SMI label, or DDdmThresholdComponentValue(n) for an unrecognized value n.
-func (v DDdmThresholdComponentValue) String() string {
-	switch v {
-	case DDdmThresholdComponentValueTemperature:
-		return "temperature"
-	case DDdmThresholdComponentValueVoltage:
-		return "voltage"
-	case DDdmThresholdComponentValueBiasCurrent:
-		return "biasCurrent"
-	case DDdmThresholdComponentValueTxPowerMw:
-		return "txPowerMw"
-	case DDdmThresholdComponentValueTxPowerDbm:
-		return "txPowerDbm"
-	case DDdmThresholdComponentValueRxPowerMw:
-		return "rxPowerMw"
-	case DDdmThresholdComponentValueRxPowerDbm:
-		return "rxPowerDbm"
-	}
+var (
+	dDdmThresholdComponentValueValues = []int32{1, 2, 3, 4, 5, 6, 7}
+	dDdmThresholdComponentValueNames  = []string{"temperature", "voltage", "biasCurrent", "txPowerMw", "txPowerDbm", "rxPowerMw", "rxPowerDbm"}
+)
 
-	return fmt.Sprintf("DDdmThresholdComponentValue(%d)", v)
+// String returns the SMI label, or DDdmThresholdComponentValue(n) for an unknown value.
+func (v DDdmThresholdComponentValue) String() string {
+	return snmp.EnumString(int32(v), "DDdmThresholdComponentValue", dDdmThresholdComponentValueValues, dDdmThresholdComponentValueNames)
 }
 
 // DDmThresholdAbnormalLevelValue is the SMI enum dDmThresholdAbnormalLevel (inline).
 // This object indicates the threshold type.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DDmThresholdAbnormalLevelValue int32
 
 const (
-	// DDmThresholdAbnormalLevelValueHighAlarm represents the SMI value highAlarm.
+	// DDmThresholdAbnormalLevelValueHighAlarm is highAlarm.
 	DDmThresholdAbnormalLevelValueHighAlarm DDmThresholdAbnormalLevelValue = 1
-	// DDmThresholdAbnormalLevelValueHighWarning represents the SMI value highWarning.
+	// DDmThresholdAbnormalLevelValueHighWarning is highWarning.
 	DDmThresholdAbnormalLevelValueHighWarning DDmThresholdAbnormalLevelValue = 2
-	// DDmThresholdAbnormalLevelValueLowWarning represents the SMI value lowWarning.
+	// DDmThresholdAbnormalLevelValueLowWarning is lowWarning.
 	DDmThresholdAbnormalLevelValueLowWarning DDmThresholdAbnormalLevelValue = 3
-	// DDmThresholdAbnormalLevelValueLowAlarm represents the SMI value lowAlarm.
+	// DDmThresholdAbnormalLevelValueLowAlarm is lowAlarm.
 	DDmThresholdAbnormalLevelValueLowAlarm DDmThresholdAbnormalLevelValue = 4
 )
 
-// String returns the SMI label, or DDmThresholdAbnormalLevelValue(n) for an unrecognized value n.
-func (v DDmThresholdAbnormalLevelValue) String() string {
-	switch v {
-	case DDmThresholdAbnormalLevelValueHighAlarm:
-		return "highAlarm"
-	case DDmThresholdAbnormalLevelValueHighWarning:
-		return "highWarning"
-	case DDmThresholdAbnormalLevelValueLowWarning:
-		return "lowWarning"
-	case DDmThresholdAbnormalLevelValueLowAlarm:
-		return "lowAlarm"
-	}
+var (
+	dDmThresholdAbnormalLevelValueValues = []int32{1, 2, 3, 4}
+	dDmThresholdAbnormalLevelValueNames  = []string{"highAlarm", "highWarning", "lowWarning", "lowAlarm"}
+)
 
-	return fmt.Sprintf("DDmThresholdAbnormalLevelValue(%d)", v)
+// String returns the SMI label, or DDmThresholdAbnormalLevelValue(n) for an unknown value.
+func (v DDmThresholdAbnormalLevelValue) String() string {
+	return snmp.EnumString(int32(v), "DDmThresholdAbnormalLevelValue", dDmThresholdAbnormalLevelValueValues, dDmThresholdAbnormalLevelValueNames)
 }
 
 // DlinkThresholdState is the SMI enum DlinkThresholdState.
@@ -236,39 +194,30 @@ func (v DDmThresholdAbnormalLevelValue) String() string {
 // threshold. lowerAlarm(4): the current value is lower than the low alarm
 // threshold.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type DlinkThresholdState int32
 
 const (
-	// DlinkThresholdStateNormal represents the SMI value normal.
+	// DlinkThresholdStateNormal is normal.
 	DlinkThresholdStateNormal DlinkThresholdState = 0
-	// DlinkThresholdStateHigherAlarm represents the SMI value higherAlarm.
+	// DlinkThresholdStateHigherAlarm is higherAlarm.
 	DlinkThresholdStateHigherAlarm DlinkThresholdState = 1
-	// DlinkThresholdStateHigherWarning represents the SMI value higherWarning.
+	// DlinkThresholdStateHigherWarning is higherWarning.
 	DlinkThresholdStateHigherWarning DlinkThresholdState = 2
-	// DlinkThresholdStateLowerWarning represents the SMI value lowerWarning.
+	// DlinkThresholdStateLowerWarning is lowerWarning.
 	DlinkThresholdStateLowerWarning DlinkThresholdState = 3
-	// DlinkThresholdStateLowerAlarm represents the SMI value lowerAlarm.
+	// DlinkThresholdStateLowerAlarm is lowerAlarm.
 	DlinkThresholdStateLowerAlarm DlinkThresholdState = 4
 )
 
-// String returns the SMI label, or DlinkThresholdState(n) for an unrecognized value n.
-func (v DlinkThresholdState) String() string {
-	switch v {
-	case DlinkThresholdStateNormal:
-		return "normal"
-	case DlinkThresholdStateHigherAlarm:
-		return "higherAlarm"
-	case DlinkThresholdStateHigherWarning:
-		return "higherWarning"
-	case DlinkThresholdStateLowerWarning:
-		return "lowerWarning"
-	case DlinkThresholdStateLowerAlarm:
-		return "lowerAlarm"
-	}
+var (
+	dlinkThresholdStateValues = []int32{0, 1, 2, 3, 4}
+	dlinkThresholdStateNames  = []string{"normal", "higherAlarm", "higherWarning", "lowerWarning", "lowerAlarm"}
+)
 
-	return fmt.Sprintf("DlinkThresholdState(%d)", v)
+// String returns the SMI label, or DlinkThresholdState(n) for an unknown value.
+func (v DlinkThresholdState) String() string {
+	return snmp.EnumString(int32(v), "DlinkThresholdState", dlinkThresholdStateValues, dlinkThresholdStateNames)
 }
 
 // DDdmNotifyEnableBit names the bit positions of the SMI BITS type dDdmNotifyEnable (inline).
@@ -401,25 +350,26 @@ func DDdmNotifyInfoThresholdExceedOrRecoverGet(ctx context.Context, sess snmp.Se
 	}(vbs[0])
 }
 
-// DDdmIfCfgEnabled is the column dDdmIfCfgEnabled of table dDdmIfCfgTable.
+// DDdmIfCfgEnabled is dDdmIfCfgEnabled.
 // This object indicates the status of optical transceiver-monitoring
 // function for a SFP port. When a SFP with transceiver-monitoring
 // capability is plugged in a port but the transceiver-monitoring function
 // of the port is disabled, system will not detect the SFP's abnormal
 // status but user still can check the current status via dDdmIfInfoTable.
-var DDdmIfCfgEnabled = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1, 1, 1), snmp.KindInteger32, snmp.DecodeTruthValue)
+var DDdmIfCfgEnabled = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1, 1, 1), snmp.KindInteger32, snmp.DecodeTruthValue, 0)
 
-// DDdmShutdownLevel is the column dDdmShutdownLevel of table dDdmIfCfgTable.
+// DDdmShutdownLevel is dDdmShutdownLevel.
 // This object indicates the abnormal level which causes a port enter into
 // errDisabled state. A value of 'none' indicates the shutdown action is
 // disabled.
-var DDdmShutdownLevel = snmp.NewColumn[DDdmShutdownLevelValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (DDdmShutdownLevelValue, error) {
+var DDdmShutdownLevel = snmp.NewFusedTableColumn[DDdmShutdownLevelValue](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 2, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (DDdmShutdownLevelValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return DDdmShutdownLevelValue(0), err
 	}
 	return DDdmShutdownLevelValue(v), nil
-})
+}, snmp.RawInteger32As[DDdmShutdownLevelValue], 1)
+var dDdmIfCfgTableColumns = []snmp.AnyColumn{DDdmIfCfgEnabled, DDdmShutdownLevel}
 
 // DDdmIfCfgTableKey is the decoded INDEX of one dDdmIfCfgTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -439,144 +389,49 @@ func decodeDDdmIfCfgTableKey(idx snmp.OID) (DDdmIfCfgTableKey, bool) {
 	return DDdmIfCfgTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
 }
 
-// DDdmIfCfgTableRow is one row of dDdmIfCfgTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [DDdmIfCfgTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [DDdmIfCfgTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// DDdmIfCfgTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type DDdmIfCfgTableRow struct {
 	Key               DDdmIfCfgTableKey
 	keyValid          bool
 	DDdmIfCfgEnabled  bool
 	DDdmShutdownLevel DDdmShutdownLevelValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed          [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r DDdmIfCfgTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r DDdmIfCfgTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case DDdmIfCfgEnabled.Key():
-		return r.observed[0]&(1<<0) != 0
-	case DDdmShutdownLevel.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dDdmIfCfgTableColumns, col)
 }
 
-// DDdmIfCfgTableWalker streams selected columns of dDdmIfCfgTable.
-// The zero value is not usable; construct via DDdmIfCfgTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// DDdmIfCfgTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type DDdmIfCfgTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[DDdmIfCfgTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *DDdmIfCfgTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfCfgTableRow] {
-	return func(yield func(snmp.OID, DDdmIfCfgTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row DDdmIfCfgTableRow
-			row.Key, row.keyValid = decodeDDdmIfCfgTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case DDdmIfCfgEnabled.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := DDdmIfCfgEnabled.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.DDdmIfCfgEnabled = dv
-							row.observed[0] |= 1 << 0
-						}
-					}
-				case DDdmShutdownLevel.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmShutdownLevel = DDdmShutdownLevelValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmShutdownLevel.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmShutdownLevel = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dDdmIfCfgTableT struct {
+	snmp.Table[DDdmIfCfgTableRow, *DDdmIfCfgTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *DDdmIfCfgTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dDdmIfCfgTableT is the singleton type of DDdmIfCfgTable.
-type dDdmIfCfgTableT struct{}
 
 // DDdmIfCfgTable is the descriptor for the dDdmIfCfgTable table.
-var DDdmIfCfgTable dDdmIfCfgTableT
+var DDdmIfCfgTable = dDdmIfCfgTableT{Table: snmp.NewTable("dDdmIfCfgTable", dDdmIfCfgTableColumns, func(idx snmp.OID, row *DDdmIfCfgTableRow) {
+	row.Key, row.keyValid = decodeDDdmIfCfgTableKey(idx)
+}, func(row *DDdmIfCfgTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, DDdmIfCfgEnabled, &row.DDdmIfCfgEnabled, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, DDdmShutdownLevel, &row.DDdmShutdownLevel, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[DDdmIfCfgTableRow]) *DDdmIfCfgTableWalker {
+	return &DDdmIfCfgTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *DDdmIfCfgTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dDdmIfCfgTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *DDdmIfCfgTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dDdmIfCfgTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "DDdmIfCfgTableKey",
@@ -584,34 +439,7 @@ func (dDdmIfCfgTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dDdmIfCfgTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *DDdmIfCfgTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case DDdmIfCfgEnabled.Key(), DDdmShutdownLevel.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dDdmIfCfgTable.Walk: column %s", c.OID()))
-			return &DDdmIfCfgTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &DDdmIfCfgTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// DDdmThresholdCfgValue is the column dDdmThresholdCfgValue of table dDdmThresholdCfgTable.
+// DDdmThresholdCfgValue is dDdmThresholdCfgValue.
 // This object indicates the configured threshold. The value is interpreted
 // within the context of dDdmThresholdComponent and
 // dDmThresholdAbnormalLevel in the same row. The unit and valid range are
@@ -622,11 +450,14 @@ func (dDdmIfCfgTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, o
 // txPowerDbm ten-thousandths of DBM -400,000 ~ 81,647 rxPowerMw tenths of
 // a microwatt 0 ~ 65,535 rxPowerDbm ten-thousandths of DBM -400,000 ~
 // 81,647
-var DDdmThresholdCfgValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmThresholdCfgValue = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// DDdmThresholdCfgRowStatus is the column dDdmThresholdCfgRowStatus of table dDdmThresholdCfgTable.
+// DDdmThresholdCfgRowStatus is dDdmThresholdCfgRowStatus.
 // The status of this conceptual row.
-var DDdmThresholdCfgRowStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus)
+var (
+	DDdmThresholdCfgRowStatus    = snmp.NewTableColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 3, 1, 1, 4), snmp.KindInteger32, snmp.DecodeRowStatus, 1)
+	dDdmThresholdCfgTableColumns = []snmp.AnyColumn{DDdmThresholdCfgValue, DDdmThresholdCfgRowStatus}
+)
 
 // DDdmThresholdCfgTableKey is the decoded INDEX of one dDdmThresholdCfgTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -648,144 +479,49 @@ func decodeDDdmThresholdCfgTableKey(idx snmp.OID) (DDdmThresholdCfgTableKey, boo
 	return DDdmThresholdCfgTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer), DDdmThresholdComponent: int32(parts[1].Integer), DDmThresholdAbnormalLevel: int32(parts[2].Integer)}, true
 }
 
-// DDdmThresholdCfgTableRow is one row of dDdmThresholdCfgTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [DDdmThresholdCfgTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [DDdmThresholdCfgTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// DDdmThresholdCfgTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type DDdmThresholdCfgTableRow struct {
 	Key                       DDdmThresholdCfgTableKey
 	keyValid                  bool
 	DDdmThresholdCfgValue     int32
 	DDdmThresholdCfgRowStatus snmp.RowStatus
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                  [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r DDdmThresholdCfgTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r DDdmThresholdCfgTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case DDdmThresholdCfgValue.Key():
-		return r.observed[0]&(1<<0) != 0
-	case DDdmThresholdCfgRowStatus.Key():
-		return r.observed[0]&(1<<1) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dDdmThresholdCfgTableColumns, col)
 }
 
-// DDdmThresholdCfgTableWalker streams selected columns of dDdmThresholdCfgTable.
-// The zero value is not usable; construct via DDdmThresholdCfgTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// DDdmThresholdCfgTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type DDdmThresholdCfgTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[DDdmThresholdCfgTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *DDdmThresholdCfgTableWalker) Iter() iter.Seq2[snmp.OID, DDdmThresholdCfgTableRow] {
-	return func(yield func(snmp.OID, DDdmThresholdCfgTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row DDdmThresholdCfgTableRow
-			row.Key, row.keyValid = decodeDDdmThresholdCfgTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case DDdmThresholdCfgValue.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmThresholdCfgValue = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmThresholdCfgValue.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmThresholdCfgValue = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case DDdmThresholdCfgRowStatus.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := DDdmThresholdCfgRowStatus.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.DDdmThresholdCfgRowStatus = dv
-							row.observed[0] |= 1 << 1
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dDdmThresholdCfgTableT struct {
+	snmp.Table[DDdmThresholdCfgTableRow, *DDdmThresholdCfgTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *DDdmThresholdCfgTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dDdmThresholdCfgTableT is the singleton type of DDdmThresholdCfgTable.
-type dDdmThresholdCfgTableT struct{}
 
 // DDdmThresholdCfgTable is the descriptor for the dDdmThresholdCfgTable table.
-var DDdmThresholdCfgTable dDdmThresholdCfgTableT
+var DDdmThresholdCfgTable = dDdmThresholdCfgTableT{Table: snmp.NewTable("dDdmThresholdCfgTable", dDdmThresholdCfgTableColumns, func(idx snmp.OID, row *DDdmThresholdCfgTableRow) {
+	row.Key, row.keyValid = decodeDDdmThresholdCfgTableKey(idx)
+}, func(row *DDdmThresholdCfgTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, DDdmThresholdCfgValue, &row.DDdmThresholdCfgValue, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, DDdmThresholdCfgRowStatus, &row.DDdmThresholdCfgRowStatus, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[DDdmThresholdCfgTableRow]) *DDdmThresholdCfgTableWalker {
+	return &DDdmThresholdCfgTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *DDdmThresholdCfgTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dDdmThresholdCfgTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *DDdmThresholdCfgTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dDdmThresholdCfgTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "DDdmThresholdCfgTableKey",
@@ -793,300 +529,276 @@ func (dDdmThresholdCfgTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dDdmThresholdCfgTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *DDdmThresholdCfgTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case DDdmThresholdCfgValue.Key(), DDdmThresholdCfgRowStatus.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dDdmThresholdCfgTable.Walk: column %s", c.OID()))
-			return &DDdmThresholdCfgTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &DDdmThresholdCfgTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// DDdmIfInfoCurrentTemperature is the column dDdmIfInfoCurrentTemperature of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentTemperature is dDdmIfInfoCurrentTemperature.
 // This object indicates the current temperature in unit of 'milli-degrees
 // Celsius' on the interface.
-var DDdmIfInfoCurrentTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentTemperature = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// DDdmIfInfoTemperatureState is the column dDdmIfInfoTemperatureState of table dDdmIfInfoTable.
+// DDdmIfInfoTemperatureState is dDdmIfInfoTemperatureState.
 // This object indicates the state of current temperature.
-var DDdmIfInfoTemperatureState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
+var DDdmIfInfoTemperatureState = snmp.NewFusedTableColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return DlinkThresholdState(0), err
 	}
 	return DlinkThresholdState(v), nil
-})
+}, snmp.RawInteger32As[DlinkThresholdState], 1)
 
-// DDdmIfInfoHighAlarmTemperature is the column dDdmIfInfoHighAlarmTemperature of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmTemperature is dDdmIfInfoHighAlarmTemperature.
 // This object indicates the high alarm threshold, when the operating
 // temperature rises above this value, it indicates an alarm status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoHighAlarmTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmTemperature = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// DDdmIfInfoHighWarnTemperature is the column dDdmIfInfoHighWarnTemperature of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnTemperature is dDdmIfInfoHighWarnTemperature.
 // This object indicates the high warning threshold, when the operating
 // temperature rises above this value, it indicates a warning status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoHighWarnTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnTemperature = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// DDdmIfInfoLowWarnTemperature is the column dDdmIfInfoLowWarnTemperature of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnTemperature is dDdmIfInfoLowWarnTemperature.
 // This object indicates the low warning threshold, when the operating
 // temperature falls below this value, it indicates a warning status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoLowWarnTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnTemperature = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// DDdmIfInfoLowAlarmTemperature is the column dDdmIfInfoLowAlarmTemperature of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmTemperature is dDdmIfInfoLowAlarmTemperature.
 // This object indicates the low alarm threshold, when the operating
 // temperature falls below this value, it indicates an alarm status. The
 // value is in unit of 'milli-degrees Celsius'.
-var DDdmIfInfoLowAlarmTemperature = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowAlarmTemperature = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// DDdmIfInfoCurrentVoltage is the column dDdmIfInfoCurrentVoltage of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentVoltage is dDdmIfInfoCurrentVoltage.
 // This object indicates the current voltage in unit of 'centi-Volt' on the
 // interface.
-var DDdmIfInfoCurrentVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentVoltage = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 6)
 
-// DDdmIfInfoVoltageState is the column dDdmIfInfoVoltageState of table dDdmIfInfoTable.
+// DDdmIfInfoVoltageState is dDdmIfInfoVoltageState.
 // This object indicates the state of current voltage.
-var DDdmIfInfoVoltageState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
+var DDdmIfInfoVoltageState = snmp.NewFusedTableColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return DlinkThresholdState(0), err
 	}
 	return DlinkThresholdState(v), nil
-})
+}, snmp.RawInteger32As[DlinkThresholdState], 7)
 
-// DDdmIfInfoHighAlarmVoltage is the column dDdmIfInfoHighAlarmVoltage of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmVoltage is dDdmIfInfoHighAlarmVoltage.
 // This object indicates the high alarm threshold, when the operating
 // voltage rises above this value, it indicates an alarm status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoHighAlarmVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmVoltage = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 9), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 8)
 
-// DDdmIfInfoHighWarnVoltage is the column dDdmIfInfoHighWarnVoltage of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnVoltage is dDdmIfInfoHighWarnVoltage.
 // This object indicates the high warning threshold, when the operating
 // voltage rises above this value, it indicates a warning status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoHighWarnVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnVoltage = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 9)
 
-// DDdmIfInfoLowWarnVoltage is the column dDdmIfInfoLowWarnVoltage of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnVoltage is dDdmIfInfoLowWarnVoltage.
 // This object indicates the low warning threshold, when the operating
 // voltage falls below this value, it indicates a warning status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoLowWarnVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnVoltage = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 11), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 10)
 
-// DDdmIfInfoLowAlarmVoltage is the column dDdmIfInfoLowAlarmVoltage of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmVoltage is dDdmIfInfoLowAlarmVoltage.
 // This object indicates the low alarm threshold, when the operating
 // voltage falls below this value, it indicates an alarm status. The value
 // is in unit of 'centi-Volt'.
-var DDdmIfInfoLowAlarmVoltage = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 12), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowAlarmVoltage = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 12), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 11)
 
-// DDdmIfInfoCurrentBiasCurrent is the column dDdmIfInfoCurrentBiasCurrent of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentBiasCurrent is dDdmIfInfoCurrentBiasCurrent.
 // This object indicates the current bias current in unit of
 // 'milli-amperes' on the interface.
-var DDdmIfInfoCurrentBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 13), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentBiasCurrent = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 13), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 12)
 
-// DDdmIfInfoBiasCurrentState is the column dDdmIfInfoBiasCurrentState of table dDdmIfInfoTable.
+// DDdmIfInfoBiasCurrentState is dDdmIfInfoBiasCurrentState.
 // This object indicates the state of current BiasCurrent.
-var DDdmIfInfoBiasCurrentState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 14), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
+var DDdmIfInfoBiasCurrentState = snmp.NewFusedTableColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 14), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return DlinkThresholdState(0), err
 	}
 	return DlinkThresholdState(v), nil
-})
+}, snmp.RawInteger32As[DlinkThresholdState], 13)
 
-// DDdmIfInfoHighAlarmBiasCurrent is the column dDdmIfInfoHighAlarmBiasCurrent of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmBiasCurrent is dDdmIfInfoHighAlarmBiasCurrent.
 // This object indicates the high alarm threshold, when the operating bias
 // current rises above this value, it indicates an alarm status. The value
 // is in unit of 'milli-amperes'.
-var DDdmIfInfoHighAlarmBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 15), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmBiasCurrent = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 15), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 14)
 
-// DDdmIfInfoHighWarnBiasCurrent is the column dDdmIfInfoHighWarnBiasCurrent of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnBiasCurrent is dDdmIfInfoHighWarnBiasCurrent.
 // This object indicates the high warning threshold, when the operating
 // bias current rises above this value, it indicates a warning status. The
 // value is in unit of 'milli-amperes'.
-var DDdmIfInfoHighWarnBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 16), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnBiasCurrent = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 16), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 15)
 
-// DDdmIfInfoLowWarnBiasCurrent is the column dDdmIfInfoLowWarnBiasCurrent of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnBiasCurrent is dDdmIfInfoLowWarnBiasCurrent.
 // This object indicates the low warning threshold, when the operating bias
 // current falls below this value, it indicates a warning status. The value
 // is in unit of 'milli-amperes'.
-var DDdmIfInfoLowWarnBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 17), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnBiasCurrent = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 17), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 16)
 
-// DDdmIfInfoLowAlarmBiasCurrent is the column dDdmIfInfoLowAlarmBiasCurrent of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmBiasCurrent is dDdmIfInfoLowAlarmBiasCurrent.
 // This object indicates the low alarm threshold, when the operating bias
 // current falls below this value, it indicates an alarm status. The value
 // is in unit of 'milli-amperes'.
-var DDdmIfInfoLowAlarmBiasCurrent = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowAlarmBiasCurrent = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 18), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 17)
 
-// DDdmIfInfoCurrentTxPower is the column dDdmIfInfoCurrentTxPower of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentTxPower is dDdmIfInfoCurrentTxPower.
 // This object indicates the current output power in unit of 'tenths of a
 // microwatt' on the interface.
-var DDdmIfInfoCurrentTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentTxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 19), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 18)
 
-// DDdmIfInfoTxPowerState is the column dDdmIfInfoTxPowerState of table dDdmIfInfoTable.
+// DDdmIfInfoTxPowerState is dDdmIfInfoTxPowerState.
 // This object indicates the state of current output power.
-var DDdmIfInfoTxPowerState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 20), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
+var DDdmIfInfoTxPowerState = snmp.NewFusedTableColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 20), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return DlinkThresholdState(0), err
 	}
 	return DlinkThresholdState(v), nil
-})
+}, snmp.RawInteger32As[DlinkThresholdState], 19)
 
-// DDdmIfInfoHighAlarmTxPower is the column dDdmIfInfoHighAlarmTxPower of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmTxPower is dDdmIfInfoHighAlarmTxPower.
 // This object indicates the high alarm threshold, when the operating
 // output power rises above this value, it indicates an alarm status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighAlarmTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmTxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 21), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 20)
 
-// DDdmIfInfoHighWarnTxPower is the column dDdmIfInfoHighWarnTxPower of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnTxPower is dDdmIfInfoHighWarnTxPower.
 // This object indicates the high warning threshold, when the operating
 // output power rises above this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighWarnTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnTxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 22), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 21)
 
-// DDdmIfInfoLowWarnTxPower is the column dDdmIfInfoLowWarnTxPower of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnTxPower is dDdmIfInfoLowWarnTxPower.
 // This object indicates the low warning threshold, when the operating
 // output power falls below this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowWarnTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnTxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 23), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 22)
 
-// DDdmIfInfoLowAlarmTxPower is the column dDdmIfInfoLowAlarmTxPower of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmTxPower is dDdmIfInfoLowAlarmTxPower.
 // This object indicates the low alarm threshold, when the operating output
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowAlarmTxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowAlarmTxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 24), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 23)
 
-// DDdmIfInfoCurrentRxPower is the column dDdmIfInfoCurrentRxPower of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentRxPower is dDdmIfInfoCurrentRxPower.
 // This object indicates the current input power in unit of 'tenths of a
 // microwatt' on the interface.
-var DDdmIfInfoCurrentRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentRxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 25), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 24)
 
-// DDdmIfInfoRxPowerState is the column dDdmIfInfoRxPowerState of table dDdmIfInfoTable.
+// DDdmIfInfoRxPowerState is dDdmIfInfoRxPowerState.
 // This object indicates the state of current input power.
-var DDdmIfInfoRxPowerState = snmp.NewColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 26), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
+var DDdmIfInfoRxPowerState = snmp.NewFusedTableColumn[DlinkThresholdState](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 26), snmp.KindInteger32, func(vb snmp.VarBind) (DlinkThresholdState, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return DlinkThresholdState(0), err
 	}
 	return DlinkThresholdState(v), nil
-})
+}, snmp.RawInteger32As[DlinkThresholdState], 25)
 
-// DDdmIfInfoHighAlarmRxPower is the column dDdmIfInfoHighAlarmRxPower of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmRxPower is dDdmIfInfoHighAlarmRxPower.
 // This object indicates the high alarm threshold, when the operating input
 // power rises above this value, it indicates an alarm status. The value is
 // in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighAlarmRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 27), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmRxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 27), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 26)
 
-// DDdmIfInfoHighWarnRxPower is the column dDdmIfInfoHighWarnRxPower of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnRxPower is dDdmIfInfoHighWarnRxPower.
 // This object indicates the high warning threshold, when the operating
 // input power rises above this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoHighWarnRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 28), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnRxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 28), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 27)
 
-// DDdmIfInfoLowWarnRxPower is the column dDdmIfInfoLowWarnRxPower of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnRxPower is dDdmIfInfoLowWarnRxPower.
 // This object indicates the low warning threshold, when the operating
 // input power falls below this value, it indicates a warning status. The
 // value is in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowWarnRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 29), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnRxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 29), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 28)
 
-// DDdmIfInfoLowAlarmRxPower is the column dDdmIfInfoLowAlarmRxPower of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmRxPower is dDdmIfInfoLowAlarmRxPower.
 // This object indicates the low alarm threshold, when the operating input
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'tenths of a microwatt'.
-var DDdmIfInfoLowAlarmRxPower = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 30), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowAlarmRxPower = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 30), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 29)
 
-// DDdmIfInfoCurrentTxPowerdBm is the column dDdmIfInfoCurrentTxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentTxPowerdBm is dDdmIfInfoCurrentTxPowerdBm.
 // This object indicates the current output power in unit of 'decibel
 // relative to one milliwatt' on the interface. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoCurrentTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 31), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentTxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 31), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 30)
 
-// DDdmIfInfoHighAlarmTxPowerdBm is the column dDdmIfInfoHighAlarmTxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmTxPowerdBm is dDdmIfInfoHighAlarmTxPowerdBm.
 // This object indicates the high alarm threshold, when the operating
 // output power rises above this value, it indicates an alarm status. The
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoHighAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 32), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmTxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 32), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 31)
 
-// DDdmIfInfoHighWarnTxPowerdBm is the column dDdmIfInfoHighWarnTxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnTxPowerdBm is dDdmIfInfoHighWarnTxPowerdBm.
 // This object indicates the high warning threshold, when the operating
 // output power rises above this value, it indicates a warning status. The
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoHighWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 33), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnTxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 33), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 32)
 
-// DDdmIfInfoLowWarnTxPowerdBm is the column dDdmIfInfoLowWarnTxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnTxPowerdBm is dDdmIfInfoLowWarnTxPowerdBm.
 // This object indicates the low warning threshold, when the operating
 // output power falls below this value, it indicates a warning status. The
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoLowWarnTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 34), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnTxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 34), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 33)
 
-// DDdmIfInfoLowAlarmTxPowerdBm is the column dDdmIfInfoLowAlarmTxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmTxPowerdBm is dDdmIfInfoLowAlarmTxPowerdBm.
 // This object indicates the low alarm threshold, when the operating output
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'decibel relative to one milliwatt'. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoLowAlarmTxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 35), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowAlarmTxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 35), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 34)
 
-// DDdmIfInfoCurrentRxPowerdBm is the column dDdmIfInfoCurrentRxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoCurrentRxPowerdBm is dDdmIfInfoCurrentRxPowerdBm.
 // This object indicates the current input power in unit of 'decibel
 // relative to one milliwatt' on the interface. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoCurrentRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 36), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoCurrentRxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 36), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 35)
 
-// DDdmIfInfoHighAlarmRxPowerdBm is the column dDdmIfInfoHighAlarmRxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoHighAlarmRxPowerdBm is dDdmIfInfoHighAlarmRxPowerdBm.
 // This object indicates the high alarm threshold, when the operating input
 // power rises above this value, it indicates an alarm status. The value is
 // in unit of 'decibel relative to one milliwatt'. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoHighAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 37), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighAlarmRxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 37), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 36)
 
-// DDdmIfInfoHighWarnRxPowerdBm is the column dDdmIfInfoHighWarnRxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoHighWarnRxPowerdBm is dDdmIfInfoHighWarnRxPowerdBm.
 // This object indicates the high warning threshold, when the operating
 // input power rises above this value, it indicates a warning status. The
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoHighWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 38), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoHighWarnRxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 38), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 37)
 
-// DDdmIfInfoLowWarnRxPowerdBm is the column dDdmIfInfoLowWarnRxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoLowWarnRxPowerdBm is dDdmIfInfoLowWarnRxPowerdBm.
 // This object indicates the low warning threshold, when the operating
 // input power falls below this value, it indicates a warning status. The
 // value is in unit of 'decibel relative to one milliwatt'. when the value
 // is 0x80000000 means that the value is 0 in unit of 'tenths of a
 // microwatt'
-var DDdmIfInfoLowWarnRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 39), snmp.KindInteger32, snmp.DecodeInt32)
+var DDdmIfInfoLowWarnRxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 39), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 38)
 
-// DDdmIfInfoLowAlarmRxPowerdBm is the column dDdmIfInfoLowAlarmRxPowerdBm of table dDdmIfInfoTable.
+// DDdmIfInfoLowAlarmRxPowerdBm is dDdmIfInfoLowAlarmRxPowerdBm.
 // This object indicates the low alarm threshold, when the operating input
 // power falls below this value, it indicates an alarm status. The value is
 // in unit of 'decibel relative to one milliwatt'. when the value is
 // 0x80000000 means that the value is 0 in unit of 'tenths of a microwatt'
-var DDdmIfInfoLowAlarmRxPowerdBm = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 40), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	DDdmIfInfoLowAlarmRxPowerdBm = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1, 1, 40), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 39)
+	dDdmIfInfoTableColumns       = []snmp.AnyColumn{DDdmIfInfoCurrentTemperature, DDdmIfInfoTemperatureState, DDdmIfInfoHighAlarmTemperature, DDdmIfInfoHighWarnTemperature, DDdmIfInfoLowWarnTemperature, DDdmIfInfoLowAlarmTemperature, DDdmIfInfoCurrentVoltage, DDdmIfInfoVoltageState, DDdmIfInfoHighAlarmVoltage, DDdmIfInfoHighWarnVoltage, DDdmIfInfoLowWarnVoltage, DDdmIfInfoLowAlarmVoltage, DDdmIfInfoCurrentBiasCurrent, DDdmIfInfoBiasCurrentState, DDdmIfInfoHighAlarmBiasCurrent, DDdmIfInfoHighWarnBiasCurrent, DDdmIfInfoLowWarnBiasCurrent, DDdmIfInfoLowAlarmBiasCurrent, DDdmIfInfoCurrentTxPower, DDdmIfInfoTxPowerState, DDdmIfInfoHighAlarmTxPower, DDdmIfInfoHighWarnTxPower, DDdmIfInfoLowWarnTxPower, DDdmIfInfoLowAlarmTxPower, DDdmIfInfoCurrentRxPower, DDdmIfInfoRxPowerState, DDdmIfInfoHighAlarmRxPower, DDdmIfInfoHighWarnRxPower, DDdmIfInfoLowWarnRxPower, DDdmIfInfoLowAlarmRxPower, DDdmIfInfoCurrentTxPowerdBm, DDdmIfInfoHighAlarmTxPowerdBm, DDdmIfInfoHighWarnTxPowerdBm, DDdmIfInfoLowWarnTxPowerdBm, DDdmIfInfoLowAlarmTxPowerdBm, DDdmIfInfoCurrentRxPowerdBm, DDdmIfInfoHighAlarmRxPowerdBm, DDdmIfInfoHighWarnRxPowerdBm, DDdmIfInfoLowWarnRxPowerdBm, DDdmIfInfoLowAlarmRxPowerdBm}
+)
 
 // DDdmIfInfoTableKey is the decoded INDEX of one dDdmIfInfoTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1106,14 +818,7 @@ func decodeDDdmIfInfoTableKey(idx snmp.OID) (DDdmIfInfoTableKey, bool) {
 	return DDdmIfInfoTableKey{IfIndex: ifmib.InterfaceIndex(parts[0].Integer)}, true
 }
 
-// DDdmIfInfoTableRow is one row of dDdmIfInfoTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [DDdmIfInfoTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [DDdmIfInfoTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// DDdmIfInfoTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type DDdmIfInfoTableRow struct {
 	Key                            DDdmIfInfoTableKey
 	keyValid                       bool
@@ -1157,927 +862,123 @@ type DDdmIfInfoTableRow struct {
 	DDdmIfInfoHighWarnRxPowerdBm   int32
 	DDdmIfInfoLowWarnRxPowerdBm    int32
 	DDdmIfInfoLowAlarmRxPowerdBm   int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                       [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r DDdmIfInfoTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r DDdmIfInfoTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case DDdmIfInfoCurrentTemperature.Key():
-		return r.observed[0]&(1<<0) != 0
-	case DDdmIfInfoTemperatureState.Key():
-		return r.observed[0]&(1<<1) != 0
-	case DDdmIfInfoHighAlarmTemperature.Key():
-		return r.observed[0]&(1<<2) != 0
-	case DDdmIfInfoHighWarnTemperature.Key():
-		return r.observed[0]&(1<<3) != 0
-	case DDdmIfInfoLowWarnTemperature.Key():
-		return r.observed[0]&(1<<4) != 0
-	case DDdmIfInfoLowAlarmTemperature.Key():
-		return r.observed[0]&(1<<5) != 0
-	case DDdmIfInfoCurrentVoltage.Key():
-		return r.observed[0]&(1<<6) != 0
-	case DDdmIfInfoVoltageState.Key():
-		return r.observed[0]&(1<<7) != 0
-	case DDdmIfInfoHighAlarmVoltage.Key():
-		return r.observed[0]&(1<<8) != 0
-	case DDdmIfInfoHighWarnVoltage.Key():
-		return r.observed[0]&(1<<9) != 0
-	case DDdmIfInfoLowWarnVoltage.Key():
-		return r.observed[0]&(1<<10) != 0
-	case DDdmIfInfoLowAlarmVoltage.Key():
-		return r.observed[0]&(1<<11) != 0
-	case DDdmIfInfoCurrentBiasCurrent.Key():
-		return r.observed[0]&(1<<12) != 0
-	case DDdmIfInfoBiasCurrentState.Key():
-		return r.observed[0]&(1<<13) != 0
-	case DDdmIfInfoHighAlarmBiasCurrent.Key():
-		return r.observed[0]&(1<<14) != 0
-	case DDdmIfInfoHighWarnBiasCurrent.Key():
-		return r.observed[0]&(1<<15) != 0
-	case DDdmIfInfoLowWarnBiasCurrent.Key():
-		return r.observed[0]&(1<<16) != 0
-	case DDdmIfInfoLowAlarmBiasCurrent.Key():
-		return r.observed[0]&(1<<17) != 0
-	case DDdmIfInfoCurrentTxPower.Key():
-		return r.observed[0]&(1<<18) != 0
-	case DDdmIfInfoTxPowerState.Key():
-		return r.observed[0]&(1<<19) != 0
-	case DDdmIfInfoHighAlarmTxPower.Key():
-		return r.observed[0]&(1<<20) != 0
-	case DDdmIfInfoHighWarnTxPower.Key():
-		return r.observed[0]&(1<<21) != 0
-	case DDdmIfInfoLowWarnTxPower.Key():
-		return r.observed[0]&(1<<22) != 0
-	case DDdmIfInfoLowAlarmTxPower.Key():
-		return r.observed[0]&(1<<23) != 0
-	case DDdmIfInfoCurrentRxPower.Key():
-		return r.observed[0]&(1<<24) != 0
-	case DDdmIfInfoRxPowerState.Key():
-		return r.observed[0]&(1<<25) != 0
-	case DDdmIfInfoHighAlarmRxPower.Key():
-		return r.observed[0]&(1<<26) != 0
-	case DDdmIfInfoHighWarnRxPower.Key():
-		return r.observed[0]&(1<<27) != 0
-	case DDdmIfInfoLowWarnRxPower.Key():
-		return r.observed[0]&(1<<28) != 0
-	case DDdmIfInfoLowAlarmRxPower.Key():
-		return r.observed[0]&(1<<29) != 0
-	case DDdmIfInfoCurrentTxPowerdBm.Key():
-		return r.observed[0]&(1<<30) != 0
-	case DDdmIfInfoHighAlarmTxPowerdBm.Key():
-		return r.observed[0]&(1<<31) != 0
-	case DDdmIfInfoHighWarnTxPowerdBm.Key():
-		return r.observed[0]&(1<<32) != 0
-	case DDdmIfInfoLowWarnTxPowerdBm.Key():
-		return r.observed[0]&(1<<33) != 0
-	case DDdmIfInfoLowAlarmTxPowerdBm.Key():
-		return r.observed[0]&(1<<34) != 0
-	case DDdmIfInfoCurrentRxPowerdBm.Key():
-		return r.observed[0]&(1<<35) != 0
-	case DDdmIfInfoHighAlarmRxPowerdBm.Key():
-		return r.observed[0]&(1<<36) != 0
-	case DDdmIfInfoHighWarnRxPowerdBm.Key():
-		return r.observed[0]&(1<<37) != 0
-	case DDdmIfInfoLowWarnRxPowerdBm.Key():
-		return r.observed[0]&(1<<38) != 0
-	case DDdmIfInfoLowAlarmRxPowerdBm.Key():
-		return r.observed[0]&(1<<39) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], dDdmIfInfoTableColumns, col)
 }
 
-// DDdmIfInfoTableWalker streams selected columns of dDdmIfInfoTable.
-// The zero value is not usable; construct via DDdmIfInfoTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// DDdmIfInfoTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type DDdmIfInfoTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[DDdmIfInfoTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *DDdmIfInfoTableWalker) Iter() iter.Seq2[snmp.OID, DDdmIfInfoTableRow] {
-	return func(yield func(snmp.OID, DDdmIfInfoTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row DDdmIfInfoTableRow
-			row.Key, row.keyValid = decodeDDdmIfInfoTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case DDdmIfInfoCurrentTemperature.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentTemperature = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentTemperature.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentTemperature = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case DDdmIfInfoTemperatureState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoTemperatureState = DlinkThresholdState(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoTemperatureState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoTemperatureState = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmTemperature.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmTemperature = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmTemperature.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmTemperature = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnTemperature.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnTemperature = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnTemperature.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnTemperature = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnTemperature.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnTemperature = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnTemperature.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnTemperature = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmTemperature.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmTemperature = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmTemperature.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmTemperature = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case DDdmIfInfoCurrentVoltage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentVoltage = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentVoltage = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case DDdmIfInfoVoltageState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoVoltageState = DlinkThresholdState(v)
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoVoltageState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoVoltageState = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmVoltage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmVoltage = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmVoltage = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnVoltage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnVoltage = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnVoltage = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnVoltage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnVoltage = v
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnVoltage = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmVoltage.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmVoltage = v
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmVoltage.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmVoltage = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				case DDdmIfInfoCurrentBiasCurrent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentBiasCurrent = v
-						row.observed[0] |= 1 << 12
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentBiasCurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentBiasCurrent = dv
-								row.observed[0] |= 1 << 12
-							}
-						}
-					}
-				case DDdmIfInfoBiasCurrentState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoBiasCurrentState = DlinkThresholdState(v)
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoBiasCurrentState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoBiasCurrentState = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmBiasCurrent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmBiasCurrent = v
-						row.observed[0] |= 1 << 14
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmBiasCurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmBiasCurrent = dv
-								row.observed[0] |= 1 << 14
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnBiasCurrent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnBiasCurrent = v
-						row.observed[0] |= 1 << 15
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnBiasCurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnBiasCurrent = dv
-								row.observed[0] |= 1 << 15
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnBiasCurrent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnBiasCurrent = v
-						row.observed[0] |= 1 << 16
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnBiasCurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnBiasCurrent = dv
-								row.observed[0] |= 1 << 16
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmBiasCurrent.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmBiasCurrent = v
-						row.observed[0] |= 1 << 17
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmBiasCurrent.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmBiasCurrent = dv
-								row.observed[0] |= 1 << 17
-							}
-						}
-					}
-				case DDdmIfInfoCurrentTxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentTxPower = v
-						row.observed[0] |= 1 << 18
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentTxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentTxPower = dv
-								row.observed[0] |= 1 << 18
-							}
-						}
-					}
-				case DDdmIfInfoTxPowerState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoTxPowerState = DlinkThresholdState(v)
-						row.observed[0] |= 1 << 19
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoTxPowerState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoTxPowerState = dv
-								row.observed[0] |= 1 << 19
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmTxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmTxPower = v
-						row.observed[0] |= 1 << 20
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmTxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmTxPower = dv
-								row.observed[0] |= 1 << 20
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnTxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnTxPower = v
-						row.observed[0] |= 1 << 21
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnTxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnTxPower = dv
-								row.observed[0] |= 1 << 21
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnTxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnTxPower = v
-						row.observed[0] |= 1 << 22
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnTxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnTxPower = dv
-								row.observed[0] |= 1 << 22
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmTxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmTxPower = v
-						row.observed[0] |= 1 << 23
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmTxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmTxPower = dv
-								row.observed[0] |= 1 << 23
-							}
-						}
-					}
-				case DDdmIfInfoCurrentRxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentRxPower = v
-						row.observed[0] |= 1 << 24
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentRxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentRxPower = dv
-								row.observed[0] |= 1 << 24
-							}
-						}
-					}
-				case DDdmIfInfoRxPowerState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoRxPowerState = DlinkThresholdState(v)
-						row.observed[0] |= 1 << 25
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoRxPowerState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoRxPowerState = dv
-								row.observed[0] |= 1 << 25
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmRxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmRxPower = v
-						row.observed[0] |= 1 << 26
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmRxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmRxPower = dv
-								row.observed[0] |= 1 << 26
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnRxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnRxPower = v
-						row.observed[0] |= 1 << 27
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnRxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnRxPower = dv
-								row.observed[0] |= 1 << 27
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnRxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnRxPower = v
-						row.observed[0] |= 1 << 28
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnRxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnRxPower = dv
-								row.observed[0] |= 1 << 28
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmRxPower.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmRxPower = v
-						row.observed[0] |= 1 << 29
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmRxPower.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmRxPower = dv
-								row.observed[0] |= 1 << 29
-							}
-						}
-					}
-				case DDdmIfInfoCurrentTxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentTxPowerdBm = v
-						row.observed[0] |= 1 << 30
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentTxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentTxPowerdBm = dv
-								row.observed[0] |= 1 << 30
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmTxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmTxPowerdBm = v
-						row.observed[0] |= 1 << 31
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmTxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmTxPowerdBm = dv
-								row.observed[0] |= 1 << 31
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnTxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnTxPowerdBm = v
-						row.observed[0] |= 1 << 32
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnTxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnTxPowerdBm = dv
-								row.observed[0] |= 1 << 32
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnTxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnTxPowerdBm = v
-						row.observed[0] |= 1 << 33
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnTxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnTxPowerdBm = dv
-								row.observed[0] |= 1 << 33
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmTxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmTxPowerdBm = v
-						row.observed[0] |= 1 << 34
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmTxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmTxPowerdBm = dv
-								row.observed[0] |= 1 << 34
-							}
-						}
-					}
-				case DDdmIfInfoCurrentRxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoCurrentRxPowerdBm = v
-						row.observed[0] |= 1 << 35
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoCurrentRxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoCurrentRxPowerdBm = dv
-								row.observed[0] |= 1 << 35
-							}
-						}
-					}
-				case DDdmIfInfoHighAlarmRxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighAlarmRxPowerdBm = v
-						row.observed[0] |= 1 << 36
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighAlarmRxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighAlarmRxPowerdBm = dv
-								row.observed[0] |= 1 << 36
-							}
-						}
-					}
-				case DDdmIfInfoHighWarnRxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoHighWarnRxPowerdBm = v
-						row.observed[0] |= 1 << 37
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoHighWarnRxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoHighWarnRxPowerdBm = dv
-								row.observed[0] |= 1 << 37
-							}
-						}
-					}
-				case DDdmIfInfoLowWarnRxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowWarnRxPowerdBm = v
-						row.observed[0] |= 1 << 38
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowWarnRxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowWarnRxPowerdBm = dv
-								row.observed[0] |= 1 << 38
-							}
-						}
-					}
-				case DDdmIfInfoLowAlarmRxPowerdBm.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.DDdmIfInfoLowAlarmRxPowerdBm = v
-						row.observed[0] |= 1 << 39
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := DDdmIfInfoLowAlarmRxPowerdBm.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.DDdmIfInfoLowAlarmRxPowerdBm = dv
-								row.observed[0] |= 1 << 39
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type dDdmIfInfoTableT struct {
+	snmp.Table[DDdmIfInfoTableRow, *DDdmIfInfoTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *DDdmIfInfoTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// dDdmIfInfoTableT is the singleton type of DDdmIfInfoTable.
-type dDdmIfInfoTableT struct{}
 
 // DDdmIfInfoTable is the descriptor for the dDdmIfInfoTable table.
-var DDdmIfInfoTable dDdmIfInfoTableT
+var DDdmIfInfoTable = dDdmIfInfoTableT{Table: snmp.NewTable("dDdmIfInfoTable", dDdmIfInfoTableColumns, func(idx snmp.OID, row *DDdmIfInfoTableRow) {
+	row.Key, row.keyValid = decodeDDdmIfInfoTableKey(idx)
+}, func(row *DDdmIfInfoTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentTemperature, &row.DDdmIfInfoCurrentTemperature, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, DDdmIfInfoTemperatureState, &row.DDdmIfInfoTemperatureState, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmTemperature, &row.DDdmIfInfoHighAlarmTemperature, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnTemperature, &row.DDdmIfInfoHighWarnTemperature, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnTemperature, &row.DDdmIfInfoLowWarnTemperature, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmTemperature, &row.DDdmIfInfoLowAlarmTemperature, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentVoltage, &row.DDdmIfInfoCurrentVoltage, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, DDdmIfInfoVoltageState, &row.DDdmIfInfoVoltageState, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmVoltage, &row.DDdmIfInfoHighAlarmVoltage, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnVoltage, &row.DDdmIfInfoHighWarnVoltage, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnVoltage, &row.DDdmIfInfoLowWarnVoltage, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmVoltage, &row.DDdmIfInfoLowAlarmVoltage, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentBiasCurrent, &row.DDdmIfInfoCurrentBiasCurrent, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, DDdmIfInfoBiasCurrentState, &row.DDdmIfInfoBiasCurrentState, row.observed[:])
+	case 14:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmBiasCurrent, &row.DDdmIfInfoHighAlarmBiasCurrent, row.observed[:])
+	case 15:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnBiasCurrent, &row.DDdmIfInfoHighWarnBiasCurrent, row.observed[:])
+	case 16:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnBiasCurrent, &row.DDdmIfInfoLowWarnBiasCurrent, row.observed[:])
+	case 17:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmBiasCurrent, &row.DDdmIfInfoLowAlarmBiasCurrent, row.observed[:])
+	case 18:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentTxPower, &row.DDdmIfInfoCurrentTxPower, row.observed[:])
+	case 19:
+		return snmp.DecodeColumn(rv, DDdmIfInfoTxPowerState, &row.DDdmIfInfoTxPowerState, row.observed[:])
+	case 20:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmTxPower, &row.DDdmIfInfoHighAlarmTxPower, row.observed[:])
+	case 21:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnTxPower, &row.DDdmIfInfoHighWarnTxPower, row.observed[:])
+	case 22:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnTxPower, &row.DDdmIfInfoLowWarnTxPower, row.observed[:])
+	case 23:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmTxPower, &row.DDdmIfInfoLowAlarmTxPower, row.observed[:])
+	case 24:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentRxPower, &row.DDdmIfInfoCurrentRxPower, row.observed[:])
+	case 25:
+		return snmp.DecodeColumn(rv, DDdmIfInfoRxPowerState, &row.DDdmIfInfoRxPowerState, row.observed[:])
+	case 26:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmRxPower, &row.DDdmIfInfoHighAlarmRxPower, row.observed[:])
+	case 27:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnRxPower, &row.DDdmIfInfoHighWarnRxPower, row.observed[:])
+	case 28:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnRxPower, &row.DDdmIfInfoLowWarnRxPower, row.observed[:])
+	case 29:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmRxPower, &row.DDdmIfInfoLowAlarmRxPower, row.observed[:])
+	case 30:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentTxPowerdBm, &row.DDdmIfInfoCurrentTxPowerdBm, row.observed[:])
+	case 31:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmTxPowerdBm, &row.DDdmIfInfoHighAlarmTxPowerdBm, row.observed[:])
+	case 32:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnTxPowerdBm, &row.DDdmIfInfoHighWarnTxPowerdBm, row.observed[:])
+	case 33:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnTxPowerdBm, &row.DDdmIfInfoLowWarnTxPowerdBm, row.observed[:])
+	case 34:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmTxPowerdBm, &row.DDdmIfInfoLowAlarmTxPowerdBm, row.observed[:])
+	case 35:
+		return snmp.DecodeColumn(rv, DDdmIfInfoCurrentRxPowerdBm, &row.DDdmIfInfoCurrentRxPowerdBm, row.observed[:])
+	case 36:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighAlarmRxPowerdBm, &row.DDdmIfInfoHighAlarmRxPowerdBm, row.observed[:])
+	case 37:
+		return snmp.DecodeColumn(rv, DDdmIfInfoHighWarnRxPowerdBm, &row.DDdmIfInfoHighWarnRxPowerdBm, row.observed[:])
+	case 38:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowWarnRxPowerdBm, &row.DDdmIfInfoLowWarnRxPowerdBm, row.observed[:])
+	case 39:
+		return snmp.DecodeColumn(rv, DDdmIfInfoLowAlarmRxPowerdBm, &row.DDdmIfInfoLowAlarmRxPowerdBm, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[DDdmIfInfoTableRow]) *DDdmIfInfoTableWalker {
+	return &DDdmIfInfoTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *DDdmIfInfoTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t dDdmIfInfoTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *DDdmIfInfoTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (dDdmIfInfoTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "DDdmIfInfoTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 171, 11, 165, 1000, 72, 1, 4, 1),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (dDdmIfInfoTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *DDdmIfInfoTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case DDdmIfInfoCurrentTemperature.Key(), DDdmIfInfoTemperatureState.Key(), DDdmIfInfoHighAlarmTemperature.Key(), DDdmIfInfoHighWarnTemperature.Key(), DDdmIfInfoLowWarnTemperature.Key(), DDdmIfInfoLowAlarmTemperature.Key(), DDdmIfInfoCurrentVoltage.Key(), DDdmIfInfoVoltageState.Key(), DDdmIfInfoHighAlarmVoltage.Key(), DDdmIfInfoHighWarnVoltage.Key(), DDdmIfInfoLowWarnVoltage.Key(), DDdmIfInfoLowAlarmVoltage.Key(), DDdmIfInfoCurrentBiasCurrent.Key(), DDdmIfInfoBiasCurrentState.Key(), DDdmIfInfoHighAlarmBiasCurrent.Key(), DDdmIfInfoHighWarnBiasCurrent.Key(), DDdmIfInfoLowWarnBiasCurrent.Key(), DDdmIfInfoLowAlarmBiasCurrent.Key(), DDdmIfInfoCurrentTxPower.Key(), DDdmIfInfoTxPowerState.Key(), DDdmIfInfoHighAlarmTxPower.Key(), DDdmIfInfoHighWarnTxPower.Key(), DDdmIfInfoLowWarnTxPower.Key(), DDdmIfInfoLowAlarmTxPower.Key(), DDdmIfInfoCurrentRxPower.Key(), DDdmIfInfoRxPowerState.Key(), DDdmIfInfoHighAlarmRxPower.Key(), DDdmIfInfoHighWarnRxPower.Key(), DDdmIfInfoLowWarnRxPower.Key(), DDdmIfInfoLowAlarmRxPower.Key(), DDdmIfInfoCurrentTxPowerdBm.Key(), DDdmIfInfoHighAlarmTxPowerdBm.Key(), DDdmIfInfoHighWarnTxPowerdBm.Key(), DDdmIfInfoLowWarnTxPowerdBm.Key(), DDdmIfInfoLowAlarmTxPowerdBm.Key(), DDdmIfInfoCurrentRxPowerdBm.Key(), DDdmIfInfoHighAlarmRxPowerdBm.Key(), DDdmIfInfoHighWarnRxPowerdBm.Key(), DDdmIfInfoLowWarnRxPowerdBm.Key(), DDdmIfInfoLowAlarmRxPowerdBm.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "dDdmIfInfoTable.Walk: column %s", c.OID()))
-			return &DDdmIfInfoTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &DDdmIfInfoTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

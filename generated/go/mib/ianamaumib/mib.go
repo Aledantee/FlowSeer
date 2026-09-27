@@ -9,11 +9,7 @@
 // Package ianamaumib binds the SMI objects declared by IANA-MAU-MIB.
 package ianamaumib
 
-import (
-	"fmt"
-
-	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
-)
+import snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 
 // IANAifJackType is the SMI enum IANAifJackType.
 // Common enumeration values for repeater and interface MAU jack types.
@@ -30,83 +26,52 @@ import (
 // Requests for new values should be made to IANA via email
 // (iana&iana.org).
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IANAifJackType int32
 
 const (
-	// IANAifJackTypeOther represents the SMI value other.
+	// IANAifJackTypeOther is other.
 	IANAifJackTypeOther IANAifJackType = 1
-	// IANAifJackTypeRj45 represents the SMI value rj45.
+	// IANAifJackTypeRj45 is rj45.
 	IANAifJackTypeRj45 IANAifJackType = 2
-	// IANAifJackTypeRj45S represents the SMI value rj45S.
+	// IANAifJackTypeRj45S is rj45S.
 	IANAifJackTypeRj45S IANAifJackType = 3
-	// IANAifJackTypeDb9 represents the SMI value db9.
+	// IANAifJackTypeDb9 is db9.
 	IANAifJackTypeDb9 IANAifJackType = 4
-	// IANAifJackTypeBnc represents the SMI value bnc.
+	// IANAifJackTypeBnc is bnc.
 	IANAifJackTypeBnc IANAifJackType = 5
-	// IANAifJackTypeFAUI represents the SMI value fAUI.
+	// IANAifJackTypeFAUI is fAUI.
 	IANAifJackTypeFAUI IANAifJackType = 6
-	// IANAifJackTypeMAUI represents the SMI value mAUI.
+	// IANAifJackTypeMAUI is mAUI.
 	IANAifJackTypeMAUI IANAifJackType = 7
-	// IANAifJackTypeFiberSC represents the SMI value fiberSC.
+	// IANAifJackTypeFiberSC is fiberSC.
 	IANAifJackTypeFiberSC IANAifJackType = 8
-	// IANAifJackTypeFiberMIC represents the SMI value fiberMIC.
+	// IANAifJackTypeFiberMIC is fiberMIC.
 	IANAifJackTypeFiberMIC IANAifJackType = 9
-	// IANAifJackTypeFiberST represents the SMI value fiberST.
+	// IANAifJackTypeFiberST is fiberST.
 	IANAifJackTypeFiberST IANAifJackType = 10
-	// IANAifJackTypeTelco represents the SMI value telco.
+	// IANAifJackTypeTelco is telco.
 	IANAifJackTypeTelco IANAifJackType = 11
-	// IANAifJackTypeMtrj represents the SMI value mtrj.
+	// IANAifJackTypeMtrj is mtrj.
 	IANAifJackTypeMtrj IANAifJackType = 12
-	// IANAifJackTypeHssdc represents the SMI value hssdc.
+	// IANAifJackTypeHssdc is hssdc.
 	IANAifJackTypeHssdc IANAifJackType = 13
-	// IANAifJackTypeFiberLC represents the SMI value fiberLC.
+	// IANAifJackTypeFiberLC is fiberLC.
 	IANAifJackTypeFiberLC IANAifJackType = 14
-	// IANAifJackTypeCx4 represents the SMI value cx4.
+	// IANAifJackTypeCx4 is cx4.
 	IANAifJackTypeCx4 IANAifJackType = 15
-	// IANAifJackTypeSfpPlusDA represents the SMI value sfpPlusDA.
+	// IANAifJackTypeSfpPlusDA is sfpPlusDA.
 	IANAifJackTypeSfpPlusDA IANAifJackType = 16
 )
 
-// String returns the SMI label, or IANAifJackType(n) for an unrecognized value n.
-func (v IANAifJackType) String() string {
-	switch v {
-	case IANAifJackTypeOther:
-		return "other"
-	case IANAifJackTypeRj45:
-		return "rj45"
-	case IANAifJackTypeRj45S:
-		return "rj45S"
-	case IANAifJackTypeDb9:
-		return "db9"
-	case IANAifJackTypeBnc:
-		return "bnc"
-	case IANAifJackTypeFAUI:
-		return "fAUI"
-	case IANAifJackTypeMAUI:
-		return "mAUI"
-	case IANAifJackTypeFiberSC:
-		return "fiberSC"
-	case IANAifJackTypeFiberMIC:
-		return "fiberMIC"
-	case IANAifJackTypeFiberST:
-		return "fiberST"
-	case IANAifJackTypeTelco:
-		return "telco"
-	case IANAifJackTypeMtrj:
-		return "mtrj"
-	case IANAifJackTypeHssdc:
-		return "hssdc"
-	case IANAifJackTypeFiberLC:
-		return "fiberLC"
-	case IANAifJackTypeCx4:
-		return "cx4"
-	case IANAifJackTypeSfpPlusDA:
-		return "sfpPlusDA"
-	}
+var (
+	iANAifJackTypeValues = []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	iANAifJackTypeNames  = []string{"other", "rj45", "rj45S", "db9", "bnc", "fAUI", "mAUI", "fiberSC", "fiberMIC", "fiberST", "telco", "mtrj", "hssdc", "fiberLC", "cx4", "sfpPlusDA"}
+)
 
-	return fmt.Sprintf("IANAifJackType(%d)", v)
+// String returns the SMI label, or IANAifJackType(n) for an unknown value.
+func (v IANAifJackType) String() string {
+	return snmp.EnumString(int32(v), "IANAifJackType", iANAifJackTypeValues, iANAifJackTypeNames)
 }
 
 // IANAifMauMediaAvailable is the SMI enum IANAifMauMediaAvailable.
@@ -205,99 +170,60 @@ func (v IANAifJackType) String() string {
 // IANA web site. Requests for new values should be made to IANA via email
 // (iana&iana.org).
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IANAifMauMediaAvailable int32
 
 const (
-	// IANAifMauMediaAvailableOther represents the SMI value other.
+	// IANAifMauMediaAvailableOther is other.
 	IANAifMauMediaAvailableOther IANAifMauMediaAvailable = 1
-	// IANAifMauMediaAvailableUnknown represents the SMI value unknown.
+	// IANAifMauMediaAvailableUnknown is unknown.
 	IANAifMauMediaAvailableUnknown IANAifMauMediaAvailable = 2
-	// IANAifMauMediaAvailableAvailable represents the SMI value available.
+	// IANAifMauMediaAvailableAvailable is available.
 	IANAifMauMediaAvailableAvailable IANAifMauMediaAvailable = 3
-	// IANAifMauMediaAvailableNotAvailable represents the SMI value notAvailable.
+	// IANAifMauMediaAvailableNotAvailable is notAvailable.
 	IANAifMauMediaAvailableNotAvailable IANAifMauMediaAvailable = 4
-	// IANAifMauMediaAvailableRemoteFault represents the SMI value remoteFault.
+	// IANAifMauMediaAvailableRemoteFault is remoteFault.
 	IANAifMauMediaAvailableRemoteFault IANAifMauMediaAvailable = 5
-	// IANAifMauMediaAvailableInvalidSignal represents the SMI value invalidSignal.
+	// IANAifMauMediaAvailableInvalidSignal is invalidSignal.
 	IANAifMauMediaAvailableInvalidSignal IANAifMauMediaAvailable = 6
-	// IANAifMauMediaAvailableRemoteJabber represents the SMI value remoteJabber.
+	// IANAifMauMediaAvailableRemoteJabber is remoteJabber.
 	IANAifMauMediaAvailableRemoteJabber IANAifMauMediaAvailable = 7
-	// IANAifMauMediaAvailableRemoteLinkLoss represents the SMI value remoteLinkLoss.
+	// IANAifMauMediaAvailableRemoteLinkLoss is remoteLinkLoss.
 	IANAifMauMediaAvailableRemoteLinkLoss IANAifMauMediaAvailable = 8
-	// IANAifMauMediaAvailableRemoteTest represents the SMI value remoteTest.
+	// IANAifMauMediaAvailableRemoteTest is remoteTest.
 	IANAifMauMediaAvailableRemoteTest IANAifMauMediaAvailable = 9
-	// IANAifMauMediaAvailableOffline represents the SMI value offline.
+	// IANAifMauMediaAvailableOffline is offline.
 	IANAifMauMediaAvailableOffline IANAifMauMediaAvailable = 10
-	// IANAifMauMediaAvailableAutoNegError represents the SMI value autoNegError.
+	// IANAifMauMediaAvailableAutoNegError is autoNegError.
 	IANAifMauMediaAvailableAutoNegError IANAifMauMediaAvailable = 11
-	// IANAifMauMediaAvailablePmdLinkFault represents the SMI value pmdLinkFault.
+	// IANAifMauMediaAvailablePmdLinkFault is pmdLinkFault.
 	IANAifMauMediaAvailablePmdLinkFault IANAifMauMediaAvailable = 12
-	// IANAifMauMediaAvailableWisFrameLoss represents the SMI value wisFrameLoss.
+	// IANAifMauMediaAvailableWisFrameLoss is wisFrameLoss.
 	IANAifMauMediaAvailableWisFrameLoss IANAifMauMediaAvailable = 13
-	// IANAifMauMediaAvailableWisSignalLoss represents the SMI value wisSignalLoss.
+	// IANAifMauMediaAvailableWisSignalLoss is wisSignalLoss.
 	IANAifMauMediaAvailableWisSignalLoss IANAifMauMediaAvailable = 14
-	// IANAifMauMediaAvailablePcsLinkFault represents the SMI value pcsLinkFault.
+	// IANAifMauMediaAvailablePcsLinkFault is pcsLinkFault.
 	IANAifMauMediaAvailablePcsLinkFault IANAifMauMediaAvailable = 15
-	// IANAifMauMediaAvailableExcessiveBER represents the SMI value excessiveBER.
+	// IANAifMauMediaAvailableExcessiveBER is excessiveBER.
 	IANAifMauMediaAvailableExcessiveBER IANAifMauMediaAvailable = 16
-	// IANAifMauMediaAvailableDxsLinkFault represents the SMI value dxsLinkFault.
+	// IANAifMauMediaAvailableDxsLinkFault is dxsLinkFault.
 	IANAifMauMediaAvailableDxsLinkFault IANAifMauMediaAvailable = 17
-	// IANAifMauMediaAvailablePxsLinkFault represents the SMI value pxsLinkFault.
+	// IANAifMauMediaAvailablePxsLinkFault is pxsLinkFault.
 	IANAifMauMediaAvailablePxsLinkFault IANAifMauMediaAvailable = 18
-	// IANAifMauMediaAvailableAvailableReduced represents the SMI value availableReduced.
+	// IANAifMauMediaAvailableAvailableReduced is availableReduced.
 	IANAifMauMediaAvailableAvailableReduced IANAifMauMediaAvailable = 19
-	// IANAifMauMediaAvailableReady represents the SMI value ready.
+	// IANAifMauMediaAvailableReady is ready.
 	IANAifMauMediaAvailableReady IANAifMauMediaAvailable = 20
 )
 
-// String returns the SMI label, or IANAifMauMediaAvailable(n) for an unrecognized value n.
-func (v IANAifMauMediaAvailable) String() string {
-	switch v {
-	case IANAifMauMediaAvailableOther:
-		return "other"
-	case IANAifMauMediaAvailableUnknown:
-		return "unknown"
-	case IANAifMauMediaAvailableAvailable:
-		return "available"
-	case IANAifMauMediaAvailableNotAvailable:
-		return "notAvailable"
-	case IANAifMauMediaAvailableRemoteFault:
-		return "remoteFault"
-	case IANAifMauMediaAvailableInvalidSignal:
-		return "invalidSignal"
-	case IANAifMauMediaAvailableRemoteJabber:
-		return "remoteJabber"
-	case IANAifMauMediaAvailableRemoteLinkLoss:
-		return "remoteLinkLoss"
-	case IANAifMauMediaAvailableRemoteTest:
-		return "remoteTest"
-	case IANAifMauMediaAvailableOffline:
-		return "offline"
-	case IANAifMauMediaAvailableAutoNegError:
-		return "autoNegError"
-	case IANAifMauMediaAvailablePmdLinkFault:
-		return "pmdLinkFault"
-	case IANAifMauMediaAvailableWisFrameLoss:
-		return "wisFrameLoss"
-	case IANAifMauMediaAvailableWisSignalLoss:
-		return "wisSignalLoss"
-	case IANAifMauMediaAvailablePcsLinkFault:
-		return "pcsLinkFault"
-	case IANAifMauMediaAvailableExcessiveBER:
-		return "excessiveBER"
-	case IANAifMauMediaAvailableDxsLinkFault:
-		return "dxsLinkFault"
-	case IANAifMauMediaAvailablePxsLinkFault:
-		return "pxsLinkFault"
-	case IANAifMauMediaAvailableAvailableReduced:
-		return "availableReduced"
-	case IANAifMauMediaAvailableReady:
-		return "ready"
-	}
+var (
+	iANAifMauMediaAvailableValues = []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+	iANAifMauMediaAvailableNames  = []string{"other", "unknown", "available", "notAvailable", "remoteFault", "invalidSignal", "remoteJabber", "remoteLinkLoss", "remoteTest", "offline", "autoNegError", "pmdLinkFault", "wisFrameLoss", "wisSignalLoss", "pcsLinkFault", "excessiveBER", "dxsLinkFault", "pxsLinkFault", "availableReduced", "ready"}
+)
 
-	return fmt.Sprintf("IANAifMauMediaAvailable(%d)", v)
+// String returns the SMI label, or IANAifMauMediaAvailable(n) for an unknown value.
+func (v IANAifMauMediaAvailable) String() string {
+	return snmp.EnumString(int32(v), "IANAifMauMediaAvailable", iANAifMauMediaAvailableValues, iANAifMauMediaAvailableNames)
 }
 
 // IANAifMauAutoNegCapBits names the bit positions of the SMI BITS type IANAifMauAutoNegCapBits.

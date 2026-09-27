@@ -10,13 +10,8 @@
 package maumib
 
 import (
-	"context"
-	"fmt"
-	"iter"
-
 	ianamaumib "go.aledante.io/FlowSeer/generated/go/mib/ianamaumib"
 	ifmib "go.aledante.io/FlowSeer/generated/go/mib/ifmib"
-	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -28,31 +23,26 @@ import (
 // single(2) indicates a single cable system. The value dual(3) indicates a
 // dual cable system, offset normally zero.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type BroadMauXmtRcvSplitTypeValue int32
 
 const (
-	// BroadMauXmtRcvSplitTypeValueOther represents the SMI value other.
+	// BroadMauXmtRcvSplitTypeValueOther is other.
 	BroadMauXmtRcvSplitTypeValueOther BroadMauXmtRcvSplitTypeValue = 1
-	// BroadMauXmtRcvSplitTypeValueSingle represents the SMI value single.
+	// BroadMauXmtRcvSplitTypeValueSingle is single.
 	BroadMauXmtRcvSplitTypeValueSingle BroadMauXmtRcvSplitTypeValue = 2
-	// BroadMauXmtRcvSplitTypeValueDual represents the SMI value dual.
+	// BroadMauXmtRcvSplitTypeValueDual is dual.
 	BroadMauXmtRcvSplitTypeValueDual BroadMauXmtRcvSplitTypeValue = 3
 )
 
-// String returns the SMI label, or BroadMauXmtRcvSplitTypeValue(n) for an unrecognized value n.
-func (v BroadMauXmtRcvSplitTypeValue) String() string {
-	switch v {
-	case BroadMauXmtRcvSplitTypeValueOther:
-		return "other"
-	case BroadMauXmtRcvSplitTypeValueSingle:
-		return "single"
-	case BroadMauXmtRcvSplitTypeValueDual:
-		return "dual"
-	}
+var (
+	broadMauXmtRcvSplitTypeValueValues = []int32{1, 2, 3}
+	broadMauXmtRcvSplitTypeValueNames  = []string{"other", "single", "dual"}
+)
 
-	return fmt.Sprintf("BroadMauXmtRcvSplitTypeValue(%d)", v)
+// String returns the SMI label, or BroadMauXmtRcvSplitTypeValue(n) for an unknown value.
+func (v BroadMauXmtRcvSplitTypeValue) String() string {
+	return snmp.EnumString(int32(v), "BroadMauXmtRcvSplitTypeValue", broadMauXmtRcvSplitTypeValueValues, broadMauXmtRcvSplitTypeValueNames)
 }
 
 // IfMauAutoNegAdminStatusValue is the SMI enum ifMauAutoNegAdminStatus (inline).
@@ -68,27 +58,24 @@ func (v BroadMauXmtRcvSplitTypeValue) String() string {
 // the ifMauDefaultType object, rather than continuing to operate at the
 // value earlier determined by the auto-negotiation function.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauAutoNegAdminStatusValue int32
 
 const (
-	// IfMauAutoNegAdminStatusValueEnabled represents the SMI value enabled.
+	// IfMauAutoNegAdminStatusValueEnabled is enabled.
 	IfMauAutoNegAdminStatusValueEnabled IfMauAutoNegAdminStatusValue = 1
-	// IfMauAutoNegAdminStatusValueDisabled represents the SMI value disabled.
+	// IfMauAutoNegAdminStatusValueDisabled is disabled.
 	IfMauAutoNegAdminStatusValueDisabled IfMauAutoNegAdminStatusValue = 2
 )
 
-// String returns the SMI label, or IfMauAutoNegAdminStatusValue(n) for an unrecognized value n.
-func (v IfMauAutoNegAdminStatusValue) String() string {
-	switch v {
-	case IfMauAutoNegAdminStatusValueEnabled:
-		return "enabled"
-	case IfMauAutoNegAdminStatusValueDisabled:
-		return "disabled"
-	}
+var (
+	ifMauAutoNegAdminStatusValueValues = []int32{1, 2}
+	ifMauAutoNegAdminStatusValueNames  = []string{"enabled", "disabled"}
+)
 
-	return fmt.Sprintf("IfMauAutoNegAdminStatusValue(%d)", v)
+// String returns the SMI label, or IfMauAutoNegAdminStatusValue(n) for an unknown value.
+func (v IfMauAutoNegAdminStatusValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauAutoNegAdminStatusValue", ifMauAutoNegAdminStatusValueValues, ifMauAutoNegAdminStatusValueNames)
 }
 
 // IfMauAutoNegConfigValue is the SMI enum ifMauAutoNegConfig (inline).
@@ -96,39 +83,30 @@ func (v IfMauAutoNegAdminStatusValue) String() string {
 // The enumeration parallelDetectFail(5) maps to a failure in parallel
 // detection as defined in 28.2.3.1 of [IEEE802.3].
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauAutoNegConfigValue int32
 
 const (
-	// IfMauAutoNegConfigValueOther represents the SMI value other.
+	// IfMauAutoNegConfigValueOther is other.
 	IfMauAutoNegConfigValueOther IfMauAutoNegConfigValue = 1
-	// IfMauAutoNegConfigValueConfiguring represents the SMI value configuring.
+	// IfMauAutoNegConfigValueConfiguring is configuring.
 	IfMauAutoNegConfigValueConfiguring IfMauAutoNegConfigValue = 2
-	// IfMauAutoNegConfigValueComplete represents the SMI value complete.
+	// IfMauAutoNegConfigValueComplete is complete.
 	IfMauAutoNegConfigValueComplete IfMauAutoNegConfigValue = 3
-	// IfMauAutoNegConfigValueDisabled represents the SMI value disabled.
+	// IfMauAutoNegConfigValueDisabled is disabled.
 	IfMauAutoNegConfigValueDisabled IfMauAutoNegConfigValue = 4
-	// IfMauAutoNegConfigValueParallelDetectFail represents the SMI value parallelDetectFail.
+	// IfMauAutoNegConfigValueParallelDetectFail is parallelDetectFail.
 	IfMauAutoNegConfigValueParallelDetectFail IfMauAutoNegConfigValue = 5
 )
 
-// String returns the SMI label, or IfMauAutoNegConfigValue(n) for an unrecognized value n.
-func (v IfMauAutoNegConfigValue) String() string {
-	switch v {
-	case IfMauAutoNegConfigValueOther:
-		return "other"
-	case IfMauAutoNegConfigValueConfiguring:
-		return "configuring"
-	case IfMauAutoNegConfigValueComplete:
-		return "complete"
-	case IfMauAutoNegConfigValueDisabled:
-		return "disabled"
-	case IfMauAutoNegConfigValueParallelDetectFail:
-		return "parallelDetectFail"
-	}
+var (
+	ifMauAutoNegConfigValueValues = []int32{1, 2, 3, 4, 5}
+	ifMauAutoNegConfigValueNames  = []string{"other", "configuring", "complete", "disabled", "parallelDetectFail"}
+)
 
-	return fmt.Sprintf("IfMauAutoNegConfigValue(%d)", v)
+// String returns the SMI label, or IfMauAutoNegConfigValue(n) for an unknown value.
+func (v IfMauAutoNegConfigValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauAutoNegConfigValue", ifMauAutoNegConfigValueValues, ifMauAutoNegConfigValueNames)
 }
 
 // IfMauAutoNegRemoteFaultAdvertisedValue is the SMI enum ifMauAutoNegRemoteFaultAdvertised (inline).
@@ -136,70 +114,56 @@ func (v IfMauAutoNegConfigValue) String() string {
 // detected and will advertise at the next auto-negotiation interaction for
 // 1000Mbps MAUs.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauAutoNegRemoteFaultAdvertisedValue int32
 
 const (
-	// IfMauAutoNegRemoteFaultAdvertisedValueNoError represents the SMI value noError.
+	// IfMauAutoNegRemoteFaultAdvertisedValueNoError is noError.
 	IfMauAutoNegRemoteFaultAdvertisedValueNoError IfMauAutoNegRemoteFaultAdvertisedValue = 1
-	// IfMauAutoNegRemoteFaultAdvertisedValueOffline represents the SMI value offline.
+	// IfMauAutoNegRemoteFaultAdvertisedValueOffline is offline.
 	IfMauAutoNegRemoteFaultAdvertisedValueOffline IfMauAutoNegRemoteFaultAdvertisedValue = 2
-	// IfMauAutoNegRemoteFaultAdvertisedValueLinkFailure represents the SMI value linkFailure.
+	// IfMauAutoNegRemoteFaultAdvertisedValueLinkFailure is linkFailure.
 	IfMauAutoNegRemoteFaultAdvertisedValueLinkFailure IfMauAutoNegRemoteFaultAdvertisedValue = 3
-	// IfMauAutoNegRemoteFaultAdvertisedValueAutoNegError represents the SMI value autoNegError.
+	// IfMauAutoNegRemoteFaultAdvertisedValueAutoNegError is autoNegError.
 	IfMauAutoNegRemoteFaultAdvertisedValueAutoNegError IfMauAutoNegRemoteFaultAdvertisedValue = 4
 )
 
-// String returns the SMI label, or IfMauAutoNegRemoteFaultAdvertisedValue(n) for an unrecognized value n.
-func (v IfMauAutoNegRemoteFaultAdvertisedValue) String() string {
-	switch v {
-	case IfMauAutoNegRemoteFaultAdvertisedValueNoError:
-		return "noError"
-	case IfMauAutoNegRemoteFaultAdvertisedValueOffline:
-		return "offline"
-	case IfMauAutoNegRemoteFaultAdvertisedValueLinkFailure:
-		return "linkFailure"
-	case IfMauAutoNegRemoteFaultAdvertisedValueAutoNegError:
-		return "autoNegError"
-	}
+var (
+	ifMauAutoNegRemoteFaultAdvertisedValueValues = []int32{1, 2, 3, 4}
+	ifMauAutoNegRemoteFaultAdvertisedValueNames  = []string{"noError", "offline", "linkFailure", "autoNegError"}
+)
 
-	return fmt.Sprintf("IfMauAutoNegRemoteFaultAdvertisedValue(%d)", v)
+// String returns the SMI label, or IfMauAutoNegRemoteFaultAdvertisedValue(n) for an unknown value.
+func (v IfMauAutoNegRemoteFaultAdvertisedValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauAutoNegRemoteFaultAdvertisedValue", ifMauAutoNegRemoteFaultAdvertisedValueValues, ifMauAutoNegRemoteFaultAdvertisedValueNames)
 }
 
 // IfMauAutoNegRemoteFaultReceivedValue is the SMI enum ifMauAutoNegRemoteFaultReceived (inline).
 // A value that identifies any fault indications received from the far end
 // of a link by the local auto-negotiation entity for 1000Mbps MAUs.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauAutoNegRemoteFaultReceivedValue int32
 
 const (
-	// IfMauAutoNegRemoteFaultReceivedValueNoError represents the SMI value noError.
+	// IfMauAutoNegRemoteFaultReceivedValueNoError is noError.
 	IfMauAutoNegRemoteFaultReceivedValueNoError IfMauAutoNegRemoteFaultReceivedValue = 1
-	// IfMauAutoNegRemoteFaultReceivedValueOffline represents the SMI value offline.
+	// IfMauAutoNegRemoteFaultReceivedValueOffline is offline.
 	IfMauAutoNegRemoteFaultReceivedValueOffline IfMauAutoNegRemoteFaultReceivedValue = 2
-	// IfMauAutoNegRemoteFaultReceivedValueLinkFailure represents the SMI value linkFailure.
+	// IfMauAutoNegRemoteFaultReceivedValueLinkFailure is linkFailure.
 	IfMauAutoNegRemoteFaultReceivedValueLinkFailure IfMauAutoNegRemoteFaultReceivedValue = 3
-	// IfMauAutoNegRemoteFaultReceivedValueAutoNegError represents the SMI value autoNegError.
+	// IfMauAutoNegRemoteFaultReceivedValueAutoNegError is autoNegError.
 	IfMauAutoNegRemoteFaultReceivedValueAutoNegError IfMauAutoNegRemoteFaultReceivedValue = 4
 )
 
-// String returns the SMI label, or IfMauAutoNegRemoteFaultReceivedValue(n) for an unrecognized value n.
-func (v IfMauAutoNegRemoteFaultReceivedValue) String() string {
-	switch v {
-	case IfMauAutoNegRemoteFaultReceivedValueNoError:
-		return "noError"
-	case IfMauAutoNegRemoteFaultReceivedValueOffline:
-		return "offline"
-	case IfMauAutoNegRemoteFaultReceivedValueLinkFailure:
-		return "linkFailure"
-	case IfMauAutoNegRemoteFaultReceivedValueAutoNegError:
-		return "autoNegError"
-	}
+var (
+	ifMauAutoNegRemoteFaultReceivedValueValues = []int32{1, 2, 3, 4}
+	ifMauAutoNegRemoteFaultReceivedValueNames  = []string{"noError", "offline", "linkFailure", "autoNegError"}
+)
 
-	return fmt.Sprintf("IfMauAutoNegRemoteFaultReceivedValue(%d)", v)
+// String returns the SMI label, or IfMauAutoNegRemoteFaultReceivedValue(n) for an unknown value.
+func (v IfMauAutoNegRemoteFaultReceivedValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauAutoNegRemoteFaultReceivedValue", ifMauAutoNegRemoteFaultReceivedValueValues, ifMauAutoNegRemoteFaultReceivedValueNames)
 }
 
 // IfMauAutoNegRemoteSignalingValue is the SMI enum ifMauAutoNegRemoteSignaling (inline).
@@ -207,27 +171,24 @@ func (v IfMauAutoNegRemoteFaultReceivedValue) String() string {
 // auto-negotiation signaling. It takes the value detected(1) if and only
 // if, during the previous link negotiation, FLP Bursts were received.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauAutoNegRemoteSignalingValue int32
 
 const (
-	// IfMauAutoNegRemoteSignalingValueDetected represents the SMI value detected.
+	// IfMauAutoNegRemoteSignalingValueDetected is detected.
 	IfMauAutoNegRemoteSignalingValueDetected IfMauAutoNegRemoteSignalingValue = 1
-	// IfMauAutoNegRemoteSignalingValueNotdetected represents the SMI value notdetected.
+	// IfMauAutoNegRemoteSignalingValueNotdetected is notdetected.
 	IfMauAutoNegRemoteSignalingValueNotdetected IfMauAutoNegRemoteSignalingValue = 2
 )
 
-// String returns the SMI label, or IfMauAutoNegRemoteSignalingValue(n) for an unrecognized value n.
-func (v IfMauAutoNegRemoteSignalingValue) String() string {
-	switch v {
-	case IfMauAutoNegRemoteSignalingValueDetected:
-		return "detected"
-	case IfMauAutoNegRemoteSignalingValueNotdetected:
-		return "notdetected"
-	}
+var (
+	ifMauAutoNegRemoteSignalingValueValues = []int32{1, 2}
+	ifMauAutoNegRemoteSignalingValueNames  = []string{"detected", "notdetected"}
+)
 
-	return fmt.Sprintf("IfMauAutoNegRemoteSignalingValue(%d)", v)
+// String returns the SMI label, or IfMauAutoNegRemoteSignalingValue(n) for an unknown value.
+func (v IfMauAutoNegRemoteSignalingValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauAutoNegRemoteSignalingValue", ifMauAutoNegRemoteSignalingValueValues, ifMauAutoNegRemoteSignalingValueNames)
 }
 
 // IfMauAutoNegRestartValue is the SMI enum ifMauAutoNegRestart (inline).
@@ -236,27 +197,24 @@ func (v IfMauAutoNegRemoteSignalingValue) String() string {
 // signaling is disabled, a write to this object has no effect. Setting the
 // value of this object to norestart(2) has no effect.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauAutoNegRestartValue int32
 
 const (
-	// IfMauAutoNegRestartValueRestart represents the SMI value restart.
+	// IfMauAutoNegRestartValueRestart is restart.
 	IfMauAutoNegRestartValueRestart IfMauAutoNegRestartValue = 1
-	// IfMauAutoNegRestartValueNorestart represents the SMI value norestart.
+	// IfMauAutoNegRestartValueNorestart is norestart.
 	IfMauAutoNegRestartValueNorestart IfMauAutoNegRestartValue = 2
 )
 
-// String returns the SMI label, or IfMauAutoNegRestartValue(n) for an unrecognized value n.
-func (v IfMauAutoNegRestartValue) String() string {
-	switch v {
-	case IfMauAutoNegRestartValueRestart:
-		return "restart"
-	case IfMauAutoNegRestartValueNorestart:
-		return "norestart"
-	}
+var (
+	ifMauAutoNegRestartValueValues = []int32{1, 2}
+	ifMauAutoNegRestartValueNames  = []string{"restart", "norestart"}
+)
 
-	return fmt.Sprintf("IfMauAutoNegRestartValue(%d)", v)
+// String returns the SMI label, or IfMauAutoNegRestartValue(n) for an unknown value.
+func (v IfMauAutoNegRestartValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauAutoNegRestartValue", ifMauAutoNegRestartValueValues, ifMauAutoNegRestartValueNames)
 }
 
 // IfMauJabberStateValue is the SMI enum ifMauJabberState (inline).
@@ -267,35 +225,28 @@ func (v IfMauAutoNegRestartValue) String() string {
 // agent returns noJabber(3). This is the 'normal' state. If the MAU is in
 // jabber state the agent returns the jabbering(4) value.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauJabberStateValue int32
 
 const (
-	// IfMauJabberStateValueOther represents the SMI value other.
+	// IfMauJabberStateValueOther is other.
 	IfMauJabberStateValueOther IfMauJabberStateValue = 1
-	// IfMauJabberStateValueUnknown represents the SMI value unknown.
+	// IfMauJabberStateValueUnknown is unknown.
 	IfMauJabberStateValueUnknown IfMauJabberStateValue = 2
-	// IfMauJabberStateValueNoJabber represents the SMI value noJabber.
+	// IfMauJabberStateValueNoJabber is noJabber.
 	IfMauJabberStateValueNoJabber IfMauJabberStateValue = 3
-	// IfMauJabberStateValueJabbering represents the SMI value jabbering.
+	// IfMauJabberStateValueJabbering is jabbering.
 	IfMauJabberStateValueJabbering IfMauJabberStateValue = 4
 )
 
-// String returns the SMI label, or IfMauJabberStateValue(n) for an unrecognized value n.
-func (v IfMauJabberStateValue) String() string {
-	switch v {
-	case IfMauJabberStateValueOther:
-		return "other"
-	case IfMauJabberStateValueUnknown:
-		return "unknown"
-	case IfMauJabberStateValueNoJabber:
-		return "noJabber"
-	case IfMauJabberStateValueJabbering:
-		return "jabbering"
-	}
+var (
+	ifMauJabberStateValueValues = []int32{1, 2, 3, 4}
+	ifMauJabberStateValueNames  = []string{"other", "unknown", "noJabber", "jabbering"}
+)
 
-	return fmt.Sprintf("IfMauJabberStateValue(%d)", v)
+// String returns the SMI label, or IfMauJabberStateValue(n) for an unknown value.
+func (v IfMauJabberStateValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauJabberStateValue", ifMauJabberStateValueValues, ifMauJabberStateValueNames)
 }
 
 // IfMauStatusValue is the SMI enum ifMauStatus (inline).
@@ -323,43 +274,32 @@ func (v IfMauJabberStateValue) String() string {
 // assume the respective state, except that setting a mixing-type MAU or an
 // AUI to standby(4) will cause the MAU to enter the shutdown state.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type IfMauStatusValue int32
 
 const (
-	// IfMauStatusValueOther represents the SMI value other.
+	// IfMauStatusValueOther is other.
 	IfMauStatusValueOther IfMauStatusValue = 1
-	// IfMauStatusValueUnknown represents the SMI value unknown.
+	// IfMauStatusValueUnknown is unknown.
 	IfMauStatusValueUnknown IfMauStatusValue = 2
-	// IfMauStatusValueOperational represents the SMI value operational.
+	// IfMauStatusValueOperational is operational.
 	IfMauStatusValueOperational IfMauStatusValue = 3
-	// IfMauStatusValueStandby represents the SMI value standby.
+	// IfMauStatusValueStandby is standby.
 	IfMauStatusValueStandby IfMauStatusValue = 4
-	// IfMauStatusValueShutdown represents the SMI value shutdown.
+	// IfMauStatusValueShutdown is shutdown.
 	IfMauStatusValueShutdown IfMauStatusValue = 5
-	// IfMauStatusValueReset represents the SMI value reset.
+	// IfMauStatusValueReset is reset.
 	IfMauStatusValueReset IfMauStatusValue = 6
 )
 
-// String returns the SMI label, or IfMauStatusValue(n) for an unrecognized value n.
-func (v IfMauStatusValue) String() string {
-	switch v {
-	case IfMauStatusValueOther:
-		return "other"
-	case IfMauStatusValueUnknown:
-		return "unknown"
-	case IfMauStatusValueOperational:
-		return "operational"
-	case IfMauStatusValueStandby:
-		return "standby"
-	case IfMauStatusValueShutdown:
-		return "shutdown"
-	case IfMauStatusValueReset:
-		return "reset"
-	}
+var (
+	ifMauStatusValueValues = []int32{1, 2, 3, 4, 5, 6}
+	ifMauStatusValueNames  = []string{"other", "unknown", "operational", "standby", "shutdown", "reset"}
+)
 
-	return fmt.Sprintf("IfMauStatusValue(%d)", v)
+// String returns the SMI label, or IfMauStatusValue(n) for an unknown value.
+func (v IfMauStatusValue) String() string {
+	return snmp.EnumString(int32(v), "IfMauStatusValue", ifMauStatusValueValues, ifMauStatusValueNames)
 }
 
 // JackType is the SMI enum JackType.
@@ -367,75 +307,48 @@ func (v IfMauStatusValue) String() string {
 // in favour of IANAifJackType. Common enumeration values for repeater and
 // interface MAU jack types.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type JackType int32
 
 const (
-	// JackTypeOther represents the SMI value other.
+	// JackTypeOther is other.
 	JackTypeOther JackType = 1
-	// JackTypeRj45 represents the SMI value rj45.
+	// JackTypeRj45 is rj45.
 	JackTypeRj45 JackType = 2
-	// JackTypeRj45S represents the SMI value rj45S.
+	// JackTypeRj45S is rj45S.
 	JackTypeRj45S JackType = 3
-	// JackTypeDb9 represents the SMI value db9.
+	// JackTypeDb9 is db9.
 	JackTypeDb9 JackType = 4
-	// JackTypeBnc represents the SMI value bnc.
+	// JackTypeBnc is bnc.
 	JackTypeBnc JackType = 5
-	// JackTypeFAUI represents the SMI value fAUI.
+	// JackTypeFAUI is fAUI.
 	JackTypeFAUI JackType = 6
-	// JackTypeMAUI represents the SMI value mAUI.
+	// JackTypeMAUI is mAUI.
 	JackTypeMAUI JackType = 7
-	// JackTypeFiberSC represents the SMI value fiberSC.
+	// JackTypeFiberSC is fiberSC.
 	JackTypeFiberSC JackType = 8
-	// JackTypeFiberMIC represents the SMI value fiberMIC.
+	// JackTypeFiberMIC is fiberMIC.
 	JackTypeFiberMIC JackType = 9
-	// JackTypeFiberST represents the SMI value fiberST.
+	// JackTypeFiberST is fiberST.
 	JackTypeFiberST JackType = 10
-	// JackTypeTelco represents the SMI value telco.
+	// JackTypeTelco is telco.
 	JackTypeTelco JackType = 11
-	// JackTypeMtrj represents the SMI value mtrj.
+	// JackTypeMtrj is mtrj.
 	JackTypeMtrj JackType = 12
-	// JackTypeHssdc represents the SMI value hssdc.
+	// JackTypeHssdc is hssdc.
 	JackTypeHssdc JackType = 13
-	// JackTypeFiberLC represents the SMI value fiberLC.
+	// JackTypeFiberLC is fiberLC.
 	JackTypeFiberLC JackType = 14
 )
 
-// String returns the SMI label, or JackType(n) for an unrecognized value n.
-func (v JackType) String() string {
-	switch v {
-	case JackTypeOther:
-		return "other"
-	case JackTypeRj45:
-		return "rj45"
-	case JackTypeRj45S:
-		return "rj45S"
-	case JackTypeDb9:
-		return "db9"
-	case JackTypeBnc:
-		return "bnc"
-	case JackTypeFAUI:
-		return "fAUI"
-	case JackTypeMAUI:
-		return "mAUI"
-	case JackTypeFiberSC:
-		return "fiberSC"
-	case JackTypeFiberMIC:
-		return "fiberMIC"
-	case JackTypeFiberST:
-		return "fiberST"
-	case JackTypeTelco:
-		return "telco"
-	case JackTypeMtrj:
-		return "mtrj"
-	case JackTypeHssdc:
-		return "hssdc"
-	case JackTypeFiberLC:
-		return "fiberLC"
-	}
+var (
+	jackTypeValues = []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+	jackTypeNames  = []string{"other", "rj45", "rj45S", "db9", "bnc", "fAUI", "mAUI", "fiberSC", "fiberMIC", "fiberST", "telco", "mtrj", "hssdc", "fiberLC"}
+)
 
-	return fmt.Sprintf("JackType(%d)", v)
+// String returns the SMI label, or JackType(n) for an unknown value.
+func (v JackType) String() string {
+	return snmp.EnumString(int32(v), "JackType", jackTypeValues, jackTypeNames)
 }
 
 // RpMauJabberStateValue is the SMI enum rpMauJabberState (inline).
@@ -446,35 +359,28 @@ func (v JackType) String() string {
 // agent returns noJabber(3). This is the 'normal' state. If the MAU is in
 // jabber state the agent returns the jabbering(4) value.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type RpMauJabberStateValue int32
 
 const (
-	// RpMauJabberStateValueOther represents the SMI value other.
+	// RpMauJabberStateValueOther is other.
 	RpMauJabberStateValueOther RpMauJabberStateValue = 1
-	// RpMauJabberStateValueUnknown represents the SMI value unknown.
+	// RpMauJabberStateValueUnknown is unknown.
 	RpMauJabberStateValueUnknown RpMauJabberStateValue = 2
-	// RpMauJabberStateValueNoJabber represents the SMI value noJabber.
+	// RpMauJabberStateValueNoJabber is noJabber.
 	RpMauJabberStateValueNoJabber RpMauJabberStateValue = 3
-	// RpMauJabberStateValueJabbering represents the SMI value jabbering.
+	// RpMauJabberStateValueJabbering is jabbering.
 	RpMauJabberStateValueJabbering RpMauJabberStateValue = 4
 )
 
-// String returns the SMI label, or RpMauJabberStateValue(n) for an unrecognized value n.
-func (v RpMauJabberStateValue) String() string {
-	switch v {
-	case RpMauJabberStateValueOther:
-		return "other"
-	case RpMauJabberStateValueUnknown:
-		return "unknown"
-	case RpMauJabberStateValueNoJabber:
-		return "noJabber"
-	case RpMauJabberStateValueJabbering:
-		return "jabbering"
-	}
+var (
+	rpMauJabberStateValueValues = []int32{1, 2, 3, 4}
+	rpMauJabberStateValueNames  = []string{"other", "unknown", "noJabber", "jabbering"}
+)
 
-	return fmt.Sprintf("RpMauJabberStateValue(%d)", v)
+// String returns the SMI label, or RpMauJabberStateValue(n) for an unknown value.
+func (v RpMauJabberStateValue) String() string {
+	return snmp.EnumString(int32(v), "RpMauJabberStateValue", rpMauJabberStateValueValues, rpMauJabberStateValueNames)
 }
 
 // RpMauStatusValue is the SMI enum rpMauStatus (inline).
@@ -502,46 +408,35 @@ func (v RpMauJabberStateValue) String() string {
 // assume the respective state, except that setting a mixing-type MAU or an
 // AUI to standby(4) will cause the MAU to enter the shutdown state.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type RpMauStatusValue int32
 
 const (
-	// RpMauStatusValueOther represents the SMI value other.
+	// RpMauStatusValueOther is other.
 	RpMauStatusValueOther RpMauStatusValue = 1
-	// RpMauStatusValueUnknown represents the SMI value unknown.
+	// RpMauStatusValueUnknown is unknown.
 	RpMauStatusValueUnknown RpMauStatusValue = 2
-	// RpMauStatusValueOperational represents the SMI value operational.
+	// RpMauStatusValueOperational is operational.
 	RpMauStatusValueOperational RpMauStatusValue = 3
-	// RpMauStatusValueStandby represents the SMI value standby.
+	// RpMauStatusValueStandby is standby.
 	RpMauStatusValueStandby RpMauStatusValue = 4
-	// RpMauStatusValueShutdown represents the SMI value shutdown.
+	// RpMauStatusValueShutdown is shutdown.
 	RpMauStatusValueShutdown RpMauStatusValue = 5
-	// RpMauStatusValueReset represents the SMI value reset.
+	// RpMauStatusValueReset is reset.
 	RpMauStatusValueReset RpMauStatusValue = 6
 )
 
-// String returns the SMI label, or RpMauStatusValue(n) for an unrecognized value n.
-func (v RpMauStatusValue) String() string {
-	switch v {
-	case RpMauStatusValueOther:
-		return "other"
-	case RpMauStatusValueUnknown:
-		return "unknown"
-	case RpMauStatusValueOperational:
-		return "operational"
-	case RpMauStatusValueStandby:
-		return "standby"
-	case RpMauStatusValueShutdown:
-		return "shutdown"
-	case RpMauStatusValueReset:
-		return "reset"
-	}
+var (
+	rpMauStatusValueValues = []int32{1, 2, 3, 4, 5, 6}
+	rpMauStatusValueNames  = []string{"other", "unknown", "operational", "standby", "shutdown", "reset"}
+)
 
-	return fmt.Sprintf("RpMauStatusValue(%d)", v)
+// String returns the SMI label, or RpMauStatusValue(n) for an unknown value.
+func (v RpMauStatusValue) String() string {
+	return snmp.EnumString(int32(v), "RpMauStatusValue", rpMauStatusValueValues, rpMauStatusValueNames)
 }
 
-// RpMauGroupIndex is the column rpMauGroupIndex of table rpMauTable.
+// RpMauGroupIndex is rpMauGroupIndex.
 // This variable uniquely identifies the group containing the port to which
 // the MAU described by this entry is connected. Note: In practice, a group
 // will generally be a field-replaceable unit (i.e., module, card, or
@@ -549,26 +444,26 @@ func (v RpMauStatusValue) String() string {
 // number will correspond to a number marked on the physical enclosure. The
 // group denoted by a particular value of this object is the same as the
 // group denoted by the same value of rptrGroupIndex.
-var RpMauGroupIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32)
+var RpMauGroupIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 1), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 0)
 
-// RpMauPortIndex is the column rpMauPortIndex of table rpMauTable.
+// RpMauPortIndex is rpMauPortIndex.
 // This variable uniquely identifies the repeater port within group
 // rpMauGroupIndex to which the MAU described by this entry is connected.
-var RpMauPortIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var RpMauPortIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// RpMauIndex is the column rpMauIndex of table rpMauTable.
+// RpMauIndex is rpMauIndex.
 // This variable uniquely identifies the MAU described by this entry from
 // among other MAUs connected to the same port (rpMauPortIndex).
-var RpMauIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var RpMauIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// RpMauType is the column rpMauType of table rpMauTable.
+// RpMauType is rpMauType.
 // This object identifies the MAU type. Values for standard IEEE 802.3 MAU
 // types are defined in the IANA maintained IANA-MAU-MIB module, as
 // OBJECT-IDENTITIES of dot3MauType. If the MAU type is unknown, the object
 // identifier zeroDotZero is returned.
-var RpMauType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 4), snmp.KindObjectID, snmp.DecodeOID)
+var RpMauType = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 4), snmp.KindObjectID, snmp.DecodeOID, 3)
 
-// RpMauStatus is the column rpMauStatus of table rpMauTable.
+// RpMauStatus is rpMauStatus.
 // The current state of the MAU. This object MAY be implemented as a
 // read-only object by those agents and MAUs that do not implement software
 // control of the MAU state. Some agents may not support setting the value
@@ -592,50 +487,50 @@ var RpMauType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1
 // value operational(3), standby(4), or shutdown(5) causes the MAU to
 // assume the respective state, except that setting a mixing-type MAU or an
 // AUI to standby(4) will cause the MAU to enter the shutdown state.
-var RpMauStatus = snmp.NewColumn[RpMauStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (RpMauStatusValue, error) {
+var RpMauStatus = snmp.NewFusedTableColumn[RpMauStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (RpMauStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return RpMauStatusValue(0), err
 	}
 	return RpMauStatusValue(v), nil
-})
+}, snmp.RawInteger32As[RpMauStatusValue], 4)
 
-// RpMauMediaAvailable is the column rpMauMediaAvailable of table rpMauTable.
+// RpMauMediaAvailable is rpMauMediaAvailable.
 // This object identifies Media Available state of the MAU, complementary
 // to the rpMauStatus. Values for the standard IEEE 802.3 Media Available
 // states are defined in the IANA maintained IANA-MAU-MIB module, as
 // IANAifMauMediaAvailable TC.
-var RpMauMediaAvailable = snmp.NewColumn[ianamaumib.IANAifMauMediaAvailable](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifMauMediaAvailable, error) {
+var RpMauMediaAvailable = snmp.NewFusedTableColumn[ianamaumib.IANAifMauMediaAvailable](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 6), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifMauMediaAvailable, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ianamaumib.IANAifMauMediaAvailable(0), err
 	}
 	return ianamaumib.IANAifMauMediaAvailable(v), nil
-})
+}, snmp.RawInteger32As[ianamaumib.IANAifMauMediaAvailable], 5)
 
-// RpMauMediaAvailableStateExits is the column rpMauMediaAvailableStateExits of table rpMauTable.
+// RpMauMediaAvailableStateExits is rpMauMediaAvailableStateExits.
 // A count of the number of times that rpMauMediaAvailable for this MAU
 // instance leaves the state available(3). Discontinuities in the value of
 // this counter can occur at re-initialization of the management system and
 // at other times, as indicated by the value of rptrMonitorPortLastChange.
-var RpMauMediaAvailableStateExits = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 7), snmp.KindCounter32, snmp.DecodeUint32)
+var RpMauMediaAvailableStateExits = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 7), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 6)
 
-// RpMauJabberState is the column rpMauJabberState of table rpMauTable.
+// RpMauJabberState is rpMauJabberState.
 // The value other(1) is returned if the jabber state is not 2, 3, or 4.
 // The agent MUST always return other(1) for MAU type dot3MauTypeAUI. The
 // value unknown(2) is returned when the MAU's true state is unknown; for
 // example, when it is being initialized. If the MAU is not jabbering the
 // agent returns noJabber(3). This is the 'normal' state. If the MAU is in
 // jabber state the agent returns the jabbering(4) value.
-var RpMauJabberState = snmp.NewColumn[RpMauJabberStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (RpMauJabberStateValue, error) {
+var RpMauJabberState = snmp.NewFusedTableColumn[RpMauJabberStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (RpMauJabberStateValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return RpMauJabberStateValue(0), err
 	}
 	return RpMauJabberStateValue(v), nil
-})
+}, snmp.RawInteger32As[RpMauJabberStateValue], 7)
 
-// RpMauJabberingStateEnters is the column rpMauJabberingStateEnters of table rpMauTable.
+// RpMauJabberingStateEnters is rpMauJabberingStateEnters.
 // A count of the number of times that mauJabberState for this MAU instance
 // enters the state jabbering(4). For MAUs of type dot3MauTypeAUI,
 // dot3MauType100BaseT4, dot3MauType100BaseTX, dot3MauType100BaseFX, and
@@ -643,9 +538,9 @@ var RpMauJabberState = snmp.NewColumn[RpMauJabberStateValue](snmp.MustOID(1, 3, 
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system and at other times, as
 // indicated by the value of rptrMonitorPortLastChange.
-var RpMauJabberingStateEnters = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
+var RpMauJabberingStateEnters = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 8)
 
-// RpMauFalseCarriers is the column rpMauFalseCarriers of table rpMauTable.
+// RpMauFalseCarriers is rpMauFalseCarriers.
 // A count of the number of false carrier events during IDLE in 100BASE-X
 // links. This counter does not increment at the symbol rate. It can
 // increment after a valid carrier completion at a maximum rate of once per
@@ -656,7 +551,10 @@ var RpMauJabberingStateEnters = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 // rollover of this counter is 7.4 hours. Discontinuities in the value of
 // this counter can occur at re-initialization of the management system and
 // at other times, as indicated by the value of rptrMonitorPortLastChange.
-var RpMauFalseCarriers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32)
+var (
+	RpMauFalseCarriers = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 1, 1, 10), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 9)
+	rpMauTableColumns  = []snmp.AnyColumn{RpMauGroupIndex, RpMauPortIndex, RpMauIndex, RpMauType, RpMauStatus, RpMauMediaAvailable, RpMauMediaAvailableStateExits, RpMauJabberState, RpMauJabberingStateEnters, RpMauFalseCarriers}
+)
 
 // RpMauTableKey is the decoded INDEX of one rpMauTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -678,14 +576,7 @@ func decodeRpMauTableKey(idx snmp.OID) (RpMauTableKey, bool) {
 	return RpMauTableKey{RpMauGroupIndex: int32(parts[0].Integer), RpMauPortIndex: int32(parts[1].Integer), RpMauIndex: int32(parts[2].Integer)}, true
 }
 
-// RpMauTableRow is one row of rpMauTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [RpMauTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [RpMauTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// RpMauTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type RpMauTableRow struct {
 	Key                           RpMauTableKey
 	keyValid                      bool
@@ -699,291 +590,59 @@ type RpMauTableRow struct {
 	RpMauJabberState              RpMauJabberStateValue
 	RpMauJabberingStateEnters     uint32
 	RpMauFalseCarriers            uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                      [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r RpMauTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r RpMauTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case RpMauGroupIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case RpMauPortIndex.Key():
-		return r.observed[0]&(1<<1) != 0
-	case RpMauIndex.Key():
-		return r.observed[0]&(1<<2) != 0
-	case RpMauType.Key():
-		return r.observed[0]&(1<<3) != 0
-	case RpMauStatus.Key():
-		return r.observed[0]&(1<<4) != 0
-	case RpMauMediaAvailable.Key():
-		return r.observed[0]&(1<<5) != 0
-	case RpMauMediaAvailableStateExits.Key():
-		return r.observed[0]&(1<<6) != 0
-	case RpMauJabberState.Key():
-		return r.observed[0]&(1<<7) != 0
-	case RpMauJabberingStateEnters.Key():
-		return r.observed[0]&(1<<8) != 0
-	case RpMauFalseCarriers.Key():
-		return r.observed[0]&(1<<9) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], rpMauTableColumns, col)
 }
 
-// RpMauTableWalker streams selected columns of rpMauTable.
-// The zero value is not usable; construct via RpMauTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// RpMauTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type RpMauTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[RpMauTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *RpMauTableWalker) Iter() iter.Seq2[snmp.OID, RpMauTableRow] {
-	return func(yield func(snmp.OID, RpMauTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row RpMauTableRow
-			row.Key, row.keyValid = decodeRpMauTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case RpMauGroupIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpMauGroupIndex = v
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauGroupIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauGroupIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case RpMauPortIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpMauPortIndex = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauPortIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauPortIndex = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case RpMauIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpMauIndex = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauIndex = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case RpMauType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := RpMauType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.RpMauType = dv
-							row.observed[0] |= 1 << 3
-						}
-					}
-				case RpMauStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpMauStatus = RpMauStatusValue(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauStatus = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case RpMauMediaAvailable.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpMauMediaAvailable = ianamaumib.IANAifMauMediaAvailable(v)
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauMediaAvailable.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauMediaAvailable = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case RpMauMediaAvailableStateExits.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.RpMauMediaAvailableStateExits = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauMediaAvailableStateExits.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauMediaAvailableStateExits = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case RpMauJabberState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpMauJabberState = RpMauJabberStateValue(v)
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauJabberState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauJabberState = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case RpMauJabberingStateEnters.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.RpMauJabberingStateEnters = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauJabberingStateEnters.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauJabberingStateEnters = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case RpMauFalseCarriers.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.RpMauFalseCarriers = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpMauFalseCarriers.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpMauFalseCarriers = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type rpMauTableT struct {
+	snmp.Table[RpMauTableRow, *RpMauTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *RpMauTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// rpMauTableT is the singleton type of RpMauTable.
-type rpMauTableT struct{}
 
 // RpMauTable is the descriptor for the rpMauTable table.
-var RpMauTable rpMauTableT
+var RpMauTable = rpMauTableT{Table: snmp.NewTable("rpMauTable", rpMauTableColumns, func(idx snmp.OID, row *RpMauTableRow) {
+	row.Key, row.keyValid = decodeRpMauTableKey(idx)
+}, func(row *RpMauTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, RpMauGroupIndex, &row.RpMauGroupIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, RpMauPortIndex, &row.RpMauPortIndex, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, RpMauIndex, &row.RpMauIndex, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, RpMauType, &row.RpMauType, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, RpMauStatus, &row.RpMauStatus, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, RpMauMediaAvailable, &row.RpMauMediaAvailable, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, RpMauMediaAvailableStateExits, &row.RpMauMediaAvailableStateExits, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, RpMauJabberState, &row.RpMauJabberState, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, RpMauJabberingStateEnters, &row.RpMauJabberingStateEnters, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, RpMauFalseCarriers, &row.RpMauFalseCarriers, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[RpMauTableRow]) *RpMauTableWalker {
+	return &RpMauTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *RpMauTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t rpMauTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *RpMauTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (rpMauTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "RpMauTableKey",
@@ -991,42 +650,16 @@ func (rpMauTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (rpMauTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *RpMauTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case RpMauGroupIndex.Key(), RpMauPortIndex.Key(), RpMauIndex.Key(), RpMauType.Key(), RpMauStatus.Key(), RpMauMediaAvailable.Key(), RpMauMediaAvailableStateExits.Key(), RpMauJabberState.Key(), RpMauJabberingStateEnters.Key(), RpMauFalseCarriers.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "rpMauTable.Walk: column %s", c.OID()))
-			return &RpMauTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &RpMauTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// RpJackType is the column rpJackType of table rpJackTable.
+// RpJackType is rpJackType.
 // The jack connector type, as it appears on the outside of the system.
-var RpJackType = snmp.NewColumn[ianamaumib.IANAifJackType](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifJackType, error) {
+var RpJackType = snmp.NewFusedTableColumn[ianamaumib.IANAifJackType](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 1, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifJackType, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ianamaumib.IANAifJackType(0), err
 	}
 	return ianamaumib.IANAifJackType(v), nil
-})
+}, snmp.RawInteger32As[ianamaumib.IANAifJackType], 0)
+var rpJackTableColumns = []snmp.AnyColumn{RpJackType}
 
 // RpJackTableKey is the decoded INDEX of one rpJackTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1049,126 +682,46 @@ func decodeRpJackTableKey(idx snmp.OID) (RpJackTableKey, bool) {
 	return RpJackTableKey{RpMauGroupIndex: int32(parts[0].Integer), RpMauPortIndex: int32(parts[1].Integer), RpMauIndex: int32(parts[2].Integer), RpJackIndex: int32(parts[3].Integer)}, true
 }
 
-// RpJackTableRow is one row of rpJackTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [RpJackTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [RpJackTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// RpJackTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type RpJackTableRow struct {
 	Key        RpJackTableKey
 	keyValid   bool
 	RpJackType ianamaumib.IANAifJackType
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed   [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r RpJackTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r RpJackTableRow) Observed(col snmp.AnyColumn) bool {
-	if col.Key() == RpJackType.Key() {
-		return r.observed[0]&(1<<0) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], rpJackTableColumns, col)
 }
 
-// RpJackTableWalker streams selected columns of rpJackTable.
-// The zero value is not usable; construct via RpJackTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// RpJackTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type RpJackTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[RpJackTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *RpJackTableWalker) Iter() iter.Seq2[snmp.OID, RpJackTableRow] {
-	return func(yield func(snmp.OID, RpJackTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row RpJackTableRow
-			row.Key, row.keyValid = decodeRpJackTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				if tw.cols[cell.Column].Key() == RpJackType.Key() {
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.RpJackType = ianamaumib.IANAifJackType(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := RpJackType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.RpJackType = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type rpJackTableT struct {
+	snmp.Table[RpJackTableRow, *RpJackTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *RpJackTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// rpJackTableT is the singleton type of RpJackTable.
-type rpJackTableT struct{}
 
 // RpJackTable is the descriptor for the rpJackTable table.
-var RpJackTable rpJackTableT
+var RpJackTable = rpJackTableT{Table: snmp.NewTable("rpJackTable", rpJackTableColumns, func(idx snmp.OID, row *RpJackTableRow) {
+	row.Key, row.keyValid = decodeRpJackTableKey(idx)
+}, func(row *RpJackTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, RpJackType, &row.RpJackType, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[RpJackTableRow]) *RpJackTableWalker {
+	return &RpJackTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *RpJackTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t rpJackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *RpJackTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (rpJackTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "RpJackTableKey",
@@ -1176,50 +729,23 @@ func (rpJackTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (rpJackTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *RpJackTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case RpJackType.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "rpJackTable.Walk: column %s", c.OID()))
-			return &RpJackTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &RpJackTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// IfMauIfIndex is the column ifMauIfIndex of table ifMauTable.
+// IfMauIfIndex is ifMauIfIndex.
 // This variable uniquely identifies the interface to which the MAU
 // described by this entry is connected.
-var IfMauIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
+var IfMauIfIndex = snmp.NewFusedTableColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ifmib.InterfaceIndex(0), err
 	}
 	return ifmib.InterfaceIndex(v), nil
-})
+}, snmp.RawInteger32As[ifmib.InterfaceIndex], 0)
 
-// IfMauIndex is the column ifMauIndex of table ifMauTable.
+// IfMauIndex is ifMauIndex.
 // This variable uniquely identifies the MAU described by this entry from
 // among other MAUs connected to the same interface (ifMauIfIndex).
-var IfMauIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var IfMauIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// IfMauType is the column ifMauType of table ifMauTable.
+// IfMauType is ifMauType.
 // This object identifies the MAU type. Values for standard IEEE 802.3 MAU
 // types are defined in the IANA maintained IANA-MAU-MIB module, as
 // OBJECT-IDENTITIES of dot3MauType. If the MAU type is unknown, the object
@@ -1229,9 +755,9 @@ var IfMauIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 
 // or is not implemented for this MAU, by the value of the object
 // ifMauDefaultType. In case 2), a set to the object ifMauDefaultType will
 // force the MAU into the new operating mode.
-var IfMauType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 3), snmp.KindObjectID, snmp.DecodeOID)
+var IfMauType = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 3), snmp.KindObjectID, snmp.DecodeOID, 2)
 
-// IfMauStatus is the column ifMauStatus of table ifMauTable.
+// IfMauStatus is ifMauStatus.
 // The current state of the MAU. This object MAY be implemented as a
 // read-only object by those agents and MAUs that do not implement software
 // control of the MAU state. Some agents may not support setting the value
@@ -1255,59 +781,59 @@ var IfMauType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1
 // value operational(3), standby(4), or shutdown(5) causes the MAU to
 // assume the respective state, except that setting a mixing-type MAU or an
 // AUI to standby(4) will cause the MAU to enter the shutdown state.
-var IfMauStatus = snmp.NewColumn[IfMauStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauStatusValue, error) {
+var IfMauStatus = snmp.NewFusedTableColumn[IfMauStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauStatusValue(0), err
 	}
 	return IfMauStatusValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauStatusValue], 3)
 
-// IfMauMediaAvailable is the column ifMauMediaAvailable of table ifMauTable.
+// IfMauMediaAvailable is ifMauMediaAvailable.
 // This object identifies Media Available state of the MAU, complementary
 // to the ifMauStatus. Values for the standard IEEE 802.3 Media Available
 // states are defined in the IANA maintained IANA-MAU-MIB module, as
 // IANAifMauMediaAvailable TC.
-var IfMauMediaAvailable = snmp.NewColumn[ianamaumib.IANAifMauMediaAvailable](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifMauMediaAvailable, error) {
+var IfMauMediaAvailable = snmp.NewFusedTableColumn[ianamaumib.IANAifMauMediaAvailable](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifMauMediaAvailable, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ianamaumib.IANAifMauMediaAvailable(0), err
 	}
 	return ianamaumib.IANAifMauMediaAvailable(v), nil
-})
+}, snmp.RawInteger32As[ianamaumib.IANAifMauMediaAvailable], 4)
 
-// IfMauMediaAvailableStateExits is the column ifMauMediaAvailableStateExits of table ifMauTable.
+// IfMauMediaAvailableStateExits is ifMauMediaAvailableStateExits.
 // A count of the number of times that ifMauMediaAvailable for this MAU
 // instance leaves the state available(3). Discontinuities in the value of
 // this counter can occur at re-initialization of the management system and
 // at other times, as indicated by the value of ifCounterDiscontinuityTime.
-var IfMauMediaAvailableStateExits = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 6), snmp.KindCounter32, snmp.DecodeUint32)
+var IfMauMediaAvailableStateExits = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 6), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 5)
 
-// IfMauJabberState is the column ifMauJabberState of table ifMauTable.
+// IfMauJabberState is ifMauJabberState.
 // The value other(1) is returned if the jabber state is not 2, 3, or 4.
 // The agent MUST always return other(1) for MAU type dot3MauTypeAUI. The
 // value unknown(2) is returned when the MAU's true state is unknown; for
 // example, when it is being initialized. If the MAU is not jabbering the
 // agent returns noJabber(3). This is the 'normal' state. If the MAU is in
 // jabber state the agent returns the jabbering(4) value.
-var IfMauJabberState = snmp.NewColumn[IfMauJabberStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauJabberStateValue, error) {
+var IfMauJabberState = snmp.NewFusedTableColumn[IfMauJabberStateValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 7), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauJabberStateValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauJabberStateValue(0), err
 	}
 	return IfMauJabberStateValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauJabberStateValue], 6)
 
-// IfMauJabberingStateEnters is the column ifMauJabberingStateEnters of table ifMauTable.
+// IfMauJabberingStateEnters is ifMauJabberingStateEnters.
 // A count of the number of times that mauJabberState for this MAU instance
 // enters the state jabbering(4). This counter will always indicate zero
 // for MAUs of type dot3MauTypeAUI and those of speeds above 10Mbps.
 // Discontinuities in the value of this counter can occur at
 // re-initialization of the management system and at other times, as
 // indicated by the value of ifCounterDiscontinuityTime.
-var IfMauJabberingStateEnters = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 8), snmp.KindCounter32, snmp.DecodeUint32)
+var IfMauJabberingStateEnters = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 8), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 7)
 
-// IfMauFalseCarriers is the column ifMauFalseCarriers of table ifMauTable.
+// IfMauFalseCarriers is ifMauFalseCarriers.
 // A count of the number of false carrier events during IDLE in 100BASE-X
 // and 1000BASE-X links. For all other MAU types, this counter will always
 // indicate zero. This counter does not increment at the symbol rate. It
@@ -1319,9 +845,9 @@ var IfMauJabberingStateEnters = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 
 // value of this counter can occur at re-initialization of the management
 // system and at other times, as indicated by the value of
 // ifCounterDiscontinuityTime.
-var IfMauFalseCarriers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32)
+var IfMauFalseCarriers = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 9), snmp.KindCounter32, snmp.DecodeUint32, snmp.RawCounter32, 8)
 
-// IfMauTypeList is the column ifMauTypeList of table ifMauTable.
+// IfMauTypeList is ifMauTypeList.
 // ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
 // in favour of ifMauTypeListBits. A value that uniquely identifies the set
 // of possible IEEE 802.3 types that the MAU could be. The value is a sum
@@ -1342,9 +868,9 @@ var IfMauFalseCarriers = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2
 // will map to ifMauAutoNegCapability.
 //
 // Deprecated: ifMauTypeList is STATUS deprecated in MAU-MIB.
-var IfMauTypeList = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32)
+var IfMauTypeList = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 10), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 9)
 
-// IfMauDefaultType is the column ifMauDefaultType of table ifMauTable.
+// IfMauDefaultType is ifMauDefaultType.
 // This object identifies the default administrative baseband MAU type to
 // be used in conjunction with the operational MAU type denoted by
 // ifMauType. The set of possible values for this object is the same as the
@@ -1364,14 +890,14 @@ var IfMauTypeList = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 
 // of the MAU (as reported by ifMauType) correctly transitions to the value
 // specified by this object, rather than continuing to operate at the value
 // earlier determined by the auto-negotiation function.
-var IfMauDefaultType = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 11), snmp.KindObjectID, snmp.DecodeOID)
+var IfMauDefaultType = snmp.NewTableColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 11), snmp.KindObjectID, snmp.DecodeOID, 10)
 
-// IfMauAutoNegSupported is the column ifMauAutoNegSupported of table ifMauTable.
+// IfMauAutoNegSupported is ifMauAutoNegSupported.
 // This object indicates whether or not auto-negotiation is supported on
 // this MAU.
-var IfMauAutoNegSupported = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 12), snmp.KindInteger32, snmp.DecodeTruthValue)
+var IfMauAutoNegSupported = snmp.NewTableColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 12), snmp.KindInteger32, snmp.DecodeTruthValue, 11)
 
-// IfMauTypeListBits is the column ifMauTypeListBits of table ifMauTable.
+// IfMauTypeListBits is ifMauTypeListBits.
 // A value that uniquely identifies the set of possible IEEE 802.3 types
 // that the MAU could be. If auto-negotiation is present on this MAU, this
 // object will map to ifMauAutoNegCapabilityBits. Note that this MAU may be
@@ -1379,9 +905,9 @@ var IfMauAutoNegSupported = snmp.NewColumn[bool](snmp.MustOID(1, 3, 6, 1, 2, 1, 
 // This is indicated by returning the bit value bOther in addition to any
 // bit values for standard capabilities that are listed in the
 // IANAifMauTypeListBits TC.
-var IfMauTypeListBits = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 13), snmp.KindOctetString, snmp.DecodeBitSet)
+var IfMauTypeListBits = snmp.NewTableColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 13), snmp.KindOctetString, snmp.DecodeBitSet, 12)
 
-// IfMauHCFalseCarriers is the column ifMauHCFalseCarriers of table ifMauTable.
+// IfMauHCFalseCarriers is ifMauHCFalseCarriers.
 // A count of the number of false carrier events during IDLE in 100BASE-X
 // and 1000BASE-X links. For all other MAU types, this counter will always
 // indicate zero. This counter does not increment at the symbol rate. This
@@ -1391,7 +917,10 @@ var IfMauTypeListBits = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 
 // of information. Discontinuities in the value of this counter can occur
 // at re-initialization of the management system and at other times, as
 // indicated by the value of ifCounterDiscontinuityTime.
-var IfMauHCFalseCarriers = snmp.NewColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64)
+var (
+	IfMauHCFalseCarriers = snmp.NewFusedTableColumn[uint64](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 1, 1, 14), snmp.KindCounter64, snmp.DecodeUint64, snmp.RawCounter64, 13)
+	ifMauTableColumns    = []snmp.AnyColumn{IfMauIfIndex, IfMauIndex, IfMauType, IfMauStatus, IfMauMediaAvailable, IfMauMediaAvailableStateExits, IfMauJabberState, IfMauJabberingStateEnters, IfMauFalseCarriers, IfMauTypeList, IfMauDefaultType, IfMauAutoNegSupported, IfMauTypeListBits, IfMauHCFalseCarriers}
+)
 
 // IfMauTableKey is the decoded INDEX of one ifMauTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1412,14 +941,7 @@ func decodeIfMauTableKey(idx snmp.OID) (IfMauTableKey, bool) {
 	return IfMauTableKey{IfMauIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IfMauIndex: int32(parts[1].Integer)}, true
 }
 
-// IfMauTableRow is one row of ifMauTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [IfMauTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [IfMauTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// IfMauTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type IfMauTableRow struct {
 	Key                           IfMauTableKey
 	keyValid                      bool
@@ -1437,356 +959,67 @@ type IfMauTableRow struct {
 	IfMauAutoNegSupported         bool
 	IfMauTypeListBits             snmp.BitSet
 	IfMauHCFalseCarriers          uint64
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                      [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r IfMauTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r IfMauTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case IfMauIfIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case IfMauIndex.Key():
-		return r.observed[0]&(1<<1) != 0
-	case IfMauType.Key():
-		return r.observed[0]&(1<<2) != 0
-	case IfMauStatus.Key():
-		return r.observed[0]&(1<<3) != 0
-	case IfMauMediaAvailable.Key():
-		return r.observed[0]&(1<<4) != 0
-	case IfMauMediaAvailableStateExits.Key():
-		return r.observed[0]&(1<<5) != 0
-	case IfMauJabberState.Key():
-		return r.observed[0]&(1<<6) != 0
-	case IfMauJabberingStateEnters.Key():
-		return r.observed[0]&(1<<7) != 0
-	case IfMauFalseCarriers.Key():
-		return r.observed[0]&(1<<8) != 0
-	case IfMauTypeList.Key():
-		return r.observed[0]&(1<<9) != 0
-	case IfMauDefaultType.Key():
-		return r.observed[0]&(1<<10) != 0
-	case IfMauAutoNegSupported.Key():
-		return r.observed[0]&(1<<11) != 0
-	case IfMauTypeListBits.Key():
-		return r.observed[0]&(1<<12) != 0
-	case IfMauHCFalseCarriers.Key():
-		return r.observed[0]&(1<<13) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], ifMauTableColumns, col)
 }
 
-// IfMauTableWalker streams selected columns of ifMauTable.
-// The zero value is not usable; construct via IfMauTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// IfMauTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type IfMauTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[IfMauTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IfMauTableWalker) Iter() iter.Seq2[snmp.OID, IfMauTableRow] {
-	return func(yield func(snmp.OID, IfMauTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row IfMauTableRow
-			row.Key, row.keyValid = decodeIfMauTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case IfMauIfIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauIfIndex = ifmib.InterfaceIndex(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauIfIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauIfIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case IfMauIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauIndex = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauIndex = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case IfMauType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauType = dv
-							row.observed[0] |= 1 << 2
-						}
-					}
-				case IfMauStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauStatus = IfMauStatusValue(v)
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauStatus = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case IfMauMediaAvailable.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauMediaAvailable = ianamaumib.IANAifMauMediaAvailable(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauMediaAvailable.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauMediaAvailable = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case IfMauMediaAvailableStateExits.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IfMauMediaAvailableStateExits = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauMediaAvailableStateExits.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauMediaAvailableStateExits = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case IfMauJabberState.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauJabberState = IfMauJabberStateValue(v)
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauJabberState.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauJabberState = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case IfMauJabberingStateEnters.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IfMauJabberingStateEnters = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauJabberingStateEnters.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauJabberingStateEnters = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				case IfMauFalseCarriers.Key():
-					if v, okRaw := snmp.RawCounter32(rv); okRaw {
-						row.IfMauFalseCarriers = v
-						row.observed[0] |= 1 << 8
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauFalseCarriers.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauFalseCarriers = dv
-								row.observed[0] |= 1 << 8
-							}
-						}
-					}
-				case IfMauTypeList.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauTypeList = v
-						row.observed[0] |= 1 << 9
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauTypeList.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauTypeList = dv
-								row.observed[0] |= 1 << 9
-							}
-						}
-					}
-				case IfMauDefaultType.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauDefaultType.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauDefaultType = dv
-							row.observed[0] |= 1 << 10
-						}
-					}
-				case IfMauAutoNegSupported.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauAutoNegSupported.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauAutoNegSupported = dv
-							row.observed[0] |= 1 << 11
-						}
-					}
-				case IfMauTypeListBits.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauTypeListBits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauTypeListBits = dv
-							row.observed[0] |= 1 << 12
-						}
-					}
-				case IfMauHCFalseCarriers.Key():
-					if v, okRaw := snmp.RawCounter64(rv); okRaw {
-						row.IfMauHCFalseCarriers = v
-						row.observed[0] |= 1 << 13
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauHCFalseCarriers.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauHCFalseCarriers = dv
-								row.observed[0] |= 1 << 13
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type ifMauTableT struct {
+	snmp.Table[IfMauTableRow, *IfMauTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *IfMauTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// ifMauTableT is the singleton type of IfMauTable.
-type ifMauTableT struct{}
 
 // IfMauTable is the descriptor for the ifMauTable table.
-var IfMauTable ifMauTableT
+var IfMauTable = ifMauTableT{Table: snmp.NewTable("ifMauTable", ifMauTableColumns, func(idx snmp.OID, row *IfMauTableRow) {
+	row.Key, row.keyValid = decodeIfMauTableKey(idx)
+}, func(row *IfMauTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, IfMauIfIndex, &row.IfMauIfIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, IfMauIndex, &row.IfMauIndex, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, IfMauType, &row.IfMauType, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, IfMauStatus, &row.IfMauStatus, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, IfMauMediaAvailable, &row.IfMauMediaAvailable, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, IfMauMediaAvailableStateExits, &row.IfMauMediaAvailableStateExits, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, IfMauJabberState, &row.IfMauJabberState, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, IfMauJabberingStateEnters, &row.IfMauJabberingStateEnters, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, IfMauFalseCarriers, &row.IfMauFalseCarriers, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, IfMauTypeList, &row.IfMauTypeList, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, IfMauDefaultType, &row.IfMauDefaultType, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, IfMauAutoNegSupported, &row.IfMauAutoNegSupported, row.observed[:])
+	case 12:
+		return snmp.DecodeColumn(rv, IfMauTypeListBits, &row.IfMauTypeListBits, row.observed[:])
+	case 13:
+		return snmp.DecodeColumn(rv, IfMauHCFalseCarriers, &row.IfMauHCFalseCarriers, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[IfMauTableRow]) *IfMauTableWalker {
+	return &IfMauTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IfMauTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ifMauTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfMauTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (ifMauTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "IfMauTableKey",
@@ -1794,42 +1027,16 @@ func (ifMauTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ifMauTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfMauTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case IfMauIfIndex.Key(), IfMauIndex.Key(), IfMauType.Key(), IfMauStatus.Key(), IfMauMediaAvailable.Key(), IfMauMediaAvailableStateExits.Key(), IfMauJabberState.Key(), IfMauJabberingStateEnters.Key(), IfMauFalseCarriers.Key(), IfMauTypeList.Key(), IfMauDefaultType.Key(), IfMauAutoNegSupported.Key(), IfMauTypeListBits.Key(), IfMauHCFalseCarriers.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ifMauTable.Walk: column %s", c.OID()))
-			return &IfMauTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &IfMauTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// IfJackType is the column ifJackType of table ifJackTable.
+// IfJackType is ifJackType.
 // The jack connector type, as it appears on the outside of the system.
-var IfJackType = snmp.NewColumn[ianamaumib.IANAifJackType](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifJackType, error) {
+var IfJackType = snmp.NewFusedTableColumn[ianamaumib.IANAifJackType](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 2, 2, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (ianamaumib.IANAifJackType, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ianamaumib.IANAifJackType(0), err
 	}
 	return ianamaumib.IANAifJackType(v), nil
-})
+}, snmp.RawInteger32As[ianamaumib.IANAifJackType], 0)
+var ifJackTableColumns = []snmp.AnyColumn{IfJackType}
 
 // IfJackTableKey is the decoded INDEX of one ifJackTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -1851,126 +1058,46 @@ func decodeIfJackTableKey(idx snmp.OID) (IfJackTableKey, bool) {
 	return IfJackTableKey{IfMauIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IfMauIndex: int32(parts[1].Integer), IfJackIndex: int32(parts[2].Integer)}, true
 }
 
-// IfJackTableRow is one row of ifJackTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [IfJackTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [IfJackTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// IfJackTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type IfJackTableRow struct {
 	Key        IfJackTableKey
 	keyValid   bool
 	IfJackType ianamaumib.IANAifJackType
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed   [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r IfJackTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r IfJackTableRow) Observed(col snmp.AnyColumn) bool {
-	if col.Key() == IfJackType.Key() {
-		return r.observed[0]&(1<<0) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], ifJackTableColumns, col)
 }
 
-// IfJackTableWalker streams selected columns of ifJackTable.
-// The zero value is not usable; construct via IfJackTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// IfJackTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type IfJackTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[IfJackTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IfJackTableWalker) Iter() iter.Seq2[snmp.OID, IfJackTableRow] {
-	return func(yield func(snmp.OID, IfJackTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row IfJackTableRow
-			row.Key, row.keyValid = decodeIfJackTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				if tw.cols[cell.Column].Key() == IfJackType.Key() {
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfJackType = ianamaumib.IANAifJackType(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfJackType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfJackType = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type ifJackTableT struct {
+	snmp.Table[IfJackTableRow, *IfJackTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *IfJackTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// ifJackTableT is the singleton type of IfJackTable.
-type ifJackTableT struct{}
 
 // IfJackTable is the descriptor for the ifJackTable table.
-var IfJackTable ifJackTableT
+var IfJackTable = ifJackTableT{Table: snmp.NewTable("ifJackTable", ifJackTableColumns, func(idx snmp.OID, row *IfJackTableRow) {
+	row.Key, row.keyValid = decodeIfJackTableKey(idx)
+}, func(row *IfJackTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, IfJackType, &row.IfJackType, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[IfJackTableRow]) *IfJackTableWalker {
+	return &IfJackTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IfJackTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ifJackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfJackTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (ifJackTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "IfJackTableKey",
@@ -1978,56 +1105,29 @@ func (ifJackTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ifJackTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfJackTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case IfJackType.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ifJackTable.Walk: column %s", c.OID()))
-			return &IfJackTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &IfJackTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// BroadMauIfIndex is the column broadMauIfIndex of table broadMauBasicTable.
+// BroadMauIfIndex is broadMauIfIndex.
 // ********* THIS OBJECT IS DEPRECATED ********** This variable uniquely
 // identifies the interface to which the MAU described by this entry is
 // connected.
 //
 // Deprecated: broadMauIfIndex is STATUS deprecated in MAU-MIB.
-var BroadMauIfIndex = snmp.NewColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
+var BroadMauIfIndex = snmp.NewFusedTableColumn[ifmib.InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (ifmib.InterfaceIndex, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return ifmib.InterfaceIndex(0), err
 	}
 	return ifmib.InterfaceIndex(v), nil
-})
+}, snmp.RawInteger32As[ifmib.InterfaceIndex], 0)
 
-// BroadMauIndex is the column broadMauIndex of table broadMauBasicTable.
+// BroadMauIndex is broadMauIndex.
 // ********* THIS OBJECT IS DEPRECATED ********** This variable uniquely
 // identifies the MAU connected to interface broadMauIfIndex that is
 // described by this entry.
 //
 // Deprecated: broadMauIndex is STATUS deprecated in MAU-MIB.
-var BroadMauIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32)
+var BroadMauIndex = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 2), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 1)
 
-// BroadMauXmtRcvSplitType is the column broadMauXmtRcvSplitType of table broadMauBasicTable.
+// BroadMauXmtRcvSplitType is broadMauXmtRcvSplitType.
 // ********* THIS OBJECT IS DEPRECATED ********** This object indicates the
 // type of frequency multiplexing/cabling system used to separate the
 // transmit and receive paths for the 10BROAD36 MAU. The value other(1) is
@@ -2036,29 +1136,32 @@ var BroadMauIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 
 // dual cable system, offset normally zero.
 //
 // Deprecated: broadMauXmtRcvSplitType is STATUS deprecated in MAU-MIB.
-var BroadMauXmtRcvSplitType = snmp.NewColumn[BroadMauXmtRcvSplitTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (BroadMauXmtRcvSplitTypeValue, error) {
+var BroadMauXmtRcvSplitType = snmp.NewFusedTableColumn[BroadMauXmtRcvSplitTypeValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 3), snmp.KindInteger32, func(vb snmp.VarBind) (BroadMauXmtRcvSplitTypeValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return BroadMauXmtRcvSplitTypeValue(0), err
 	}
 	return BroadMauXmtRcvSplitTypeValue(v), nil
-})
+}, snmp.RawInteger32As[BroadMauXmtRcvSplitTypeValue], 2)
 
-// BroadMauXmtCarrierFreq is the column broadMauXmtCarrierFreq of table broadMauBasicTable.
+// BroadMauXmtCarrierFreq is broadMauXmtCarrierFreq.
 // ********* THIS OBJECT IS DEPRECATED ********** This variable indicates
 // the transmit carrier frequency of the 10BROAD36 MAU in MHz/4; that is,
 // in units of 250 kHz.
 //
 // Deprecated: broadMauXmtCarrierFreq is STATUS deprecated in MAU-MIB.
-var BroadMauXmtCarrierFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var BroadMauXmtCarrierFreq = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// BroadMauTranslationFreq is the column broadMauTranslationFreq of table broadMauBasicTable.
+// BroadMauTranslationFreq is broadMauTranslationFreq.
 // ********* THIS OBJECT IS DEPRECATED ********** This variable indicates
 // the translation offset frequency of the 10BROAD36 MAU in MHz/4; that is,
 // in units of 250 kHz.
 //
 // Deprecated: broadMauTranslationFreq is STATUS deprecated in MAU-MIB.
-var BroadMauTranslationFreq = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var (
+	BroadMauTranslationFreq   = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 3, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
+	broadMauBasicTableColumns = []snmp.AnyColumn{BroadMauIfIndex, BroadMauIndex, BroadMauXmtRcvSplitType, BroadMauXmtCarrierFreq, BroadMauTranslationFreq}
+)
 
 // BroadMauBasicTableKey is the decoded INDEX of one broadMauBasicTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2079,14 +1182,7 @@ func decodeBroadMauBasicTableKey(idx snmp.OID) (BroadMauBasicTableKey, bool) {
 	return BroadMauBasicTableKey{BroadMauIfIndex: ifmib.InterfaceIndex(parts[0].Integer), BroadMauIndex: int32(parts[1].Integer)}, true
 }
 
-// BroadMauBasicTableRow is one row of broadMauBasicTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [BroadMauBasicTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [BroadMauBasicTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// BroadMauBasicTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type BroadMauBasicTableRow struct {
 	Key                     BroadMauBasicTableKey
 	keyValid                bool
@@ -2095,198 +1191,51 @@ type BroadMauBasicTableRow struct {
 	BroadMauXmtRcvSplitType BroadMauXmtRcvSplitTypeValue
 	BroadMauXmtCarrierFreq  int32
 	BroadMauTranslationFreq int32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r BroadMauBasicTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r BroadMauBasicTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case BroadMauIfIndex.Key():
-		return r.observed[0]&(1<<0) != 0
-	case BroadMauIndex.Key():
-		return r.observed[0]&(1<<1) != 0
-	case BroadMauXmtRcvSplitType.Key():
-		return r.observed[0]&(1<<2) != 0
-	case BroadMauXmtCarrierFreq.Key():
-		return r.observed[0]&(1<<3) != 0
-	case BroadMauTranslationFreq.Key():
-		return r.observed[0]&(1<<4) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], broadMauBasicTableColumns, col)
 }
 
-// BroadMauBasicTableWalker streams selected columns of broadMauBasicTable.
-// The zero value is not usable; construct via BroadMauBasicTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// BroadMauBasicTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type BroadMauBasicTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[BroadMauBasicTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *BroadMauBasicTableWalker) Iter() iter.Seq2[snmp.OID, BroadMauBasicTableRow] {
-	return func(yield func(snmp.OID, BroadMauBasicTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row BroadMauBasicTableRow
-			row.Key, row.keyValid = decodeBroadMauBasicTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case BroadMauIfIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.BroadMauIfIndex = ifmib.InterfaceIndex(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := BroadMauIfIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.BroadMauIfIndex = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case BroadMauIndex.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.BroadMauIndex = v
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := BroadMauIndex.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.BroadMauIndex = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case BroadMauXmtRcvSplitType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.BroadMauXmtRcvSplitType = BroadMauXmtRcvSplitTypeValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := BroadMauXmtRcvSplitType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.BroadMauXmtRcvSplitType = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case BroadMauXmtCarrierFreq.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.BroadMauXmtCarrierFreq = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := BroadMauXmtCarrierFreq.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.BroadMauXmtCarrierFreq = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case BroadMauTranslationFreq.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.BroadMauTranslationFreq = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := BroadMauTranslationFreq.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.BroadMauTranslationFreq = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type broadMauBasicTableT struct {
+	snmp.Table[BroadMauBasicTableRow, *BroadMauBasicTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *BroadMauBasicTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// broadMauBasicTableT is the singleton type of BroadMauBasicTable.
-type broadMauBasicTableT struct{}
 
 // BroadMauBasicTable is the descriptor for the broadMauBasicTable table.
 //
 // Deprecated: broadMauBasicTable is STATUS deprecated in MAU-MIB.
-var BroadMauBasicTable broadMauBasicTableT
+var BroadMauBasicTable = broadMauBasicTableT{Table: snmp.NewTable("broadMauBasicTable", broadMauBasicTableColumns, func(idx snmp.OID, row *BroadMauBasicTableRow) {
+	row.Key, row.keyValid = decodeBroadMauBasicTableKey(idx)
+}, func(row *BroadMauBasicTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, BroadMauIfIndex, &row.BroadMauIfIndex, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, BroadMauIndex, &row.BroadMauIndex, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, BroadMauXmtRcvSplitType, &row.BroadMauXmtRcvSplitType, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, BroadMauXmtCarrierFreq, &row.BroadMauXmtCarrierFreq, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, BroadMauTranslationFreq, &row.BroadMauTranslationFreq, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[BroadMauBasicTableRow]) *BroadMauBasicTableWalker {
+	return &BroadMauBasicTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *BroadMauBasicTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t broadMauBasicTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *BroadMauBasicTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (broadMauBasicTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "BroadMauBasicTableKey",
@@ -2294,34 +1243,7 @@ func (broadMauBasicTableT) Descriptor() snmp.TableDescriptor {
 	}
 }
 
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (broadMauBasicTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *BroadMauBasicTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case BroadMauIfIndex.Key(), BroadMauIndex.Key(), BroadMauXmtRcvSplitType.Key(), BroadMauXmtCarrierFreq.Key(), BroadMauTranslationFreq.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "broadMauBasicTable.Walk: column %s", c.OID()))
-			return &BroadMauBasicTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &BroadMauBasicTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
-	}
-}
-
-// IfMauAutoNegAdminStatus is the column ifMauAutoNegAdminStatus of table ifMauAutoNegTable.
+// IfMauAutoNegAdminStatus is ifMauAutoNegAdminStatus.
 // Setting this object to enabled(1) will cause the interface that has the
 // auto-negotiation signaling ability to be enabled. If the value of this
 // object is disabled(2) then the interface will act as it would if it had
@@ -2333,39 +1255,39 @@ func (broadMauBasicTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 // reported by ifMauType) correctly transitions to the value specified by
 // the ifMauDefaultType object, rather than continuing to operate at the
 // value earlier determined by the auto-negotiation function.
-var IfMauAutoNegAdminStatus = snmp.NewColumn[IfMauAutoNegAdminStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegAdminStatusValue, error) {
+var IfMauAutoNegAdminStatus = snmp.NewFusedTableColumn[IfMauAutoNegAdminStatusValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegAdminStatusValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauAutoNegAdminStatusValue(0), err
 	}
 	return IfMauAutoNegAdminStatusValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauAutoNegAdminStatusValue], 0)
 
-// IfMauAutoNegRemoteSignaling is the column ifMauAutoNegRemoteSignaling of table ifMauAutoNegTable.
+// IfMauAutoNegRemoteSignaling is ifMauAutoNegRemoteSignaling.
 // A value indicating whether the remote end of the link is using
 // auto-negotiation signaling. It takes the value detected(1) if and only
 // if, during the previous link negotiation, FLP Bursts were received.
-var IfMauAutoNegRemoteSignaling = snmp.NewColumn[IfMauAutoNegRemoteSignalingValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRemoteSignalingValue, error) {
+var IfMauAutoNegRemoteSignaling = snmp.NewFusedTableColumn[IfMauAutoNegRemoteSignalingValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRemoteSignalingValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauAutoNegRemoteSignalingValue(0), err
 	}
 	return IfMauAutoNegRemoteSignalingValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauAutoNegRemoteSignalingValue], 1)
 
-// IfMauAutoNegConfig is the column ifMauAutoNegConfig of table ifMauAutoNegTable.
+// IfMauAutoNegConfig is ifMauAutoNegConfig.
 // A value indicating the current status of the auto-negotiation process.
 // The enumeration parallelDetectFail(5) maps to a failure in parallel
 // detection as defined in 28.2.3.1 of [IEEE802.3].
-var IfMauAutoNegConfig = snmp.NewColumn[IfMauAutoNegConfigValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegConfigValue, error) {
+var IfMauAutoNegConfig = snmp.NewFusedTableColumn[IfMauAutoNegConfigValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 4), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegConfigValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauAutoNegConfigValue(0), err
 	}
 	return IfMauAutoNegConfigValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauAutoNegConfigValue], 2)
 
-// IfMauAutoNegCapability is the column ifMauAutoNegCapability of table ifMauAutoNegTable.
+// IfMauAutoNegCapability is ifMauAutoNegCapability.
 // ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
 // in favour of ifMauAutoNegCapabilityBits. A value that uniquely
 // identifies the set of capabilities of the local auto-negotiation entity.
@@ -2384,9 +1306,9 @@ var IfMauAutoNegConfig = snmp.NewColumn[IfMauAutoNegConfigValue](snmp.MustOID(1,
 // that extend beyond the scope of this MIB.
 //
 // Deprecated: ifMauAutoNegCapability is STATUS deprecated in MAU-MIB.
-var IfMauAutoNegCapability = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32)
+var IfMauAutoNegCapability = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 5), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// IfMauAutoNegCapAdvertised is the column ifMauAutoNegCapAdvertised of table ifMauAutoNegTable.
+// IfMauAutoNegCapAdvertised is ifMauAutoNegCapAdvertised.
 // ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
 // in favour of ifMauAutoNegCapAdvertisedBits. A value that uniquely
 // identifies the set of capabilities advertised by the local
@@ -2396,9 +1318,9 @@ var IfMauAutoNegCapability = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1
 // enabled.
 //
 // Deprecated: ifMauAutoNegCapAdvertised is STATUS deprecated in MAU-MIB.
-var IfMauAutoNegCapAdvertised = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32)
+var IfMauAutoNegCapAdvertised = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 6), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 4)
 
-// IfMauAutoNegCapReceived is the column ifMauAutoNegCapReceived of table ifMauAutoNegTable.
+// IfMauAutoNegCapReceived is ifMauAutoNegCapReceived.
 // ********* THIS OBJECT IS DEPRECATED ********** This object has been deprecated
 // in favour of ifMauAutoNegCapReceivedBits. A value that uniquely
 // identifies the set of capabilities received from the remote
@@ -2408,22 +1330,22 @@ var IfMauAutoNegCapAdvertised = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2
 // entities that have capabilities beyond the scope of this MIB.
 //
 // Deprecated: ifMauAutoNegCapReceived is STATUS deprecated in MAU-MIB.
-var IfMauAutoNegCapReceived = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32)
+var IfMauAutoNegCapReceived = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 7), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 5)
 
-// IfMauAutoNegRestart is the column ifMauAutoNegRestart of table ifMauAutoNegTable.
+// IfMauAutoNegRestart is ifMauAutoNegRestart.
 // If the value of this object is set to restart(1) then this will force
 // auto-negotiation to begin link renegotiation. If auto-negotiation
 // signaling is disabled, a write to this object has no effect. Setting the
 // value of this object to norestart(2) has no effect.
-var IfMauAutoNegRestart = snmp.NewColumn[IfMauAutoNegRestartValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRestartValue, error) {
+var IfMauAutoNegRestart = snmp.NewFusedTableColumn[IfMauAutoNegRestartValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 8), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRestartValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauAutoNegRestartValue(0), err
 	}
 	return IfMauAutoNegRestartValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauAutoNegRestartValue], 6)
 
-// IfMauAutoNegCapabilityBits is the column ifMauAutoNegCapabilityBits of table ifMauAutoNegTable.
+// IfMauAutoNegCapabilityBits is ifMauAutoNegCapabilityBits.
 // A value that uniquely identifies the set of capabilities of the local
 // auto-negotiation entity. Note that interfaces that support this MIB may
 // have capabilities that extend beyond the scope of this MIB. Note that
@@ -2431,9 +1353,9 @@ var IfMauAutoNegRestart = snmp.NewColumn[IfMauAutoNegRestartValue](snmp.MustOID(
 // the scope of this MIB. This is indicated by returning the bit value
 // bOther in addition to any bit values for standard capabilities that are
 // listed in the IANAifMauAutoNegCapBits TC.
-var IfMauAutoNegCapabilityBits = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 9), snmp.KindOctetString, snmp.DecodeBitSet)
+var IfMauAutoNegCapabilityBits = snmp.NewTableColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 9), snmp.KindOctetString, snmp.DecodeBitSet, 7)
 
-// IfMauAutoNegCapAdvertisedBits is the column ifMauAutoNegCapAdvertisedBits of table ifMauAutoNegTable.
+// IfMauAutoNegCapAdvertisedBits is ifMauAutoNegCapAdvertisedBits.
 // A value that uniquely identifies the set of capabilities advertised by
 // the local auto-negotiation entity. Capabilities in this object that are
 // not available in ifMauAutoNegCapabilityBits cannot be enabled. Note that
@@ -2441,39 +1363,40 @@ var IfMauAutoNegCapabilityBits = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 
 // the scope of this MIB. This is indicated by returning the bit value
 // bOther in addition to any bit values for standard capabilities that are
 // listed in the IANAifMauAutoNegCapBits TC.
-var IfMauAutoNegCapAdvertisedBits = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 10), snmp.KindOctetString, snmp.DecodeBitSet)
+var IfMauAutoNegCapAdvertisedBits = snmp.NewTableColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 10), snmp.KindOctetString, snmp.DecodeBitSet, 8)
 
-// IfMauAutoNegCapReceivedBits is the column ifMauAutoNegCapReceivedBits of table ifMauAutoNegTable.
+// IfMauAutoNegCapReceivedBits is ifMauAutoNegCapReceivedBits.
 // A value that uniquely identifies the set of capabilities received from
 // the remote auto-negotiation entity. Note that interfaces that support
 // this MIB may be attached to remote auto-negotiation entities that have
 // capabilities beyond the scope of this MIB. This is indicated by
 // returning the bit value bOther in addition to any bit values for
 // standard capabilities that are listed in the IANAifMauAutoNegCapBits TC.
-var IfMauAutoNegCapReceivedBits = snmp.NewColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 11), snmp.KindOctetString, snmp.DecodeBitSet)
+var IfMauAutoNegCapReceivedBits = snmp.NewTableColumn[snmp.BitSet](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 11), snmp.KindOctetString, snmp.DecodeBitSet, 9)
 
-// IfMauAutoNegRemoteFaultAdvertised is the column ifMauAutoNegRemoteFaultAdvertised of table ifMauAutoNegTable.
+// IfMauAutoNegRemoteFaultAdvertised is ifMauAutoNegRemoteFaultAdvertised.
 // A value that identifies any local fault indications that this MAU has
 // detected and will advertise at the next auto-negotiation interaction for
 // 1000Mbps MAUs.
-var IfMauAutoNegRemoteFaultAdvertised = snmp.NewColumn[IfMauAutoNegRemoteFaultAdvertisedValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRemoteFaultAdvertisedValue, error) {
+var IfMauAutoNegRemoteFaultAdvertised = snmp.NewFusedTableColumn[IfMauAutoNegRemoteFaultAdvertisedValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 12), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRemoteFaultAdvertisedValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauAutoNegRemoteFaultAdvertisedValue(0), err
 	}
 	return IfMauAutoNegRemoteFaultAdvertisedValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauAutoNegRemoteFaultAdvertisedValue], 10)
 
-// IfMauAutoNegRemoteFaultReceived is the column ifMauAutoNegRemoteFaultReceived of table ifMauAutoNegTable.
+// IfMauAutoNegRemoteFaultReceived is ifMauAutoNegRemoteFaultReceived.
 // A value that identifies any fault indications received from the far end
 // of a link by the local auto-negotiation entity for 1000Mbps MAUs.
-var IfMauAutoNegRemoteFaultReceived = snmp.NewColumn[IfMauAutoNegRemoteFaultReceivedValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRemoteFaultReceivedValue, error) {
+var IfMauAutoNegRemoteFaultReceived = snmp.NewFusedTableColumn[IfMauAutoNegRemoteFaultReceivedValue](snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1, 1, 13), snmp.KindInteger32, func(vb snmp.VarBind) (IfMauAutoNegRemoteFaultReceivedValue, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return IfMauAutoNegRemoteFaultReceivedValue(0), err
 	}
 	return IfMauAutoNegRemoteFaultReceivedValue(v), nil
-})
+}, snmp.RawInteger32As[IfMauAutoNegRemoteFaultReceivedValue], 11)
+var ifMauAutoNegTableColumns = []snmp.AnyColumn{IfMauAutoNegAdminStatus, IfMauAutoNegRemoteSignaling, IfMauAutoNegConfig, IfMauAutoNegCapability, IfMauAutoNegCapAdvertised, IfMauAutoNegCapReceived, IfMauAutoNegRestart, IfMauAutoNegCapabilityBits, IfMauAutoNegCapAdvertisedBits, IfMauAutoNegCapReceivedBits, IfMauAutoNegRemoteFaultAdvertised, IfMauAutoNegRemoteFaultReceived}
 
 // IfMauAutoNegTableKey is the decoded INDEX of one ifMauAutoNegTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -2494,14 +1417,7 @@ func decodeIfMauAutoNegTableKey(idx snmp.OID) (IfMauAutoNegTableKey, bool) {
 	return IfMauAutoNegTableKey{IfMauIfIndex: ifmib.InterfaceIndex(parts[0].Integer), IfMauIndex: int32(parts[1].Integer)}, true
 }
 
-// IfMauAutoNegTableRow is one row of ifMauAutoNegTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [IfMauAutoNegTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [IfMauAutoNegTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// IfMauAutoNegTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type IfMauAutoNegTableRow struct {
 	Key                               IfMauAutoNegTableKey
 	keyValid                          bool
@@ -2517,352 +1433,67 @@ type IfMauAutoNegTableRow struct {
 	IfMauAutoNegCapReceivedBits       snmp.BitSet
 	IfMauAutoNegRemoteFaultAdvertised IfMauAutoNegRemoteFaultAdvertisedValue
 	IfMauAutoNegRemoteFaultReceived   IfMauAutoNegRemoteFaultReceivedValue
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                          [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r IfMauAutoNegTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r IfMauAutoNegTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case IfMauAutoNegAdminStatus.Key():
-		return r.observed[0]&(1<<0) != 0
-	case IfMauAutoNegRemoteSignaling.Key():
-		return r.observed[0]&(1<<1) != 0
-	case IfMauAutoNegConfig.Key():
-		return r.observed[0]&(1<<2) != 0
-	case IfMauAutoNegCapability.Key():
-		return r.observed[0]&(1<<3) != 0
-	case IfMauAutoNegCapAdvertised.Key():
-		return r.observed[0]&(1<<4) != 0
-	case IfMauAutoNegCapReceived.Key():
-		return r.observed[0]&(1<<5) != 0
-	case IfMauAutoNegRestart.Key():
-		return r.observed[0]&(1<<6) != 0
-	case IfMauAutoNegCapabilityBits.Key():
-		return r.observed[0]&(1<<7) != 0
-	case IfMauAutoNegCapAdvertisedBits.Key():
-		return r.observed[0]&(1<<8) != 0
-	case IfMauAutoNegCapReceivedBits.Key():
-		return r.observed[0]&(1<<9) != 0
-	case IfMauAutoNegRemoteFaultAdvertised.Key():
-		return r.observed[0]&(1<<10) != 0
-	case IfMauAutoNegRemoteFaultReceived.Key():
-		return r.observed[0]&(1<<11) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], ifMauAutoNegTableColumns, col)
 }
 
-// IfMauAutoNegTableWalker streams selected columns of ifMauAutoNegTable.
-// The zero value is not usable; construct via IfMauAutoNegTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// IfMauAutoNegTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type IfMauAutoNegTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[IfMauAutoNegTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *IfMauAutoNegTableWalker) Iter() iter.Seq2[snmp.OID, IfMauAutoNegTableRow] {
-	return func(yield func(snmp.OID, IfMauAutoNegTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row IfMauAutoNegTableRow
-			row.Key, row.keyValid = decodeIfMauAutoNegTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case IfMauAutoNegAdminStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegAdminStatus = IfMauAutoNegAdminStatusValue(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegAdminStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegAdminStatus = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case IfMauAutoNegRemoteSignaling.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegRemoteSignaling = IfMauAutoNegRemoteSignalingValue(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegRemoteSignaling.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegRemoteSignaling = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case IfMauAutoNegConfig.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegConfig = IfMauAutoNegConfigValue(v)
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegConfig.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegConfig = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case IfMauAutoNegCapability.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegCapability = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegCapability.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegCapability = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case IfMauAutoNegCapAdvertised.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegCapAdvertised = v
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegCapAdvertised.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegCapAdvertised = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case IfMauAutoNegCapReceived.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegCapReceived = v
-						row.observed[0] |= 1 << 5
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegCapReceived.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegCapReceived = dv
-								row.observed[0] |= 1 << 5
-							}
-						}
-					}
-				case IfMauAutoNegRestart.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegRestart = IfMauAutoNegRestartValue(v)
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegRestart.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegRestart = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case IfMauAutoNegCapabilityBits.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauAutoNegCapabilityBits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauAutoNegCapabilityBits = dv
-							row.observed[0] |= 1 << 7
-						}
-					}
-				case IfMauAutoNegCapAdvertisedBits.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauAutoNegCapAdvertisedBits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauAutoNegCapAdvertisedBits = dv
-							row.observed[0] |= 1 << 8
-						}
-					}
-				case IfMauAutoNegCapReceivedBits.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := IfMauAutoNegCapReceivedBits.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.IfMauAutoNegCapReceivedBits = dv
-							row.observed[0] |= 1 << 9
-						}
-					}
-				case IfMauAutoNegRemoteFaultAdvertised.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegRemoteFaultAdvertised = IfMauAutoNegRemoteFaultAdvertisedValue(v)
-						row.observed[0] |= 1 << 10
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegRemoteFaultAdvertised.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegRemoteFaultAdvertised = dv
-								row.observed[0] |= 1 << 10
-							}
-						}
-					}
-				case IfMauAutoNegRemoteFaultReceived.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfMauAutoNegRemoteFaultReceived = IfMauAutoNegRemoteFaultReceivedValue(v)
-						row.observed[0] |= 1 << 11
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := IfMauAutoNegRemoteFaultReceived.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.IfMauAutoNegRemoteFaultReceived = dv
-								row.observed[0] |= 1 << 11
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type ifMauAutoNegTableT struct {
+	snmp.Table[IfMauAutoNegTableRow, *IfMauAutoNegTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *IfMauAutoNegTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// ifMauAutoNegTableT is the singleton type of IfMauAutoNegTable.
-type ifMauAutoNegTableT struct{}
 
 // IfMauAutoNegTable is the descriptor for the ifMauAutoNegTable table.
-var IfMauAutoNegTable ifMauAutoNegTableT
+var IfMauAutoNegTable = ifMauAutoNegTableT{Table: snmp.NewTable("ifMauAutoNegTable", ifMauAutoNegTableColumns, func(idx snmp.OID, row *IfMauAutoNegTableRow) {
+	row.Key, row.keyValid = decodeIfMauAutoNegTableKey(idx)
+}, func(row *IfMauAutoNegTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, IfMauAutoNegAdminStatus, &row.IfMauAutoNegAdminStatus, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, IfMauAutoNegRemoteSignaling, &row.IfMauAutoNegRemoteSignaling, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, IfMauAutoNegConfig, &row.IfMauAutoNegConfig, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, IfMauAutoNegCapability, &row.IfMauAutoNegCapability, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, IfMauAutoNegCapAdvertised, &row.IfMauAutoNegCapAdvertised, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, IfMauAutoNegCapReceived, &row.IfMauAutoNegCapReceived, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, IfMauAutoNegRestart, &row.IfMauAutoNegRestart, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, IfMauAutoNegCapabilityBits, &row.IfMauAutoNegCapabilityBits, row.observed[:])
+	case 8:
+		return snmp.DecodeColumn(rv, IfMauAutoNegCapAdvertisedBits, &row.IfMauAutoNegCapAdvertisedBits, row.observed[:])
+	case 9:
+		return snmp.DecodeColumn(rv, IfMauAutoNegCapReceivedBits, &row.IfMauAutoNegCapReceivedBits, row.observed[:])
+	case 10:
+		return snmp.DecodeColumn(rv, IfMauAutoNegRemoteFaultAdvertised, &row.IfMauAutoNegRemoteFaultAdvertised, row.observed[:])
+	case 11:
+		return snmp.DecodeColumn(rv, IfMauAutoNegRemoteFaultReceived, &row.IfMauAutoNegRemoteFaultReceived, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[IfMauAutoNegTableRow]) *IfMauAutoNegTableWalker {
+	return &IfMauAutoNegTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *IfMauAutoNegTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t ifMauAutoNegTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfMauAutoNegTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (ifMauAutoNegTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "IfMauAutoNegTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 5, 1),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (ifMauAutoNegTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfMauAutoNegTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case IfMauAutoNegAdminStatus.Key(), IfMauAutoNegRemoteSignaling.Key(), IfMauAutoNegConfig.Key(), IfMauAutoNegCapability.Key(), IfMauAutoNegCapAdvertised.Key(), IfMauAutoNegCapReceived.Key(), IfMauAutoNegRestart.Key(), IfMauAutoNegCapabilityBits.Key(), IfMauAutoNegCapAdvertisedBits.Key(), IfMauAutoNegCapReceivedBits.Key(), IfMauAutoNegRemoteFaultAdvertised.Key(), IfMauAutoNegRemoteFaultReceived.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "ifMauAutoNegTable.Walk: column %s", c.OID()))
-			return &IfMauAutoNegTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &IfMauAutoNegTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 

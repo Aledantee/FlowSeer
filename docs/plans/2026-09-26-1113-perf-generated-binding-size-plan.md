@@ -117,7 +117,7 @@ Landed: `71fbee78..8899ec50`
 ### U2. mibgen output size
 Files: `docs/plans/2026-09-26-1113-perf-generated-binding-size-phase2-plan.md`
 After: none
-Landed:
+Landed: `3a110386..f7a99b8a`
 
 Waves: U1 U2
 

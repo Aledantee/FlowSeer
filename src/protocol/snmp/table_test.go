@@ -102,3 +102,312 @@ func TestTableDescriptor_ProbeLoop(t *testing.T) {
 		t.Fatalf("presentTables = %v", got)
 	}
 }
+
+type localTableRow struct {
+	Index    OID
+	Key      int32
+	keyValid bool
+	Descr    string
+	observed [1]uint64
+}
+
+type localTableWalker struct {
+	TableWalker[localTableRow]
+}
+
+func TestTable_NamedWrapperPromotedReturnType(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
+	colDescr := NewTableColumn[string](entry.Append(2), KindOctetString, func(vb VarBind) (string, error) {
+		if os, ok := vb.(OctetStringVar); ok {
+			return string(os.Value), nil
+		}
+		return "", ErrTypeMismatch
+	}, 0)
+
+	tbl := NewTable[localTableRow, *localTableWalker](
+		"localTable",
+		[]AnyColumn{colDescr},
+		func(idx OID, r *localTableRow) {
+			r.Index = idx
+			if idx.Len() == 1 {
+				r.Key = int32(idx.At(0))
+				r.keyValid = true
+			}
+		},
+		func(r *localTableRow, ordinal int, rv RawVarBind) error {
+			if ordinal == 0 {
+				return DecodeColumn(rv, colDescr, &r.Descr, r.observed[:])
+			}
+			return nil
+		},
+		func(tw TableWalker[localTableRow]) *localTableWalker {
+			return &localTableWalker{TableWalker: tw}
+		},
+	)
+
+	var sess Session = columnScript{call: func(_ context.Context, _ []OID, _ int, _ bool) ([]VarBind, error) {
+		return nil, nil
+	}}
+
+	takeNamedWalker := func(w *localTableWalker) *localTableWalker { return w }
+	w := takeNamedWalker(tbl.Walk(context.Background(), sess, colDescr))
+	if w == nil {
+		t.Fatal("tbl.Walk returned nil")
+	}
+
+	_ = w.Iter()
+	if err := w.Err(); err != nil {
+		t.Fatalf("Err() = %v, want nil", err)
+	}
+	w.Close()
+}
+
+func TestTable_LazyDeduplicatedSelection(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
+	col1 := NewTableColumn[int32](entry.Append(1), KindInteger32, nil, 0)
+	col2 := NewTableColumn[string](entry.Append(2), KindOctetString, nil, 1)
+
+	tbl := NewTable[localTableRow, *localTableWalker](
+		"localTable",
+		[]AnyColumn{col1, col2},
+		func(idx OID, r *localTableRow) { r.Index = idx },
+		func(_ *localTableRow, _ int, _ RawVarBind) error { return nil },
+		func(tw TableWalker[localTableRow]) *localTableWalker {
+			return &localTableWalker{TableWalker: tw}
+		},
+	)
+
+	calls := 0
+	var requestedRoots []OID
+	sess := columnScript{call: func(_ context.Context, oids []OID, _ int, _ bool) ([]VarBind, error) {
+		calls++
+		requestedRoots = append(requestedRoots, oids...)
+		var out []VarBind
+		for _, o := range oids {
+			out = append(out, EndOfMibViewVar{Header: Header{OID: o, Kind: KindEndOfMibView}})
+		}
+		return out, nil
+	}}
+
+	w := tbl.Walk(context.Background(), sess, col1, col2, col1)
+
+	if calls != 0 {
+		t.Fatalf("calls before Iter = %d, want 0 (lazy)", calls)
+	}
+
+	for range w.Iter() {
+	}
+
+	if calls == 0 {
+		t.Fatal("no calls made during Iter")
+	}
+	if len(requestedRoots) != 2 {
+		t.Fatalf("requestedRoots len = %d, want 2 (deduplicated): %v", len(requestedRoots), requestedRoots)
+	}
+	if !requestedRoots[0].Equal(col1.OID()) || !requestedRoots[1].Equal(col2.OID()) {
+		t.Fatalf("requestedRoots = %v, want [%v, %v]", requestedRoots, col1.OID(), col2.OID())
+	}
+}
+
+func TestTable_PreIOForeignFailure(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
+	col1 := NewTableColumn[int32](entry.Append(1), KindInteger32, nil, 0)
+	foreignCol := NewTableColumn[int32](MustOID(1, 3, 6, 1, 4, 1, 9, 9, 1), KindInteger32, nil, 0)
+
+	tbl := NewTable[localTableRow, *localTableWalker](
+		"localTable",
+		[]AnyColumn{col1},
+		func(idx OID, r *localTableRow) { r.Index = idx },
+		func(_ *localTableRow, _ int, _ RawVarBind) error { return nil },
+		func(tw TableWalker[localTableRow]) *localTableWalker {
+			return &localTableWalker{TableWalker: tw}
+		},
+	)
+
+	calls := 0
+	sess := columnScript{call: func(_ context.Context, _ []OID, _ int, _ bool) ([]VarBind, error) {
+		calls++
+		return nil, nil
+	}}
+
+	w := tbl.Walk(context.Background(), sess, foreignCol)
+
+	if calls != 0 {
+		t.Fatalf("calls = %d, want 0 (pre-I/O rejection)", calls)
+	}
+
+	for range w.Iter() {
+		t.Fatal("Iter yielded rows for foreign column walk")
+	}
+
+	if calls != 0 {
+		t.Fatalf("calls after Iter = %d, want 0", calls)
+	}
+	if err := w.Err(); !errors.Is(err, ErrForeignColumn) {
+		t.Fatalf("Err() = %v, want ErrForeignColumn", err)
+	}
+}
+
+func TestTable_EarlyBreakClosesRetrieval(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
+	col1 := NewTableColumn[string](entry.Append(2), KindOctetString, func(vb VarBind) (string, error) {
+		if os, ok := vb.(OctetStringVar); ok {
+			return string(os.Value), nil
+		}
+		return "", ErrTypeMismatch
+	}, 0)
+
+	tbl := NewTable[localTableRow, *localTableWalker](
+		"localTable",
+		[]AnyColumn{col1},
+		func(idx OID, r *localTableRow) { r.Index = idx },
+		func(r *localTableRow, _ int, rv RawVarBind) error {
+			return DecodeColumn(rv, col1, &r.Descr, r.observed[:])
+		},
+		func(tw TableWalker[localTableRow]) *localTableWalker {
+			return &localTableWalker{TableWalker: tw}
+		},
+	)
+
+	sess := columnScript{call: func(_ context.Context, oids []OID, _ int, _ bool) ([]VarBind, error) {
+		cur := oids[0]
+		var out []VarBind
+		for i := 1; i <= 5; i++ {
+			next := col1.OID().Child(uint32(i))
+			if next.Compare(cur) > 0 {
+				out = append(out, octet(next, "eth"+string(rune('0'+i))))
+			}
+		}
+		return out, nil
+	}}
+
+	w := tbl.Walk(context.Background(), sess, col1)
+	yielded := 0
+	for range w.Iter() {
+		yielded++
+		break
+	}
+
+	if yielded != 1 {
+		t.Fatalf("yielded = %d, want 1", yielded)
+	}
+	if err := w.Err(); err != nil {
+		t.Fatalf("Err() = %v, want nil on clean early break", err)
+	}
+}
+
+func TestTable_MalformedKeysRemainRows(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
+	col1 := NewTableColumn[string](entry.Append(2), KindOctetString, func(vb VarBind) (string, error) {
+		if os, ok := vb.(OctetStringVar); ok {
+			return string(os.Value), nil
+		}
+		return "", ErrTypeMismatch
+	}, 0)
+
+	tbl := NewTable[localTableRow, *localTableWalker](
+		"localTable",
+		[]AnyColumn{col1},
+		func(idx OID, r *localTableRow) {
+			r.Index = idx
+			if idx.Len() == 1 {
+				r.Key = int32(idx.At(0))
+				r.keyValid = true
+			} else {
+				r.Key = 0
+				r.keyValid = false
+			}
+		},
+		func(r *localTableRow, _ int, rv RawVarBind) error {
+			return DecodeColumn(rv, col1, &r.Descr, r.observed[:])
+		},
+		func(tw TableWalker[localTableRow]) *localTableWalker {
+			return &localTableWalker{TableWalker: tw}
+		},
+	)
+
+	items := []VarBind{
+		octet(col1.OID().Append(7, 99), "badKey"),
+		octet(col1.OID().Append(8), "goodKey"),
+	}
+	sess := columnScript{call: func(_ context.Context, oids []OID, _ int, _ bool) ([]VarBind, error) {
+		cur := oids[0]
+		var out []VarBind
+		for _, item := range items {
+			if item.GetHeader().OID.Compare(cur) > 0 {
+				out = append(out, item)
+			}
+		}
+		if len(out) == 0 {
+			out = append(out, EndOfMibViewVar{Header: Header{OID: cur, Kind: KindEndOfMibView}})
+		}
+		return out, nil
+	}}
+
+	w := tbl.Walk(context.Background(), sess, col1)
+	var rows []localTableRow
+	for _, row := range w.Iter() {
+		rows = append(rows, row)
+	}
+	if err := w.Err(); err != nil {
+		t.Fatalf("Err() = %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("len(rows) = %d, want 2 (malformed index must remain a row)", len(rows))
+	}
+	if rows[0].keyValid || rows[0].Key != 0 || rows[0].Descr != "badKey" {
+		t.Errorf("row[0] malformed key mismatch: %+v", rows[0])
+	}
+	if !rows[1].keyValid || rows[1].Key != 8 || rows[1].Descr != "goodKey" {
+		t.Errorf("row[1] valid key mismatch: %+v", rows[1])
+	}
+}
+
+func TestTable_DecodeFailureRetainsDeliveredPrefix(t *testing.T) {
+	entry := MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1)
+	col1 := NewTableColumn[string](entry.Append(2), KindOctetString, func(vb VarBind) (string, error) {
+		if os, ok := vb.(OctetStringVar); ok {
+			if string(os.Value) == "FAIL" {
+				return "", errors.New("decode failure")
+			}
+			return string(os.Value), nil
+		}
+		return "", ErrTypeMismatch
+	}, 0)
+
+	tbl := NewTable[localTableRow, *localTableWalker](
+		"localTable",
+		[]AnyColumn{col1},
+		func(idx OID, r *localTableRow) { r.Index = idx },
+		func(r *localTableRow, _ int, rv RawVarBind) error {
+			return DecodeColumn(rv, col1, &r.Descr, r.observed[:])
+		},
+		func(tw TableWalker[localTableRow]) *localTableWalker {
+			return &localTableWalker{TableWalker: tw}
+		},
+	)
+
+	sess := columnScript{call: func(_ context.Context, _ []OID, _ int, _ bool) ([]VarBind, error) {
+		return []VarBind{
+			octet(col1.OID().Child(1), "eth1"),
+			octet(col1.OID().Child(2), "FAIL"),
+			octet(col1.OID().Child(3), "eth3"),
+		}, nil
+	}}
+
+	w := tbl.Walk(context.Background(), sess, col1)
+	var rows []localTableRow
+	for _, row := range w.Iter() {
+		rows = append(rows, row)
+	}
+
+	if len(rows) != 1 {
+		t.Fatalf("delivered rows = %d, want 1 (only delivered prefix before error)", len(rows))
+	}
+	if rows[0].Descr != "eth1" {
+		t.Errorf("row[0].Descr = %q, want eth1", rows[0].Descr)
+	}
+	if w.Err() == nil {
+		t.Fatal("w.Err() = nil, want decode error")
+	}
+}

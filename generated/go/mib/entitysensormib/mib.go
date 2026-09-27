@@ -10,12 +10,7 @@
 package entitysensormib
 
 import (
-	"context"
-	"fmt"
-	"iter"
-
 	entitymib "go.aledante.io/FlowSeer/generated/go/mib/entitymib"
-	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -29,87 +24,54 @@ import (
 // objects of these three types are used to identify the semantics of an
 // object of type EntitySensorValue.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntitySensorDataScale int32
 
 const (
-	// EntitySensorDataScaleYocto represents the SMI value yocto.
+	// EntitySensorDataScaleYocto is yocto.
 	EntitySensorDataScaleYocto EntitySensorDataScale = 1
-	// EntitySensorDataScaleZepto represents the SMI value zepto.
+	// EntitySensorDataScaleZepto is zepto.
 	EntitySensorDataScaleZepto EntitySensorDataScale = 2
-	// EntitySensorDataScaleAtto represents the SMI value atto.
+	// EntitySensorDataScaleAtto is atto.
 	EntitySensorDataScaleAtto EntitySensorDataScale = 3
-	// EntitySensorDataScaleFemto represents the SMI value femto.
+	// EntitySensorDataScaleFemto is femto.
 	EntitySensorDataScaleFemto EntitySensorDataScale = 4
-	// EntitySensorDataScalePico represents the SMI value pico.
+	// EntitySensorDataScalePico is pico.
 	EntitySensorDataScalePico EntitySensorDataScale = 5
-	// EntitySensorDataScaleNano represents the SMI value nano.
+	// EntitySensorDataScaleNano is nano.
 	EntitySensorDataScaleNano EntitySensorDataScale = 6
-	// EntitySensorDataScaleMicro represents the SMI value micro.
+	// EntitySensorDataScaleMicro is micro.
 	EntitySensorDataScaleMicro EntitySensorDataScale = 7
-	// EntitySensorDataScaleMilli represents the SMI value milli.
+	// EntitySensorDataScaleMilli is milli.
 	EntitySensorDataScaleMilli EntitySensorDataScale = 8
-	// EntitySensorDataScaleUnits represents the SMI value units.
+	// EntitySensorDataScaleUnits is units.
 	EntitySensorDataScaleUnits EntitySensorDataScale = 9
-	// EntitySensorDataScaleKilo represents the SMI value kilo.
+	// EntitySensorDataScaleKilo is kilo.
 	EntitySensorDataScaleKilo EntitySensorDataScale = 10
-	// EntitySensorDataScaleMega represents the SMI value mega.
+	// EntitySensorDataScaleMega is mega.
 	EntitySensorDataScaleMega EntitySensorDataScale = 11
-	// EntitySensorDataScaleGiga represents the SMI value giga.
+	// EntitySensorDataScaleGiga is giga.
 	EntitySensorDataScaleGiga EntitySensorDataScale = 12
-	// EntitySensorDataScaleTera represents the SMI value tera.
+	// EntitySensorDataScaleTera is tera.
 	EntitySensorDataScaleTera EntitySensorDataScale = 13
-	// EntitySensorDataScaleExa represents the SMI value exa.
+	// EntitySensorDataScaleExa is exa.
 	EntitySensorDataScaleExa EntitySensorDataScale = 14
-	// EntitySensorDataScalePeta represents the SMI value peta.
+	// EntitySensorDataScalePeta is peta.
 	EntitySensorDataScalePeta EntitySensorDataScale = 15
-	// EntitySensorDataScaleZetta represents the SMI value zetta.
+	// EntitySensorDataScaleZetta is zetta.
 	EntitySensorDataScaleZetta EntitySensorDataScale = 16
-	// EntitySensorDataScaleYotta represents the SMI value yotta.
+	// EntitySensorDataScaleYotta is yotta.
 	EntitySensorDataScaleYotta EntitySensorDataScale = 17
 )
 
-// String returns the SMI label, or EntitySensorDataScale(n) for an unrecognized value n.
-func (v EntitySensorDataScale) String() string {
-	switch v {
-	case EntitySensorDataScaleYocto:
-		return "yocto"
-	case EntitySensorDataScaleZepto:
-		return "zepto"
-	case EntitySensorDataScaleAtto:
-		return "atto"
-	case EntitySensorDataScaleFemto:
-		return "femto"
-	case EntitySensorDataScalePico:
-		return "pico"
-	case EntitySensorDataScaleNano:
-		return "nano"
-	case EntitySensorDataScaleMicro:
-		return "micro"
-	case EntitySensorDataScaleMilli:
-		return "milli"
-	case EntitySensorDataScaleUnits:
-		return "units"
-	case EntitySensorDataScaleKilo:
-		return "kilo"
-	case EntitySensorDataScaleMega:
-		return "mega"
-	case EntitySensorDataScaleGiga:
-		return "giga"
-	case EntitySensorDataScaleTera:
-		return "tera"
-	case EntitySensorDataScaleExa:
-		return "exa"
-	case EntitySensorDataScalePeta:
-		return "peta"
-	case EntitySensorDataScaleZetta:
-		return "zetta"
-	case EntitySensorDataScaleYotta:
-		return "yotta"
-	}
+var (
+	entitySensorDataScaleValues = []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}
+	entitySensorDataScaleNames  = []string{"yocto", "zepto", "atto", "femto", "pico", "nano", "micro", "milli", "units", "kilo", "mega", "giga", "tera", "exa", "peta", "zetta", "yotta"}
+)
 
-	return fmt.Sprintf("EntitySensorDataScale(%d)", v)
+// String returns the SMI label, or EntitySensorDataScale(n) for an unknown value.
+func (v EntitySensorDataScale) String() string {
+	return snmp.EnumString(int32(v), "EntitySensorDataScale", entitySensorDataScaleValues, entitySensorDataScaleNames)
 }
 
 // EntitySensorDataType is the SMI enum EntitySensorDataType.
@@ -128,67 +90,44 @@ func (v EntitySensorDataScale) String() string {
 // humidity rpm(10): shaft revolutions per minute cmm(11),: cubic meters
 // per minute (airflow) truthvalue(12): value takes { true(1), false(2) }
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntitySensorDataType int32
 
 const (
-	// EntitySensorDataTypeOther represents the SMI value other.
+	// EntitySensorDataTypeOther is other.
 	EntitySensorDataTypeOther EntitySensorDataType = 1
-	// EntitySensorDataTypeUnknown represents the SMI value unknown.
+	// EntitySensorDataTypeUnknown is unknown.
 	EntitySensorDataTypeUnknown EntitySensorDataType = 2
-	// EntitySensorDataTypeVoltsAC represents the SMI value voltsAC.
+	// EntitySensorDataTypeVoltsAC is voltsAC.
 	EntitySensorDataTypeVoltsAC EntitySensorDataType = 3
-	// EntitySensorDataTypeVoltsDC represents the SMI value voltsDC.
+	// EntitySensorDataTypeVoltsDC is voltsDC.
 	EntitySensorDataTypeVoltsDC EntitySensorDataType = 4
-	// EntitySensorDataTypeAmperes represents the SMI value amperes.
+	// EntitySensorDataTypeAmperes is amperes.
 	EntitySensorDataTypeAmperes EntitySensorDataType = 5
-	// EntitySensorDataTypeWatts represents the SMI value watts.
+	// EntitySensorDataTypeWatts is watts.
 	EntitySensorDataTypeWatts EntitySensorDataType = 6
-	// EntitySensorDataTypeHertz represents the SMI value hertz.
+	// EntitySensorDataTypeHertz is hertz.
 	EntitySensorDataTypeHertz EntitySensorDataType = 7
-	// EntitySensorDataTypeCelsius represents the SMI value celsius.
+	// EntitySensorDataTypeCelsius is celsius.
 	EntitySensorDataTypeCelsius EntitySensorDataType = 8
-	// EntitySensorDataTypePercentRH represents the SMI value percentRH.
+	// EntitySensorDataTypePercentRH is percentRH.
 	EntitySensorDataTypePercentRH EntitySensorDataType = 9
-	// EntitySensorDataTypeRpm represents the SMI value rpm.
+	// EntitySensorDataTypeRpm is rpm.
 	EntitySensorDataTypeRpm EntitySensorDataType = 10
-	// EntitySensorDataTypeCmm represents the SMI value cmm.
+	// EntitySensorDataTypeCmm is cmm.
 	EntitySensorDataTypeCmm EntitySensorDataType = 11
-	// EntitySensorDataTypeTruthvalue represents the SMI value truthvalue.
+	// EntitySensorDataTypeTruthvalue is truthvalue.
 	EntitySensorDataTypeTruthvalue EntitySensorDataType = 12
 )
 
-// String returns the SMI label, or EntitySensorDataType(n) for an unrecognized value n.
-func (v EntitySensorDataType) String() string {
-	switch v {
-	case EntitySensorDataTypeOther:
-		return "other"
-	case EntitySensorDataTypeUnknown:
-		return "unknown"
-	case EntitySensorDataTypeVoltsAC:
-		return "voltsAC"
-	case EntitySensorDataTypeVoltsDC:
-		return "voltsDC"
-	case EntitySensorDataTypeAmperes:
-		return "amperes"
-	case EntitySensorDataTypeWatts:
-		return "watts"
-	case EntitySensorDataTypeHertz:
-		return "hertz"
-	case EntitySensorDataTypeCelsius:
-		return "celsius"
-	case EntitySensorDataTypePercentRH:
-		return "percentRH"
-	case EntitySensorDataTypeRpm:
-		return "rpm"
-	case EntitySensorDataTypeCmm:
-		return "cmm"
-	case EntitySensorDataTypeTruthvalue:
-		return "truthvalue"
-	}
+var (
+	entitySensorDataTypeValues = []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
+	entitySensorDataTypeNames  = []string{"other", "unknown", "voltsAC", "voltsDC", "amperes", "watts", "hertz", "celsius", "percentRH", "rpm", "cmm", "truthvalue"}
+)
 
-	return fmt.Sprintf("EntitySensorDataType(%d)", v)
+// String returns the SMI label, or EntitySensorDataType(n) for an unknown value.
+func (v EntitySensorDataType) String() string {
+	return snmp.EnumString(int32(v), "EntitySensorDataType", entitySensorDataTypeValues, entitySensorDataTypeNames)
 }
 
 // EntitySensorStatus is the SMI enum EntitySensorStatus.
@@ -200,101 +139,99 @@ func (v EntitySensorDataType) String() string {
 // have a hard failure (disconnected wire), or a soft failure such as out-
 // of-range, jittery, or wildly fluctuating readings.
 //
-// Values outside the named constants are preserved. Concurrent reads are safe;
-// callers must synchronize writes to a shared value.
+// Unknown values are valid; reads are safe concurrently.
 type EntitySensorStatus int32
 
 const (
-	// EntitySensorStatusOk represents the SMI value ok.
+	// EntitySensorStatusOk is ok.
 	EntitySensorStatusOk EntitySensorStatus = 1
-	// EntitySensorStatusUnavailable represents the SMI value unavailable.
+	// EntitySensorStatusUnavailable is unavailable.
 	EntitySensorStatusUnavailable EntitySensorStatus = 2
-	// EntitySensorStatusNonoperational represents the SMI value nonoperational.
+	// EntitySensorStatusNonoperational is nonoperational.
 	EntitySensorStatusNonoperational EntitySensorStatus = 3
 )
 
-// String returns the SMI label, or EntitySensorStatus(n) for an unrecognized value n.
-func (v EntitySensorStatus) String() string {
-	switch v {
-	case EntitySensorStatusOk:
-		return "ok"
-	case EntitySensorStatusUnavailable:
-		return "unavailable"
-	case EntitySensorStatusNonoperational:
-		return "nonoperational"
-	}
+var (
+	entitySensorStatusValues = []int32{1, 2, 3}
+	entitySensorStatusNames  = []string{"ok", "unavailable", "nonoperational"}
+)
 
-	return fmt.Sprintf("EntitySensorStatus(%d)", v)
+// String returns the SMI label, or EntitySensorStatus(n) for an unknown value.
+func (v EntitySensorStatus) String() string {
+	return snmp.EnumString(int32(v), "EntitySensorStatus", entitySensorStatusValues, entitySensorStatusNames)
 }
 
-// EntPhySensorType is the column entPhySensorType of table entPhySensorTable.
+// EntPhySensorType is entPhySensorType.
 // The type of data returned by the associated entPhySensorValue object.
 // This object SHOULD be set by the agent during entry creation, and the
 // value SHOULD NOT change during operation.
-var EntPhySensorType = snmp.NewColumn[EntitySensorDataType](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (EntitySensorDataType, error) {
+var EntPhySensorType = snmp.NewFusedTableColumn[EntitySensorDataType](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (EntitySensorDataType, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntitySensorDataType(0), err
 	}
 	return EntitySensorDataType(v), nil
-})
+}, snmp.RawInteger32As[EntitySensorDataType], 0)
 
-// EntPhySensorScale is the column entPhySensorScale of table entPhySensorTable.
+// EntPhySensorScale is entPhySensorScale.
 // The exponent to apply to values returned by the associated
 // entPhySensorValue object. This object SHOULD be set by the agent during
 // entry creation, and the value SHOULD NOT change during operation.
-var EntPhySensorScale = snmp.NewColumn[EntitySensorDataScale](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (EntitySensorDataScale, error) {
+var EntPhySensorScale = snmp.NewFusedTableColumn[EntitySensorDataScale](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (EntitySensorDataScale, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntitySensorDataScale(0), err
 	}
 	return EntitySensorDataScale(v), nil
-})
+}, snmp.RawInteger32As[EntitySensorDataScale], 1)
 
-// EntPhySensorPrecision is the column entPhySensorPrecision of table entPhySensorTable.
+// EntPhySensorPrecision is entPhySensorPrecision.
 // The number of decimal places of precision in fixed-point sensor values
 // returned by the associated entPhySensorValue object. This object SHOULD
 // be set to '0' when the associated entPhySensorType value is not a
 // fixed-point type: e.g., 'percentRH(9)', 'rpm(10)', 'cmm(11)', or
 // 'truthvalue(12)'. This object SHOULD be set by the agent during entry
 // creation, and the value SHOULD NOT change during operation.
-var EntPhySensorPrecision = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32)
+var EntPhySensorPrecision = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 3), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 2)
 
-// EntPhySensorValue is the column entPhySensorValue of table entPhySensorTable.
+// EntPhySensorValue is entPhySensorValue.
 // The most recent measurement obtained by the agent for this sensor. To
 // correctly interpret the value of this object, the associated
 // entPhySensorType, entPhySensorScale, and entPhySensorPrecision objects
 // must also be examined.
-var EntPhySensorValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32)
+var EntPhySensorValue = snmp.NewFusedTableColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 4), snmp.KindInteger32, snmp.DecodeInt32, snmp.RawInteger32, 3)
 
-// EntPhySensorOperStatus is the column entPhySensorOperStatus of table entPhySensorTable.
+// EntPhySensorOperStatus is entPhySensorOperStatus.
 // The operational status of the sensor.
-var EntPhySensorOperStatus = snmp.NewColumn[EntitySensorStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (EntitySensorStatus, error) {
+var EntPhySensorOperStatus = snmp.NewFusedTableColumn[EntitySensorStatus](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 5), snmp.KindInteger32, func(vb snmp.VarBind) (EntitySensorStatus, error) {
 	v, err := snmp.DecodeInt32(vb)
 	if err != nil {
 		return EntitySensorStatus(0), err
 	}
 	return EntitySensorStatus(v), nil
-})
+}, snmp.RawInteger32As[EntitySensorStatus], 4)
 
-// EntPhySensorUnitsDisplay is the column entPhySensorUnitsDisplay of table entPhySensorTable.
+// EntPhySensorUnitsDisplay is entPhySensorUnitsDisplay.
 // A textual description of the data units that should be used in the
 // display of entPhySensorValue.
-var EntPhySensorUnitsDisplay = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeBytes)
+var EntPhySensorUnitsDisplay = snmp.NewTableColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 6), snmp.KindOctetString, snmp.DecodeBytes, 5)
 
-// EntPhySensorValueTimeStamp is the column entPhySensorValueTimeStamp of table entPhySensorTable.
+// EntPhySensorValueTimeStamp is entPhySensorValueTimeStamp.
 // The value of sysUpTime at the time the status and/or value of this
 // sensor was last obtained by the agent.
-var EntPhySensorValueTimeStamp = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindTimeTicks, snmp.DecodeUint32)
+var EntPhySensorValueTimeStamp = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 7), snmp.KindTimeTicks, snmp.DecodeUint32, snmp.RawTimeTicks, 6)
 
-// EntPhySensorValueUpdateRate is the column entPhySensorValueUpdateRate of table entPhySensorTable.
+// EntPhySensorValueUpdateRate is entPhySensorValueUpdateRate.
 // An indication of the frequency that the agent updates the associated
 // entPhySensorValue object, representing in milliseconds. The value zero
 // indicates: - the sensor value is updated on demand (e.g., when polled by
 // the agent for a get-request), - the sensor value is updated when the
 // sensor value changes (event-driven), - the agent does not know the
 // update rate.
-var EntPhySensorValueUpdateRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32)
+var (
+	EntPhySensorValueUpdateRate = snmp.NewFusedTableColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1, 1, 8), snmp.KindUinteger32, snmp.DecodeUint32, snmp.RawGauge32, 7)
+	entPhySensorTableColumns    = []snmp.AnyColumn{EntPhySensorType, EntPhySensorScale, EntPhySensorPrecision, EntPhySensorValue, EntPhySensorOperStatus, EntPhySensorUnitsDisplay, EntPhySensorValueTimeStamp, EntPhySensorValueUpdateRate}
+)
 
 // EntPhySensorTableKey is the decoded INDEX of one entPhySensorTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
@@ -314,14 +251,7 @@ func decodeEntPhySensorTableKey(idx snmp.OID) (EntPhySensorTableKey, bool) {
 	return EntPhySensorTableKey{EntPhysicalIndex: entitymib.PhysicalIndex(parts[0].Integer)}, true
 }
 
-// EntPhySensorTableRow is one row of entPhySensorTable. Key is the decoded INDEX; a
-// suffix that does not match the declared INDEX leaves it zero, and
-// [EntPhySensorTableRow.KeyValid] reports which. The remaining fields are
-// populated only for columns the caller passed to Walk(). Use
-// [EntPhySensorTableRow.Observed] to tell a reported zero from a column the
-// agent never answered.
-// The zero value has no observed columns. Concurrent reads are safe;
-// callers must synchronize mutation of the row or its referenced data.
+// EntPhySensorTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type EntPhySensorTableRow struct {
 	Key                         EntPhySensorTableKey
 	keyValid                    bool
@@ -333,282 +263,59 @@ type EntPhySensorTableRow struct {
 	EntPhySensorUnitsDisplay    []byte
 	EntPhySensorValueTimeStamp  uint32
 	EntPhySensorValueUpdateRate uint32
-
-	// observed carries one bit per column of this table, in
-	// column-OID order, set when the walk decoded a value for
-	// that column on this row.
-	observed [1]uint64
+	observed                    [1]uint64
 }
 
-// KeyValid reports whether the row's instance suffix decoded as the declared
-// INDEX. A false result means Key is zero and the agent's suffix did not
-// have the declared shape; the row's columns are still populated.
+// KeyValid reports whether Key decoded from the row index.
 func (r EntPhySensorTableRow) KeyValid() bool {
 	return r.keyValid
 }
 
-// Observed reports whether col returned a value for this row. A column
-// the agent answered reads true even when the answer was zero or empty;
-// a column that was requested but never landed, one that was not passed
-// to Walk, and any column of another table all read false.
+// Observed reports whether col supplied this row field, including a zero value.
 func (r EntPhySensorTableRow) Observed(col snmp.AnyColumn) bool {
-	switch col.Key() {
-	case EntPhySensorType.Key():
-		return r.observed[0]&(1<<0) != 0
-	case EntPhySensorScale.Key():
-		return r.observed[0]&(1<<1) != 0
-	case EntPhySensorPrecision.Key():
-		return r.observed[0]&(1<<2) != 0
-	case EntPhySensorValue.Key():
-		return r.observed[0]&(1<<3) != 0
-	case EntPhySensorOperStatus.Key():
-		return r.observed[0]&(1<<4) != 0
-	case EntPhySensorUnitsDisplay.Key():
-		return r.observed[0]&(1<<5) != 0
-	case EntPhySensorValueTimeStamp.Key():
-		return r.observed[0]&(1<<6) != 0
-	case EntPhySensorValueUpdateRate.Key():
-		return r.observed[0]&(1<<7) != 0
-	}
-
-	return false
+	return snmp.ColumnObserved(r.observed[:], entPhySensorTableColumns, col)
 }
 
-// EntPhySensorTableWalker streams selected columns of entPhySensorTable.
-// The zero value is not usable; construct via EntPhySensorTable.Walk(ctx, sess, cols...).
-// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+// EntPhySensorTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.
 type EntPhySensorTableWalker struct {
-	rw   *snmp.ColumnWalker
-	cols []snmp.AnyColumn
+	snmp.TableWalker[EntPhySensorTableRow]
 }
-
-// Iter yields complete selected-column rows in numeric OID suffix order
-// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
-// column. Breaking iteration stops retrieval. A decode error omits the
-// failing row and later rows; already delivered rows remain valid. Check Err.
-// A row whose suffix does not decode as the declared INDEX is still yielded,
-// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
-func (tw *EntPhySensorTableWalker) Iter() iter.Seq2[snmp.OID, EntPhySensorTableRow] {
-	return func(yield func(snmp.OID, EntPhySensorTableRow) bool) {
-		for idx, cells := range tw.rw.Iter() {
-			var row EntPhySensorTableRow
-			row.Key, row.keyValid = decodeEntPhySensorTableKey(idx)
-			for _, cell := range cells {
-				rv := cell.Value
-				var derr error
-				switch tw.cols[cell.Column].Key() {
-				case EntPhySensorType.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorType = EntitySensorDataType(v)
-						row.observed[0] |= 1 << 0
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorType.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorType = dv
-								row.observed[0] |= 1 << 0
-							}
-						}
-					}
-				case EntPhySensorScale.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorScale = EntitySensorDataScale(v)
-						row.observed[0] |= 1 << 1
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorScale.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorScale = dv
-								row.observed[0] |= 1 << 1
-							}
-						}
-					}
-				case EntPhySensorPrecision.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorPrecision = v
-						row.observed[0] |= 1 << 2
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorPrecision.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorPrecision = dv
-								row.observed[0] |= 1 << 2
-							}
-						}
-					}
-				case EntPhySensorValue.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorValue = v
-						row.observed[0] |= 1 << 3
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorValue.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorValue = dv
-								row.observed[0] |= 1 << 3
-							}
-						}
-					}
-				case EntPhySensorOperStatus.Key():
-					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.EntPhySensorOperStatus = EntitySensorStatus(v)
-						row.observed[0] |= 1 << 4
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorOperStatus.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorOperStatus = dv
-								row.observed[0] |= 1 << 4
-							}
-						}
-					}
-				case EntPhySensorUnitsDisplay.Key():
-					vb, vbErr := rv.Decode()
-					if vbErr != nil {
-						derr = vbErr
-					} else {
-						dv, dErr := EntPhySensorUnitsDisplay.Decode(vb)
-						if dErr != nil {
-							derr = dErr
-						} else {
-							row.EntPhySensorUnitsDisplay = dv
-							row.observed[0] |= 1 << 5
-						}
-					}
-				case EntPhySensorValueTimeStamp.Key():
-					if v, okRaw := snmp.RawTimeTicks(rv); okRaw {
-						row.EntPhySensorValueTimeStamp = v
-						row.observed[0] |= 1 << 6
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorValueTimeStamp.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorValueTimeStamp = dv
-								row.observed[0] |= 1 << 6
-							}
-						}
-					}
-				case EntPhySensorValueUpdateRate.Key():
-					if v, okRaw := snmp.RawGauge32(rv); okRaw {
-						row.EntPhySensorValueUpdateRate = v
-						row.observed[0] |= 1 << 7
-					} else {
-						vb, vbErr := rv.Decode()
-						if vbErr != nil {
-							derr = vbErr
-						} else {
-							dv, dErr := EntPhySensorValueUpdateRate.Decode(vb)
-							if dErr != nil {
-								derr = dErr
-							} else {
-								row.EntPhySensorValueUpdateRate = dv
-								row.observed[0] |= 1 << 7
-							}
-						}
-					}
-				}
-				if derr != nil {
-					tw.rw.Fail(derr)
-					return
-				}
-			}
-			if !yield(idx, row) {
-				return
-			}
-		}
-	}
+type entPhySensorTableT struct {
+	snmp.Table[EntPhySensorTableRow, *EntPhySensorTableWalker]
 }
-
-// Err returns the underlying walker's terminal error, or nil if
-// the walk completed naturally.
-func (tw *EntPhySensorTableWalker) Err() error {
-	return tw.rw.Err()
-}
-
-// entPhySensorTableT is the singleton type of EntPhySensorTable.
-type entPhySensorTableT struct{}
 
 // EntPhySensorTable is the descriptor for the entPhySensorTable table.
-var EntPhySensorTable entPhySensorTableT
+var EntPhySensorTable = entPhySensorTableT{Table: snmp.NewTable("entPhySensorTable", entPhySensorTableColumns, func(idx snmp.OID, row *EntPhySensorTableRow) {
+	row.Key, row.keyValid = decodeEntPhySensorTableKey(idx)
+}, func(row *EntPhySensorTableRow, ordinal int, rv snmp.RawVarBind) error {
+	switch ordinal {
+	case 0:
+		return snmp.DecodeColumn(rv, EntPhySensorType, &row.EntPhySensorType, row.observed[:])
+	case 1:
+		return snmp.DecodeColumn(rv, EntPhySensorScale, &row.EntPhySensorScale, row.observed[:])
+	case 2:
+		return snmp.DecodeColumn(rv, EntPhySensorPrecision, &row.EntPhySensorPrecision, row.observed[:])
+	case 3:
+		return snmp.DecodeColumn(rv, EntPhySensorValue, &row.EntPhySensorValue, row.observed[:])
+	case 4:
+		return snmp.DecodeColumn(rv, EntPhySensorOperStatus, &row.EntPhySensorOperStatus, row.observed[:])
+	case 5:
+		return snmp.DecodeColumn(rv, EntPhySensorUnitsDisplay, &row.EntPhySensorUnitsDisplay, row.observed[:])
+	case 6:
+		return snmp.DecodeColumn(rv, EntPhySensorValueTimeStamp, &row.EntPhySensorValueTimeStamp, row.observed[:])
+	case 7:
+		return snmp.DecodeColumn(rv, EntPhySensorValueUpdateRate, &row.EntPhySensorValueUpdateRate, row.observed[:])
+	}
+	return nil
+}, func(tw snmp.TableWalker[EntPhySensorTableRow]) *EntPhySensorTableWalker {
+	return &EntPhySensorTableWalker{TableWalker: tw}
+})}
 
-// Close stops retrieval. It is idempotent and safe during iteration.
-func (tw *EntPhySensorTableWalker) Close() {
-	tw.rw.Close()
-}
-
-// Walk lazily retrieves only selected columns with bounded defaults.
-// Rows are the union of selected values in numeric OID index order.
-// No columns means no rows or requests. Duplicate selections are ignored.
-// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
-func (t entPhySensorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *EntPhySensorTableWalker {
-	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
-}
-
-// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
-// change indicator when the MIB declares one, and the Go type of its row key.
-// The descriptor is a value; hold it without the row or walker types to probe
-// for the table or declare it as a dependency.
+// Descriptor returns the table identity, change indicator, and row-key type.
 func (entPhySensorTableT) Descriptor() snmp.TableDescriptor {
 	return snmp.TableDescriptor{
 		KeyType: "EntPhySensorTableKey",
 		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 99, 1, 1),
-	}
-}
-
-// WalkWithOptions is Walk with request sizing and per-call controls.
-// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
-func (entPhySensorTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *EntPhySensorTableWalker {
-	seen := make(map[string]bool)
-	var selected []snmp.AnyColumn
-	var roots []snmp.OID
-	for _, c := range cols {
-		switch c.Key() {
-		case EntPhySensorType.Key(), EntPhySensorScale.Key(), EntPhySensorPrecision.Key(), EntPhySensorValue.Key(), EntPhySensorOperStatus.Key(), EntPhySensorUnitsDisplay.Key(), EntPhySensorValueTimeStamp.Key(), EntPhySensorValueUpdateRate.Key():
-		default:
-			w := snmp.WalkColumns(ctx, sess, nil, options)
-			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "entPhySensorTable.Walk: column %s", c.OID()))
-			return &EntPhySensorTableWalker{rw: w}
-		}
-		if seen[c.Key()] {
-			continue
-		}
-		seen[c.Key()] = true
-		selected = append(selected, c)
-		roots = append(roots, c.OID())
-	}
-	return &EntPhySensorTableWalker{
-		cols: selected,
-		rw:   snmp.WalkColumns(ctx, sess, roots, options),
 	}
 }
 
