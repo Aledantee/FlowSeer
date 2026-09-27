@@ -499,8 +499,16 @@ func (o *oidWalkOps) items(p *pdu) ([]oidWalkItem, error) {
 		if err != nil {
 			return nil, errs.Wrap(err, "decode varbind list")
 		}
-		capacity := max(1, len(listContent)/10)
-		items := make([]oidWalkItem, 0, capacity)
+		count := 0
+		for scan := listContent; len(scan) > 0; {
+			_, consumed, err := parseSequence(scan, tagSequence, 2)
+			if err != nil {
+				return nil, errs.Wrap(err, "decode varbind")
+			}
+			count++
+			scan = scan[consumed:]
+		}
+		items := make([]oidWalkItem, 0, count)
 		for len(listContent) > 0 {
 			vbContent, consumed, err := parseSequence(listContent, tagSequence, 2)
 			if err != nil {

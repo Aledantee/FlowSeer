@@ -305,6 +305,9 @@ func TestOIDWalkOps_LazyDecodeAllocations(t *testing.T) {
 		if err != nil {
 			t.Fatalf("items: %v", err)
 		}
+		if cap(items) != len(items) {
+			t.Fatalf("items capacity %d != length %d", cap(items), len(items))
+		}
 		cur := walkCursor[OID]{next: root}
 		yielded := 0
 		for _, it := range items {
