@@ -62,6 +62,12 @@ const paginated = computed(() =>
   filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize),
 )
 watch([search, band, accessPoint], () => (page.value = 1))
+function isBand(value: string): value is Band {
+  return value === '2.4 GHz' || value === '5 GHz' || value === '6 GHz'
+}
+function setBand(value: string) {
+  band.value = isBand(value) ? value : ''
+}
 function clearAccessPoint() {
   void navPage.go(
     { query: { ...navPage.location.value.query, ap: undefined } },
@@ -75,7 +81,9 @@ function clearAccessPoint() {
     class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
     aria-labelledby="clients-title"
   >
-    <div class="px-6 py-5 pb-4 flex items-center justify-between gap-3">
+    <div
+      class="px-6 py-5 pb-4 flex items-center justify-between gap-3 max-[560px]:p-[18px_14px]"
+    >
       <h2 id="clients-title" class="text-base font-semibold text-foreground">
         Connected clients
         <span
@@ -85,8 +93,10 @@ function clearAccessPoint() {
         </span>
       </h2>
     </div>
-    <div class="flex items-center gap-3 px-6 pb-5">
-      <div class="relative flex items-center w-[340px]">
+    <div
+      class="flex items-center gap-3 px-6 pb-5 max-[560px]:flex-wrap max-[560px]:p-[0_14px_15px] max-[560px]:gap-2.5"
+    >
+      <div class="relative flex items-center w-[340px] max-[560px]:w-full">
         <AppIcon
           name="search"
           class="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none z-10"
@@ -98,12 +108,12 @@ function clearAccessPoint() {
           class="pl-8"
         />
       </div>
-      <div class="w-36">
+      <div class="w-36 max-[560px]:w-full">
         <UiSelect
           :model-value="band || 'all'"
           :options="bandOptions"
           aria-label="Filter by band"
-          @update:model-value="band = $event === 'all' ? '' : ($event as Band)"
+          @update:model-value="setBand($event)"
         />
       </div>
       <button
