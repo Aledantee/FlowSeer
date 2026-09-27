@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import prettier from 'prettier'
@@ -44,4 +45,15 @@ export async function buildPaletteOutputs(
     { path: semanticCssPath, content: formattedSemantic },
     { path: paletteJsonPath, content: formattedPalette },
   ]
+}
+
+export async function writePaletteOutputs(
+  source: PaletteSource,
+  rootDir = fileURLToPath(new URL('../', import.meta.url)),
+): Promise<PaletteOutputFile[]> {
+  const outputs = await buildPaletteOutputs(source, rootDir)
+  for (const { path, content } of outputs) {
+    writeFileSync(path, content)
+  }
+  return outputs
 }
