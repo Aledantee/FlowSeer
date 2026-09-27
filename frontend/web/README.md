@@ -78,9 +78,8 @@ Prettier owns formatting; ESLint checks code and Vue semantics with the standard
 Prettier compatibility configuration.
 
 The [design language](design/language.md) documents spacing, control states, and
-font research. Inter Variable is the interface font; DM Sans remains available
-in the comparison specimen. m3connect uses GT Standard, which remains a brand
-option with supplied licensed files.
+font research. Inter Variable is the interface font. m3connect uses GT Standard,
+which remains a brand option with supplied licensed files.
 
 ## Design direction
 

@@ -234,8 +234,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                 <UiTooltip
                   v-if="canSplit"
                   label="Open side by side"
-                  hint="Shift+Enter"
+                  :shortcut="{ code: 'Enter', shift: true }"
                   side="left"
+                  inline
                 >
                   <button
                     tabindex="-1"
@@ -250,8 +251,9 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                     !(result.kind === 'page' && result.id.startsWith('tab:'))
                   "
                   label="Send to dock"
-                  hint="Alt+Enter"
+                  :shortcut="{ code: 'Enter', alt: true }"
                   side="left"
+                  inline
                 >
                   <button
                     tabindex="-1"
