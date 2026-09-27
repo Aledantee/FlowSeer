@@ -3,7 +3,7 @@ title: Web Design System Phase 3, Overlays and Navigation - Plan
 type: feat
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: planned
 execution: code
 parent: docs/plans/2026-09-26-2329-feat-web-design-system-plan.md
@@ -19,6 +19,18 @@ This plan is wrong if Reka's `Combobox` cannot keep `GlobalSearch`'s recent-sear
 
 ## Decisions
 
+- Toasts appear in the bottom-right corner and stack upwards. Why: the
+  user chose it on 2026-09-27; it keeps notifications away from the topbar
+  navigation and the dock controls.
+- `GlobalSearch` is built on a dedicated `UiCommand` component under
+  `src/ui/command/`, not on `UiDialog` and `UiCombobox` composed inside
+  `GlobalSearch.vue`. Why: the user chose it on 2026-09-27 over the
+  single-consumer composition, so later command palettes reuse one
+  component.
+- On narrow viewports `UiBreadcrumb` collapses its middle items into an
+  ellipsis dropdown instead of wrapping. Why: the user chose it on
+  2026-09-27 over flex wrapping; the breadcrumb stays on one line, at the
+  cost of measuring the available width.
 - Overlays render in the top layer through Reka portals (`DialogPortal`, `PopoverPortal`, `DropdownMenuPortal`). Scrims use the `overlay` semantic token (`var(--overlay)`). Surface containers use `popover` (`var(--popover)`) with `shadow-lg`. Why: adheres to the phase 1 token foundations and elevation scale in `src/theme/tokens.css`.
 - Overlay entrance transitions run in 100–160 ms with `--ease-out` (`cubic-bezier(0.2, 0, 0, 1)`). Overlay exit is immediate. Why: the motion rules in `frontend/web/README.md` require prompt dismissals so animation never holds focus or delays user action.
 - Component styling uses `tailwind-variants` (`tv()`) for components with visual variants (`UiToast`, `UiAlertDialog`, `UiTabs`, `UiDialog`). Why: the architecture direction in `docs/architecture/2026-09-26-web-design-system-direction.md` forbids manual class concatenation and delegates conflict resolution to `tailwind-merge`.
@@ -366,12 +378,4 @@ Manual and browser checks:
 
 ## Open questions
 
-- Toast placement and stacking direction:
-  - Options: bottom-right stacking upwards (`bottom-0 right-0`) (Recommended) vs top-right stacking downwards.
-  - Recommendation: bottom-right stacking upwards keeps notifications away from topbar navigation and dock controls while remaining accessible on desktop and mobile.
-- `GlobalSearch` command palette architecture:
-  - Options: compose `UiDialog` and `UiCombobox` directly in `GlobalSearch.vue` (Recommended) vs introduce a dedicated `UiCommand` abstraction.
-  - Recommendation: compose `UiDialog` (`headless: true`) and `UiCombobox` directly. Reka's `Combobox` already manages input focus, keyboard arrows, and option roles; creating a separate `UiCommand` wrapper is redundant when only a single command palette consumer exists in this phase.
-- Breadcrumb item overflow behavior on small viewports:
-  - Options: flex wrapping with responsive font sizing (Recommended) vs collapsed ellipsis dropdown.
-  - Recommendation: flex wrapping (`flex flex-wrap items-center gap-1.5`) matches existing `FleetView.vue` responsive behavior without requiring complex resize-observer measurement logic.
+- None.
