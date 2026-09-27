@@ -26,22 +26,17 @@ const emit = defineEmits<{
 }>()
 
 const rootRef = ref<{ $el?: unknown } | null>(null)
-const isControlled = computed(() => props.modelValue !== undefined)
 const internalValue = ref<boolean | 'indeterminate'>(props.modelValue ?? false)
 
 watch(
   () => props.modelValue,
   (val) => {
-    if (val !== undefined) {
-      internalValue.value = val
-    }
+    internalValue.value = val ?? false
   },
 )
 
-const currentValue = computed(() =>
-  isControlled.value
-    ? (props.modelValue as boolean | 'indeterminate')
-    : internalValue.value,
+const currentValue = computed<boolean | 'indeterminate'>(() =>
+  props.modelValue !== undefined ? props.modelValue : internalValue.value,
 )
 
 let initialValue: boolean | 'indeterminate' = false

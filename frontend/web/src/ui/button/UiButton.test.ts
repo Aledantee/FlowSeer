@@ -46,6 +46,24 @@ describe('UiButton', () => {
     }
   })
 
+  it('protects vertical padding and hover backgrounds against legacy cascade with important modifiers', () => {
+    const { button: smButton } = mountButton({ size: 'sm' })
+    expect(smButton.className).toContain('!py-0')
+    dispose()
+
+    const { button: mdButton } = mountButton({ size: 'md' })
+    expect(mdButton.className).toContain('!py-0')
+    dispose()
+
+    const { button: secondaryButton } = mountButton({ variant: 'secondary' })
+    expect(secondaryButton.className).toContain('hover:!bg-hover')
+    dispose()
+
+    const { button: ghostButton } = mountButton({ variant: 'ghost' })
+    expect(ghostButton.className).toContain('hover:!bg-hover')
+    dispose()
+  })
+
   it('sets the HTML disabled attribute and suppresses click handlers when disabled', async () => {
     const onClick = vi.fn()
     const { button } = mountButton({ disabled: true, onClick })

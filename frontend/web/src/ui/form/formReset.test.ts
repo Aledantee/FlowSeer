@@ -59,7 +59,6 @@ describe('form reset and uncontrolled contract', () => {
 
     const app = createApp({
       render() {
-        // Trigger reactive dependencies on count.value so rerender happens
         return h('div', { 'data-count': count.value }, [
           h(UiInput, { name: 'uncontrolledField' }),
         ])
@@ -73,7 +72,6 @@ describe('form reset and uncontrolled contract', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }))
     await nextTick()
 
-    // Trigger parent rerender
     count.value++
     await nextTick()
 
@@ -289,5 +287,130 @@ describe('form reset and uncontrolled contract', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     expect(selected.value).toBe('opt-a')
+  })
+
+  it('clears visible state of UiCheckbox when controlled model changes to undefined', async () => {
+    const checked = ref<boolean | undefined>(true)
+    const host = document.createElement('div')
+    document.body.append(host)
+
+    const app = createApp({
+      render() {
+        return h(UiCheckbox, {
+          modelValue: checked.value,
+          'onUpdate:modelValue': (v: boolean | 'indeterminate') => {
+            checked.value = v === true
+          },
+        })
+      },
+    })
+    app.mount(host)
+    cleanups.push(() => app.unmount())
+
+    const button = host.querySelector('button') as HTMLButtonElement
+    expect(button.getAttribute('data-state')).toBe('checked')
+
+    checked.value = undefined
+    await nextTick()
+
+    expect(button.getAttribute('data-state')).toBe('unchecked')
+  })
+
+  it('clears visible state of UiSwitch when controlled model changes to undefined', async () => {
+    const active = ref<boolean | undefined>(true)
+    const host = document.createElement('div')
+    document.body.append(host)
+
+    const app = createApp({
+      render() {
+        return h(UiSwitch, {
+          modelValue: active.value,
+          'onUpdate:modelValue': (v: boolean) => {
+            active.value = v
+          },
+        })
+      },
+    })
+    app.mount(host)
+    cleanups.push(() => app.unmount())
+
+    const button = host.querySelector('button') as HTMLButtonElement
+    expect(button.getAttribute('data-state')).toBe('checked')
+
+    active.value = undefined
+    await nextTick()
+
+    expect(button.getAttribute('data-state')).toBe('unchecked')
+  })
+
+  it('clears visible state of UiRadioGroup when controlled model changes to undefined', async () => {
+    const selected = ref<string | undefined>('opt1')
+    const host = document.createElement('div')
+    document.body.append(host)
+
+    const options = [
+      { value: 'opt1', label: 'Option 1' },
+      { value: 'opt2', label: 'Option 2' },
+    ]
+
+    const app = createApp({
+      render() {
+        return h(UiRadioGroup, {
+          modelValue: selected.value,
+          options,
+          'onUpdate:modelValue': (v: string) => {
+            selected.value = v
+          },
+        })
+      },
+    })
+    app.mount(host)
+    cleanups.push(() => app.unmount())
+
+    const radios = host.querySelectorAll('[role="radio"]')
+    expect(radios[0].getAttribute('data-state')).toBe('checked')
+    expect(radios[0].getAttribute('aria-checked')).toBe('true')
+
+    selected.value = undefined
+    await nextTick()
+
+    expect(radios[0].getAttribute('data-state')).toBe('unchecked')
+    expect(radios[0].getAttribute('aria-checked')).toBe('false')
+    expect(radios[1].getAttribute('data-state')).toBe('unchecked')
+    expect(radios[1].getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('clears visible state of UiSelect when controlled model changes to undefined', async () => {
+    const selected = ref<string | undefined>('opt-a')
+    const host = document.createElement('div')
+    document.body.append(host)
+
+    const options = [
+      { value: 'opt-a', label: 'Option A' },
+      { value: 'opt-b', label: 'Option B' },
+    ]
+
+    const app = createApp({
+      render() {
+        return h(UiSelect, {
+          modelValue: selected.value,
+          options,
+          placeholder: 'Select an option...',
+          'onUpdate:modelValue': (v: string) => {
+            selected.value = v
+          },
+        })
+      },
+    })
+    app.mount(host)
+    cleanups.push(() => app.unmount())
+
+    const trigger = host.querySelector('button') as HTMLButtonElement
+    expect(trigger.textContent).toContain('Option A')
+
+    selected.value = undefined
+    await nextTick()
+
+    expect(trigger.textContent).toContain('Select an option...')
   })
 })

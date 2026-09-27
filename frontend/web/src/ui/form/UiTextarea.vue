@@ -46,14 +46,16 @@ const textareaId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,
 )
-const computedAriaLabel = computed(
-  () => props.ariaLabel ?? (attrs['aria-label'] as string | undefined),
-)
-const ariaDescribedBy = computed(
-  () =>
-    (attrs['aria-describedby'] as string | undefined) ??
-    fieldContext?.describedBy.value,
-)
+const computedAriaLabel = computed(() => {
+  if (props.ariaLabel !== undefined) return props.ariaLabel
+  const attr = attrs['aria-label']
+  return typeof attr === 'string' ? attr : undefined
+})
+const ariaDescribedBy = computed(() => {
+  const attr = attrs['aria-describedby']
+  if (typeof attr === 'string') return attr
+  return fieldContext?.describedBy.value
+})
 
 const textareaVariants = tv({
   base: 'w-full min-h-[80px] text-sm !px-3 !py-1.5 !rounded-control transition-colors !bg-card !text-foreground placeholder:text-muted-foreground disabled:!opacity-50 disabled:!cursor-not-allowed focus-visible:!outline-none !border',
@@ -92,7 +94,9 @@ useFormReset({
 })
 
 function handleInput(event: Event) {
-  emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+  if (event.target instanceof HTMLTextAreaElement) {
+    emit('update:modelValue', event.target.value)
+  }
 }
 </script>
 

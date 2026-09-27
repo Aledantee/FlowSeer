@@ -49,20 +49,17 @@ const radioLabelVariants = tv({
 })
 
 const rootRef = ref<{ $el?: unknown } | null>(null)
-const isControlled = computed(() => props.modelValue !== undefined)
 const internalValue = ref<string>(props.modelValue ?? '')
 
 watch(
   () => props.modelValue,
   (val) => {
-    if (val !== undefined) {
-      internalValue.value = val
-    }
+    internalValue.value = val ?? ''
   },
 )
 
-const currentValue = computed(() =>
-  isControlled.value ? (props.modelValue as string) : internalValue.value,
+const currentValue = computed<string>(() =>
+  props.modelValue !== undefined ? props.modelValue : internalValue.value,
 )
 
 let initialValue = ''

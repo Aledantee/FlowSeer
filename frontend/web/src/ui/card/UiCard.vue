@@ -1,6 +1,6 @@
 <script setup lang="ts">
 export interface UiCardProps {
-  as?: string
+  as?: 'div' | 'article' | 'section'
 }
 
 withDefaults(defineProps<UiCardProps>(), {
