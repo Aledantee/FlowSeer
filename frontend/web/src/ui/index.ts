@@ -129,6 +129,9 @@ export { default as UiCommandShortcut } from './command/UiCommandShortcut.vue'
 export { default as UiScrollArea } from './scroll-area/UiScrollArea.vue'
 export type { UiScrollAreaProps } from './scroll-area/UiScrollArea.vue'
 
+export { default as UiAiSummary } from './ai/UiAiSummary.vue'
+export { default as UiAiActionLayer } from './ai/UiAiActionLayer.vue'
+
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {
   BreadcrumbItemData,

@@ -1,0 +1,31 @@
+/* The pending shimmer for an AI summary: a narrow coral-to-cyan sweep over
+   a muted bar. It reads the semantic tokens so it follows the theme, and
+   stops under reduced motion, where the bars stay static and the loading
+   status is the text that carries the meaning. */
+@keyframes flowseer-ai-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.ai-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--subtle) 0%,
+    var(--primary) 40%,
+    var(--accent) 60%,
+    var(--subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: flowseer-ai-shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-shimmer {
+    animation: none;
+    background: var(--subtle);
+  }
+}

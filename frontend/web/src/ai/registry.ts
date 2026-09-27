@@ -49,6 +49,7 @@ export interface AiRegistry {
   unregister(element: HTMLElement): void
   list(): AiTarget[]
   view(id: string): AiTargetView | undefined
+  idForElement(element: HTMLElement): string | undefined
   highlight(id: string): boolean
   clearHighlight(): void
   selection(): AiTargetView | undefined
@@ -136,6 +137,13 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     if (!held) return
     removeId(held)
     notify()
+  }
+
+  function idForElement(element: HTMLElement): string | undefined {
+    const id = byElement.get(element)
+    if (id === undefined) return undefined
+    const registration = byId.get(id)
+    return registration && isVisible(registration) ? id : undefined
   }
 
   function list(): AiTarget[] {
@@ -227,6 +235,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     unregister,
     list,
     view,
+    idForElement,
     highlight,
     clearHighlight,
     selection,
