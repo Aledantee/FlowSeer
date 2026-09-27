@@ -15,4 +15,17 @@ module fixture-grp {
       }
     }
   }
+
+  grouping peer-list {
+    description "A keyed list shared by every container that uses it.";
+    list peer {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf weight {
+        type uint8;
+      }
+    }
+  }
 }

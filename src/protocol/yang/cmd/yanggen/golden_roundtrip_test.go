@@ -263,3 +263,59 @@ func TestGroupingInstantiatingModuleRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// TestGeneratedSeparatedShapesDecodeTheirOwnWireForm asserts that nodes the
+// shape key keeps apart decode what their own schema path carries: a string
+// where the sibling holds a uint32, a leaf qualified by its augmenting module,
+// and a presence container, and that the shared list's descriptors address
+// their own container.
+func TestGeneratedSeparatedShapesDecodeTheirOwnWireForm(t *testing.T) {
+	var byType fixturemain.ByTypeB
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByTypeBSchema, []byte(`{"setting":{"value":"eth0"}}`), &byType); err != nil {
+		t.Fatalf("by-type-b: %v", err)
+	}
+	if byType.Setting == nil || byType.Setting.Value == nil || *byType.Setting.Value != "eth0" {
+		t.Errorf("by-type-b setting = %+v, want Value eth0", byType.Setting)
+	}
+
+	payload := []byte(`{"slot":{"fixture-aug:value":7}}`)
+	var byModuleB fixturemain.ByModuleB
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleBSchema, payload, &byModuleB); err != nil {
+		t.Fatalf("by-module-b: %v", err)
+	}
+	if byModuleB.Slot == nil || byModuleB.Slot.Value == nil || *byModuleB.Slot.Value != 7 {
+		t.Errorf("by-module-b slot = %+v, want fixture-aug:value 7", byModuleB.Slot)
+	}
+	var byModuleA fixturemain.ByModuleA
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleASchema, payload, &byModuleA); err != nil {
+		t.Fatalf("by-module-a: %v", err)
+	}
+	if byModuleA.Slot != nil && byModuleA.Slot.Value != nil {
+		t.Errorf("by-module-a decoded fixture-aug:value %d into its fixture-main leaf", *byModuleA.Slot.Value)
+	}
+
+	if !fixturemain.ByPresenceBMarkerSchema.Presence || fixturemain.ByPresenceAMarkerSchema.Presence {
+		t.Errorf("marker presence: a=%v b=%v, want a=false b=true",
+			fixturemain.ByPresenceAMarkerSchema.Presence, fixturemain.ByPresenceBMarkerSchema.Presence)
+	}
+
+	for _, tc := range []struct {
+		path string
+		got  yang.Path
+	}{
+		{"/fixture-main:primary-group/peer", fixturemain.PrimaryGroupPeerDescriptor().Path},
+		{"/fixture-main:secondary-group/peer", fixturemain.SecondaryGroupPeerDescriptor().Path},
+	} {
+		if got := tc.got.String(); got != tc.path {
+			t.Errorf("peer descriptor path = %q, want %q", got, tc.path)
+		}
+	}
+	rows, err := fixturemain.SecondaryGroupPeerDescriptor().Codec.DecodeJSON([]byte(`{"fixture-main:peer":[{"name":"p1","weight":3}]}`))
+	if err != nil {
+		t.Fatalf("peer DecodeJSON: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Weight == nil || *rows[0].Weight != 3 ||
+		fixturemain.SecondaryGroupPeerDescriptor().Codec.Key(rows[0]) != (fixturemain.SecondaryGroupPeerKey{Name: "p1"}) {
+		t.Errorf("peer rows = %+v, want one row p1 weight 3", rows)
+	}
+}
