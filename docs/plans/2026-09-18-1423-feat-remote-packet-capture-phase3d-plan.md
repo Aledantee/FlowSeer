@@ -137,3 +137,13 @@ live read can supply:
   with the raw-socket and UDP privileges the local-interface and mirror paths
   need? The user proposed it; the repository records no interface or privilege
   check for it.
+- Parked by drive: Which spare Kali interface is cabled to which ICX7150 SPAN
+  destination port? Options: cable a spare Kali interface to a spare ICX port |
+  name another edge host with an existing dedicated capture link. Recommended:
+  cable a spare Kali interface, because Kali is already on the ICX management
+  network and the active `eth1` link must remain available.
+- Parked by drive: Which MikroTik can emit TZSP to the edge, and how can its
+  capability be checked? Options: provide Lab_SW01's management endpoint for a
+  read-only RouterOS sniffer check | identify another TZSP-capable MikroTik.
+  Recommended: check Lab_SW01, because it is the lab's documented RouterOS
+  device and LABSW02 runs SwOS.
