@@ -22,6 +22,9 @@ previous site. Until then a notice at the bottom of the page reads "Moving…"
 and the device stays where it was; the confirmed notice names both sites and
 offers **Undo**. This demo permits moves within the owning tenant.
 Reloading restores fixtures; URL scope and filters survive reloads.
+A link that names only a site gains that site's tenant, so the breadcrumb never
+reads **All tenants** while one customer's site is in view, and the Devices
+count in the sidebar follows the scope.
 
 The app opens on the Dashboard, an overview of the current tenant and site
 scope. With **All sites** selected it lists each site with a health bar,

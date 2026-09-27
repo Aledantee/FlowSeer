@@ -82,4 +82,13 @@ describe('fleet view', () => {
     const { host } = await mountAt('/devices')
     expect(host.querySelector('.metrics')).toBeNull()
   })
+  it('fills in the tenant of a selected site so the scope never reads all tenants', async () => {
+    const { host, router } = await mountAt('/dashboard?site=berlin')
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(router.currentRoute.value.query.tenant).toBe('aurora-de')
+    expect(host.querySelector('.page-heading p')?.textContent).toContain(
+      'Aurora Germany',
+    )
+    expect(host.querySelector('.nav-count')?.textContent?.trim()).toBe('4')
+  })
 })

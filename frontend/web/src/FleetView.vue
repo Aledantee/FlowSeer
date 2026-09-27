@@ -181,7 +181,7 @@ const visibleSites = computed(() =>
 )
 const scopeSummary = computed(() => {
   const site = sites.find((item) => item.id === query('site'))
-  if (site) return `${site.name} · ${site.location}`
+  if (site) return `${site.name} · ${site.location} · ${tenantName(site.id)}`
   const tenant = tenants.find((item) => item.id === query('tenant'))
   const count = visibleSites.value.length
   return `${count} ${count === 1 ? 'site' : 'sites'} across ${tenant ? tenant.name : 'all tenants'}`
@@ -209,12 +209,29 @@ async function setQuery(key: string, value: string) {
         ...route.query,
         [key]: value || undefined,
         ...(key === 'tenant' ? { site: undefined } : {}),
+        ...(key === 'site' && !query('tenant')
+          ? { tenant: sites.find((item) => item.id === value)?.tenantId }
+          : {}),
       },
     })
   } catch {
     message.value = 'Could not update this view. Try again.'
   }
 }
+// A site without its tenant in the URL would leave the breadcrumb reading
+// "All tenants" while one customer's site is in view, so the tenant is filled
+// in from the site.
+watch(
+  () => [query('site'), query('tenant')],
+  ([site, tenant]) => {
+    const owner = sites.find((item) => item.id === site)?.tenantId
+    if (owner && !tenant)
+      router
+        .replace({ query: { ...route.query, tenant: owner } })
+        .catch(() => undefined)
+  },
+  { immediate: true },
+)
 // Clearing filters keeps the tenant and site: widening scope is a separate,
 // visible choice in the breadcrumb.
 async function clearFilters() {
@@ -441,7 +458,7 @@ onUnmounted(() => {
           :aria-label="
             item.charAt(0).toUpperCase() +
             item.slice(1) +
-            (item === 'devices' ? `, ${fleet.length}` : '')
+            (item === 'devices' ? `, ${scope.length} in scope` : '')
           "
           :title="item.charAt(0).toUpperCase() + item.slice(1)"
           :to="{ path: `/${item}`, query: route.query }"
@@ -459,7 +476,7 @@ onUnmounted(() => {
             item.charAt(0).toUpperCase() + item.slice(1)
           }}</span
           ><span v-if="item === 'devices'" class="nav-count">{{
-            fleet.length
+            scope.length
           }}</span></RouterLink
         >
       </nav>
