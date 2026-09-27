@@ -142,9 +142,9 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	// actually landed, read back through the Observed method.
 	observedWords := (len(cols) + 63) / 64
 	if key.raw() {
-		f.Comment(rowTypeName + " is one row of " + table.Name + "; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.")
+		f.Comment(rowTypeName + " is one table row; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.")
 	} else {
-		f.Comment(rowTypeName + " is one row of " + table.Name + "; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.")
+		f.Comment(rowTypeName + " is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.")
 	}
 	f.Type().Id(rowTypeName).StructFunc(func(g *jen.Group) {
 		if key.raw() {
