@@ -65,6 +65,10 @@ say so in the brief.
 One reviewer covers about 1,500 changed lines or one subsystem, its docs
 included. Above that, dispatch one reviewer per subsystem with its own diff
 file, in parallel. Split by file group, never by persona.
+If vendor independence and pool headroom leave only one eligible model, keep
+the subsystem split. Run its lanes in parallel up to that pool's slots, then
+run the rest in rounds. One model can review several file groups; a hot pool
+does not make a 2,400-line diff one reviewer's assignment.
 
 ### A subject with several units
 

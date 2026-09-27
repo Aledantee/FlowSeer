@@ -82,7 +82,7 @@ def on_main(landed):
     return check.returncode == 0
 
 
-def stage(unit, landed):
+def stage(unit, completed):
     """The next stage a phase needs, in the order the skills run."""
     if not unit["plan"].exists():
         return "plan (phase plan missing)"
@@ -95,7 +95,7 @@ def stage(unit, landed):
             return "landed (no commit range)"
         if on_main(unit["landed"]):
             return "on main" if status == "implemented" else f"on main (status: {status})"
-    waiting = [u for u in unit.get("after", []) if u not in landed]
+    waiting = [u for u in unit.get("after", []) if u not in completed]
     if waiting:
         return "waits for " + ", ".join(waiting)
     if fields.get("artifact_readiness") == "needs-decisions":
@@ -116,11 +116,22 @@ def report(parent):
     if not units:
         print(f"{parent}: no unit names a phase plan; not a parent plan")
         return 1
-    landed = {u["id"] for u in units if u.get("landed")}
+    completed = set()
+    # A Landed range records implementation. Dependents wait for review and
+    # compound too, so a fix round cannot rewrite files they are editing.
+    while True:
+        newly_completed = {
+            u["id"]
+            for u in units
+            if (state := stage(u, completed)) == "done" or state.startswith("on main")
+        }
+        if newly_completed == completed:
+            break
+        completed = newly_completed
     print(f"{parent}  status: {frontmatter(parent).get('status', '?')}")
     stages = []
     for unit in units:
-        stages.append(stage(unit, landed))
+        stages.append(stage(unit, completed))
         print(f"  {unit['id']:<4} {stages[-1]:<28}  {unit['plan']}")
         if unit.get("landed"):
             print(f"      Landed: {unit['landed']}")

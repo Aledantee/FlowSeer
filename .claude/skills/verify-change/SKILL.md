@@ -1,6 +1,6 @@
 ---
 name: verify-change
-description: Run FlowSeer's diff-aware format, lint, build, race-test, protobuf, hook, and configuration gates. Use after changing Go, protobuf, Claude hooks or settings, and before reporting implementation complete or preparing a commit.
+description: Run FlowSeer's diff-aware format, lint, build, race-test, protobuf, web, hook, and configuration gates. Use after changing Go, protobuf, web, Claude hooks or settings, and before reporting implementation complete or preparing a commit.
 argument-hint: "[--full | --base REF | -- paths]"
 ---
 
@@ -20,7 +20,7 @@ the sandbox denies both.
 | --- | --- |
 | every change on the branch, committed included | `verify-change.sh --base main` |
 | named paths only, ignoring other worktree changes | `verify-change.sh -- <paths>` |
-| all Go modules, protobuf sources, and Claude configuration | `verify-change.sh --full` |
+| all Go modules, protobuf sources, web, and Claude configuration | `verify-change.sh --full` |
 
 - Run it on the final tree, after the last edit. An earlier run is evidence
   about a tree that no longer exists, and `land` compares the receipt's
@@ -74,6 +74,9 @@ importing one. The whole module still compiles. In addition:
 - A nested module that replaces the root module (`src/protocol/*/bench`,
   `src/edge/netpen`) is built and vetted after a root change; its race
   tests run under `--full`.
+- A `frontend/web/` path selects the web workspace's typecheck, Vite build,
+  ESLint, Stylelint, Prettier check, and Vitest suite. Use the local binaries
+  installed from its lockfile.
 - `buf breaking` compares only the changed `.proto` files `main` already
   holds, and prints that it skipped when every changed schema file is new
   on the branch: `--path` naming a file the baseline lacks targets nothing,
@@ -126,8 +129,8 @@ verified, and rewrites that listing; `land` reads the receipt.
   because a generator and the module graph reach packages no path names.
   That line clears under `--full`, or under `--base REF` when every
   generated, `go.mod`, `go.sum`, or `buf.lock` path the marker names is
-  byte-identical to `REF`; any marked file identical to an explicit
-  `--base` clears the same way, since it is the base, not an edit. The
+  byte-identical to `REF` or absent from both the tree and `REF`; any marked
+  file in either state clears the same way, since it is the base, not an edit. The
   path beside the line says what caused it.
 - A `--full` run removes the marker outright, so a marker found beside a
   `full=true` receipt names paths edited after the run.

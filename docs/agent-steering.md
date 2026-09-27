@@ -186,15 +186,16 @@ conditional on the host rather than on the task, and a coordinator that
 loads the skill needs all of them in the same turn; the Orca procedures
 moved to `references/orca.md` on 2026-09-10.
 
-Use one reviewer, split by file group, never a persona panel. This
+Use one reviewer per file group, never a persona panel. This
 repository's transcripts showed the earlier persona-panel review dispatching
 8.5 subagents per call on average, with a peak of 14, and reviewers
 exhausting their context before they reported. Anthropic's research-system
 report puts a multi-agent run at about 15 times the tokens of a chat turn,
 which a review after every implementation does not earn back. `review`
-dispatches `independent-reviewer` once,
-reads the diff itself with a fixed checklist, and verifies every finding
-before reporting it.
+dispatches one `independent-reviewer` for a diff of about 1,500 lines or
+one subsystem. Larger diffs keep the subsystem split even when quota leaves
+only one eligible model: that model reviews the groups in rounds, and the
+coordinator reads the seams and verifies every finding.
 
 Skip ceremony when the work is small. Anthropic's best-practices guide says
 to plan when the approach is uncertain or the change spans files and to skip
@@ -271,7 +272,10 @@ decide whether the tree verifies and a late tool failure reads as a gate
 result; and a passing run prints the dirty-marker lines it could not
 clear, because a targeted run rewrites the marker in the same second as
 the receipt and a silent survivor reads as an artifact, so `land` takes
-the marker's content as its remedy. The marker hook itself was the last
+the marker's content as its remedy. A web path now selects the web
+workspace's typecheck, build, ESLint, Stylelint, Prettier, and Vitest gates; a
+marked path absent from both the tree and an explicit base clears like
+one whose bytes match the base. The marker hook itself was the last
 of these. It guessed from a Bash command's text whether the command wrote
 a file, and measured against one session's commands the pattern missed a
 Python rewrite of two documents and any `cp` or `tee`, while it flagged
@@ -610,9 +614,11 @@ the plan and the ledger before trusting a summary.
 Tune the phase size from data. The six-unit trigger came from community
 reports; each outcome note `implement` writes now carries the unit count
 and the span of the ledger's `verified_at` values, and `steer`'s audit
-reads them before the trigger changes. As of 2026-09-16 the notes show
-phases of three to six units, each inside one session; the data does not
-yet say, and the trigger stays.
+reads them before the trigger changes. As of 2026-09-27 most notes show
+phases of three to six units with short verification spans. Several two-unit
+phases were scoped by dependencies, and the longer spans do not establish
+that unit count caused a phase to outlast one session. The data does not yet
+support changing the trigger.
 
 Fix-and-re-review rounds belong to the coordinator. `review` carries the
 loop as a step the user asks for, because the coordinator is the only
@@ -642,7 +648,10 @@ already write, for the reason the ledger exists: that coordinator's
 transcript reached 5 MB, and a resumed session has to find its place
 without it. A phase whose last commit is on `main` needs no stage, since
 `land` gated it there and older phases predate the `review` and
-`compound` fields. The skill stops before `land`, which stays a person's
+`compound` fields. A dependent phase waits until its predecessor's review
+and compound are done: a `Landed:` range records implementation only, and
+starting the dependent then let the predecessor's review fix loop rewrite
+files both phases owned. The skill stops before `land`, which stays a person's
 request like every other merge into `main`.
 
 The integration branch is `main`. The skills named `master` until

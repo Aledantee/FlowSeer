@@ -34,7 +34,7 @@ usage() {
 Usage: verify-change.sh [--full] [--print-selection] [--base REF] [-- PATH...]
 
 Without explicit paths, verify files changed from REF (default: HEAD), including
-untracked files. --full verifies every Go module plus protobuf and agent hook tooling.
+untracked files. --full verifies Go, protobuf, web, and agent hook tooling.
 --print-selection reports the selected gates without running them or writing a receipt.
 USAGE
 }
@@ -206,6 +206,7 @@ proto=false
 hook_tooling=false
 mib=false
 service_otel_integration=false
+web=false
 
 add_module() {
   local candidate=$1
@@ -241,8 +242,12 @@ if [[ $full == true ]]; then
   hook_tooling=true
   mib=true
   service_otel_integration=true
+  web=true
 else
   for path in "${paths[@]}"; do
+    case "$path" in
+      frontend/web/*) web=true ;;
+    esac
     case "$path" in
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
@@ -303,7 +308,7 @@ fi
 gates_selected=false
 if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
   [[ $proto == true || $hook_tooling == true || $mib == true ||
-  $service_otel_integration == true ]]; then
+  $service_otel_integration == true || $web == true ]]; then
   gates_selected=true
 fi
 
@@ -339,6 +344,15 @@ if [[ $proto == true ]]; then
 fi
 if [[ $hook_tooling == true ]]; then
   required_tools+=(jq shellcheck)
+fi
+if [[ $web == true ]]; then
+  required_tools+=(node)
+  for tool in vue-tsc vite eslint stylelint prettier vitest; do
+    if [[ ! -x frontend/web/node_modules/.bin/$tool ]]; then
+      echo "required web tool is missing: frontend/web/node_modules/.bin/$tool; install frontend/web dependencies" >&2
+      exit 1
+    fi
+  done
 fi
 missing_tools=()
 for tool in "${required_tools[@]}"; do
@@ -377,6 +391,18 @@ if [[ -n $test_changes ]]; then
 fi
 
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
+
+if [[ $web == true ]]; then
+  (
+    cd frontend/web
+    run ./node_modules/.bin/vue-tsc --noEmit
+    run ./node_modules/.bin/vite build
+    run ./node_modules/.bin/eslint .
+    run ./node_modules/.bin/stylelint 'src/**/*.{css,vue}'
+    run ./node_modules/.bin/prettier --check .
+    run ./node_modules/.bin/vitest run
+  )
+fi
 
 if ((${#markdown_files[@]})); then
   need_tool python3
@@ -766,7 +792,8 @@ if [[ -s $marker ]]; then
     base_identical=false
     if [[ $base_given == true && $marked != '<Bash mutation; verify with --full>' ]]; then
       base_hash=$(git rev-parse -q --verify "$base:$marked" 2>/dev/null || true)
-      if [[ -n $base_hash && $base_hash == $(git hash-object -- "$marked" 2>/dev/null || true) ]]; then
+      if [[ -n $base_hash && $base_hash == $(git hash-object -- "$marked" 2>/dev/null || true) ]] ||
+        [[ -z $base_hash && ! -e $marked && ! -L $marked ]]; then
         base_identical=true
         verified=true
       fi

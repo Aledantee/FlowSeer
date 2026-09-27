@@ -184,8 +184,10 @@ independent:
 - Recompute the cap when a phase finishes or parks, and start the next
   ready phase into the freed share.
 
-A phase that lands fills its `Landed:` line, which moves the phases
-waiting on it into the next round. The parent itself has no stage: its
+A phase that lands fills its `Landed:` line. A phase named in another's
+`After:` releases that dependent only after its review and compound stages
+also read done; the range alone records implementation, not completion.
+The parent itself has no stage: its
 `status` follows its last phase, as `implement` writes it. When the last
 phases landed concurrently, each implement worker saw the other still
 open and left the parent `planned`; once both have merged, set it to
