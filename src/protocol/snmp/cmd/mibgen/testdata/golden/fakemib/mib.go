@@ -247,7 +247,7 @@ func decodeFakeTableKey(idx snmp.OID) (FakeTableKey, bool) {
 	return FakeTableKey{FakeIndex: int32(parts[0].Integer)}, true
 }
 
-// FakeTableRow is one row of fakeTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeTableRow struct {
 	Key            FakeTableKey
 	keyValid       bool
@@ -575,7 +575,7 @@ func decodeFakeStackTableKey(idx snmp.OID) (FakeStackTableKey, bool) {
 	return FakeStackTableKey{FakeStackIndex: int32(parts[0].Integer)}, true
 }
 
-// FakeStackTableRow is one row of fakeStackTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeStackTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeStackTableRow struct {
 	Key           FakeStackTableKey
 	keyValid      bool
@@ -790,7 +790,7 @@ func decodeFakePairTableKey(idx snmp.OID) (FakePairTableKey, bool) {
 	return FakePairTableKey{FakePairSlot: int32(parts[0].Integer), FakePairName: string(parts[1].Octets)}, true
 }
 
-// FakePairTableRow is one row of fakePairTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakePairTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakePairTableRow struct {
 	Key           FakePairTableKey
 	keyValid      bool
@@ -862,7 +862,7 @@ func decodeFakeImpliedTableKey(idx snmp.OID) (FakeImpliedTableKey, bool) {
 	return FakeImpliedTableKey{FakeImpliedName: string(parts[0].Octets)}, true
 }
 
-// FakeImpliedTableRow is one row of fakeImpliedTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeImpliedTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeImpliedTableRow struct {
 	Key              FakeImpliedTableKey
 	keyValid         bool
@@ -934,7 +934,7 @@ func decodeFakeAddrTableKey(idx snmp.OID) (FakeAddrTableKey, bool) {
 	return FakeAddrTableKey{FakeAddrIP: parts[0].Addr}, true
 }
 
-// FakeAddrTableRow is one row of fakeAddrTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeAddrTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeAddrTableRow struct {
 	Key           FakeAddrTableKey
 	keyValid      bool
@@ -1006,7 +1006,7 @@ func decodeFakeOIDTableKey(idx snmp.OID) (FakeOIDTableKey, bool) {
 	return FakeOIDTableKey{FakeOIDPath: parts[0].OID.String()}, true
 }
 
-// FakeOIDTableRow is one row of fakeOidTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeOIDTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeOIDTableRow struct {
 	Key          FakeOIDTableKey
 	keyValid     bool
@@ -1071,7 +1071,7 @@ func decodeFakeAugTableKey(idx snmp.OID) (FakeTableKey, bool) {
 	return FakeTableKey{FakeIndex: int32(parts[0].Integer)}, true
 }
 
-// FakeAugTableRow is one row of fakeAugTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeAugTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeAugTableRow struct {
 	Key          FakeTableKey
 	keyValid     bool
@@ -1125,7 +1125,7 @@ var (
 	fakeUnresolvedTableColumns = []snmp.AnyColumn{FakeUnresolvedValue}
 )
 
-// FakeUnresolvedTableRow is one row of fakeUnresolvedTable; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.
+// FakeUnresolvedTableRow is one table row; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.
 type FakeUnresolvedTableRow struct {
 	Index               snmp.OID
 	FakeUnresolvedValue int32
@@ -1184,7 +1184,7 @@ func decodeFakeKeyAugTableKey(idx snmp.OID) (fakekeysmib.FakeKeyTableKey, bool) 
 	return fakekeysmib.FakeKeyTableKey{FakeKeyIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)}, true
 }
 
-// FakeKeyAugTableRow is one row of fakeKeyAugTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeKeyAugTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeKeyAugTableRow struct {
 	Key             fakekeysmib.FakeKeyTableKey
 	keyValid        bool
@@ -1249,7 +1249,7 @@ func decodeFakeChainTableKey(idx snmp.OID) (FakeTableKey, bool) {
 	return FakeTableKey{FakeIndex: int32(parts[0].Integer)}, true
 }
 
-// FakeChainTableRow is one row of fakeChainTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeChainTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeChainTableRow struct {
 	Key            FakeTableKey
 	keyValid       bool
@@ -1320,7 +1320,7 @@ func decodeFakeBareAugTableKey(idx snmp.OID) (FakeBareTableKey, bool) {
 	return FakeBareTableKey{FakeBareIndex: int32(parts[0].Integer)}, true
 }
 
-// FakeBareAugTableRow is one row of fakeBareAugTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeBareAugTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeBareAugTableRow struct {
 	Key              FakeBareTableKey
 	keyValid         bool
@@ -1392,7 +1392,7 @@ func decodeFakeRefinedTableKey(idx snmp.OID) (FakeRefinedTableKey, bool) {
 	return FakeRefinedTableKey{FakeRefinedIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)}, true
 }
 
-// FakeRefinedTableRow is one row of fakeRefinedTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeRefinedTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeRefinedTableRow struct {
 	Key              FakeRefinedTableKey
 	keyValid         bool
@@ -1464,7 +1464,7 @@ func decodeFakeSoloTableKey(idx snmp.OID) (FakeSoloTableKey, bool) {
 	return FakeSoloTableKey{FakeSoloIndex: int32(parts[0].Integer)}, true
 }
 
-// FakeSoloTableRow is one row of fakeSoloTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeSoloTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeSoloTableRow struct {
 	Key                FakeSoloTableKey
 	keyValid           bool

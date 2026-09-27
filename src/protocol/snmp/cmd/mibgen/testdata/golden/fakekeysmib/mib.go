@@ -48,7 +48,7 @@ func decodeFakeKeyTableKey(idx snmp.OID) (FakeKeyTableKey, bool) {
 	return FakeKeyTableKey{FakeKeyIndex: FakeKeyIndex(parts[0].Integer)}, true
 }
 
-// FakeKeyTableRow is one row of fakeKeyTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
+// FakeKeyTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.
 type FakeKeyTableRow struct {
 	Key         FakeKeyTableKey
 	keyValid    bool

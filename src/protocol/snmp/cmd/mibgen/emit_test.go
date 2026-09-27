@@ -633,8 +633,8 @@ func TestEmit_CompactCommentContracts(t *testing.T) {
 	}
 
 	wantTypeDocs := map[string]string{
-		"FakeTableRow":           "FakeTableRow is one row of fakeTable; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.",
-		"FakeUnresolvedTableRow": "FakeUnresolvedTableRow is one row of fakeUnresolvedTable; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.",
+		"FakeTableRow":           "FakeTableRow is one table row; KeyValid reports index validity, use Observed for field presence, and concurrent reads are safe.",
+		"FakeUnresolvedTableRow": "FakeUnresolvedTableRow is one table row; Index is the raw OID suffix, use Observed for field presence, and concurrent reads are safe.",
 		"FakeTableWalker":        "FakeTableWalker streams one table walk; its zero value is unusable, and Err/Close are safe concurrently.",
 		"FakeStatusValue":        "FakeStatusValue is the SMI enum fakeStatus (inline).\nAn enum-typed scalar.\n\nUnknown values are valid; reads are safe concurrently.",
 	}
