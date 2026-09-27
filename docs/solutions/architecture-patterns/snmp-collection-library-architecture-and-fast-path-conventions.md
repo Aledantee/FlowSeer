@@ -319,15 +319,17 @@ deliberate reviewed commit (`:25`).
 
 The committed baseline, re-measured on darwin/arm64 on 2026-09-27, records
 `BenchmarkGet/impl=flowseer` at 55 allocs/op and 1800 B/op, `BenchmarkGetNext`
-at 56, `BenchmarkGetBulk` at 98, `BenchmarkBulkWalk` at 1281, and
+at 56, `BenchmarkGetBulk` at 98, `BenchmarkBulkWalk` at 1185, and
 `BenchmarkTableWalk` at 1667
 (`src/protocol/snmp/bench/testdata/baseline-micro.txt:5`, `:15`, `:25`, `:35`,
 `:65`). The earlier baseline had BulkWalk at 481 and TableWalk at 364 and had
 not been refreshed through several walk changes, so the gate failed on every
 branch. The TableWalk rise is the cost the streaming walk accepted for bounded
-retained memory (`docs/benchmarks/2026-09-03-streaming-mib-walks.md:72`). No
-record explains the BulkWalk rise; the refresh took it as `main`'s state rather
-than a verdict on it.
+retained memory (`docs/benchmarks/2026-09-03-streaming-mib-walks.md:72`). The
+responder pads GETBULK ends per RFC 3416 section 4.2.3 since `7210aa0c`, the
+client used to decode the padding, and bulk walks now decode on demand, bringing
+BulkWalk down from 1281 to 1185 allocs/op
+(`src/protocol/snmp/bench/testdata/baseline-micro.txt:35`).
 
 Per the 2026-08-16 session history, the Get/GetNext `56` is post-optimization: four
 prototypes were each benchmarked against a fresh baseline with benchstat at

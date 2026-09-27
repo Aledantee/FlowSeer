@@ -4,11 +4,13 @@ type: perf
 date: 2026-09-27
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # BulkWalk Lazy Varbind Decode - Plan
+
+> Implemented. 2 units, 2026-09-27T16:34Z to 2026-09-27T17:09Z.
 
 ## Goal
 
@@ -182,11 +184,11 @@ unsandboxed run.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Requirement 5 measured and quoted in the U2 commit message.
-- [ ] Solution doc updated in the same change as the baseline.
-- [ ] This plan's `status` set, with an outcome note under its title.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] Verifier green for every changed path.
+- [x] Requirement 5 measured and quoted in the U2 commit message.
+- [x] Solution doc updated in the same change as the baseline.
+- [x] This plan's `status` set, with an outcome note under its title.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 
