@@ -65,7 +65,7 @@ export const Required: Story = {
     },
     template: `
       <UiField v-bind="args">
-        <UiInput placeholder="Select or enter site..." />
+        <UiInput required placeholder="Select or enter site..." />
       </UiField>
     `,
   }),

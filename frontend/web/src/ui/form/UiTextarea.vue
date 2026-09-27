@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, inject, useAttrs, type Ref } from 'vue'
+import { computed, inject, onMounted, ref, useAttrs, type Ref } from 'vue'
+import { tv } from 'tailwind-variants'
+import { useFormReset } from './useFormReset'
 
 export interface UiTextareaProps {
   modelValue?: string
@@ -15,7 +17,7 @@ export interface UiTextareaProps {
 }
 
 const props = withDefaults(defineProps<UiTextareaProps>(), {
-  modelValue: '',
+  modelValue: undefined,
   id: undefined,
   placeholder: undefined,
   disabled: false,
@@ -39,6 +41,7 @@ const fieldContext = inject<{
   invalid: Ref<boolean>
 } | null>('ui-field-context', null)
 
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const textareaId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,
@@ -52,6 +55,42 @@ const ariaDescribedBy = computed(
     fieldContext?.describedBy.value,
 )
 
+const textareaVariants = tv({
+  base: 'w-full min-h-[80px] text-sm !px-3 !py-1.5 !rounded-control transition-colors !bg-card !text-foreground placeholder:text-muted-foreground disabled:!opacity-50 disabled:!cursor-not-allowed focus-visible:!outline-none !border',
+  variants: {
+    invalid: {
+      false:
+        '!border-input focus-visible:!ring-1 focus-visible:!ring-ring focus-visible:!border-ring',
+      true: '!border-danger-border !ring-danger-border focus-visible:!ring-danger-border focus-visible:!border-danger-border',
+    },
+  },
+  defaultVariants: {
+    invalid: false,
+  },
+})
+
+const valueBinding = computed(() =>
+  props.modelValue !== undefined ? { value: props.modelValue } : {},
+)
+
+let initialValue = ''
+onMounted(() => {
+  initialValue =
+    props.modelValue !== undefined
+      ? props.modelValue
+      : (textareaRef.value?.value ?? '')
+})
+
+useFormReset({
+  elementRef: textareaRef,
+  onReset: () => {
+    if (textareaRef.value) {
+      textareaRef.value.value = String(initialValue ?? '')
+    }
+    emit('update:modelValue', String(initialValue ?? ''))
+  },
+})
+
 function handleInput(event: Event) {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
 }
@@ -60,7 +99,8 @@ function handleInput(event: Event) {
 <template>
   <textarea
     :id="textareaId"
-    :value="modelValue"
+    ref="textareaRef"
+    v-bind="valueBinding"
     :name="name"
     :rows="rows"
     :placeholder="placeholder"
@@ -70,13 +110,7 @@ function handleInput(event: Event) {
     :aria-label="computedAriaLabel"
     :aria-invalid="isInvalid ? 'true' : undefined"
     :aria-describedby="ariaDescribedBy"
-    :class="[
-      'bg-card border border-input rounded-control text-sm px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-ring disabled:opacity-50 disabled:cursor-not-allowed w-full min-h-[80px] transition-colors',
-      {
-        'border-danger-border ring-danger-border focus-visible:ring-danger-border focus-visible:border-danger-border':
-          isInvalid,
-      },
-    ]"
+    :class="textareaVariants({ invalid: isInvalid })"
     @input="handleInput"
   />
 </template>

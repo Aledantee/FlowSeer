@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import {
   TooltipContent,
   TooltipPortal,
-  TooltipProvider,
   TooltipRoot,
   TooltipTrigger,
 } from 'reka-ui'
@@ -18,6 +17,8 @@ export interface UiTooltipProps {
   side?: 'top' | 'right' | 'bottom' | 'left'
   inline?: boolean
   delayDuration?: number
+  defaultOpen?: boolean
+  open?: boolean
 }
 
 const props = withDefaults(defineProps<UiTooltipProps>(), {
@@ -25,7 +26,9 @@ const props = withDefaults(defineProps<UiTooltipProps>(), {
   shortcut: undefined,
   side: 'bottom',
   inline: false,
-  delayDuration: 200,
+  delayDuration: undefined,
+  defaultOpen: undefined,
+  open: undefined,
 })
 
 const shortcutKeys = computed<string[]>(() => {
@@ -36,31 +39,28 @@ const shortcutKeys = computed<string[]>(() => {
 </script>
 
 <template>
-  <TooltipProvider :delay-duration="delayDuration">
-    <TooltipRoot
-      :delay-duration="delayDuration"
-      :ignore-non-keyboard-focus="false"
-    >
-      <TooltipTrigger as-child>
-        <slot />
-      </TooltipTrigger>
-      <TooltipPortal :disabled="inline">
-        <TooltipContent
-          :side="side"
-          :side-offset="6"
-          :collision-padding="8"
-          class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-50 flex items-center gap-2 select-none"
-        >
-          <span class="font-medium">{{ label }}</span>
-          <span v-if="hint" class="text-muted-foreground">{{ hint }}</span>
-          <span
-            v-if="shortcutKeys.length"
-            class="inline-flex items-center gap-1"
-          >
-            <UiKbd v-for="key in shortcutKeys" :key="key">{{ key }}</UiKbd>
-          </span>
-        </TooltipContent>
-      </TooltipPortal>
-    </TooltipRoot>
-  </TooltipProvider>
+  <TooltipRoot
+    :delay-duration="delayDuration"
+    :ignore-non-keyboard-focus="false"
+    :default-open="defaultOpen"
+    :open="open"
+  >
+    <TooltipTrigger as-child>
+      <slot />
+    </TooltipTrigger>
+    <TooltipPortal :disabled="inline">
+      <TooltipContent
+        :side="side"
+        :side-offset="6"
+        :collision-padding="8"
+        class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-50 flex items-center gap-2 select-none"
+      >
+        <span class="font-medium">{{ label }}</span>
+        <span v-if="hint" class="text-muted-foreground">{{ hint }}</span>
+        <span v-if="shortcutKeys.length" class="inline-flex items-center gap-1">
+          <UiKbd v-for="key in shortcutKeys" :key="key">{{ key }}</UiKbd>
+        </span>
+      </TooltipContent>
+    </TooltipPortal>
+  </TooltipRoot>
 </template>
