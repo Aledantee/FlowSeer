@@ -113,7 +113,7 @@ const width = computed(() => {
       :style="{
         transform: `translate(calc(-100% - 6px), -50%) translate(${drop.x}px, ${(drop.top + drop.bottom) / 2}px)`,
       }"
-      :aria-label="`Link ${details?.sourcePort?.name ?? ''} to ${details?.targetPort?.name ?? ''}, ${speed}, ${link.throughput} Mbps, ${link.health}`"
+      :aria-label="`Assumed link, not yet discovered. ${details?.sourcePort?.name ?? ''} to ${details?.targetPort?.name ?? ''}, ${speed}, ${link.throughput} Mbps, ${link.health}`"
       @click="live.select({ kind: 'link', id: link.id })"
       @mouseenter="hover(true)"
       @mouseleave="hover(false)"
@@ -152,6 +152,7 @@ const width = computed(() => {
 <style scoped>
 .topology-link :deep(.vue-flow__edge-path) {
   stroke: var(--graph-edge);
+  stroke-dasharray: 4 5;
   transition: stroke 120ms ease;
 }
 .topology-link.degraded :deep(.vue-flow__edge-path) {
@@ -159,7 +160,6 @@ const width = computed(() => {
 }
 .topology-link.offline :deep(.vue-flow__edge-path) {
   stroke: var(--danger-border);
-  stroke-dasharray: 4 5;
 }
 .topology-link.selected :deep(.vue-flow__edge-path),
 .topology-link:hover :deep(.vue-flow__edge-path) {

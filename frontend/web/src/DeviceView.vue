@@ -194,7 +194,7 @@ function to(path: string, extra: Record<string, string> = {}) {
               }}</strong>
               <small class="text-2xs text-muted-foreground"
                 >{{ formatAgo(event.minutesAgo) }} ·
-                <span class="font-medium text-foreground">{{
+                <span class="text-sm font-medium text-foreground">{{
                   severityLabel[event.severity]
                 }}</span></small
               >

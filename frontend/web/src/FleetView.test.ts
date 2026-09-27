@@ -74,6 +74,22 @@ function workspaceShortcut(repeat = false) {
   })
 }
 
+function tableFor(host: HTMLElement, headingId: string) {
+  const table = host.querySelector(`#${headingId}`)?.closest('section')
+  if (!table) throw new Error(`Missing ${headingId} table`)
+  return table
+}
+
+function column(table: Element, label: string) {
+  const headers = [...table.querySelectorAll('th')]
+  const index = headers.findIndex((item) => item.textContent?.trim() === label)
+  if (index < 0) throw new Error(`Missing ${label} column`)
+  return {
+    head: headers[index],
+    cells: [...table.querySelectorAll(`tbody tr > :nth-child(${index + 1})`)],
+  }
+}
+
 describe('FleetView workspace shortcuts', () => {
   it('runs a held workspace command once per key press', async () => {
     await mountFleet('/dashboard')
@@ -280,12 +296,74 @@ describe('fleet view', () => {
   it('opens the dashboard on attention, with the totals in the heading line', async () => {
     const { host } = await mountAt('/dashboard')
     expect(host.querySelector('.metrics')).toBeNull()
-    expect(host.querySelector('.page-heading p')?.textContent).toContain(
-      '16 devices',
-    )
+    const totals = host.querySelector('.page-heading p')
+    expect(totals?.textContent).toContain('16 devices')
+    expect(totals?.classList).toContain('tabular-nums')
     expect(host.querySelector('.dashboard h2')?.textContent).toBe(
       'Needs attention',
     )
+  })
+
+  it('keeps dashboard site, health, and device columns on phones', async () => {
+    const { host } = await mountAt('/dashboard')
+    const table = tableFor(host, 'sites-title')
+
+    for (const label of ['Site', 'Health', 'Devices']) {
+      const { head, cells } = column(table, label)
+      expect(head.classList).not.toContain('max-[560px]:hidden')
+      expect(
+        cells.every((cell) => !cell.classList.contains('max-[560px]:hidden')),
+      ).toBe(true)
+    }
+    for (const label of ['Clients', 'Traffic']) {
+      const { head, cells } = column(table, label)
+      expect(head.classList).toContain('max-[560px]:hidden')
+      expect(
+        cells.every((cell) => cell.classList.contains('max-[560px]:hidden')),
+      ).toBe(true)
+    }
+  })
+
+  it('keeps site, health, and the devices link on the phone Sites table', async () => {
+    const { host } = await mountAt('/sites')
+    const table = tableFor(host, 'sites-title')
+
+    for (const label of ['Site', 'Health']) {
+      const { head, cells } = column(table, label)
+      expect(head.classList).not.toContain('max-[560px]:hidden')
+      expect(
+        cells.every((cell) => !cell.classList.contains('max-[560px]:hidden')),
+      ).toBe(true)
+    }
+    for (const label of ['Open issue', 'Devices']) {
+      const { head, cells } = column(table, label)
+      expect(head.classList).toContain('max-[560px]:hidden')
+      expect(
+        cells.every((cell) => cell.classList.contains('max-[560px]:hidden')),
+      ).toBe(true)
+    }
+    const linkColumn = table.querySelectorAll('th')[4]
+    expect(linkColumn?.classList).not.toContain('max-[560px]:hidden')
+    expect(table.querySelector('tbody td:nth-child(5)')?.textContent).toContain(
+      'Devices',
+    )
+  })
+
+  it('names event severity at the status text size', async () => {
+    const { host } = await mountAt('/dashboard')
+    const severity = [...host.querySelectorAll('span')].find((item) =>
+      ['Critical', 'Warning', 'Info'].includes(item.textContent?.trim() ?? ''),
+    )
+
+    expect(severity?.classList).toContain('text-sm')
+  })
+
+  it('owns bug-button phone visibility in the component utility', async () => {
+    const { host } = await mountAt('/dashboard')
+    const button = host.querySelector('[aria-label="Report bug"]')
+
+    expect(button?.classList).toContain('max-[560px]:hidden')
+    expect(button?.classList).not.toContain('report-bug-button')
   })
 
   it('fills in the tenant of a selected site so the scope never reads all tenants', async () => {

@@ -53,6 +53,16 @@ describe('tailwind theme and utilities', () => {
     expect(textOutput).toContain('--text-base--line-height: 20px')
   })
 
+  it('keeps the smallest text token at the 11px interface floor', async () => {
+    const compiler = await compile(css, {
+      base: path.dirname(cssPath),
+      onDependency: () => {},
+    })
+
+    const textOutput = compiler.build(['text-2xs'])
+    expect(textOutput).toContain('--text-2xs: 11px')
+  })
+
   it('emits preflight base resets and visible native button focus', async () => {
     const compiler = await compile(css, {
       base: path.dirname(cssPath),

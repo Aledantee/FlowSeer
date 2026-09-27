@@ -526,9 +526,3 @@ html:has(.shell) {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
-@media (max-width: 560px) {
-  .topbar-tools .report-bug-button {
-    display: none;
-  }
-}

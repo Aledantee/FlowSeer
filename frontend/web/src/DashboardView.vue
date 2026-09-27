@@ -211,12 +211,14 @@ const roles = computed(() => {
           <UiTableHeader>
             <UiTableRow>
               <UiTableHead>Site</UiTableHead>
-              <UiTableHead class="w-[28%] max-[800px]:hidden"
-                >Health</UiTableHead
-              >
+              <UiTableHead class="w-[28%]">Health</UiTableHead>
               <UiTableHead align="numeric">Devices</UiTableHead>
-              <UiTableHead align="numeric">Clients</UiTableHead>
-              <UiTableHead align="numeric">Traffic</UiTableHead>
+              <UiTableHead class="max-[560px]:hidden" align="numeric"
+                >Clients</UiTableHead
+              >
+              <UiTableHead class="max-[560px]:hidden" align="numeric"
+                >Traffic</UiTableHead
+              >
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
@@ -236,7 +238,7 @@ const roles = computed(() => {
                   </small>
                 </AppLink>
               </UiTableCell>
-              <UiTableCell class="w-[28%] max-[800px]:hidden">
+              <UiTableCell class="w-[28%]">
                 <UiSegmentedMeter :counts="rollup.health" />
                 <small class="text-2xs text-muted-foreground block mt-1">{{
                   healthLine(rollup.health)
@@ -249,8 +251,10 @@ const roles = computed(() => {
                   rollup.health.Offline
                 }}
               </UiTableCell>
-              <UiTableCell align="numeric">{{ rollup.clients }}</UiTableCell>
-              <UiTableCell align="numeric">
+              <UiTableCell class="max-[560px]:hidden" align="numeric">{{
+                rollup.clients
+              }}</UiTableCell>
+              <UiTableCell class="max-[560px]:hidden" align="numeric">
                 {{ rollup.throughput }}
                 <span class="text-2xs text-muted-foreground">Mbps</span>
               </UiTableCell>
@@ -350,7 +354,7 @@ const roles = computed(() => {
               event.summary
             }}</strong>
             <small class="text-2xs text-muted-foreground mt-0.5 block">
-              <span class="text-muted-foreground font-medium">{{
+              <span class="text-sm text-foreground font-medium">{{
                 severityLabel[event.severity]
               }}</span>
               ·

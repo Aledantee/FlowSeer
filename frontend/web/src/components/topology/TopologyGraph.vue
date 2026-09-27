@@ -385,6 +385,10 @@ function edgesChanged(changes: EdgeChange[]) {
         mask-color="color-mix(in srgb, var(--background) 70%, transparent)"
       />
     </VueFlow>
+    <p class="topology-assumption">
+      <i aria-hidden="true"></i>
+      Assumed link, not yet discovered
+    </p>
     <TopologyInspector :history="history" :site-name="siteName" />
     <p v-if="failed" class="topology-error" role="alert">
       The topology could not be laid out. Reload to try again.
@@ -459,6 +463,27 @@ function edgesChanged(changes: EdgeChange[]) {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
+}
+.topology-assumption {
+  position: absolute;
+  z-index: 2;
+  bottom: 14px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.topology-assumption i {
+  width: 24px;
+  border-top: 2px dashed var(--graph-edge);
 }
 @media (prefers-reduced-motion: reduce) {
   .topology-graph :deep(.vue-flow__minimap) {

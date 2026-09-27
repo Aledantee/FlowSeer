@@ -359,7 +359,7 @@ async function handleUndo() {
         <h1 class="text-2xl font-bold text-foreground">{{ title }}</h1>
         <p
           v-if="!scopeError"
-          class="text-sm text-muted-foreground mt-1.5 max-[800px]:max-w-[330px]"
+          class="text-sm text-muted-foreground tabular-nums mt-1.5 max-[800px]:max-w-[330px]"
         >
           {{ scopeSummary }}
           <template v-if="view === 'dashboard'">
@@ -774,11 +774,11 @@ async function handleUndo() {
             <UiTableHeader>
               <UiTableRow>
                 <UiTableHead>Site</UiTableHead>
-                <UiTableHead class="w-[28%] max-[800px]:hidden"
-                  >Health</UiTableHead
+                <UiTableHead class="w-[28%]">Health</UiTableHead>
+                <UiTableHead class="max-[560px]:hidden">Open issue</UiTableHead>
+                <UiTableHead class="max-[560px]:hidden" align="numeric"
+                  >Devices</UiTableHead
                 >
-                <UiTableHead>Open issue</UiTableHead>
-                <UiTableHead align="numeric">Devices</UiTableHead>
                 <UiTableHead
                   ><span class="sr-only"
                     >Devices at this site</span
@@ -810,13 +810,13 @@ async function handleUndo() {
                     </small>
                   </AppLink>
                 </UiTableCell>
-                <UiTableCell class="w-[28%] max-[800px]:hidden">
+                <UiTableCell class="w-[28%]">
                   <UiSegmentedMeter :counts="rollup.health" />
                   <small class="text-2xs text-muted-foreground block mt-1">
                     {{ healthLine(rollup.health) }}
                   </small>
                 </UiTableCell>
-                <UiTableCell>
+                <UiTableCell class="max-[560px]:hidden">
                   <template v-if="latestIssue(scope, rollup.site)">
                     <span class="block text-xs text-foreground font-medium">
                       {{ latestIssue(scope, rollup.site)?.summary }}
@@ -831,7 +831,7 @@ async function handleUndo() {
                   </template>
                   <span v-else class="text-xs text-muted-foreground">None</span>
                 </UiTableCell>
-                <UiTableCell align="numeric">
+                <UiTableCell class="max-[560px]:hidden" align="numeric">
                   {{
                     rollup.health.Healthy +
                     rollup.health.Degraded +

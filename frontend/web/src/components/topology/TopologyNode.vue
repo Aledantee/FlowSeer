@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
+import { UiStatusBadge } from '../../ui'
 import DeviceIcon from '../DeviceIcon.vue'
 import { useTopologyLive } from './live'
 defineOptions({ inheritAttrs: false })
@@ -31,7 +32,12 @@ const selected = computed(
       <strong>{{ device.name }}</strong>
       <small>{{ device.kind }} · {{ device.address }}</small>
     </span>
-    <i class="topology-status" :title="device.health" aria-hidden="true"></i>
+    <UiStatusBadge
+      v-if="device.health !== 'Healthy'"
+      class="self-start"
+      :status="device.health"
+      size="sm"
+    />
     <span class="topology-node-stats">
       <span v-if="device.role === 'access-point'"
         >{{ device.clients }} clients</span
@@ -98,20 +104,6 @@ const selected = computed(
   margin-top: 3px;
   font-size: var(--text-2xs);
   color: var(--muted-foreground);
-}
-.topology-status {
-  align-self: start;
-  width: 7px;
-  height: 7px;
-  margin-top: 4px;
-  border-radius: 50%;
-  background: var(--success-foreground);
-}
-.topology-node.degraded .topology-status {
-  background: var(--warning-foreground);
-}
-.topology-node.offline .topology-status {
-  background: var(--danger-foreground);
 }
 .topology-node-stats {
   grid-column: 1 / -1;

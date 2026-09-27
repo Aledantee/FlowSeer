@@ -80,6 +80,7 @@ describe('UiBadge', () => {
       const { el } = mount(UiStatusBadge, { status })
       expect(el.textContent?.trim()).toBe(text)
       expect(el.className).toContain(expectedClass)
+      expect(el.classList).toContain('!text-sm')
       dispose()
     }
   })

@@ -33,7 +33,11 @@ const dotVariants = tv({
 </script>
 
 <template>
-  <UiBadge :variant="variantMap[props.status]" :size="props.size">
+  <UiBadge
+    class="!text-sm"
+    :variant="variantMap[props.status]"
+    :size="props.size"
+  >
     <i aria-hidden="true" :class="dotVariants({ status })" />
     <slot>{{ status }}</slot>
   </UiBadge>

@@ -80,3 +80,17 @@ describe('DeviceView uplink', () => {
     expect(host.textContent).toContain('berlin-sw-01')
   })
 })
+
+describe('DeviceView status typography', () => {
+  it('renders named event severity at the status text size', async () => {
+    const offline = devices.find((device) => device.health === 'Offline')
+    if (!offline) throw new Error('Missing offline fixture')
+
+    const host = await mountDeviceView(offline, devices)
+    const severity = [...host.querySelectorAll('span')].find((item) =>
+      ['Critical', 'Warning'].includes(item.textContent?.trim() ?? ''),
+    )
+
+    expect(severity?.classList).toContain('text-sm')
+  })
+})
