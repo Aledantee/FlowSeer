@@ -367,8 +367,10 @@ function poll() {
         : `Still not answering. ${pathSummary(updated)} Last answer ${formatAgo(updated.lastSeenMinutes)}.`
   }, 1200)
 }
+const moveSection = ref<HTMLDetailsElement>()
 async function openDevice(device: Device) {
   stopPoll()
+  if (moveSection.value) moveSection.value.open = false
   selected.value = device
   destination.value = device.siteId
   await nextTick()
@@ -403,7 +405,17 @@ function startMove(device: Device, siteId: string, reverted = false) {
     if (selected.value?.id === updated.id)
       selected.value = fleet.value.find((item) => item.id === updated.id)
     if (move.value?.deviceId === updated.id) move.value.observed = true
+    void nextTick(() => refocus(updated.id))
   }, 1200)
+}
+// A re-sort can carry the moved row elsewhere and drop focus to the page;
+// focus follows the row, or the notice when the row left the current scope.
+function refocus(deviceId: string) {
+  if (document.activeElement !== document.body) return
+  const row = [
+    ...document.querySelectorAll<HTMLElement>(`[data-device-id="${deviceId}"]`),
+  ].find((item) => item.offsetParent !== null)
+  ;(row ?? notice.value)?.focus()
 }
 function undoMove() {
   const last = move.value
@@ -736,6 +748,7 @@ onUnmounted(() => {
                   <li v-for="device in filtered" :key="device.id">
                     <button
                       :aria-label="`View status for ${device.name}`"
+                      :data-device-id="device.id"
                       @click="openDevice(device)"
                     >
                       <strong>{{ device.name }}</strong>
@@ -792,6 +805,7 @@ onUnmounted(() => {
                         <td>
                           <button
                             class="device-button"
+                            :data-device-id="device.id"
                             @click="openDevice(device)"
                           >
                             <span class="device-icon"
@@ -1106,13 +1120,14 @@ onUnmounted(() => {
             </div>
           </dl>
         </section>
-        <details class="device-move" @toggle="revealMove">
+        <details
+          v-if="allowedSites.length > 1"
+          ref="moveSection"
+          class="device-move"
+          @toggle="revealMove"
+        >
           <summary>Move to another site</summary>
-          <p v-if="allowedSites.length < 2">
-            {{ tenantName(selected.siteId) }} has no other site to move this
-            device to.
-          </p>
-          <form v-else @submit.prevent="reassign">
+          <form @submit.prevent="reassign">
             <p>
               A device belongs to one site. Moving it replaces its current
               assignment.
