@@ -184,14 +184,16 @@ describe('target registry', () => {
     ])
     expect(registry.view('a:dashboard:chart:traffic')).toBeDefined()
     expect(registry.idForElement(chart)).toBe('a:dashboard:chart:traffic')
+    expect(registry.highlight('a:dashboard:chart:traffic')).toBe(true)
+    expect(registry.selection()?.target.id).toBe('a:dashboard:chart:traffic')
 
     card.style.display = 'none'
 
+    expect(registry.selection()).toBeUndefined()
     expect(registry.list()).toEqual([])
     expect(registry.view('a:dashboard:chart:traffic')).toBeUndefined()
     expect(registry.idForElement(chart)).toBeUndefined()
     expect(registry.highlight('a:dashboard:chart:traffic')).toBe(false)
-    expect(registry.selection()).toBeUndefined()
 
     await expect(
       registry.request(chartTarget, { kind: 'ask' }),

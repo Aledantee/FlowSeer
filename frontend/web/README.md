@@ -279,9 +279,10 @@ addressable. Target IDs are qualified by physical pane slot (`a`, `b`, or
 swaps even when primary and secondary roles change. Responsive components that
 mount simultaneous mobile and desktop layouts in CSS register distinct
 `mobile` and `desktop` segments, for example `a:devices:device:desktop:d1`.
-Only mounted elements currently visible in the viewport and not hidden by CSS
-(`display: none` or `visibility: hidden` on the target or an ancestor) are
-listed or selectable.
+Only mounted elements in the active responsive segment that are not hidden by
+the `hidden` attribute or CSS (`display: none`, `visibility: hidden`, or
+`visibility: collapse` on the target or an ancestor) are listed or selectable.
+Offscreen elements remain addressable so `highlight()` can scroll them into view.
 
 `window.flowseerAi` is the inspectable contract:
 
