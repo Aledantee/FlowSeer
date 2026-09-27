@@ -899,7 +899,7 @@ onUnmounted(() => clearInterval(timer))
               </div>
               <strong v-else>{{ title }}</strong>
             </nav>
-            <AppTooltip
+            <UiTooltip
               label="Minimize to dock"
               hint="The shortcut minimizes whichever pane is focused."
               :shortcut="SHORTCUTS.minimize"
@@ -911,7 +911,7 @@ onUnmounted(() => clearInterval(timer))
               >
                 <AppIcon name="to-dock" />
               </button>
-            </AppTooltip>
+            </UiTooltip>
           </div>
           <div class="topbar-tools">
             <GlobalSearch
@@ -933,7 +933,7 @@ onUnmounted(() => clearInterval(timer))
           :class="['panes', { split: showSplit, docked: tabs.length }]"
           :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
         >
-          <AppTooltip
+          <UiTooltip
             v-if="showSplit"
             label="Drag to resize"
             hint="Double-click to reset to half and half."
@@ -953,7 +953,7 @@ onUnmounted(() => clearInterval(timer))
               @keydown.left.prevent="nudgeSplit(-0.05)"
               @keydown.right.prevent="nudgeSplit(0.05)"
             ></div>
-          </AppTooltip>
+          </UiTooltip>
           <!-- Both slots stay mounted while they hold a page, so swapping only
              changes roles and order; each page keeps its state. -->
           <template v-for="slot in slotIds" :key="slot">
@@ -1024,7 +1024,7 @@ onUnmounted(() => clearInterval(timer))
                     role="toolbar"
                     aria-label="Split view"
                   >
-                    <AppTooltip
+                    <UiTooltip
                       :label="
                         linkClicks
                           ? 'Links on the left open here'
@@ -1040,17 +1040,17 @@ onUnmounted(() => clearInterval(timer))
                       >
                         <AppIcon name="link-clicks" />
                       </button>
-                    </AppTooltip>
+                    </UiTooltip>
                     <span class="pane-tools-gap" aria-hidden="true"></span>
-                    <AppTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
+                    <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
                       <button
                         aria-label="Swap the two pages"
                         @click="swapPanes"
                       >
                         <AppIcon name="swap" />
                       </button>
-                    </AppTooltip>
-                    <AppTooltip
+                    </UiTooltip>
+                    <UiTooltip
                       label="Dock both as a pair"
                       :shortcut="SHORTCUTS.dockPair"
                     >
@@ -1060,8 +1060,8 @@ onUnmounted(() => clearInterval(timer))
                       >
                         <AppIcon name="dock-pair" />
                       </button>
-                    </AppTooltip>
-                    <AppTooltip
+                    </UiTooltip>
+                    <UiTooltip
                       label="Minimize to dock"
                       :shortcut="SHORTCUTS.toggleSplit"
                     >
@@ -1071,8 +1071,8 @@ onUnmounted(() => clearInterval(timer))
                       >
                         <AppIcon name="to-dock" />
                       </button>
-                    </AppTooltip>
-                    <AppTooltip
+                    </UiTooltip>
+                    <UiTooltip
                       label="Close side page"
                       :shortcut="SHORTCUTS.closeSide"
                     >
@@ -1082,7 +1082,7 @@ onUnmounted(() => clearInterval(timer))
                       >
                         <AppIcon name="close" />
                       </button>
-                    </AppTooltip>
+                    </UiTooltip>
                   </div>
                 </header>
               </PageHost>

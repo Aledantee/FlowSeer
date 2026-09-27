@@ -1,7 +1,7 @@
 # Console design language
 
-Open Storybook (`pnpm storybook`) and choose **Foundations** to compare Inter
-with DM Sans using interface text, changing numbers, and addresses. Switch the
+Open Storybook (`pnpm storybook`) and choose **Foundations** to inspect Inter
+and Mono using interface text, changing numbers, and addresses. Switch the
 theme toggle in Storybook to inspect the same specimens in light and dark mode.
 
 ## Typography decision
@@ -19,7 +19,7 @@ universally more readable. The alternatives considered were:
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Inter       | Recommended for interface text. Text/display optical sizes, tabular figures, and disambiguation features suit operational data. |
 | GT Standard | Closest match to the m3connect website. A brand option when appropriately licensed files are supplied.                          |
-| DM Sans     | A softer geometric alternative, already bundled. Retained for comparison in the typography specimen.                            |
+| DM Sans     | A softer geometric alternative evaluated during design selection.                                                               |
 
 On 6 September 2026, the [m3connect stylesheet](https://www.m3connect.de/wp-content/themes/bricks-child/style.css)
 declared `GT Standard Trial VF`, `GT Standard Trial VF Mono`, and an icon font.
@@ -55,7 +55,7 @@ For example, use the design system button and status badge:
 
 ```vue
 <script setup>
-import { UiButton, UiStatusBadge } from '@/ui'
+import { UiButton, UiStatusBadge } from './ui'
 </script>
 
 <template>
