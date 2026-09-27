@@ -6,9 +6,8 @@ import { scopeOf, usePage } from '../../navigation/page'
 import AppIcon from '../AppIcon.vue'
 import DeviceIcon from '../DeviceIcon.vue'
 import TrafficSparkline from '../TrafficSparkline.vue'
-import { UiStatusBadge } from '../../ui'
+import { UiMeter, UiStatusBadge } from '../../ui'
 import DevicePorts from '../DevicePorts.vue'
-import ResourceMeter from '../ResourceMeter.vue'
 import {
   linkDetailsOf,
   portDetailsOf,
@@ -180,10 +179,10 @@ function deviceLink(id: string) {
           class="topology-inspector-section"
         >
           <h3>Resources</h3>
-          <ResourceMeter label="CPU" :percent="telemetry.cpu" />
-          <ResourceMeter
+          <UiMeter label="CPU" :value="telemetry.cpu" />
+          <UiMeter
             label="Memory"
-            :percent="telemetry.memory"
+            :value="telemetry.memory"
             :detail="`${telemetry.memoryTotal / 1024} GB`"
           />
           <p class="topology-inspector-note">
@@ -299,9 +298,9 @@ function deviceLink(id: string) {
           />
         </section>
         <section class="topology-inspector-section">
-          <ResourceMeter
+          <UiMeter
             label="Utilization"
-            :percent="details.utilization"
+            :value="details.utilization"
             :detail="`of ${link.capacity.toLocaleString()} Mbps`"
           />
         </section>

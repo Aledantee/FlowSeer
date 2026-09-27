@@ -4,8 +4,16 @@ import { computed } from 'vue'
 import AppIcon from './components/AppIcon.vue'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
-import HealthBar from './components/HealthBar.vue'
-import { UiStatusBadge } from './ui'
+import {
+  UiSegmentedMeter,
+  UiStatusBadge,
+  UiTable,
+  UiTableBody,
+  UiTableCell,
+  UiTableHead,
+  UiTableHeader,
+  UiTableRow,
+} from './ui'
 import TrafficChart from './components/TrafficChart.vue'
 import type { Device, Site } from './domain/fleet'
 import {
@@ -90,7 +98,7 @@ const roles = computed(() => {
         </div>
       </header>
       <div class="dash-body">
-        <HealthBar :counts="counts" legend />
+        <UiSegmentedMeter :counts="counts" legend />
         <h3 class="dash-subheading">Needs attention</h3>
         <ul v-if="attention.length" class="dash-list">
           <li v-for="device in attention" :key="device.id">
@@ -129,43 +137,43 @@ const roles = computed(() => {
         </div>
       </header>
       <ScrollArea axis="x" viewport-class="table-scroll">
-        <table class="dash-table">
-          <thead>
-            <tr>
-              <th>Site</th>
-              <th class="dash-health-col">Health</th>
-              <th class="numeric">Devices</th>
-              <th class="numeric">Clients</th>
-              <th class="numeric">Traffic</th>
-              <th><span class="sr-only">Open</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="rollup in rollups" :key="rollup.site.id">
-              <td>
+        <UiTable>
+          <UiTableHeader>
+            <UiTableRow>
+              <UiTableHead>Site</UiTableHead>
+              <UiTableHead class="dash-health-col">Health</UiTableHead>
+              <UiTableHead align="numeric">Devices</UiTableHead>
+              <UiTableHead align="numeric">Clients</UiTableHead>
+              <UiTableHead align="numeric">Traffic</UiTableHead>
+              <UiTableHead><span class="sr-only">Open</span></UiTableHead>
+            </UiTableRow>
+          </UiTableHeader>
+          <UiTableBody>
+            <UiTableRow v-for="rollup in rollups" :key="rollup.site.id">
+              <UiTableCell>
                 <AppLink class="dash-site" :to="siteTo(rollup.site.id)">
-                  <strong>{{ rollup.site.name }}</strong
-                  ><small
+                  <strong>{{ rollup.site.name }}</strong>
+                  <small
                     >{{ rollup.site.location }} ·
                     {{ tenantName(rollup.site.id) }}</small
                   >
                 </AppLink>
-              </td>
-              <td class="dash-health-col">
-                <HealthBar :counts="rollup.health" />
-              </td>
-              <td class="numeric">
+              </UiTableCell>
+              <UiTableCell class="dash-health-col">
+                <UiSegmentedMeter :counts="rollup.health" />
+              </UiTableCell>
+              <UiTableCell align="numeric">
                 {{
                   rollup.health.Healthy +
                   rollup.health.Degraded +
                   rollup.health.Offline
                 }}
-              </td>
-              <td class="numeric">{{ rollup.clients }}</td>
-              <td class="numeric traffic">
+              </UiTableCell>
+              <UiTableCell align="numeric">{{ rollup.clients }}</UiTableCell>
+              <UiTableCell align="numeric" class="traffic">
                 {{ rollup.throughput }} <span>Mbps</span>
-              </td>
-              <td>
+              </UiTableCell>
+              <UiTableCell>
                 <AppLink
                   class="icon-button"
                   :aria-label="`Focus on ${rollup.site.name}`"
@@ -173,10 +181,10 @@ const roles = computed(() => {
                 >
                   <AppIcon name="arrow" />
                 </AppLink>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </UiTableCell>
+            </UiTableRow>
+          </UiTableBody>
+        </UiTable>
       </ScrollArea>
     </section>
 
