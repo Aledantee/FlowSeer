@@ -27,7 +27,9 @@ reads **All tenants** while one customer's site is in view, and the Devices
 count in the sidebar follows the scope.
 
 The app opens on the Dashboard, an overview of the current tenant and site
-scope. With **All sites** selected it lists each site with a health bar,
+scope. It leads with **Needs attention**: each failing device with the reason
+from its newest warning or critical event and how long ago that was, or when an
+offline device last answered. Traffic sits beside it. With **All sites** selected it lists each site with a health bar,
 clients, and traffic; choose a site row to focus the dashboard on that site,
 which replaces the list with the site's devices grouped by role. The traffic
 chart and event feed are synthetic fixtures in `src/domain/overview.ts`. The

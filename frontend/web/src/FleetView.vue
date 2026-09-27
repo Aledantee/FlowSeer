@@ -611,15 +611,19 @@ onUnmounted(() => {
                 {{ visibleSites.length === 1 ? 'site' : 'sites' }}
               </MetricCard>
               <MetricCard
-                label="Fleet health"
-                :value="
-                  scope.length ? Math.round((healthy / scope.length) * 100) : 0
-                "
-                unit="%"
+                label="Need attention"
+                :value="scope.length - healthy"
+                unit="devices"
                 icon="pulse"
               >
-                <b>{{ healthy }} healthy</b> · {{ scope.length - healthy }} need
-                attention
+                {{
+                  scope.filter((device) => device.health === 'Offline').length
+                }}
+                offline ·
+                {{
+                  scope.filter((device) => device.health === 'Degraded').length
+                }}
+                degraded
               </MetricCard>
               <MetricCard
                 label="Connected clients"
@@ -632,7 +636,7 @@ onUnmounted(() => {
                 :value="throughput"
                 unit="Mbps"
                 icon="pulse"
-                >Updates every 2.5s</MetricCard
+                >Live aggregate across the scope</MetricCard
               >
             </section>
             <template v-if="view === 'devices'">

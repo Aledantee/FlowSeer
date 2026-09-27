@@ -28,13 +28,27 @@ const peak = computed(() =>
     mbps: 0,
   }),
 )
+const severity = { Offline: 0, Degraded: 1, Healthy: 2 }
 const attention = computed(() =>
   props.scope
     .filter((device) => device.health !== 'Healthy')
-    .sort((a, b) =>
-      a.health === 'Offline' ? -1 : b.health === 'Offline' ? 1 : 0,
+    .sort(
+      (a, b) =>
+        severity[a.health] - severity[b.health] || a.name.localeCompare(b.name),
     ),
 )
+// The newest warning or critical event is the reason shown beside a device;
+// the full list lives in device details.
+function reason(device: Device) {
+  const event = feed.value.find(
+    (item) => item.deviceId === device.id && item.severity !== 'info',
+  )
+  const parts = [event?.summary ?? 'No event explains this yet']
+  if (device.health === 'Offline')
+    parts.push(`last answered ${formatAgo(device.lastSeenMinutes)}`)
+  else if (event) parts.push(formatAgo(event.minutesAgo))
+  return parts.join(' · ')
+}
 const feed = computed(() => scopedEvents(props.scope))
 const rollups = computed(() => siteRollups(props.scope, props.sites))
 const devicesById = computed(
@@ -54,6 +68,42 @@ const roles = computed(() => {
 
 <template>
   <div class="dashboard">
+    <section class="dash-panel dash-health" aria-labelledby="health-title">
+      <header class="dash-heading">
+        <div>
+          <h2 id="health-title">Needs attention</h2>
+          <p>{{ attention.length }} of {{ scope.length }} devices</p>
+        </div>
+      </header>
+      <div class="dash-body">
+        <ul v-if="attention.length" class="dash-list">
+          <li v-for="device in attention" :key="device.id">
+            <button class="dash-row" @click="$emit('open', device)">
+              <span
+                ><strong>{{ device.name }}</strong
+                ><small
+                  >{{ device.kind
+                  }}<template v-if="!site">
+                    ·
+                    {{
+                      sites.find((s) => s.id === device.siteId)?.name
+                    }}</template
+                  ></small
+                ><span class="dash-cause">{{ reason(device) }}</span></span
+              >
+              <StatusBadge :status="device.health" />
+            </button>
+          </li>
+        </ul>
+        <p v-else-if="scope.length" class="dash-empty">
+          Every device in this scope is healthy.
+        </p>
+        <p v-else class="dash-empty">No devices in this scope.</p>
+        <h3 class="dash-subheading">Health across the scope</h3>
+        <HealthBar :counts="counts" legend />
+      </div>
+    </section>
+
     <section class="dash-panel dash-traffic" aria-labelledby="traffic-title">
       <header class="dash-heading">
         <div>
@@ -70,42 +120,6 @@ const roles = computed(() => {
         :points="history"
         :label="`Hourly aggregate traffic for ${site ? site.name : 'all sites in scope'}`"
       />
-    </section>
-
-    <section class="dash-panel dash-health" aria-labelledby="health-title">
-      <header class="dash-heading">
-        <div>
-          <h2 id="health-title">Device health</h2>
-          <p>{{ scope.length }} devices monitored</p>
-        </div>
-      </header>
-      <div class="dash-body">
-        <HealthBar :counts="counts" legend />
-        <h3 class="dash-subheading">Needs attention</h3>
-        <ul v-if="attention.length" class="dash-list">
-          <li v-for="device in attention" :key="device.id">
-            <button class="dash-row" @click="$emit('open', device)">
-              <span
-                ><strong>{{ device.name }}</strong
-                ><small
-                  >{{ device.kind
-                  }}<template v-if="!site">
-                    ·
-                    {{
-                      sites.find((s) => s.id === device.siteId)?.name
-                    }}</template
-                  ></small
-                ></span
-              >
-              <StatusBadge :status="device.health" />
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="scope.length" class="dash-empty">
-          Every device in this scope is healthy.
-        </p>
-        <p v-else class="dash-empty">No devices in this scope.</p>
-      </div>
     </section>
 
     <section
