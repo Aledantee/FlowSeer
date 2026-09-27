@@ -54,6 +54,10 @@ const layerTarget = computed<AiTargetView | undefined>(() => {
 
 const box = shallowRef<Rect>()
 const layerRoot = ref<HTMLElement>()
+const askButtonWidth = 26
+const askButtonHeight = 22
+const askButtonGap = 2
+const viewportInset = 1
 
 const outlineStyle = computed(() => {
   const rect = box.value
@@ -67,10 +71,55 @@ const outlineStyle = computed(() => {
 })
 const buttonStyle = computed(() => {
   const rect = box.value
-  if (!rect) return undefined
+  const element = layerTarget.value?.element
+  if (!rect || !element) return undefined
+  const maxLeft = window.innerWidth - viewportInset - askButtonWidth
+  const maxTop = window.innerHeight - viewportInset - askButtonHeight
+  const alignedRight = Math.min(
+    Math.max(rect.right - askButtonWidth, viewportInset),
+    maxLeft,
+  )
+  const alignedTop = Math.min(Math.max(rect.top, viewportInset), maxTop)
+  const alignedMiddle = Math.min(
+    Math.max(rect.top + (rect.height - askButtonHeight) / 2, viewportInset),
+    maxTop,
+  )
+  const positions = [
+    { top: alignedMiddle, left: rect.right + askButtonGap },
+    {
+      top: alignedMiddle,
+      left: rect.left - askButtonGap - askButtonWidth,
+    },
+    { top: rect.top - askButtonGap - askButtonHeight, left: alignedRight },
+    { top: rect.bottom + askButtonGap, left: alignedRight },
+  ]
+  const controls = [
+    ...document.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])',
+    ),
+  ]
+    .filter(
+      (control) => control !== element && !layerRoot.value?.contains(control),
+    )
+    .map((control) => control.getBoundingClientRect())
+    .filter((control) => control.width > 0 && control.height > 0)
+  const position = positions.find(
+    ({ top, left }) =>
+      top >= viewportInset &&
+      top <= maxTop &&
+      left >= viewportInset &&
+      left <= maxLeft &&
+      controls.every(
+        (obstacle) =>
+          left + askButtonWidth <= obstacle.left ||
+          left >= obstacle.right ||
+          top + askButtonHeight <= obstacle.top ||
+          top >= obstacle.bottom,
+      ),
+  ) ?? { top: alignedTop, left: alignedRight }
   return {
-    top: `${rect.top + 4}px`,
-    left: `${Math.max(rect.left, rect.right - 56)}px`,
+    top: `${position.top}px`,
+    left: `${position.left}px`,
   }
 })
 
@@ -268,6 +317,7 @@ function submit() {
       ref="layerRoot"
       class="ai-layer"
       data-ai-action-layer=""
+      :style="{ zIndex: 1 }"
     >
       <div class="ai-outline" :style="outlineStyle" aria-hidden="true"></div>
       <UiPopover
@@ -349,7 +399,6 @@ function submit() {
 .ai-layer {
   position: fixed;
   inset: 0;
-  z-index: 60;
   pointer-events: none;
 }
 .ai-outline {
@@ -361,8 +410,9 @@ function submit() {
 .ai-ask {
   position: fixed;
   pointer-events: auto;
+  width: 26px;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 2px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--card);

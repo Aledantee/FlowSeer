@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, nextTick } from 'vue'
 import UiAiActionLayer from './UiAiActionLayer.vue'
 import { aiRegistryKey } from './context'
@@ -7,11 +9,15 @@ import { createAiRegistry } from '../../ai'
 import type { AiRegistry } from '../../ai'
 import type { AiRequest, AiTarget } from '../../ai'
 
+const appStyles = readFileSync(resolve(process.cwd(), 'src/style.css'), 'utf8')
+
 let dispose = () => {}
 afterEach(() => {
   dispose()
   dispose = () => {}
   document.body.replaceChildren()
+  document.head.querySelector('[data-test-app-styles]')?.remove()
+  vi.restoreAllMocks()
 })
 
 interface Box {
@@ -34,6 +40,25 @@ function setBox(element: HTMLElement, box: Box) {
       bottom: box.top + box.height,
       toJSON: () => ({}),
     }) as DOMRect
+}
+
+function boxesIntersect(first: Box, second: Box): boolean {
+  return (
+    first.left < second.left + second.width &&
+    first.left + first.width > second.left &&
+    first.top < second.top + second.height &&
+    first.top + first.height > second.top
+  )
+}
+
+function buttonBox(button: HTMLButtonElement | undefined): Box {
+  if (!button) throw new Error('Missing Ask button')
+  return {
+    top: Number.parseFloat(button.style.top),
+    left: Number.parseFloat(button.style.left),
+    width: 26,
+    height: 22,
+  }
 }
 
 const box: Box = { top: 120, left: 60, width: 320, height: 40 }
@@ -161,7 +186,7 @@ describe('AiActionLayer selection and Ask', () => {
     const button = askButton()
     expect(button).not.toBeNull()
     expect(button?.getAttribute('aria-label')).toBe('Ask about d1')
-    expect(button?.style.top).toBe('124px')
+    expect(button?.style.top).toBe('129px')
     expect(document.querySelector('.ai-outline')).not.toBeNull()
   })
 
@@ -464,6 +489,113 @@ describe('AiActionLayer selection and Ask', () => {
 })
 
 describe('AiActionLayer geometry', () => {
+  it('keeps Ask off a selected mobile card status and link', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const card = { top: 494, left: 29, width: 332, height: 98 }
+    const status = { top: 510, left: 270, width: 91, height: 24 }
+    const link = { top: 544, left: 270, width: 91, height: 32 }
+    const { registry, element } = setup(card)
+    const statusElement = document.createElement('span')
+    const linkElement = document.createElement('span')
+    setBox(statusElement, status)
+    setBox(linkElement, link)
+    element.append(statusElement, linkElement)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const button = askButton()
+    expect(button?.style.top).toBe('532px')
+    expect(button?.style.left).toBe('363px')
+    expect(boxesIntersect(buttonBox(button), status)).toBe(false)
+    expect(boxesIntersect(buttonBox(button), link)).toBe(false)
+    button?.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, cancelable: true }),
+    )
+    button?.click()
+    await settle()
+    expect(document.querySelector('textarea')).not.toBeNull()
+  })
+
+  it('keeps Ask clear of controls in adjacent mobile rows', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const card = { top: 593, left: 29, width: 332, height: 98 }
+    const previousRow = { top: 494, left: 29, width: 332, height: 98 }
+    const nextRow = { top: 692, left: 29, width: 332, height: 98 }
+    const status = { top: 609, left: 270, width: 91, height: 24 }
+    const link = { top: 643, left: 270, width: 91, height: 32 }
+    const name = { top: 613, left: 29, width: 231, height: 16 }
+    const detail = { top: 643, left: 29, width: 231, height: 32 }
+    const { registry, element } = setup(card)
+    const statusElement = document.createElement('span')
+    const linkElement = document.createElement('span')
+    const nameElement = document.createElement('strong')
+    const detailElement = document.createElement('small')
+    const previousControl = document.createElement('button')
+    const nextControl = document.createElement('button')
+    setBox(statusElement, status)
+    setBox(linkElement, link)
+    setBox(nameElement, name)
+    setBox(detailElement, detail)
+    setBox(previousControl, previousRow)
+    setBox(nextControl, nextRow)
+    element.append(statusElement, linkElement, nameElement, detailElement)
+    element.before(previousControl)
+    element.after(nextControl)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const ask = buttonBox(askButton())
+    expect(ask).toEqual({ top: 631, left: 363, width: 26, height: 22 })
+    expect(boxesIntersect(ask, previousRow)).toBe(false)
+    expect(boxesIntersect(ask, nextRow)).toBe(false)
+    expect(boxesIntersect(ask, status)).toBe(false)
+    expect(boxesIntersect(ask, link)).toBe(false)
+    expect(boxesIntersect(ask, name)).toBe(false)
+    expect(boxesIntersect(ask, detail)).toBe(false)
+  })
+
+  it('keeps Ask visible outside a small target clipped by the viewport edge', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const clippedTarget = { top: -10, left: 380, width: 30, height: 20 }
+    const { registry } = setup(clippedTarget)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const button = askButton()
+    expect(button?.style.top).toBe('1px')
+    expect(button?.style.left).toBe('352px')
+    expect(
+      Number.parseFloat(button?.style.left ?? '') + 26,
+    ).toBeLessThanOrEqual(380)
+  })
+
+  it('stacks the action layer below the app chrome and modal layers', async () => {
+    const { registry } = setup()
+    const styles = document.createElement('style')
+    const topbarRule = appStyles.match(/\.topbar\s*\{[^}]*\}/)?.[0]
+    expect(topbarRule).toBeDefined()
+    styles.dataset.testAppStyles = ''
+    styles.textContent = topbarRule ?? ''
+    document.head.append(styles)
+    const topbar = document.createElement('header')
+    topbar.className = 'topbar z-50'
+    document.body.append(topbar)
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const layer = document.querySelector<HTMLElement>('.ai-layer')
+    if (!layer) throw new Error('Missing action layer')
+    const layerZ = Number(getComputedStyle(layer).zIndex)
+    const topbarZ = Number(getComputedStyle(topbar).zIndex)
+    expect(layerZ).toBeGreaterThan(0)
+    expect(topbarZ).toBe(2)
+    expect(layerZ).toBeLessThan(topbarZ)
+    expect(layerZ).toBeLessThan(50)
+  })
+
   it('hides the affordance when the target is scrolled out of view', async () => {
     const { registry } = setup({ top: -400, left: 60, width: 320, height: 40 })
     registry.highlight('a:devices:device:d1')
@@ -476,13 +608,13 @@ describe('AiActionLayer geometry', () => {
     const { registry, element } = setup()
     registry.highlight('a:devices:device:d1')
     await settle()
-    expect(askButton()?.style.top).toBe('124px')
+    expect(askButton()?.style.top).toBe('129px')
 
     setBox(element, { top: 300, left: 60, width: 320, height: 40 })
     window.dispatchEvent(new Event('resize'))
     await settle()
 
-    expect(askButton()?.style.top).toBe('304px')
+    expect(askButton()?.style.top).toBe('309px')
   })
 
   it('drops a selected responsive copy when the viewport changes', async () => {

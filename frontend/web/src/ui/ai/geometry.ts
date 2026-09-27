@@ -48,17 +48,20 @@ function viewportRect(): Rect {
   }
 }
 
-// The nearest ancestors that scroll their content, nearest first.
-export function scrollableAncestors(element: HTMLElement): HTMLElement[] {
+const clippingOverflow = new Set(['hidden', 'auto', 'scroll', 'clip'])
+
+function clippingAncestors(element: HTMLElement): HTMLElement[] {
   const found: HTMLElement[] = []
   for (
     let node = element.parentElement;
     node && node !== document.body;
     node = node.parentElement
   ) {
+    const style = getComputedStyle(node)
     if (
-      node.scrollHeight > node.clientHeight + 1 ||
-      node.scrollWidth > node.clientWidth + 1
+      [style.overflow, style.overflowX, style.overflowY].some((overflow) =>
+        clippingOverflow.has(overflow),
+      )
     )
       found.push(node)
   }
@@ -74,7 +77,7 @@ export function visibleRect(
   const box = toRect(element.getBoundingClientRect())
   if (box.width <= 0 && box.height <= 0) return undefined
   let clip = viewport
-  for (const ancestor of scrollableAncestors(element))
+  for (const ancestor of clippingAncestors(element))
     clip = intersect(clip, toRect(ancestor.getBoundingClientRect()))
   const visible = intersect(box, clip)
   if (visible.width <= 0 || visible.height <= 0) return undefined
