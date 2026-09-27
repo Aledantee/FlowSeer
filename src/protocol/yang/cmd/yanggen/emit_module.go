@@ -53,7 +53,6 @@ type ancestorList struct {
 type moduleEmitter struct {
 	m             *LoadedModule
 	scope         *nameScope
-	shapeMap      map[string]*nodeShape
 	shapes        []*nodeShape
 	listInstances []*listInstance
 	topContainers []*topContainerInstance
@@ -71,9 +70,8 @@ func (em *moduleEmitter) addCommented(comment string, code jen.Code) {
 // chunked files, keyed by filename.
 func emitModuleFiles(m *LoadedModule) (map[string][]byte, error) {
 	em := &moduleEmitter{m: m}
-	shapeMap, scope, shapes, listInstances, topContainers, memo := resolvePackageNaming(m, em.moduleOf)
+	scope, shapes, listInstances, topContainers, memo := resolvePackageNaming(m, em.moduleOf)
 	em.scope = scope
-	em.shapeMap = shapeMap
 	em.shapes = shapes
 	em.listInstances = listInstances
 	em.topContainers = topContainers

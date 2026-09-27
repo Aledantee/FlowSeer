@@ -120,9 +120,63 @@ module fixture-main {
 
   container primary-group {
     uses fg:endpoint-settings;
+    uses fg:peer-list;
   }
 
   container secondary-group {
     uses fg:endpoint-settings;
+    uses fg:peer-list;
+  }
+
+  container shape-probe {
+    description "Pairs of same-named nodes that differ in one property the
+      codecs read, so they must not share a generated type.";
+    container by-type-a {
+      container setting {
+        leaf value {
+          type uint32;
+        }
+      }
+    }
+    container by-type-b {
+      container setting {
+        leaf value {
+          type string;
+        }
+      }
+    }
+    container by-presence-a {
+      container marker {
+        leaf value {
+          type uint32;
+        }
+      }
+    }
+    container by-presence-b {
+      container marker {
+        presence "Enables the marker.";
+        leaf value {
+          type uint32;
+        }
+      }
+    }
+    container by-module-a {
+      container slot {
+        leaf value {
+          type uint32;
+        }
+      }
+    }
+    container by-module-b {
+      container slot {
+        description "fixture-aug augments this container's only leaf.";
+      }
+    }
+    container by-owner-a {
+      container flag;
+    }
+    container by-owner-b {
+      description "fixture-aug augments an empty flag container here.";
+    }
   }
 }

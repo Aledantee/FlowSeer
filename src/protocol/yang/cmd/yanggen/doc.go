@@ -11,13 +11,17 @@
 // one Go package per module under generated/go/yang/<vendor>/,
 // consuming only src/protocol/yang's public API.
 //
-// Struct identifiers are MixedCaps derived from the shortest unique
-// suffix of ancestry names, resolved through fair-growth collision
-// resolution. Structurally identical container subtrees share a
-// single struct type and Schema across instances. Companion names
-// derive from the struct (the schema var, list key type, descriptor
-// function, and flat row), and clashes resolve to X plus six hex
-// digits of the schema path or shape key.
+// Structurally identical containers and lists share one struct type
+// and one Schema across all their schema paths. A struct takes the
+// shortest suffix of its instances' common ancestry names that is
+// unique in the package, and its schema var is that name plus
+// "Schema". Each list instance names its Key, FlatRow, and Descriptor
+// from the shortest unique suffix of its own path, so a shared list
+// struct `ServersServer` can carry `ServerKey` and `ServerDescriptor`;
+// a top-level container's descriptor is named the same way. Clashing
+// names grow by one ancestor segment together until they are unique,
+// and a clash that runs out of segments resolves to X plus six hex
+// digits of the shape key or path.
 //
 // Module descriptors are emitted as package-level *yang.Module variables
 // and shared by all schemas and fields in the package. Schemas format

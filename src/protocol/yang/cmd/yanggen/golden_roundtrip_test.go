@@ -216,41 +216,106 @@ func TestGeneratedVisitLeaves(t *testing.T) {
 
 // TestGroupingInstantiatingModuleRoundTrip asserts that nodes instantiated
 // from another module's grouping decode JSON with the instantiating module's
-// qualification and XML in its namespace through both instances.
+// qualification and XML in its namespace, through each container that uses
+// the grouping.
 func TestGroupingInstantiatingModuleRoundTrip(t *testing.T) {
-	jsonPayload := []byte(`{"fixture-main:buffer-size":4096}`)
+	for _, tc := range []struct {
+		container string
+		decode    func(json bool, data []byte) (*fixturemain.Item, error)
+	}{
+		{"primary-group", func(json bool, data []byte) (*fixturemain.Item, error) {
+			var got fixturemain.PrimaryGroup
+			if json {
+				err := yang.UnmarshalJSON7951Struct(fixturemain.PrimaryGroupSchema, data, &got)
+				return got.Item, err
+			}
+			err := yang.UnmarshalXMLStruct(fixturemain.PrimaryGroupSchema, data, &got)
+			return got.Item, err
+		}},
+		{"secondary-group", func(json bool, data []byte) (*fixturemain.Item, error) {
+			var got fixturemain.SecondaryGroup
+			if json {
+				err := yang.UnmarshalJSON7951Struct(fixturemain.SecondaryGroupSchema, data, &got)
+				return got.Item, err
+			}
+			err := yang.UnmarshalXMLStruct(fixturemain.SecondaryGroupSchema, data, &got)
+			return got.Item, err
+		}},
+	} {
+		t.Run(tc.container, func(t *testing.T) {
+			jsonPayload := []byte(`{"fixture-main:item":{"fixture-main:buffer-size":4096}}`)
+			item, err := tc.decode(true, jsonPayload)
+			if err != nil {
+				t.Fatalf("decode JSON: %v", err)
+			}
+			if item == nil || item.BufferSize == nil || *item.BufferSize != 4096 {
+				t.Errorf("JSON item = %+v, want BufferSize 4096", item)
+			}
 
-	var primaryJSON fixturemain.Item
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ItemSchema, jsonPayload, &primaryJSON); err != nil {
-		t.Fatalf("UnmarshalJSON7951Struct primary: %v", err)
+			xmlPayload := []byte(`<` + tc.container + ` xmlns="urn:flowseer:fixture-main"><item><buffer-size>8192</buffer-size></item></` + tc.container + `>`)
+			item, err = tc.decode(false, xmlPayload)
+			if err != nil {
+				t.Fatalf("decode XML: %v", err)
+			}
+			if item == nil || item.BufferSize == nil || *item.BufferSize != 8192 {
+				t.Errorf("XML item = %+v, want BufferSize 8192", item)
+			}
+		})
 	}
-	if primaryJSON.BufferSize == nil || *primaryJSON.BufferSize != 4096 {
-		t.Errorf("primary JSON BufferSize = %v, want 4096", primaryJSON.BufferSize)
+}
+
+// TestGeneratedSeparatedShapesDecodeTheirOwnWireForm asserts that nodes the
+// shape key keeps apart decode what their own schema path carries: a string
+// where the sibling holds a uint32, a leaf qualified by its augmenting module,
+// and a presence container, and that the shared list's descriptors address
+// their own container.
+func TestGeneratedSeparatedShapesDecodeTheirOwnWireForm(t *testing.T) {
+	var byType fixturemain.ByTypeB
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByTypeBSchema, []byte(`{"setting":{"value":"eth0"}}`), &byType); err != nil {
+		t.Fatalf("by-type-b: %v", err)
+	}
+	if byType.Setting == nil || byType.Setting.Value == nil || *byType.Setting.Value != "eth0" {
+		t.Errorf("by-type-b setting = %+v, want Value eth0", byType.Setting)
 	}
 
-	var secondaryJSON fixturemain.Item
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ItemSchema, jsonPayload, &secondaryJSON); err != nil {
-		t.Fatalf("UnmarshalJSON7951Struct secondary: %v", err)
+	payload := []byte(`{"slot":{"fixture-aug:value":7}}`)
+	var byModuleB fixturemain.ByModuleB
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleBSchema, payload, &byModuleB); err != nil {
+		t.Fatalf("by-module-b: %v", err)
 	}
-	if secondaryJSON.BufferSize == nil || *secondaryJSON.BufferSize != 4096 {
-		t.Errorf("secondary JSON BufferSize = %v, want 4096", secondaryJSON.BufferSize)
+	if byModuleB.Slot == nil || byModuleB.Slot.Value == nil || *byModuleB.Slot.Value != 7 {
+		t.Errorf("by-module-b slot = %+v, want fixture-aug:value 7", byModuleB.Slot)
 	}
-
-	xmlPayload := []byte(`<item xmlns="urn:flowseer:fixture-main"><buffer-size>8192</buffer-size></item>`)
-
-	var primaryXML fixturemain.Item
-	if err := yang.UnmarshalXMLStruct(fixturemain.ItemSchema, xmlPayload, &primaryXML); err != nil {
-		t.Fatalf("UnmarshalXMLStruct primary: %v", err)
+	var byModuleA fixturemain.ByModuleA
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleASchema, payload, &byModuleA); err != nil {
+		t.Fatalf("by-module-a: %v", err)
 	}
-	if primaryXML.BufferSize == nil || *primaryXML.BufferSize != 8192 {
-		t.Errorf("primary XML BufferSize = %v, want 8192", primaryXML.BufferSize)
+	if byModuleA.Slot != nil && byModuleA.Slot.Value != nil {
+		t.Errorf("by-module-a decoded fixture-aug:value %d into its fixture-main leaf", *byModuleA.Slot.Value)
 	}
 
-	var secondaryXML fixturemain.Item
-	if err := yang.UnmarshalXMLStruct(fixturemain.ItemSchema, xmlPayload, &secondaryXML); err != nil {
-		t.Fatalf("UnmarshalXMLStruct secondary: %v", err)
+	if !fixturemain.ByPresenceBMarkerSchema.Presence || fixturemain.ByPresenceAMarkerSchema.Presence {
+		t.Errorf("marker presence: a=%v b=%v, want a=false b=true",
+			fixturemain.ByPresenceAMarkerSchema.Presence, fixturemain.ByPresenceBMarkerSchema.Presence)
 	}
-	if secondaryXML.BufferSize == nil || *secondaryXML.BufferSize != 8192 {
-		t.Errorf("secondary XML BufferSize = %v, want 8192", secondaryXML.BufferSize)
+
+	for _, tc := range []struct {
+		path string
+		got  yang.Path
+	}{
+		{"/fixture-main:primary-group/peer", fixturemain.PrimaryGroupPeerDescriptor().Path},
+		{"/fixture-main:secondary-group/peer", fixturemain.SecondaryGroupPeerDescriptor().Path},
+	} {
+		if got := tc.got.String(); got != tc.path {
+			t.Errorf("peer descriptor path = %q, want %q", got, tc.path)
+		}
+	}
+	rows, err := fixturemain.SecondaryGroupPeerDescriptor().Codec.DecodeJSON([]byte(`{"fixture-main:peer":[{"name":"p1","weight":3}]}`))
+	if err != nil {
+		t.Fatalf("peer DecodeJSON: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Weight == nil || *rows[0].Weight != 3 ||
+		fixturemain.SecondaryGroupPeerDescriptor().Codec.Key(rows[0]) != (fixturemain.SecondaryGroupPeerKey{Name: "p1"}) {
+		t.Errorf("peer rows = %+v, want one row p1 weight 3", rows)
 	}
 }

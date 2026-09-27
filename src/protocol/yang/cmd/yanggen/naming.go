@@ -95,38 +95,20 @@ type claimSpec struct {
 
 // claimantEntity is an entity participating in fair growth.
 type claimantEntity struct {
-	id         string
 	candidates []string
 	curIndex   int
 	getSymbols func(base string) []claimSpec
-}
-
-type claimItem struct {
-	entity        *claimantEntity
-	wantedName    string
-	kind          symbolKind
-	depth         int
-	tieBreak      string
-	discriminator string
 }
 
 // resolveFairGrowth resolves clashing symbol names across entities
 // by growing candidate suffixes fairly and falling back to X<hash> deterministically.
 func resolveFairGrowth(entities []*claimantEntity) *nameScope {
 	for {
-		byName := make(map[string][]*claimItem)
+		byName := make(map[string][]*claimantEntity)
 		for _, ent := range entities {
 			base := ent.candidates[ent.curIndex]
 			for _, spec := range ent.getSymbols(base) {
-				item := &claimItem{
-					entity:        ent,
-					wantedName:    spec.wanted,
-					kind:          spec.kind,
-					depth:         spec.depth,
-					tieBreak:      spec.tieBreak,
-					discriminator: spec.discriminator,
-				}
-				byName[spec.wanted] = append(byName[spec.wanted], item)
+				byName[spec.wanted] = append(byName[spec.wanted], ent)
 			}
 		}
 
@@ -134,14 +116,14 @@ func resolveFairGrowth(entities []*claimantEntity) *nameScope {
 		hasClashes := false
 		canAnyGrow := false
 
-		for _, items := range byName {
-			if len(items) <= 1 {
+		for _, ents := range byName {
+			if len(ents) <= 1 {
 				continue
 			}
 			hasClashes = true
-			for _, it := range items {
-				if it.entity.curIndex+1 < len(it.entity.candidates) {
-					toAdvance[it.entity] = true
+			for _, ent := range ents {
+				if ent.curIndex+1 < len(ent.candidates) {
+					toAdvance[ent] = true
 					canAnyGrow = true
 				}
 			}
@@ -359,7 +341,7 @@ type topContainerInstance struct {
 // collectShapesAndInstances walks the data tree of m.Entry and groups nodes by shape.
 func collectShapesAndInstances(
 	m *LoadedModule, moduleOf func(*goyang.Entry) string,
-) (map[string]*nodeShape, []*nodeShape, []*listInstance, []*topContainerInstance, map[*goyang.Entry]string) {
+) ([]*nodeShape, []*listInstance, []*topContainerInstance, map[*goyang.Entry]string) {
 	memo := make(map[*goyang.Entry]string)
 	shapeMap := make(map[string]*nodeShape)
 	var listInstances []*listInstance
@@ -465,21 +447,20 @@ func collectShapesAndInstances(
 		tc.candidates = candidateSuffixes(tc.segments)
 	}
 
-	return shapeMap, shapeList, listInstances, topContainers, memo
+	return shapeList, listInstances, topContainers, memo
 }
 
 // resolvePackageNaming runs the pre-pass over all symbols in m to resolve names fairly.
 func resolvePackageNaming(
 	m *LoadedModule, moduleOf func(*goyang.Entry) string,
-) (map[string]*nodeShape, *nameScope, []*nodeShape, []*listInstance, []*topContainerInstance, map[*goyang.Entry]string) {
-	shapeMap, shapes, listInstances, topContainers, memo := collectShapesAndInstances(m, moduleOf)
+) (*nameScope, []*nodeShape, []*listInstance, []*topContainerInstance, map[*goyang.Entry]string) {
+	shapes, listInstances, topContainers, memo := collectShapesAndInstances(m, moduleOf)
 
 	var entities []*claimantEntity
 
 	for _, s := range shapes {
 		sCopy := s
 		ent := &claimantEntity{
-			id:         "shape:" + sCopy.key,
 			candidates: sCopy.candidates,
 			getSymbols: func(base string) []claimSpec {
 				return []claimSpec{
@@ -506,7 +487,6 @@ func resolvePackageNaming(
 	for _, li := range listInstances {
 		liCopy := li
 		ent := &claimantEntity{
-			id:         "list:" + liCopy.entry.Path(),
 			candidates: liCopy.candidates,
 			getSymbols: func(base string) []claimSpec {
 				specs := []claimSpec{
@@ -543,7 +523,6 @@ func resolvePackageNaming(
 	for _, tc := range topContainers {
 		tcCopy := tc
 		ent := &claimantEntity{
-			id:         "container:" + tcCopy.entry.Path(),
 			candidates: tcCopy.candidates,
 			getSymbols: func(base string) []claimSpec {
 				return []claimSpec{
@@ -564,7 +543,6 @@ func resolvePackageNaming(
 		for _, id := range m.Module.Identity {
 			idName := id.Name
 			ent := &claimantEntity{
-				id:         "identity:" + idName,
 				candidates: []string{"Identity" + camel(idName)},
 				getSymbols: func(base string) []claimSpec {
 					return []claimSpec{
@@ -583,5 +561,5 @@ func resolvePackageNaming(
 	}
 
 	scope := resolveFairGrowth(entities)
-	return shapeMap, scope, shapes, listInstances, topContainers, memo
+	return scope, shapes, listInstances, topContainers, memo
 }
