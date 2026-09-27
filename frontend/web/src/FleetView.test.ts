@@ -104,4 +104,12 @@ describe('fleet view', () => {
       '38 min ago',
     )
   })
+  it('lets a phone device card announce its health, site, and age', async () => {
+    const { host } = await mountAt('/devices?search=cologne-ap-02')
+    const card = host.querySelector('.mobile-devices button')
+    expect(card?.getAttribute('aria-label')).toBeNull()
+    expect(card?.textContent).toContain('Offline')
+    expect(card?.textContent).toContain('Cologne Central')
+    expect(card?.textContent).toContain('38 min ago')
+  })
 })

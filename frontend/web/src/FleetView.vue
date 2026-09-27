@@ -764,7 +764,6 @@ onUnmounted(() => {
                 >
                   <li v-for="device in filtered" :key="device.id">
                     <button
-                      :aria-label="`View status for ${device.name}`"
                       :data-device-id="device.id"
                       @click="openDevice(device)"
                     >
