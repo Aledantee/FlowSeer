@@ -63,8 +63,8 @@ The existing 50-row benchmark cannot establish behavior at controller-scale card
 
 ### Assumed API behavior for this plan
 
-These are proposed defaults inferred from the agreed selective-streaming direction, rather than choices explicitly made by the user.
-They are the implementation baseline unless the user revises this plan.
+These are proposed defaults inferred from the agreed selective-streaming direction.
+They are the implementation baseline unless this plan is revised.
 
 - Rows are the union of indexes having real values in selected columns. A row visible only in an unrequested column disappears from this result set. No hidden discovery column or table-root scan is added.
 - Selecting no columns returns an empty, successful iterator without network requests. Duplicate selections are deduplicated. Foreign or unknown column descriptors are rejected before I/O.
@@ -111,7 +111,7 @@ Use these existing mechanisms:
 
 ### Key Technical Decisions
 
-- KTD1. Use multiple selected-column cursors in GETBULK requests. This implements R1 and R2. (session-settled: user-approved — chosen over whole-table buffering: reduce memory and unnecessary retrieval for large controller tables.) RFC 3416 section 4.2.3 defines independent successor streams for repeaters; the implementation follows that response layout.
+- KTD1. Use multiple selected-column cursors in GETBULK requests. This implements R1 and R2. (Chosen over whole-table buffering: reduce memory and unnecessary retrieval for large controller tables.) RFC 3416 section 4.2.3 defines independent successor streams for repeaters; the implementation follows that response layout.
 - KTD2. Put protocol scheduling and row assembly in a shared exported runtime helper consumed by generated bindings. Keep `Session` unchanged under R8. A package-private optional raw-request capability on the native session preserves R6; other sessions use their public `GetBulk`/`GetNext` operations and wrap decoded values as `RawVarBind.VB`. The generator remains responsible for typed decoding and observation bits.
 - KTD3. Retain at most one batch per column and refill only empty queues. Hold no map of all rows and start no per-column background pumps. Use defaults of 50 repetitions and at most 10 column cursors per request, honoring a smaller native session/call `MaxOIDs` limit. Options can lower or raise these bounded values within validated protocol/configuration limits. One request is outstanding per table walker. These are conservative starting settings, not a measured WLC optimum.
 - KTD4. Demultiplex each response using the request's frozen cursor list and repetition stride, before removing completed columns. This implements R2 and R7 when responses end partway through a repetition or individual columns leave their subtree.

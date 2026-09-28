@@ -66,10 +66,9 @@ attack. This is the value the direction record claims for live vendor truth.
 - The checksum excludes the 64-bit authentication field (`[16:24]`) per
   RFC 2328 section D.4. Why: correctness for any future non-zero AuType; with
   AuType 0 today the excluded bytes are zero, so the result is unchanged.
-- The implement stage landed all four units and passed the verifier but left
-  `status: planned`; the user ruled (2026-09-24, via drive) that the drive
-  writes `status: implemented` and the `> Implemented.` marker directly rather
-  than re-running implement, since the code work was complete and verified.
+- All four units landed and passed the verifier. The plan's status is set to
+  `implemented` with the `> Implemented.` marker directly, since the code work
+  was complete and verified.
 
 ## Requirements
 
@@ -107,7 +106,7 @@ zero, auth field `[16:24]` excluded) as its own top-level function — placed
 func. In `craftOSPFHello`, `craftDBDesc`, `craftLSAUpdate`, and `craftLSAFlush`,
 set `binary.BigEndian.PutUint16(payload[12:14], ospfChecksum(payload))`
 immediately before `return craft.Default(...)`. The exact edit was proven on
-hardware; its diff is in this session's history and reproduced in the Appendix.
+hardware and is reproduced in the Appendix.
 Tests: a new `TestOSPF_ChecksumValid` in `routing_test.go` that crafts each of
 the five packets and asserts R1 (recomputed checksum matches the field and is
 non-zero).

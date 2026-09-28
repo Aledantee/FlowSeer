@@ -75,8 +75,7 @@ figure rests on that join.
 - **Grading is required before `stop`.** The command is
   `orca-worker.sh grade <slug> --outcome accepted|amended|rejected|blocked
   --verify pass|fail|none [--note TEXT]`, and `stop` refuses a lane with
-  no grade. Why: the user chose a coordinator grade on 2026-09-23, and an
-  outcome inferred from git cannot tell a rejected lane from an abandoned
+  no grade. Why: an outcome inferred from git cannot tell a rejected lane from an abandoned
   one.
 
   | Outcome | A lane that commits work | A lane that returns a report (`critique`, `research`, `review-unit` on a pool CLI) |
@@ -130,7 +129,6 @@ figure rests on that join.
 
   A top-level session already joined to an Orca lane counts once, as that
   lane. Why:
-  - the user chose all sessions on 2026-09-23;
   - reviewers and researchers run as native subagents;
   - 234 of the latest 300 FlowSeer transcripts are `sdk-cli`, as read on
     2026-09-23, and include `bench.sh` runs that no grade covers;
@@ -222,8 +220,7 @@ figure rests on that join.
 
   The skill's rule "enters or leaves only on a calibration result" and
   the registry's header comment on role order are rewritten to match.
-  Why: the user asked on 2026-09-23 that `tune` use the results rather
-  than only record them. The task mix differs per model, and a small
+  Why: a result `tune` only records changes no routing. The task mix differs per model, and a small
   sample swings a rate.
 
 - **`delegate` breaks headroom ties by fit-set order.** Step 5 becomes:
@@ -255,7 +252,7 @@ figure rests on that join.
   `~/.codex/config.toml` on 2026-09-23, so `tune` has no Codex retention
   value to name in its field step.
 
-- **Start rollback when cleanup fails (the user's ruling, 2026-09-23).**
+- **Start rollback when cleanup fails.**
   When `undo` cannot close the terminal or remove the worktree, it keeps
   the lane's state file and its message says the lane is still live, so
   `status` shows the lane and a person removes it. A failed `end` write

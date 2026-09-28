@@ -55,15 +55,13 @@ model and this plan is wrong.
     I'm looking at" (https://www.nngroup.com/articles/site-ai-chatbot/).
   - A CHI 2025 study rated proactive AI far more disruptive than AI the
     user invokes (https://arxiv.org/html/2502.18658v4).
-  - The user chose the context menu as the per-element entry.
 
 - **The floating button is removed.** This covers `UiAiActionLayer`, its
   geometry module, the focus reveal, and Alt+A. The per-element entry is
   the context menu, opened by right-click, the Menu key, or Shift+F10.
 
-  Why: the user removed the hover reveal as unhelpful (this worktree,
-  before this plan) and chose the context menu. A button that chases
-  focus has the same problem.
+  Why: the hover reveal was removed as unhelpful before this plan, and a
+  button that chases focus has the same problem.
 
 - **Every AI entry is a verb with a text label.** An icon never stands
   alone. Why: NN/g found that a sparkle by itself is not read as "AI"
@@ -145,7 +143,7 @@ model and this plan is wrong.
   ```
 
   Why:
-  - The user asked for "a proper rich summary using native components".
+  - A summary built from native components reads as part of the page.
   - The evidence / likely cause / impact shape follows Juniper Marvis
     (https://www.juniper.net/documentation/us/en/software/mist/mist-aiops/topics/concept/marvis-conv-assistant-enhanced.html).
   - Typed data leaves no HTML-injection surface.

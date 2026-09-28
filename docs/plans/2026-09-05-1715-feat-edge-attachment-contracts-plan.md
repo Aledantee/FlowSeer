@@ -35,7 +35,7 @@ not contain.
 ## Decisions
 
 - Connect over HTTPS is the edge's relationship with central; NATS is a later
-  capability handed over that relationship. Why: the user directed it, and the
+  capability handed over that relationship. Why: the
   direction record already gives Connect the enrollment job. Bus credential
   issuance is a future RPC on the same service and appears nowhere in this
   plan.

@@ -490,8 +490,8 @@ admissible. It says nothing about whether the switch will accept the command.
 
 **Stop here. Do not proceed without confirming the approval still stands.**
 
-The user approved this device and this change on 2026-09-06, on the grounds
-that it is a test device.
+This device and this change were approved on 2026-09-06 because the switch
+is a test device.
 
 That approval covers this switch and this change. It does not cover another
 device, another interface, another kind of change, a repeat on a different

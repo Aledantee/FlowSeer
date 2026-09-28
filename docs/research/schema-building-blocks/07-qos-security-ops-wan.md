@@ -17,7 +17,7 @@ Vendored corpus read: `spec/yang/openconfig/openconfig-acl.yang`,
 Prior survey read: `docs/research/network-domain-atlas/entities/06-qos.md`,
 `07-security.md`, `09-ops.md`, `10-wan-access.md`.
 
-Web fetched this session:
+Web fetched for this dossier:
 - RFC 5424 §6.2.1 — https://www.rfc-editor.org/rfc/rfc5424.html
 - RFC 2865 §3, §5 — https://www.rfc-editor.org/rfc/rfc2865.html
 - RFC 8907 §3.5, §4.1, §5.2 — https://www.rfc-editor.org/rfc/rfc8907.html
@@ -29,7 +29,7 @@ Web fetched this session:
   .../Handbook_LTE_RSRQ.html (secondary source quoting the primary clause;
   the 3GPP FTP directory itself — https://www.3gpp.org/ftp/Specs/archive/36_series/36.133/
   — served only a file listing, no extractable table, so the clause numbers
-  are attributed but not independently verified against the PDF this session)
+  are attributed but not independently verified against the PDF for this dossier)
 - Meraki Dashboard API v1 — `getOrganizationUplinksStatuses` and
   `getOrganizationDevicesUplinksLossAndLatency` —
   https://developer.cisco.com/meraki/api-v1/get-organization-uplinks-statuses/ ,
@@ -53,7 +53,7 @@ Emergency, Alert, Critical, Error, Warning, Notice, Informational, Debug.
 Authenticator(16) = 20 octets, then attributes. Code values: 1
 Access-Request, 2 Access-Accept, 3 Access-Reject, 11 Access-Challenge.
 Attribute is Type(1)+Length(1)+Value. Accounting codes (RFC 2866, not
-fetched this session — carried from established knowledge, mark
+fetched for this dossier — carried from established knowledge, mark
 unverified): 4 Accounting-Request, 5 Accounting-Response.
 
 **TACACS+ (RFC 8907 §3.5, §4.1, §5.2).** Three session kinds: authentication,
@@ -88,7 +88,7 @@ These IE numbers are IPFIX's own registry (RFC 7011/7012 lineage); NetFlow v9
 (RFC 3954) uses a *different*, older numbering for the same concepts (its
 field type 1 is `IN_BYTES`, 2 `IN_PKTS`, 4 `PROTOCOL`, 7 `L4_SRC_PORT`, 8
 `IPV4_SRC_ADDR`, 10 `INPUT_SNMP`, 11 `L4_DST_PORT`, 12 `IPV4_DST_ADDR`, 14
-`OUTPUT_SNMP` — not independently re-verified this session, flagged
+`OUTPUT_SNMP` — not independently re-verified for this dossier, flagged
 unverified) — a flow-key primitive that says "IPFIX IE 8" must not silently
 also mean "NetFlow v9 field 8"; the numbers coincide for several early fields
 by lineage but are governed by separate registries and diverge higher up
@@ -105,7 +105,7 @@ sampling_rate, sample_pool, drops, input, output, flow_records[]` — the
 consumer reconstruct estimated volume from a sample.
 
 **3GPP cellular signal quality (TS 36.133, cited via secondary source, clause
-numbers not independently re-verified against the primary PDF this session —
+numbers not independently re-verified against the primary PDF for this dossier —
 mark this whole entry lower-confidence than the RFC-sourced facts above).**
 RSRP: −156 dBm to −44 dBm, 1 dB steps (§9.1.4, current spec; the classic
 range widely quoted elsewhere is −140 to −44 dBm — the wider range is a
@@ -147,10 +147,10 @@ vendored MIB text itself, repo path
 | Certificate | X.509 subject/issuer/not_before/not_after/fingerprint — no single vendored MIB table found in this pass; `CISCOSB-SSH-MIB` covers SSH host keys, not X.509 certs directly | structured | niche today, "worth carrying forward" per atlas 07-security (cert-expiry as a real fault) |
 | Flow export config | `SFLOW-MIB sFlowFsTable`/`sFlowCpTable` (sampling rate, counter-poll interval) — cross-vendor standard, confirmed present across D-Link/FASTPATH/LANCOM/Foundry per atlas | structured | core for sFlow-capable switches; NetFlow/IPFIX is collector-config only, vendor-specific (Comware flow-template, Huawei NetStream, IOS-XE Flexible NetFlow) — no standard MIB in corpus |
 | WAN uplink status | Meraki `getOrganizationUplinksStatuses`: `status`∈{active,connecting,failed,"not connected",ready}, `interface`∈{wan1,wan2,wan3,cellular}, `ip`,`gateway`,`publicIp`,`primaryDns`/`secondaryDns` (verified via fetch) | enum+string | core for gateway/appliance-class devices |
-| WAN loss/latency | Meraki `getOrganizationDevicesUplinksLossAndLatency`: `timeSeries[].{ts, lossPercent, latencyMs}` (verified via fetch) | percent, ms | core — this is the shared perf primitive the brief asks for |
+| WAN loss/latency | Meraki `getOrganizationDevicesUplinksLossAndLatency`: `timeSeries[].{ts, lossPercent, latencyMs}` (verified via fetch) | percent, ms | core — this is the shared perf primitive the dossier's scope asks for |
 | Cellular signal | Meraki uplink status `signalStat.{rsrp, rsrq}` for cellular (verified via fetch, field-name level only — value range not in that fetch) | dBm/dB | core for cellular-equipped gear |
 | DSL line status | VDSL2-LINE-MIB `xdsl2LineStatusXtur/Xtuc` (BITS), `...AttainableRateDs/Us`, `...ActAtpDs/Us` (verified in vendored MIB) | bitmask / bps / dB | niche (LANCOM only, per atlas) |
-| PON ONU state | ITU-T G.984.3 O1-O7 — not independently fetched this session; carried from the brief and the atlas's `[ifIndex,onuIndex]` keying note | enum | niche, out of FlowSeer's device classes per atlas 10-wan-access |
+| PON ONU state | ITU-T G.984.3 O1-O7 — not independently fetched for this dossier; carried from the dossier's scope and the atlas's `[ifIndex,onuIndex]` keying note | enum | niche, out of FlowSeer's device classes per atlas 10-wan-access |
 
 ## 4. Proposed primitives
 
@@ -209,7 +209,7 @@ domain's landed package):
   periodic weekday/time windows}` referenced by name from ACLs, QoS policers,
   and PoE schedules — model once, per the atlas's explicit recommendation.
 
-**`net/perf/v1` — new package, core, the shared primitive the brief asks
+**`net/perf/v1` — new package, core, the shared primitive the dossier's scope asks
 for.** One message covers WAN uplink health, cellular link quality, and any
 future "how good is this path" question:
 ```
@@ -230,13 +230,13 @@ with only this one user for now, plain `gte/lte` suffices, promote to a
 predefined rule when a second consumer appears.
 
 **`net/wlan/v1` extension (reserved package per direction record) —
-`SignalQuality`, usable by both cellular and Wi-Fi per the brief.**
+`SignalQuality`, usable by both cellular and Wi-Fi per the dossier's scope.**
 ```
 message SignalQuality {
   google.protobuf.FloatValue rssi_dbm = 1;   // wrapper rejected per convention 3 — use presence on a plain float instead: float rssi_dbm = 1;
   float rsrp_dbm = 1;   // absolute power, dBm; unset = not reported
   float rsrq_db = 2;    // ratio, dB; unset = not reported
-  float sinr_db = 3;    // ratio, dB; unset = not reported — value range unverified this session
+  float sinr_db = 3;    // ratio, dB; unset = not reported — value range unverified for this dossier
 }
 ```
 (Correction inline: no wrapper messages per convention 3 — plain scalar
@@ -344,7 +344,7 @@ here (hostname, app-name, timestamp) — those belong wherever the Event
 entity/envelope lands, this package supplies only the two registries.
 
 **Explicitly not modelled as `net/` primitives now (defer to later or to an
-entity layer), per the brief's "which deserve a package now vs later":**
+entity layer), per the dossier's scope question "which deserve a package now vs later":**
 - **ACL/firewall session tables, PKI/certificate values, port-security**:
   niche today per the provider matrix; certificates in particular need an
   identity-bearing home (a device's cert is arguably `model/inventory`-
@@ -378,7 +378,7 @@ entity layer), per the brief's "which deserve a package now vs later":**
   independent of any single poll. Not proposed now; flagged in §7.
 - **SyslogEvent** — belongs to the `event/` root per the existing tree
   (`event/access/v1` is the precedent), not `model/`, and not this
-  dossier's package to design — the brief explicitly carves this out to
+  dossier's package to design — the dossier's scope explicitly carves this out to
   "another agent covers ietf-alarms for platform."
 - Nothing else in this domain crosses the primitive/entity line: QoS
   policy, filter rules, flow-export settings, and WAN/cellular signal
@@ -428,7 +428,7 @@ entity layer), per the brief's "which deserve a package now vs later":**
   worth a one-line note in the package README so a future Comware/Huawei
   mapper author doesn't assume the schema round-trips their domain scheme.
 - **RSRP/RSRQ range citation is secondary-sourced**, not fetched directly
-  from the 3GPP PDF this session (the FTP directory returned only a file
+  from the 3GPP PDF for this dossier (the FTP directory returned only a file
   listing) — treat the exact clause numbers (§9.1.4, §9.1.7) as attributed,
   not independently verified; a planner citing them in a schema comment
   should re-verify against the actual TS 36.133 PDF before treating the

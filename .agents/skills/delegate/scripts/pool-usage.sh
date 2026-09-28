@@ -89,8 +89,8 @@ def orca_pools():
         if pool == "claude":
             # Orca knows only about accounts registered with Orca. The CLI
             # keeps its own OAuth token, and a host where `claude` is signed
-            # in but Orca has no Claude account read as signed out, which
-            # took all four Claude models out of every fit set (2026-09-19).
+            # in but Orca has no Claude account reads as signed out, which
+            # takes every Claude model out of every fit set.
             # `codex` has had the same fallback all along, through
             # systemDefault.hasAuth.
             signed_in = signed_in or claude_cli_signed_in()
@@ -161,7 +161,7 @@ def synthetic_pool():
     req = urllib.request.Request("https://api.synthetic.new/v2/quotas",
                                  headers={"Authorization": "Bearer " + key})
     # The documented `subscription.requests` counter stayed at 0 across real
-    # requests (2026-09-19); the two limits below are the ones that move. Both
+    # requests as of 2026-09-19. The two limits below are the ones that move. Both
     # refill continuously, so there is no reset time to report.
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:

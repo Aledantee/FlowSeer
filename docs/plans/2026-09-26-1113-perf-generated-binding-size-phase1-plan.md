@@ -86,7 +86,7 @@ The parent plan's decisions apply. This phase adds the following.
     `X<hash>` suffix. For a shape, the hash is taken over its shape key; for
     a list instance, over its path.
 
-  Why: the user directed Go naming, where the package is part of the
+  Why: Go naming, where the package is part of the
   identity. Measured on today's output, `openconfiginterfaces` names shrink
   from an average of 54 to 18 characters, for example
   `InterfacesInterfaceSubinterfacesSubinterface` becomes `Subinterface`. The

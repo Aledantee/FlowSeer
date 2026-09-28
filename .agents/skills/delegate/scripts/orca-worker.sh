@@ -95,7 +95,7 @@ case "$cmd" in
       agy) [[ -n $model ]] || die "--model is required for agy"; [[ -z $effort ]] || die "--effort does not apply to agy: it is part of the model id"; [[ -z $agent ]] || die "--agent does not apply to agy" ;;
       # The default agent only. A custom agent profile that pins a model
       # carries no system prompt, and models on it reason without ever
-      # calling a tool or answer nothing at all (2026-09-19); the same models
+      # calling a tool or answer nothing at all (as of 2026-09-19). The same models
       # answer in seconds on the default agent with the model on the launch line.
       opencode) [[ -n $model ]] || die "--model is required for opencode, as provider/model"; [[ -z $agent$effort ]] || die "--agent and --effort do not apply to opencode: it runs the default agent" ;;
       *) die "unknown cli $cli" ;;

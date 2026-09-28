@@ -70,7 +70,7 @@ Do not assert "both arms set fails": there is no input that reaches it.
   both arms fails") and was corrected both times to the empty-case invariant;
   the ruling is recorded in
   `docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase2-plan.md`
-  (Decisions, the "Ruled (drive, on the user's decision)" entry).
+  (the Decisions section).
 
 ## What it does not cover
 

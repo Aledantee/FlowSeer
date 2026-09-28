@@ -538,6 +538,7 @@ fi
 if ((${#markdown_files[@]})); then
   need_tool python3
   run python3 .claude/skills/verify-change/scripts/check-markdown-links.py "${markdown_files[@]}"
+  run python3 .claude/skills/prose/scripts/check-prose.py --quiet "${markdown_files[@]}"
 fi
 
 if ((${#go_files[@]})); then

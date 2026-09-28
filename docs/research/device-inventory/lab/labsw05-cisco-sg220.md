@@ -19,7 +19,7 @@ configuration change was made or attempted.
 | Vendor / model | Cisco SG220-26P (26-Port Gigabit PoE Smart Switch) |
 | Firmware / software version | 1.3.0.62 (`.1.3.6.1.4.1.9.6.1.101.2.4.0`) |
 | Serial | DNI1810021Z (entPhysicalSerialNum, chassis entry `.47.1.1.1.1.11.67108992`) |
-| sysObjectID | `1.3.6.1.4.1.9.6.1.88.26.2` (matches the brief's expected value) |
+| sysObjectID | `1.3.6.1.4.1.9.6.1.88.26.2` (matches the expected value) |
 | sysDescr | `26-Port Gigabit PoE Smart Switch` |
 | Hostname | LABSW05 (sysName; also LLDP chassis/sysname) |
 | MAC / base MAC | B0:00:B4:46:13:2E (dot1dBaseBridgeAddress and LLDP chassis ID) |
@@ -56,7 +56,7 @@ for correlation without NTP.
 | v3 | user `tegi`, noAuthNoPriv | `authorizationError` (access denied to that object) — the configured SNMPv3 user has no view at noAuthNoPriv |
 | v3 | user `tegi`, authNoPriv SHA | `authorizationError` (same — the view requires privacy, not just auth) |
 | v3 | user `tegi`, authPriv SHA/DES | OK |
-| v3 | user `tegi`, authPriv SHA/AES | timeout (AES not configured for this user, confirms the brief) |
+| v3 | user `tegi`, authPriv SHA/AES | timeout (AES not configured for this user, confirms the capture plan) |
 | v3 | user `tegi`, authPriv MD5/DES | `Authentication failure (incorrect password, community or key)` — engine only accepts SHA, not MD5, for this user |
 | v3 | user `tegi`, authPriv MD5/AES | same auth failure |
 | v3 | user `nouser`, authPriv SHA/DES | `Unknown user name` |
@@ -89,7 +89,7 @@ All walks below used v3 `tegi` authPriv SHA/DES, `snmpbulkwalk -Cr50 -t 5 -r 1 -
   | powerEthernetMIB pethMainPseTable | 1.3.6.1.2.1.105.1.3.1 | 4 | 2s | PSE power=100(unit *inferred* W), status on(1), consumption 0 mW, usage threshold 95% |
   | hrSystem | 1.3.6.1.2.1.25.1 | 0 | 2s | **not implemented** — "No Such Object", this device does not carry the Host Resources MIB (as expected for a Smart-tier switch, no general-purpose OS underneath) |
 
-- Enterprise subtree: `1.3.6.1.4.1.9` (Cisco enterprise root) walked with a hard 180s abort per the brief. It **did not finish**; the walk was killed after 180s having returned 52,448 varbinds, every single one still lexicographically inside `.9.6.1.101` — i.e. within the 180s budget the walk never got past the device's single proprietary MIB branch to reach any other Cisco enterprise subtree (ciscoProducts, ciscoMgmt, etc. beyond `.9.9.23`, see below). This confirms the brief's estimate that the full tree is large and that `.9.6.1.101` alone dominates it.
+- Enterprise subtree: `1.3.6.1.4.1.9` (Cisco enterprise root) walked with a hard 180s abort per the capture rules. It **did not finish**; the walk was killed after 180s having returned 52,448 varbinds, every single one still lexicographically inside `.9.6.1.101` — i.e. within the 180s budget the walk never got past the device's single proprietary MIB branch to reach any other Cisco enterprise subtree (ciscoProducts, ciscoMgmt, etc. beyond `.9.9.23`, see below). This confirms the capture plan's estimate that the full tree is large and that `.9.6.1.101` alone dominates it.
 - `1.3.6.1.4.1.9.6.1.101` children, one level, counts **derived from the aborted 180s partial dump** (not exhaustive — the walk had only progressed to child `.55` before being killed, so children above 55 are not represented at all):
 
   | Child (`.9.6.1.101.<n>`) | Varbinds seen (partial) |
@@ -112,26 +112,26 @@ All walks below used v3 `tegi` authPriv SHA/DES, `snmpbulkwalk -Cr50 -t 5 -r 1 -
   | 42 | 4 |
 
   Scalar reads directly under `.9.6.1.101.1.*` and `.9.6.1.101.2.*` were legible without a full walk (via targeted `snmpgetnext`) and gave: port count 26, firmware `1.3.0.62`, plus several string/table entries tied to hostname (`.1.19.1.3.3.1 = "LABSW05"`). Child `.55` is almost certainly a large per-port/per-rule table (QoS, ACL, or ARP-inspection style); this was **not walked further** to stay inside the time budget — flagged as needing a dedicated, separately-budgeted walk if FlowSeer ever needs this vendor MIB.
-- Cisco CDP MIB (`1.3.6.1.4.1.9.9.23`) **is present and populated** — see Discovery below; this is outside the address range the brief called out but was checked because the brief asked whether CDP is visible via SNMP.
+- Cisco CDP MIB (`1.3.6.1.4.1.9.9.23`) **is present and populated** — see Discovery below; this is outside the address range the capture plan called out but was checked because the capture plan asked whether CDP is visible via SNMP.
 - GetBulk `max-repetitions=50` worked without error on every subtree; no evidence of truncation or a lower server-side cap.
-- Writable objects: not tested (would require `snmpset`, out of scope per the brief's read-only rule). The `rlCopy` MIB objects are known (per the brief) to be accepted but never executed by this firmware — not tested here.
+- Writable objects: not tested (would require `snmpset`, out of scope under the read-only capture rule). The `rlCopy` MIB objects are known (per the capture rules) to be accepted but never executed by this firmware — not tested here.
 - Traps/informs: not checked (would need to read the running config via CLI, which this device does not expose — see below).
 
 ## CLI / configuration model
 
-**No CLI is exposed.** TCP 22 (SSH) and 23 (Telnet) both time out; per the brief, this is expected — the SG220 in its default "Smart switch" mode has no CLI at all (unlike the SG300/350 Managed line, which supports SSH and a CLI). This is the single biggest management-surface difference from a Managed switch: **all configuration on this device goes through the web UI**, there is no way to `show running-config` or apply config line-by-line, and `rlCopy` (the vendor's config-copy MIB table) is present in SNMP but a no-op on this firmware.
+**No CLI is exposed.** TCP 22 (SSH) and 23 (Telnet) both time out; per the capture rules, this is expected — the SG220 in its default "Smart switch" mode has no CLI at all (unlike the SG300/350 Managed line, which supports SSH and a CLI). This is the single biggest management-surface difference from a Managed switch: **all configuration on this device goes through the web UI**, there is no way to `show running-config` or apply config line-by-line, and `rlCopy` (the vendor's config-copy MIB table) is present in SNMP but a no-op on this firmware.
 
 ## Web / API
 
-- Every root request is redirected to a per-boot random path prefix, e.g. `GET /` → `302 Redirect` to `https://172.16.0.5/csd36f9d6/` (the exact suffix changes across device reboots; observed as a stable constant across every request in this session). This behaves like a lightweight CSRF/session-context guard baked into the URL path rather than a cookie.
+- Every root request is redirected to a per-boot random path prefix, e.g. `GET /` → `302 Redirect` to `https://172.16.0.5/csd36f9d6/` (the exact suffix changes across device reboots; observed as a stable constant across every request for this capture). This behaves like a lightweight CSRF/session-context guard baked into the URL path rather than a cookie.
 - With no active session, `GET /csd36f9d6/` further redirects to `.../config/log_off_page.htm`, which is the login page.
 - Login flow, read from `../js/login.js` embedded in the login page:
   - The page first calls `GET ./device/wcd?{EncryptionSetting}` to check whether password encryption (RSA) is configured (`passwEncryptEnable` tag in the XML response). In this capture it returned an empty/unparsed response (`statusCode` and `statusString` both blank) — read as "no RSA key configured", so the client falls back to plaintext.
-  - The actual login call is a **plain GET with credentials in the query string** (matches the brief's allowed exception): `GET ./System.xml?action=login&user=<user>&password=<password>&ssd=true&`. This was performed once, as `admin`/the documented lab password, for read-only verification. No POST form submission exists on this firmware; the "form" only triggers a client-side XMLHttpRequest GET.
+  - The actual login call is a **plain GET with credentials in the query string** (matches the capture plan's allowed exception): `GET ./System.xml?action=login&user=<user>&password=<password>&ssd=true&`. This was performed once, as `admin`/the documented lab password, for read-only verification. No POST form submission exists on this firmware; the "form" only triggers a client-side XMLHttpRequest GET.
   - Response is `200 OK`, `Content-Type: text/xml`, `<statusCode>0</statusCode><statusString>OK</statusString>`, and carries a **non-standard response header** `sessionID: UserId=<client-ip>&<token>&;path=/` — **not a `Set-Cookie` header**. `login.js` reads this custom header via `xmlhttp.getResponseHeader("sessionID")` and then writes it into `document.cookie` itself (`set_cookie("sessionID", ...)`, `set_cookie("usernme", ...)`) — the browser never sees a normal cookie negotiation, the device relies on JS to round-trip the header into a cookie on the next request.
   - Sending that value back as `Cookie: sessionID=...; usernme=admin` on a subsequent GET authenticates it (tested against `device/wcd?{DeviceView}`, which returned `Access denied` for that specific *page name*, not an auth failure — the session was accepted, but `DeviceView` and three other guessed page names (`DeviceSummary`, `SystemSummary`, `DeviceInfo`, `SystemInfo`) are not valid page identifiers on this firmware; only exact-match page tokens work and none were discovered in the time budget because the full page inventory lives in JS files not fetched here).
 - No JSON endpoint found; the backend is **XML over a query-string CGI** (`System.xml?action=...` and `device/wcd?{TagName}`), not REST/JSON, not JSON-RPC. `/api`, `/rest`, `/cgi-bin` all just fall through the same generic path-prefix redirect (not 404s — the redirector doesn't distinguish existing from nonexistent paths at that level, so a plain 404 sweep is not useful against this firmware).
-- Backup/restore endpoint: **not conclusively found**. `GET /csd36f9d6/config/config_upload_download.htm` (a guessed filename based on Cisco small-business UI conventions) returned `200 Data follows` / `Form is not defined` — i.e. the request reached the ASP-style form dispatcher but the filename/form ID was wrong. `/backup.swb`, `/sys.b`, `/link.b` (SG300/350-style paths named in the brief) were not separately confirmed as present or absent — probed but returned only the generic redirect, inconclusive either way. Finding the real backup URL would need either a follow-up authenticated capture of the full JS/page inventory (out of this run's time budget) or vendor documentation; flagged as an open item below.
+- Backup/restore endpoint: **not conclusively found**. `GET /csd36f9d6/config/config_upload_download.htm` (a guessed filename based on Cisco small-business UI conventions) returned `200 Data follows` / `Form is not defined` — i.e. the request reached the ASP-style form dispatcher but the filename/form ID was wrong. `/backup.swb`, `/sys.b`, `/link.b` (SG300/350-style paths named in the capture plan) were not separately confirmed as present or absent — probed but returned only the generic redirect, inconclusive either way. Finding the real backup URL would need either a follow-up authenticated capture of the full JS/page inventory (out of this run's time budget) or vendor documentation; flagged as an open item below.
 - CSRF token: none observed distinct from the per-boot path prefix; no anti-CSRF header seen in the login exchange.
 
 ## Feature inventory (as observed)
@@ -144,12 +144,12 @@ All walks below used v3 `tegi` authPriv SHA/DES, `snmpbulkwalk -Cr50 -t 5 -r 1 -
 | LLDP | Enabled, TX+RX (`lldpLocalSystemData` admin status fields = 5 on tested ports); one real neighbor visible (see Discovery) |
 | CDP | **Present and enabled** via SNMP (`ciscoCdpMIB` globally enabled, `cdpGlobalRun=1`); no CDP neighbor cache entries observed on this port set at capture time (only LLDP had a live neighbor) |
 | PoE | pethMainPseTable: PSE on, 0 mW currently drawn, 95% usage threshold configured; 26-port `pethPsePortTable` populated |
-| Port mirroring / ACL / QoS / IGMP snooping / DHCP snooping / 802.1X / RADIUS/TACACS | Not probed — would require walking the large `.9.6.1.101` proprietary subtree (deferred, see SNMP section) or CLI (unavailable); not determined this session |
+| Port mirroring / ACL / QoS / IGMP snooping / DHCP snooping / 802.1X / RADIUS/TACACS | Not probed — would require walking the large `.9.6.1.101` proprietary subtree (deferred, see SNMP section) or CLI (unavailable); not determined for this capture |
 | Routing | Single IP (172.16.0.5/24), no routing table entries found beyond the local subnet — this is an L2 Smart switch, no L3 routing expected |
 | IPv6 | Not probed |
 | NTP | Not probed via SNMP or CLI (no CLI); device's own clock is free-running from a stale 2013 default, strongly suggesting NTP is either unconfigured or not syncing |
 | Syslog / SNMP traps | Not determined (would need CLI or the `.55` proprietary subtree) |
-| Firmware upgrade mechanism | Not determined this session — inferred to be web-UI-only, consistent with no CLI |
+| Firmware upgrade mechanism | Not determined for this capture — inferred to be web-UI-only, consistent with no CLI |
 
 ## Discovery signals
 
@@ -157,7 +157,7 @@ All walks below used v3 `tegi` authPriv SHA/DES, `snmpbulkwalk -Cr50 -t 5 -r 1 -
 - **CDP**: globally enabled at the protocol level (SNMP `cdpGlobalRun=1`) but no neighbor cache entries were present for the ports checked — either the MikroTik neighbor doesn't speak CDP (likely, it's not a Cisco device) or CDP hadn't aged in a cache entry yet at capture time (device had only been up ~15–20 min).
 - **MAC OUI**: B0:00:B4 is a registered Cisco Systems OUI — consistent with the sysDescr/sysObjectID identification.
 - **HTTP/TLS banner fingerprint**: `Server: GoAhead-Webs` plus a self-signed cert with `CN=0.0.0.0` and a max TLS version of 1.0 is itself a strong, unauthenticated fingerprint for "old Cisco Small Business firmware" — a scanner doing nothing but a TLS handshake and HTTP HEAD would already identify the device family.
-- **mDNS/SSDP**: not probed this session (would need a local broadcast listener on the lab segment; out of scope for a single-device capture over routed access).
+- **mDNS/SSDP**: not probed for this capture (would need a local broadcast listener on the lab segment; out of scope for a single-device capture over routed access).
 - **Cisco Business Dashboard (CBD) probe support**: not determined. CBD discovery is typically driven from the CBD probe application over the local segment (mDNS/UDP broadcast plus the same web API), not a distinct SNMP-visible flag; nothing in the walked MIBs exposed a CBD-specific object, and testing the real CBD discovery flow was out of scope for a read-only single-device capture.
 
 ## What FlowSeer needs from this device
@@ -168,7 +168,7 @@ All walks below used v3 `tegi` authPriv SHA/DES, `snmpbulkwalk -Cr50 -t 5 -r 1 -
 - **The device's own clock cannot be trusted** — seen stuck at 2013-05-02 across every HTTP header and the TLS cert validity window. Timestamps from this device (HTTP `Date`, cert dates) must never be used for event correlation; use collector-side receipt time instead, and flag NTP configuration as a likely-needed remediation on real deployments of this hardware.
 - **LLDP is the reliable topology-discovery source for this device**; CDP is enabled but empty in this capture, so FlowSeer's topology builder should treat LLDP as primary and CDP as a secondary/confirmation source only, not depend on CDP alone for Cisco small-business gear.
 - **The proprietary `1.3.6.1.4.1.9.6.1.101` MIB branch is large** (tens of thousands of varbinds even partially walked) and holds most of the device's true configuration state (VLANs beyond the standard tables, port config, etc. presumably live in child `.55`). If FlowSeer needs anything beyond the standard MIBs captured here from this device family, budget a dedicated, longer SNMP session per device — walking it inline with a general poll cycle would blow past any reasonable per-device time budget.
-- **Config backup automation is an open question for this device**: no backup/download URL was confirmed working in this session. Before building a backup feature against this hardware, a follow-up capture needs to walk the authenticated page set (fetch the full menu/JS tree post-login) to find the real endpoint — flagged here rather than guessed further.
+- **Config backup automation is an open question for this device**: no backup/download URL was confirmed working for this capture. Before building a backup feature against this hardware, a follow-up capture needs to walk the authenticated page set (fetch the full menu/JS tree post-login) to find the real endpoint — flagged here rather than guessed further.
 
 ## Raw evidence
 

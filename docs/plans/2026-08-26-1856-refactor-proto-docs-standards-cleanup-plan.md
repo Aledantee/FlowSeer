@@ -115,22 +115,20 @@ regenerated `generated/go/proto/flowseer/**`.
 - **KTD1 — Links live inline on the citing comment.** The URL sits in the
   doc comment of the exact field, enum, or value it grounds, so it survives
   into generated docs at the point of use. No file-header "See:" blocks.
-  *(session-settled: user-directed — chosen over a per-file reference block:
+  *(Chosen over a per-file reference block:
   the link must reach the generated-docs reader at the value it justifies.)*
 - **KTD2 — Audit depth is full, not mechanical.** Each named value is checked
   against the primary source (IANA registry entry, RFC section, IEEE
   standard), and a claim that does not hold is fixed in the comment — or
-  surfaced as a schema question if the *value* is wrong. *(session-settled:
-  user-directed — chosen over link-only and link-plus-derived variants.)*
+  surfaced as a schema question if the *value* is wrong. *(Chosen over link-only and link-plus-derived variants.)*
 - **KTD3 — Reserved tombstones are collapsed and numbers reclaimed now.**
   `breaking.use: []` until first stable release is the one-time window;
   fields and enum values are renumbered to contiguous and the `reserved`
   statements dropped, with `generated/` and conformance tests regenerated in
-  the same change. *(session-settled: user-directed — chosen over keeping
+  the same change. *(Chosen over keeping
   tombstones or docs-only cleanup.)*
 - **KTD4 — The EUI-rename fix is unit one.** A green `buf lint` is the
-  precondition for verifying everything else. *(session-settled:
-  user-directed — chosen over treating the rename as an external
+  precondition for verifying everything else. *(Chosen over treating the rename as an external
   precondition or reverting it.)*
 - **KTD5 — Canonical link forms.** RFCs → `https://www.rfc-editor.org/rfc/rfcNNNN.html`
   (section anchors where a specific section is the claim); IANA →
@@ -423,7 +421,7 @@ mirrors byte-identical.
   rules, its own Sources list (link-form precedent).
 - `docs/architecture/2026-08-20-network-model-structure-direction.md` —
   accepted direction these packages implement.
-- Local findings this session: failing `buf lint` (4 errors) in the primary
+- Findings in the tree at planning time: failing `buf lint` (4 errors) in the primary
   checkout's staged EUI-rename WIP (committed HEAD lints clean),
   import-kind inconsistency (3 options-only files using plain `import`),
   missing `addr_rules_test.go`, 12 reserved statements across 8 files.

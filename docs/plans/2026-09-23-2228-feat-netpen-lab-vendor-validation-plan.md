@@ -45,7 +45,7 @@ change, and routes back as a blocker.
   credential (`lab`/`labIt123`), and the observable an operator checks —
   `show ip ospf neighbor` listing the attacker's router ID — is a protocol-state
   fact the CLI exposes directly, where NETCONF/SNMP would need per-vendor models
-  or community configuration this lab does not carry. (User-directed 2026-09-23.)
+  or community configuration this lab does not carry.
 - The vendor CLI interaction reuses `src/protocol/ssh`, not a new SSH client.
   Why: that package already drives a persistent vendor shell with prompt
   matching, `--More--` pagination, password auth (`Options.Password
@@ -65,7 +65,7 @@ change, and routes back as a blocker.
   work a standard `go test -tags=netpen_t2` tier runnable from a dev host or CI,
   mirroring the t1 model where the binary is pre-installed on the injector and
   driven remotely (`test/integration/t1_ae6_test.go:55-56` runs it via
-  `docker exec`). (User-directed 2026-09-23.)
+  `docker exec`).
 - The injector command is run by a plain non-interactive SSH exec via
   `golang.org/x/crypto/ssh` (a new require pulled into the netpen module with
   the `src/protocol/ssh` import — netpen does not import it today), not through
@@ -78,7 +78,7 @@ change, and routes back as a blocker.
   from `NETPEN_LAB_INJECTOR_SUDO_PASSWORD` and supplied on the remote command's
   stdin. Why: packet injection needs `CAP_NET_RAW` and `CAP_NET_ADMIN`, and the
   operator chose a per-run sudo credential instead of changing the deployed
-  binary's capabilities. (User-directed 2026-09-25.)
+  binary's capabilities.
 - Management and injection are separate planes. The target is reached for
   observation at its management address (routed, e.g. `172.16.0.42`); injection
   happens on the data segment where the target has an OSPF interface in
@@ -117,7 +117,7 @@ change, and routes back as a blocker.
   `matrix_test.go` guards its structure; auto-writeback is a larger mechanism
   this slice does not need.
 - The lab-backed vendor-validation approach is promoted to a direction record,
-  accepted by the user on 2026-09-24
+  accepted on 2026-09-24
   (`docs/architecture/2026-09-23-netpen-lab-vendor-validation-direction.md`,
   `status: accepted-direction`),
   because it lifts the netpen port plan's accepted limitation that vendor

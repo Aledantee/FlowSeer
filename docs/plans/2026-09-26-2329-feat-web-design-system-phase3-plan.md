@@ -28,12 +28,12 @@ This plan is wrong if Reka's `Combobox` cannot keep `GlobalSearch`'s recent-sear
   navigation and the dock controls.
 - `GlobalSearch` is built on a dedicated `UiCommand` component under
   `src/ui/command/`, not on `UiDialog` and `UiCombobox` composed inside
-  `GlobalSearch.vue`. Why: the user chose it on 2026-09-27 over the
+  `GlobalSearch.vue`. Why: chosen over the
   single-consumer composition, so later command palettes reuse one
   component.
 - On narrow viewports `UiBreadcrumb` collapses its middle items into an
-  ellipsis dropdown instead of wrapping. Why: the user chose it on
-  2026-09-27 over flex wrapping; the breadcrumb stays on one line, at the
+  ellipsis dropdown instead of wrapping. Why: chosen over
+  flex wrapping. The breadcrumb stays on one line, at the
   cost of measuring the available width.
 - Overlays render in the top layer through Reka portals (`DialogPortal`, `PopoverPortal`, `DropdownMenuPortal`). Scrims use the `overlay` semantic token (`var(--overlay)`). Surface containers use `popover` (`var(--popover)`) with `shadow-lg`. Why: adheres to the phase 1 token foundations and elevation scale in `src/theme/tokens.css`.
 - Overlay entrance transitions run in 100–160 ms with `--ease-out` (`cubic-bezier(0.2, 0, 0, 1)`). Overlay exit is immediate. Why: the motion rules in `frontend/web/README.md` require prompt dismissals so animation never holds focus or delays user action.

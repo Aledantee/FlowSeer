@@ -58,7 +58,7 @@ on both sides and only the scenario's own injections must pair.
   own count (`compare.go:19-25`); forking a running fabric makes that pairing
   impossible for the pre-existing journeys, so comparison pairs only the
   scenario's own journeys, by the injection that produced them. Chosen over
-  caller-supplied forks (session-settled, user-directed): keeps the fork
+  caller-supplied forks: keeps the fork
   lifecycle inside Compare rather than on every caller.
 - **New scenario journeys pair by injection index, not frame id.** Each
   `Injection` in the scenario is applied to both forks in the same order; the

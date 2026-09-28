@@ -47,7 +47,7 @@ firewall uses, and those are what this plan adds.
   ACL shape ("Actions on the first matching ACE are applied with no
   processing of subsequent ACEs", section 3), it maps an interface-bound
   firewall (OPNsense, pfSense) directly and a zone-based one as one rule set
-  per interface pair, and the user chose it over a product-specific shape.
+  per interface pair, and it was chosen over a product-specific shape.
 - A rule set is stateful by flag, and statefulness is a reverse-match rule
   computed from the configuration: a packet a stateful set does not accept on
   its own rules is accepted when the reversed 5-tuple would be accepted by
@@ -103,7 +103,7 @@ firewall uses, and those are what this plan adds.
   both.
 - The filter rules get a schema package `flowseer.net.filter.v1` and a
   `netmodel` translation in the last phase; the collector that fills it is
-  out of scope. Why: the user chose this, and the direction record calls a
+  out of scope. Why: the direction record calls a
   simulator nobody can load from the network model a test fixture.
 - The work is four phases in dependency order. Why: the units cluster by
   package: codecs and corpus, the routing sub-interface, the fabric

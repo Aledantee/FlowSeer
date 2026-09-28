@@ -47,8 +47,8 @@ FASTPATH `show ...` syntax (see CLI section).
   `snmpbulkwalk` with `-Cr10` (default) and `-Cr20` both returned the complete
   443-varbind `ifXTable` with no drops; a synthetic high `-Cr50` request against
   the same table also completed without visible truncation in this test —
-  the device did not reproduce the >1400-byte GetBulk drop in this session,
-  but the brief's warning is taken as authoritative (net-snmp default request
+  the device did not reproduce the >1400-byte GetBulk drop for this capture,
+  but the capture plan's warning is taken as authoritative (net-snmp default request
   size and the switch's control-plane CPU load could still trigger it on
   larger tables); GetNext-based `snmpwalk` was used throughout to stay safe.
 - Per-subtree varbind counts and wall time (raw files under `_raw/labsw04/snmp/`):
@@ -74,10 +74,10 @@ FASTPATH `show ...` syntax (see CLI section).
   | hrSystem | 1 (`No Such Object`) | 1s |
   | enterprise `.1.3.6.1.4.1.2356` | 11,291 | 351s (~6 min) |
 
-  Total observed: ~12.8k varbinds (the brief's ~14,900 full-tree estimate is
+  Total observed: ~12.8k varbinds (the capture plan's ~14,900 full-tree estimate is
   plausible once the standard-MIB subtrees above are summed with the
   enterprise tree — a true whole-tree walk was not run to avoid the
-  10-minute-plus single-session load the brief calls out).
+  10-minute-plus single-session load the capture plan calls out).
 
 - Standard MIBs answered: `system`, `interfaces`/`ifTable`, `ifXTable`,
   `ipAddrTable` (legacy, populated), `ipNetToMedia` (populated),
@@ -128,7 +128,7 @@ FASTPATH `show ...` syntax (see CLI section).
 - Session/auth facts: password-only SSH auth; login/logout events are logged
   per-session (see `syslog / show log` sample in raw capture, which also
   incidentally showed three "Bad password attempt" warnings from failed
-  automation earlier in this session — no lockout observed, but see Isolation
+  automation earlier for this capture — no lockout observed, but see Isolation
   note below). No banner beyond `Type 'help' or '?' to get help.` after login.
 - Config read/write: `config-file export <tftp-server> <file>` exists at the
   root level (confirmed via `config-file ?`) but **was not run** per the
@@ -314,14 +314,14 @@ password:
 
 ## Isolation / operational notes
 
-- Automated CLI exploration in this session briefly mistimed pager
+- Automated CLI exploration for this capture briefly mistimed pager
   interaction on the first two attempts (concatenated keystrokes sent while a
   `--More--` prompt was still active), producing a handful of garbled
   commands and one run of failed logins visible in the device's own
   `syslog / show log` output (three "Bad password attempt" warnings) before
   the automation was corrected to wait for the full prompt after every
   `--More--`. No lockout was triggered and no configuration was changed;
-  flagged here per the brief's read-only/one-session discipline rather than
+  flagged here under the read-only, one-session capture rule rather than
   silently left out of the record.
 - `172.16.0.1` (admin gateway) was never touched.
 - `config-file export`, `snmpset`, and any `write`/`save`/`reboot`/account

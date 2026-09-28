@@ -12,9 +12,8 @@ parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 
 # Network Simulation Environment, Phase 1: Capability-Built Virtual Switch - Plan
 
-> Implemented. Every unit landed on 2026-09-10 through Herdr workers, one
-> unit per worker, with the value packages placed under `src/common/net`
-> at the user's direction after the first unit landed.
+> Implemented. Every unit landed on 2026-09-10, with the value packages
+> placed under `src/common/net` after the first unit landed.
 
 ## Goal
 
@@ -108,7 +107,6 @@ common packages. This phase adds:
   `net/vlan`, `net/ethernet`), not at the common root. Why: they are one
   family of wire value types, and a directory named for the subject keeps
   the common root from filling with peers that only share a domain.
-  User-directed on 2026-09-10, after the first unit landed.
 
 ## Requirements
 

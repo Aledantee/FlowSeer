@@ -43,8 +43,7 @@ This phase claims parent R8 and R10-R13 and extends R2, R7, R9, and R39.
 - **An omitted port is unresolved.** A non-LAG switch port with no cable is
   unresolved: operational `Unknown`, with an `Incomplete` issue
   `adjacency-unresolved` on its port. Known absence is stated in
-  `fabric.Config.Uncabled` and stays `Down`. Why: parent R8. User-directed
-  2026-09-13.
+  `fabric.Config.Uncabled` and stays `Down`. Why: parent R8.
 - **Unreported physical facts make the link `Unknown`.** A caller may opt in
   to `fabric.Config.PhyAssumption`, which holds a medium and an Ethernet
   profile.
@@ -55,7 +54,7 @@ This phase claims parent R8 and R10-R13 and extends R2, R7, R9, and R39.
   - Filled values appear in `Links()`. `Config()`, `Spec()`, and `Diff` show
     only the `PhyAssumption` field.
   - Why: a standards default may run only as a recorded assumption.
-    User-directed 2026-09-13.
+
 - **Cable length 0 is a stated fact.** A `LengthMeters` of 0 means a stated
   0 m cable. Why: nothing loads cables from discovery yet, so every length is
   caller-stated. Revisit when links load from LLDP.

@@ -10,7 +10,7 @@ questions 1–3 and its `pmf`/`akm`/`country_code` fields (section 4) and traps
 
 ## 1. Scope and sources
 
-Web sources fetched this session (all raw source text, read directly, not
+Web sources fetched for this dossier (all raw source text, read directly, not
 summarized by a third party):
 
 - `https://raw.githubusercontent.com/torvalds/linux/master/include/linux/ieee80211.h`
@@ -50,7 +50,7 @@ summarized by a third party):
   - `is_6ghz_op_class()`, line 3101–3103 — `op_class >= 131 && op_class <= 137`.
 - `https://www.wi-fi.org/system/files/WPA3%20Specification%20v3.5.pdf` (Wi-Fi
   Alliance, dated 2025 per its own footer; fetched as a binary PDF via
-  WebFetch, then text-extracted this session with a short ad hoc Python script
+  WebFetch, then text-extracted for this dossier with a short ad hoc Python script
   — `zlib`-decompressing each PDF stream and concatenating `Tj`/`TJ` string
   operands, no third-party PDF library available in the sandbox — into
   `$TMPDIR/wpa3_joined.txt`, then read/grepped directly). This is the current
@@ -61,11 +61,11 @@ summarized by a third party):
   registry-pass-through-enum shape to copy: named + open, `UNSPECIFIED = 0`
   even when the registry's own zero exists, protovalidate CEL rule for the
   numeric domain).
-- Explicitly **not** re-verified this session (see section 7): the 2020/2024
+- Explicitly **not** re-verified for this dossier (see section 7): the 2020/2024
   IEEE clause numbering for Table 9-151/9-152 (cipher/AKM suite selectors)
   itself — no fetchable non-paywalled copy of the IEEE standard text was
   found; the Linux/Wireshark/hostap source tables are used as the
-  machine-readable proxy the brief explicitly authorizes, not as a
+  machine-readable proxy the dossier's scope explicitly authorizes, not as a
   replacement citation for the standard's own table.
 
 ## 2. Standards facts
@@ -466,7 +466,7 @@ dossier only fills in primitive-level enum/field detail, not entity shape.
   cross-`Bss` reference (the paired BSSID), which is out of this dossier's
   scope to design (see open question below).
 - **`w1.fi`/`git.w1.fi` (the canonical hostap upstream) is not fetchable by
-  an automated tool this session** — it serves an Anubis bot-challenge page
+  an automated tool** because it serves an Anubis bot-challenge page
   to every request. The `1g4-mirror/hostap` GitHub mirror used instead is a
   third-party mirror, not upstream; a future session verifying this dossier
   should re-check the mirror is still in sync with upstream (or find a

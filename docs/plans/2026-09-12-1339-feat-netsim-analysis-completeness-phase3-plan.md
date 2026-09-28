@@ -42,9 +42,8 @@ and guards (R14, R15) moved to
   `vswitch/switch.go`, `metadata.go`, `bridge/bridge.go`, and
   `fabric/run.go`. Phase 3b therefore runs after this phase and is re-planned
   against what this phase leaves there. Its Decisions and Requirements,
-  decided by the user on 2026-09-14, stand.
-- **LAG balance modes follow OVS 3.3 bucket semantics.** User-directed
-  2026-09-14.
+  decided on 2026-09-14, stand.
+- **LAG balance modes follow OVS 3.3 bucket semantics.**
   - `hash & 0xff` picks one of 256 buckets, as today.
   - A bucket's member is runtime state. On lookup, a bucket with no member or
     a disabled member takes the member at the front of the enabled list, and

@@ -295,7 +295,7 @@ Design decisions:
   derives no state from the audit stream: the fingerprint comes from
   reports, and the stream is a record someone reads later. U1 amends the device-service record's transport
   section, in its final form: request-response over ConnectRPC,
-  observability over the bus. Why: the user's rule on 2026-09-06 that
+  observability over the bus. Why: the rule that
   the leaf carries logs, metrics, and traces and never a decision; a
   server stream is one-way HTTP/2, which the record allows for Connect.
 - **`src/modules/edgebus` is the bus carrier both hosts assemble.** The
@@ -2111,7 +2111,7 @@ radius statement (one interface description on one lab switch, the
 state before and after, the restore command), the `validate_only` dry
 run, the horizon measured before the first write, the restore path
 proven before the change, and the approval checkpoint, which records the
-approval the user gave on 2026-09-06 for this device and this change on
+approval given on 2026-09-06 for this device and this change on
 the grounds that it is a test device, and covers nothing beyond them;
 the lab config files carry placeholders, never addresses or secrets.
 Also a code-equality test, cheap only here because the end-to-end binary
@@ -2330,7 +2330,7 @@ and `OpenDeviceSubmission`. The assertion middleware cannot help, because the
 attacker registered the key it checks. The body limit wraps only the
 middleware paths, so those two services also accept an unbounded body.
 
-Accepted for now, on the user's decision of 2026-09-07, with the deployment's
+Accepted for now (2026-09-07), with the deployment's
 network boundary standing in. Written down as a decision rather than left as
 an omission: a gap someone plans around is a different thing from one they
 panic about or quietly "fix" in a way nobody reviewed. The service README
@@ -2510,8 +2510,8 @@ Carried out of U2 (edgebus), to log rather than lose:
 
 None. The four questions of the first draft (leaf node, central-owned
 drift, abandonment as a terminal ack, reads consuming sequences) were
-decided by the coordinator on 2026-09-06 and are recorded in Decisions;
-the leaf-node answer reversed the draft's recommendation, and the user's
+decided on 2026-09-06 and are recorded in Decisions;
+the leaf-node answer reversed the draft's recommendation, and the
 later rule that the bus carries observability only moved every decision
 path to ConnectRPC while the leaf node stays in this slice as the
 buffered carrier.

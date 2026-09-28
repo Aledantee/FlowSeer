@@ -44,7 +44,7 @@ tree-keying that phases 3d and 3e build on. It claims no part of R14.
   3d and per-VLAN RSTP is phase 3e. Why: the original phase 3b drafted all
   three together as six chained units, which is the size the `plan` skill
   splits, and the three capabilities share only the structures this phase
-  lands. User-directed 2026-09-15.
+  lands.
 
 ### Information lifetime
 
@@ -114,7 +114,7 @@ A port state an operator can see beats an issue code they have to look for.
   (<https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html>,
   <https://www.juniper.net/documentation/us/en/software/junos/stp-l2/topics/topic-map/spanning-tree-loop-protection.html>,
   <https://www.arista.com/en/um-eos/eos-spanning-tree-protocol>).
-  User-directed 2026-09-14, carried forward unchanged.
+
   - *Trigger.* The port's role is Root, Alternate, or Backup and its received
     information expires, by silence or by message age. The port enters
     `loop-inconsistent`: Discarding, role Alternate, excluded from root-port
@@ -188,7 +188,7 @@ A port state an operator can see beats an issue code they have to look for.
   active topology enforcement to the forwarding process that follows it
   (`docs/architecture/2026-09-10-virtual-device-direction.md:104`), so today's
   order is the deviation. The reserved-address drop stays ahead of both.
-  User-directed 2026-09-15.
+
 - **A classification failure now outranks `port-blocked`.** A frame on a
   gate-blocked port that also fails classification reports the classification
   reason: `ReasonCustomerVLAN`, `ReasonAdmission`, `ReasonNoPVID`,

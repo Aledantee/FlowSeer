@@ -56,7 +56,7 @@ action was fetching `/backup.swb`, which the device produces read-only.
 
 ## CLI / configuration model
 
-**No CLI exists on this device.** No SSH (22) or Telnet (23) listener was reachable, and the brief's known facts confirm this ahead of the probe. There is no `show`/`display` command surface at all — SwOS is HTTP-UI-only, backed by a set of binary/JS-object-literal endpoints under `/`.
+**No CLI exists on this device.** No SSH (22) or Telnet (23) listener was reachable, and the capture plan's known facts confirm this ahead of the probe. There is no `show`/`display` command surface at all — SwOS is HTTP-UI-only, backed by a set of binary/JS-object-literal endpoints under `/`.
 
 ## Web / API
 
@@ -124,7 +124,7 @@ Format: a JS object-literal-like text (not JSON — unquoted keys, single-quoted
 - `sysDescr` via a working community string cleanly identifies vendor+model+firmware in one string: `CSS326-24G-2S+ SwOS v2.18`.
 - MAC OUI `18:FD:74` is MikroTik's registered OUI (all 26 ports' `ifPhysAddress` share this prefix, incrementing by port).
 - HTTP: no `Server:` header at all (a scanner gets no banner from the HTTP response headers), but the Digest `realm=` header leaks the exact model string (`CSS326-24G-2S+`) even to an unauthenticated `GET`.
-- No mDNS/SSDP probed (out of scope of the brief's explicit endpoint list; the only broadcast-discovery mechanism this device offers is MNDP, MikroTik-proprietary, not standard mDNS/SSDP).
+- No mDNS/SSDP probed (out of scope of the capture plan's explicit endpoint list; the only broadcast-discovery mechanism this device offers is MNDP, MikroTik-proprietary, not standard mDNS/SSDP).
 
 ## What FlowSeer needs from this device
 
@@ -144,7 +144,7 @@ All under `docs/research/device-inventory/lab/_raw/labsw02/` (all captures scrub
 - `inline.js` — the SPA's single inline `<script>` body, extracted for reading (not modified).
 - `sys.b.raw`, `link.b.raw`, `vlan.b.raw`, `fwd.b.raw`, `snmp.b.raw`, `rstp.b.raw`, `lacp.b.raw`, `host.b.raw`, `acl.b.raw`, `sfp.b.raw`, `stats.b.raw` — each with a matching `.headers` file; these are `curl -i --digest` captures (headers + body in one file), so each includes the initial `401` challenge followed by the authenticated `200` response.
 - `poe.b.raw`/`.headers`, `dhost.b.raw`/`.headers`, `igmp.b.raw`/`.headers`, `bang-igmp.b.raw`/`.headers`, `bang-stats.b.raw`/`.headers` — the `303 Use Instead` responses for the endpoints that did not return data (see Web/API above for why).
-- `backup.swb` — the fetched backup file. **Scrubbed**: the original `pwd.b:{pwd:'<15-byte hex-encoded admin password>'}` section was replaced with `pwd.b:{pwd:'REDACTED'}` before this file was written to disk under `docs/`; the unscrubbed bytes were never written anywhere under `docs/` and existed only transiently in this session's process memory during decoding.
+- `backup.swb` — the fetched backup file. **Scrubbed**: the original `pwd.b:{pwd:'<15-byte hex-encoded admin password>'}` section was replaced with `pwd.b:{pwd:'REDACTED'}` before this file was written to disk under `docs/`; the unscrubbed bytes were never written anywhere under `docs/` and existed only transiently in the capture tool's process memory during decoding.
 - `backup.swb.headers` — the corresponding response headers.
 
 No SSH/Telnet/TLS/NETCONF/RESTCONF/gNMI artifacts exist — none of those surfaces were reachable (see Management surfaces observed).

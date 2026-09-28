@@ -73,7 +73,7 @@ and the conventions doc govern. The research dossiers are
   link-local simultaneously); under RFC 4861 SLAAC, a client commonly holds a
   privacy address, a stable address, and a link-local address at the same time
   (dossier 03 §2, §6).
-- Ruled (drive, on the user's cross-plan ruling): requirement 1 asserts the
+- Ruled across plans: requirement 1 asserts the
   enforceable invariant, not the impossible state of both arms set. A protobuf
   `oneof` holds at most one arm in memory and wire decoding is last-tag-wins, so
   `protovalidate` can reject an `EndpointState` only when no arm is set.

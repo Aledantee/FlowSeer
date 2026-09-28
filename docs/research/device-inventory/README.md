@@ -27,7 +27,7 @@ gateway, off-limits, port-scanned only, never touched), `.2`–`.6` (five
 switches), and `.21` (a Kali host reachable only over SSH). Nothing else on
 the subnet answered.
 
-Each of the five switches got one read-only capture by one agent: `.2`
+Each of the five switches got one read-only capture: `.2`
 MikroTik CSS326 on SwOS, `.3` Huawei S220 on YunShan OS, `.4` LANCOM
 GS-2326+ on LCOS SX, `.5` Cisco SG220, `.6` Ruckus (CommScope) ICX7150.
 No `snmpset`, no CLI config command, no HTTP write, and no reboot was issued

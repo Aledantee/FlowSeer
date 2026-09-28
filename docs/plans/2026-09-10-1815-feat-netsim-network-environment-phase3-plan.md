@@ -11,8 +11,7 @@ parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 
 # Network Simulation Environment, Phase 3: Spanning Tree Capability - Plan
 
-> Implemented. Every unit landed on 2026-09-11 through Herdr workers on
-> Gemini 3.8 Flash, one unit per worker. The layer holds only the ports
+> Implemented. Every unit landed on 2026-09-11. The layer holds only the ports
 > named in `stp.Config.Ports`; a port outside that map runs no protocol
 > and forwards as phase 1 built it. The full verifier run the schema
 > change asks for waits on the Docker daemon, which was not answering

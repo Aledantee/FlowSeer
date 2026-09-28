@@ -48,8 +48,8 @@ authority and the close reverts to a scope deferral.
   and `gn-banner-newline-normalization` in `src/protocol/gnmi/conformance_corpus_test.go`
   cite it. KD9's "real devices for the three families" holds; the gNMI family's
   device is the one that serves the protocol, not the one KD2 first named.
-- The Aruba write (Set) criterion is proven on Arista, not held open. Why: the
-  user directed proving Set on Arista (which accepts OpenConfig Set — the
+- The Aruba write (Set) criterion is proven on Arista, not held open. Why: Set is
+  provable on Arista (which accepts OpenConfig Set — the
   `gn-banner-newline-normalization` row is an Arista login-banner Set/Get
   round-trip) rather than waiting on an Aruba gNMI endpoint that does not
   exist. R14's escape hatch converts the Aruba-specific criterion to a

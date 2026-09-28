@@ -48,9 +48,9 @@ case "$cli" in
     env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" --model "$model" \
       ${effort:+--effort "$effort"} --output-format json --dangerously-skip-permissions >"$raw" 2>"$raw.err" </dev/null ;;
   codex)
-    # The user's global compound-engineering plugin runs its own review
-    # workflow inside the lane; it turned a 7/7 run into 110 minutes on
-    # 2026-09-09, so a lane measures the model without it.
+    # A globally installed compound-engineering plugin runs its own review
+    # workflow inside the lane and can stretch a run past 100 minutes, so a
+    # lane measures the model without it.
     codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
       -c 'plugins."compound-engineering@compound-engineering-plugin".enabled=false' \
       -m "$model" ${effort:+-c model_reasoning_effort="$effort"} "$prompt" >"$raw" 2>"$raw.err" </dev/null ;;
@@ -63,8 +63,8 @@ case "$cli" in
     #
     # One database per lane. Every `opencode serve` writes the same SQLite
     # file under ~/.local/share/opencode, and lanes running at once corrupt
-    # each other through it: on 2026-09-19 one server never bound its port and
-    # another died 202 s in on "Failed to execute statement". OPENCODE_DB
+    # each other through it (a server that never binds its port, or one that
+    # dies on "Failed to execute statement"). OPENCODE_DB
     # moves only the database; credentials still come from auth.json.
     export OPENCODE_DB="$raw.db"
     port=$((20000 + RANDOM % 20000))

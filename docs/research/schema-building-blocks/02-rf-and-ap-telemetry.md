@@ -17,7 +17,7 @@ reverse). Existing `net/phy/v1` precedent read directly:
 pattern with ordered thresholds), `poe_status.proto` (registry-worded,
 FlowSeer-numbered enum pattern).
 
-Vendored corpus fetched this session (repo paths, with line numbers where a
+Vendored corpus fetched for this dossier (repo paths, with line numbers where a
 fact is cited below):
 - `spec/proto/ruckus/ap/ap_status.proto` (APStatusRadio, lines 929–1330+)
 - `spec/proto/ruckus/ap/ap_report.proto` (APReportBinRadio, lines 730–1000;
@@ -44,7 +44,7 @@ fact is cited below):
 - `spec/openapi/ruckus/vsz/vsz-7.1.1-v13_1-openapi.json` (`ap_apOperationalSummary`,
   `ap_neighborAPList` definitions)
 
-Web sources fetched this session:
+Web sources fetched for this dossier:
 - Cisco Meraki Dashboard API v1 docs: `get-network-wireless-channel-utilization-history`,
   `get-device-wireless-radio-settings`, `get-network-wireless-air-marshal`,
   `get-network-wireless-rf-profile` — https://developer.cisco.com/meraki/api-v1/
@@ -58,7 +58,7 @@ Web sources fetched this session:
   https://api-class.mist.com/rest/read/monitoring/get_devices/,
   https://www.juniper.net/documentation/us/en/software/mist/mist-analytics/...
 
-Not reached this session (mark **unverified**, flagged for the planner):
+Not reached for this dossier (mark **unverified**, flagged for the planner):
 Juniper Mist exact `radio_stat` JSON field list (site search only, no
 authoritative page fetched with full schema); TP-Link Omada OpenAPI radio
 schema (no public machine-readable spec found, only support-doc mentions of
@@ -83,7 +83,7 @@ response shape).
   No RF measurement objects (no RSSI/power/noise) in this base MIB — those
   live in vendor WTP MIBs (Aruba WLSX-WLAN-MIB, Ruckus RUCKUS-*-WLAN-MIB,
   Huawei HUAWEI-WLAN-AP-RADIO-MIB — present in the vendored corpus but not
-  read this session; flagged for a follow-up pass if the planner wants
+  read for this dossier; flagged for a follow-up pass if the planner wants
   MIB-sourced RF values beyond what Cisco YANG and Ruckus GPB already cover).
 - **OpenConfig `openconfig-wifi-phy.yang` v1.4.1**
   (fetched from openconfig/public master):
@@ -131,7 +131,7 @@ response shape).
 - **RCPI / RSNI (802.11k)**: not present in the vendored IEEE802dot11-MIB
   (too old) nor found in the OpenConfig or Cisco YANG leaves read this
   session. **Unverified** in this corpus; the domain brief's RCPI/RSNI ask is
-  not grounded in a vendored or fetched primary source this session — flag
+  not grounded in a vendored or fetched primary source for this dossier — flag
   as an open question rather than fabricate a shape.
 
 ## 3. Provider data matrix
@@ -184,12 +184,12 @@ a BSS maps to; never imported back by either).
   (UniFi) is rejected as a wire type; band is a closed normalized set,
   frequency in MHz is a separate scalar (see unit recommendation).
 - **`RadioMode`** (normalized enum): `ACCESS`, `MONITOR`, `SENSOR`, `MESH` —
-  **no provider in this corpus modeled this as a field this session**
+  **no provider in this corpus modeled this as a field for this dossier**
   (Ruckus/Meraki/Cisco all conflate "radio mode" with the negotiated 802.11
   PHY generation string, e.g. "b/g/n"). This enum is FlowSeer-normalized
   from the domain brief, not vendor-sourced; flag to the planner as
   needing corroboration from a live device or a provider page not reached
-  this session (Meraki has separate `monitorMode`-style settings on some
+  for this dossier (Meraki has separate `monitorMode`-style settings on some
   endpoints not fetched).
 - **`RadioAdminState`** / **`RadioOperState`**: reuse the shape of
   `flowseer.net.interface.v1.AdminStatus`/`OperStatus` rather than inventing
@@ -208,7 +208,7 @@ a BSS maps to; never imported back by either).
   signed integer by every provider that documents a unit), `eirp_dbm`
   (`sint32`, absent when not reported — only Ruckus and OpenConfig expose
   it), `antenna_gain_dbi` (`sint32`, absent when not reported), `noise_floor_dbm`
-  (`sint32`), `chains` (absent from every provider read this session — do
+  (`sint32`), `chains` (absent from every provider read for this dossier — do
   not add a field with no grounded source; open question below).
 - **`ChannelUtilization`** message: `total_percent`, `self_tx_percent`,
   `self_rx_percent`, `other_bss_percent` (OpenConfig's `obss-rx` +
@@ -225,7 +225,7 @@ a BSS maps to; never imported back by either).
   derive it if both operands are present; storing it too is still
   worthwhile because several providers report it directly and the raw pair
   is not always both present). RCPI/RSNI are **not** added — no grounded
-  source this session (see Traps/Open questions); do not invent a
+  source for this dossier (see Traps/Open questions); do not invent a
   0.5 dB-per-step field without a cited clause.
 - **`SpectrumInterfererType`** (registry pass-through enum numbered by
   Cisco's `pmac-dev-id-*` bit position, the way `MauLinkMode` follows
@@ -341,7 +341,7 @@ research) is *what that entity is*:
   split intends. But also do not invent enum members with no
   corroborating value list — several of the exact string values (e.g. what
   SmartZone's `channel` string actually contains beyond a bare channel
-  number) were not enumerated in the corpus reached this session.
+  number) were not enumerated in the corpus reached for this dossier.
 - **`RogueType` names an event kind, not a classification**: it is tempting
   to reuse Ruckus's `RogueType` enum name for the rogue/neighbor/friendly
   *classification* the domain brief asks for — its three values
@@ -390,10 +390,10 @@ research) is *what that entity is*:
    provider page before landing it, or drop it from v1 and add it when a
    source is found.
 3. **RCPI/RSNI (802.11k)**: no grounded source in the vendored corpus or
-   the pages fetched this session. Either scope them out of v1 RF
+   the pages fetched for this dossier. Either scope them out of v1 RF
    primitives or assign a follow-up fetch of the 802.11k amendment / a
    provider that reports them (Cisco 9800 client-oper YANG is the most
-   likely candidate and was not read field-by-field this session).
+   likely candidate and was not read field-by-field for this dossier).
 4. **Chains / spatial streams**: no provider in this pass reports a
    standalone chain or spatial-stream count field. Confirm whether any
    fetched-but-not-read page (Cisco `ap-oper.yang`, Aruba Central RF tab)
@@ -410,9 +410,9 @@ research) is *what that entity is*:
    lives behind a policy engine, not a fixed enum on the wire.
 7. **DFS channel-change reason**: Cisco's RRM oper model exposes radar
    *events* per channel but no explicit "why did the channel change" reason
-   enum was found in the 2611 YANG set this session. If AI-RRM/ARM change
+   enum was found in the 2611 YANG set for this dossier. If AI-RRM/ARM change
    reasons are wanted, they likely need a targeted fetch of
    `Cisco-IOS-XE-wireless-rrm-rpc.yang` / `-rrm-global-oper.yang` beyond
    what this pass grepped, or Mist's documented RRM "reason codes" (Mist
    product docs mention `radio_config_reason` narratively but no schema was
-   fetched with authority this session).
+   fetched with authority for this dossier).

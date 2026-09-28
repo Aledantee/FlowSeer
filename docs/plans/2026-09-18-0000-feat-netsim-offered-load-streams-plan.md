@@ -48,7 +48,7 @@ different design.
 - Buffers come before streams. Why: both edit `fabric/run.go`, so they cannot
   run at once, and a stream layer that lands first would publish loss-free
   numbers for oversubscribed ports.
-- User-directed on 2026-09-17: tail drop only on a stated buffer; runs of
+- Tail drop only on a stated buffer; runs of
   millions of frames; a pcap source; a stream spec that is usable on the wire;
   the on-wire transmitter in this plan.
 

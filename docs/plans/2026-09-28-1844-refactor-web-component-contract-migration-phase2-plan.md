@@ -25,8 +25,8 @@ removed once nothing imports it.
 
 ## Decisions
 
-- The contract's 2026-09-28 amendment governs. The user approved
-  `motion-v` and `@vueuse/core` that day.
+- The contract's 2026-09-28 amendment governs. It approves
+  `motion-v` and `@vueuse/core`.
 - `motion-v` 2.5.1 and `motion` 13.x resolve `motion-dom` and
   `motion-utils` from the same 13.x range. The re-plan confirms the
   lockfile holds a single copy.

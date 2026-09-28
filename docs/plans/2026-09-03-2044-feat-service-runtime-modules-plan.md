@@ -49,14 +49,14 @@ The accepted device-service direction already places an embedded NATS leaf node 
 
 ### Key Decisions
 
-- **Use `service.Module` for the runtime concept.** (session-settled: user-directed — chosen over `Process` or `Component`: SMI modules are a specification detail and the package qualifier keeps the meanings distinct.) Governs R5, R6.
-- **A module is a leaf or a branch.** (session-settled: user-approved — chosen over combining business work and child supervision: the split makes failure ownership unambiguous.) Governs R3, R4.
-- **Reconstruct leaf attempts.** (session-settled: user-approved — chosen over rerunning one mutable Go value: fresh construction clears module-owned state after failure.) Governs R7, R21.
-- **Include nested supervision.** (session-settled: user-directed — chosen over a flat module list: the edge agent needs failure boundaries below the service root.) Governs R8, R9, R13, R17-R24.
-- **Keep the durable bus local and optional.** (session-settled: user-approved — chosen over a mandatory central connection or an always-running broker: services without messaging avoid broker and disk cost.) Governs R25-R29.
-- **Persist protobuf messages.** (session-settled: user-directed — chosen over `gob`: queued messages must survive edge-agent software upgrades.) Governs R30, R31.
-- **Discard exhausted messages.** (session-settled: user-directed — chosen over dead-letter retention or module failure: retry count is the only exhaustion policy and telemetry makes the loss visible.) Governs R35-R37.
-- **Replace `as` rather than wrapping it.** (session-settled: user-directed — chosen over an adapter layer: the new lifecycle improves on `as` instead of preserving its constraints.) Governs R1, R2, R42.
+- **Use `service.Module` for the runtime concept.** (Chosen over `Process` or `Component`: SMI modules are a specification detail and the package qualifier keeps the meanings distinct.) Governs R5, R6.
+- **A module is a leaf or a branch.** (Chosen over combining business work and child supervision: the split makes failure ownership unambiguous.) Governs R3, R4.
+- **Reconstruct leaf attempts.** (Chosen over rerunning one mutable Go value: fresh construction clears module-owned state after failure.) Governs R7, R21.
+- **Include nested supervision.** (Chosen over a flat module list: the edge agent needs failure boundaries below the service root.) Governs R8, R9, R13, R17-R24.
+- **Keep the durable bus local and optional.** (Chosen over a mandatory central connection or an always-running broker: services without messaging avoid broker and disk cost.) Governs R25-R29.
+- **Persist protobuf messages.** (Chosen over `gob`: queued messages must survive edge-agent software upgrades.) Governs R30, R31.
+- **Discard exhausted messages.** (Chosen over dead-letter retention or module failure: retry count is the only exhaustion policy and telemetry makes the loss visible.) Governs R35-R37.
+- **Replace `as` rather than wrapping it.** (Chosen over an adapter layer: the new lifecycle improves on `as` instead of preserving its constraints.) Governs R1, R2, R42.
 
 ### Module and Supervisor Model
 

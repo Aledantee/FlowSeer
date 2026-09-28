@@ -106,7 +106,7 @@ not the BPDU octet layout.
   by `fdbKey{fid, mac}` (`bridge/fdb.go:53`). A change on a tree flushes, on the
   other ports, only the FIDs of VLANs mapped to it; a CIST change on a boundary
   port applies to every tree.
-- **Multiple regions are modeled** (user-directed 2026-09-15), which is what the
+- **Multiple regions are modeled** (decided 2026-09-15), which is what the
   external vector and the boundary roles are for. **netmodel stays RSTP-only:**
   `netmodel.go:1165` refuses any other version, so MSTP reaches the layer
   through `ConstructionSpec` only.

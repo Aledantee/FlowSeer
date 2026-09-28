@@ -33,7 +33,7 @@ something else.
 - Placement is `src/common/netsim`, the home of network simulation, with
   the switch simulator under `netsim/vswitch` and the frame codec at
   `netsim/frame` because a link, host, or fabric simulator will share it.
-  User-directed. The simulators import nothing from `generated/`, which
+  The simulators import nothing from `generated/`, which
   keeps the directory's rule; the one protobuf boundary,
   `netsim/vswitch/netmodel`, is documented in `src/common/README.md` as the
   exception, the way the SNMP mappers once were. `AGENTS.md`'s "no domain

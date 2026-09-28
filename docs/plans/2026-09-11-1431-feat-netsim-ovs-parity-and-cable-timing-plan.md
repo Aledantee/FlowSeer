@@ -52,7 +52,7 @@ per-bit clock rather than event times.
   nothing else. Why: the two terms answer different questions, one scales
   with frame size and rate and the other with distance, and a caller who
   measured a link's latency has measured propagation, not the frame size
-  they will send later. User-directed on 2026-09-11.
+  they will send later.
 - A port is busy while it serializes. The fabric keeps a per-endpoint
   clock of when the last transmission ends; a frame's transmission starts
   at the later of now and that clock, and its arrival at the far end is
@@ -120,8 +120,7 @@ per-bit clock rather than event times.
   to active-backup when no partner speaks. The lowest-name member rule
   the tree has today becomes active-backup with the lowest name as the
   primary. Why: which cable a frame takes is the question a LAG exists to
-  answer, and OVS answers it with a hash and a protocol. User-directed on
-  2026-09-11: LACP lands with the modes.
+  answer, and OVS answers it with a hash and a protocol. LACP lands with the modes.
 - Mirrors, policing, and queues are one layer over the port table. A
   mirror selects by source port, destination port, VLAN, or all, and
   outputs to a port or a VLAN with a snap length; ingress policing is a

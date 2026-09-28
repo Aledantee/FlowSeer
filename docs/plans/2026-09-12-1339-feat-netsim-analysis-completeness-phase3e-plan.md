@@ -50,7 +50,7 @@ This phase claims parent R14c and R14d, and extends R15b and R39.
 ### What PVST is
 
 - **PVST is RSTP per VLAN.** Each VLAN runs the landed RSTP machine with the
-  configured bridge priority as its own. Why: user-directed 2026-09-14, and it
+  configured bridge priority as its own. Why: it
   is what the landed `tree` type already supports.
 - **The MSTI-specific paths are gated on `l.mst != nil`, which two of them are
   not today.** Hop-count aging and MSTI records already branch on it, but

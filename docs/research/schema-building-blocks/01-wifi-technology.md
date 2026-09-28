@@ -10,7 +10,7 @@ detail and RF telemetry are covered by sibling dossiers; only load-bearing
 overlap (RSSI/SNR field names as they appear on Radio/Bss primitives) is
 noted here.
 
-**Vendored corpus read this session:**
+**Vendored corpus read for this dossier:**
 - `spec/mib/ieee/IEEE802dot11-MIB:1-2977` — IEEE 802.11 MIB (2002, Cisco
   submission; pre-11n). `dot11StationConfigEntry`, `dot11DesiredBSSType`
   (line 304), `dot11CountryString` (475), `dot11PhyOperationEntry` PHY-type
@@ -47,7 +47,7 @@ noted here.
   `net/switching/v1/vlan_id.proto` — read as the worked pattern for
   Facet/Settings split, registry pass-through enums, and typed variants.
 
-**Web sources fetched this session:**
+**Web sources fetched for this dossier:**
 - `https://raw.githubusercontent.com/openconfig/public/master/release/models/wifi/openconfig-wifi-types.yang`
   — identities `OPERATING_FREQUENCY` (`FREQ_2GHZ`, `FREQ_5GHZ`, `FREQ_6GHZ`,
   and dual/tri-band composites `FREQ_2_5_GHZ`, `FREQ_5_6_GHZ`,
@@ -93,7 +93,7 @@ noted here.
   cipher suite selectors / Table 9-152 AKM suite selectors, which add SAE
   (00-0F-AC-8), OWE (00-0F-AC-18), 802.1X-SUITE-B-192 (00-0F-AC-12), GCMP-256
   (00-0F-AC-9), etc.) were searched but not found in a fetchable
-  non-paywalled page this session** — the 2020 standard PDF sits behind
+  non-paywalled page for this dossier** — the 2020 standard PDF sits behind
   IEEE/USPTO viewers that did not yield table text. Mark the post-2014
   values (SAE, OWE, GCMP, Suite B) **unverified**; the planner should budget
   a follow-up fetch of the actual 802.11-2020 clause 9.4.2.24
@@ -158,9 +158,9 @@ noted here.
   MHz (320 MHz, EHT) do not fit a `uint8`
   (`openconfig-wifi-phy.yang`). This is a direct trap for a schema author
   copying the "obvious" field width from an older reference.
-  Domain-standard widths per the brief: 20, 40, 80, 80+80, 160, 320 MHz (S1G
+  Domain-standard widths per the dossier's scope: 20, 40, 80, 80+80, 160, 320 MHz (S1G
   also has 1/2/4/8/16 MHz widths at 900 MHz, not covered by any vendored or
-  fetched source this session — mark unverified/niche).
+  fetched source for this dossier — mark unverified/niche).
 - **Primary channel / secondary channel / secondary offset.** Not explicitly
   in the fetched OpenConfig PHY module (only `channel` = "Primary 20MHz
   channel... [when] using channel-bonding"). Ruckus's `APStatusRadio`
@@ -177,7 +177,7 @@ noted here.
   candidate lists to name a channel unambiguously across regulatory
   domains. Table E-4 ("Global operating classes") is confirmed to exist
   with the columns listed in section 1, but the full row set was not
-  retrieved this session (unverified in detail; see traps).
+  retrieved for this dossier (unverified in detail; see traps).
 - **Regulatory domain / country code.** `dot11CountryString` in the vendored
   IEEE MIB (`IEEE802dot11-MIB:475`) is an `OCTET STRING`: this is the ISO
   3166-1 alpha-2 country code plus an "environment" octet ('I'/'O'/'X'), the
@@ -198,7 +198,7 @@ noted here.
   `openconfig-wifi-phy.yang` are the closest analogs (actual vs.
   regulatory/hardware ceiling).
 - **BSS/ESS/SSID.** SSID is 0-32 octets per the 802.11 standard (not
-  independently re-verified this session against the standard text, but
+  independently re-verified for this dossier against the standard text, but
   consistent with every vendored/fetched source's string-typed `ssid`
   field and matches the OpenConfig `ssids/name` container's use as the
   keying attribute). BSSID is a MAC address
@@ -207,14 +207,14 @@ noted here.
   `independent(2)` (IBSS), `any(3)` (`IEEE802dot11-MIB:303-317`) — this is
   the authoritative source for infrastructure vs. IBSS vs. mesh BSS typing;
   MBSS (mesh) is a later 802.11s addition not present in this 2002 MIB and
-  not independently confirmed by any other fetched source this session
+  not independently confirmed by any other fetched source for this dossier
   (unverified — treat mesh as a third value to add, not one to copy from a
   source).
 - **Beacon interval / DTIM.** `dot11BeaconPeriod` and `dot11DTIMPeriod` are
   both plain `INTEGER` in the IEEE MIB (`IEEE802dot11-MIB:187-188`), i.e.
   the beacon interval's canonical unit is TU (Time Units, 1024 µs) per the
   802.11 standard convention (not independently re-verified against
-  standard text this session; consistent with every vendor field being an
+  standard text for this dossier; consistent with every vendor field being an
   integer "period" with no unit suffix — vendors assume the reader knows
   TU). DTIM period is a *multiplier* of beacon intervals (every Nth beacon
   is a DTIM), not an independent time value — UniFi's
@@ -225,7 +225,7 @@ noted here.
   9.4.2.24/9.4.2.25 (numbering varies by edition; commonly cited as Table
   9-151/9-152 in 802.11-2020) define both as `(OUI, suite type)` pairs. The
   standards OUI is `00-0F-AC`; a non-`00-0F-AC` OUI means vendor-specific.
-  Confirmed suite-type values (both tables, this session):
+  Confirmed suite-type values (both tables, for this dossier):
   - AKM: `1` = 802.1X (RSNA/dot1x), `2` = PSK, `3` = FT-over-802.1X.
   - Cipher: `1` = WEP-40, `2` = TKIP, `4` = CCMP-128 (the default/mandatory
     cipher), `5` = WEP-104.
@@ -243,7 +243,7 @@ noted here.
   binary required/not-required rather than the standard's three-state
   disabled/optional/required. The standard actually has three states
   (0/1/2, sometimes named "Disabled"/"Optional"/"Required" or "Capable"/
-  "Required" depending on vendor UI) but no fetched source this session
+  "Required" depending on vendor UI) but no fetched source for this dossier
   reproduces the numeric encoding; unverified in detail.
 - **802.11k/v/r.** Confirmed shape from `openconfig-wifi-mac.yang`:
   - 802.11k: neighbor reports keyed by BSSID with channel + RSSI
@@ -305,17 +305,17 @@ noted here.
 | Channel width | `channelWidthMHz` int | `channelWidth` uint32 + `channelWidthGroup` int32 (7.0+) | `channelWidth` string enum, band-gated valid sets (`auto`/20/40/80[/160/320 on 6GHz]) | bandwidth field on `radio_stat` | 40 MHz bonding flag on radio profile | `channel-bandwidth` uint16 MHz (replaces deprecated uint8 `channel-width`) | **Core**; width-as-string-enum (Meraki) vs. width-as-int-MHz (everyone else) is a real divergence |
 | PHY standard/generation | `wlanStandard` enum `802.11a..be` (string, exact IEEE names) | `radioMode` string, vendor's own slash-joined format (e.g. `"11bgn"`, explicitly flagged by Ruckus's own comment as bad for machine parsing) | not directly fetched; RF profile implies band+width only | not fetched in detail | dot11a/dot11g/dot11-60GHz profile *type* implies generation indirectly | `wifi-protocol` identityref, same `WIFI_80211_A..BE` set as UniFi | **Core** for the plain amendment letter; Ruckus's compound string is a **named trap** (see section 6) |
 | Tx power | `txPower` (Ruckus: string!), `actualTxPower`/`calibrationTxPower`/`maxTxPower`/`eirp` (int32, dBm, Ruckus 7.1+) | same as above (Ruckus is the richest source: actual vs. calibration vs. max vs. EIRP, all dBm) | radio settings support explicit power in dBm | power in dBm on `radio_stat` | ARM dynamically manages power; profile carries min/max | `transmit-power`/`transmit-eirp` (config, int8/uint8 dBm) + `allowed-max-txpower`/`allowed-max-eirp` (state ceiling) | **Core** concept, but Ruckus alone distinguishes 4-5 power values (requested/actual/calibration/max/EIRP) that other sources collapse into one — a modeling trap (section 6) |
-| Country / reg domain | not directly located this session | not located | present (Meraki networks have a country/reg-domain setting, not directly fetched) | not fetched | `ap regulatory-domain-profile` (named CLI object) | not modeled in fetched files | **Core** but under-verified this session; needs a follow-up fetch |
+| Country / reg domain | not directly located for this dossier | not located | present (Meraki networks have a country/reg-domain setting, not directly fetched) | not fetched | `ap regulatory-domain-profile` (named CLI object) | not modeled in fetched files | **Core** but under-verified for this dossier; needs a follow-up fetch |
 | DFS | radio status implies channel legality | Ruckus radio has channel blacklist (`channelBlacklist`) but no explicit DFS flag found | explicit DFS status field on radio status endpoint | not fetched | ARM avoids DFS channels dynamically (behavioral, not necessarily a field) | `CHANGE_REASON_TYPE.DFS` (event cause, not a channel property) | **Core**, but "is this channel DFS" (channel property) vs. "did we vacate due to DFS" (event) are two different facts — trap |
 | SSID / BSSID | present (WLAN objects) | `ssid`, `bssid` string fields on `APClientWlan`/`APStatusWlan` | present | present | present | `ssids.name`, `bss-common-state.bssid` (mac-address) | **Core** |
-| Security/AKM | `securityType` enum: `WPA2_ENTERPRISE`, `WPA2_PERSONAL`, `WPA2_WPA3_ENTERPRISE`, `WPA2_WPA3_PERSONAL`, `WPA3_ENTERPRISE`, `WPA3_PERSONAL` (transition modes as their own named values, not a flag) | `wlan_wlanEncryption.method` enum: `WPA2`, `WPA_Mixed`, `WEP_64`, `WEP_128`, `None`, `WPA3`, `WPA23_Mixed`, `OWE`, `OWE_Transition` | not fetched in detail (Meraki has its own PSK/8021x/OPEN model) | not fetched | AOS security modes doc references WPA3 config (not itemized this session) | `opmode` enumeration: `OPEN`, `WPA2_PERSONAL`, `WPA2_ENTERPRISE`, `ENHANCED_OPEN`, `ENHANCED_OPEN_TRANSITION`, `WPA3_SAE`, `WPA3_2_SAE_TRANSITION`, `WPA3_ENTERPRISE`, `WPA3_2_ENTERPRISE_TRANSITION`, `WPA3_ENTERPRISE_192_BIT` | **Core**, but every vendor enumerates a *different* flattening of (AKM × cipher × transition-mode) as one string enum — none matches the IEEE AKM/cipher suite-selector model directly (trap, section 6) |
-| PMF | `mfp` boolean (mandatory for WPA3/OWE) — OpenConfig | not located as a distinct field in fetched Ruckus/UniFi | Meraki has PMF disabled/optional/required (not itemized this session) | not fetched | not itemized this session | `mfp` boolean | **Core**, three-state in the standard, boolean in the one schema fetched — verify before assuming binary |
+| Security/AKM | `securityType` enum: `WPA2_ENTERPRISE`, `WPA2_PERSONAL`, `WPA2_WPA3_ENTERPRISE`, `WPA2_WPA3_PERSONAL`, `WPA3_ENTERPRISE`, `WPA3_PERSONAL` (transition modes as their own named values, not a flag) | `wlan_wlanEncryption.method` enum: `WPA2`, `WPA_Mixed`, `WEP_64`, `WEP_128`, `None`, `WPA3`, `WPA23_Mixed`, `OWE`, `OWE_Transition` | not fetched in detail (Meraki has its own PSK/8021x/OPEN model) | not fetched | AOS security modes doc references WPA3 config (not itemized for this dossier) | `opmode` enumeration: `OPEN`, `WPA2_PERSONAL`, `WPA2_ENTERPRISE`, `ENHANCED_OPEN`, `ENHANCED_OPEN_TRANSITION`, `WPA3_SAE`, `WPA3_2_SAE_TRANSITION`, `WPA3_ENTERPRISE`, `WPA3_2_ENTERPRISE_TRANSITION`, `WPA3_ENTERPRISE_192_BIT` | **Core**, but every vendor enumerates a *different* flattening of (AKM × cipher × transition-mode) as one string enum — none matches the IEEE AKM/cipher suite-selector model directly (trap, section 6) |
+| PMF | `mfp` boolean (mandatory for WPA3/OWE) — OpenConfig | not located as a distinct field in fetched Ruckus/UniFi | Meraki has PMF disabled/optional/required (not itemized for this dossier) | not fetched | not itemized for this dossier | `mfp` boolean | **Core**, three-state in the standard, boolean in the one schema fetched — verify before assuming binary |
 | DTIM | `dtimPeriod2gLockedTo3` + `dtimPeriodByFrequencyGHzOverride` (per-band override) | not located in fetched proto | present, per-SSID | not fetched | not itemized | not in fetched modules | **Core**, band-scoped override in UniFi is notable |
-| Beacon interval | not located this session | not located | present (RF profile settings) | not fetched | not itemized | not in fetched modules | Likely core; under-verified |
+| Beacon interval | not located for this dossier | not located | present (RF profile settings) | not fetched | not itemized | not in fetched modules | Likely core; under-verified |
 | RSSI / SNR (client) | n/a here (client dossier) | `Rssi` int, radio `noiseFloor` int32 | n/a here | RSSI documented -100..0 dBm scale | n/a here | client `rssi` int8 dBm, `snr` uint8 dB | Cross-referenced only — owned by the client/telemetry dossier |
-| 802.11k/v/r | not itemized this session | not located | Meraki RF profile has 802.11k/v/r toggles (not itemized) | not fetched | ARM/AOS supports 802.11k/v/r (not itemized) | full k/v/r leaf set (section 2) | **Core** feature-toggle set; OpenConfig is the richest fetched source |
-| MLO | not itemized this session | not located (VSZ 7.1.1 predates or omits MLO in fetched sections) | not itemized | not fetched | not itemized | `mld-address` (AP + client), `mlo-enable` | **Niche/emerging** — only OpenConfig models it among fetched sources; expected, since MLO is new with 802.11be/Wi-Fi 7 |
-| 900 MHz S1G | not found in any fetched source | not found | not found | not found | not found | not found | **Not covered by any vendored or fetched source this session** — treat as out of scope for the first cut of `net/wlan/v1`, flag as an open question |
+| 802.11k/v/r | not itemized for this dossier | not located | Meraki RF profile has 802.11k/v/r toggles (not itemized) | not fetched | ARM/AOS supports 802.11k/v/r (not itemized) | full k/v/r leaf set (section 2) | **Core** feature-toggle set; OpenConfig is the richest fetched source |
+| MLO | not itemized for this dossier | not located (VSZ 7.1.1 predates or omits MLO in fetched sections) | not itemized | not fetched | not itemized | `mld-address` (AP + client), `mlo-enable` | **Niche/emerging** — only OpenConfig models it among fetched sources; expected, since MLO is new with 802.11be/Wi-Fi 7 |
+| 900 MHz S1G | not found in any fetched source | not found | not found | not found | not found | not found | **Not covered by any vendored or fetched source for this dossier** — treat as out of scope for the first cut of `net/wlan/v1`, flag as an open question |
 | 60 GHz (802.11ad/ay) | `frequencyGHz` enum includes `60` | Aruba has a distinct `dot11-60GHz-radio-profile` | not found | not found | confirmed (see previous) | not modeled (fetched types module has no 60 GHz identity) | **Niche**; two independent sources (UniFi, Aruba) confirm it exists as a real vendor concept even though OpenConfig's fetched module doesn't carry it |
 
 ## 4. Proposed primitives
@@ -404,7 +404,7 @@ question, see section 7) would carry what was requested, mirroring
     (`IEEE802dot11-MIB:304`): `BSS_TYPE_UNSPECIFIED = 0`,
     `BSS_TYPE_INFRASTRUCTURE`, `BSS_TYPE_INDEPENDENT` (IBSS),
     `BSS_TYPE_MESH` (802.11s — not in the 2002 MIB source, added because
-    the brief scopes MBSS in; flag as unverified against a primary 802.11s
+    the dossier's scope includes MBSS; flag as unverified against a primary 802.11s
     source, section 6/7).
   - `radio_id` uint32 — bare key into the owning `Radio`, ref-free per
     convention.
@@ -446,7 +446,7 @@ question, see section 7) would carry what was requested, mirroring
 - **`WirelessClient` message** — out of full scope for this dossier per the
   brief ("not clients — other agents cover those"); noted here only because
   the direction record names it as a `net/wlan/v1` peer of `Radio`/`Bss`.
-  The one load-bearing fact from this session's research that the client
+  The one load-bearing fact from this dossier's research that the client
   dossier will need: negotiated MCS/NSS/rate/guard-interval are
   **client-association** facts (section 2, MCS/NSS/GI/RU note), never
   `Radio` or `Bss` fields — do not let a later pass push them up into
@@ -503,7 +503,7 @@ this dossier's scope — flagged as an open question, not designed here.
   this as a model for a FlowSeer field; it is exactly the anti-pattern
   `Dot11Standard` (a single closed enum per generation) exists to avoid.
 - **AKM/cipher suite-selector numbers are unverified past the pre-2014
-  values fetched this session** (section 1/2). Do not hand the planner a
+  values fetched for this dossier** (section 1/2). Do not hand the planner a
   numeric registry pass-through enum built from vendor marketing names
   (`WPA3_SAE`, `OWE`, `SAE`) mapped by guesswork to suite-type integers —
   fetch the actual 802.11-2020 clause text first.
@@ -519,8 +519,8 @@ this dossier's scope — flagged as an open question, not designed here.
   `Vlan` row (same pattern as `SwitchportFacet`).
 - **60 GHz and 900 MHz S1G are asymmetrically covered.** 60 GHz has two
   independent confirming sources (UniFi, Aruba); 900 MHz S1G has zero
-  vendored or fetched confirmation this session. Do not add an S1G band
-  value to `WifiBand` on the strength of the brief's scope line alone
+  vendored or fetched confirmation for this dossier. Do not add an S1G band
+  value to `WifiBand` on the strength of the dossier's scope line alone
   without a source (open question, section 7).
 
 ## 7. Open questions for the planner
@@ -529,7 +529,7 @@ this dossier's scope — flagged as an open question, not designed here.
    (or equivalent current clause numbering) directly before deciding
    whether `Bss` carries a raw registry pass-through pair, a
    FlowSeer-normalized `WlanSecurity` enum (recommended shape sketched in
-   section 4), or both. This session could not retrieve the full tables
+   section 4), or both. This dossier could not retrieve the full tables
    from a fetchable source.
 2. **Operating classes (Annex E)**: same gap — is a `Radio`/`Bss` expected
    to carry an operating-class number at all in v1, or is channel number +
@@ -538,8 +538,8 @@ this dossier's scope — flagged as an open question, not designed here.
    session pinned down whether FlowSeer should store the raw 802.11 Country
    IE encoding (alpha-2 + environment octet) or a plain ISO 3166-1 alpha-2
    string with DFS/TPC-relevant regulatory facts computed downstream.
-4. **900 MHz S1G**: in scope per the brief's text, but zero vendored or
-   fetched-web evidence surfaced this session (no MIB, no OpenAPI, no
+4. **900 MHz S1G**: in scope per the dossier's scope, but zero vendored or
+   fetched-web evidence surfaced for this dossier (no MIB, no OpenAPI, no
    OpenConfig identity). Confirm whether any FlowSeer-targeted provider
    (Ruckus, UniFi, Meraki, Mist, Aruba) actually ships S1G hardware before
    spending a `WifiBand` value on it.
@@ -553,7 +553,7 @@ this dossier's scope — flagged as an open question, not designed here.
    proposal, matching OpenConfig) sufficient, or does 802.11be MLO need its
    own primitive (e.g. an explicit `Mld` grouping message) once more than
    one provider's MLO API shape is surveyed? Only OpenConfig's fetched
-   module modeled MLO this session — a second confirming source is
+   module modeled MLO for this dossier — a second confirming source is
    recommended before treating the shape as settled.
 7. **Access Point as a future entity**: out of scope here (section 5), but
    the planner should note that `Radio`/`Bss` as primitives will need to be

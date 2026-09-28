@@ -8,7 +8,7 @@ OSPFv2/v3; BGP; IS-IS; VRRP/HSRP; BFD; DHCP; DNS; NAT; multicast routing
 (ping/traceroute); ICMP/TCP/UDP stack counters; and the IPv6 `AddressOrigin`
 taxonomy bug in `net/ip/v1`.
 
-**Repo sources fetched this session:**
+**Repo sources fetched for this dossier:**
 - `docs/conventions/protobuf.md` (triad, ref pair, primitives, enums, typed
   variants — lines cited inline below)
 - `docs/code-style-proto.md` (edition 2024, presence, validation, evolution)
@@ -51,7 +51,7 @@ taxonomy bug in `net/ip/v1`.
 **Unverified / not found:** IANA-BFD-TC-STD-MIB (BFD state/diag integers) is
 referenced but not vendored — RFC 5880 §4.1 values used instead. IETF
 NAT-MIB (RFC 4008) is not vendored — RFC 4008 web text used instead. Meraki
-OpenAPI is absent from the repo despite being named in the brief's provider
+OpenAPI is absent from the repo despite being named in the dossier's provider
 list.
 
 ## 2. Standards facts
@@ -113,7 +113,7 @@ instance ID (0-255) allows multiple OSPFv3 instances per link.
 
 **IS-IS:** OpenConfig `openconfig-isis-types.yang` `isis-interface-adj-state`
 is **4-valued**: `UP`, `DOWN`, `INIT`, `FAILED` (not the 3-valued
-down/initializing/up assumed in the brief). `level-type`: `LEVEL_1`,
+down/initializing/up assumed in the dossier's scope). `level-type`: `LEVEL_1`,
 `LEVEL_2`, `LEVEL_1_2`. No RFC 1195/ISO 10589 text was fetchable this
 session for the canonical adjacency-state clause — OpenConfig is the only
 verified source for this fact.
@@ -290,10 +290,10 @@ current bug):**
 | WireGuard | `/interface/wireguard`: `listen-port, mtu, private-key, public-key, running, vrf`; `/interface/wireguard/peers` sub-resource present but not deep-read | not fetched | not present | not applicable (not an IETF/OpenConfig protocol) | Niche outside MikroTik; `wg(8)`/quickstart are the primary normalized source |
 | DNS | not fetched for MikroTik | `/v1/sites/{siteId}/dns/policies` (separate Site-Manager-style endpoint, not a Network schema field) | not present | not covered | Niche/thin per atlas (`04-ip.md`/`dns` section) — low schema value beyond forwarder address list |
 
-Note on Meraki: the brief lists Cisco Meraki as a provider to survey, but
+Note on Meraki: the dossier's scope lists Cisco Meraki as a provider to survey, but
 `spec/openapi/meraki/` does not exist in this repo (Glob returned no
 files) — Meraki appliance L3/DHCP/NAT/VPN facts are **not verified from a
-vendored source** this session; would need a live web fetch of Meraki
+vendored source** for this dossier; would need a live web fetch of Meraki
 Dashboard API docs if required before finalizing.
 
 ## 4. Proposed primitives
@@ -566,11 +566,11 @@ planner to decide.
   nbma(2), pointToPoint(3), pointToMultipoint(5)`), both in `OSPF-MIB` and
   confirmed via two independent fetches — don't "fix" this by renumbering
   when porting to a pass-through enum.
-- **IANA route-protocol value 20 is `ttdp`, not `ttag`** — the brief's own
-  wording had this wrong; verified against both the IANA registry and the
+- **IANA route-protocol value 20 is `ttdp`, not `ttag`** (the starting assumption had
+  this wrong), verified against both the IANA registry and the
   vendored `IANA-RTPROTO-MIB:48-79`.
 - **IS-IS adjacency state is 4-valued (`UP/DOWN/INIT/FAILED`), not
-  3-valued** as the brief assumed — verified against OpenConfig
+  3-valued** as the dossier's scope assumed — verified against OpenConfig
   `openconfig-isis-types.yang`, no contradicting source found.
 - **BFD state 0 is a real, meaningful value** (`AdminDown`), not a
   synthetic zero — a naive `_UNSPECIFIED=0` normalization would collide
@@ -614,7 +614,7 @@ planner to decide.
   the configured pool/rule that produces sessions. Collapsing them into one
   message loses the static-vs-dynamic distinction the MIB models
   explicitly.
-- **Meraki was named in the brief's provider list but has no vendored
+- **Meraki was named in the dossier's provider list but has no vendored
   OpenAPI in this repo** — any Meraki-specific fact in this dossier would
   be unverified; none is included in the provider matrix for that reason.
 
@@ -635,7 +635,7 @@ planner to decide.
    These two guiding sources point in different directions and the planner
    needs to pick one.
 3. IKEv2 transform-type registries (encryption/integrity/DH-group IANA
-   numbers) were not fetched this session — needed before finalizing
+   numbers) were not fetched for this dossier — needed before finalizing
    `IkeProposal`'s enum shapes.
 4. Should `RouteRow` be a single message covering both RIB and FIB via a
    discriminator field, or two separate messages in `net/routing/v1`? The
@@ -649,5 +649,5 @@ planner to decide.
    required before the planner finalizes the provider matrix.
 6. Confirm exact RFC 8349 section numbers for `route-metadata` and
    `special-next-hop` groupings against the actual YANG module tree before
-   citing a specific clause in a proto file comment — this session's two
+   citing a specific clause in a proto file comment — this dossier's two
    fetches disagreed (§5 vs §7) though the content itself was consistent.

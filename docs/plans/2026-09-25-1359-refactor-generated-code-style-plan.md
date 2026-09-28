@@ -12,7 +12,7 @@ compound: docs/solutions/architecture-patterns/claim-companion-symbols-in-scope-
 
 # Generated Code Style Conformance - Plan
 
-Outcome: implemented 2026-09-25 on this branch (1d982d63..ba082819). All four units passed; the verifier is green on the union of changed paths. The first implement lane (opencode) hung, so U2 and U4 were finished on replacement lanes from its merged work. The wide bench case now walks the 18 current ifTable columns (user decision). t4_manual_verify_test.go still walks the deprecated ipAddrTable; it builds only under its lab tag, so SA1019 does not fire today, and the open question below stands.
+Outcome: implemented 2026-09-25 on this branch (1d982d63..ba082819). All four units passed; the verifier is green on the union of changed paths. The wide bench case now walks the 18 current ifTable columns. t4_manual_verify_test.go still walks the deprecated ipAddrTable; it builds only under its lab tag, so SA1019 does not fire today, and the open question below stands.
 
 Reviewed 2026-09-25: accept after fixes. One correctness defect and four smaller
 ones were found and fixed in two rounds (cd4b6527, ace96ff7, dcb2a076, 946446b6,
@@ -115,8 +115,8 @@ generator here to adjust.
   `src/protocol/internal/goname`, with `goname.Exported(name string) string`
   and `goname.Unexported(name string) string`. `Unexported` lower-cases
   the whole leading word when that word is an initialism (`LLDPPortConfigTable`
-  → `lldpPortConfigTable`, `ID` → `id`). Why: the user chose one shared
-  list for both generators, and both consumers sit under `src/protocol/`. `src/common/README.md`
+  → `lldpPortConfigTable`, `ID` → `id`). Why: one shared
+  list serves both generators, and both consumers sit under `src/protocol/`. `src/common/README.md`
   sends a package whose importers are all in one tree to that tree's
   `internal/`. `Unexported` exists because mibgen lower-cases the first
   rune for its unexported names (`emit_table.go:49`, `emit_watch.go:304`,
@@ -183,8 +183,7 @@ generator here to adjust.
   walks `IfInNUcastPkts`, `IfOutNUcastPkts`, and `IfOutQLen` to measure a
   wide ifTable walk. Only 18 current ifTable columns exist, so the wide
   case walks all 18 once, and its sub-benchmark becomes `cols=18`, with
-  `src/protocol/snmp/bench/doc.go` updated to match (user decision,
-  2026-09-25). No gate compares the wide-case numbers; `bench-gate.sh`
+  `src/protocol/snmp/bench/doc.go` updated to match. No gate compares the wide-case numbers; `bench-gate.sh`
   reads only `baseline-micro.txt`.
   `src/protocol/snmp/test/integration/t4_manual_verify_test.go:137`
   walks the deprecated `ipAddrTable` against lab devices, and it has no
@@ -449,7 +448,6 @@ Waves: U1 U3 | U2 U4
   Lint time over the 208 MB YANG tree is the cost to weigh.
 - `src/protocol/snmp/test/integration/t4_manual_verify_test.go:137`
   walks the deprecated `ipAddrTable` on lab switches. It builds only under
-  its lab tag, so SA1019 does not fire today. The user decided on
-  2026-09-25 to move it to `ipAddressTable` (RFC 4293). That is follow-up
+  its lab tag, so SA1019 does not fire today. It moves to `ipAddressTable` (RFC 4293). That is follow-up
   work outside this plan: first confirm the lab switches serve the table,
   which needs the lab powered on, with advance notice to the user.

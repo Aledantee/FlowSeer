@@ -22,14 +22,14 @@ Repo paths read (line-cited where a fact is used below):
 - `spec/yang/openconfig/openconfig-igmp-types.yang` (full file, 64 lines)
 - `spec/yang/openconfig/openconfig-vlan-types.yang` (TPID identities, VLAN/QinQ typedefs, lines 85–265)
 
-Web (fetched this session):
+Web (fetched for this dossier):
 
 - RFC 7432 §7 — https://www.rfc-editor.org/rfc/rfc7432.html — EVPN NLRI route types 1–4
 - RFC 4541 §2.1.1 — https://www.rfc-editor.org/rfc/rfc4541.html — IGMP/MLD snooping router-port detection and group-timeout recommendations
 - RFC 8529 §3, §3.1, §3.1.1 — https://www.rfc-editor.org/rfc/rfc8529.html — `ietf-network-instance` name-keyed list and augmentation pattern
 - Cisco `CISCO-CDP-MIB.my` — https://raw.githubusercontent.com/cisco/cisco-mibs/main/v2/CISCO-CDP-MIB.my — `cdpCacheTable`, `cdpInterfaceTable`, `cdpGlobal*` field list (not vendored; `CISCOSBCDP.mib` in the corpus is SMB-specific and has no neighbor table)
 
-Not fetched / not verified this session (flag as unverified below where relied on): IEEE 802.1Q-2022 clause text for S-VLAN TPID and dot1qVlanFdbId semantics beyond what the atlas and vendored MIBs already state; RFC 7348 VXLAN header layout (VNI is a well-known 24-bit field, cited from general knowledge only — **unverified**, no fetch this session); RFC 9136 (EVPN IP Prefix route type 5) — **unverified**, not fetched, mentioned only because RFC 7432 itself stops at 4.
+Not fetched / not verified for this dossier (flag as unverified below where relied on): IEEE 802.1Q-2022 clause text for S-VLAN TPID and dot1qVlanFdbId semantics beyond what the atlas and vendored MIBs already state; RFC 7348 VXLAN header layout (VNI is a well-known 24-bit field, cited from general knowledge only — **unverified**, no fetch for this dossier); RFC 9136 (EVPN IP Prefix route type 5) — **unverified**, not fetched, mentioned only because RFC 7432 itself stops at 4.
 
 # 2. Standards facts
 
@@ -99,7 +99,7 @@ Not fetched / not verified this session (flag as unverified below where relied o
 
 - Encapsulation type is a first-class `ENCAPSULATION` identity in `openconfig-network-instance-types.yang` (`VXLAN`, citing RFC 7348 by name in its description).
 - `openconfig-evpn-types.yang:55-290`: `EVPN_TYPE` base → `VLAN_BASED`, `VLAN_BUNDLE`, `VLAN_AWARE` (service models); `EVPN_REDUNDANCY_MODE` → `SINGLE_ACTIVE`, `ALL_ACTIVE`; `EVPN_CAPABILITY` → `NVE`, `EVI`, `MAC_VRF`, `IP_VRF`, `IRB`. Also MAC-table-adjacent enums: MAC type `Static`/`Dynamically learned`/`Connected`; MAC origin `Local`/`Remote`/`All`; next-hop encapsulation `not set`/`VXLAN`/`Invalid`; learning mode `Control Plane Learning`/`Data Plane Learning`.
-- RFC 7432 §7 (fetched): defines exactly four EVPN NLRI route types — **1** Ethernet Auto-Discovery (A-D), **2** MAC/IP Advertisement, **3** Inclusive Multicast Ethernet Tag, **4** Ethernet Segment. (Route type 5, IP Prefix Advertisement, comes from RFC 9136 — **unverified**, not fetched this session; do not cite RFC 7432 for it.)
+- RFC 7432 §7 (fetched): defines exactly four EVPN NLRI route types — **1** Ethernet Auto-Discovery (A-D), **2** MAC/IP Advertisement, **3** Inclusive Multicast Ethernet Tag, **4** Ethernet Segment. (Route type 5, IP Prefix Advertisement, comes from RFC 9136 — **unverified**, not fetched for this dossier; do not cite RFC 7432 for it.)
 - `openconfig-network-instance-l2.yang:340-460`: FDB-adjacent groupings — `l2ni-fdb-mac-config` (`mac-learning` bool, `mac-aging-time` uint16 seconds, `maximum-entries` uint16); `l2ni-mac-table-state.entry-type` enum `STATIC`/`DYNAMIC` only (simpler two-value taxonomy than FlowSeer's five-value `FdbEntryKind`); `evi` leaf of type `oc-evpn-types:vni-id` links a MAC-table row to its EVPN instance. Lines 520-930 hold a much larger `l2rib` (L2 RIB) table shape for EVPN-learned MAC and MAC-IP entries with per-producer next-hop state — out of scope for a first pass, flagged for the planner as "exists if VXLAN/EVPN is ever prioritized."
 
 ## MACsec, ERPS, MVRP (all confirmed low-priority / no change needed this pass — atlas only)
@@ -172,7 +172,7 @@ No standard model exists to normalize against (RFC 4541 describes router behavio
 
 ## 4.6 CDP / discovery-protocol generalization — decision needed, not proposed here
 
-The brief's "one-neighbor-entity question" is answered by the atlas with a clear recommendation (PTOPO-MIB's `ptopoConnDiscAlgorithm` shape: one `Neighbor`-like message with a `discovery_protocol` discriminator) but this dossier does **not** propose replacing the existing LLDP-specific `lldp.v1.Neighbor` — that decision affects a landed package and belongs to the planner with the tradeoff stated plainly in §7, not decided unilaterally in a domain dossier.
+The dossier's "one-neighbor-entity question" is answered by the atlas with a clear recommendation (PTOPO-MIB's `ptopoConnDiscAlgorithm` shape: one `Neighbor`-like message with a `discovery_protocol` discriminator) but this dossier does **not** propose replacing the existing LLDP-specific `lldp.v1.Neighbor` — that decision affects a landed package and belongs to the planner with the tradeoff stated plainly in §7, not decided unilaterally in a domain dossier.
 
 # 5. Entity candidates (model/)
 
@@ -184,8 +184,8 @@ No new UUID-identified entity is warranted by this domain research. Every concep
 - **Bridge/component id is a minority feature** — do not make `NetworkInstance`/bridge-component a required field anywhere; absence must mean "the device's single default bridge," matching the atlas's explicit recommendation.
 - **`lldpLocPortNum`, `dot1dBasePort`, `dot1xPaePortNumber`, `ifIndex` are four different port-numbering spaces** that frequently coincide but are not guaranteed to. FlowSeer's one-interface-identity rule (device-local `name`) already sidesteps this for its own schema, but any new protocol package (MSTP, 802.1X) must key by `interface_name`, never re-introduce a numeric port index, consistent with existing STP/LACP/LLDP packages.
 - **CISCOSBCDP.mib (vendored) is not a substitute for CISCO-CDP-MIB** (github, not vendored) — it has no neighbor-cache table. Anyone modeling CDP later must fetch the real MIB, not assume the vendored SMB variant covers it.
-- **RFC 7432 defines only 4 EVPN route types (1-4).** Do not cite it for route type 5 (IP Prefix) — that's RFC 9136, unverified/unfetched this session.
-- **VXLAN VNI / header layout claims are unverified** this session — RFC 7348 was not fetched. Do not let the planner treat the `VXLAN` identity's existence in OpenConfig as evidence of VNI field width, etc.
+- **RFC 7432 defines only 4 EVPN route types (1-4).** Do not cite it for route type 5 (IP Prefix) — that's RFC 9136, unverified/unfetched for this dossier.
+- **VXLAN VNI / header layout claims are unverified** for this dossier — RFC 7348 was not fetched. Do not let the planner treat the `VXLAN` identity's existence in OpenConfig as evidence of VNI field width, etc.
 - **Foundry "MRP" is Metro Ring Protocol, not IEEE MRP** (atlas, explicit warning) — a name collision that will bite string-based protocol matching if ERPS/ring-protection or MVRP/GARP packages are ever built from vendor MIB names alone.
 - **Private VLAN and protected-ports/traffic-segmentation are two different mechanisms** that must not share one message (atlas, D-Link is the only vendor with both, named differently) — relevant if port-isolation is scoped into a future pass.
 - **MSTP importing STP types crosses the "a protocol package... never [imports] another protocol package" rule** (`net/protocol/README.md` Boundaries) literally as written. This is a real tension the planner must resolve: either MSTP duplicates `BridgeId`/`PortRole`/`ForwardingState`-shaped messages, or the boundary rule gets an explicit, planner-approved exception for MSTP-extends-STP (802.1Q formally defines MSTP as an extension of RSTP, unlike LACP/LLDP which are independent protocols) — do not resolve this silently in schema code.

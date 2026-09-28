@@ -32,15 +32,15 @@ collapse.
 
 - Tailwind v4, Reka UI, Storybook 10, and three token tiers, as
   [Web Design System](../architecture/2026-09-26-web-design-system-direction.md)
-  (proposed) describes. Why: the user chose Tailwind v4 over plain CSS
-  and UnoCSS, chose Storybook as the catalogue, and chose to keep the
+  (proposed) describes. Why: the direction record chose Tailwind v4 over plain CSS
+  and UnoCSS, Storybook as the catalogue, and the
   m3connect colors while deriving every semantic token from a scale step.
   These decisions constrain all later frontend work, so they are recorded
   as a direction record rather than only in this plan.
 - The m3connect anchors stay: coral `#FF451D` for the primary action,
   cyan `#5ECAD8` for selection and navigation, and the eight Radix
-  families in `design/palette-source.json`. Why: the user chose to keep
-  them, and `frontend/web/design/README.md` records how they were
+  families in `design/palette-source.json`. Why:
+  `frontend/web/design/README.md` records how they were
   produced.
 - The legacy semantic tokens are renamed in place, with no aliases. Why:
   `AGENTS.md` permits breaking changes before the first stable release and

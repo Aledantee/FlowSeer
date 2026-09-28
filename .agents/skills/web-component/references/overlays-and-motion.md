@@ -26,7 +26,7 @@ Until motion-v lands:
 | `f78206e4` | Focus lost after closing the Ask popover | The trigger was `tabindex="-1"`, and Reka returns focus to the trigger |
 | `e02774f2` | AI button drawn over modals and row controls | A body-teleported layer used `z-index: 60`, above the overlays' 50 |
 | `7cdf983d` | Overlay audits passed on closed triggers only | Stories had no open state |
-| (found 2026-09-28) | `UiDropdownMenu` AccessibilityAudit story is empty in a browser | It opens the menu with no rendered trigger, so Floating UI parks it at `translate(0, -200%)`; happy-dom cannot see it |
+| unfixed | `UiDropdownMenu` AccessibilityAudit story is empty in a browser | It opens the menu with no rendered trigger, so Floating UI parks it at `translate(0, -200%)`; happy-dom cannot see it |
 
 ## Overlay rules
 

@@ -55,7 +55,7 @@ lives in a composable, not in either view.
 ### Text and formatting go through vue-i18n
 
 **Library.** `vue-i18n` 11.4.12 (MIT) is the i18n layer, in Composition
-API mode (`legacy: false`). The user approved the package on 2026-09-28.
+API mode (`legacy: false`).
 
 **Locales.** English (`en`) and German (`de`) ship from the start. German
 tests plural rules, number and date formats, and text roughly 30% longer
@@ -317,11 +317,11 @@ Checked on 2026-09-28:
 
 ### 2026-09-28: motion-v, Tailwind keyframes, and focus-return scope
 
-Decided by the user after further research the same day. Where a line
+Where a line
 above conflicts with this section, this section wins.
 
 - **motion-v replaces `motion/mini` for JavaScript motion.**
-  - The user approved `motion-v` (MIT) and its peer `@vueuse/core`.
+  - `motion-v` (MIT) and its peer `@vueuse/core` are the approved packages.
   - `useMotionFeedback` and its callers move to motion-v. Layout changes
     such as the sidebar resize may use motion-v's `layout` animations in
     place of the read, `nextTick`, read, play sequence.

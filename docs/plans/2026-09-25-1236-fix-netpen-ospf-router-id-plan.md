@@ -13,9 +13,8 @@ amends: docs/plans/2026-09-23-2228-feat-netpen-lab-vendor-validation-plan.md
 
 # netpen OSPF Attacker Router ID - Plan
 
-> Implemented. U2–U3 (router-id + generator checksums + fixtures) landed in a
-> worker; U4 (live validation + matrix) run by the coordinator on 2026-09-25:
-> the rebuilt netpen was deployed to the injector and `TestT2OSPFLiveLab` passed
+> Implemented. U2–U3 (router-id, generator checksums, fixtures) landed, and
+> U4 (live validation and matrix) ran on 2026-09-25. The rebuilt netpen was deployed to the injector and `TestT2OSPFLiveLab` passed
 > against IOS-XE `172.16.0.42` — neighbor `10.0.0.99` accepted and cleared — so
 > the `ospf` VALIDATION_MATRIX cells and the 2026-09-23 plan now carry the dated
 > vendor truth.

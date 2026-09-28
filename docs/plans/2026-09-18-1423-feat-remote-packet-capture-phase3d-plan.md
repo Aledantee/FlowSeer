@@ -14,8 +14,8 @@ parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 # Remote Packet Capture Phase 3d, Lab Validation - Plan
 
 > Re-planned 2026-09-27 against the current tree: U3c is landed
-> (`4fdd8897..7144a6a6`, an ancestor of the re-plan branch), and the user
-> reports the ICX7150 and a MikroTik online. A later live LLDP read confirmed
+> (`4fdd8897..7144a6a6`, an ancestor of the re-plan branch), and the
+> ICX7150 and a MikroTik are online. A later live LLDP read confirmed
 > Kali `eth0` is cabled to ICX7150 port `1/1/2`, while `eth1.1000` keeps Kali's
 > management address. A temporary physical SPAN session produced a valid local
 > pcapng through the FlowSeer capture module. A parallel tcpdump comparison
@@ -51,8 +51,8 @@ The parent plan's Decisions apply. What this phase decides when re-planned:
 - The ICX mirror session and RouterOS sniffer setup are device writes, so
   each needs approval before the live run. The capture path itself is
   read-only from each device's point of view.
-- Kali `labtest` is the proposed edge host. On 2026-09-27 the user moved its
-  `eth0` cable to ICX7150 port `1/1/2`; a live LLDP read confirmed that link,
+- Kali `labtest` is the proposed edge host. On 2026-09-27 its `eth0`
+  cable moved to ICX7150 port `1/1/2`, and a live LLDP read confirmed that link,
   while `eth1.1000` remained the management route. The local SPAN run uses
   `eth0` as the capture interface so its destination is separate from the
   management path.
@@ -62,7 +62,7 @@ The parent plan's Decisions apply. What this phase decides when re-planned:
   reconstruction, and captured the mirrored traffic after the change. Cost if
   wrong: filtering in the capture process may raise drop rates on a busy SPAN
   port; an offload-aware kernel filter would be needed to recover that margin.
-- On 2026-09-27 the user ruled that a successful EVE-NG RouterOS run satisfies
+- A successful EVE-NG RouterOS run satisfies
   this phase's TZSP protocol check. Physical CRS317 validation is a separate
   compatibility check if support for its RouterOS 6.49 firmware is claimed.
 
@@ -117,7 +117,7 @@ device's management address or sniffer capability.
 
 ## Lab progress (2026-09-27)
 
-The user approved a temporary ICX7150 SPAN session. Kali's `eth0` was linked to
+A temporary ICX7150 SPAN session was approved for this run. Kali's `eth0` was linked to
 ICX port `1/1/2` by LLDP; its management address and default route stayed on
 `eth1.1000` via port `1/1/12`. The switch mirrored both directions of `1/1/12`
 to `1/1/2`. A Linux build of the FlowSeer capture module ran on Kali with

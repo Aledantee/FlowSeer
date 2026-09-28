@@ -28,7 +28,7 @@ device rather than the deployment: the management address and
 `ssh_host_key_sha256`. Both ship as placeholders and `write-registry.sh`
 refuses to render the shipped file while either is still there. Neither
 failure is one a reader would diagnose from what it produces — an unfilled
-address makes the agent log a timed-out identity probe, which is what it also
+address makes the edge agent log a timed-out identity probe, which is what it also
 logs when the switch is off, and an unfilled digest is a pin that fails at the
 moment a mutation opens its shell.
 

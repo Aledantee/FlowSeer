@@ -14,14 +14,9 @@ execution: code
 
 > Implemented. 6 units, 2026-09-25T14:50:27Z to 2026-09-25T17:55:26Z.
 >
-> The first review's verdict was withdrawn, not overturned. Its lane was pinned to
-> `claude-opus-5` and fell back to `claude-opus-4-8` at 2026-09-25T18:56:13Z on a
-> cyber refusal, seven minutes into a two-and-a-half-hour run: 86 turns on the
-> pinned model, then 174 on the substitute, so every finding, every fix and the
-> verdict came from a model nobody chose. The fixes it produced are kept
-> (`a58f9293`, merged as `461dcc68`) because they verify and read correctly; the
-> verdict is not evidence and the `review` field is empty until a lane that ran on
-> its pinned model fills it.
+> The first review's verdict was withdrawn, not overturned. The fixes it
+> produced are kept (`a58f9293`, merged as `461dcc68`) because they verify and
+> read correctly. The `review` field stays empty until a new review fills it.
 
 ## Goal
 
@@ -81,7 +76,7 @@ in golden traces and conformance corpora.
   store accessor, not a proto-derived RPC handler, so the prefix has no
   exemption. **Unconfirmed.**
 - Non-test Go constructs errors only through `src/common/errs`: no `errors.New`
-  and no `fmt.Errorf` outside that package. The user's decision, which replaces
+  and no `fmt.Errorf` outside that package. This replaces
   this plan's earlier reading that the verbless calls were a linter's job. The
   migration is its own plan, [errs-only error
   construction](2026-09-25-1712-refactor-errs-only-error-construction-plan.md),
@@ -97,19 +92,17 @@ in golden traces and conformance corpora.
   boundaries reject, and `code-style.md` Remedies prefers making the branch
   unreachable over a new name. **Unconfirmed.**
 
-## Decisions the user made after implementation
+## Decisions made after implementation
 
 - Keep the first review's merged fixes and clear its verdict. Why: the fixes stand
   on their own (the verifier passes over them and each names a defect checkable in
-  the tree), but a verdict is a judgement, and this one was made by
-  `claude-opus-4-8` after a silent fallback from the pinned `claude-opus-5`. A
-  judgement from a model nobody selected is not a review.
-- Re-run the review stage on `gpt-5.6-sol` (`codex`), per
+  the tree), but the verdict is withdrawn and counts as no review.
+- Re-run the review stage, per
   [`review`](../../.claude/skills/review/SKILL.md) with its fix loop, over the
   whole change from this plan's implementation base `fbcb3d3d` through
   `461dcc68`, the first review's fixes included. Its verdict replaces the withdrawn
   one.
-- `compound` may finish on its own lane, but its result merges only after the new
+- `compound` may finish first, but its result merges only after the new
   review is accepted, and is re-run if the new review changes what its lesson
   rests on. Why: the lesson it captured is drawn from a finding of the withdrawn
   review.
@@ -188,13 +181,13 @@ in golden traces and conformance corpora.
     `src/services` 5, `src/edge` 11. No grep decides this — see Verification.
 15. Superseded by [errs-only error
     construction](2026-09-25-1712-refactor-errs-only-error-construction-plan.md),
-    on the user's decision that non-test Go constructs errors only through
+    on the decision that non-test Go constructs errors only through
     `src/common/errs`. `errors.New` is no more permitted than `fmt.Errorf`, so
     this requirement's conversions are wrong in the same direction. The sites it
     named are converted there; the three in unlanded units
     (`src/common/service/bus.go:200,219`, `src/edge/netpen/layers/hsrp.go:104`)
-    may land as `errors.New` first, since the implement worker reads this plan
-    from a checkout forked before this amendment, and that plan's `src/common`
+    may land as `errors.New` first, since their units were cut before this
+    amendment, and that plan's `src/common`
     and `src/edge/netpen` units sweep those files anyway.
 16. No `Get` prefix on a plain accessor. Acceptance: `captureapi.Store.Session`
     exists and `Store.GetSession` does not.
@@ -223,7 +216,7 @@ in golden traces and conformance corpora.
   together or not at all; this plan leaves both. `VALIDATION_MATRIX.md` is in U6
   only because `matrix_test.go:49` cuts on its heading. These three are why the
   planning-label grep still prints two files.
-- Files another session is editing, which this plan does not touch:
+- Files this plan does not touch:
   `src/protocol/snmp/cmd/mibgen/**`, `src/protocol/yang/cmd/yanggen/*.go`,
   `src/protocol/internal/goname/**`,
   `src/protocol/snmp/bench/{streaming_memory,tablewalk,tablewalk_parity}_test.go`,

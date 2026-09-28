@@ -83,8 +83,8 @@ switches 3.8 MB, enum consts 6.4 MB, and comments 11.9 MB.
 - Generated identifiers follow Go naming: the package name is part of the
   identity, so a name does not repeat the package or the ancestors a reader
   already knows (`ciscoiosxenative.StormControlLevel`, not
-  `ciscoiosxenative.NativeInterfaceCellularStormControlLevel`). Why: the user
-  directed it, and Effective Go's package-names section says the same
+  `ciscoiosxenative.NativeInterfaceCellularStormControlLevel`). Why:
+  Effective Go's package-names section says so
   (https://go.dev/doc/effective_go#package-names).
 - Every exported generated identifier keeps a one-line doc comment. Why:
   `docs/code-style.md:45-46` requires a doc comment on every exported name,

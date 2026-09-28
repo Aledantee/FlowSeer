@@ -52,7 +52,7 @@ whole set:
 | [`docs/conventions/protobuf.md`](docs/conventions/protobuf.md) | message shapes: the Config/State/Event triad, refs, tenancy, provenance |
 | [`docs/conventions/observability.md`](docs/conventions/observability.md) | logging, traces, metrics, and what must never reach them |
 | [`docs/conventions/testing.md`](docs/conventions/testing.md) | where a test lives and which module owns it |
-| [`docs/doc-style.md`](docs/doc-style.md) | all prose, including commit messages and PR descriptions |
+| [`docs/doc-style.md`](docs/doc-style.md) | all prose, including commit messages and PR descriptions; cite the tree, never an agent run |
 
 For work on the device service, inventory, discovery, or ingestion planes, read
 the accepted direction under [`docs/architecture/`](docs/architecture/README.md)

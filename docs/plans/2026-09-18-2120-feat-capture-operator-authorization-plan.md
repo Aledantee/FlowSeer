@@ -149,5 +149,5 @@ go test -race ./src/services/device/...
 
 ## Open questions
 
-None. The authorization architecture question was decided by the user on
+None. The authorization architecture question was decided on
 2026-09-18 and is recorded in Decisions.

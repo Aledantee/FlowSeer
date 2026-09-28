@@ -149,7 +149,7 @@ leave focus trapped or `body` locked after close. That would mean
   Why: the dropdown story renders its menu off-screen in a browser, and
   select and tooltip had no open-state audit. Opening through `defaultOpen`
   avoids teaching `openOverlay` the select's `pointerdown` path.
-- **Overlay audit scope (the user's decision, 2026-09-28).** An open
+- **Overlay audit scope.** An open
   overlay's audit runs axe on the overlay's content element, not on
   `document.body`, and `runAudit` strips no `aria-hidden`. Why: every
   axe rule stays on with no suppression, and the nodes Reka's

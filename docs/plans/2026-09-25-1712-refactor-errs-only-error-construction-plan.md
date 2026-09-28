@@ -36,10 +36,6 @@ around it.
 
 ## Decisions
 
-These are the user's rulings, not this plan's proposals. The lane table under Units
-was revised twice for netpen and confirmed as it stands on 2026-09-26; nothing in
-this plan is unconfirmed.
-
 - Non-test Go uses `errs` only, with this mapping: `errs.Msg` / `errs.Msgf` for a
   new error or a package-level sentinel, `errs.Wrap` / `errs.Wrapf` to add
   context to a cause, and the `errs.New()` builder (or `errs.From(err)`) where the
@@ -78,35 +74,6 @@ this plan is unconfirmed.
   permits what the gate rejects would send the next reader the wrong way.
 - The gate lands last, after every conversion. A gate that lands first fails the
   build for as long as the migration runs.
-- `src/edge/netpen` stays off Claude definitively. Claude runs there only when
-  nothing else can run at all. The order for the netpen unit and for any netpen
-  fix is `gpt-5.6-sol` on `codex` while it has quota and spent carefully, since it
-  is at 95%; then `gemini-3.8-flash` on `google`; then `claude-opus-4-8`, and only
-  when neither of the first two can run.
-- E3, the `src/edge/netpen` unit, therefore runs now on `gemini-3.8-flash` and is
-  not parked for the `codex` reset. `codex` at 95% cannot carry the largest unit in
-  the plan — 213 of its 654 sites — without running dry mid-unit, and `google` has
-  headroom. This overrides the registry: `gemini-3.8-flash` is in the `execute` fit
-  set but not in `execute-sensitive`, and netpen is a `sensitive_paths` tree. The
-  user chose the pool over the fit set here, so a refusal or a weak result on this
-  unit is a lane problem to report, not a surprise.
-- Elsewhere Claude is still the last choice rather than a reason to wait, pinned to
-  `claude-opus-4-8` from the start on any `sensitive_paths` unit, never Opus 5.x.
-- No unit that touches `src/edge/netpen` runs on a Claude model. A Claude lane can
-  fall back from its pinned model on a cyber refusal without failing, and the
-  fallback is silent in the lane's own output. It has already happened here:
-  `style-review` was pinned to `claude-opus-5` and switched to
-  `claude-opus-4-8` at 2026-09-25T18:56:13Z, recorded in
-  `docs/agent-observations.md` on the coordinator branch at `5a3114b7`. E6 also
-  avoids Claude: it does not edit netpen files, but the gate it builds parses them
-  on every run, which is the same material in front of the same classifier.
-- Every Claude lane's transcript is read before its work is accepted, at
-  `~/.claude/projects/<worktree path with / replaced by ->/<session>.jsonl`. A
-  `{"type":"system","subtype":"model_refusal_fallback"}` event, or any `model`
-  field other than the pinned one, means the lane's output is not accepted: state
-  it as a blocker and stop. Checking the screen's footer is not enough — it shows
-  the current model, not that a switch happened.
-
 This plan's own decisions:
 
 - Units are cut per package tree, six of them, with `src/edge/netpen` alone
@@ -131,17 +98,6 @@ This plan's own decisions:
 - Error strings keep their current text. Why: `revive`'s `error-strings` already
   holds them lowercase and unpunctuated, and changing message text in the same
   change as 654 mechanical call-site edits would hide the one that matters.
-
-## Decisions made after implementation
-
-- Review this change on `claude-opus-4-8`, pinned from the start, with its
-  transcript read before the verdict is accepted. The user's decision. Opus 4.8
-  rather than 5.x because 5.x's cyber flags produce the silent fallback that
-  invalidated the first review of the style plan; pinning the fallback target
-  from the start removes the thing that can happen quietly. The change includes
-  `src/edge/netpen`, which is kept off Claude for *editing*; reviewing it there is
-  the accepted exception, as it was for the style plan.
-- Compound on `gemini-3.8-flash` (`google`). The user's decision.
 
 ## Requirements
 
@@ -176,7 +132,7 @@ This plan's own decisions:
 
 ## Out of scope
 
-- `_test.go` files, per the user's decision.
+- `_test.go` files, per Decisions.
 - `generated/`, which no gate reads and no hand edit touches.
 - The message text of any converted error, and any change to which errors carry a
   code. A site that should gain `errs.New().Code(…)` is a separate judgement; this
@@ -185,8 +141,8 @@ This plan's own decisions:
   those two belong. E0 does change that package, but to alter what `Wrap` returns,
   not to convert its call sites.
 - The excluded files the style plan lists. They hold no violation of this rule
-  today, confirmed by the user, so nothing in them needs converting; if one
-  appears while they are still held by another session, it is a blocker.
+  today, so nothing in them needs converting; if one
+  appears while they are still held by other work, it is a blocker.
 - `.golangci.yml`. The gate makes the linter rule unnecessary, so no policy
   surface changes: `tools/hooks/stop-check.sh:56` globs `test/conformance/*/`, so
   a new package there is a merge gate the moment it exists.
@@ -197,7 +153,6 @@ This plan's own decisions:
 Files: `src/common/errs/wrap.go`, `src/common/errs/stack.go`,
 `src/common/errs/attr.go`, `src/common/errs/doc.go`, and their tests
 After: none
-Lane: `gemini-3.8-flash` on `google`. `src/common/errs` is not a sensitive path.
 Change: `Wrap` and `Wrapf` stop returning `From(err).build(msg)` and return a
 distinct unexported wrapper holding the message, the cause, and a stack, with
 `Error()` and `Unwrap()`. No `As`, no `Is` — those are what make a wrapper pose as
@@ -244,8 +199,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 ### E3. netpen
 Files: `src/edge/netpen/`
 After: E0
-Lane: `gemini-3.8-flash` on `google`. Never Claude while `codex` or `google` can
-run at all.
 Change: 213 sites in the nested module — `attacks/` 129, `layers/` 59, `test/` 15
 (non-test files only), `catalog/` 9, one elsewhere. The module already imports
 `errs`, so no `go.mod` changes; if one does, that is a blocker.
@@ -303,20 +256,6 @@ the report, then revert that site.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/code-style.md test/conformance/errs`
 
 Waves: E0 | E1 E2 E3 E4 E5 | E6
-
-Lanes, from the Decisions above and `delegate`'s resolution at 2026-09-25T21:5xZ
-(`codex` 85%, `synthetic` 96%, both past the cutoff; `google` 7%; `claude` 56%):
-
-| Unit | Lane | Why |
-| --- | --- | --- |
-| E0 | `gemini-3.8-flash-high` (`google`) | `src/common/errs` is not a sensitive path |
-| E1, E2 | `gemini-3.8-flash-high` (`google`) | no `sensitive_paths`, and the only prepaid pool with headroom |
-| E3 | `gemini-3.8-flash` (`google`) | netpen, and definitively off Claude. `codex` at 95% cannot carry 213 sites; `google` has headroom. Overrides the `execute-sensitive` fit set by the user's choice |
-| E4, E5 | `claude-opus-4-8` high | `sensitive_paths` (`src/modules/localnet`, `src/protocol/snmp`); both non-Claude models in the `execute-sensitive` fit set are out of quota. Transcript checked |
-| E6 | `gemini-3.8-flash-high` (`google`) | the gate parses netpen on every run |
-
-With a one-worker budget these run in turn, so the wave grouping only fixes the
-order E6 comes last in.
 
 ## Verification
 
@@ -380,5 +319,4 @@ the suites cover 654 sites.
 
 ## Open questions
 
-Empty. Every decision above is the user's. The rule, the mapping, the test-file exclusion, the document amendment, and
-the gate's position are all the user's decisions, recorded under Decisions.
+Empty.

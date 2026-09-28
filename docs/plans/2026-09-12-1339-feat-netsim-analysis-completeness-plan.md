@@ -91,11 +91,10 @@ boundary, and golden case for each protocol addition.
 - Limit this plan to the Go library under `src/common/netsim`, narrowly required
   packet codecs under `src/common/net`, package documentation, architecture
   records, and library tests. Backend services, RPC APIs, persistence, telemetry
-  export, UI, and packet collection are out of scope. User-directed on
-  2026-09-12.
+  export, UI, and packet collection are out of scope.
 - Prefer coherent breaking changes over compatibility shims. There are no
   external consumers and FlowSeer has not declared a stable release.
-  User-directed on 2026-09-12.
+
 - Model standards-based behavior only to the depth needed to answer planning
   and troubleshooting questions. A missing behavior is `Unsupported` or
   `Incomplete`; it never silently becomes a plausible answer.
@@ -159,7 +158,7 @@ boundary, and golden case for each protocol addition.
 - Extend STP, LAG, multicast, static routing, and neighbor resolution only far
   enough to remove false confidence in supported scenarios. Vendor protocols,
   routing daemons, full host stacks, and unbounded protocol emulation remain out
-  of scope. Exceptions, user-directed on 2026-09-14:
+  of scope. Exceptions, decided 2026-09-14:
   - Spanning tree supports MSTP across multiple regions and RSTP per VLAN
     (PVST in its per-VLAN RSTP sense, with SSTP encapsulation).
   - LAG balance modes follow the Open vSwitch 3.3 bucket semantics that the

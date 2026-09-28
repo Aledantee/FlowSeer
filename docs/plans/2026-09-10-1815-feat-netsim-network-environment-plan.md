@@ -45,8 +45,7 @@ rather than the standard's, since the model would then be a vendor emulator.
   schema for those would have no reader on a wire yet. The direction
   record carries the full argument and the alternative. A
   `flowseer/netsim/v1` schema is written when a service carries a scenario
-  or a trace, mapped through the same boundary package. User-directed on
-  2026-09-10.
+  or a trace, mapped through the same boundary package.
 - A capability is the presence of a layer's configuration, with no boolean
   beside it: a switch built with `Bridge` set relays frames, with
   `Bridge.VLAN` set it is VLAN-aware, with `Phy.Ethernet` set it resolves
@@ -119,8 +118,7 @@ rather than the standard's, since the model would then be a vendor emulator.
   wait for it. Why: redundant cables are the ordinary shape of a network
   and a run that storms on them answers nothing; RSTP is what every
   managed switch in the lab runs by default, and its convergence is the
-  briefly present state the run exists to show. User-directed on
-  2026-09-10.
+  briefly present state the run exists to show.
 - Links in phase 2 come from the caller's spec. Loading links from LLDP
   neighbors waits for the full-network view the shadow projection record
   names as its prerequisite, because a `Neighbor` names a chassis and a port
@@ -145,11 +143,11 @@ rather than the standard's, since the model would then be a vendor emulator.
   tag value shared by the collectors, the capture pipeline, and the
   simulator is what the network model record wants of an address type on
   the wire, brought to Go. Existing users move to them in their own
-  changes. User-directed on 2026-09-10.
+  changes.
 - `src/common/netsim` is the home, `trace` at its root, `vswitch` and
   `fabric` as siblings. The simulators import nothing from `generated/`;
   `vswitch/netmodel` is the one boundary package that does.
-  User-directed; the reasons are in the direction record.
+  The reasons are in the direction record.
 - Four phases, written on purpose. Why: the request names a decided
   sequence, one device, then the network, then layer 3, each bounded enough
   for one plan and each depending on the one before; the `phases` reference

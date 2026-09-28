@@ -81,7 +81,7 @@ contain. None does today; the message is referenced only from its own file.
   its first consumer, the execution envelope plan.
 - `actor` is a typed variant, `Actor`, with an `operator` arm carrying the
   identity provider's stable subject and a `system` arm naming the process
-  reason. Why: user-directed on 2026-09-05; no identity package exists, so
+  reason. Why: no identity package exists, so
   the arm lives here and moves when one lands, a breaking change this
   repository accepts.
 - `ApplyInterfaceDescription` takes `validate_only` and returns no guarantee

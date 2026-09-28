@@ -96,7 +96,7 @@ from dossiers 05 and 06:
   arm, so both cannot be represented at once, and `required` fails the empty case.
   `NextHopGroup` models multi-path ECMP groups as an ordered set of next hops
   (RFC 8349 `next-hop-list`).
-- Ruled (drive, on the user's decision): requirement 4 asserts the enforceable
+- Ruled: requirement 4 asserts the enforceable
   invariant, not the impossible "both arms set" state. A protobuf `oneof` holds
   at most one arm in memory, and decoding wire bytes carrying both tags keeps
   only the last (last-tag-wins), so `protovalidate` can reject a `NextHop` only

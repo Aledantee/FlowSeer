@@ -177,8 +177,7 @@ addition:
 - A binding rides as a `FilterFacet` embedded on the `Interface` primitive at
   a new field, beside `ip = 20`
   (`spec/proto/flowseer/net/interface/v1/interface.proto:24-89`), so
-  `net/interface/v1` imports `net/filter/v1`. Why: user-directed 2026-09-19;
-  a binding is a singular per-interface attribute (one `in`, one `out`), which
+  `net/interface/v1` imports `net/filter/v1`. Why: a binding is a singular per-interface attribute (one `in`, one `out`), which
   the network-model structure record classifies as a facet embedded by value,
   not a device table
   (`docs/architecture/2026-08-20-network-model-structure-direction.md:206-226`),

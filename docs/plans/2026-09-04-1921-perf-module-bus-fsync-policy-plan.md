@@ -41,9 +41,9 @@ Nothing chose this cost. It follows from one hardcoded server option that no con
 
 ### Key Decisions
 
-- **Ship the fsync policy alone, with no per-module storage tier.** (session-settled: user-directed — chosen over per-module memory and file tiers: once the fsync policy lands, the tier axis was measured to buy about 4 µs per message, and the file tier additionally survives a process kill that the memory tier does not.) Governs R1, R2.
-- **Do not build the multi-process seams yet.** (session-settled: user-directed — chosen over shipping an external-server connection mode and shared admission state: the obligation is not to *block* separate-process modules later, and no consumer for that mode exists.) Governs R9.
-- **Keep NATS/JetStream as the module transport.** (session-settled: user-directed — chosen over replacing the local bus with channels or core pub/sub: `nats-server` is already a fixed dependency of the embedded leaf node in the accepted direction record.)
+- **Ship the fsync policy alone, with no per-module storage tier.** (Chosen over per-module memory and file tiers: once the fsync policy lands, the tier axis was measured to buy about 4 µs per message, and the file tier additionally survives a process kill that the memory tier does not.) Governs R1, R2.
+- **Do not build the multi-process seams yet.** (Chosen over shipping an external-server connection mode and shared admission state: the obligation is not to *block* separate-process modules later, and no consumer for that mode exists.) Governs R9.
+- **Keep NATS/JetStream as the module transport.** (Chosen over replacing the local bus with channels or core pub/sub: `nats-server` is already a fixed dependency of the embedded leaf node in the accepted direction record.)
 
 ### Requirements
 

@@ -11,10 +11,9 @@ parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 
 # Network Simulation Environment, Phase 2: Layer 2 Network Fabric - Plan
 
-> Implemented. Every unit landed on 2026-09-10 through Herdr workers on
-> Gemini 3.8 Flash, one unit per worker; the coordinator moved the run's
-> counters onto the fabric, made comparison surface an injection error,
-> and recorded the host shape and the injection signature below.
+> Implemented. Every unit landed on 2026-09-10. The run's counters moved
+> onto the fabric, comparison surfaces an injection error, and the host
+> shape and the injection signature are recorded below.
 
 ## Goal
 

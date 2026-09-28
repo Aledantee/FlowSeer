@@ -52,15 +52,15 @@ Those records lose the cancellation and trace relationships carried by the servi
 
 ### Key Decisions
 
-- **Resolve signal policy at the module context boundary.** (session-settled: user-directed — chosen over collector-side filtering or a pipeline per module: disablement remains truthful without multiplying exporters.) Governs R7-R13.
-- **Inherit each signal through the module tree with child overrides.** (session-settled: user-directed — chosen over leaf-only or independent settings: nested configuration stays concise while exceptions remain possible.) Governs R7-R9.
-- **Keep caller injection as an explicit advanced mode.** (session-settled: user-directed — chosen over managed-only or injection-only ownership: production setup and testability both remain supported.) Governs R3.
-- **Keep local logging when OTLP log export is disabled.** (session-settled: user-directed — chosen over discarding or level-filtering local records: startup and incident evidence remains available.) Governs R10.
-- **Reject bad configuration but tolerate collector outages.** (session-settled: user-directed — chosen over always-fatal or always-nonfatal failures: operator mistakes stay visible without coupling runtime availability to monitoring availability.) Governs R17-R20.
-- **Trace finite lifecycle work.** (session-settled: user-directed — chosen over a process-lifetime root span or module-authored spans only: traces describe bounded service and module operations.) Governs R14-R16.
-- **Use the shared standard OTLP environment contract.** (session-settled: user-directed — chosen over Go-only configuration or signal-specific destinations: deployments get familiar controls while one endpoint remains enforceable.) Governs R4-R6.
-- **Propagate trace context through trace-disabled modules.** (session-settled: user-directed — chosen over stripping or reply-only propagation: enabled downstream modules retain end-to-end continuity.) Governs R13, R16.
-- **Prove the contract with a real Collector through local verification.** (session-settled: user-directed — chosen over SDK-only, deployment-only, or external-CI validation: the repository's local gate owns exporter compatibility and negative signal assertions.) Governs R21-R24.
+- **Resolve signal policy at the module context boundary.** (Chosen over collector-side filtering or a pipeline per module: disablement remains truthful without multiplying exporters.) Governs R7-R13.
+- **Inherit each signal through the module tree with child overrides.** (Chosen over leaf-only or independent settings: nested configuration stays concise while exceptions remain possible.) Governs R7-R9.
+- **Keep caller injection as an explicit advanced mode.** (Chosen over managed-only or injection-only ownership: production setup and testability both remain supported.) Governs R3.
+- **Keep local logging when OTLP log export is disabled.** (Chosen over discarding or level-filtering local records: startup and incident evidence remains available.) Governs R10.
+- **Reject bad configuration but tolerate collector outages.** (Chosen over always-fatal or always-nonfatal failures: operator mistakes stay visible without coupling runtime availability to monitoring availability.) Governs R17-R20.
+- **Trace finite lifecycle work.** (Chosen over a process-lifetime root span or module-authored spans only: traces describe bounded service and module operations.) Governs R14-R16.
+- **Use the shared standard OTLP environment contract.** (Chosen over Go-only configuration or signal-specific destinations: deployments get familiar controls while one endpoint remains enforceable.) Governs R4-R6.
+- **Propagate trace context through trace-disabled modules.** (Chosen over stripping or reply-only propagation: enabled downstream modules retain end-to-end continuity.) Governs R13, R16.
+- **Prove the contract with a real Collector through local verification.** (Chosen over SDK-only, deployment-only, or external-CI validation: the repository's local gate owns exporter compatibility and negative signal assertions.) Governs R21-R24.
 
 ### How This Work Fits Together
 

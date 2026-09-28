@@ -11,10 +11,9 @@ parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 
 # Network Simulation Environment, Phase 4: Routing Capability - Plan
 
-> Implemented. Every unit landed on 2026-09-11 through Herdr workers on
-> Gemini 3.8 Flash, one unit per worker, in the order U1, U3, U2, U4, U5,
-> U6, each verified on its paths before the next was dispatched. The
-> coordinator trimmed two things after merge: an unreachable branch in the
+> Implemented. Every unit landed on 2026-09-11, in the order U1, U3, U2,
+> U4, U5, U6, each verified on its paths before the next. Two things were
+> trimmed after merge: an unreachable branch in the
 > switch for an interface `Route` itself named, and the host branch of
 > `Inject`, which carried the cable lookup and the VLAN form once per
 > path. The decisions the units took where this plan left a choice open
@@ -88,7 +87,7 @@ optional VLAN. This phase adds:
   stage that switched on two header types would carry each rule twice;
   the `gopacket` boundary holds (`src/common/internal/netpenguard`), and
   a router that reads only what it rewrites has no reason to parse
-  further. User-directed on 2026-09-11: IPv6 is in this cut and all IP
+  further. IPv6 is in this cut and all IP
   header handling lives in one package.
 - ARP is not in this phase. Every neighbor is static, so no frame carries
   an ARP body and a codec would have no caller; the parent's phase line
@@ -142,7 +141,7 @@ optional VLAN. This phase adds:
   one; the record reserves network-instance keys that "distinguish VRFs"
   for the routing packages it has not written, and a VRF name is that key
   brought to Go; static routes have no schema yet and stay a Go value
-  until `net/routing` is claimed. User-directed on 2026-09-11: VRFs and
+  until `net/routing` is claimed. VRFs and
   the real world's routed ports are in this cut.
 - The stage is a pure function over plain values: `routing.New(cfg
   Config) *Layer`; `Layer.ByVLAN(vid vlan.ID) (string, bool)` and
@@ -317,7 +316,7 @@ optional VLAN. This phase adds:
   the loader has no device MAC input, and a simulation that refused to
   run for a missing address would fail on the ordinary shape of a model;
   an address that identifies a device is what the bridge id and the
-  neighbor table both assume. User-directed on 2026-09-11: MACs are
+  neighbor table both assume. MACs are
   generated when missing and unique within the simulation.
 - `fabric.Host` gains `IP *HostIP{Addresses []netip.Prefix; Gateway
   netip.Addr; Neighbors map[netip.Addr]netaddr.MAC}`, and `Injection`

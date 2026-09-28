@@ -517,8 +517,8 @@ the new seam and keeps the claim about naming both VLANs, which is now true on
 every path; `:455-463` says the boundary issue is not suppressed by a refusal;
 `:134` loses "One tree carries every VLAN today, so the two answers agree",
 which PVST falsified in phase 3e; and `:393-395` says what a migrated port does
-per VLAN. The parent plan already carries U3f and U5's widened `After` from
-this planning session; this unit only fills U3f's `Landed:` range and sets this
+per VLAN. The parent plan already carries U3f and U5's widened `After`
+from planning, and this unit only fills U3f's `Landed:` range and sets this
 plan's `status` with an outcome note under its title.
 Tests: none. This unit changes prose only; the verifier's documentation and
 layout checks are what run over it.

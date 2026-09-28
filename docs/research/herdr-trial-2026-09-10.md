@@ -1,12 +1,11 @@
 # Herdr as the worker runtime: trial of 2026-09-10
 
-Why this trial: the Orca sessions of 2026-09-05 to 2026-09-10 spent an
-estimated 15 to 30% of coordinator effort on orchestration mechanics. Read
-back from the transcripts, the recurring failures were, most frequent first:
+Why this trial: running workers through Orca between 2026-09-05 and
+2026-09-10 hit these orchestration failures, most frequent first:
 
 1. The Bash sandbox blocking Orca's Unix socket, so `worker_done`,
    heartbeats, and `check` reported "Could not connect to the running Orca
-   app"; rediscovered by hand in seven sessions.
+   app".
 2. Parallel reviewer subagents stalling ("no progress for 600s"), twice for
    all four at once, with the review then done by hand.
 3. Codex workers blocked at startup by the hooks-review dialog.
@@ -17,7 +16,7 @@ back from the transcripts, the recurring failures were, most frequent first:
    re-armed on every heartbeat.
 6. The coordinator reading a stale card status instead of the queue.
 7. `worker-start --model` pinning only Claude, Codex, and Cursor, so a wave
-   routed to Gemini and OpenCode pools ran six times on Sonnet.
+   routed to Gemini and OpenCode pools ran on Sonnet instead.
 
 Items 1 to 3 are the sandbox, the Claude subagent runtime, and Codex
 itself; a different manager inherits them. Items 4, 5, and 7 are Orca's,
@@ -32,9 +31,9 @@ the sandbox and Codex behaviours observed on the way.
   detected from the screen.
 - The server was started headless from inside the coordinating Claude Code
   session by accident (`herdr server` with no subcommand runs it). Panes
-  inherit that environment: the Claude worker reported "Transcript saving
-  is off — inherited CLAUDE_CODE_CHILD_SESSION marker". Start the server
-  from a plain terminal with the Claude variables unset.
+  inherit that environment, so a Claude pane starts with the inherited
+  `CLAUDE_CODE_CHILD_SESSION` marker and treats itself as a child. Start
+  the server from a plain terminal with the Claude variables unset.
 - `herdr worktree create` refuses to run from a linked worktree
   (`linked_worktree_source`); with `--cwd <main checkout> --base <sha>` it
   branches from any commit, so a child still starts from the coordinator's

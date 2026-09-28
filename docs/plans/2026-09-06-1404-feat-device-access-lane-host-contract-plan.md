@@ -129,8 +129,8 @@ per stream, not per sequence, so it can.
   queue item for the poll needs a payload type, a capacity reservation,
   and an outcome contract the drain loop does not have, and can be
   refused by a full queue on the tick that would abandon; the lock gives
-  the same single active worker with none of that. Argued against the
-  head-priority re-admission the coordinator asked for on those grounds.
+  the same single active worker with none of that. Chosen over
+  head-priority re-admission on those grounds.
   The release rule is a property of the lock, not of the drain loop: any
   acquirer of `ds.draining` must, on release, drain the queue and
   re-check its length, because a submitter whose `TryLock` loses exits

@@ -25,8 +25,7 @@ one given in the parent.
 ## Decisions
 
 - The contract's i18n section and the parent's Decisions govern.
-- The user approved the package on 2026-09-28, recorded in the
-  direction record. The `web-component` skill's dependency step still
+- The direction record approves the package. The `web-component` skill's dependency step still
   applies to every other package.
 
 ## Requirements

@@ -49,7 +49,7 @@ syslog severity/facility.
 - **No `ietf-hardware` (RFC 8348), `ietf-system` (RFC 7317), or
   `ietf-alarms` (RFC 8632) YANG modules are vendored anywhere under
   `spec/yang/`.** Only OpenConfig platform/system/alarm modules are present.
-  This is a real gap against the IETF-first convention list in the brief —
+  This is a real gap against the IETF-first convention list in the dossier's scope —
   flagged as an open question.
 - `spec/openapi/ubiquiti/unifi-network-openapi-v10.4.57.json` (schema:
   "Latest statistics for a device", "Adopted device overview")
@@ -64,7 +64,7 @@ syslog severity/facility.
   for Cpu/Memory/sensor/fan/power — none found; this spec is AP/switch
   *configuration* management, not telemetry)
 
-**Web fetched this session:**
+**Web fetched for this dossier:**
 - RFC 6933 (ENTITY-MIB) — https://www.rfc-editor.org/rfc/rfc6933 — §3.1
   (entPhysicalTable), §2.16.1 (IANAPhysicalClass supersedes PhysicalClass),
   §2.12.1 (entPhysicalAlias/AssetID)
@@ -232,7 +232,7 @@ enum treatment or at minimum a documented numeric range, not a boolean
 | License/entitlement | `openconfig-license`; `WLSX-SWITCH-MIB` (Aruba) | not checked | not checked | `licenseState` (`LicenseStateStatistic`), `warrantyState` | present per atlas (config-plane licensing is core to controllers) | not verified |
 | Config/backup state | no IETF MIB; vendor job-model MIBs (HH3C, Cisco SMB `CISCOSB-COPY-MIB`) | not checked | `/system/backup/*` paths present (save/load/cloud) — job-shaped, matches atlas finding | `configState` (`ConfigStateStatistic`) | present (config management is this API's whole purpose) | not verified |
 | Alarms | `ALARM-MIB` model/active split; `ietf-alarms`; `openconfig-alarms` | `alertState` (`AlertStateStatistic`) — present, shape not dumped | not found | `alertState` equivalent present via `DeviceAlertingSimple` schema | not checked | not verified |
-| NTP / time sync | `NTPv4-MIB` (RFC 5907, not confirmed vendored — not checked this session); `ietf-system`/`openconfig-system` ntp container, stratum table | not checked | `/system/clock/*` (manual clock, no NTP association table seen in path list) | not checked | not checked | not verified |
+| NTP / time sync | `NTPv4-MIB` (RFC 5907, not confirmed vendored — not checked for this dossier); `ietf-system`/`openconfig-system` ntp container, stratum table | not checked | `/system/clock/*` (manual clock, no NTP association table seen in path list) | not checked | not checked | not verified |
 | Syslog severity/facility | RFC 5424, universal | not checked | not checked | `logging.json` file present, not opened | not checked | not verified |
 
 **Core across nearly every provider that exposes any telemetry at all:**
@@ -320,7 +320,7 @@ repeated flowseer.net.env.v1.SensorReading sensors = 20;
   `hrDeviceStatus`/ENTITY-STATE-MIB `entStateOper` rather than
   ENTITY-SENSOR-MIB's narrower ok/unavailable/nonoperational — a fan/PSU
   needs "testing" too. This is new work; `ENTITY-STATE-MIB` is vendored
-  (`spec/mib/ietf/ENTITY-STATE-MIB`) but not dumped this session — planner
+  (`spec/mib/ietf/ENTITY-STATE-MIB`) but not dumped for this dossier — planner
   should confirm exact value set before finalizing.
 - `sensors` — see 4.1.
 - Power/utilization stay off `ComponentState` directly as scalar fields the
@@ -410,8 +410,8 @@ message NtpAssociation {
 
 Hangs off `DeviceState` as `repeated NtpAssociation ntp_associations = N`
 (device-scoped table, no per-association ref needed — matches the FDB/
-NeighborEntry table pattern). RFC 5905 itself was not fetched this session
-(the brief cites `NTPv4-MIB` RFC 5907 for the SNMP shape; this session
+NeighborEntry table pattern). RFC 5905 itself was not fetched for this dossier
+(the dossier's scope cites `NTPv4-MIB` RFC 5907 for the SNMP shape, and this dossier
 fetched RFC 7317's YANG NTP container and the vendored OpenConfig copy
 instead) — **mark the exact reach-register semantics unverified** pending a
 direct RFC 5905/5907 read.

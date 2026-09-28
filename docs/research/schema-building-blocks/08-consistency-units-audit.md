@@ -8,7 +8,7 @@ domain: b08 (cross-cutting consistency)
 
 ## 1. Scope and sources
 
-Two halves per the brief: (A) external conventions for common value types;
+Two halves per the dossier's scope: (A) external conventions for common value types;
 (B) an audit of the current FlowSeer schema for carve-outs and drift.
 
 **Repo paths read (full unless noted):**
@@ -37,11 +37,10 @@ Two halves per the brief: (A) external conventions for common value types;
 - `generated/go/proto/flowseer/net/{interface,capture,ip}/v1/*.pb.go` (grepped to
   confirm `EuiAddress` is the only generated symbol; no `MacAddress` exists
   anywhere in the tree)
-- Sibling in-flight dossiers, read for cross-check per the coordinator's
-  instruction: `01-wifi-technology.md`, `02-rf-and-ap-telemetry.md`,
+- Sibling dossiers, read for cross-check: `01-wifi-technology.md`, `02-rf-and-ap-telemetry.md`,
   `04-platform-system.md` (full)
 
-**Web/standards sources fetched this session** (part A):
+**Web/standards sources fetched for this dossier** (part A):
 
 - OpenConfig `openconfig-types.yang` / `openconfig-yang-types.yang` —
   https://github.com/openconfig/public/blob/master/release/models/types/openconfig-types.yang ,
@@ -81,7 +80,7 @@ Two halves per the brief: (A) external conventions for common value types;
   https://google.aip.dev/145 (range types: prefer two fields or a range
   message over a single packed value).
 
-  Correction against the brief: AIP-140 governs *naming* generally (word
+  Correction against the dossier's scope: AIP-140 governs *naming* generally (word
   choice, abbreviations), not unit suffixes specifically; the unit-in-name
   guidance actually lives at AIP-143 ("if a field represents a quantity with
   a unit... indicate the unit in the field name, e.g. `duration_seconds`, or
@@ -339,7 +338,7 @@ make.
 compared line-by-line against the tree in
 `docs/architecture/2026-08-20-network-model-structure-direction.md`'s import
 graph (both current as of the 2026-09-18 amendments). They agree in every row
-checked. **This is a clean finding, not a gap**: unlike the brief's
+checked. **This is a clean finding, not a gap**: unlike the starting
 hypothesis, the layering allowlist has not drifted from the accepted
 direction record at this point in time.
 
@@ -497,5 +496,5 @@ every one of them will otherwise reference a nonexistent type.
 5. **String-length predefined-rule family (B6):** one generic
    `identifier`/`label`/`free_text` set of predefined rules, or leave
    per-field judgment as today? Lower priority than 1–4; flagged for
-   completeness since the brief asked for it, but the current inconsistency
+   completeness since the dossier's scope asked for it, but the current inconsistency
    has not caused a bug, only reader friction.
