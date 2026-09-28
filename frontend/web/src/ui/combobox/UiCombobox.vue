@@ -238,7 +238,7 @@ function UiCustomComboboxTrigger(
         :align="align"
         :side-offset="sideOffset"
         :collision-padding="8"
-        class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-50 max-h-60 overflow-y-auto min-w-[8rem] focus:outline-none"
+        class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-(--z-overlay) max-h-60 overflow-y-auto min-w-[8rem] focus:outline-none"
       >
         <div v-if="$slots.trigger" class="p-1 border-b border-border mb-1">
           <ComboboxInput

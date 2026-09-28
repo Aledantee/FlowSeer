@@ -119,4 +119,39 @@ describe('UiAlertDialog', () => {
     await nextTick()
     expect(confirmed).toBe(true)
   })
+
+  it('emits closeAutoFocus on close and honors preventDefault to preserve custom focus', async () => {
+    let emittedEvent: Event | null = null
+    const customButton = document.createElement('button')
+    customButton.id = 'alert-custom-focus'
+    document.body.append(customButton)
+
+    mountAlertDialog({
+      title: 'Alert Focus Return',
+      description: 'Description',
+      defaultOpen: true,
+      onCloseAutoFocus: (e: Event) => {
+        emittedEvent = e
+        e.preventDefault()
+        customButton.focus()
+      },
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialog = document.body.querySelector('[role="alertdialog"]')
+    expect(dialog).not.toBeNull()
+
+    const cancelButton = Array.from(
+      document.body.querySelectorAll('button'),
+    ).find((b) => b.textContent?.trim() === 'Cancel')
+    cancelButton?.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(emittedEvent).not.toBeNull()
+    expect(document.activeElement).toBe(customButton)
+    customButton.remove()
+  })
 })

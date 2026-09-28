@@ -129,4 +129,91 @@ describe('UiToast', () => {
 
     expect(document.body.querySelector('ol li')).toBeNull()
   })
+
+  it('removes dismissed toast from store in the same tick when computed animationName is none', async () => {
+    mountApp(() => h(UiToastProvider))
+
+    const { toast, dismiss, toasts } = useToast()
+    const id = toast({
+      title: 'Immediate Dismiss',
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(toasts.value.some((t) => t.id === id)).toBe(true)
+
+    dismiss(id)
+
+    expect(toasts.value.some((t) => t.id === id)).toBe(false)
+  })
+
+  it('removes toast from store in the same tick when close button is clicked and animationName is none', async () => {
+    mountApp(() => h(UiToastProvider))
+
+    const { toast, toasts } = useToast()
+    const id = toast({
+      title: 'Close Button Dismiss',
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(toasts.value.some((t) => t.id === id)).toBe(true)
+
+    const closeBtn = document.body.querySelector(
+      'button[aria-label="Close"]',
+    ) as HTMLElement
+    expect(closeBtn).not.toBeNull()
+    closeBtn.click()
+
+    expect(toasts.value.some((t) => t.id === id)).toBe(false)
+  })
+
+  it('delays toast removal from store until animationend when animationName is fade-out', async () => {
+    const originalGetComputedStyle = window.getComputedStyle
+    window.getComputedStyle = (elt: Element, pseudoElt?: string | null) => {
+      const style = originalGetComputedStyle(elt, pseudoElt)
+      return new Proxy(style, {
+        get(target, prop, receiver) {
+          if (prop === 'animationName') {
+            return 'fade-out'
+          }
+          return Reflect.get(target, prop, receiver)
+        },
+      })
+    }
+
+    try {
+      mountApp(() => h(UiToastProvider))
+
+      const { toast, dismiss, toasts } = useToast()
+      const id = toast({
+        title: 'Animated Toast',
+      })
+
+      await nextTick()
+      await new Promise((r) => setTimeout(r, 20))
+
+      const toastEl = document.body.querySelector('ol li') as HTMLElement
+      expect(toastEl).not.toBeNull()
+
+      dismiss(id)
+      await nextTick()
+
+      expect(toasts.value.some((t) => t.id === id)).toBe(true)
+
+      toastEl.dispatchEvent(
+        new AnimationEvent('animationend', {
+          animationName: 'fade-out',
+          bubbles: true,
+        }),
+      )
+      await nextTick()
+
+      expect(toasts.value.some((t) => t.id === id)).toBe(false)
+    } finally {
+      window.getComputedStyle = originalGetComputedStyle
+    }
+  })
 })

@@ -5,19 +5,17 @@ rule below comes from a failure in this repository's history or from a
 primary source. The contract that states the rules is
 `docs/architecture/2026-09-28-web-component-contract-direction.md`.
 
-The `--z-*` tokens, the overlay `--animate-*` keyframes, and motion-v
-land with the contract's migration plan. Check whether they exist:
+The `--z-*` tokens and overlay `--animate-*` keyframes are defined in
+`src/theme/tokens.css` and `src/theme/tailwind.css`. motion-v lands in phase 2
+of the contract migration. Check whether it exists:
 
 ```bash
-grep -c -- "--z-overlay" frontend/web/src/theme/tokens.css; grep -c -- "--animate-overlay-in" frontend/web/src/theme/tailwind.css; grep -c '"motion-v"' frontend/web/package.json
+grep -c '"motion-v"' frontend/web/package.json
 ```
 
-A `0` means that piece has not landed. Until it does:
-- Overlays keep `z-50`, and a hand-built layer stays below it.
-- A new overlay's keyframes go in the component's own `<style>`, reading
-  the duration tokens.
+Until motion-v lands:
 - JavaScript motion stays on `useMotionFeedback` over `motion/mini`.
-- Say in the report which piece is waiting on the migration.
+- Say in the report that motion-v is waiting on phase 2.
 
 ## Failures this repository already had
 

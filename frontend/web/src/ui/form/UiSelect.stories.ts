@@ -70,3 +70,12 @@ export const Focus: Story = {
     template: '<UiSelect v-bind="args" autofocus />',
   }),
 }
+
+export const AccessibilityAudit: Story = {
+  args: {
+    options: sampleOptions,
+    placeholder: 'Choose site location...',
+    ariaLabel: 'Site location select',
+    defaultOpen: true,
+  },
+}

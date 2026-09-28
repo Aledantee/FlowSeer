@@ -1,3 +1,6 @@
+export { default as UiAppRoot } from './app/UiAppRoot.vue'
+export type { UiAppRootProps } from './app/UiAppRoot.vue'
+
 export { default as UiBadge } from './badge/UiBadge.vue'
 export type { UiBadgeProps } from './badge/UiBadge.vue'
 

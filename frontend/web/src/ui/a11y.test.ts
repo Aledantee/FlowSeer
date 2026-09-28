@@ -45,8 +45,15 @@ const OVERLAY_AUDITS: Readonly<Record<string, OverlayAuditExpectation>> = {
   './dialog/UiDialog.stories.ts:AccessibilityAudit': { role: 'dialog' },
   './dropdown-menu/UiDropdownMenu.stories.ts:AccessibilityAudit': {
     role: 'menu',
+    triggerSelector: 'button',
+  },
+  './form/UiSelect.stories.ts:AccessibilityAudit': {
+    role: 'listbox',
   },
   './popover/UiPopover.stories.ts:AccessibilityAudit': { role: 'dialog' },
+  './tooltip/UiTooltip.stories.ts:AccessibilityAudit': {
+    role: 'tooltip',
+  },
 }
 
 const COMPONENT_TARGETS: Readonly<
@@ -87,6 +94,10 @@ async function settle() {
 
 async function runAudit(element: Element = document.body) {
   await settle()
+  element.querySelectorAll('[data-aria-hidden]').forEach((el) => {
+    el.removeAttribute('aria-hidden')
+    el.removeAttribute('data-aria-hidden')
+  })
   return axe.run(element, AXE_OPTIONS)
 }
 

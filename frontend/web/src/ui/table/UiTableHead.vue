@@ -40,7 +40,9 @@ const buttonAlignmentClass = computed(() => {
 const paddingClass = computed(() => (isDense.value ? 'py-2 px-3' : 'py-3 px-4'))
 
 const stickyClass = computed(() =>
-  isSticky.value ? 'sticky top-0 z-10 bg-subtle backdrop-blur-xs' : '',
+  isSticky.value
+    ? 'sticky top-0 z-(--z-sticky) bg-subtle backdrop-blur-xs'
+    : '',
 )
 
 const ariaSortValue = computed(() => {
