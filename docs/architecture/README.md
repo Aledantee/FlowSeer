@@ -42,6 +42,7 @@ covering port tables and VLAN membership.
 | [Local Network Analysis](2026-09-16-local-network-analysis-direction.md) | Proposed direction | Adding packet filtering, a routed sub-interface, or an endpoint that reacts to traffic under `src/common/netsim`, or deciding how a stateful firewall or an mDNS reflector is simulated. |
 | [Offered-Load Streams](2026-09-18-offered-load-streams-direction.md) | Proposed direction | Stating traffic load in a simulation: streams, field variation and seeds, egress buffers and tail drop, journey retention and per-flow statistics, a capture file as a source, or an on-wire transmitter that runs the same stream. |
 | [Web Design System](2026-09-26-web-design-system-direction.md) | Accepted direction | Styling, theming, or adding a component in `frontend/web/`: design tokens, Tailwind, Reka UI primitives, or Storybook stories. |
+| [Web Component Contract](2026-09-28-web-component-contract-direction.md) | Accepted direction | Adding or changing any component in `frontend/web/`: composition, i18n and locale files, the `ai` prop and generative UI catalog, overlays (portals, stacking, dismissal, focus), or animation. |
 | [Schema Building Blocks](2026-09-25-schema-building-blocks-direction.md) | Accepted direction | Adding any FlowSeer-owned protobuf package or message: canonical units, key rules, the network-instance key, facet and table naming, protocol packages, and the Endpoint, Wlan, and Alarm entities. |
 
 Current source and tests show which parts of a direction have landed. When the

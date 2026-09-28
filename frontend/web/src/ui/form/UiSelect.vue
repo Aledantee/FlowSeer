@@ -38,6 +38,7 @@ export interface UiSelectProps {
   id?: string
   invalid?: boolean
   ariaLabel?: string
+  defaultOpen?: boolean
 }
 
 const props = withDefaults(defineProps<UiSelectProps>(), {
@@ -50,10 +51,12 @@ const props = withDefaults(defineProps<UiSelectProps>(), {
   id: undefined,
   invalid: undefined,
   ariaLabel: undefined,
+  defaultOpen: false,
 })
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
+  (e: 'closeAutoFocus', event: Event): void
 }>()
 
 const attrs = useAttrs()
@@ -138,6 +141,7 @@ function handleUpdate(val: string | null | undefined) {
     :disabled="disabled"
     :required="required"
     :name="name"
+    :default-open="defaultOpen"
     @update:model-value="handleUpdate"
   >
     <SelectTrigger
@@ -168,9 +172,11 @@ function handleUpdate(val: string | null | undefined) {
 
     <SelectPortal>
       <SelectContent
-        class="bg-popover border border-border shadow-md rounded-control p-1 z-50 min-w-[8rem] text-foreground max-h-60 overflow-y-auto"
+        class="bg-popover border border-border shadow-lg rounded-control p-1 z-(--z-overlay) min-w-[8rem] text-foreground max-h-60 overflow-y-auto data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out motion-reduce:data-[state=open]:animate-fade-in motion-reduce:data-[state=closed]:animate-fade-out origin-(--reka-popper-transform-origin)"
         position="popper"
         :side-offset="4"
+        :collision-padding="8"
+        @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <SelectViewport class="p-1">
           <SelectItem

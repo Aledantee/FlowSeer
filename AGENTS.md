@@ -24,11 +24,15 @@ Binding on humans and agents equally; each doc states its own scope.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
 - [`docs/doc-style.md`](docs/doc-style.md) — all prose: docs, READMEs, schema
-  comments, commit and PR text. The load-bearing rules: explain why, show a
-  working example, document the hard parts, no marketing register, update docs
-  in the change that invalidates them, and write like a person — none of the
-  machine-writing tells that doc catalogues (em-dash chains, rule-of-three
-  lists, trailing participles, puffery, comment-per-line).
+  comments, skills, commit and PR text, agent reports. The repository
+  documents itself: prose cites source code, a present file, or (last
+  resort) a commit, and never an agent run, session, transcript, or
+  conversation. Beyond that: explain why, show a working example, draw
+  complex flows as Mermaid, no marketing register, update docs in the change
+  that invalidates them, and none of the machine-writing tells that doc
+  catalogues (em dashes, semicolons, overexplaining, rule-of-three lists,
+  puffery). The `prose` skill applies it, and `verify-change` fails Markdown
+  that cites a run.
 - [`docs/agent-knowledge.md`](docs/agent-knowledge.md) — where shared rules and
   learnings live; repository guidance wins over private memory.
 - [`docs/agent-steering.md`](docs/agent-steering.md) — how to decide whether a
@@ -54,6 +58,9 @@ no remote. The Claude worktree hook defaults to the sibling
 
 ## Agent behavior
 
+- Keep every message short and plain: replies, reports, briefs to other
+  agents. Lead with the result, give only the evidence the reader needs, and
+  use a table or diagram when there are many moving parts.
 - Keep small sequential work in the main conversation. Delegate through the
   `delegate` skill, which names the worker and model for each kind of work:
   `repo-researcher` for a bounded read-only question, `independent-reviewer`

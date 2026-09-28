@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, nextTick } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from './FleetView.vue'
+import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
 import { createAiRegistry, createAiTargetDirective } from './ai'
 import type { AiRegistry } from './ai'
@@ -54,7 +55,11 @@ async function mountAt(path: string) {
     ],
   })
   registry = createAiRegistry()
-  const app = createApp(FleetView)
+  const app = createApp({
+    render() {
+      return h(UiAppRoot, {}, () => h(FleetView))
+    },
+  })
   await router.push(path)
   app.use(router)
   app.directive('ai-target', createAiTargetDirective(registry))

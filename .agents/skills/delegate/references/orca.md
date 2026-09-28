@@ -73,10 +73,10 @@ Full handoff.
   branch -d` follows, and an unmerged lane removed that way would lose its
   commits.
 
-Measured on 2026-09-19 on the `opencode` lane (Orca 1.4.203). The run log
-has `codex`, `agy`, and `claude` lanes started through this script since
-2026-09-23. The Codex launch and its hooks-review answer were measured
-on codex 0.157.1 on 2026-09-26.
+The behavior above was measured on the `opencode` lane on Orca 1.4.203.
+The Codex launch and its hooks-review answer were measured on codex
+0.157.1. The `agy` and `claude` lanes start through this script, but their
+behavior here is not measured.
 
 ## When a step fails
 

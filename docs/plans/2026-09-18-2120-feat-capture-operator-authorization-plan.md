@@ -55,8 +55,8 @@ operator and admin services.
   [the device service README](../../src/services/device/README.md) records the
   present gap as an accepted deferral behind the deployment's network
   boundary. An interim policy handle or JWT interceptor would be a second
-  mechanism to remove once that record lands. The user took this decision on
-  2026-09-18, choosing it over an interim `CapturePolicyHandle` and over a
+  mechanism to remove once that record lands. Chosen on 2026-09-18 over an
+  interim `CapturePolicyHandle` and over a
   process-level identity interceptor.
 - Artifact download must emit a durable audit event when served. Why:
   [docs/architecture/2026-09-09-remote-packet-capture-direction.md](../architecture/2026-09-09-remote-packet-capture-direction.md)
@@ -149,5 +149,5 @@ go test -race ./src/services/device/...
 
 ## Open questions
 
-None. The authorization architecture question was decided by the user on
+None. The authorization architecture question was decided on
 2026-09-18 and is recorded in Decisions.

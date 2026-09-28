@@ -33,7 +33,6 @@ import {
   UiDropdownMenuItem,
   UiTooltip,
 } from './ui'
-import { TooltipProvider } from 'reka-ui'
 import {
   SHORTCUTS,
   dockTabShortcut,
@@ -830,445 +829,441 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <TooltipProvider :delay-duration="350" :skip-delay-duration="250">
-    <UiAiActionLayer />
-    <div
-      class="shell max-[800px]:flex-col"
-      :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+  <UiAiActionLayer />
+  <div
+    class="shell max-[800px]:flex-col"
+    :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+  >
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <aside
+      id="workspace-sidebar"
+      ref="sidebar"
+      class="sidebar brand-glow max-[800px]:p-[16px_20px_8px] max-[560px]:p-[14px_14px_6px]"
     >
-      <a class="skip-link" href="#main">Skip to main content</a>
-      <aside
-        id="workspace-sidebar"
-        ref="sidebar"
-        class="sidebar brand-glow max-[800px]:p-[16px_20px_8px] max-[560px]:p-[14px_14px_6px]"
+      <div
+        class="product-brand"
+        role="img"
+        aria-label="FlowSeer"
+        title="FlowSeer"
       >
-        <div
-          class="product-brand"
-          role="img"
-          aria-label="FlowSeer"
-          title="FlowSeer"
+        <svg
+          class="flowseer-mark"
+          viewBox="0 0 32 32"
+          fill="none"
+          aria-hidden="true"
+        >
+          <g transform="translate(16 16) skewX(-13) translate(-16 -16)">
+            <rect
+              x="5.5"
+              y="4.5"
+              width="5"
+              height="23"
+              rx="1.5"
+              fill="var(--accent)"
+            />
+            <rect
+              x="13.5"
+              y="0"
+              width="5"
+              height="32"
+              rx="1.5"
+              fill="var(--accent)"
+            />
+            <rect
+              x="21.5"
+              y="7.5"
+              width="5"
+              height="17"
+              rx="1.5"
+              fill="var(--primary)"
+            />
+          </g>
+        </svg>
+        <span>FlowSeer</span>
+      </div>
+      <div
+        class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
+      >
+        WORKSPACE
+      </div>
+      <nav
+        ref="navigation"
+        aria-label="Main navigation"
+        class="max-[800px]:flex max-[800px]:flex-row max-[800px]:gap-2 max-[800px]:mt-6 max-[560px]:gap-1"
+        :class="{ 'max-[800px]:!hidden': sidebarCollapsed }"
+      >
+        <AppLink
+          v-for="item in [
+            'dashboard',
+            'devices',
+            'topology',
+            'clients',
+            'sites',
+          ]"
+          :key="item"
+          :aria-label="
+            item.charAt(0).toUpperCase() +
+            item.slice(1) +
+            (item === 'devices' ? `, ${scope.length} in scope` : '')
+          "
+          :to="{ path: `/${item}`, query: mainScope }"
+          class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring max-[800px]:mb-0 max-[800px]:p-2.5 max-[560px]:gap-1.5 max-[560px]:text-xs max-[560px]:p-[9px]"
+          :class="{
+            active: section === item,
+            'max-[560px]:hidden': item === 'topology',
+          }"
+          :aria-current="mainView === item ? 'page' : undefined"
+        >
+          <span
+            v-if="section === item"
+            class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring max-[800px]:after:top-auto max-[800px]:after:bottom-0 max-[800px]:after:left-2.5 max-[800px]:after:right-2.5 max-[800px]:after:w-auto max-[800px]:after:h-0.5 max-[800px]:after:rounded-xs"
+            aria-hidden="true"
+          ></span>
+          <AppIcon :name="item" />
+          <span class="nav-text">{{
+            item.charAt(0).toUpperCase() + item.slice(1)
+          }}</span>
+          <span
+            v-if="item === 'devices'"
+            class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
+          >
+            {{ scope.length }}
+          </span>
+        </AppLink>
+      </nav>
+      <UiTooltip
+        :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        side="right"
+      >
+        <button
+          class="sidebar-toggle max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
+          type="button"
+          aria-controls="workspace-sidebar"
+          :aria-expanded="!sidebarCollapsed"
+          :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          @click="toggleSidebar"
         >
           <svg
-            class="flowseer-mark"
-            viewBox="0 0 32 32"
-            fill="none"
+            viewBox="0 0 16 16"
             aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
           >
-            <g transform="translate(16 16) skewX(-13) translate(-16 -16)">
-              <rect
-                x="5.5"
-                y="4.5"
-                width="5"
-                height="23"
-                rx="1.5"
-                fill="var(--accent)"
-              />
-              <rect
-                x="13.5"
-                y="0"
-                width="5"
-                height="32"
-                rx="1.5"
-                fill="var(--accent)"
-              />
-              <rect
-                x="21.5"
-                y="7.5"
-                width="5"
-                height="17"
-                rx="1.5"
-                fill="var(--primary)"
-              />
-            </g>
+            <path d="m10 4-4 4 4 4" />
           </svg>
-          <span>FlowSeer</span>
-        </div>
+        </button>
+      </UiTooltip>
+    </aside>
+    <div ref="mainShell" class="main-shell">
+      <span class="main-notch brand-glow" aria-hidden="true"></span>
+      <header
+        ref="topbar"
+        class="topbar sticky top-0 z-(--z-sticky) flex items-center justify-between min-h-[54px] px-6 py-2.5 max-[1150px]:px-6 max-[800px]:px-5 max-[650px]:flex-wrap max-[650px]:pt-1.5 max-[650px]:pb-2.5 max-[650px]:gap-1 max-[560px]:min-h-[50px] max-[560px]:px-3.5"
+      >
+        <span class="topbar-glass brand-glow" aria-hidden="true"></span>
         <div
-          class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
+          class="topbar-start flex items-center gap-3 min-w-0 flex-1 max-[650px]:basis-full max-[560px]:gap-[9px]"
         >
-          WORKSPACE
-        </div>
-        <nav
-          ref="navigation"
-          aria-label="Main navigation"
-          class="max-[800px]:flex max-[800px]:flex-row max-[800px]:gap-2 max-[800px]:mt-6 max-[560px]:gap-1"
-          :class="{ 'max-[800px]:!hidden': sidebarCollapsed }"
-        >
-          <AppLink
-            v-for="item in [
-              'dashboard',
-              'devices',
-              'topology',
-              'clients',
-              'sites',
-            ]"
-            :key="item"
-            :aria-label="
-              item.charAt(0).toUpperCase() +
-              item.slice(1) +
-              (item === 'devices' ? `, ${scope.length} in scope` : '')
-            "
-            :to="{ path: `/${item}`, query: mainScope }"
-            class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring max-[800px]:mb-0 max-[800px]:p-2.5 max-[560px]:gap-1.5 max-[560px]:text-xs max-[560px]:p-[9px]"
-            :class="{
-              active: section === item,
-              'max-[560px]:hidden': item === 'topology',
-            }"
-            :aria-current="mainView === item ? 'page' : undefined"
+          <UiBreadcrumb
+            v-slot="{ collapsed }"
+            class="breadcrumb min-w-0 max-[560px]:text-xs"
           >
-            <span
-              v-if="section === item"
-              class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring max-[800px]:after:top-auto max-[800px]:after:bottom-0 max-[800px]:after:left-2.5 max-[800px]:after:right-2.5 max-[800px]:after:w-auto max-[800px]:after:h-0.5 max-[800px]:after:rounded-xs"
-              aria-hidden="true"
-            ></span>
-            <AppIcon :name="item" />
-            <span class="nav-text">{{
-              item.charAt(0).toUpperCase() + item.slice(1)
-            }}</span>
-            <span
-              v-if="item === 'devices'"
-              class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
-            >
-              {{ scope.length }}
-            </span>
-          </AppLink>
-        </nav>
-        <UiTooltip
-          :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-          side="right"
-        >
-          <button
-            class="sidebar-toggle max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
-            type="button"
-            aria-controls="workspace-sidebar"
-            :aria-expanded="!sidebarCollapsed"
-            :aria-label="
-              sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
-            "
-            @click="toggleSidebar"
-          >
-            <svg
-              viewBox="0 0 16 16"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path d="m10 4-4 4 4 4" />
-            </svg>
-          </button>
-        </UiTooltip>
-      </aside>
-      <div ref="mainShell" class="main-shell">
-        <span class="main-notch brand-glow" aria-hidden="true"></span>
-        <header
-          ref="topbar"
-          class="topbar sticky top-0 z-10 flex items-center justify-between min-h-[54px] px-6 py-2.5 max-[1150px]:px-6 max-[800px]:px-5 max-[650px]:flex-wrap max-[650px]:pt-1.5 max-[650px]:pb-2.5 max-[650px]:gap-1 max-[560px]:min-h-[50px] max-[560px]:px-3.5"
-        >
-          <span class="topbar-glass brand-glow" aria-hidden="true"></span>
-          <div
-            class="topbar-start flex items-center gap-3 min-w-0 flex-1 max-[650px]:basis-full max-[560px]:gap-[9px]"
-          >
-            <UiBreadcrumb
-              v-slot="{ collapsed }"
-              class="breadcrumb min-w-0 max-[560px]:text-xs"
-            >
-              <UiBreadcrumbList class="min-w-0">
-                <template v-if="tenants.length > 1">
-                  <UiBreadcrumbItem class="min-w-0 max-[560px]:max-w-[140px]">
-                    <TenantSwitcher
-                      :tenants="tenants"
-                      :selected="query('tenant')"
-                      @change="setQuery('tenant', $event)"
-                    />
-                  </UiBreadcrumbItem>
-                  <UiBreadcrumbSeparator />
-                </template>
-                <UiBreadcrumbItem
-                  class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
-                >
-                  <ScopeSwitcher
-                    label="Site scope"
-                    placeholder="Search sites…"
-                    :selected="query('site')"
-                    :options="[
-                      { value: '', label: 'All sites' },
-                      ...scopedSites.map((site) => ({
-                        value: site.id,
-                        label: site.name,
-                      })),
-                    ]"
-                    @change="setQuery('site', $event)"
+            <UiBreadcrumbList class="min-w-0">
+              <template v-if="tenants.length > 1">
+                <UiBreadcrumbItem class="min-w-0 max-[560px]:max-w-[140px]">
+                  <TenantSwitcher
+                    :tenants="tenants"
+                    :selected="query('tenant')"
+                    @change="setQuery('tenant', $event)"
                   />
                 </UiBreadcrumbItem>
                 <UiBreadcrumbSeparator />
-                <template v-if="view === 'device'">
-                  <template v-if="collapsed">
-                    <UiBreadcrumbItem>
-                      <UiBreadcrumbEllipsis>
-                        <template #menu>
-                          <UiDropdownMenuItem as-child>
-                            <AppLink
-                              class="w-full"
-                              :to="{ path: '/devices', query: mainScope }"
-                            >
-                              Devices
-                            </AppLink>
-                          </UiDropdownMenuItem>
-                        </template>
-                      </UiBreadcrumbEllipsis>
-                    </UiBreadcrumbItem>
-                    <UiBreadcrumbSeparator />
-                  </template>
-                  <template v-else>
-                    <UiBreadcrumbItem>
-                      <UiBreadcrumbLink as-child>
-                        <AppLink
-                          class="breadcrumb-link"
-                          :to="{ path: '/devices', query: mainScope }"
-                          >Devices</AppLink
-                        >
-                      </UiBreadcrumbLink>
-                    </UiBreadcrumbItem>
-                    <UiBreadcrumbSeparator />
-                  </template>
+              </template>
+              <UiBreadcrumbItem
+                class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
+              >
+                <ScopeSwitcher
+                  label="Site scope"
+                  placeholder="Search sites…"
+                  :selected="query('site')"
+                  :options="[
+                    { value: '', label: 'All sites' },
+                    ...scopedSites.map((site) => ({
+                      value: site.id,
+                      label: site.name,
+                    })),
+                  ]"
+                  @change="setQuery('site', $event)"
+                />
+              </UiBreadcrumbItem>
+              <UiBreadcrumbSeparator />
+              <template v-if="view === 'device'">
+                <template v-if="collapsed">
+                  <UiBreadcrumbItem>
+                    <UiBreadcrumbEllipsis>
+                      <template #menu>
+                        <UiDropdownMenuItem as-child>
+                          <AppLink
+                            class="w-full"
+                            :to="{ path: '/devices', query: mainScope }"
+                          >
+                            Devices
+                          </AppLink>
+                        </UiDropdownMenuItem>
+                      </template>
+                    </UiBreadcrumbEllipsis>
+                  </UiBreadcrumbItem>
+                  <UiBreadcrumbSeparator />
                 </template>
-                <UiBreadcrumbItem
-                  v-if="view === 'device' && selected"
-                  class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
-                >
-                  <ScopeSwitcher
-                    label="Device"
-                    placeholder="Search devices…"
-                    :selected="selected.id"
-                    :options="deviceOptions"
-                    @change="openDevice($event)"
-                  />
-                </UiBreadcrumbItem>
-                <UiBreadcrumbItem v-else>
-                  <UiBreadcrumbPage>{{ title }}</UiBreadcrumbPage>
-                </UiBreadcrumbItem>
-              </UiBreadcrumbList>
-            </UiBreadcrumb>
-            <UiTooltip
-              label="Minimize to dock"
-              hint="The shortcut minimizes whichever pane is focused."
-              :shortcut="SHORTCUTS.minimize"
-            >
-              <button
-                class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
-                aria-label="Minimize this page to the dock"
-                @click="minimizePane('main')"
+                <template v-else>
+                  <UiBreadcrumbItem>
+                    <UiBreadcrumbLink as-child>
+                      <AppLink
+                        class="breadcrumb-link"
+                        :to="{ path: '/devices', query: mainScope }"
+                        >Devices</AppLink
+                      >
+                    </UiBreadcrumbLink>
+                  </UiBreadcrumbItem>
+                  <UiBreadcrumbSeparator />
+                </template>
+              </template>
+              <UiBreadcrumbItem
+                v-if="view === 'device' && selected"
+                class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
               >
-                <AppIcon name="to-dock" />
-              </button>
-            </UiTooltip>
-          </div>
-          <div
-            class="topbar-tools flex items-center gap-1.5 shrink-0 ml-4 max-[650px]:order-first max-[650px]:w-full max-[650px]:ml-0 max-[650px]:justify-end"
-          >
-            <GlobalSearch
-              :fleet="fleet"
-              :pages="searchPages"
-              :can-split="wide"
-              @select="openResult"
-              @dock="dockResult"
-            />
-            <ThemeSwitcher />
-            <HelpButton />
-            <ReportBugButton />
-            <AccountMenu />
-          </div>
-        </header>
-        <main
-          id="main"
-          tabindex="-1"
-          :class="['panes', { split: showSplit, docked: tabs.length }]"
-          :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
-        >
+                <ScopeSwitcher
+                  label="Device"
+                  placeholder="Search devices…"
+                  :selected="selected.id"
+                  :options="deviceOptions"
+                  @change="openDevice($event)"
+                />
+              </UiBreadcrumbItem>
+              <UiBreadcrumbItem v-else>
+                <UiBreadcrumbPage>{{ title }}</UiBreadcrumbPage>
+              </UiBreadcrumbItem>
+            </UiBreadcrumbList>
+          </UiBreadcrumb>
           <UiTooltip
-            v-if="showSplit"
-            label="Drag to resize"
-            hint="Double-click to reset to half and half."
-            side="right"
+            label="Minimize to dock"
+            hint="The shortcut minimizes whichever pane is focused."
+            :shortcut="SHORTCUTS.minimize"
           >
-            <div
-              class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize split view"
-              :aria-valuenow="Math.round(splitRatio * 100)"
-              aria-valuemin="30"
-              aria-valuemax="70"
-              tabindex="0"
-              @pointerdown.self="startResize"
-              @dblclick.self="splitRatio = 0.5"
-              @keydown.left.prevent="nudgeSplit(-0.05)"
-              @keydown.right.prevent="nudgeSplit(0.05)"
-            ></div>
+            <button
+              class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
+              aria-label="Minimize this page to the dock"
+              @click="minimizePane('main')"
+            >
+              <AppIcon name="to-dock" />
+            </button>
           </UiTooltip>
-          <!-- Both slots stay mounted while they hold a page, so swapping only
+        </div>
+        <div
+          class="topbar-tools flex items-center gap-1.5 shrink-0 ml-4 max-[650px]:order-first max-[650px]:w-full max-[650px]:ml-0 max-[650px]:justify-end"
+        >
+          <GlobalSearch
+            :fleet="fleet"
+            :pages="searchPages"
+            :can-split="wide"
+            @select="openResult"
+            @dock="dockResult"
+          />
+          <ThemeSwitcher />
+          <HelpButton />
+          <ReportBugButton />
+          <AccountMenu />
+        </div>
+      </header>
+      <main
+        id="main"
+        tabindex="-1"
+        :class="['panes', { split: showSplit, docked: tabs.length }]"
+        :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
+      >
+        <UiTooltip
+          v-if="showSplit"
+          label="Drag to resize"
+          hint="Double-click to reset to half and half."
+          side="right"
+        >
+          <div
+            class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize split view"
+            :aria-valuenow="Math.round(splitRatio * 100)"
+            aria-valuemin="30"
+            aria-valuemax="70"
+            tabindex="0"
+            @pointerdown.self="startResize"
+            @dblclick.self="splitRatio = 0.5"
+            @keydown.left.prevent="nudgeSplit(-0.05)"
+            @keydown.right.prevent="nudgeSplit(0.05)"
+          ></div>
+        </UiTooltip>
+        <!-- Both slots stay mounted while they hold a page, so swapping only
              changes roles and order; each page keeps its state. -->
-          <template v-for="slot in slotIds" :key="slot">
-            <Transition name="split">
-              <PageHost
-                v-if="
-                  panes.slots[slot].value &&
-                  (slot === panes.mainSlot.value || showSplit)
-                "
-                :context="panes.pages[slot]"
-                :pane-slot="slot"
-                :class="
-                  slot === panes.mainSlot.value
-                    ? [
-                        'main-pane',
-                        { 'active-pane': showSplit && activePane === 'main' },
-                      ]
-                    : ['split-pane', { 'active-pane': activePane === 'side' }]
-                "
-                :style="
-                  slot === panes.mainSlot.value
-                    ? undefined
-                    : { '--topbar-height': `${topbarHeight + 36}px` }
-                "
-                @pointerdown="
-                  activePane = slot === panes.mainSlot.value ? 'main' : 'side'
-                "
-                @focusin="
-                  activePane = slot === panes.mainSlot.value ? 'main' : 'side'
-                "
+        <template v-for="slot in slotIds" :key="slot">
+          <Transition name="split">
+            <PageHost
+              v-if="
+                panes.slots[slot].value &&
+                (slot === panes.mainSlot.value || showSplit)
+              "
+              :context="panes.pages[slot]"
+              :pane-slot="slot"
+              :class="
+                slot === panes.mainSlot.value
+                  ? [
+                      'main-pane',
+                      { 'active-pane': showSplit && activePane === 'main' },
+                    ]
+                  : ['split-pane', { 'active-pane': activePane === 'side' }]
+              "
+              :style="
+                slot === panes.mainSlot.value
+                  ? undefined
+                  : { '--topbar-height': `${topbarHeight + 36}px` }
+              "
+              @pointerdown="
+                activePane = slot === panes.mainSlot.value ? 'main' : 'side'
+              "
+              @focusin="
+                activePane = slot === panes.mainSlot.value ? 'main' : 'side'
+              "
+            >
+              <header
+                v-if="slot !== panes.mainSlot.value && sideTitle"
+                class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
               >
-                <header
-                  v-if="slot !== panes.mainSlot.value && sideTitle"
-                  class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
+                <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
+                <span
+                  class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
+                  ><strong>{{ sideTitle.label }}</strong></span
                 >
-                  <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
-                  <span
-                    class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
-                    ><strong>{{ sideTitle.label }}</strong></span
-                  >
-                  <div
-                    class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
-                  >
-                    <UiBreadcrumb>
-                      <UiBreadcrumbList>
-                        <template v-if="tenants.length > 1">
-                          <UiBreadcrumbItem>
-                            <TenantSwitcher
-                              :tenants="tenants"
-                              :selected="sidePage.query('tenant')"
-                              @change="setSideScope('tenant', $event)"
-                            />
-                          </UiBreadcrumbItem>
-                          <UiBreadcrumbSeparator />
-                        </template>
+                <div
+                  class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
+                >
+                  <UiBreadcrumb>
+                    <UiBreadcrumbList>
+                      <template v-if="tenants.length > 1">
                         <UiBreadcrumbItem>
-                          <ScopeSwitcher
-                            label="Side page site"
-                            placeholder="Search sites…"
-                            :selected="sidePage.query('site')"
-                            :options="[
-                              { value: '', label: 'All sites' },
-                              ...sideScopedSites.map((site) => ({
-                                value: site.id,
-                                label: site.name,
-                              })),
-                            ]"
-                            @change="setSideScope('site', $event)"
+                          <TenantSwitcher
+                            :tenants="tenants"
+                            :selected="sidePage.query('tenant')"
+                            @change="setSideScope('tenant', $event)"
                           />
                         </UiBreadcrumbItem>
-                      </UiBreadcrumbList>
-                    </UiBreadcrumb>
-                  </div>
-                  <div
-                    class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
-                    role="toolbar"
-                    aria-label="Split view"
+                        <UiBreadcrumbSeparator />
+                      </template>
+                      <UiBreadcrumbItem>
+                        <ScopeSwitcher
+                          label="Side page site"
+                          placeholder="Search sites…"
+                          :selected="sidePage.query('site')"
+                          :options="[
+                            { value: '', label: 'All sites' },
+                            ...sideScopedSites.map((site) => ({
+                              value: site.id,
+                              label: site.name,
+                            })),
+                          ]"
+                          @change="setSideScope('site', $event)"
+                        />
+                      </UiBreadcrumbItem>
+                    </UiBreadcrumbList>
+                  </UiBreadcrumb>
+                </div>
+                <div
+                  class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
+                  role="toolbar"
+                  aria-label="Split view"
+                >
+                  <UiTooltip
+                    :label="
+                      linkClicks
+                        ? 'Links on the left open here'
+                        : 'Open links from the left here'
+                    "
+                    :hint="linkClicks ? 'On' : undefined"
+                    :shortcut="SHORTCUTS.linkClicks"
                   >
-                    <UiTooltip
-                      :label="
-                        linkClicks
-                          ? 'Links on the left open here'
-                          : 'Open links from the left here'
-                      "
-                      :hint="linkClicks ? 'On' : undefined"
-                      :shortcut="SHORTCUTS.linkClicks"
+                    <button
+                      :aria-pressed="linkClicks"
+                      aria-label="Open links from the main page in the side page"
+                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                      @click="linkClicks = !linkClicks"
                     >
-                      <button
-                        :aria-pressed="linkClicks"
-                        aria-label="Open links from the main page in the side page"
-                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                        @click="linkClicks = !linkClicks"
-                      >
-                        <AppIcon name="link-clicks" />
-                      </button>
-                    </UiTooltip>
-                    <span
-                      class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
-                      aria-hidden="true"
-                    ></span>
-                    <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
-                      <button
-                        aria-label="Swap the two pages"
-                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                        @click="swapPanes"
-                      >
-                        <AppIcon name="swap" />
-                      </button>
-                    </UiTooltip>
-                    <UiTooltip
-                      label="Dock both as a pair"
-                      :shortcut="SHORTCUTS.dockPair"
+                      <AppIcon name="link-clicks" />
+                    </button>
+                  </UiTooltip>
+                  <span
+                    class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
+                    aria-hidden="true"
+                  ></span>
+                  <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
+                    <button
+                      aria-label="Swap the two pages"
+                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                      @click="swapPanes"
                     >
-                      <button
-                        aria-label="Dock both pages as a pair"
-                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                        @click="dockPair"
-                      >
-                        <AppIcon name="dock-pair" />
-                      </button>
-                    </UiTooltip>
-                    <UiTooltip
-                      label="Minimize to dock"
-                      :shortcut="SHORTCUTS.toggleSplit"
+                      <AppIcon name="swap" />
+                    </button>
+                  </UiTooltip>
+                  <UiTooltip
+                    label="Dock both as a pair"
+                    :shortcut="SHORTCUTS.dockPair"
+                  >
+                    <button
+                      aria-label="Dock both pages as a pair"
+                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                      @click="dockPair"
                     >
-                      <button
-                        aria-label="Minimize the side page to the dock"
-                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                        @click="minimizePane('side')"
-                      >
-                        <AppIcon name="to-dock" />
-                      </button>
-                    </UiTooltip>
-                    <UiTooltip
-                      label="Close side page"
-                      :shortcut="SHORTCUTS.closeSide"
+                      <AppIcon name="dock-pair" />
+                    </button>
+                  </UiTooltip>
+                  <UiTooltip
+                    label="Minimize to dock"
+                    :shortcut="SHORTCUTS.toggleSplit"
+                  >
+                    <button
+                      aria-label="Minimize the side page to the dock"
+                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                      @click="minimizePane('side')"
                     >
-                      <button
-                        aria-label="Close the side page"
-                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                        @click="closeSide"
-                      >
-                        <AppIcon name="close" />
-                      </button>
-                    </UiTooltip>
-                  </div>
-                </header>
-              </PageHost>
-            </Transition>
-          </template>
-        </main>
-        <PageDock
-          :tabs="tabs"
-          :title="tabTitle"
-          :can-split="wide"
-          @open="openDockTab"
-          @split="openDockTabBeside"
-          @close="closeTab"
-        />
-      </div>
+                      <AppIcon name="to-dock" />
+                    </button>
+                  </UiTooltip>
+                  <UiTooltip
+                    label="Close side page"
+                    :shortcut="SHORTCUTS.closeSide"
+                  >
+                    <button
+                      aria-label="Close the side page"
+                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                      @click="closeSide"
+                    >
+                      <AppIcon name="close" />
+                    </button>
+                  </UiTooltip>
+                </div>
+              </header>
+            </PageHost>
+          </Transition>
+        </template>
+      </main>
+      <PageDock
+        :tabs="tabs"
+        :title="tabTitle"
+        :can-split="wide"
+        @open="openDockTab"
+        @split="openDockTabBeside"
+        @close="closeTab"
+      />
     </div>
-  </TooltipProvider>
+  </div>
 </template>
 
 <style scoped>

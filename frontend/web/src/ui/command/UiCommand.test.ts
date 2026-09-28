@@ -229,6 +229,58 @@ describe('UiCommand', () => {
     expect(isOpen.value).toBe(false)
   })
 
+  it('UiCommandDialog emits closeAutoFocus and honors preventDefault to preserve custom focus', async () => {
+    let emittedEvent: Event | null = null
+    const customButton = document.createElement('button')
+    customButton.id = 'command-custom-focus'
+    const opener = document.createElement('button')
+    opener.id = 'command-opener'
+    document.body.append(customButton, opener)
+    opener.focus()
+
+    const isOpen = ref(true)
+    mountApp(() =>
+      h(
+        UiCommandDialog,
+        {
+          open: isOpen.value,
+          'onUpdate:open': (val: boolean) => {
+            isOpen.value = val
+          },
+          onCloseAutoFocus: (e: Event) => {
+            emittedEvent = e
+            e.preventDefault()
+            customButton.focus()
+          },
+        },
+        () => [h(UiCommandInput, { placeholder: 'Palette search...' })],
+      ),
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog).not.toBeNull()
+
+    dialog?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(emittedEvent).not.toBeNull()
+    expect(document.activeElement).toBe(customButton)
+    customButton.remove()
+    opener.remove()
+  })
+
   it('forwards highlighted value on roving keyboard navigation', async () => {
     const highlighted = ref('')
     const host = mountApp(() =>

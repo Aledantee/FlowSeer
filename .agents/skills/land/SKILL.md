@@ -111,7 +111,7 @@ when a local change there overlaps the merge.
 Every worker, child worktree, and `orca-worker.sh` lane this task started must
 be settled, released, or removed; load `references/orca-cleanup.md`
 whenever `orca status --json` (unsandboxed) reports the runtime reachable,
-since lanes from an earlier session are invisible otherwise. A running
+since lanes this context did not start are invisible otherwise. A running
 worker stops the skill.
 
 ## 3. Merge

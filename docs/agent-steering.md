@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-23
+last_updated: 2026-09-28
 ---
 
 # Agent steering
@@ -104,32 +104,45 @@ FlowSeer ships eight workflow skills under `.claude/skills/`: `next`,
 `plan`, `implement`, `review`, `compound`, `land`, `drive`, and `steer`,
 next to the
 `verify-change` gate and the `delegate` routing skill that the others load
-before dispatching an agent. The decisions below were taken against published
-measurements, the research listed at the end of this document, and this
-project's own session history; revisit them when that evidence changes.
+before dispatching an agent. One task skill sits beside them:
+`web-component`, the order in which a web component meets the web
+component contract and its story, accessibility, i18n, token, and
+verifier gates. Its references hold the overlay and motion rules agents
+most often break, each traced to a failure fixed in this repository or to
+a primary source.
+Its `check-tools.sh` reports missing tools rather than installing them.
+It replaced a Storybook MCP server: the server's docs tools returned props
+and story source an agent reads directly from the colocated files, needed
+a running Storybook and two experimental feature flags, and served only
+Claude, while the rules agents actually missed were repository conventions
+no tool reports. A second task skill, `prose`, checks Markdown against
+`docs/doc-style.md` with `scripts/check-prose.py`. `verify-change` runs it
+on every changed `.md` file. A provenance finding (prose that cites an
+agent run) fails the gate, and style findings are warnings because most
+existing files predate the rules. The decisions below were taken against
+published measurements and the research listed at the end of this
+document. Revisit them when that evidence changes.
 
-Keep only the workflows the project uses. Session transcripts for this
-repository showed six steps carrying every invocation of the 33-skill set
-the repository used before 2026-09-05, and `/skill-doctor` showed 19 of
-those skills never invoked on this machine. Each unused skill still cost
-listing tokens on every turn. The first four skills map onto the six used
-steps: brainstorming folds into `plan`, doc review into `plan` and
-`review`, refreshing solutions into `compound`. `land` (first named
-`close`) was added on 2026-09-05 for a step every session repeated by hand.
+Keep only the workflows the project uses. Each installed skill costs
+listing tokens on every turn whether or not it fires, so the set holds
+the steps work actually passes through: brainstorming folds into `plan`,
+doc review into `plan` and `review`, refreshing solutions into
+`compound`, and `land` (first named `close`) covers the merge step that
+otherwise gets repeated by hand.
 
-Steer toward the project skills; do not block the external ones. Until
-2026-09-27 Codex could not see `.claude/skills/`, and in about twenty
-worker sessions it ran the globally installed compound-engineering
-plugin's `ce-work` and `ce-code-review` instead of `implement` and
-`review`, writing findings in that plugin's format to `/tmp`. Making the
-skills visible under `.agents/skills/` ended it in the sessions mined on
-2026-09-28. Disabling the plugin per runtime would also have worked, but
+Steer toward the project skills; do not block the external ones. A
+runtime that cannot see `.claude/skills/` falls back to whatever global
+skill fits, for example the compound-engineering plugin's `ce-work` and
+`ce-code-review`, which write findings in that plugin's format to `/tmp`
+where no later step reads them. The skills therefore live under
+`.agents/skills/`, which every runtime reads, with `.claude/skills/` as a
+link. Disabling the plugin per runtime would also have worked, but
 it hides a plugin that is still useful for work no project skill covers,
 and each new runtime would need its own switch. So `AGENTS.md` says a
 project skill wins where it covers the work, and `delegate`'s brief names
 the skill by path. `.claude/settings.json` still disables the plugin for
 Claude, from before either existed, and `tune`'s bench disables it
-because the plugin's own review stretched a timed run to 110 minutes.
+because the plugin's own review stretched a timed run past 100 minutes.
 
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
@@ -154,12 +167,10 @@ leaves the worktree ready for
 issues it and discards the workspace's terminal history, so it stays a
 person's action taken after reading the report. Child worktrees a session
 created for its workers are the opposite case, and `delegate` has the
-coordinator remove each one in the turn its branch lands. A run on
-2026-09-05 left five merged children under one worktree, each with its
-terminals open and its branch listed as live work, because
-`worker-release` closes only the agent terminal and no skill said who
-removes the rest; the coordinator had already read everything those
-terminals held.
+coordinator remove each one in the turn its branch lands.
+`worker-release` closes only the agent terminal, so without that step a
+merged child keeps its terminals open and its branch listed as live work
+after the coordinator has read everything it held.
 
 Merge from the worktree, and leave `main` one fast-forward away. Claude
 Code refuses a worktree-isolated session every git command that names
@@ -191,36 +202,29 @@ always-on index did. The planning skill this repository used before was
 skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
-The 2026-09-28 pass applied Anthropic's
-[skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
-to all eleven skills: third-person descriptions that say what and when,
+The skills follow Anthropic's
+[skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices): third-person descriptions that say what and when,
 references one level deep behind a pointer that names its trigger, no
 dated history in a body, and every command kept verbatim. The `SKILL.md`
-bodies went from 22,600 to 15,600 words and now sit between 93 and 242
-lines. The ones over 150 keep material every invocation reads: `plan`
-its file template, which scripts parse; `land` its merge gate; `implement`
-its Finish order; `review` the reviewer log it writes on every run; and
+bodies stay near 150 lines. The ones over 150 lines keep
+material every invocation reads: `plan`
+its file template, which scripts parse, `land` its merge gate, `implement`
+its Finish order, `review` the reviewer log it writes on every run, and
 `delegate` the routing steps, the `orca-worker.sh` surface, and the brief
-checklist that `implement`, `drive`, and `land` cite. A preservation
-review compared each rewritten skill rule by rule with its previous
-version; the failures it caught were load triggers the reader could not
-evaluate yet (an "in Orca" test defined only inside the file it gated, a
-pool trigger naming a row that does not exist), so a trigger names a
-condition the reader has already checked.
+checklist that `implement`, `drive`, and `land` cite. A load trigger names
+a condition the reader has already checked. An "in Orca" test defined only
+inside the file it gates, or a pool trigger naming a row that does not
+exist, cannot be evaluated at the point the reader decides to load.
 
-The incidents behind rules the 2026-09-28 steer pass added, kept here
-rather than in the skills: review workers re-ran the coordinator's race
-tests and needed "conclude now" notes in eight or more sessions until the
-brief named the checks already run; Antigravity fix workers re-diagnosed
-settled findings in four; a review's mutation sub-worker stalled on
-sandboxed `/tmp` writes until the review's quota ran low; and a drive
-coordinator twice ended its turn right after announcing a unit it never
-started.
+A brief names the checks already run and the findings already settled.
+Without that, a reviewer re-runs the coordinator's race tests and a fix
+worker re-diagnoses what the review decided. A sub-worker writes to
+`$TMPDIR`, never to `/tmp`, which the sandbox denies. A coordinator that
+announces a unit starts it in the same turn.
 
-Use one reviewer per file group, never a persona panel. This
-repository's transcripts showed the earlier persona-panel review dispatching
-8.5 subagents per call on average, with a peak of 14, and reviewers
-exhausting their context before they reported. Anthropic's research-system
+Use one reviewer per file group, never a persona panel. A panel fans out
+to one subagent per persona per call, and each reviewer spends its
+context on the whole diff before it reports. Anthropic's research-system
 report puts a multi-agent run at about 15 times the tokens of a chat turn,
 which a review after every implementation does not earn back. `review`
 dispatches one `independent-reviewer` for a diff of about 1,500 lines or
@@ -240,10 +244,8 @@ stays a set of lessons rather than a log of every session.
 Promote lasting decisions out of the plan, from the plan. A plan under
 `docs/plans/` is the planning artifact and goes stale once the work lands,
 while a record under `docs/architecture/` is the decision record that later
-plans read as a constraint. Before 2026-09-05 nothing in the workflow
-produced a record; the four that exist were written by hand after a
-brainstorm, and a cross-cutting decision taken inside a plan stayed there
-where the next plan would not look. `plan` now carries a promotion test
+plans read as a constraint. A cross-cutting decision taken inside a plan
+stays where the next plan will not look. `plan` therefore carries a promotion test
 (hard to reverse, constrains other packages or a wire contract, amends an
 accepted record, or has been decided before) and drafts a record with
 `status: proposed-direction`. Acceptance stays a person's action because an
@@ -283,18 +285,16 @@ Enforce with the verifier, not with prose. Every skill ends by running
 an instruction in a skill is a request and a hook is a guarantee.
 
 Verify once, on the integrated result, at the scope the change can reach.
-A test run of the workflow on 2026-09-05 (two 25-line example tests, two
-Orca workers) produced three module-wide race runs of about ten minutes
-each, because every worker and then the coordinator ran the verifier and
-the verifier raced the whole module for any Go path. The verifier now
-vets, tests, and lints the changed packages and their importers (a
+When every worker and then the coordinator run the verifier, and the
+verifier races the whole module for any Go path, two small tests cost
+three module-wide race runs of about ten minutes each. The verifier
+therefore vets, tests, and lints the changed packages and their importers (a
 fixpoint over `go list` dependency and test-import data) and keeps the
 module-wide scope for `--full`; workers run their package's focused tests
 and the coordinator runs the verifier once after merging.
 
-Make a gate's silence impossible to read as a pass. Between 2026-09-05 and
-2026-09-10 the observation queue collected five entries about the verifier
-reporting success for a reason unrelated to the code: a directory argument
+Make a gate's silence impossible to read as a pass. The verifier has
+reported success for reasons unrelated to the code: a directory argument
 selecting no gate, a no-gate exit clearing its own marker, a cached corpus
 pass, a `--path` naming a file the baseline lacks, and a background wrapper
 whose `tail` replaced the script's exit code. Each was fixed in the script
@@ -302,15 +302,13 @@ rather than in prose, since a rule that was read and broken wants
 enforcement: a directory expands to its files, a no-gate run exits non-zero
 before touching the receipt, the corpus tier carries `-count=1`,
 `buf breaking` targets only files `main` holds, and the last line of every
-run names the verdict. A sixth entry, on 2026-09-11, had a `--full` run
-block forever on a Docker daemon that had stopped answering, and the
-verdict line, once the probe was killed by hand, did not say which gate
-had failed; the wrapper now bounds its `docker info` probe, and the
+run names the verdict. A `--full` run could also block forever on a
+Docker daemon that had stopped answering, with a verdict line that did
+not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
 verdict line names the gate that was running. The two invariant packages (`src/common/errs`,
 `test/conformance/proto`) run on every targeted root-module run for the
 same reason: a per-package gate cannot see a repository-wide namespace,
-and a rule asking the implementer to remember that had already failed
-twice. `--full` bounds `go test -p` because a gate that fails for reasons
+and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
 failures of that kind live in the script rather than in prose: the lint
 gate passes `--allow-serial-runners`, because `golangci-lint` holds one
@@ -326,9 +324,8 @@ workspace's typecheck, build, ESLint, Stylelint, Prettier, and Vitest gates; a
 marked path absent from both the tree and an explicit base clears like
 one whose bytes match the base. The marker hook itself was the last
 of these. It guessed from a Bash command's text whether the command wrote
-a file, and measured against one session's commands the pattern missed a
-Python rewrite of two documents and any `cp` or `tee`, while it flagged
-`git log | grep patch` and a redirect to a scratch `.json`; each false
+a file, and the pattern missed a Python rewrite of a document and any
+`cp` or `tee`, while it flagged `git log | grep patch` and a redirect to a scratch `.json`; each false
 flag asked for a module-wide race run. The hook now reads what changed off
 the tree, by content hash of the dirty paths against the listing stored
 after the previous Bash call, and marks those paths like editor edits;
@@ -337,44 +334,40 @@ only a change under `generated/` or to the module graph keeps the
 parallel Bash calls would have raced on, and the verifier rewrites the
 listing after a pass so verified content is not marked again.
 
-Watch a test fail against the defect. One plan produced three tests that
-read as proof and asserted nothing, each found only by reverting the fix;
-a later session hit the same trap twice more and named the sharper rules,
-that a test asserts what the fix causes rather than what it prevents, and
+Watch a test fail against the defect. A test can read as proof and
+assert nothing, which only reverting the fix reveals. Two sharper rules
+follow: a test asserts what the fix causes rather than what it prevents, and
 asserts the state it depends on before the outcome. `implement` states
 them at the test step, with the undo as a file copy after a reversal's
 `git checkout` took an unfinished unit with it. The rules stay prose
 because a reversal is a judgment about which line carries the property;
 what can be enforced, the fixture validity of wire messages, names
-`protovalidate.Validate` instead. The rule was then cited in every brief of
-a second plan and broken five more times, and three new
-codec packages landed seven tests that passed against a broken decoder,
-since "changes behavior" exempted new code. A conformance gate for
-negative-only assertions was considered and not built: none of the five
-instances had that shape (a fixture missing the capability, an assertion
-behind an admin-down port, a helper returning one value for two states),
-and only a reversal found any of them. So the reversal became an artifact
+`protovalidate.Validate` instead. Citing the rule in a brief does not keep
+it, and a "changes behavior" exemption lets new code land tests that pass
+against a broken decoder. A conformance gate for negative-only assertions
+was considered and not built: the vacuous tests this rule targets take
+other shapes (a fixture missing the capability, an assertion behind an
+admin-down port, a helper returning one value for two states), and only a
+reversal finds them. So the reversal became an artifact
 instead of an instruction: `implement` writes a mutation and the quoted
 `--- FAIL` line per new test into the unit's commit body, the one place a
-later review session can read, and the coordinator or `review` runs the
+later reviewer can read, and the coordinator or `review` runs the
 mutation itself for any new test whose commit lacks one. A quoted failure
 can be checked by the next reader; "I watched it fail" cannot.
 
-Hand the class across the seam, and judge the remedy. Four observations
-had one shape: a rule held inside one step and
-was lost at the handoff to the next. `review` named a finding's class in
-step 4 and briefed the fix with the instance; it verified a finding and
-passed its proposed fix through unchecked; it asked for an executable
-property and then reviewed the code rather than the property, which
-omitted ten of nineteen rules. `delegate`'s stop rule did not read as
-applying to a requirement that was only unachievable, so a worker
-weakened it and reported success. Each fix puts the rule at the handoff:
+Hand the class across the seam, and judge the remedy. A rule held inside
+one step gets lost at the handoff to the next. A fix briefed with the
+instance misses the class the review named. A verified finding can carry
+an unchecked proposed fix. A review that asks for an executable property
+and then reads the code instead of the property skips rules. A stop rule
+that does not read as covering an unachievable requirement lets a worker
+weaken the requirement and report success. Each fix puts the rule at the handoff:
 the fix brief carries the mechanism, a fix resting on a claim about the
 code is verified or reported as a direction, the next round's primary
 subject is the new invariant, and a brief quotes plan requirements as not
 the worker's to restate. A ruling in `implement` is provisional until its
-unit lands, for the same reason: comments written from a falsified ruling
-cited it as though it were the source.
+unit lands, for the same reason: a comment written from a ruling that is
+later falsified cites it as though it were the source.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -458,36 +451,34 @@ central integrator, and test-based verification at merge improved paper
 reproduction by 25.6 points and library development by 14.7. An Orca
 worker provides that: a child worktree per worker, a named model per
 launch, and a report the coordinator waits on. Herdr held this place from
-2026-09-10 to 2026-09-19 for three measured reasons
-(`docs/research/herdr-trial-2026-09-10.md`), all of them about `orca
-orchestration`: `worker-start` pins Claude, Codex, and Cursor ids only and
-a dispatch into an `agy` or `opencode` terminal sat unsubmitted; `check
---wait` is re-armed by every heartbeat; and a dispatch carries a capability
-token a context compaction can lose. On 2026-09-19 the user chose one
-runtime over two, and `delegate/scripts/orca-worker.sh` meets the same
-three points without orchestration: `orca terminal create --command` takes
+2026-09-10 to 2026-09-19 because it answered four of the Orca failures
+`docs/research/herdr-trial-2026-09-10.md` lists (items 4 to 7), all of
+them about `orca orchestration`: `worker-start` pins Claude, Codex, and
+Cursor ids only and a dispatch into an `agy` or `opencode` terminal sat
+unsubmitted, `check --wait` is re-armed by every heartbeat, a dispatch
+carries a capability token a context compaction can lose, and a card's
+status lags the dispatch queue. `delegate/scripts/orca-worker.sh` meets
+the first three without orchestration: `orca terminal create --command` takes
 any CLI's launch line with the model on it, the wait is confirmed against
 the worker's screen, and a lane is a terminal and a branch with no token.
-That day's run covered the `opencode` lane only; `references/orca.md`
-says what is still unmeasured. Read-only delegates stay native subagents,
-which load their definition and nothing else, where a runtime worker is a
-full agent session. The exception is a unit reviewer on the executor's
-vendor: a reviewer from the same vendor shares the executor's blind
-spots, and on 2026-09-23 a seam worker on `gpt-6-sol` reviewed
-`gpt-6-sol` units with its own subagents, so `delegate` sends such a
+`references/orca.md` says which lanes its described behavior was measured
+on. Read-only
+delegates stay native subagents, which load their definition and nothing
+else, where a runtime worker is a full agent session. The exception is a
+unit reviewer on the executor's vendor: a reviewer from the same vendor
+shares the executor's blind spots, and a seam worker that spawns its own
+subagents reviews with its own model, so `delegate` sends such a
 reviewer to another pool's CLI. Without Orca, `delegate` falls back to a native
 subagent with worktree isolation only when the role's fit set holds a
-Claude model; otherwise the coordinator works the units itself. A native
-subagent runs only on Claude, and after Sonnet 5 left `execute` on
-2026-09-18 that role had no Claude model, so the fallback would have run
-editing work on a model with no calibration for it. The user chose
-sequential work over naming an uncalibrated fallback on 2026-09-23. A
-stage of `land` or `drive` stops instead, because it needs a session of
+Claude model. Otherwise the coordinator works the units itself. A native
+subagent runs only on Claude, and a role whose fit set holds no Claude
+model would send editing work to a model with no calibration for it.
+Sequential work is the safer fallback. A stage of `land` or `drive` stops instead, because it needs a session of
 its own that commits a checkpoint. The Orca command surface is
 version-matched and served by the binary (`orca skills get orca-cli`,
 `orca skills get orchestration`), so the skills show the shape of the loop
 and defer to that guide for flags.
-Two facts found on 2026-09-05 shape the skill's wording: the CLI reaches the
+Two facts about the Orca CLI shape the skill's wording: the CLI reaches the
 app over a local socket that Claude's Bash sandbox blocks, so a sandboxed
 `orca status` reports the app as not running from inside an Orca terminal;
 and `orca account list` reports which providers are signed in and how much
@@ -498,11 +489,10 @@ starting point chosen so that the two lanes a pool may hold under 50%
 cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
 idle.
 
-Orca reads usage only for the providers it has credentials for. On
-2026-09-18 a selection dropped `google` and `go` because `orca account list`
-showed `antigravity` and `opencodeGo` as `unavailable`, although both pools
-were signed in and nearly idle: the status describes Orca's view, not the
-pool. `delegate/scripts/pool-usage.sh` therefore reads each pool from its
+Orca reads usage only for the providers it has credentials for.
+`orca account list` can show a pool such as `antigravity` or `opencodeGo`
+as `unavailable` while it is signed in and nearly idle: the status
+describes Orca's view, not the pool. `delegate/scripts/pool-usage.sh` therefore reads each pool from its
 own source (`agy -p /quota` answers from the quota service without a model
 turn, and opencode's database records the dollar cost of every `opencode-go`
 message), and the skill forbids dropping a pool on Orca's word alone.
@@ -604,16 +594,14 @@ and `review` reads the reasons. Only an oracle-exact check blocks; a
 pre-action verification study got 100% recall at zero false positives on
 exact checks and recommends demoting the rest to warnings.
 
-Stop a red unit after three verifier rounds. The seven-rounds-of-patching
-observation and SpecBench's finding that extra refinement optimizes the
+Stop a red unit after three verifier rounds. Patching the same failure
+round after round and SpecBench's finding that extra refinement optimizes the
 visible test agree on the mechanism; superpowers caps the fix loop at
 five rounds and escalates. `implement` marks the unit `blocked` and sends
 the work back to `plan`, where the requirement lives.
 
-Run independent units at once by default. Until 2026-09-15 a wave ran in
-parallel only when the user asked, and most plans ran serially; the
-parent plans' phases ran one at a time even where their packages were
-disjoint. Co-Coder measured cohesion-aware partitioning at 1.8 to 2.1
+Run independent units at once by default. Serial execution leaves
+disjoint packages waiting on each other. Co-Coder measured cohesion-aware partitioning at 1.8 to 2.1
 times faster with 11 to 14 points more passes than sequential, and naive
 file-level splitting at 60% more cost for 3 points; uncoordinated
 parallel agents were fastest and worst. So `implement` groups units into
@@ -622,11 +610,9 @@ workers through a coordinator that merges and verifies; `plan` writes
 `After` for real dependencies only, lists the waves, and lets disjoint
 phases run in separate worktrees.
 
-Widen a wave when the pools are idle. Until 2026-09-23 every wave ran at
-most three workers and `drive` one phase at a time, whatever the pools
-showed, so a drive over independent phases ran them in turn while the
-prepaid pools it did not route to stayed idle and are paid for anyway.
-The cap now follows the pool rows `delegate` reads before each wave, and
+Widen a wave when the pools are idle. A fixed cap runs independent
+phases in turn while prepaid pools stay idle and are paid for anyway.
+The cap follows the pool rows `delegate` reads before each wave, and
 only independent work widens with it: the Co-Coder result that gives
 parallelism its gain is the same one that makes naive splitting cost
 more, so dependent units still chain. Six is the ceiling because every
@@ -634,12 +620,10 @@ lane still passes through one coordinator's tree check, merge, and
 verifier, and the verifier runs one at a time; it is a starting value,
 to be raised if merges keep pace and lowered if a wave's merges back up.
 
-Prove a phase's prerequisites are in the tree. On 2026-09-14 phase 2 of
-the analysis-completeness plan was implemented twice, in two worktrees
-forked from different points of `main`, each session re-planning "against
-the landed tree" and finding the phase absent; one landing merged, the
-other sits on `worktree-netsim-phase2-replan` with six units passed.
-`check-plan-status.py` now fails a ledger naming a phase plan when a
+Prove a phase's prerequisites are in the tree. Two worktrees forked from
+different points of `main` can each re-plan "against the landed tree",
+find the same phase absent, and implement it twice.
+`check-plan-status.py` therefore fails a ledger naming a phase plan when a
 phase its parent's `After:` names has no `Landed:` commit that is an
 ancestor of `HEAD`, or when the parent on `main` already shows this
 phase landed. The `Landed:` line therefore carries the commit range.
@@ -679,60 +663,48 @@ rounds on one mechanism the work goes to `plan`, the cap `implement` puts
 on a red unit.
 
 Sequence a parent plan's stages from the files, in a skill that owns only
-the order. Twice, on 2026-09-11 and 2026-09-17, the user typed the loop by
-hand ("plan -> implement -> review -> compound loop for each phase, review
-and fix multiple times", then "use sub worktrees for all stages"), and
-drove it afterwards with "status", "resume phase 3", and "pause after
-phase 2"; "what plan is not finished yet" was asked in two sessions on one
-day. The improvised loop also drifted: over the first two phases of the
-protobuf tree refactor the coordinator loaded `implement`, `delegate`, and
-`compound` once each and never `plan` or `review`, whose work went to
-workers as hand-written briefs, and both phases were reviewed and fixed
-with no `review` field written, the verdict `land` refuses to merge
-without. `drive` therefore names the stage and loads the skill that owns it,
+the order. A plan, implement, review, compound loop per phase, with each
+stage in its own worktree, is the same sequence every time, and
+improvising it drifts: a coordinator skips loading `plan` or `review`,
+hands their work to workers as hand-written briefs, and leaves no
+`review` field, the verdict `land` refuses to merge without. `drive` therefore names the stage and loads the skill that owns it,
 restating none of their rules, so a correction to a stage still has one
 place to go. Its state is `plan-state.py` over the parent's `Landed:`
 lines and the phase plans' frontmatter, the fields the other skills
-already write, for the reason the ledger exists: that coordinator's
-transcript reached 5 MB, and a resumed session has to find its place
-without it. A phase whose last commit is on `main` needs no stage, since
+already write, for the reason the ledger exists: a long coordinator's
+context does not survive compaction, and a resumed session has to find
+its place without it. A phase whose last commit is on `main` needs no stage, since
 `land` gated it there and older phases predate the `review` and
 `compound` fields. A dependent phase waits until its predecessor's review
 and compound are done: a `Landed:` range records implementation only, and
-starting the dependent then let the predecessor's review fix loop rewrite
-files both phases owned. The skill stops before `land`, which stays a person's
+starting the dependent then lets the predecessor's review fix loop rewrite
+files both phases own. The skill stops before `land`, which stays a person's
 request like every other merge into `main`.
 
-The integration branch is `main`. The skills named `master` until
-2026-09-15, so `--base master` and `master..HEAD` failed in this
-repository, and sessions passed explicit paths instead.
+The integration branch is `main`. `--base master` and `master..HEAD` fail
+in this repository.
 
-End a report with a question, not with an offer. A scan of 2,390 session
-transcripts for this repository found 89 turns where a report ended on an
-open statement and the user typed the obvious next step by hand: 43 times
-"merge" or "commit and merge" after "the verifier passed, nothing is
-committed", 13 times "ok" after "confirm and I'll write the plan", and
-about 28 times "go" or "continue" after "say the word". Another 46
-questions were asked in prose and answered with a number or a word. The
-question tool was already in use where a skill named it and absent where
-the skill said "the user asks for `review`". So the rule sits once in
+End a report with a question, not with an offer. A report that ends on
+an open statement ("the verifier passed, nothing is committed", "say the
+word") makes the reader type the obvious next step by hand, and a
+question asked in prose gets answered with a bare number. An agent uses
+the question tool where a skill names it. So the rule sits once in
 `AGENTS.md`, and each skill's last step names the options its outcome
 leaves, the recommended one first: `plan` offers implementation or a
 fresh session, `implement` offers `review`, `review` offers `compound` or
 the fix loop by verdict, `compound` offers `land`, and `land` offers to
 run a missing checkpoint's skill. Nothing runs on its own: a step that
 runs itself after every other step produces work nobody asked for, and
-the five cases in the scan where the user redirected instead of accepting
-are the reason each question keeps a "stop here" option. A delegated
+a reader sometimes redirects instead of accepting, so each question
+keeps a "stop here" option. A delegated
 worker never asks, because a worker waiting on an answer looks like one
 that is working. Each option states its tradeoff, not only the
-recommended one its reason: on 2026-09-26 a styling choice offered as
-three bare names was rejected twice with "I dont see your tradeoffs"
-before a table of them was written in prose.
+recommended one its reason, because a choice offered as bare names
+cannot be made without asking what each costs.
 
 Pick the next work from files, and finish before starting. `next` exists
-because the question "what now" was being answered from a session's memory
-of plans it had read, across 75 plan files in two unit formats. The tools
+because "what now" otherwise gets answered from an agent's memory of the
+plans it happened to read, across dozens of plan files in two unit formats. The tools
 that answer it well agree on the shape: Task Master's `next` and Beads'
 `bd ready` compute the set whose dependencies are met from a store, never
 from the model's recall, and rank inside it; both ship the listing as a
@@ -741,7 +713,7 @@ command because a model re-reading every file is slow and drifts. So
 lines, the ledger, and the unmerged branches that touch a plan, and the
 skill reads its output. Work in progress outranks ready work, the Kanban
 rule of limiting what is open; a plan another branch already changes is
-flagged, since a phase was once implemented twice from two worktrees. The
+flagged, since two worktrees can otherwise implement the same phase. The
 prior art has no answer for "nothing is planned": none of the surveyed
 tools compares plans with stated goals, and that comparison is where an
 agent invents a roadmap. `GOALS.md` is the guard: one line per decided
@@ -754,9 +726,9 @@ from one coordinating session that loaded `plan`, `implement`, `review`,
 and `compound` in turn. It now hands each stage to a worker session, the
 two properties GSD's `auto` and the Ralph pattern share being a fresh
 context per step and progress read from files at the start of every
-round; the coordinator keeps the state command's output, the merges, and
+round. The coordinator keeps the state command's output, the merges, and
 the verifier. A plan without phases goes through the same four stages,
-because the loop typed by hand was the same for it. The per-unit ledger
+because its loop is the same. The per-unit ledger
 lives in the implement worker's git directory, so `drive` reads it before
 the child worktree goes and reports it as the gate `land` would have
 read. Each stage worker takes one slot of `delegate`'s cap and holds a
@@ -773,14 +745,13 @@ markers, no over-verification scaffolding, and descriptions inside the
 length limit. What it changed was shape: a rule buried in the middle of a
 paragraph became a numbered step or a table row, an output contract
 stated at the top and the bottom of an agent definition became one
-section at the end, and an incident became its one-clause reason. Two
-incidents left `verify-change` that way: the gate list is closed because
-a coordinator restating it from memory once left lint out, and the
-script is the last command of a background invocation because a session
-announced a green verifier over a log holding two `FAIL` lines, the
-trailing `tail` having supplied the exit code. Dates stay out of skills
-and agent definitions except in format examples; this document keeps
-them, since they say when a decision's evidence was last checked.
+section at the end, and a story became its one-clause reason. In
+`verify-change` the gate list is closed because a list restated from
+memory drops gates, and the script is the last command of a background
+invocation because a trailing `tail` supplies its own exit code over a
+log that holds `FAIL` lines. Dates stay out of skills and agent
+definitions except in format examples. This document keeps them where
+they say when published evidence was last checked.
 
 Report outcome first. Each skill's report step leads with the verdict or
 result and keeps the rest to a short ordered list, which is what readers of

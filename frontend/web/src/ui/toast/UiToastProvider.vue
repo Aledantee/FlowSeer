@@ -31,14 +31,14 @@ const { toasts, dismiss, remove } = useToast()
         (val) => {
           if (!val) {
             dismiss(item.id)
-            remove(item.id)
           }
         }
       "
+      @closed="remove(item.id)"
       @action="item.action?.onClick?.()"
     />
     <ToastViewport
-      class="fixed bottom-0 right-0 z-50 flex flex-col p-4 gap-2 w-full max-w-[420px] pointer-events-none"
+      class="fixed bottom-0 right-0 z-(--z-toast) flex flex-col p-4 gap-2 w-full max-w-[420px] pointer-events-none"
     />
   </ToastProvider>
 </template>

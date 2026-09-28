@@ -10,8 +10,9 @@ import { placeAsk, visibleRect } from './geometry'
 import type { Rect } from './geometry'
 
 // One overlay per app or Storybook canvas. It draws the compact AI button in
-// the top-right corner of whichever target is selected, hovered, or focused,
-// and hosts the prompt and answer. It is pointer-transparent except
+// the top-right corner of whichever target is selected or focused, and hosts
+// the prompt and answer. Pointer hover reveals nothing: a button that chased
+// the pointer across every row and chart was noise, not an entry point. It is pointer-transparent except
 // for the Ask button, so rows, charts, and panes keep their own controls and
 // tab order.
 
@@ -26,17 +27,13 @@ const selected = computed<AiTargetView | undefined>(() => {
   void version.value
   return registry.selection()
 })
-const hoveredId = ref<string>()
 const focusedId = ref<string>()
 let lastFocusedTargetId: string | undefined
 let lastFocusedElement: HTMLElement | undefined
-const hovered = computed(() =>
-  hoveredId.value ? registry.view(hoveredId.value) : undefined,
-)
 const focused = computed(() =>
   focusedId.value ? registry.view(focusedId.value) : undefined,
 )
-const active = computed(() => focused.value ?? selected.value ?? hovered.value)
+const active = computed(() => focused.value ?? selected.value)
 
 const open = ref(false)
 const openForId = ref<string>()
@@ -159,18 +156,6 @@ function handleFocusOut(event: FocusEvent) {
     return
   focusedId.value = undefined
 }
-function handlePointerOver(event: PointerEvent) {
-  hoveredId.value = nearTarget(event.target as Node | null)?.target.id
-}
-function handlePointerOut(event: PointerEvent) {
-  const next = event.relatedTarget as Node | null
-  if (
-    next &&
-    (hovered.value?.element.contains(next) || layerRoot.value?.contains(next))
-  )
-    return
-  hoveredId.value = undefined
-}
 function handleKeydown(event: KeyboardEvent) {
   if (!event.altKey || event.ctrlKey || event.metaKey || event.code !== 'KeyA')
     return
@@ -195,8 +180,6 @@ onMounted(() => {
   document.addEventListener('scroll', measure, true)
   document.addEventListener('focusin', handleFocusIn)
   document.addEventListener('focusout', handleFocusOut)
-  document.addEventListener('pointerover', handlePointerOver)
-  document.addEventListener('pointerout', handlePointerOut)
 })
 onUnmounted(() => {
   unsubscribe()
@@ -206,8 +189,6 @@ onUnmounted(() => {
   document.removeEventListener('scroll', measure, true)
   document.removeEventListener('focusin', handleFocusIn)
   document.removeEventListener('focusout', handleFocusOut)
-  document.removeEventListener('pointerover', handlePointerOver)
-  document.removeEventListener('pointerout', handlePointerOut)
 })
 
 const prompt = ref('')

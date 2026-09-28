@@ -26,3 +26,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-28 implement: nothing stops a test-side accessibility suppression
+Skill or agent: `.agents/skills/implement/SKILL.md`, step 2 (Work the units), and `AGENTS.md` hard boundaries.
+What happened: nothing in `implement` step 2 or the verifier stops a unit from making a failing accessibility audit pass by stripping attributes such as `aria-hidden` in test setup (the audit lives in `frontend/web/src/ui/a11y.test.ts`). The `AGENTS.md` hard boundary forbids that suppression, but only in prose, so only review catches it.
+Suggested change: enforce the suppression ban through an automated check under `test/conformance/` or a pre-commit hook that flags attribute stripping and disabled rules in test files, rather than relying on prose.

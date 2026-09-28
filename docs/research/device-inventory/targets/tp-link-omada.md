@@ -49,7 +49,7 @@ Controller.
 | SNMP (switches, EAPs) | UDP, versions vary by model | MIBs not checked in this pass; not found in `spec/mib/` | Firmware-tied |
 | EAP standalone SSH | SSH, vendor-documented command set | "SSH Commands Guide for Omada AP" referenced by support articles, not fetched in this pass [13] | Firmware-tied |
 
-The brief's two path shapes both exist but serve different generations of the API: `/openapi/v1/
+The two expected path shapes both exist but serve different generations of the API: `/openapi/v1/
 {omadacId}/sites/...` is the current Open API, while `/{omadacId}/api/v2/...` is the legacy,
 undocumented Web API that the controller's own front end still uses [2][10]. TP-Link's own community
 documentation hub distinguishes them as "Web API" (legacy, changes across controller versions) and
@@ -219,8 +219,7 @@ is a different channel from a controller push API.
     27002/27017 as older controller-information/database ports, both superseded by TCP 27217
     (MongoDB, v3.x and above, and the Software Controller's local MongoDB port in the current
     generation) [3][23].
-  - The brief also names DNS name resolution of the hostname `omada` as a discovery mechanism; no
-    source fetched in this pass documents this explicitly. unverified: whether Omada devices
+  - DNS name resolution of the hostname `omada` as a discovery mechanism: no source fetched in this pass documents this explicitly. unverified: whether Omada devices
     attempt to resolve `omada` (or `omada.<searchdomain>`) as a controller-discovery fallback,
     analogous to Ubiquiti's `unifi` DNS convention.
   - **Zero-Touch Provisioning**: available from Controller v5.15.24 onward, using per-device "device

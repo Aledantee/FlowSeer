@@ -15,8 +15,7 @@ the planes, the entities, and NATS as the fabric; it leaves the execute path
 itself at "every write carries an idempotency key" and an open question on
 credential delivery. This record settles the rest so that the schema, the
 edge module, and the central service can be planned one at a time and still
-meet in the middle. It was worked out in a planning session on 2026-09-05
-against the tree at that date; the decisions the user directed are marked.
+meet in the middle. It was checked against the tree as of 2026-09-05.
 
 ## Context
 
@@ -37,34 +36,32 @@ interface description on that switch.
    from live evidence keyed by device, exact firmware fingerprint, and
    operation. SNMP is the cold-start prior and the tie-breaker; an SNMP read
    that is valid but incomplete for the operation falls through to a complete
-   route and the caller gets one result with one provenance. User-directed.
+   route and the caller gets one result with one provenance.
 2. **Every write has an independent semantic verification.** A write
    capability is advertised only with a read that observes the affected state
    over a fresh session and compares it with the intent. An idempotency key
    deduplicates a retry. Only the observation proves what the device applied.
-   User-directed.
 3. **One ordered lane per device at the edge.** Reads, probes, mutations,
    verification, and recovery for one device share one FIFO; passive traps and
    syslog stay outside it. Priority applies at admission and never reorders
-   after a sequence is assigned. User-directed.
+   after a sequence is assigned.
 4. **The central journal is the authority and the barrier.** A mutation is
    recorded centrally before any side effect, checkpointed as
    `POSSIBLY_APPLIED` before the command is submitted, and closed only by a
    durable terminal disposition central acknowledges back to the edge. The
    next mutation on that device waits for that acknowledgement. An edge
-   journal, if one ever exists, is a cache. User-approved.
+   journal, if one ever exists, is a cache.
 5. **Ambiguity stays indeterminate.** A lost connection after submission does
    not fail the mutation; it enters recovery, which observes before it
    retries and retries only after a device-native fence or repeated fresh
    observations across the declared delayed-apply horizon show the state
    unchanged. An authorized cancellation or a qualified timeout abandons it.
    Abandoned work stays abandoned; the recovery hold that follows is resolved
-   by an operator or a reconciliation intent. User-directed.
+   by an operator or a reconciliation intent.
 6. **Two management modes.** `OPERATOR_MANAGED` blocks the lane on an
    unexplained managed-field change until an operator accepts, restores, or
    replaces the intent. `AUTHORITATIVE` disposes interrupted work and queues
    an ordinary reconciliation intent. Both hold central expected state.
-   User-directed.
 7. **Firmware epoch gates writes.** Route and capability evidence is valid
    only in the epoch it was learned; an unknown or changed fingerprint blocks
    typed mutation and forces discovery without resetting the lane sequence.
@@ -72,7 +69,7 @@ interface description on that switch.
    a device, network, session, or host fence proves the predecessor cannot.
    Lease expiry alone is insufficient, because a paused process resumes
    after its time check. Until that exists, a deployment runs one edge per
-   local-network integration and loss of it pauses work. User-approved. The
+   local-network integration and loss of it pauses work. The
    Pacemaker documentation states the same rule: assuming an uncommunicative
    node is down lets "multiple instances of a resource" start
    ([Pacemaker Explained, Fencing](https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/fencing.html)).
