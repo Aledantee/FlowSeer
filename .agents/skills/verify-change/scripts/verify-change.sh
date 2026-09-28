@@ -204,6 +204,7 @@ proto_files=()
 proto_deleted=false
 proto=false
 hook_tooling=false
+guarantees=false
 mib=false
 service_otel_integration=false
 web=false
@@ -240,6 +241,7 @@ if [[ $full == true ]]; then
   done < <(find . -name '*.go' -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -not -path './generated/*' -not -path './frontend/web/generated/*' -print | sort)
   proto=true
   hook_tooling=true
+  guarantees=true
   mib=true
   service_otel_integration=true
   web=true
@@ -300,6 +302,10 @@ else
         service_otel_integration=true
         ;;
     esac
+    # The guarantees checker shells out to `go list` to resolve the tests a
+    # GUARANTEES.md cites, so a change beside one needs go on PATH even when
+    # no Go module is selected and the checks below would not add it.
+    [[ -f $(dirname "$path")/GUARANTEES.md ]] && guarantees=true
   done
 fi
 
@@ -470,6 +476,9 @@ fi
 if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
 fi
+if [[ $guarantees == true ]]; then
+  required_tools+=(go)
+fi
 if [[ $proto == true ]]; then
   required_tools+=(buf)
 fi
@@ -542,7 +551,7 @@ fi
 
 if ((${#markdown_files[@]})); then
   need_tool python3
-  run python3 .claude/skills/verify-change/scripts/check-markdown-links.py "${markdown_files[@]}"
+  run python3 "$script_dir/check-markdown-links.py" "${markdown_files[@]}"
 fi
 
 if ((${#go_files[@]})); then
@@ -842,11 +851,21 @@ if [[ $hook_tooling == true ]]; then
   need_tool shellcheck
   run jq empty .claude/settings.json
   run jq empty .codex/hooks.json
-  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/verify-change/scripts/*.sh .claude/skills/delegate/scripts/*.sh)
+  # Glob every skill's scripts rather than naming the ones that existed
+  # when this line was written: a shell script added to any other skill
+  # would otherwise ship unlinted while still selecting this gate.
+  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/*/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
   if [[ -x tools/hooks/tests/run.sh ]]; then
     run tools/hooks/tests/run.sh
   fi
+  # A skill script with no test_*.py beside it (plan-deviations.py,
+  # plan-queue.py) is imported by nothing, so a syntax error in one passes
+  # the shellcheck and unittest gates below. Compiling every skill script
+  # parses each; the set is tiny. -X pycache_prefix sends the bytecode to
+  # the throwaway build dir: PYTHONDONTWRITEBYTECODE does not stop
+  # py_compile from writing a __pycache__ beside the source.
+  run python3 -X "pycache_prefix=$build_dir/pycache" -m py_compile .claude/skills/*/scripts/*.py
   for test_dir in .claude/skills/*/scripts; do
     test_files=("$test_dir"/test_*.py)
     [[ -f ${test_files[0]} ]] || continue
