@@ -284,4 +284,12 @@ Waves: U1 | U2
 
 ## Open questions
 
-None.
+- Parked by drive: how does the `UiSelect` open-state audit pass without
+  `runAudit` in `frontend/web/src/ui/a11y.test.ts` stripping every
+  `aria-hidden` that Reka's `hideOthers` set, which suppresses
+  `aria-hidden-focus` for every story? Options: run axe on the open
+  overlay's content element only, drop the global strip, and keep every
+  rule on | a scoped, documented exception for `aria-hidden-focus` on the
+  select audit entry alone. Recommended: axe on the content element,
+  because it needs no suppression, and the nodes Reka hides (trigger,
+  focus guards) sit outside the content by design.
