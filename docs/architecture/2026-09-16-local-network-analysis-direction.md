@@ -31,14 +31,32 @@ trace that is a value, and no state between frames.
   match wins and a set carries an explicit default action, the RFC 8519
   shape. A drop by a filter is a Complete domain outcome, as a port-down
   drop is.
-- **Statefulness is a reverse match over the configuration.** A stateful
-  set that does not accept a packet on its own rules accepts it when the reversed
+- **Statefulness is a reverse match over the configuration.** When no rule
+  of a stateful set matches a packet, the set accepts it if the reversed
   5-tuple would be accepted by the stateful set bound in the same direction
-  on the interface at the packet's other side: its egress interface for an
-  ingress binding, its ingress interface for an egress binding. The trace
+  on the interface at the packet's other side (its egress interface for an
+  ingress binding, its ingress interface for an egress binding), and
+  applies its own default otherwise. A matching rule of the set's own,
+  drop or reject included, is final, so a reply passes only when both sets
+  are stateful and the reply's set falls through to its default. The trace
   names the forward rule. This is the state a stateful firewall would hold
   for the forward packet, computed from the configuration instead of
   remembered, so the answer stays a function of configuration and frame.
+  The reversed packet is only a 5-tuple, so the reverse match tests a
+  rule's protocol, prefixes, and ports. An accept rule qualified by TCP
+  flags or an ICMP type accepts on its tuple alone; a drop or reject rule
+  qualified by one is skipped, because a condition the search cannot
+  evaluate must not end it and shadow a later accept.
+- **A filter binding rides on the interface in the schema.**
+  `flowseer.net.filter.v1.FilterFacet` is the `filter` field of the
+  `Interface` primitive and names at most one rule set per direction by
+  bare string (`in_set`, `out_set`). The `FilterRuleSet` values are
+  device-scoped, and `netmodel` reads them beside the interfaces. A binding
+  is a singular per-interface attribute, which the network model structure
+  record makes a facet embedded by value, as `IpFacet` is. A facet naming a
+  set the device does not define, or sitting on an interface with no IP
+  facet, loads with a non-fatal issue (`netmodel.filter.missing_set`,
+  `netmodel.filter.unbound_interface`).
 - **`reject` drops and generates nothing.** The reason distinguishes it
   from `drop`; no ICMP error leaves the switch.
 - **A routed sub-interface is a routing interface with a port and a VLAN.**
@@ -90,6 +108,10 @@ trace that is a value, and no state between frames.
   trunk is not a bridge member; the VLAN interface already covers a router
   on a stick over the bridge, and the routed-port path keeps the parent
   port's existing bans in force.
+- **Filter bindings as device-level rows**, in the manner of
+  `InterfaceAddress`. Rejected: a binding is an attribute of one interface
+  with one value per direction, and the structure record's tables are for
+  device-scoped state whose rows reference interfaces.
 - **Emitting ICMP on `reject`.** Deferred: it needs the switch to
   originate to a neighbor that may be unresolved and no workflow asks for
   it.
@@ -105,5 +127,11 @@ trace that is a value, and no state between frames.
   collector reports snooping state.
 - The fabric has two endpoint kinds. Adding a third that reacts is a new
   decision against this record, not an extension of the reflector.
-- The plan that implements this record is
-  `docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md`.
+
+Landed 2026-09-16: the `udp`, `tcp`, and `icmp` codecs in `src/common/net`,
+the mDNS flooding conformance cases in `src/common/netsim/internal/netsimtest`,
+and routed sub-interfaces in `src/common/netsim/vswitch/routing` and
+`vswitch/netmodel`. Landed 2026-09-17: `fabric.Reflector` in
+`src/common/netsim/fabric`. Landed 2026-09-19: the filter capability in
+`src/common/netsim/vswitch/filter`, the `flowseer.net.filter.v1` schema, its
+`netmodel` translation, and the filter corpus cases.

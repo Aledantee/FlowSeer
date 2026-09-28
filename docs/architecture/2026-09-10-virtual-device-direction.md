@@ -920,6 +920,11 @@ The following areas remain outside the foundation established here:
   or incomplete neighbor entry never moves through `Delay` or `Probe` toward
   a fresh answer; the `Reachable` cache is trusted until it ages out or a
   received advertisement changes it.
+- **Firewall and reflector depth**: NAT, connection tracking, ICMP error
+  generation for a `reject` rule, DNS-aware mDNS reflection, and a
+  multicast snooping schema in the network model, all of which the
+  [local network analysis record](2026-09-16-local-network-analysis-direction.md)
+  leaves out.
 - **Packet-generation search spaces**: automated input generation and
   multi-journey exploration budgets for reachability search.
 - **The runtime cable fault lives in `fabric.Config`**: `SetFault` writes
