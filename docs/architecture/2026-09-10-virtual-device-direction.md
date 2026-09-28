@@ -219,6 +219,15 @@ rebuilds a switch or a fabric from a target construction specification,
 carries forward only the runtime state each capability layer's retention key
 says still applies, and starts a fresh run rather than continuing one.
 
+`Fabric.Configure` is a fourth operation, and the only one that changes
+configuration without leaving the run. It replaces one switch's configuration
+at the fabric clock, refuses the change unless the whole fabric would still
+construct, and rebuilds that switch through `vswitch.Derive`, so the retention
+keys decide what it keeps. The other switches, the cables, and every queued or
+in-flight frame stay as they are, and a frame that reaches the switch afterwards
+meets the new configuration. A mutation is applied one device at a time, and
+the state between two devices is what this operation exists to show.
+
 `Fork`'s copy rule follows from what each field is, not from a rule written
 once and trusted. Construction fixes some fields and execution mutates the
 rest, so every field of `Switch`, `Bridge`, and `Fabric` carries one of three
@@ -970,6 +979,10 @@ starts a fresh run from an updated specification, in-run configuration modifies 
 switch in place and continues the existing simulation run. Unaffected switches,
 cables, and in-flight traffic remain in place, while `vswitch.Derive` decides what
 state and learned records the reconfigured switch keeps.
+
+Landed 2026-09-28: `Fabric.Configure` and the scenario action `ActionConfigure`
+in `src/common/netsim/fabric`. The "State ownership, forking, and snapshots"
+section now names the operation beside the other three.
 
 ### 2026-09-28 — Spanning tree and LACP leave the capability gaps
 
