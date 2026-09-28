@@ -929,7 +929,8 @@ boundary happened to define it first.
 
 ### 2026-09-17 — the edge plane is its own root
 
-Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md`.
+Landed 2026-09-17: edge plane root split (`edge/attach`, `edge/capture`,
+`edge/dispatch`, `edge/audit`, and `event/access`) in `spec/proto/flowseer`.
 
 - **The edge-facing Connect services move to `edge/`.** `EdgeService` moves
   from `api/edge/v1` to `edge/attach/v1`, leaving `api/edge/v1` holding
