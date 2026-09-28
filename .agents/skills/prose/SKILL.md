@@ -41,12 +41,23 @@ A pattern quoted as an example goes in backticks on one line. Indented text
 is checked, since in this repository it is almost always a list
 continuation.
 
-Only literal markers of an agent run fail: `(session history)`,
-`session-settled`, a `user-directed:` tag, `(user, <date>)`, or a
-Claude, Codex, or worker transcript cited as a source. Softer cues such as
-`the user chose X over Y` or `the review agent found` also occur in product
-prose, so they print as `possible provenance` warnings and need your
-judgment. `scripts/test_check_prose.py` holds a flagged case for every
+Only literal markers of an agent run fail:
+
+- `(session history)`, `per the <date> session history`, `session-settled`
+- `(user, <date>)`
+- a `user-directed` or `user-decided` tag: `(user-directed`, `user-directed:`
+  or `user-directed)`, or `User-directed.` as a sentence of its own
+- a run tool's transcript or session history, in the forms
+  `per the <name> transcript`, `<name> transcript shows`, and
+  `<name> session history`, where `RUN_NAMES` in `scripts/check-prose.py`
+  lists the names (`claude`, `codex`, `worker`, …)
+
+Softer cues also occur in product prose, so they print as
+`possible provenance` warnings and need your judgment. They include
+`the user chose X over Y`, `the review agent found`, and the
+`user-approved` and `user-confirmed` tags, which double as product state
+labels. Matching is per line, so a marker wrapped across two lines is not
+caught. `scripts/test_check_prose.py` holds a flagged case for every
 marker and the product phrases that must pass. Add a case there when you
 change a marker.
 

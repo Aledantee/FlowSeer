@@ -28,7 +28,10 @@ APOS = "['’]"
 # over Telnet" are domain prose. Softer cues are in POSSIBLE_RUN and only
 # warn. Every entry holds one alternative, so test_check_prose.py pins each
 # entry with a case that fails without it.
-TAGS = ("directed", "approved", "confirmed", "decided")
+# Only these two tags block. "user-approved" and "user-confirmed" are also
+# product state labels ("user-approved firmware", "(user-approved or
+# vendor-signed)"), so they warn through POSSIBLE_RUN.
+TAGS = ("directed", "decided")
 RUN_NAMES = ("claude", "codex", "gemini", "opencode", "agy", "orca", "herdr", "worker", "coordinator", "subagent")
 
 PROVENANCE = [

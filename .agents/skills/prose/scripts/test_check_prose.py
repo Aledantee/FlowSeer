@@ -30,6 +30,8 @@ FLAGGED = [
     ("Per the 2026-08-16 session history, allocations fell.", "cites a session"),
     ("Chosen, session-settled, over a tree.", "cites a session"),
     ("Budget is fixed (user, 2026-09-25).", "attributes to a conversation"),
+    # An approved tag no longer blocks, but a session-settled prefix still does.
+    ("(session-settled: user-approved, chosen over X.)", "cites a session"),
 ]
 _TAG_CASES = {
     # "(user-X" opening a parenthetical, "user-X:" or "user-X)" closing a tag,
@@ -99,6 +101,9 @@ KEPT = [
     "user-approved firmware is installed on every switch.",
     "The firmware must be user-approved.",
     "Only user-approved firmware is installed.",
+    "Firmware images (user-approved or vendor-signed) are listed separately.",
+    "Roles are either inferred or user-confirmed).",
+    "- **user-approved:** an image an operator signed off.",
     "The end user's decision to opt out is stored.",
     "The worker reported an error.",
     "The worker found no items and returned.",
