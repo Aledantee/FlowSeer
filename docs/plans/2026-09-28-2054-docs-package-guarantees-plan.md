@@ -245,3 +245,21 @@ Then rename `TestRunOutputCapTruncates` in
   plan's outcome note shows the stop condition did not trigger.
 - Whether to add `docs/conventions/guarantees.md` to `AGENTS.md`'s
   Conventions list; propose it through `steer` after the follow-up lands.
+- Parked by drive: review ended `rework` after three fix rounds. The
+  checker's Markdown handling failed open in every round (a `---` setext
+  underline, an indented code block, `## Parses C#`), and test lookup
+  counts files Go never compiles (`_foo_test.go`, `//go:build ignore`)
+  while missing valid signatures such as `(*testing.T)` or an aliased
+  `testing` import. How should the checker be re-planned? Options: strict
+  line grammar plus `go list` (every `GUARANTEES.md` line must be one of
+  the allowed kinds or it is an error, and tests resolve from `go list`'s
+  `TestGoFiles`/`XTestGoFiles` plus the Go lexer; closes both failure
+  classes, tightens the Decisions' block format, and the check needs Go
+  on PATH) | accept the current checker (land now with the seven round-3
+  findings recorded as known gaps; the gate can pass a malformed file or a
+  test Go never runs) | swap the lookup for `go test -list` (build tags
+  handled exactly, but it compiles each package and slows every verifier
+  run; the Markdown class stays open). Recommended: strict line grammar
+  plus `go list`, because a grammar that rejects every unknown line fails
+  closed by construction, which three rounds of CommonMark patching did
+  not.
