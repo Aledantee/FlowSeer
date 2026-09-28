@@ -36,7 +36,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	outDir := fs.String("out", defaultOutDir, "output directory for generated packages")
 	verify := fs.Bool("verify", false, "load-only: parse config and resolve all vendor trees, then exit 0 (no codegen)")
 	check := fs.Bool("check", false, "compare the committed lockfile against freshly-hashed sources; exit 1 on drift")
-	fs.Bool("update", false, "regenerate all configured modules and refresh the lockfile (the default)")
+	fs.Bool("update", false, "regenerate all configured modules, refresh the lockfile, and tidy the output module (the default)")
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: yanggen [flags]")
@@ -92,6 +92,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "no lockfile under %s — run yanggen to generate\n", *outDir)
 			return 1
 		}
+		modDrift, err := checkGoMod(*outDir)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		if len(modDrift) > 0 {
+			fmt.Fprintf(stderr, "go.mod under %s drifted from generator output:\n", *outDir)
+			for _, d := range modDrift {
+				fmt.Fprintf(stderr, "  %s\n", d)
+			}
+			return 1
+		}
 		flagged, versionMismatch := DiffLockfiles(committed, BuildLockfile(sets))
 		if versionMismatch {
 			fmt.Fprintf(stderr, "generator version drift: lockfile %q, binary %q — full regeneration required\n",
@@ -113,6 +125,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		if err := WriteLockfile(BuildLockfile(sets), *outDir); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		if err := writeGoMod(*outDir); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}

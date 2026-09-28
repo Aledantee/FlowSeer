@@ -80,6 +80,26 @@ anyway and the split buys nothing; today no non-test file does.
   packages, 6.2 MB) stay in the root module. Why: they are about 5% of the YANG
   tree's size, and production code under `src/` imports them, so a split would
   remove no compile work.
+- Ruled: `yanggen -check` compares only the statements yanggen writes (module
+  path, go directive, the root require, the replace), not the whole go.mod
+  text. Why: `go mod tidy` adds indirect requirements (protobuf, otel,
+  xxhash) and a require block, so the tidied file never equals the rendered
+  one. Cost if wrong: `checkGoMod` in yanggen and its table test.
+- Ruled: yanggen finds the root module by walking up from the output directory
+  to the first `go.mod` naming `go.aledante.io/FlowSeer`, and derives the
+  module path and the replace target from that. Why: `-out` stays a free flag
+  and the golden test runs in a temporary tree. Cost if wrong:
+  `resolveOutputModule` only.
+- Ruled (user): yanggen output is nondeterministic on `main`, and this plan
+  does not fix it. goyang applies augments in `Modules` map order
+  (`goyang@v1.6.3/pkg/yang/modules.go`), so when two modules augment one node
+  with a same-named child (`Cisco-IOS-XE-ethernet` and `Cisco-IOS-XE-switch`
+  `macsec`, `openconfig-if-poe` and `icx-openconfig-if-poe-aug` `poe`), each
+  run picks a different winner in `ciscoiosxenative`,
+  `cisco-iosxe/openconfigsystem`, and `ruckus-icx/openconfiginterfaces`. This
+  plan commits only the new module files and keeps the committed bindings.
+  Requirement 3 reads accordingly. Cost if wrong: none here; the fix is its
+  own plan.
 
 ## Requirements
 
@@ -92,7 +112,9 @@ anyway and the split buys nothing; today no non-test file does.
    that one package.
 3. `go -C generated/go/yang build ./...` succeeds from a clean regeneration.
    Example: `go run ./src/protocol/yang/cmd/yanggen -update` followed by
-   `git status --short generated/go/yang` shows no diff.
+   `git status --short generated/go/yang/go.mod generated/go/yang/go.sum`
+   shows no diff. The binding files themselves can differ run to run (see the
+   nondeterminism ruling in Decisions).
 4. For a change to `src/common/errs/errs.go`, the verifier does not build the
    YANG module. Example: its output has no `== Dependent module: generated/go/yang` line.
 5. For a change to `src/protocol/yang/schema.go`, the verifier builds the YANG
@@ -170,6 +192,9 @@ Waves: U1 | U2 U3
 
 ## Open questions
 
-- Whether `yanggen` should shell out to `go mod tidy` or compute `go.sum`
-  itself. Shelling out is the default. Change it only if the generator's
-  golden tests cannot run hermetically with the shell-out.
+- Which augment wins when two modules add a same-named child to one node, so
+  yanggen output becomes deterministic. It needs its own plan: a conflict rule,
+  a skip entry, or sorting goyang's input.
+- Resolved: `yanggen` shells out to `go mod tidy`. The golden test covers the
+  pre-tidy text, and the `-check` test writes its go.mod directly, so neither
+  runs the shell-out.
