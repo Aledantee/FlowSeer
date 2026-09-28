@@ -186,7 +186,7 @@ That covers casing. The rules the compiler does not check still stand:
   window while breaking checks are suspended, a one-time reviewed collapse removed
   every reserved tombstone under `spec/proto/flowseer/` and renumbered the remaining
   fields and enum values to contiguous
-  (plan: `docs/plans/2026-08-26-1856-refactor-proto-docs-standards-cleanup-plan.md`).
+  (one-time collapse on 2026-08-26 across `spec/proto/flowseer/`).
   From the first stable release onward the prohibition is absolute.
 - Until the first stable release, a reshape that improves the design is required,
   not merely allowed: move fields between messages, split a flat facet into typed
