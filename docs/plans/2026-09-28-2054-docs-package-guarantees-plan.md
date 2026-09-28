@@ -3,7 +3,7 @@ title: Package Guarantees - Plan
 type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: implemented
 review: rework
 execution: mixed
@@ -37,6 +37,18 @@ unproven prose, and the format or the check is redesigned before the
 follow-up plan is written.
 
 ## Decisions
+
+- The checker reads `GUARANTEES.md` with a strict line grammar and resolves
+  tests through `go list` (decided by the user, 2026-09-28, after review
+  ended `rework`). Every line must be one of the kinds the format allows,
+  or the check fails on it; cited tests resolve from the package's
+  `TestGoFiles` and `XTestGoFiles` as `go list` reports them, scanned with
+  the Go lexer. Why: three review rounds of patching a CommonMark subset
+  kept failing open (a setext underline, an indented code block, `#` in a
+  heading), and a file lookup counted `_foo_test.go` and
+  `//go:build ignore` files Go never compiles. A grammar that rejects
+  every unknown line fails closed by construction. The check needs Go on
+  PATH, as the lexer's oracle test already does.
 
 - Guarantees live in `GUARANTEES.md` beside the package's `README.md`, not
   in the README. Why: the README is written for a person learning the
@@ -245,21 +257,3 @@ Then rename `TestRunOutputCapTruncates` in
   plan's outcome note shows the stop condition did not trigger.
 - Whether to add `docs/conventions/guarantees.md` to `AGENTS.md`'s
   Conventions list; propose it through `steer` after the follow-up lands.
-- Parked by drive: review ended `rework` after three fix rounds. The
-  checker's Markdown handling failed open in every round (a `---` setext
-  underline, an indented code block, `## Parses C#`), and test lookup
-  counts files Go never compiles (`_foo_test.go`, `//go:build ignore`)
-  while missing valid signatures such as `(*testing.T)` or an aliased
-  `testing` import. How should the checker be re-planned? Options: strict
-  line grammar plus `go list` (every `GUARANTEES.md` line must be one of
-  the allowed kinds or it is an error, and tests resolve from `go list`'s
-  `TestGoFiles`/`XTestGoFiles` plus the Go lexer; closes both failure
-  classes, tightens the Decisions' block format, and the check needs Go
-  on PATH) | accept the current checker (land now with the seven round-3
-  findings recorded as known gaps; the gate can pass a malformed file or a
-  test Go never runs) | swap the lookup for `go test -list` (build tags
-  handled exactly, but it compiles each package and slows every verifier
-  run; the Markdown class stays open). Recommended: strict line grammar
-  plus `go list`, because a grammar that rejects every unknown line fails
-  closed by construction, which three rounds of CommonMark patching did
-  not.
