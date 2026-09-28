@@ -118,25 +118,38 @@ async function openOverlay(
   }
 
   const selector = `[role="${overlayAudit.role}"]`
-  const content = document.body.querySelector(selector)
+  const candidates: Element[] = []
+  const seen = new Set<Element>()
+  document.body.querySelectorAll(selector).forEach((el) => {
+    let root: Element = el
+    while (root.parentElement && root.parentElement !== document.body) {
+      root = root.parentElement
+    }
+    if (seen.has(root)) return
+    seen.add(root)
+    if (
+      root.matches('[data-ai-ask-panel]') ||
+      root.querySelector('[data-ai-ask-panel]') !== null
+    ) {
+      return
+    }
+    candidates.push(root)
+  })
+
   expect(
-    content,
+    candidates,
     `Expected the accessibility audit story to render ${selector} in document.body`,
-  ).not.toBeNull()
+  ).toHaveLength(1)
   expect(
     overlayAudit.container.querySelector(selector),
     `Expected ${selector} to render outside the story mount container`,
   ).toBeNull()
   await settle()
-  if (!content) {
+  const candidate = candidates[0]
+  if (!candidate) {
     throw new Error(`Expected ${selector} in document.body`)
   }
-
-  let root: Element = content
-  while (root.parentElement && root.parentElement !== document.body) {
-    root = root.parentElement
-  }
-  return root
+  return candidate
 }
 
 function box(): DOMRect {
@@ -340,8 +353,8 @@ describe('accessibility (axe-core)', () => {
           }
 
           const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
-          // Audit the overlay's portalled root; Reka hides the trigger and
-          // focus guards outside it.
+          // Audit the overlay's portalled root; the trigger and Reka's focus
+          // guards sit outside it.
           const auditElement = overlayAudit
             ? await openOverlay({ container, ...overlayAudit })
             : document.body
