@@ -52,10 +52,12 @@ package-level declarations and static schema data through `jennifer`, in the
 same shape as `mibgen`. Generated behavior that differs only in type parameters
 lives in the runtime as a generic helper, not in repeated emitted code — for
 example `StructRowCodec` and `NestedRowCodec` in
-`src/protocol/yang/structops.go`. Generated names follow Go naming: the package
-is part of the identity, so a type takes the shortest suffix unique in its
-package, and one type is emitted per distinct subtree shape. Both rules are in
-[`docs/code-style.md`](../../docs/code-style.md) under Project layout.
+`src/protocol/yang/structops.go`, a rule
+[`docs/code-style.md`](../../docs/code-style.md) states under Project layout.
+Generated names follow Go naming: the package is part of the identity, so a
+type takes the shortest suffix unique in its package, and one type is emitted
+per distinct subtree shape
+([`src/protocol/yang/cmd/yanggen/doc.go`](../../src/protocol/yang/cmd/yanggen/doc.go)).
 
 Adopting `ygot` lost because it emits no NETCONF XML and fails outright on the
 full IOS-XE native tree (`openconfig/ygot` issue 888), and because its output
@@ -84,11 +86,14 @@ lifecycle every other collection primitive has.
 ## Lab hardware is the validation authority
 
 Conformance capture runs against real devices, the way the SNMP quirk corpus
-does. NETCONF and RESTCONF validate against IOS-XE and ICX; gNMI validates
-against an Arista vEOS-lab node, because AOS-CX gNMI is telemetry-oriented and
+does. NETCONF validates against a Cisco CSR1000v on IOS-XE, RESTCONF against a
+Ruckus ICX7150, and gNMI against
+ an Arista vEOS-lab node, because AOS-CX gNMI is telemetry-oriented and
 no lab Aruba serves the protocol. The Aruba-specific write criterion is a
 recorded accepted-risk gap in the gNMI conformance corpus, and Set is proven on
-Arista instead. Container-tier reference servers (netopeer2, clixon, a gNMI
+Arista instead. The NETCONF candidate/commit cycle is proven only on netopeer2:
+the CSR1000v advertises writable-running and no candidate datastore, so no
+hardware has exercised it (`src/protocol/netconf/CONFORMANCE.md`). Container-tier reference servers (netopeer2, clixon, a gNMI
 reference target) gate the libraries before lab work; live-device suites are
 env-var gated and skip when unset.
 

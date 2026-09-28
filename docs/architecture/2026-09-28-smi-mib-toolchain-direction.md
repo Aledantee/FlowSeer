@@ -33,7 +33,8 @@ error, since it is a participle grammar with no recovery. Two vendored IEEE
 MIBs carried local patches to dodge that panic. A fork would buy the `BITS`
 number and the panic fix but not declaration-level recovery, a graded
 diagnostic catalogue, or a loader free of package-level state. The corpus of
-1,695 vendored MIBs across twelve vendors is the leniency bar, and it is not an
+about 1,700 vendored MIBs across twelve vendor and standards-body
+directories is the leniency bar, and it is not an
 adoption target: a vendor MIB is never edited to make the toolchain accept it.
 
 The `gosmi` dependency survives only as a comparand in an isolated differential
@@ -43,8 +44,10 @@ module, so it cannot re-enter the main graph
 ## Diagnostics grade, the caller sets policy
 
 Every diagnostic carries a file, position, a stable `smi/...` code, and a
-severity. The parser assigns severity and stops early only on its
-diagnostic-count limit; it has no configurable abort threshold. The catalogue
+severity. The parser assigns severity and stops early only at a resource
+limit (source size, declaration count and size, nesting depth, enumeration
+members, diagnostic count), never because of a severity; it has no
+configurable abort threshold. The catalogue
 is a generated table, so a code's description and its coverage fixture are
 mechanically checkable. `mibgen` fails generation on a diagnostic absent from a
 committed per-module baseline and never on a recorded one, keyed on the code
@@ -59,7 +62,7 @@ points at the table it augments (`src/protocol/smi/model.go`). `mibgen` renders
 that as one typed field per index part in place of a raw OID suffix, a named Go
 key type per keyed textual convention in its declaring module, and a per-table
 descriptor holding the root OID, change indicator, and key type. A malformed
-index suffix leaves the typed key zero, sets a key-valid flag, and still
+index suffix leaves the typed key zero, reports `KeyValid()` false, and still
 delivers the row, because a decode error inside a generated walk stops the
 whole table
 ([`docs/solutions/architecture-patterns/key-resolution-degrades-and-reports-never-fails.md`](../solutions/architecture-patterns/key-resolution-degrades-and-reports-never-fails.md)).
@@ -79,11 +82,11 @@ the watcher keeps its own full-walk snapshot semantics.
 
 ## Landed
 
-Landed 2026-08-31: the hand-written parser replaced `gosmi` in
+Landed 2026-09-01: the hand-written parser replaced `gosmi` in
 `src/protocol/smi`, `mibgen` rendered from the resolved model, and the two
-patched IEEE MIBs were restored. Landed 2026-09-05: `INDEX` and `AUGMENTS`
-resolution in `src/protocol/smi/model.go`, typed row keys and per-table
-descriptors in `src/protocol/snmp`, and the `generated/go/mib/sysobjectid`
-identity package. Landed 2026-09-03: generated table walks stream selected
-columns instead of buffering the table root. Landed 2026-09-27: bulk walks
+patched IEEE MIBs were restored. Landed 2026-09-03: generated table walks
+stream selected columns instead of buffering the table root. Landed
+2026-09-05: `INDEX` and `AUGMENTS` resolution in `src/protocol/smi/model.go`,
+typed row keys and per-table descriptors in `src/protocol/snmp`, and the
+`generated/go/mib/sysobjectid` identity package. Landed 2026-09-27: bulk walks
 decode varbinds lazily in `src/protocol/snmp/session_engine.go`.

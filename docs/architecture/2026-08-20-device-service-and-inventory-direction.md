@@ -40,14 +40,17 @@ Integration, Binding, Placement.
 ## Why this and not the alternatives
 
 - **A protocol-transparent session facade** (`Get(path)`/`Set(path)` over SNMP,
-  NETCONF, RESTCONF, gNMI) is rejected; this confirms the YANG plan's KD4. The
+  NETCONF, RESTCONF, gNMI) is rejected, as the
+  [YANG protocol libraries record](2026-09-28-yang-protocol-libraries-direction.md)
+  also decides for its three libraries. The
   protocols diverge exactly where it matters (candidate/commit vs. immediate
   PATCH vs. gNMI Set; OIDs vs. YANG paths) and a common session either lies
   about transaction semantics or re-exposes every protocol through escape
   hatches. NAPALM's documented limit — normalized getters cap at the common
   subset and everything else drops to vendor-specific paths — is the concrete
   failure mode. The device service is the "thin facade later, when a real
-  caller wants one" that KD4 allowed for, at the *device/capability* level.
+  caller wants one" that the YANG layer left room for, at the
+  *device/capability* level.
 - **A library-level device facade in `src/common/`** is rejected. A service
   with owned protos keeps the surface a domain model we control, puts the
   protocol libraries behind a process boundary, and reuses decisions already on
@@ -536,8 +539,9 @@ for protobuf type renames.
    capability matrix as a hard rule, announce/execute/events, binding routing,
    error mapping, budgets, idempotency — so the protocol-library work knows
    what it is feeding.
-3. **Implement after the first protocol library is real and the R11 identity
-   read has been done by hand once.** That is the "real caller" KD4 asked for.
+3. **Implement after the first protocol library is real and a device
+   identity read has been done by hand once through it.** That is the real
+   caller a facade waits for.
 4. **Stand up NATS with the hardened profile from day one** (accounts,
    JWT auth, `sync_interval: always`, R3 on the hub, distinct JetStream domain
    per edge) — retrofitting durability and tenancy into a running fabric is
@@ -572,7 +576,7 @@ for protobuf type renames.
 ## Sources
 
 - Repository: `docs/code-style.md` §Project layout (`src/backend`, `src/edge`
-  named); Landed 2026-08-19: internal errs package in `src/common/errs`
+  named); [Error Wire Design](2026-09-04-error-wire-design-direction.md)
   (edge/backend split, Connect RPC, brokers, cross-boundary errors);
   `src/common/errs/doc.go` (wire payload: code, safe attributes, user message,
   hint, retry disposition); `src/protocol/snmp/doc.go` (Collection Primitives

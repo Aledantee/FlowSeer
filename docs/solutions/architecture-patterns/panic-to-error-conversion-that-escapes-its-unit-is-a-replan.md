@@ -21,12 +21,11 @@ the rule in [`docs/code-style.md`](../../code-style.md) Panics) converts each
 unsanctioned panic to something clause-compliant. The obvious conversion —
 return an `error` instead of panicking — is the one that most often broke,
 because a new `error` return is not a local change: it widens every caller up
-to the first frame that can handle it. The phase-1 refactor stated this stop condition directly: "This phase
-is wrong if a unit's propagation reaches an exported API the unit does not name.
-That has happened four times" — `scheduleDequeue`, `decodeNatural`,
-`mustSetOperStatus`, `newOIDCall`
-(Landed 2026-09-15: panic policy phase 1 in `docs/code-style.md` and non-test `src/` packages),
-and a fifth, `diag.Raise`, later withdrawn to phase 4.
+to the first frame that can handle it. The first phase of the panic-policy
+work, which landed on 2026-09-15, made this its stop condition: a unit whose
+propagation reached an exported API it did not name was re-planned. That
+happened four times (`scheduleDequeue`, `decodeNatural`, `mustSetOperStatus`,
+`newOIDCall`), and a fifth, `diag.Raise`, was later withdrawn to phase 4.
 
 ## The rule
 

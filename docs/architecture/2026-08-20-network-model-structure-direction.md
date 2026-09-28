@@ -688,7 +688,7 @@ documentation, API references).
 ### 2026-08-21 — no `core/v1`; typed address variants; provenance on the envelope
 
 Landed 2026-08-21: base protobuf types and conventions in
-`spec/proto/flowseer`, which wrote the first owned package and found that
+`spec/proto/flowseer`. That work wrote the first owned package and found that
 `core/v1`, as this record originally specified it, contradicted the record's
 own primitive/entity line.
 
@@ -717,8 +717,8 @@ own primitive/entity line.
 ### 2026-08-30 — the layer packages are named for their function
 
 Landed 2026-08-30: function-named layer packages (`net/switching`, `net/ip`),
-interface, and LLDP in `spec/proto/flowseer`, which opened by moving the two
-packages this record named after OSI layers.
+interface, and LLDP in `spec/proto/flowseer`. That work opened by moving the
+two packages this record named after OSI layers.
 
 - **`net/l2` is now `net/switching` and `net/l3` is now `net/ip`.** The section
   above conceded that function-named roots are what the survey found almost
@@ -797,8 +797,9 @@ diagnostics in `spec/proto/flowseer/net/phy/v1`.
 
 ### 2026-09-05 — the device-access boundary packages
 
-Landed 2026-09-05: device-access boundary packages in `spec/proto/flowseer/device/`
-and `spec/proto/flowseer/api/device/` under the [verified device access record](2026-09-05-verified-device-access-direction.md).
+Landed 2026-09-10: device-access boundary packages in what were then
+`spec/proto/flowseer/device/` and `spec/proto/flowseer/api/device/` (the
+2026-09-17 re-cut below moved them under `model/`), under the [verified device access record](2026-09-05-verified-device-access-direction.md).
 
 - **The boundary names the 2026-09-04 amendment left open are settled.**
   `api/device/v1` is the operator-facing Connect service; `device/policy/v1`
@@ -932,7 +933,7 @@ boundary happened to define it first.
 
 ### 2026-09-17 — the edge plane is its own root
 
-Landed 2026-09-17: edge plane root split (`edge/attach`, `edge/capture`,
+Landed 2026-09-17 to 2026-09-18: edge plane root split (`edge/attach`, `edge/capture`,
 `edge/dispatch`, `edge/audit`, and `event/access`) in `spec/proto/flowseer`.
 
 - **The edge-facing Connect services move to `edge/`.** `EdgeService` moves
