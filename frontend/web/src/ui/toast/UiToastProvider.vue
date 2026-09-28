@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { watch } from 'vue'
 import { ToastProvider, ToastViewport } from 'reka-ui'
 import UiToast from './UiToast.vue'
 import { useToast } from './useToast'
@@ -13,22 +12,6 @@ withDefaults(defineProps<UiToastProviderProps>(), {
 })
 
 const { toasts, dismiss, remove } = useToast()
-
-watch(
-  toasts,
-  () => {
-    for (const item of [...toasts.value]) {
-      if (!item.open) {
-        const el = document.querySelector(`[data-toast-id="${item.id}"]`)
-        const animName = el ? window.getComputedStyle(el).animationName : 'none'
-        if (!animName || animName === 'none') {
-          remove(item.id)
-        }
-      }
-    }
-  },
-  { deep: true, flush: 'sync' },
-)
 </script>
 
 <template>
@@ -37,7 +20,6 @@ watch(
     <UiToast
       v-for="item in toasts"
       :key="item.id"
-      :data-toast-id="item.id"
       :open="item.open"
       :title="item.title"
       :description="item.description"

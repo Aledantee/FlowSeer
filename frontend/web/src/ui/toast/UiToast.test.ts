@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
+import { createApp, h, nextTick, ref } from 'vue'
+import { ToastProvider, ToastViewport } from 'reka-ui'
+import UiToast from './UiToast.vue'
 import UiToastProvider from './UiToastProvider.vue'
 import { useToast } from './useToast'
 
@@ -130,7 +132,7 @@ describe('UiToast', () => {
     expect(document.body.querySelector('ol li')).toBeNull()
   })
 
-  it('removes dismissed toast from store in the same tick when computed animationName is none', async () => {
+  it('removes dismissed toast from store on the close render when computed animationName is none', async () => {
     mountApp(() => h(UiToastProvider))
 
     const { toast, dismiss, toasts } = useToast()
@@ -144,6 +146,7 @@ describe('UiToast', () => {
     expect(toasts.value.some((t) => t.id === id)).toBe(true)
 
     dismiss(id)
+    await nextTick()
 
     expect(toasts.value.some((t) => t.id === id)).toBe(false)
   })
@@ -174,10 +177,23 @@ describe('UiToast', () => {
     const originalGetComputedStyle = window.getComputedStyle
     window.getComputedStyle = (elt: Element, pseudoElt?: string | null) => {
       const style = originalGetComputedStyle(elt, pseudoElt)
+      const state = elt.getAttribute('data-state')
+      let animationName = 'none'
+      if (
+        state === 'closed' &&
+        elt.classList.contains('data-[state=closed]:animate-fade-out')
+      ) {
+        animationName = 'fade-out'
+      } else if (
+        state === 'open' &&
+        elt.classList.contains('data-[state=open]:animate-fade-in')
+      ) {
+        animationName = 'fade-in'
+      }
       return new Proxy(style, {
         get(target, prop, receiver) {
           if (prop === 'animationName') {
-            return 'fade-out'
+            return animationName
           }
           return Reflect.get(target, prop, receiver)
         },
@@ -200,6 +216,18 @@ describe('UiToast', () => {
 
       dismiss(id)
       await nextTick()
+      await new Promise((r) => setTimeout(r, 20))
+
+      expect(toastEl.isConnected).toBe(true)
+      expect(toasts.value.some((t) => t.id === id)).toBe(true)
+
+      toastEl.firstElementChild?.dispatchEvent(
+        new AnimationEvent('animationend', {
+          animationName: 'fade-out',
+          bubbles: true,
+        }),
+      )
+      await nextTick()
 
       expect(toasts.value.some((t) => t.id === id)).toBe(true)
 
@@ -215,5 +243,36 @@ describe('UiToast', () => {
     } finally {
       window.getComputedStyle = originalGetComputedStyle
     }
+  })
+
+  it('a reopened standalone toast emits closed again on its next close', async () => {
+    const open = ref(true)
+    let closedCount = 0
+    mountApp(() =>
+      h(ToastProvider, null, () => [
+        h(UiToast, {
+          title: 'Standalone',
+          open: open.value,
+          'onUpdate:open': (val: boolean) => {
+            open.value = val
+          },
+          onClosed: () => {
+            closedCount += 1
+          },
+        }),
+        h(ToastViewport),
+      ]),
+    )
+    await nextTick()
+
+    open.value = false
+    await nextTick()
+    expect(closedCount).toBe(1)
+
+    open.value = true
+    await nextTick()
+    open.value = false
+    await nextTick()
+    expect(closedCount).toBe(2)
   })
 })

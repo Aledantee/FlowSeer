@@ -140,6 +140,10 @@ Until motion-v lands:
 6. **Reduced motion** replaces movement with an opacity change of the
    same duration. It does not remove all feedback, and it is never a
    global `0.01ms` kill switch.
+   - Popper surfaces and dialog exits switch to `animate-fade-in` and
+     `animate-fade-out` under `motion-reduce:`. Dialog entry switches to
+     `animate-dialog-fade-in`, because `animate-fade-in` runs at
+     `--duration-base` and would shorten it.
 7. **Interruptions.** Hover and open/close toggles use transitions or
    motion-v, which retarget midway. Keyframes restart instead,
    so keep keyframes to enter and exit.

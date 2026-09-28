@@ -162,9 +162,20 @@ describe('UiPopover', () => {
       return new Proxy(style, {
         get(target, prop, receiver) {
           if (prop === 'animationName') {
-            return elt.getAttribute('data-state') === 'closed'
-              ? 'overlay-out'
-              : 'none'
+            const state = elt.getAttribute('data-state')
+            if (
+              state === 'closed' &&
+              elt.classList.contains('data-[state=closed]:animate-overlay-out')
+            ) {
+              return 'overlay-out'
+            }
+            if (
+              state === 'open' &&
+              elt.classList.contains('data-[state=open]:animate-overlay-in')
+            ) {
+              return 'overlay-in'
+            }
+            return 'none'
           }
           return Reflect.get(target, prop, receiver)
         },
@@ -188,7 +199,6 @@ describe('UiPopover', () => {
       const content = document.body.querySelector('[role="dialog"]')
       expect(content).not.toBeNull()
 
-      // Close the popover via Escape
       content?.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Escape',
@@ -200,10 +210,8 @@ describe('UiPopover', () => {
       await nextTick()
       await new Promise((r) => setTimeout(r, 20))
 
-      // Assert content is still mounted because exit animation is running
       expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
 
-      // Dispatch animationend with overlay-out
       content?.dispatchEvent(
         new AnimationEvent('animationend', {
           animationName: 'overlay-out',
@@ -213,7 +221,6 @@ describe('UiPopover', () => {
       await nextTick()
       await new Promise((r) => setTimeout(r, 20))
 
-      // Assert content is gone
       expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     } finally {
       window.getComputedStyle = originalGetComputedStyle

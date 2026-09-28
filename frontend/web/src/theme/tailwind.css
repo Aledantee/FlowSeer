@@ -12,6 +12,7 @@
   --animate-dialog-out: dialog-out var(--duration-fast) var(--ease-out);
   --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
   --animate-fade-out: fade-out var(--duration-fast) var(--ease-out);
+  --animate-dialog-fade-in: fade-in var(--duration-slow) var(--ease-out);
 
   @keyframes overlay-in {
     from {
