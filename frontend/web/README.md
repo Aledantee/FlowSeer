@@ -107,10 +107,10 @@ is contained in the content area.
 - `src/domain/fleet.ts` contains fixtures, tenant rollups, and site assignment rules.
   These are UI demo shapes, not protobuf message definitions.
 - `src/components/` holds shared presentation elements.
-- `src/ui/` holds design system components and headless primitives.
+- `src/ui/` holds design system components and headless primitives; `src/ui/app/UiAppRoot.vue` provides the top-level application wrapper (`ConfigProvider` and `TooltipProvider`).
 - `src/style.css` defines the shell layout, connected chrome frame, and brand glow ribbons.
-- `src/theme/tailwind.css` configures Tailwind v4 Preflight and base element normalizations.
-- `src/theme/tokens.css` wires semantic tokens, typography scales, shadows, and radii into Tailwind theme directives.
+- `src/theme/tailwind.css` configures Tailwind v4 Preflight, base element normalizations, and `@theme` overlay keyframes (`--animate-overlay-in/out`, `--animate-dialog-in/out`, `--animate-fade-in/out`).
+- `src/theme/tokens.css` wires semantic tokens, typography scales, shadows, radii, and z-index tokens (`--z-raised`, `--z-sticky`, `--z-overlay`, `--z-toast`, `--z-skip-link`) into Tailwind theme directives.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.
 The lockfile pins resolved dependencies. TypeScript stays on 6.0 because the
@@ -222,6 +222,8 @@ const tabs = [
 ```
 
 Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
+
+Overlays and floating surfaces consume standardized z-index tokens from `src/theme/tokens.css` (`--z-overlay: 50` for dialogs, popovers, and menus; `--z-toast: 60` for notifications; `--z-sticky: 10` for pinned navigation and table headers). Entrances and exits are driven by CSS keyframes defined in `src/theme/tailwind.css` (`--animate-overlay-in`, `--animate-overlay-out`, `--animate-dialog-in`, `--animate-dialog-out`, `--animate-fade-in`, `--animate-fade-out`) on `data-[state]` variants, ensuring Reka's `usePresence` delays DOM unmounting until exit animations complete. Global providers are mounted once through `UiAppRoot` (`src/ui/app/UiAppRoot.vue`), supplying `ConfigProvider` and `TooltipProvider` to the view tree.
 
 ### Chart color tokens and accessibility
 

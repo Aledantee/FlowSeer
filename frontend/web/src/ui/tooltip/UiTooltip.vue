@@ -53,7 +53,7 @@ const shortcutKeys = computed<string[]>(() => {
         :side="side"
         :side-offset="6"
         :collision-padding="8"
-        class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-50 flex items-center gap-2 select-none"
+        class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex items-center gap-2 select-none"
       >
         <span class="font-medium">{{ label }}</span>
         <span v-if="hint" class="text-muted-foreground">{{ hint }}</span>

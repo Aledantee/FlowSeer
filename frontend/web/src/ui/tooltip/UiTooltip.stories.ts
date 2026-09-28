@@ -67,3 +67,28 @@ export const Open: Story = {
     `,
   }),
 }
+
+export const AccessibilityAudit: Story = {
+  args: {
+    label: 'Search telemetry',
+    hint: 'Quick lookup across all sites',
+    shortcut: ['⌘', 'K'],
+    side: 'bottom',
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiTooltip, UiButton, TooltipProvider },
+    setup() {
+      return { args }
+    },
+    template: `
+      <TooltipProvider>
+        <div class="p-12 flex justify-center">
+          <UiTooltip v-bind="args">
+            <UiButton variant="secondary">Hover me</UiButton>
+          </UiTooltip>
+        </div>
+      </TooltipProvider>
+    `,
+  }),
+}

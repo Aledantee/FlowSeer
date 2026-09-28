@@ -73,7 +73,7 @@ const ToastViewportSurface = defineComponent({
     <div
       role="region"
       aria-label="Notifications"
-      class="fixed bottom-0 right-0 z-50 p-4 pointer-events-none"
+      class="fixed bottom-0 right-0 z-(--z-toast) p-4 pointer-events-none"
     >
       <ol
         :ref="setViewport"

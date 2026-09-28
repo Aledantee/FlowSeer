@@ -44,9 +44,13 @@ export const AccessibilityAudit: Story = {
       UiDropdownMenu,
       UiDropdownMenuItem,
       UiDropdownMenuSeparator,
+      UiButton,
     },
     template: `
-      <UiDropdownMenu :open="true" :modal="false">
+      <UiDropdownMenu :modal="false">
+        <template #trigger>
+          <UiButton variant="secondary">Open Options</UiButton>
+        </template>
         <UiDropdownMenuItem>Account settings</UiDropdownMenuItem>
         <UiDropdownMenuItem>Billing & invoices</UiDropdownMenuItem>
         <UiDropdownMenuSeparator />

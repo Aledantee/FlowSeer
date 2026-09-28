@@ -34,6 +34,7 @@ const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
   (e: 'confirm'): void
   (e: 'cancel'): void
+  (e: 'closeAutoFocus', event: Event): void
 }>()
 </script>
 
@@ -47,10 +48,13 @@ const emit = defineEmits<{
       <slot name="trigger" />
     </AlertDialogTrigger>
     <AlertDialogPortal>
-      <AlertDialogOverlay class="bg-overlay fixed inset-0 z-50" />
+      <AlertDialogOverlay
+        class="bg-overlay fixed inset-0 z-(--z-overlay) backdrop-blur-xs data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out"
+      />
       <AlertDialogContent
         :disable-outside-pointer-events="true"
-        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 w-full max-w-md focus:outline-none"
+        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full max-w-md focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-fade-in motion-reduce:data-[state=closed]:animate-fade-out"
+        @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <div class="flex flex-col gap-2 mb-6">
           <AlertDialogTitle class="text-lg font-semibold text-foreground">

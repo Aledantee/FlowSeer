@@ -118,4 +118,48 @@ describe('UiDialog', () => {
 
     expect(isOpen.value).toBe(false)
   })
+
+  it('emits closeAutoFocus on close and honors preventDefault to preserve custom focus', async () => {
+    let emittedEvent: Event | null = null
+    const customButton = document.createElement('button')
+    customButton.id = 'dialog-custom-focus'
+    document.body.append(customButton)
+
+    mountDialog(
+      {
+        title: 'Focus Return Title',
+        defaultOpen: true,
+        onCloseAutoFocus: (e: Event) => {
+          emittedEvent = e
+          e.preventDefault()
+          customButton.focus()
+        },
+      },
+      {
+        trigger: () => h('button', { id: 'default-trigger' }, 'Trigger'),
+        default: () => h('div', 'Content'),
+      },
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog).not.toBeNull()
+
+    dialog?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(emittedEvent).not.toBeNull()
+    expect(document.activeElement).toBe(customButton)
+    customButton.remove()
+  })
 })

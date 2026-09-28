@@ -187,4 +187,50 @@ describe('UiDropdownMenu', () => {
     const separator = document.body.querySelector('[role="separator"]')
     expect(separator).not.toBeNull()
   })
+
+  it('emits closeAutoFocus on close and honors preventDefault to preserve custom focus', async () => {
+    let emittedEvent: Event | null = null
+    const customButton = document.createElement('button')
+    customButton.id = 'menu-custom-focus'
+    document.body.append(customButton)
+
+    mountMenu(
+      {
+        defaultOpen: true,
+        onCloseAutoFocus: (e: Event) => {
+          emittedEvent = e
+          e.preventDefault()
+          customButton.focus()
+        },
+      },
+      {
+        trigger: () => h('button', { id: 'menu-trigger' }, 'Trigger'),
+        default: () => [
+          h(UiDropdownMenuItem, { id: 'item-1' }, () => 'Item 1'),
+        ],
+      },
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const menu = document.body.querySelector('[role="menu"]')
+    expect(menu).not.toBeNull()
+
+    menu?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(emittedEvent).not.toBeNull()
+    expect(document.activeElement).toBe(customButton)
+    customButton.remove()
+  })
 })
