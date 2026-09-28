@@ -104,7 +104,18 @@ FlowSeer ships eight workflow skills under `.claude/skills/`: `next`,
 `plan`, `implement`, `review`, `compound`, `land`, `drive`, and `steer`,
 next to the
 `verify-change` gate and the `delegate` routing skill that the others load
-before dispatching an agent. The decisions below were taken against published
+before dispatching an agent. One task skill sits beside them:
+`web-component`, the order in which a web component meets the web
+component contract and its story, accessibility, i18n, token, and
+verifier gates. Its references hold the overlay and motion rules agents
+most often break, each tied to a failure in this repository's history.
+Its `check-tools.sh` reports missing tools rather than installing them.
+It replaced a Storybook MCP
+server on 2026-09-28: the server's docs tools returned props and story
+source an agent reads directly from the colocated files, needed a running
+Storybook and two experimental feature flags, and served only Claude,
+while the rules agents actually missed were repository conventions no
+tool reports. The decisions below were taken against published
 measurements, the research listed at the end of this document, and this
 project's own session history; revisit them when that evidence changes.
 
