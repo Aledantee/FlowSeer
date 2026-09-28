@@ -21,9 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/proto"
 
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -143,10 +146,10 @@ func TestLeafJoinsWithMintedCredentialAndSourcingFlows(t *testing.T) {
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
-	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
-	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("add edge source twice: %v", err)
 	}
 
@@ -174,7 +177,7 @@ func TestEdgePermissionsConfineTheLeafWhileSourcingFlows(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("attach: %v", err)
 	}
 
@@ -276,7 +279,7 @@ func TestReceiverToForwarderCarriesBodiesUnchanged(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
 	receiver, err := edgebus.StartReceiver(leaf)
@@ -327,7 +330,7 @@ func TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect(t *testing.T) {
 	}
 	leaf := startLeafWith(t, t.TempDir(), url, edgeID, creds)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return first.LeafCount() == 1 })
-	if err := first.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := first.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
 	first.Close()
@@ -468,10 +471,10 @@ func TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI(t *testing.T) {
 	a := startLeaf(t, t.TempDir(), hub, edgeID)
 	b := startLeaf(t, t.TempDir(), hub, otherID)
 	waitFor(t, "both leaves", 10*time.Second, func() bool { return hub.LeafCount() == 2 })
-	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("attach a: %v", err)
 	}
-	if err := hub.AttachEdge(context.Background(), otherID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, otherID); err != nil {
 		t.Fatalf("attach b: %v", err)
 	}
 
@@ -535,7 +538,7 @@ func credsFileFor(t *testing.T, creds edgebus.EdgeCredentials) []byte {
 func TestARestartSkipsAPersistedEdgeItCannotRestore(t *testing.T) {
 	dir := t.TempDir()
 	first := startHub(t, dir, 0)
-	if err := first.AttachEdge(context.Background(), edgeID); err != nil {
+	if err := first.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
 		t.Fatalf("attach: %v", err)
 	}
 	first.Close()
@@ -562,5 +565,161 @@ func TestARestartSkipsAPersistedEdgeItCannotRestore(t *testing.T) {
 	attached := second.AttachedEdges()
 	if len(attached) != 1 || attached[0] != edgeID {
 		t.Fatalf("attached = %v, want only the edge whose key is usable", attached)
+	}
+}
+
+func TestAuditStreamWildcardStoresEventsFromMultipleTenants(t *testing.T) {
+	ctx := context.Background()
+	hub := startHub(t, t.TempDir(), 0)
+
+	const (
+		tenantA = "tenant-a"
+		tenantB = "tenant-b"
+		device1 = "0192e6a0-0000-7000-8000-0000000000d1"
+		device2 = "0192e6a0-0000-7000-8000-0000000000d2"
+	)
+
+	evA := &accessv1.DeviceOperationEvent{}
+	evA.SetEventId("ev-a")
+	evA.SetLaneReleased(&accessv1.LaneReleased{})
+	bodyA, err := proto.Marshal(evA)
+	if err != nil {
+		t.Fatalf("marshal event a: %v", err)
+	}
+
+	evB := &accessv1.DeviceOperationEvent{}
+	evB.SetEventId("ev-b")
+	evB.SetLaneReleased(&accessv1.LaneReleased{})
+	bodyB, err := proto.Marshal(evB)
+	if err != nil {
+		t.Fatalf("marshal event b: %v", err)
+	}
+
+	subA := edgebus.AuditSubject(tenantA, device1)
+	subB := edgebus.AuditSubject(tenantB, device2)
+
+	if err := hub.Connection().Publish(subA, bodyA); err != nil {
+		t.Fatalf("publish tenant a event: %v", err)
+	}
+	if err := hub.Connection().Publish(subB, bodyB); err != nil {
+		t.Fatalf("publish tenant b event: %v", err)
+	}
+	if err := hub.Connection().Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+
+	stream, err := hub.JetStream().Stream(ctx, edgebus.AuditStream)
+	if err != nil {
+		t.Fatalf("audit stream: %v", err)
+	}
+
+	waitFor(t, "two audit records stored", 10*time.Second, func() bool {
+		info, err := stream.Info(ctx)
+		return err == nil && info.State.Msgs == 2
+	})
+
+	msg1, err := stream.GetMsg(ctx, 1)
+	if err != nil {
+		t.Fatalf("get msg 1: %v", err)
+	}
+	if msg1.Subject != subA {
+		t.Errorf("msg1 subject = %s, want %s", msg1.Subject, subA)
+	}
+
+	msg2, err := stream.GetMsg(ctx, 2)
+	if err != nil {
+		t.Fatalf("get msg 2: %v", err)
+	}
+	if msg2.Subject != subB {
+		t.Errorf("msg2 subject = %s, want %s", msg2.Subject, subB)
+	}
+}
+
+func TestMintEdgeUserPerTenant(t *testing.T) {
+	ctx := context.Background()
+	hub := startHub(t, t.TempDir(), 0)
+
+	const customTenant = "tenant-prod-42"
+	if err := hub.AttachEdge(ctx, customTenant, edgeID); err != nil {
+		t.Fatalf("attach edge: %v", err)
+	}
+
+	creds, err := hub.MintEdgeUser(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("mint user: %v", err)
+	}
+
+	claims, err := jwt.DecodeUserClaims(creds.UserJWT.RevealString())
+	if err != nil {
+		t.Fatalf("decode claims: %v", err)
+	}
+
+	expectedSubtree := "flowseer." + customTenant + ".edge." + edgeID + ".>"
+	found := false
+	for _, sub := range claims.Pub.Allow {
+		if sub == expectedSubtree {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("pub permissions %v do not contain %s", claims.Pub.Allow, expectedSubtree)
+	}
+}
+
+func TestRestartedHubReattachesEdgeUnderPersistedTenant(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	const customTenant = "tenant-corp-99"
+	first := startHub(t, dir, 0)
+	if err := first.AttachEdge(ctx, customTenant, edgeID); err != nil {
+		t.Fatalf("attach edge: %v", err)
+	}
+	if got := first.EdgeTenant(edgeID); got != customTenant {
+		t.Fatalf("first hub edge tenant = %s, want %s", got, customTenant)
+	}
+	first.Close()
+
+	sidecarPath := filepath.Join(dir, "keys", "edge-"+edgeID+".tenant")
+	content, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		t.Fatalf("read tenant sidecar: %v", err)
+	}
+	if strings.TrimSpace(string(content)) != customTenant {
+		t.Fatalf("sidecar content = %q, want %q", string(content), customTenant)
+	}
+
+	second, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:    dir,
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("restart hub: %v", err)
+	}
+	t.Cleanup(second.Close)
+
+	if got := second.EdgeTenant(edgeID); got != customTenant {
+		t.Fatalf("second hub edge tenant = %s, want %s", got, customTenant)
+	}
+
+	creds, err := second.MintEdgeUser(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("mint user on restarted hub: %v", err)
+	}
+	claims, err := jwt.DecodeUserClaims(creds.UserJWT.RevealString())
+	if err != nil {
+		t.Fatalf("decode claims: %v", err)
+	}
+	expectedSubtree := "flowseer." + customTenant + ".edge." + edgeID + ".>"
+	found := false
+	for _, sub := range claims.Pub.Allow {
+		if sub == expectedSubtree {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("restarted hub pub permissions %v do not contain %s", claims.Pub.Allow, expectedSubtree)
 	}
 }

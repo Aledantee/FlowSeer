@@ -136,7 +136,7 @@ func TestAccountsCarryNoImportsOrExports(t *testing.T) {
 		t.Fatalf("start hub: %v", err)
 	}
 	t.Cleanup(hub.Close)
-	if err := hub.AttachEdge(context.Background(), "edge-a"); err != nil {
+	if err := hub.AttachEdge(context.Background(), DefaultTenant, "edge-a"); err != nil {
 		t.Fatalf("attach: %v", err)
 	}
 

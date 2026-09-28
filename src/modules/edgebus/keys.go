@@ -59,21 +59,49 @@ func loadOrCreateKeys(dir string) (*hubKeys, error) {
 	return &hubKeys{dir: keysDir, operator: operator, system: system, central: central, edge: map[string]nkeys.KeyPair{}}, nil
 }
 
-// persistedEdgeIDs lists the edges whose account keys are on disk, so a
-// restarted hub re-attaches every edge it had sourced.
-func (k *hubKeys) persistedEdgeIDs() ([]string, error) {
+type persistedEdge struct {
+	id     string
+	tenant string
+}
+
+// persistedEdgeIDs lists the edges whose account keys are on disk, reading each
+// edge's tenant from its sidecar file (or defaulting to DefaultTenant if
+// absent), so a restarted hub re-attaches every edge under its persisted tenant.
+func (k *hubKeys) persistedEdgeIDs() ([]persistedEdge, error) {
 	entries, err := os.ReadDir(k.dir)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeKeys).Msg("read keys directory")
 	}
-	var ids []string
+	var edges []persistedEdge
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasPrefix(name, "edge-") && strings.HasSuffix(name, ".nk") {
-			ids = append(ids, strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk"))
+			edgeID := strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk")
+			edges = append(edges, persistedEdge{
+				id:     edgeID,
+				tenant: k.edgeTenant(edgeID),
+			})
 		}
 	}
-	return ids, nil
+	return edges, nil
+}
+
+func (k *hubKeys) persistEdgeTenant(edgeID, tenant string) error {
+	if tenant == "" {
+		tenant = DefaultTenant
+	}
+	tenantPath := filepath.Join(k.dir, "edge-"+edgeID+".tenant")
+	return writeSecretFile(tenantPath, []byte(tenant+"\n"))
+}
+
+func (k *hubKeys) edgeTenant(edgeID string) string {
+	tenantPath := filepath.Join(k.dir, "edge-"+edgeID+".tenant")
+	if data, err := os.ReadFile(tenantPath); err == nil {
+		if t := strings.TrimSpace(string(data)); t != "" {
+			return t
+		}
+	}
+	return DefaultTenant
 }
 
 // validEdgeID reports whether id is safe to use as a file name component
@@ -315,8 +343,11 @@ func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permi
 // caller read the source consumer's delivery subject) nor any _INBOX
 // subject (the stock random inbox prefix matches none of these and an
 // account-wide _INBOX grant would reach central's own request replies).
-func edgePermissions(edgeID string) jwt.Permissions {
-	subtree := EdgeSubtree(DefaultTenant, edgeID) + ".>"
+func edgePermissions(tenant, edgeID string) jwt.Permissions {
+	if tenant == "" {
+		tenant = DefaultTenant
+	}
+	subtree := EdgeSubtree(tenant, edgeID) + ".>"
 	api := "$JS." + EdgeDomain(edgeID) + ".API.>"
 	return jwt.Permissions{
 		Pub: jwt.Permission{Allow: jwt.StringList{subtree, "$JSC.R.>"}},

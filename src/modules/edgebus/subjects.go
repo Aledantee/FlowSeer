@@ -33,6 +33,8 @@ const (
 	// CapturesBucket is the key-value bucket the device service's capture
 	// session records live in, one key per session.
 	CapturesBucket = "captures"
+	// TenantBucket is the key-value bucket central keeps tenant records in.
+	TenantBucket = "tenants"
 	// HubDomain is the hub's JetStream domain. An edge's leaf runs its own
 	// domain; a leaf without one silently extends the hub's.
 	HubDomain = "hub"

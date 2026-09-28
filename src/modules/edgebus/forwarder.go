@@ -222,7 +222,7 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	case !ok:
 		f.refuse(ctx, edgeID, msg, reasonNotOTel, "")
 		return
-	case !belongsToEdge(f.hub.Tenant(), edgeID, msg.Subject()):
+	case !belongsToEdge(f.hub.EdgeTenant(edgeID), edgeID, msg.Subject()):
 		f.refuse(ctx, edgeID, msg, reasonForeignSubject, string(signal))
 		return
 	}
