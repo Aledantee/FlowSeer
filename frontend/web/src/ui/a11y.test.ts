@@ -94,16 +94,12 @@ async function settle() {
 
 async function runAudit(element: Element = document.body) {
   await settle()
-  element.querySelectorAll('[data-aria-hidden]').forEach((el) => {
-    el.removeAttribute('aria-hidden')
-    el.removeAttribute('data-aria-hidden')
-  })
   return axe.run(element, AXE_OPTIONS)
 }
 
 async function openOverlay(
   overlayAudit: OverlayAuditExpectation & { container: Element },
-) {
+): Promise<Element> {
   await settle()
   if (overlayAudit.triggerSelector) {
     const trigger = overlayAudit.container.querySelector<HTMLElement>(
@@ -122,15 +118,38 @@ async function openOverlay(
   }
 
   const selector = `[role="${overlayAudit.role}"]`
+  const candidates: Element[] = []
+  const seen = new Set<Element>()
+  document.body.querySelectorAll(selector).forEach((el) => {
+    let root: Element = el
+    while (root.parentElement && root.parentElement !== document.body) {
+      root = root.parentElement
+    }
+    if (seen.has(root)) return
+    seen.add(root)
+    if (
+      root.matches('[data-ai-ask-panel]') ||
+      root.querySelector('[data-ai-ask-panel]') !== null
+    ) {
+      return
+    }
+    candidates.push(root)
+  })
+
   expect(
-    document.body.querySelector(selector),
+    candidates,
     `Expected the accessibility audit story to render ${selector} in document.body`,
-  ).not.toBeNull()
+  ).toHaveLength(1)
   expect(
     overlayAudit.container.querySelector(selector),
     `Expected ${selector} to render outside the story mount container`,
   ).toBeNull()
   await settle()
+  const candidate = candidates[0]
+  if (!candidate) {
+    throw new Error(`Expected ${selector} in document.body`)
+  }
+  return candidate
 }
 
 function box(): DOMRect {
@@ -300,11 +319,6 @@ describe('accessibility (axe-core)', () => {
           })
 
           const label = `${path} -> ${storyName}`
-          const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
-          if (overlayAudit) {
-            await openOverlay({ container, ...overlayAudit })
-          }
-
           const { selected, element, componentTarget } =
             await selectTarget(label)
 
@@ -338,7 +352,14 @@ describe('accessibility (axe-core)', () => {
             ).not.toBe('story')
           }
 
-          const results = await runAudit(document.body)
+          const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
+          // Audit the overlay's portalled root; the trigger and Reka's focus
+          // guards sit outside it.
+          const auditElement = overlayAudit
+            ? await openOverlay({ container, ...overlayAudit })
+            : document.body
+
+          const results = await runAudit(auditElement)
 
           expect(
             results.violations,

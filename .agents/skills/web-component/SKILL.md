@@ -107,8 +107,9 @@ Views never import `reka-ui`; only files under `src/ui/` do.
 - **Overlays.** An overlay needs an `AccessibilityAudit` story whose open
   state is anchored to a rendered trigger. It also needs an entry in
   `OVERLAY_AUDITS` in `src/ui/a11y.test.ts` naming the role that must
-  render in `document.body`. A trigger other than click or input needs a
-  new `triggerEvent` kind there.
+  render in `document.body`. Axe runs on the portalled root holding that
+  element, not the whole body. A trigger other than click or input needs
+  a new `triggerEvent` kind there.
 - **Tests.** `Ui<Name>.test.ts` tests behavior through the DOM under
   happy-dom. happy-dom has limits:
   - It runs no layout.
