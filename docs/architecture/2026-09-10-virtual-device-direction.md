@@ -952,7 +952,7 @@ internal forking of inputs, and injection-ordinal journey pairing.
 
 ### 2026-09-19 — Bounded differential search
 
-Landed with phase 7b bounded search (`docs/plans/2026-09-18-2129-feat-netsim-bounded-search-phase7b-plan.md`).
+Landed 2026-09-19: bounded differential search and conformance fixtures in `src/common/netsim/search` and `src/common/netsim/fabric`.
 Added the [Bounded differential search](#bounded-differential-search) subsection
 establishing finite domain enumeration with exact coverage and remainder
 accounting, deterministic replay-checked counterexample minimization,
