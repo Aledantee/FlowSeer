@@ -5,16 +5,21 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: mixed
 ---
 
 # Package Guarantees - Plan
 
 > Implemented. 3 units, 2026-09-28T19:09:14Z to 2026-09-28T19:22:52Z.
-> Pilot outcome: 5 of 7 README contracts were already proved by existing tests,
-> 2 needed a new test (prompt earliest-match tie ordering in scan_test.go and
-> session closure on peer disconnection in command_test.go). The stop condition
-> held (did not trigger); the convention and check format are validated.
+> Pilot outcome: 4 of 7 README contracts were proved by existing tests as-is,
+> 2 needed a new test (session closure on peer disconnection and prompt
+> earliest-match: TestScanPromptEarliestMatchAndTieOrder and
+> TestRunPromptEarliestMatchInStream), and 1 needed a test change (output cap
+> truncation without buffer ring saturation). The host-key guarantee also cites
+> the Dial-level test because the helper-level one does not call Dial. The stop
+> condition held (did not trigger); the convention and check format are
+> validated.
 
 ## Goal
 

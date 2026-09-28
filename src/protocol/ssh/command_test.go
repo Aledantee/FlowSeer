@@ -85,6 +85,32 @@ func TestRunPromptSplitAcrossReads(t *testing.T) {
 	}
 }
 
+func TestRunPromptEarliestMatchInStream(t *testing.T) {
+	t.Parallel()
+	user := ssh.Prompt{Name: "user", Pattern: regexp.MustCompile(`(?m)switch>\s*$`)}
+	priv := ssh.Prompt{Name: "privileged", Pattern: regexp.MustCompile(`(?m)switch#\s*$`)}
+
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_, _ = ch.Write([]byte("some output\r\nswitch>\r\nsubsequent output\r\nswitch#"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := s.Run(ctx, ssh.Command{
+		Line:    "show status",
+		Prompts: []ssh.Prompt{priv, user},
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if res.MatchedPrompt != "user" {
+		t.Errorf("MatchedPrompt = %q, want %q (earliest match in stream wins over slice order)", res.MatchedPrompt, "user")
+	}
+}
+
 func TestRunStripsEchoedInput(t *testing.T) {
 	t.Parallel()
 	const line = "show version"
@@ -370,7 +396,7 @@ func TestRunOutputCapTruncates(t *testing.T) {
 		}
 		_, _ = ch.Write([]byte("\r\nswitch#"))
 	})
-	s := dialSession(t, fs, func(o *ssh.Options) { o.StdoutBufferBytes = 1024 })
+	s := dialSession(t, fs, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
