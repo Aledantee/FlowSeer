@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/yanggen-output-depends-on-goyang-augment-order.md, docs/solutions/conventions/go-list-deps-misses-imports-behind-build-tags.md
 execution: mixed
 amends: docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md
 ---
