@@ -85,7 +85,7 @@ from 3 on assumes a story can render in both locales.
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase1-plan.md`
 After: none
-Landed:
+Landed: `f35884bb..102193b1`
 
 ### U2. motion-v replaces motion/mini
 
