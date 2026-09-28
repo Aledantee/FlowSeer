@@ -4,12 +4,12 @@ Normative guarantees and test citations for `src/protocol/ssh`.
 
 ## Host-key verification has no default
 
-Options MUST specify exactly one of HostKeySHA256 or InsecureIgnoreHostKey, and Dial MUST refuse an invalid configuration before opening a connection or a host-key mismatch on dial.
+Dial MUST refuse Options specifying neither or both of HostKeySHA256 and InsecureIgnoreHostKey, and MUST refuse a host-key mismatch on dial.
 
-- WHEN neither HostKeySHA256 nor InsecureIgnoreHostKey is set, or both are set THEN configuration validation fails with an error.
+- WHEN neither HostKeySHA256 nor InsecureIgnoreHostKey is set, or both are set THEN Dial returns an error refusing the connection.
 - WHEN HostKeySHA256 does not match the remote host's key fingerprint THEN Dial returns an error refusing the connection.
 
-Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialHostKeyMismatchRefused
+Proved by: TestDialOptionsRequireExplicitHostKeyVerification, TestDialHostKeyMismatchRefused
 
 ## A failed wait closes the session
 
@@ -23,12 +23,12 @@ Proved by: TestRunCommandDeadlineExceeded, TestRunCancellationMidWait, TestRunCo
 
 ## A command ends at the earliest prompt match
 
-Run MUST end the command at the earliest matching prompt in the accumulated output stream, resolving ties in match position to the earliest prompt in Prompts slice order.
+In the output scanned after the command echo (stripped leading echo, or anchored echo when AnchorOnEcho is set), Run MUST end the command at the earliest matching prompt, resolving ties in match position to the earliest prompt in Prompts slice order.
 
-- WHEN multiple prompts match at different positions in output THEN the prompt with the earliest match start offset ends the command.
+- WHEN multiple prompts match at different positions in output scanned after the echo THEN the prompt with the earliest match start offset ends the command.
 - WHEN multiple prompts match at the identical start position THEN the prompt appearing earlier in Command.Prompts wins the tie.
 
-Proved by: TestScanPromptEarliestMatchAndTieOrder
+Proved by: TestScanPromptEarliestMatchAndTieOrder, TestRunPromptEarliestMatchInStream
 
 ## Pagination markers are answered and excluded from output
 
@@ -56,8 +56,8 @@ Proved by: TestRunStderrSaturationDoesNotBlockStdout
 
 ## Command redaction replaces sent line in evidence
 
-When Command.Redacted is set, Result.Evidence.Sent MUST equal Command.Redacted rather than Command.Line.
+When Command.Redacted is set and Run writes the command, Result.Evidence.Sent MUST equal Command.Redacted rather than Command.Line.
 
-- WHEN Command.Redacted is non-empty THEN Result.Evidence.Sent contains the redacted text without exposing Command.Line.
+- WHEN Command.Redacted is set and Run writes the command THEN Result.Evidence.Sent equals Command.Redacted without exposing Command.Line.
 
 Proved by: TestRunRedactsSecretFromEvidence

@@ -59,9 +59,11 @@ res, err = session.Run(ctx, ssh.Command{
 
 [`Options`](options.go) requires explicit host-key verification; see
 [Host-key verification has no default](GUARANTEES.md#host-key-verification-has-no-default).
-This mirrors `src/protocol/netconf`'s `Options` for the same reason: a
-management protocol that can silently accept an unverified peer is never a safe
-default.
+`HostKeySHA256` accepts the peer's base64 SHA-256 fingerprint with or without
+the `SHA256:` prefix, or callers can pass the explicit `InsecureIgnoreHostKey`
+opt-in. Setting neither or both is refused before any network I/O. This mirrors
+`src/protocol/netconf`'s `Options` for the same reason: a management protocol
+that can silently accept an unverified peer is never a safe default.
 
 ## One shell, sequential commands
 
@@ -78,9 +80,11 @@ caller serializes its own commands.
 ## Commands are bounded by prompts, not by time alone
 
 `Session.Run` writes `Command.Line`, then blocks until one of
-`Command.Prompts` matches the accumulated stdout; see
+`Command.Prompts` matches the accumulated stdout — the earliest match anywhere
+in scanned output wins, ties resolving by slice order; see
 [A command ends at the earliest prompt match](GUARANTEES.md#a-command-ends-at-the-earliest-prompt-match).
-Prompt patterns must be anchored against matching inside the device's own output.
+This is why prompt patterns must be anchored against matching inside the
+device's own output.
 `Result.MatchedPrompt` carries the matched prompt's `Name` back to the caller,
 which is how an adapter tells a privilege-level transition happened without this
 package knowing what a privilege level is. A `Command.MorePattern` match writes
@@ -90,13 +94,18 @@ A leading echo of `Command.Line` in the shell's response is stripped automatical
 
 Every `Run` call has a deadline — `Command.Deadline`, else
 `Options.CommandDeadline` (60s by default) — independent of `Dial`'s timeout,
-and honors the caller's `ctx`. Any failure to complete cleanly closes the
-`Session` so a caller never resumes against an untrusted read cursor; see
+and honors the caller's `ctx`. Any failure to complete cleanly — deadline
+expiration, context cancellation, or peer connection loss — closes the `Session`
+so a caller never resumes against an untrusted read cursor; see
 [A failed wait closes the session](GUARANTEES.md#a-failed-wait-closes-the-session).
+A canceled or timed-out wait surfaces unwrapped `context.Canceled` or
+`context.DeadlineExceeded`, not a package error code.
 
 `Command.MaxOutput` (else the package's 1 MiB default) bounds
 `Result.Output`; see
 [Output is capped with the true byte count kept](GUARANTEES.md#output-is-capped-with-the-true-byte-count-kept).
+When output exceeds the limit, truncation keeps the most recent bytes, since a
+prompt or pagination marker is expected at the tail of the stream.
 
 ## Evidence never carries a credential
 
