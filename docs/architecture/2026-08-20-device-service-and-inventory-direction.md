@@ -572,7 +572,7 @@ for protobuf type renames.
 ## Sources
 
 - Repository: `docs/code-style.md` §Project layout (`src/backend`, `src/edge`
-  named); `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md`
+  named); Landed 2026-08-19: internal errs package in `src/common/errs`
   (edge/backend split, Connect RPC, brokers, cross-boundary errors);
   `src/common/errs/doc.go` (wire payload: code, safe attributes, user message,
   hint, retry disposition); `src/protocol/snmp/doc.go` (Collection Primitives
