@@ -201,8 +201,9 @@ type Fabric struct {
 
 	// metadataCache holds the value [Fabric.Metadata] last built. Its inputs
 	// are fixed after construction except where [Fabric.SetFault] rewrites a
-	// link and its trust, or a queue with no stated buffer first backs up past
-	// one maximum-size frame; both nil the cache. The value is immutable, so a
+	// link and its trust, [Fabric.Configure] rebuilds a switch's ports and
+	// links, or a queue with no stated buffer first backs up past one
+	// maximum-size frame; each nils the cache. The value is immutable, so a
 	// fork may share it.
 	metadataCache *analysis.Metadata
 
@@ -953,8 +954,9 @@ func unlinkedEnd(ep Endpoint, uncabled map[Endpoint]Uncabled) LinkEnd {
 // evidence catalog so all cited references resolve.
 //
 // The result is cached: its inputs are fixed after construction except where
-// [Fabric.SetFault] rewrites a link, or a queue with no stated buffer first
-// backs up past one maximum-size frame. Both clear the cache.
+// [Fabric.SetFault] rewrites a link, [Fabric.Configure] rebuilds a switch, or a
+// queue with no stated buffer first backs up past one maximum-size frame. Each
+// clears the cache.
 func (f *Fabric) Metadata() analysis.Metadata {
 	if f.metadataCache != nil {
 		return *f.metadataCache
@@ -1101,7 +1103,8 @@ func (f *Fabric) Config() Config {
 	return f.cfg.Clone()
 }
 
-// Retention reports the per-switch layer retention outcome of the most recent Derive or Fork.
+// Retention reports, for each switch, the layer retention outcome of the most recent Derive, Fork, or
+// Configure that produced it; a Configure of one switch leaves the others' outcomes as they were.
 func (f *Fabric) Retention() map[string]vswitch.Retention {
 	ret := make(map[string]vswitch.Retention, len(f.switches))
 	for name, sw := range f.switches {

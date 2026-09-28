@@ -5,6 +5,7 @@ date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
@@ -12,6 +13,11 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 # Netsim In-Run Switch Reconfiguration - Plan
 
 > Implemented. 3 units, 2026-09-28T15:58Z to 2026-09-28T16:08Z. Targeted verification run over union of changed paths per directive (replacing --full).
+> Reviewed 2026-09-28: accept after fixes. `Configure` stored cable-derived
+> oper states in the fabric config, which erased oper-status conflicts and
+> changed `Spec()`; `ActionConfigure` diffs lost the inner switch subject;
+> five tests could not fail on what they checked. All fixed, with a test
+> each.
 
 ## Goal
 
@@ -183,7 +189,8 @@ Change: `func (f *Fabric) Configure(node string, cfg vswitch.Config) error`
 changes switch `node` at `f.clock` in the order the Decisions give:
 validate the whole spec, re-resolve the links on `node`, rebuild its port
 table, `vswitch.Derive`, swap the switch and write `f.cfg.Switches[node]`
-(with the rebuilt `Ports`, as `fabric.Derive` does), notify the ends of
+(with the configured `Ports`, as `fabric.Derive` does; the rebuilt table
+goes only to `vswitch.Derive`), notify the ends of
 changed links, `startLayers([node])`, drain emissions and neighbor
 failures, reschedule the wake, clear `metadataCache`, and settle touched
 frames. A node that is not a switch is refused before anything is read.
