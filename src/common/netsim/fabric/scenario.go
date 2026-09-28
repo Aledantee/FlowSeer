@@ -257,7 +257,10 @@ type actionStringFact string
 func (f actionStringFact) TypeID() string    { return "fabric.action.payload" }
 func (f actionStringFact) Canonical() string { return string(f) }
 
-// Diff returns changes between two Actions.
+// Diff returns changes between two Actions. A Configure payload diff keeps the
+// kind "scenario.action", and its key nests the action index and the inner
+// vswitch subject as "index/inner-kind/inner-key", so two changes that differ
+// only inside the switch configuration stay distinguishable.
 func (a Action) Diff(other Action) []trace.Change {
 	var changes []trace.Change
 	subject := trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(a.Index)}
@@ -347,7 +350,10 @@ func (a Action) Diff(other Action) []trace.Change {
 		} else {
 			diffs := vswitch.Diff(a.Configure.Config, other.Configure.Config)
 			for _, d := range diffs {
-				d.Subject = subject
+				d.Subject = trace.Subject{
+					Kind: "scenario.action",
+					Key:  nestedSubjectKey(strconv.Itoa(a.Index), nestedSubjectKey(d.Subject.Kind, d.Subject.Key)),
+				}
 				changes = append(changes, d)
 			}
 		}
