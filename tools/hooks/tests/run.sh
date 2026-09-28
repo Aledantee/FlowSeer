@@ -415,6 +415,18 @@ assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_write"
 guard_bash=$(jq -n --arg cwd "$fixture" --arg command "printf x > README.md" \
   '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
 assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_bash"
+guard_quoted=$(jq -n --arg cwd "$fixture" --arg command "grep -h '^> Implemented' docs/*.md" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
+assert_allow "$repo_root/tools/hooks/worktree-guard.sh" "$guard_quoted"
+guard_quoted_redirect=$(jq -n --arg cwd "$fixture" --arg command "grep '^> x' docs/a.md > out.txt" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_quoted_redirect"
+guard_mixed_quotes=$(jq -n --arg cwd "$fixture" --arg command "echo \"it's\" > README.md; echo 'x'" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_mixed_quotes"
+guard_escaped_quote=$(jq -n --arg cwd "$fixture" --arg command "echo don\\'t > README.md; echo \\'x\\'" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_escaped_quote"
 guard_commit=$(jq -n --arg cwd "$fixture" --arg command "git add -A && git commit -m land" \
   '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
 assert_allow "$repo_root/tools/hooks/worktree-guard.sh" "$guard_commit"

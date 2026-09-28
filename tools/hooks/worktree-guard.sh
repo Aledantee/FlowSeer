@@ -154,6 +154,15 @@ case "$tool" in
             -e 's/[0-9]*>[[:space:]]*\/dev\/null//g' \
             -e 's/<[^<>[:space:]]*>//g' \
             -e 's/->//g' -e 's/=>//g' -e 's/>=//g')
+    # A `>` inside single quotes is data, such as a grep pattern for a
+    # Markdown quote line, not a redirect. Single-quoted spans are dropped
+    # only when the command has no double quote and no escaped apostrophe:
+    # an apostrophe inside "..." or written as \' would pair with a later
+    # quote and hide a real redirect.
+    case "$scrub" in
+      *'"'* | *"\\'"*) ;;
+      *) scrub=$(printf '%s' "$scrub" | sed -e "s/'[^']*'//g") ;;
+    esac
     reason=""
     case "$scrub" in
       *">"*) reason="it redirects output into a file" ;;
