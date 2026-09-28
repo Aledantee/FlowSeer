@@ -168,6 +168,7 @@ a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
 The check fails the run if a heading is duplicated, a code fence is unclosed, a
 section lacks a `- WHEN … THEN …` scenario bullet or exactly one `Proved by:`
-line (which may wrap across continuation lines until a blank line), or a cited
-test function does not exist as a top-level `Test…` function in a
+line (which may wrap across continuation lines until a blank line, heading, code
+fence, or another `Proved by:`, and must not end with a trailing comma), or a
+cited test function does not exist as a top-level `Test…` function in a
 same-directory `*_test.go` file.
