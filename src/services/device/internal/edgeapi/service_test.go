@@ -376,7 +376,7 @@ func TestEnrollRefusesAProofSignedByAnotherKey(t *testing.T) {
 }
 
 func TestEnrollRefusesAWithdrawnOrRetiredKey(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	cases := []struct {
 		name     string
 		withdraw func(t *testing.T, h *harness, ref *edgev1.EdgeGlobalRef)
@@ -573,7 +573,7 @@ func TestAttachBusHandsOnTheHubsCredentialUnchanged(t *testing.T) {
 	if !bytes.Contains(resp.Msg.GetUserCredential(), []byte("-----BEGIN NATS USER JWT-----")) {
 		t.Error("the user credential is not a .creds file a leaf node can read")
 	}
-	want := edgebus.EdgePublishSubjects(edgebus.DefaultTenant, edgeID)
+	want := edgebus.EdgePublishSubjects(defaultTenantID, edgeID)
 	for name, subject := range want {
 		if got := resp.Msg.GetSubjects()[name]; got != subject {
 			t.Errorf("subject %q = %q, want %q", name, got, subject)
@@ -693,7 +693,7 @@ func TestContactAgesOutOfTheHeartbeatRatherThanTheRecord(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h.now = testClock.Add(tc.silence)
-			resp, err := h.admin.GetEdge(context.Background(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
+			resp, err := h.admin.GetEdge(testContext(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
 			if err != nil {
 				t.Fatalf("GetEdge: %v", err)
 			}
@@ -714,7 +714,7 @@ func TestContactAgesOutOfTheHeartbeatRatherThanTheRecord(t *testing.T) {
 	}.Build())); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
 	}
-	resp, err := h.admin.GetEdge(context.Background(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
+	resp, err := h.admin.GetEdge(testContext(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
 	if err != nil {
 		t.Fatalf("GetEdge: %v", err)
 	}
@@ -740,7 +740,7 @@ func TestEnrollRefusesToConsumeAReplacementKeyItNeverSaw(t *testing.T) {
 
 	// The operator replaces the leaked key; the record now holds a fresh ISSUED
 	// key whose digest is not the leaked one's.
-	if _, err := h.admin.IssueSetupKey(context.Background(), connect.NewRequest(
+	if _, err := h.admin.IssueSetupKey(testContext(), connect.NewRequest(
 		apiedgev1.IssueSetupKeyRequest_builder{Edge: ref}.Build())); err != nil {
 		t.Fatalf("IssueSetupKey: %v", err)
 	}
@@ -764,7 +764,7 @@ func TestEnrollRefusesToConsumeAReplacementKeyItNeverSaw(t *testing.T) {
 // Under real contention an edge still ends up coherent: whichever caller
 // enrolled consumed the key it presented and registered the key it named.
 func TestConcurrentIssueAndEnrollLeaveACoherentRecord(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	for range 50 {
 		h := newHarness(t)
 		leaked := h.setupKey

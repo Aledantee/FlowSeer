@@ -63,9 +63,14 @@ func panicRecovery() connect.HandlerOption {
 // middleware's limit would have been.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
 	recoverPanic := panicRecovery()
+	devTenant := h.cfg.DevTenant()
+	if devTenant == "" {
+		devTenant = edgebus.DefaultTenant
+	}
 	interceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
 		ValidatingInterceptor(),
+		TenantInterceptor(devTenant),
 	)
 
 	verifier := edge.NewVerifier(h.cfg.AssertionAudience(), h.cfg.AssertionClockSkew(), resources.edges.Lookup)

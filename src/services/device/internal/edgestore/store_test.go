@@ -14,7 +14,11 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
 
-const edgeID = "0192e6a0-0000-7000-8000-0000000000ed"
+const (
+	edgeID  = "0192e6a0-0000-7000-8000-0000000000ed"
+	tenantA = "0192e6a0-0000-7000-8000-00000000000a"
+	tenantB = "0192e6a0-0000-7000-8000-00000000000b"
+)
 
 func newStore(t *testing.T) *edgestore.Store {
 	t.Helper()
@@ -66,6 +70,60 @@ func TestLookupOfAnUnknownEdgeIsNotFoundNotAnError(t *testing.T) {
 	}
 }
 
+func TestCrossTenantIsolation(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	public, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	// Store under tenantA
+	if _, err := s.Mutate(ctx, tenantA, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+		if current != nil {
+			t.Fatal("fresh edge should have no record")
+		}
+		return enrolledEdge(public), nil
+	}); err != nil {
+		t.Fatalf("mutate tenantA: %v", err)
+	}
+
+	// Verify tenantA can read it
+	recA, _, err := s.Get(ctx, tenantA, edgeID)
+	if err != nil {
+		t.Fatalf("Get tenantA: %v", err)
+	}
+	if recA == nil {
+		t.Fatal("tenantA could not read its own edge")
+	}
+
+	// Verify tenantB cannot read it
+	recB, revisionB, err := s.Get(ctx, tenantB, edgeID)
+	if err != nil {
+		t.Fatalf("Get tenantB errored: %v", err)
+	}
+	if recB != nil || revisionB != 0 {
+		t.Fatalf("tenantB could read tenantA's edge: %v, revision %d", recB, revisionB)
+	}
+
+	// Keys check
+	keysA, err := s.Keys(ctx, tenantA)
+	if err != nil {
+		t.Fatalf("Keys tenantA: %v", err)
+	}
+	if len(keysA) != 1 || keysA[0] != edgeID {
+		t.Fatalf("Keys tenantA = %v, want [%s]", keysA, edgeID)
+	}
+
+	keysB, err := s.Keys(ctx, tenantB)
+	if err != nil {
+		t.Fatalf("Keys tenantB: %v", err)
+	}
+	if len(keysB) != 0 {
+		t.Fatalf("Keys tenantB = %v, want empty", keysB)
+	}
+}
+
 func TestMutateStoresAndLookupReadsTheKeyAndLifecycle(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
@@ -74,13 +132,18 @@ func TestMutateStoresAndLookupReadsTheKeyAndLifecycle(t *testing.T) {
 		t.Fatalf("keygen: %v", err)
 	}
 
-	if _, err := s.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := s.Mutate(ctx, tenantA, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current != nil {
 			t.Fatal("a fresh edge should have no record")
 		}
 		return enrolledEdge(public), nil
 	}); err != nil {
 		t.Fatalf("create: %v", err)
+	}
+
+	// Index edge to tenantA
+	if err := s.IndexEdge(ctx, edgeID, tenantA); err != nil {
+		t.Fatalf("IndexEdge: %v", err)
 	}
 
 	key, lifecycle, err := s.Lookup(ctx, edgeID)
@@ -99,7 +162,7 @@ func TestMutateStoresAndLookupReadsTheKeyAndLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("keygen: %v", err)
 	}
-	if _, err := s.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := s.Mutate(ctx, tenantA, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			t.Fatal("the enrolled edge should have a record")
 		}
@@ -117,14 +180,44 @@ func TestMutateStoresAndLookupReadsTheKeyAndLifecycle(t *testing.T) {
 	}
 }
 
+func TestSetupKeyIndexWithTenant(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	const keyID = "fse1_setupkeyidentifier12"
+
+	if err := s.IndexSetupKey(ctx, keyID, tenantA, edgeID); err != nil {
+		t.Fatalf("IndexSetupKey: %v", err)
+	}
+
+	gotTenant, gotEdge, err := s.EdgeForSetupKey(ctx, keyID)
+	if err != nil {
+		t.Fatalf("EdgeForSetupKey: %v", err)
+	}
+	if gotTenant != tenantA || gotEdge != edgeID {
+		t.Fatalf("EdgeForSetupKey = (%q, %q), want (%q, %q)", gotTenant, gotEdge, tenantA, edgeID)
+	}
+
+	if err := s.UnindexSetupKey(ctx, keyID); err != nil {
+		t.Fatalf("UnindexSetupKey: %v", err)
+	}
+
+	unindexedTenant, unindexedEdge, err := s.EdgeForSetupKey(ctx, keyID)
+	if err != nil {
+		t.Fatalf("EdgeForSetupKey after unindex: %v", err)
+	}
+	if unindexedTenant != "" || unindexedEdge != "" {
+		t.Fatalf("expected empty after unindex, got (%q, %q)", unindexedTenant, unindexedEdge)
+	}
+}
+
 func TestMutateSkipWritesNothing(t *testing.T) {
 	s := newStore(t)
-	if _, err := s.Mutate(context.Background(), edgeID, func(*storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := s.Mutate(context.Background(), tenantA, edgeID, func(*storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		return nil, edgestore.ErrSkip
 	}); err != nil {
 		t.Fatalf("skip: %v", err)
 	}
-	if _, revision, err := s.Get(context.Background(), edgeID); err != nil || revision != 0 {
+	if _, revision, err := s.Get(context.Background(), tenantA, edgeID); err != nil || revision != 0 {
 		t.Fatalf("a skipped mutate wrote a record: revision %d, err %v", revision, err)
 	}
 }

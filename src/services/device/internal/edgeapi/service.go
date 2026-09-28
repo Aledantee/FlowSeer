@@ -54,6 +54,7 @@ var setupKeyStringPattern = regexp.MustCompile(`^fse1_[a-z2-7]{26}_[a-z2-7]{52}$
 // The hub implements it; the permission set on the minted user belongs to the
 // hub and is never widened here.
 type BusMinter interface {
+	AttachEdge(ctx context.Context, tenant, edgeID string) error
 	MintEdgeUser(ctx context.Context, edgeID string) (edgebus.EdgeCredentials, error)
 	Tenant() string
 }
@@ -146,8 +147,16 @@ func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[attachv1.H
 		return nil, unauthenticated(err)
 	}
 
+	tenantID, err := s.store.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	if tenantID == "" {
+		return nil, notFound(edgeID)
+	}
+
 	now := s.clock()
-	if _, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
 		}
@@ -177,6 +186,14 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[attachv1.Att
 		return nil, unauthenticated(err)
 	}
 
+	tenantID, err := s.store.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	if tenantID == "" {
+		return nil, notFound(edgeID)
+	}
+
 	creds, err := s.bus.MintEdgeUser(ctx, edgeID)
 	if err != nil {
 		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("mint edge bus user"))
@@ -189,7 +206,7 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[attachv1.Att
 	return connect.NewResponse(attachv1.AttachBusResponse_builder{
 		AccountJwt:     []byte(creds.AccountJWT),
 		UserCredential: credsFile,
-		Subjects:       edgebus.EdgePublishSubjects(s.bus.Tenant(), edgeID),
+		Subjects:       edgebus.EdgePublishSubjects(tenantID, edgeID),
 		ClusterUrls:    s.cfg.ClusterURLs,
 	}.Build()), nil
 }
