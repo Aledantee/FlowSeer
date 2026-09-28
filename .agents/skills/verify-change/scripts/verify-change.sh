@@ -252,7 +252,7 @@ else
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
         case "$path" in
-          .claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
+          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
         esac
         ;;
       *.go)
@@ -285,7 +285,7 @@ else
           fi
         fi
         ;;
-      .claude/*|.codex/*|tools/hooks/*|tools/test/*)
+      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*)
         hook_tooling=true
         ;;
     esac
