@@ -5,18 +5,19 @@ rule below comes from a failure in this repository's history or from a
 primary source. The contract that states the rules is
 `docs/architecture/2026-09-28-web-component-contract-direction.md`.
 
-The `--z-*` tokens and `src/theme/motion.css` land with the contract's
-migration plan. Check whether they exist:
+The `--z-*` tokens, the overlay `--animate-*` keyframes, and motion-v
+land with the contract's migration plan. Check whether they exist:
 
 ```bash
-grep -c -- "--z-overlay" frontend/web/src/theme/tokens.css; ls frontend/web/src/theme/motion.css
+grep -c -- "--z-overlay" frontend/web/src/theme/tokens.css; grep -c -- "--animate-overlay-in" frontend/web/src/theme/tailwind.css; grep -c '"motion-v"' frontend/web/package.json
 ```
 
-Until they exist:
+A `0` means that piece has not landed. Until it does:
 - Overlays keep `z-50`, and a hand-built layer stays below it.
 - A new overlay's keyframes go in the component's own `<style>`, reading
   the duration tokens.
-- Say in the report that both are waiting on the migration.
+- JavaScript motion stays on `useMotionFeedback` over `motion/mini`.
+- Say in the report which piece is waiting on the migration.
 
 ## Failures this repository already had
 
@@ -57,7 +58,10 @@ Until they exist:
    - Never add a document listener for outside clicks or Escape.
    - Escape closes only the top layer.
 5. **Focus.**
-   - Every overlay wrapper re-emits `closeAutoFocus`.
+   - Every overlay wrapper whose Reka content emits `closeAutoFocus`
+     re-emits it: dialog, alert dialog, command dialog, popover, dropdown
+     menu, context menu, and select. `ComboboxContent` restores focus
+     itself, and tooltip content never takes focus.
    - When the invoker is not a tab stop or may unmount (a deleted row, a
      menu item), prevent the default and focus a defined element.
    - Initial focus goes to the first control, or to the least destructive
@@ -88,20 +92,30 @@ Until they exist:
 ## Motion rules
 
 1. **One mechanism per property.**
-   - JavaScript animation goes through `src/motion/useMotionFeedback.ts`.
-     It owns the reduced-motion check, cancellation, and restoring inline
-     styles.
-   - Read the start and end values from `getComputedStyle` around
-     `nextTick`, then play.
-   - Delete any CSS `transition` on the same property.
-   - Never call `animate()` directly.
-2. **Overlay enter and exit use CSS keyframes on `data-state`**
-   (`src/theme/motion.css`). Reka's `Presence` waits for `animationend`
-   and ignores transitions, so a `transition-*` exit class never plays and
-   the node vanishes
-   (https://raw.githubusercontent.com/unovue/reka-ui/v2/packages/core/src/Presence/usePresence.ts).
-   Don't add `tw-animate-css` or `motion-v` for this; the contract decided
-   against both.
+   - JavaScript motion uses motion-v, which the contract's amendment
+     approved: the `motion` component, `layout` animations, or `animate`
+     through `useMotionFeedback`.
+   - Reduced motion comes from the one app-root
+     `MotionConfig reducedMotion="user"`. Never set `reducedMotion` per
+     component, and never leave it at motion-v's default of `"never"`.
+   - Delete any CSS `transition` on a property motion-v drives.
+2. **Overlay enter and exit use CSS keyframes on `data-state`.** They
+   are `--animate-*` theme variables with their `@keyframes` inside
+   `@theme` in `src/theme/tailwind.css`, applied inside the `Ui*` wrapper
+   as `data-[state=open]:animate-overlay-in` and
+   `data-[state=closed]:animate-overlay-out`. This is Nuxt UI's
+   pattern.
+   - Reka's `Presence` waits for `animationend` and ignores transitions,
+     so a `transition-*` exit class never plays and the node vanishes
+     (https://raw.githubusercontent.com/unovue/reka-ui/v2/packages/core/src/Presence/usePresence.ts).
+   - Never scope a keyframe to a bare `[data-state]` selector. Triggers
+     carry `data-state` too, so they would animate.
+   - motion-v on an overlay (`forceMount`, `as-child`, and
+     `AnimatePresence`) is allowed only where springs, gestures, or
+     layout animation earn it. It needs a browser story test for that
+     wrapper, because popper parts have had exit regressions under
+     Motion.
+   - Don't add `tw-animate-css`.
 3. **What moves.** Only `transform` and `opacity`. Never
    `transition: all`, and never `width`, `height`, `top`, or `margin`.
    - Scale starts from 0.96, never 0.
@@ -129,7 +143,7 @@ Until they exist:
    same duration. It does not remove all feedback, and it is never a
    global `0.01ms` kill switch.
 7. **Interruptions.** Hover and open/close toggles use transitions or
-   `useMotionFeedback`, which retarget midway. Keyframes restart instead,
+   motion-v, which retarget midway. Keyframes restart instead,
    so keep keyframes to enter and exit.
 
 ## Checks happy-dom cannot make
@@ -146,6 +160,7 @@ Run these in the browser loop in `review.md`:
 - A menu that opens a dialog does not freeze the page.
 - Emulated reduced motion leaves a fade, or nothing.
 
-Reka menus and selects open on `pointerdown`. A plain `click()` in
-happy-dom may not open them, so dispatch `pointerdown` in unit tests.
-agent-browser clicks with real pointer events.
+Reka 2.10.5 opens `DropdownMenuTrigger` on `click`, but `SelectTrigger`
+opens on a plain left `pointerdown`. In a happy-dom test, dispatch the
+event the trigger listens for; the a11y harness's `openOverlay` only
+clicks. agent-browser clicks with real pointer events.

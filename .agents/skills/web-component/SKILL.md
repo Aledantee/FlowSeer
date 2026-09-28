@@ -123,7 +123,7 @@ Views never import `reka-ui`; only files under `src/ui/` do.
     `defaultPrevented`.
   - Query portalled content from `document.body`.
   - Stub `matchMedia` to reduced motion in any test that triggers
-    `useMotionFeedback`. Do not mock `motion/mini`.
+    `useMotionFeedback`. Do not mock the animation library.
   - Leave layout, stacking, and motion to step 4.
 
 Run the audit alone while iterating, from `frontend/web`:

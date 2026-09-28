@@ -312,3 +312,50 @@ Checked on 2026-09-28:
   - menu button: https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/
   - tooltip: https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/
 - npm registry: `vue-i18n@11.4.12`, MIT, published 2026-09-16.
+
+## Amendments
+
+### 2026-09-28: motion-v, Tailwind keyframes, and focus-return scope
+
+Decided by the user after further research the same day. Where a line
+above conflicts with this section, this section wins.
+
+- **motion-v replaces `motion/mini` for JavaScript motion.**
+  - The user approved `motion-v` (MIT) and its peer `@vueuse/core`.
+  - `useMotionFeedback` and its callers move to motion-v. Layout changes
+    such as the sidebar resize may use motion-v's `layout` animations in
+    place of the read, `nextTick`, read, play sequence.
+  - `MotionConfig` with `reducedMotion="user"` is set once in the app-root
+    component. motion-v's default is `"never"`
+    ([MotionConfig](https://motion.dev/docs/vue-motion-config)).
+  - The `motion` package is removed once no caller remains.
+- **Overlay enter and exit stay on CSS keyframes.** They are declared as
+  `--animate-*` theme variables with their `@keyframes` inside Tailwind
+  v4's `@theme` in `src/theme/tailwind.css`, and applied per
+  `data-state` inside each `Ui*` wrapper. That replaces the separate
+  `src/theme/motion.css` named above.
+  - This is Nuxt UI's production pattern for Reka overlays, and it is
+    what Reka's `Presence` waits for.
+  - Staying on Reka was checked against alternatives. Ark UI's Zag
+    presence machine also watches keyframes only. Headless UI Vue has had
+    no release since 2024-09. Reka's transition-aware presence is planned
+    for v3 ([#2827](https://github.com/unovue/reka-ui/issues/2827)), with
+    no release date.
+  - Keeping the classes inside the wrappers lets v3's
+    `data-ending-style` replace them without touching call sites.
+- **motion-v on an overlay** is allowed only where springs, gestures, or
+  layout animation earn it. It uses `forceMount`, `as-child`, and
+  `AnimatePresence`, and needs a browser story test for that wrapper.
+  Popper-based parts have had exit regressions under Motion
+  ([#1663](https://github.com/unovue/reka-ui/issues/1663),
+  [motion-vue#231](https://github.com/motiondivision/motion-vue/issues/231)).
+- **Focus return.** "Every overlay wrapper re-emits `closeAutoFocus`" is
+  narrowed to the wrappers whose Reka content emits it: dialog, alert
+  dialog, command dialog, popover, dropdown menu, context menu, and
+  select. `ComboboxContent` restores focus itself on unmount, and tooltip
+  content never takes focus (reka-ui 2.10.5,
+  `Combobox/ComboboxContentImpl.js`).
+- **Exempt from motion.** The command dialog and typeahead combobox lists
+  do not animate on entry. The command dialog gets an exit fade so it
+  does not vanish mid-frame. Tooltips do not animate at all, which is
+  simpler than animating only the first tooltip of a group.
