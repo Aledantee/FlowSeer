@@ -112,6 +112,12 @@ anyway and the split buys nothing; today no non-test file does.
   moved ahead of that exit. Why: the selection cases in `run.sh` assert
   against that output without running a gate. Cost if wrong: that script and
   the four cases.
+- Ruled: a dependent module's dependencies are listed under the default
+  build and once per build tag its files carry, the builds `vet_tagged`
+  checks. Why: netpen imports `src/protocol/ssh` and `src/common/secret`
+  only from `netpen_t1`/`netpen_t2`/`netpen_bench` files, so an untagged
+  listing skipped it for an ssh change that `main` builds and vets it for.
+  Cost if wrong: `module_deps` in the verifier and one `run.sh` case.
 - Ruled: a dependent module whose `go list -deps` fails is selected. Why: a
   broken listing is a reason to build the module, not to skip it without
   a word. Cost if wrong: one branch in the selection loop.

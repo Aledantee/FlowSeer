@@ -320,6 +320,30 @@ package_dir() {
   printf '%s\n' "$pkg_dir"
 }
 
+# The sweepable build tags in the directories of the named packages, one
+# per line. GOOS and GOARCH names, ignore, and race are not sweepable
+# tags. Run from inside the module.
+build_tags() {
+  go list -f '{{.Dir}}' "$@" \
+    | while IFS= read -r dir; do grep -h '^//go:build' "$dir"/*.go 2>/dev/null || true; done \
+    | tr -c 'A-Za-z0-9_\n' ' ' | tr ' ' '\n' \
+    | grep -vxE 'go|build|ignore|race|linux|darwin|windows|freebsd|netbsd|openbsd|solaris|aix|plan9|js|wasip1|amd64|arm64|arm|386|riscv64|ppc64le|ppc64|s390x|mips64|mips|wasm|cgo|unix|purego' \
+    | grep -v '^$' | sort -u
+}
+
+# The packages a module compiles, test imports included, under the default
+# build and under each build tag its files carry, the same builds
+# vet_tagged checks. Fails when a listing fails. Run from inside the
+# module.
+module_deps() {
+  local tag
+  go list -e -deps -test -f '{{.ImportPath}}' ./... || return
+  while IFS= read -r tag; do
+    [[ -n $tag ]] || continue
+    go list -e -deps -test -tags "$tag" -f '{{.ImportPath}}' ./... || return
+  done < <(build_tags ./...)
+}
+
 # Output that is a module of its own, the YANG bindings, holds over a
 # thousand packages and no tests. A full lint of it ran for over an hour,
 # so it gets a build and a lint of the sample packages named here,
@@ -335,7 +359,9 @@ generated_lint_samples() {
 # A nested module that replaces the root module with the tree (the bench,
 # netpen, and generated YANG modules) breaks on a root change it compiles
 # against, but a root-only path list never selects it. It is selected when
-# a changed root package is among its dependencies, test imports included:
+# a changed root package is among its dependencies, test imports and each
+# build tag's files included (netpen reaches src/protocol/ssh only from
+# tagged tests):
 # selecting every such module for every root change would compile the YANG
 # module's thousand packages each time. `go list -deps` loads packages
 # without compiling them, and a listing that fails selects the module so
@@ -370,7 +396,7 @@ if [[ $full == false && $root_selected == true ]]; then
     [[ $dep == . ]] && continue
     if [[ $root_all == false ]]; then
       ((${#root_pkgs[@]})) || continue
-      if dep_pkgs=$(cd "$dep" && go list -e -deps -test -f '{{.ImportPath}}' ./... 2>/dev/null); then
+      if dep_pkgs=$(cd "$dep" && module_deps 2>/dev/null); then
         imported=false
         for pkg in "${root_pkgs[@]}"; do
           if grep -qxF "$pkg" <<<"$dep_pkgs"; then
@@ -541,17 +567,12 @@ fi
 # Files behind a build tag are invisible to the untagged build, so a
 # signature change can leave them broken while the gate is green. Vet the
 # targets once per tag found in their directories; vet compiles the tagged
-# test files without running them. GOOS and GOARCH names, ignore, and race
-# are not sweepable tags. Run from inside the module.
+# test files without running them. Run from inside the module.
 vet_tagged() {
   local tags=() tag
   while IFS= read -r tag; do
     tags+=("$tag")
-  done < <(go list -f '{{.Dir}}' "$@" \
-    | while IFS= read -r dir; do grep -h '^//go:build' "$dir"/*.go 2>/dev/null || true; done \
-    | tr -c 'A-Za-z0-9_\n' ' ' | tr ' ' '\n' \
-    | grep -vxE 'go|build|ignore|race|linux|darwin|windows|freebsd|netbsd|openbsd|solaris|aix|plan9|js|wasip1|amd64|arm64|arm|386|riscv64|ppc64le|ppc64|s390x|mips64|mips|wasm|cgo|unix|purego' \
-    | grep -v '^$' | sort -u)
+  done < <(build_tags "$@")
   for tag in "${tags[@]:-}"; do
     [[ -n $tag ]] || continue
     run go vet -tags "$tag" "$@"

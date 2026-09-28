@@ -73,7 +73,8 @@ importing one. The whole module still compiles. In addition:
   integration or bench test that stopped compiling fails the gate.
 - A nested module that replaces the root module (`src/protocol/*/bench`,
   `src/edge/netpen`, `generated/go/yang`) is built and vetted after a
-  change to a root package it depends on, test imports included, or to the
+  change to a root package it depends on, test imports and build-tagged
+  files included, or to the
   root `go.mod` or `go.sum`; its race tests run under `--full`. A module
   under `generated/` is built only, and a changed file inside it builds
   that module and lints its sample packages, because a full lint of the

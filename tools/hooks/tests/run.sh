@@ -724,10 +724,11 @@ selection_build_dirs=$(find "$selection_tmp" -maxdepth 1 -name 'flowseer-build.*
 ok "verifier selection exits before recursively running hook tests"
 
 # A root module with two nested modules that replace it: a generated one
-# importing lib/a and a netpen stand-in importing lib/b. Selection runs the
-# real go, which lists packages without compiling them.
+# importing lib/a and a netpen stand-in importing lib/b, and lib/c only from
+# a file behind a build tag. Selection runs the real go, which lists
+# packages without compiling them.
 nested_fixture="$fixture_parent/nested selection fixture"
-mkdir -p "$nested_fixture/lib/a" "$nested_fixture/lib/b" \
+mkdir -p "$nested_fixture/lib/a" "$nested_fixture/lib/b" "$nested_fixture/lib/c" \
   "$nested_fixture/generated/go/yang/v/m" "$nested_fixture/src/edge/netpen"
 git -C "$nested_fixture" init -q
 placeholder=v0.0.0-00010101000000-000000000000
@@ -741,6 +742,8 @@ printf 'package m\n\nimport _ "go.aledante.io/FlowSeer/lib/a"\n' >"$nested_fixtu
 printf 'module go.aledante.io/FlowSeer/src/edge/netpen\n\ngo 1.27\n\nrequire go.aledante.io/FlowSeer %s\n\nreplace go.aledante.io/FlowSeer => ../../..\n' \
   "$placeholder" >"$nested_fixture/src/edge/netpen/go.mod"
 printf 'package main\n\nimport _ "go.aledante.io/FlowSeer/lib/b"\n\nfunc main() {}\n' >"$nested_fixture/src/edge/netpen/main.go"
+printf 'package c\n' >"$nested_fixture/lib/c/c.go"
+printf '//go:build netpen_t1\n\npackage main\n\nimport _ "go.aledante.io/FlowSeer/lib/c"\n' >"$nested_fixture/src/edge/netpen/tagged.go"
 git -C "$nested_fixture" add .
 git -C "$nested_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm init
 mkdir -p "$nested_fixture/.selection-tmp"
@@ -755,6 +758,11 @@ selection_output=$(select_nested lib/b/b.go)
 [[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
 [[ $selection_output != *dependent=generated/go/yang* ]]
 ok "verifier selection skips a nested module that does not import the changed root package"
+
+selection_output=$(select_nested lib/c/c.go)
+[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
+[[ $selection_output != *dependent=generated/go/yang* ]]
+ok "verifier selection counts a nested module's imports behind a build tag"
 
 selection_output=$(select_nested lib/a/a.go)
 [[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]]
