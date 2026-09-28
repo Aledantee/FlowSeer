@@ -56,7 +56,7 @@ the error type, while exercising a fraction of its surface, meant importing that
 module's design decisions unchanged into roughly two hundred call sites.
 
 Three of those decisions were actively wrong for this codebase, per the plan's
-Problem Frame (`docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md`):
+Problem Frame (Landed 2026-08-19: internal errs package in `src/common/errs`):
 
 - `ae.Wrapf` placed the wrapped error *between* the format string and its
   arguments. Every call site read backwards relative to `fmt.Errorf`, and the
@@ -640,7 +640,7 @@ list sees the constraint before they add to it.
   migration oracle; its unchanged test suite is what proved the rename
   behavior-preserving. The `doc.go`-is-authoritative documentation convention used
   here is borrowed from that package.
-- `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md` — the tracked
-  source plan, with the full requirement list and prior-art survey. Use it for
-  historical provenance; the current package contract lives in
+- Landed 2026-08-19: internal errs package in `src/common/errs`, replacing the
+  external `ae` dependency with the owned four-field error core, stable codes,
+  and slog `LogValuer`. The current package contract lives in
   `src/common/errs/doc.go`.
