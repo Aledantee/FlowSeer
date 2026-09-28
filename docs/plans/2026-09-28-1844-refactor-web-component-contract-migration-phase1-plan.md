@@ -5,7 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
@@ -14,17 +14,25 @@ parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-pla
 
 > Implemented. 2 units, 2026-09-28T17:15:41Z to 2026-09-28T17:33:35Z.
 
-> Review: rework, for one open item. `runAudit` in
-> `frontend/web/src/ui/a11y.test.ts` removes `aria-hidden` from every
-> node Reka's `hideOthers` marked before axe runs. That suppresses
-> `aria-hidden-focus` for every story, and the new `UiSelect` open audit
-> fails without it (Reka's select hides its own focus guards and its
-> trigger). AGENTS.md forbids such an exception unless it is requested
-> explicitly, so the person decides: a scoped, documented exception for
-> that one audit entry and rule, or another way to audit the select's
-> open state. The other findings are fixed in `90424419`. A programmatic
-> `dismiss()` now removes the toast in the render flush that applies the
-> close, and a user close still removes it synchronously.
+> Review: accept after fixes. The earlier findings are fixed in
+> `90424419`. A programmatic `dismiss()` now removes the toast in the
+> render flush that applies the close, and a user close still removes it
+> synchronously. The open audit item is fixed per the overlay audit
+> scope decision in `efab63c7`, `0695b9c1`, and `111547fe`:
+> - `runAudit` strips no `aria-hidden`, and every axe rule stays on.
+> - An open overlay's audit runs axe on the overlay's portalled root, the
+>   body child holding the element with the entry's role. Reka 2.10.5
+>   puts `role="tooltip"` on a visually hidden copy of the text, so
+>   auditing the role element alone would skip the visible tooltip.
+> - The overlay opens after the Ask step, because in the old order the
+>   Ask click closed the combobox listbox before the audit ran.
+> - The Ask panel's own `role="dialog"` root is excluded, and exactly one
+>   candidate must remain.
+>
+> All eight `OVERLAY_AUDITS` entries pass. A violation injected into each
+> audited root fails all eight, and an unopened dialog story fails the
+> candidate check. The open-state audit no longer covers the trigger or
+> the Ask panel; closed-state stories still audit `document.body`.
 
 ## Goal
 
