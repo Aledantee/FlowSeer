@@ -912,9 +912,11 @@ The following areas remain outside the foundation established here:
   are modeled, and unreported facts stay unknown.
 - **Topology identity and adjacency ambiguity**: resolving links from noisy,
   conflicting, or unmanaged LLDP and CDP neighbor records.
-- **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
-  MSTP), LACP dynamic aggregation negotiations, IGMP/MLD querier election,
-  dynamic IP routing (BGP and OSPF), and transport protocol behavior.
+- **Protocol depth**: IGMP/MLD querier election, dynamic IP routing (BGP and
+  OSPF), and transport protocol behavior. Spanning tree runs in `stp`, whose
+  README lists what it does not model. LACP runs in `lag` as Open vSwitch
+  runs it, without the marker protocol, load-driven rebalancing, or members
+  on two switches.
 - **Neighbor solicitation and unreachability detection**: the switch observes
   ARP and NDP traffic but never sends a solicitation of its own, and a stale
   or incomplete neighbor entry never moves through `Delay` or `Probe` toward
@@ -968,3 +970,11 @@ starts a fresh run from an updated specification, in-run configuration modifies 
 switch in place and continues the existing simulation run. Unaffected switches,
 cables, and in-flight traffic remain in place, while `vswitch.Derive` decides what
 state and learned records the reconfigured switch keeps.
+
+### 2026-09-28 — Spanning tree and LACP leave the capability gaps
+
+Landed 2026-09-11: Rapid Spanning Tree with per-port 802.1D compatibility in
+`src/common/netsim/vswitch/stp`, and LACP with the bond modes in
+`src/common/netsim/vswitch/lag` over the codec in `src/common/net/lacp`. The
+"Protocol depth" gap above no longer lists either, and names what `lag` leaves
+out.
