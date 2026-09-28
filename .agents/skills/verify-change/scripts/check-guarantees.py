@@ -13,14 +13,142 @@ import re
 import sys
 from pathlib import Path
 
-HEADING_RE = re.compile(r"^##\s+(.+)$")
+HEADING_RE = re.compile(r"^ {0,3}##\s+(.+?)\s*#*\s*$")
 WHEN_BULLET_START_RE = re.compile(r"^\s*-\s+WHEN\b")
 THEN_RE = re.compile(r"\bTHEN\b")
 PROVED_BY_RE = re.compile(r"^\s*Proved by:\s*(.*)$")
 GO_TEST_FUNC_RE = re.compile(
     r"^func\s+(Test(?:[^a-z]\w*)?)\s*\(\s*\w+\s+\*testing\.T\s*\)"
 )
-CODE_FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
+CODE_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+SETEXT_H2_RE = re.compile(r"^ {0,3}-+\s*$")
+
+
+def mask_comments_and_strings(content: str) -> str:
+    """Mask Go comments and strings with spaces, preserving newlines and code."""
+    out: list[str] = []
+    n = len(content)
+    i = 0
+    state = "CODE"
+
+    while i < n:
+        c = content[i]
+
+        if state == "CODE":
+            if c == "/" and i + 1 < n and content[i + 1] == "/":
+                state = "LINE_COMMENT"
+                out.append("  ")
+                i += 2
+                continue
+            if c == "/" and i + 1 < n and content[i + 1] == "*":
+                state = "BLOCK_COMMENT"
+                out.append("  ")
+                i += 2
+                continue
+            if c == '"':
+                state = "STRING"
+                out.append(" ")
+                i += 1
+                continue
+            if c == "'":
+                state = "RUNE"
+                out.append(" ")
+                i += 1
+                continue
+            if c == "`":
+                state = "RAW_STRING"
+                out.append(" ")
+                i += 1
+                continue
+            out.append(c)
+            i += 1
+
+        elif state == "LINE_COMMENT":
+            if c == "\n":
+                state = "CODE"
+                out.append("\n")
+                i += 1
+            else:
+                out.append(" ")
+                i += 1
+
+        elif state == "BLOCK_COMMENT":
+            if c == "*" and i + 1 < n and content[i + 1] == "/":
+                state = "CODE"
+                out.append("  ")
+                i += 2
+            elif c == "\n":
+                out.append("\n")
+                i += 1
+            else:
+                out.append(" ")
+                i += 1
+
+        elif state == "STRING":
+            if c == "\\":
+                if i + 1 < n:
+                    next_c = content[i + 1]
+                    out.append(" ")
+                    if next_c == "\n":
+                        state = "CODE"
+                        out.append("\n")
+                    else:
+                        out.append(" ")
+                    i += 2
+                else:
+                    out.append(" ")
+                    i += 1
+            elif c == '"':
+                state = "CODE"
+                out.append(" ")
+                i += 1
+            elif c == "\n":
+                state = "CODE"
+                out.append("\n")
+                i += 1
+            else:
+                out.append(" ")
+                i += 1
+
+        elif state == "RUNE":
+            if c == "\\":
+                if i + 1 < n:
+                    next_c = content[i + 1]
+                    out.append(" ")
+                    if next_c == "\n":
+                        state = "CODE"
+                        out.append("\n")
+                    else:
+                        out.append(" ")
+                    i += 2
+                else:
+                    out.append(" ")
+                    i += 1
+            elif c == "'":
+                state = "CODE"
+                out.append(" ")
+                i += 1
+            elif c == "\n":
+                state = "CODE"
+                out.append("\n")
+                i += 1
+            else:
+                out.append(" ")
+                i += 1
+
+        elif state == "RAW_STRING":
+            if c == "`":
+                state = "CODE"
+                out.append(" ")
+                i += 1
+            elif c == "\n":
+                out.append("\n")
+                i += 1
+            else:
+                out.append(" ")
+                i += 1
+
+    return "".join(out)
 
 
 def find_test_functions(pkg_dir: Path) -> set[str]:
@@ -35,26 +163,8 @@ def find_test_functions(pkg_dir: Path) -> set[str]:
             content = test_file.read_text(encoding="utf-8")
         except OSError:
             continue
-        in_block_comment = False
-        for line in content.splitlines():
-            if in_block_comment:
-                end_idx = line.find("*/")
-                if end_idx != -1:
-                    in_block_comment = False
-                    line = line[end_idx + 2:]
-                else:
-                    continue
-            while not in_block_comment:
-                start_idx = line.find("/*")
-                if start_idx == -1:
-                    break
-                end_idx = line.find("*/", start_idx + 2)
-                if end_idx != -1:
-                    line = line[:start_idx] + line[end_idx + 2:]
-                else:
-                    line = line[:start_idx]
-                    in_block_comment = True
-                    break
+        masked = mask_comments_and_strings(content)
+        for line in masked.splitlines():
             m = GO_TEST_FUNC_RE.match(line)
             if m:
                 func_name = m.group(1)
@@ -118,6 +228,10 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
                     f'{display_path}:{block["start_line"]}: "{current_heading}" Proved by: line names no tests'
                 )
             else:
+                if block["ends_with_comma"]:
+                    errors.append(
+                        f'{display_path}:{block["last_line"]}: "{current_heading}" Proved by: list ends with a comma'
+                    )
                 for line_no, test_name in tests:
                     if test_name not in available_tests:
                         errors.append(
@@ -127,6 +241,7 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
     fence_char: str | None = None
     fence_len: int = 0
     fence_start_line: int = 0
+    prev_line_is_paragraph: bool = False
     lines = content.splitlines()
     for line_num, line in enumerate(lines, 1):
         stripped = line.strip()
@@ -147,13 +262,27 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
 
         m = CODE_FENCE_RE.match(line)
         if m:
-            marker = m.group(1)
-            fence_char = marker[0]
-            fence_len = len(marker)
-            fence_start_line = line_num
-            in_proved_by = False
-            in_when_bullet = False
-            continue
+            marker, info = m.group(1), m.group(2)
+            if marker[0] == "`" and "`" in info:
+                pass
+            else:
+                fence_char = marker[0]
+                fence_len = len(marker)
+                fence_start_line = line_num
+                in_proved_by = False
+                in_when_bullet = False
+                prev_line_is_paragraph = False
+                continue
+
+        if SETEXT_H2_RE.match(line):
+            if prev_line_is_paragraph:
+                errors.append(
+                    f"{display_path}:{line_num}: setext heading not allowed; use ##"
+                )
+                prev_line_is_paragraph = False
+                in_proved_by = False
+                continue
+            prev_line_is_paragraph = False
 
         heading_match = HEADING_RE.match(line)
         if heading_match:
@@ -164,6 +293,7 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
             current_proved_by_blocks = []
             in_when_bullet = False
             in_proved_by = False
+            prev_line_is_paragraph = False
 
             if current_heading in seen_headings:
                 errors.append(
@@ -178,24 +308,42 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
                 errors.append(
                     f"{display_path}:{line_num}: Proved by: line found outside of any guarantee section"
                 )
+            if (
+                not stripped
+                or stripped.startswith("#")
+                or stripped.startswith(("- ", "* ", "+ "))
+                or SETEXT_H2_RE.match(line)
+            ):
+                prev_line_is_paragraph = False
+            else:
+                prev_line_is_paragraph = True
             continue
 
         if in_proved_by:
-            if not stripped or HEADING_RE.match(line) or PROVED_BY_RE.match(line):
+            if (
+                not stripped
+                or HEADING_RE.match(line)
+                or PROVED_BY_RE.match(line)
+                or SETEXT_H2_RE.match(line)
+            ):
                 in_proved_by = False
             else:
                 raw_tests = [
                     t.strip("`'\" \t") for t in line.split(",") if t.strip("`'\" \t")
                 ]
+                current_proved_by_blocks[-1]["last_line"] = line_num
+                current_proved_by_blocks[-1]["ends_with_comma"] = stripped.endswith(",")
                 current_proved_by_blocks[-1]["tests"].extend(
                     (line_num, t) for t in raw_tests
                 )
+                prev_line_is_paragraph = False
                 continue
 
         proved_by_match = PROVED_BY_RE.match(line)
         if proved_by_match:
             in_when_bullet = False
             in_proved_by = True
+            prev_line_is_paragraph = False
             raw_tests_str = proved_by_match.group(1).strip()
             test_names = [
                 t.strip("`'\" \t")
@@ -205,6 +353,8 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
             current_proved_by_blocks.append(
                 {
                     "start_line": line_num,
+                    "last_line": line_num,
+                    "ends_with_comma": raw_tests_str.endswith(","),
                     "tests": [(line_num, t) for t in test_names],
                 }
             )
@@ -213,6 +363,7 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
         if WHEN_BULLET_START_RE.match(line):
             in_when_bullet = True
             in_proved_by = False
+            prev_line_is_paragraph = False
             if THEN_RE.search(line):
                 current_has_when_then = True
             continue
@@ -222,6 +373,18 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
                 in_when_bullet = False
             elif THEN_RE.search(line):
                 current_has_when_then = True
+
+        if (
+            not stripped
+            or stripped.startswith("#")
+            or stripped.startswith(("- ", "* ", "+ "))
+            or in_when_bullet
+            or in_proved_by
+            or SETEXT_H2_RE.match(line)
+        ):
+            prev_line_is_paragraph = False
+        else:
+            prev_line_is_paragraph = True
 
     finish_current_section()
 

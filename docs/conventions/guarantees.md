@@ -51,8 +51,12 @@ Each guarantee is a markdown section identified by its `##` heading:
    by RFC 8174).
 3. One or more scenario bullets in `- WHEN … THEN …` format.
 4. Exactly one `Proved by:` line listing comma-separated top-level Go test
-   names. The list continues over following non-blank, non-heading lines until a
-   blank line.
+   names. The list may continue across following lines until a blank line,
+   heading, code fence, or another `Proved by:` line. A `Proved by:` list
+   ending with a trailing comma is an error.
+
+Fenced code blocks (``` or ~~~) are ignored; headings and test citations inside
+them are not parsed. An unclosed code fence is an error.
 
 ### Example block
 
@@ -64,23 +68,22 @@ Dial MUST refuse Options specifying neither or both of HostKeySHA256 and Insecur
 - WHEN neither HostKeySHA256 nor InsecureIgnoreHostKey is set, or both are set THEN Dial returns an error refusing the connection.
 - WHEN HostKeySHA256 does not match the remote host's key fingerprint THEN Dial returns an error refusing the connection.
 
-Proved by: TestDialOptionsRequireExplicitHostKeyVerification, TestDialHostKeyMismatchRefused
+Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequireExplicitHostKeyVerification, TestDialHostKeyMismatchRefused
 ```
 
 ## Citation rules and test bounds
 
 - Cited tests resolve only to top-level `func Test…(*testing.T)` functions in
   `*_test.go` files located in the exact same directory as `GUARANTEES.md`.
-  `TestMain`, unexported test functions, and tests with other signatures do not
-  resolve.
+  `TestMain`, functions whose name after `Test` starts with a lowercase letter,
+  and tests with other signatures do not resolve.
 - Citations do not search subdirectories. Subdirectories are separate Go
   packages. Searching subdirectories would allow a subpackage test to mask the
   deletion of a parent package's test.
 - Subtests (`t.Run`) cannot be cited because subtest names are runtime strings
   rather than static symbols.
-- The verifier ignores Go line comments and `/* */` block comments when resolving
-  test functions; `/*` sequences inside Go raw string literals remain a
-  documented parser limitation.
+- The verifier ignores Go comments (`//` and `/* */`), string literals (`"…"` and
+  raw strings), and rune literals (`'…'`) when resolving test functions.
 - A guarantee MUST claim only what its cited tests assert. The verifier proves
   that cited test symbols exist; it cannot verify test semantics. A guarantee
   statement broader than its tests creates unproven prose.

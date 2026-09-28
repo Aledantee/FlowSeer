@@ -12,10 +12,13 @@ execution: mixed
 
 > Implemented. 3 units, 2026-09-28T19:09:14Z to 2026-09-28T19:22:52Z.
 > Pilot outcome: 4 of 7 README contracts were proved by existing tests as-is,
-> 2 needed a new test (session closure on peer disconnection and Run-level prompt
-> earliest-match), and 1 needed a test change (output cap truncation without
-> buffer ring saturation). The stop condition held (did not trigger); the
-> convention and check format are validated.
+> 2 needed a new test (session closure on peer disconnection and prompt
+> earliest-match: TestScanPromptEarliestMatchAndTieOrder and
+> TestRunPromptEarliestMatchInStream), and 1 needed a test change (output cap
+> truncation without buffer ring saturation). The host-key guarantee also cites
+> the Dial-level test because the helper-level one does not call Dial. The stop
+> condition held (did not trigger); the convention and check format are
+> validated.
 
 ## Goal
 

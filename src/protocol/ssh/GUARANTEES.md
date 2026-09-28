@@ -9,7 +9,7 @@ Dial MUST refuse Options specifying neither or both of HostKeySHA256 and Insecur
 - WHEN neither HostKeySHA256 nor InsecureIgnoreHostKey is set, or both are set THEN Dial returns an error refusing the connection.
 - WHEN HostKeySHA256 does not match the remote host's key fingerprint THEN Dial returns an error refusing the connection.
 
-Proved by: TestDialOptionsRequireExplicitHostKeyVerification, TestDialHostKeyMismatchRefused
+Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequireExplicitHostKeyVerification, TestDialHostKeyMismatchRefused
 
 ## A failed wait closes the session
 
