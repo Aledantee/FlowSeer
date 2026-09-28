@@ -7,9 +7,11 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -828,5 +830,226 @@ func TestScenarioForkIsolation(t *testing.T) {
 	sourceRes := fab.Run(5)
 	if sourceRes.Steps != 5 {
 		t.Errorf("sourceRes.Steps = %d, want 5", sourceRes.Steps)
+	}
+}
+
+func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 1}
+	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 2}
+
+	newPorts := func() port.Table {
+		tbl, _ := port.NewBuilder().
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/24", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Build()
+		return tbl
+	}
+	vid10 := vlan.ID(10)
+	makeBridge10 := func() *bridge.Config {
+		return &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "prod"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+					"1/1/24": {Tagged: []vlan.ID{10}, IngressFiltering: true},
+				},
+			},
+		}
+	}
+	vid20 := vlan.ID(20)
+	makeBridge20 := func() *bridge.Config {
+		return &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1":  {PVID: &vid20, Untagged: []vlan.ID{20}},
+					"1/1/24": {Tagged: []vlan.ID{20}, IngressFiltering: true},
+				},
+			},
+		}
+	}
+
+	cfg := Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: newPorts(), Bridge: makeBridge10()},
+			"sw2": {Ports: newPorts(), Bridge: makeBridge10()},
+		},
+		Hosts: map[string]Host{
+			"h1": {Address: macH1},
+			"h2": {Address: macH2},
+		},
+		Cables: []Cable{
+			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 1.0},
+			{A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: MultimodeFiber},
+			{A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}, LengthMeters: 1.0},
+		},
+		PhyAssumption: &PhyAssumption{
+			Medium: TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:       []uint64{1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
+			},
+		},
+	}
+
+	fab, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	t1 := t0.Add(time.Second)
+	t2 := t1.Add(time.Second)
+
+	sc := Scenario{
+		Name: "vlan-migration",
+		Spec: fab.Spec(),
+		Actions: []Action{
+			{
+				At:   t1,
+				Kind: ActionConfigure,
+				Configure: &ConfigureAction{
+					Node:   "sw1",
+					Config: vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()},
+				},
+			},
+			{
+				At:   t1.Add(100 * time.Millisecond),
+				Kind: ActionInject,
+				Inject: &Injection{
+					Origin: Endpoint{Node: "h1"},
+					Frame: ethernet.Frame{
+						Dst:       macH2,
+						Src:       macH1,
+						EtherType: ethernet.EtherTypeIPv4,
+						Payload:   []byte("transient-drop"),
+					},
+				},
+			},
+			{
+				At:   t2,
+				Kind: ActionConfigure,
+				Configure: &ConfigureAction{
+					Node:   "sw2",
+					Config: vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()},
+				},
+			},
+			{
+				At:   t2.Add(100 * time.Millisecond),
+				Kind: ActionInject,
+				Inject: &Injection{
+					Origin: Endpoint{Node: "h1"},
+					Frame: ethernet.Frame{
+						Dst:       macH2,
+						Src:       macH1,
+						EtherType: ethernet.EtherTypeIPv4,
+						Payload:   []byte("delivered"),
+					},
+				},
+			},
+		},
+		Budget: 100,
+	}
+
+	res, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatalf("RunScenario: %v", err)
+	}
+	if res.Stop == StopFault {
+		t.Fatalf("RunScenario stopped with Fault: %v", fab.Err())
+	}
+
+	report := fab.Report()
+	if len(report) < 2 {
+		t.Fatalf("len(report) = %d, want at least 2 journeys", len(report))
+	}
+
+	// First injection at t1+100ms should be dropped at sw2 due to ingress filtering.
+	j1 := report[0]
+	if len(j1.Entries) == 0 {
+		t.Fatal("first journey has no entries")
+	}
+	last1 := j1.Entries[len(j1.Entries)-1]
+	if last1.Kind != EntryDrop || last1.Reason != bridge.ReasonIngressFilter || last1.Device != "sw2" {
+		t.Fatalf("first journey last entry = %+v, want EntryDrop at sw2 with ingress-filter reason", last1)
+	}
+
+	// Second injection at t2+100ms should be delivered to h2.
+	j2 := report[1]
+	if len(j2.Deliveries) == 0 {
+		t.Fatalf("second journey not delivered: entries = %+v", j2.Entries)
+	}
+	if j2.Deliveries[0].Host != "h2" {
+		t.Errorf("second journey delivered to %s, want h2", j2.Deliveries[0].Host)
+	}
+}
+
+func TestConfigureActionValidateAndDiff(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, _ := b.Build()
+
+	cfg1 := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+			},
+		},
+	}
+	cfg2 := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{20: "vlan20"},
+			},
+		},
+	}
+
+	// Validation
+	if err := (ConfigureAction{Node: ""}).Validate(); err == nil {
+		t.Error("ConfigureAction.Validate accepted empty node")
+	}
+	if err := (Action{At: t0, Kind: ActionConfigure, Configure: nil}).Validate(); err == nil {
+		t.Error("Action.Validate accepted ActionConfigure with nil Configure")
+	}
+	if err := (Action{At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1"}, Fault: &FaultAction{}}).Validate(); err == nil {
+		t.Error("Action.Validate accepted multiple payloads")
+	}
+	valid := Action{At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}
+	if err := valid.Validate(); err != nil {
+		t.Errorf("Action.Validate rejected valid action: %v", err)
+	}
+
+	// Diff: changed node
+	act1 := Action{Index: 0, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}
+	act2 := Action{Index: 0, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw2", Config: cfg1}}
+	diffNode := act1.Diff(act2)
+	var foundNodeChange bool
+	for _, c := range diffNode {
+		if c.Field == "configure.node" && c.Subject.Kind == "scenario.action" && c.Subject.Key == "0" {
+			foundNodeChange = true
+			if c.From.Canonical() != "sw1" || c.To.Canonical() != "sw2" {
+				t.Errorf("configure.node diff = %v -> %v, want sw1 -> sw2", c.From, c.To)
+			}
+		}
+	}
+	if !foundNodeChange {
+		t.Fatalf("diff missing configure.node change: %+v", diffNode)
+	}
+
+	// Diff: same node, changed config
+	act3 := Action{Index: 1, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg2}}
+	diffConfig := act1.Diff(act3)
+	if len(diffConfig) == 0 {
+		t.Fatal("diff of different configs returned no changes")
+	}
+	for _, c := range diffConfig {
+		if c.Subject.Kind != "scenario.action" {
+			t.Errorf("change subject kind = %q, want scenario.action", c.Subject.Kind)
+		}
 	}
 }
