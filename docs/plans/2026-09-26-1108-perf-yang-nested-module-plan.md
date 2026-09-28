@@ -4,12 +4,14 @@ type: perf
 date: 2026-09-26
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md
 ---
 
 # Move generated YANG bindings into a nested module - Plan
+
+> Implemented. 3 units, 2026-09-28T12:47Z to 2026-09-28T12:58Z.
 
 ## Goal
 
@@ -100,6 +102,19 @@ anyway and the split buys nothing; today no non-test file does.
   plan commits only the new module files and keeps the committed bindings.
   Requirement 3 reads accordingly. Cost if wrong: none here; the fix is its
   own plan.
+- Ruled: Requirement 4 uses `src/common/service` instead of `src/common/errs`.
+  Why: `src/protocol/yang` imports `errs`, `spawn`, and `pump`, so they are in
+  the YANG module's `go list -deps`, and building the module for a change
+  there is correct. Cost if wrong: the requirement text only.
+- Ruled: `--print-selection` also prints one `module=<dir> mode=<m>` line per
+  selected module and one `dependent=<dir> mode=<m>` line per dependent
+  module, after the `service_otel_integration=` line. Dependent selection
+  moved ahead of that exit. Why: the selection cases in `run.sh` assert
+  against that output without running a gate. Cost if wrong: that script and
+  the four cases.
+- Ruled: a dependent module whose `go list -deps` fails is selected. Why: a
+  broken listing is a reason to build the module, not to skip it without
+  a word. Cost if wrong: one branch in the selection loop.
 
 ## Requirements
 
@@ -115,8 +130,11 @@ anyway and the split buys nothing; today no non-test file does.
    `git status --short generated/go/yang/go.mod generated/go/yang/go.sum`
    shows no diff. The binding files themselves can differ run to run (see the
    nondeterminism ruling in Decisions).
-4. For a change to `src/common/errs/errs.go`, the verifier does not build the
-   YANG module. Example: its output has no `== Dependent module: generated/go/yang` line.
+4. For a change to `src/common/service/service.go`, the verifier does not
+   build the YANG module. Example: its output has no
+   `== Dependent module: generated/go/yang` line. (`src/common/errs` is in the
+   YANG module's dependency closure through `src/protocol/yang`, so a change
+   there builds it.)
 5. For a change to `src/protocol/yang/schema.go`, the verifier builds the YANG
    module. Example: its output shows `== Dependent module: generated/go/yang`
    followed by `go build ./...`.
@@ -185,10 +203,10 @@ Waves: U1 | U2 U3
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `src/protocol/README.md` and `docs/code-style.md` updated in the same change.
-- [ ] This plan's `status` set, with an outcome note under the title.
-- [ ] No plan labels in code or commit messages.
+- [x] Verifier green for every changed path.
+- [x] `src/protocol/README.md` and `docs/code-style.md` updated in the same change.
+- [x] This plan's `status` set, with an outcome note under the title.
+- [x] No plan labels in code or commit messages.
 
 ## Open questions
 

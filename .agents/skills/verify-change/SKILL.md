@@ -72,8 +72,12 @@ importing one. The whole module still compiles. In addition:
 - Packages are vetted once per build tag their files carry, so a tagged
   integration or bench test that stopped compiling fails the gate.
 - A nested module that replaces the root module (`src/protocol/*/bench`,
-  `src/edge/netpen`) is built and vetted after a root change; its race
-  tests run under `--full`.
+  `src/edge/netpen`, `generated/go/yang`) is built and vetted after a
+  change to a root package it depends on, test imports included, or to the
+  root `go.mod` or `go.sum`; its race tests run under `--full`. A module
+  under `generated/` is built only, and a changed file inside it builds
+  that module and lints its sample packages, because a full lint of the
+  YANG bindings runs for over an hour.
 - A `frontend/web/` path selects the web workspace's typecheck, Vite build,
   ESLint, Stylelint, Prettier check, and Vitest suite. Use the local binaries
   installed from its lockfile.
@@ -87,7 +91,8 @@ importing one. The whole module still compiles. In addition:
   run the Docker-backed OpenTelemetry tier through
   `tools/test/service-otel-integration.sh`. An unavailable daemon is a
   failed gate. `--print-selection -- <paths>` reports whether that tier
-  would run, without running any gate.
+  would run, and which modules and dependent modules would be checked in
+  which mode, without running any gate.
 
 ## Failures that are not findings
 

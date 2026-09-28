@@ -260,6 +260,13 @@ else
           go_files+=("$path")
           module=$(module_for_file "$path")
           [[ -n $module ]] && add_module "$module"
+        elif [[ $path == generated/* ]]; then
+          # Generated Go is not formatted or linted as hand-written code,
+          # and in the root module its generator's drift gate covers it.
+          # Output that is a module of its own is compiled by nothing
+          # else, so it selects that module, deleted files included.
+          module=$(module_for_file "$path")
+          [[ -n $module && $module != . ]] && add_module "$module"
         fi
         ;;
       go.mod|go.sum|*/go.mod|*/go.sum)
@@ -296,8 +303,106 @@ else
   done
 fi
 
+# A testdata directory belongs to the package that encloses it, and
+# `go list ./...` never names one. Naming it would vet, test, and lint
+# fixtures that exist to hold what those tools reject (a dot import, an
+# undocumented export), so a changed file is routed to the owning package,
+# whose tests read the fixture.
+package_dir() {
+  local pkg_dir
+  pkg_dir=$(dirname "$1")
+  if [[ $pkg_dir == testdata || $pkg_dir == testdata/* ]]; then
+    pkg_dir=.
+  elif [[ $pkg_dir == */testdata || $pkg_dir == */testdata/* ]]; then
+    pkg_dir=${pkg_dir%%/testdata/*}
+    pkg_dir=${pkg_dir%/testdata}
+  fi
+  printf '%s\n' "$pkg_dir"
+}
+
+# Output that is a module of its own, the YANG bindings, holds over a
+# thousand packages and no tests. A full lint of it ran for over an hour,
+# so it gets a build and a lint of the sample packages named here,
+# relative to the module.
+generated_lint_samples() {
+  case "$1" in
+    generated/go/yang)
+      printf '%s\n' ruckus-icx/openconfigvlan ruckus-icx/openconfigsystem aruba-cx/openconfignetworkinstance
+      ;;
+  esac
+}
+
+# A nested module that replaces the root module with the tree (the bench,
+# netpen, and generated YANG modules) breaks on a root change it compiles
+# against, but a root-only path list never selects it. It is selected when
+# a changed root package is among its dependencies, test imports included:
+# selecting every such module for every root change would compile the YANG
+# module's thousand packages each time. `go list -deps` loads packages
+# without compiling them, and a listing that fails selects the module so
+# its build reports why. A root go.mod or go.sum edit can move any
+# dependency, so it selects every one. Its race tests stay with --full.
+dependent_modules=()
+root_selected=false
+for module in "${modules[@]:-}"; do
+  [[ $module == . ]] && root_selected=true
+done
+if [[ $full == false && $root_selected == true ]]; then
+  root_all=false
+  for path in "${paths[@]}"; do
+    case "$path" in
+      go.mod|go.sum) root_all=true ;;
+    esac
+  done
+  root_pkgs=()
+  if [[ $root_all == false ]]; then
+    for go_file in "${go_files[@]:-}"; do
+      [[ -n $go_file ]] || continue
+      [[ $(module_for_file "$go_file") == . ]] || continue
+      pkg_dir=$(package_dir "$go_file")
+      [[ -d $pkg_dir ]] || continue
+      pkg=$(go list -e -f '{{.ImportPath}}' "./$pkg_dir" 2>/dev/null) || continue
+      [[ -n $pkg ]] && root_pkgs+=("$pkg")
+    done
+  fi
+  while IFS= read -r modfile; do
+    grep -q '^replace go.aledante.io/FlowSeer ' "$modfile" || continue
+    dep=$(dirname "${modfile#./}")
+    [[ $dep == . ]] && continue
+    if [[ $root_all == false ]]; then
+      ((${#root_pkgs[@]})) || continue
+      if dep_pkgs=$(cd "$dep" && go list -e -deps -test -f '{{.ImportPath}}' ./... 2>/dev/null); then
+        imported=false
+        for pkg in "${root_pkgs[@]}"; do
+          if grep -qxF "$pkg" <<<"$dep_pkgs"; then
+            imported=true
+            break
+          fi
+        done
+        [[ $imported == true ]] || continue
+      fi
+    fi
+    dependent_modules+=("$dep")
+  done < <(find . -name go.mod -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -print | sort)
+fi
+
 if [[ $print_selection == true ]]; then
   printf 'service_otel_integration=%s\n' "$service_otel_integration"
+  for module in "${modules[@]:-}"; do
+    [[ -n $module ]] || continue
+    if [[ $module == generated/* ]]; then
+      printf 'module=%s mode=build-sample-lint\n' "$module"
+    else
+      printf 'module=%s mode=full\n' "$module"
+    fi
+  done
+  for dep in "${dependent_modules[@]:-}"; do
+    [[ -n $dep ]] || continue
+    if [[ $dep == generated/* ]]; then
+      printf 'dependent=%s mode=build\n' "$dep"
+    else
+      printf 'dependent=%s mode=build-vet\n' "$dep"
+    fi
+  done
   exit 0
 fi
 
@@ -453,23 +558,6 @@ vet_tagged() {
   done
 }
 
-# A nested module that replaces the root module with the tree (the bench
-# and netpen modules) breaks on a root signature change but is never
-# selected by a root-only path list. Compile and vet it, tags included;
-# its race tests stay with --full.
-dependent_modules=()
-if [[ $full == false ]]; then
-  for module in "${modules[@]:-}"; do
-    [[ $module == . ]] || continue
-    while IFS= read -r modfile; do
-      grep -q '^replace go.aledante.io/FlowSeer ' "$modfile" || continue
-      dep=$(dirname "${modfile#./}")
-      [[ $dep == . ]] && continue
-      dependent_modules+=("$dep")
-    done < <(find . -name go.mod -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -print | sort)
-  done
-fi
-
 if ((${#modules[@]})); then
   need_tool go
   need_tool golangci-lint
@@ -478,6 +566,19 @@ if ((${#modules[@]})); then
     echo "== Go module: $module =="
     (
       cd "$module"
+      if [[ $module == generated/* ]]; then
+        # Generated output holds no tests, so a build proves it compiles
+        # and a lint of the sample packages stands in for the rest.
+        run go build ./...
+        lint_pkgs=()
+        while IFS= read -r sample; do
+          [[ -n $sample && -d $sample ]] && lint_pkgs+=("./$sample")
+        done < <(generated_lint_samples "$module")
+        if ((${#lint_pkgs[@]})); then
+          run golangci-lint run --allow-serial-runners --config "$root/.golangci.yml" "${lint_pkgs[@]}"
+        fi
+        exit 0
+      fi
       # No -o: with an output directory, go refuses a module that builds no
       # main packages (e.g. a fully build-tag-gated bench module). Plain
       # go build compiles everything and discards the binaries.
@@ -506,18 +607,7 @@ if ((${#modules[@]})); then
         else
           rel=${go_file#"$module"/}
         fi
-        pkg_dir=$(dirname "$rel")
-        # A testdata directory belongs to the package that encloses it, and
-        # `go list ./...` never names one. Naming it here would vet, test,
-        # and lint fixtures that exist to hold what those tools reject (a
-        # dot import, an undocumented export), so the change is routed to
-        # the owning package, whose tests read the fixture.
-        if [[ $pkg_dir == testdata || $pkg_dir == testdata/* ]]; then
-          pkg_dir=.
-        elif [[ $pkg_dir == */testdata || $pkg_dir == */testdata/* ]]; then
-          pkg_dir=${pkg_dir%%/testdata/*}
-          pkg_dir=${pkg_dir%/testdata}
-        fi
+        pkg_dir=$(package_dir "$rel")
         [[ -d $pkg_dir ]] || continue
         pkg=$(go list -e -f '{{.ImportPath}}' "./$pkg_dir" 2>/dev/null) || continue
         [[ -n $pkg ]] && changed_pkgs+=("$pkg")
@@ -612,6 +702,14 @@ fi
 
 for dep in "${dependent_modules[@]:-}"; do
   [[ -n $dep ]] || continue
+  if [[ $dep == generated/* ]]; then
+    echo "== Dependent module: $dep (build only) =="
+    (
+      cd "$dep"
+      run go build ./...
+    )
+    continue
+  fi
   echo "== Dependent module: $dep (build and vet only) =="
   (
     cd "$dep"

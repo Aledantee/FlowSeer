@@ -684,7 +684,7 @@ select_verifier() {
 }
 
 selection_output=$(select_verifier --full)
-[[ $selection_output == 'service_otel_integration=true' ]]
+[[ ${selection_output%%$'\n'*} == 'service_otel_integration=true' ]]
 [[ ! -e $selection_receipt ]]
 ok "verifier selection includes the Collector tier for full verification"
 
@@ -697,7 +697,7 @@ telemetry_paths=(
 )
 for telemetry_path in "${telemetry_paths[@]}"; do
   selection_output=$(select_verifier -- "$telemetry_path")
-  [[ $selection_output == 'service_otel_integration=true' ]]
+  [[ ${selection_output%%$'\n'*} == 'service_otel_integration=true' ]]
 done
 [[ ! -e $selection_receipt ]]
 ok "verifier selection includes every telemetry-sensitive path category"
@@ -722,6 +722,56 @@ selection_output=$(select_verifier -- tools/hooks/tests/run.sh)
 selection_build_dirs=$(find "$selection_tmp" -maxdepth 1 -name 'flowseer-build.*' -print -quit)
 [[ -z $selection_build_dirs ]]
 ok "verifier selection exits before recursively running hook tests"
+
+# A root module with two nested modules that replace it: a generated one
+# importing lib/a and a netpen stand-in importing lib/b. Selection runs the
+# real go, which lists packages without compiling them.
+nested_fixture="$fixture_parent/nested selection fixture"
+mkdir -p "$nested_fixture/lib/a" "$nested_fixture/lib/b" \
+  "$nested_fixture/generated/go/yang/v/m" "$nested_fixture/src/edge/netpen"
+git -C "$nested_fixture" init -q
+placeholder=v0.0.0-00010101000000-000000000000
+printf 'module go.aledante.io/FlowSeer\n\ngo 1.27\n\nrequire go.aledante.io/FlowSeer/generated/go/yang %s\n\nreplace go.aledante.io/FlowSeer/generated/go/yang => ./generated/go/yang\n' \
+  "$placeholder" >"$nested_fixture/go.mod"
+printf 'package a\n' >"$nested_fixture/lib/a/a.go"
+printf 'package b\n' >"$nested_fixture/lib/b/b.go"
+printf 'module go.aledante.io/FlowSeer/generated/go/yang\n\ngo 1.27\n\nrequire go.aledante.io/FlowSeer %s\n\nreplace go.aledante.io/FlowSeer => ../../..\n' \
+  "$placeholder" >"$nested_fixture/generated/go/yang/go.mod"
+printf 'package m\n\nimport _ "go.aledante.io/FlowSeer/lib/a"\n' >"$nested_fixture/generated/go/yang/v/m/m.go"
+printf 'module go.aledante.io/FlowSeer/src/edge/netpen\n\ngo 1.27\n\nrequire go.aledante.io/FlowSeer %s\n\nreplace go.aledante.io/FlowSeer => ../../..\n' \
+  "$placeholder" >"$nested_fixture/src/edge/netpen/go.mod"
+printf 'package main\n\nimport _ "go.aledante.io/FlowSeer/lib/b"\n\nfunc main() {}\n' >"$nested_fixture/src/edge/netpen/main.go"
+git -C "$nested_fixture" add .
+git -C "$nested_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm init
+mkdir -p "$nested_fixture/.selection-tmp"
+
+select_nested() {
+  (cd "$nested_fixture" && GOWORK=off TMPDIR="$nested_fixture/.selection-tmp" \
+    "$selection_script" --print-selection -- "$@")
+}
+
+selection_output=$(select_nested lib/b/b.go)
+[[ $selection_output == *$'\nmodule=. mode=full'* ]]
+[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
+[[ $selection_output != *dependent=generated/go/yang* ]]
+ok "verifier selection skips a nested module that does not import the changed root package"
+
+selection_output=$(select_nested lib/a/a.go)
+[[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]]
+[[ $selection_output != *dependent=generated/go/yang\ mode=build-vet* ]]
+[[ $selection_output != *dependent=src/edge/netpen* ]]
+ok "verifier selection builds a generated nested module that imports the changed root package"
+
+selection_output=$(select_nested generated/go/yang/v/m/m.go)
+[[ $selection_output == *$'\nmodule=generated/go/yang mode=build-sample-lint'* ]]
+[[ $selection_output != *module=.\ * ]]
+[[ $selection_output != *dependent=* ]]
+ok "verifier selection gives a changed generated file its own module, build and sample lint only"
+
+selection_output=$(select_nested go.mod)
+[[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]]
+[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
+ok "verifier selection builds every nested module for a root go.mod change"
 
 run_helper=$(sed -n '/^run() {/,/^}/p' "$selection_script")
 [[ -n $run_helper ]]
