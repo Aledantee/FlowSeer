@@ -101,11 +101,11 @@ python3 .claude/skills/tune/scripts/field.py --since YYYY-MM-DD \
 
 `field.py` prints JSON. Read `unmatched` before using any rate: a missing
 transcript removes speed and cost evidence, and a role outside the registry
-cannot receive a field block. Aggregate `runs` by model and role across
-sources, keeping each effort level apart (a run carries the `effort` it
-launched at). Do not average the per-source `groups` rates. Write `field.<role>`
-only for a registry role with at least five graded runs, or at least ten
-findings for a review role. Each block records `as_of`, `since`, `runs`, the
+cannot receive a field block. Aggregate `runs` by model, effort level, and
+role across sources (a run carries the `effort` it launched at). Do not
+average the per-source `groups` rates. Write `field.<role>.<level>` only
+for a registry role with at least five graded runs at that level, or at
+least ten findings for a review role. Each block records `as_of`, `since`, `runs`, the
 accepted, amended, rejected, and blocked counts, `verify_pass`, the reviewer
 `held` and `findings` when applicable, and medians of `active_s`, total
 tokens, and `cost_usd`. Append one dated `evidence.md` line naming the run
@@ -119,8 +119,9 @@ Proposals from field results (thresholds are a starting point):
   graded runs for the comparison.
 - Removal: amended plus rejected reaches 40% of at least five graded runs,
   or a reviewer's held share is below 50% of at least ten findings.
-- A model seen in a role without `local.<role>` becomes a calibration
-  candidate.
+- A model seen in a role without a calibration result for it becomes a
+  calibration candidate. A `judgment: true` role's result is
+  `local.review-unit`, every other role's is `local.<role>`.
 
 Field evidence can order a fit set or support a removal proposal; entry
 requires a calibration result. Step 5 asks before applying any proposed
@@ -131,10 +132,10 @@ fit-set change.
 Public numbers do not show how a model does on this Go tree with race tests
 and the verifier. State the lanes and the expected spend per lane from the
 registry prices, and ask the user which lanes to run. A prepaid pool still
-consumes its window. Calibrate models flagged by field runs as missing
-`local.<role>` first. Load `references/calibration.md` before running a
-lane: it holds the fixed tasks, the `bench.sh` command, grading, and the
-`local.<role>` record to write.
+consumes its window. Calibrate models flagged by field runs as missing a
+result first. Load `references/calibration.md` before running a lane: it
+holds the fixed tasks, the `bench.sh` command, grading, and the `local`
+record to write.
 
 A full run sweeps effort. Every model a signed-in pool serves runs both
 calibration tasks (execute and review) once per level in its `effort` list,
@@ -152,18 +153,20 @@ Update the machine-wide registry: `as_of`, changed fields, fit sets.
 filtering hot and busy pools, so order decides routing. Build each list in
 two passes.
 
-1. Pick each model's level. Among the levels at which the model passed the
-   role's task (every acceptance test and the verifier for `execute`, the
-   known bug found for a review), take the cheapest. Take a costlier level
-   only when it passes more runs or, on a review task, finds more valid
-   extras. Write the entry as `<model>@<level>`. A bare model id routes at
-   the role's `effort`, which is the level for a model not yet swept.
+1. Pick each model's level. Consider only levels at or above the role's
+   `min_effort`. Among those at which the model passed the role's task
+   (every acceptance test and the verifier for `execute`, the known bug
+   found for a review), take the cheapest. Take a costlier level only when
+   it passes more runs or, on a review task, finds more valid extras. A
+   `judgment: true` role reads its result from `local.review-unit`. Write
+   the entry as `<model>@<level>`, or as the bare model id when its
+   `effort` list is empty (its result sits under `none`). A bare id of a
+   model with levels routes at the role's `effort`, which is the level for
+   a model not yet swept.
 2. Order the entries. A `judgment: true` role (planning, research,
    verdicts, adversarial reads) orders by result first: the review task's
-   known bug found, then valid extras, then cost. It takes no level below
-   its `min_effort`, even where a lower level passed. Every other role
-   orders by cost, with median wall time deciding costs within 25% of each
-   other.
+   known bug found, then valid extras, then cost. Every other role orders
+   by cost, with median wall time deciding costs within 25% of each other.
 
 Fit sets are ordered by field success when every member has enough
 evidence, with median active time breaking close results. Keep calibration

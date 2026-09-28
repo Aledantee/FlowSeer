@@ -103,8 +103,9 @@ local: {execute: {medium: {runs: 1, base: bd9e0862, pass: 7/7, wall_s: 301, cost
   `effort` list is empty, `default` for a lane that ran at the CLI's own
   default, and `unrecorded` for a result from before levels were recorded.
 - `base`: the commit the lane branched from.
-- When `runs` is above 1, `pass`, `wall_s`, and `cost_usd` are lists, one
-  value per run.
+- When `runs` is above 1, the per-run fields are lists, one value per run:
+  `pass` on the execute task, `found_known_bug` and `extra_valid` on the
+  review task, and `wall_s` and `cost_usd` on both.
 
 The review result stands for the `judgment: true` roles too. Write it once
 under `review-unit` and do not copy it into those roles.
