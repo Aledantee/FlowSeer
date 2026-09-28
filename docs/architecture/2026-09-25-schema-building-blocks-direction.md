@@ -96,9 +96,8 @@ Channel, MPLS, EVPN/VXLAN, MACsec, ring protection, tunnels) has no
 package until a plan needs it; the atlas found none of them on the device
 classes FlowSeer targets now. When one arrives it follows the same rules.
 
-The parent plan
-[`2026-09-25-1713-feat-schema-building-blocks-plan.md`](../plans/2026-09-25-1713-feat-schema-building-blocks-plan.md)
-lands the tree in phases.
+Landed 2026-09-26: protobuf building blocks across eight phases in
+`spec/proto/flowseer` and `test/conformance/proto`.
 
 ## The schema-language rules
 
