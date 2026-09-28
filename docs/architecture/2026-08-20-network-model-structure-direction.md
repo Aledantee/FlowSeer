@@ -716,8 +716,9 @@ own primitive/entity line.
 
 ### 2026-08-30 — the layer packages are named for their function
 
-Landed with `docs/plans/2026-08-30-1420-feat-net-interface-lldp-plan.md`, which
-opened by moving the two packages this record named after OSI layers.
+Landed 2026-08-30: function-named layer packages (`net/switching`, `net/ip`),
+interface, and LLDP in `spec/proto/flowseer`, which opened by moving the two
+packages this record named after OSI layers.
 
 - **`net/l2` is now `net/switching` and `net/l3` is now `net/ip`.** The section
   above conceded that function-named roots are what the survey found almost
