@@ -32,7 +32,7 @@ Nothing here imports `model/inventory`.
 
 `CaptureAuthorization.requested_by` names the person who asked for the
 capture as an `OperatorRef` from
-[`model/principal/v1`](../../principal/v1/README.md), the same value a
+[`model/identity/v1`](../../identity/v1/README.md), the same value a
 mutation intent's `Actor` carries. It comes from that leaf and not from
 `model/access`, so naming a person does not pull the access plane into the
 edge's capture schemas. The caller writes the subject, and nothing verifies it
@@ -47,7 +47,7 @@ full_payload_requested: false
 
 ## Boundaries
 
-Imports: model/edge, model/principal, net/capture, net/key
+Imports: model/edge, model/identity, net/capture, net/key
 
 Imported by: api/capture, edge/capture
 

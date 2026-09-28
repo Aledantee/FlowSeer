@@ -58,7 +58,7 @@ spec/proto/flowseer/
   model/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
     credential/v1/      CredentialMaterial, the typed secret an edge carries; imports nothing
-    principal/v1/       OperatorRef, the identity provider's subject for a person; imports nothing
+    identity/v1/        OperatorRef, the stable subject; imports nothing
     edge/v1/            the Edge entity: ref pair, lifecycle, setup key, registered key, assertion, key proof, and provisioning file
     inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, Tag, provenance
     capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
@@ -108,11 +108,11 @@ net/packet ← net/switching
 model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
 model/policy ← {edge/attach, model/access, model/inventory, store/device}
 model/credential ← edge/attach
-model/principal ← {model/access, model/capture}
-{model/edge, model/principal, net/capture} ← model/capture
+model/identity ← {model/access, model/capture}
+{model/edge, model/identity, net/capture} ← model/capture
 {model/edge, model/policy, model/credential, net/addr} ← edge/attach
 {model/edge, model/policy, net/addr, net/phy} ← model/inventory
-{model/edge, model/inventory, model/policy, model/principal, net/interface} ← model/access
+{model/edge, model/identity, model/inventory, model/policy, net/interface} ← model/access
 {model/capture, model/edge, net/capture} ← api/capture
 {model/capture, model/edge} ← edge/capture
 {model/access, model/inventory} ← api/device
@@ -128,11 +128,10 @@ never import a protocol; a protocol package imports the address values it
 renders and nothing above them.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
-imports address values. `model/edge`, `model/credential`, `model/policy`, and
-`model/principal` are leaves too: every package that needs the Edge ref, a
-credential, an access-policy handle, or a person's identity-provider subject
-imports the matching one of the four, and none of them imports anything
-FlowSeer-owned back. `edge/attach` imports `model/edge`
+imports address values. `model/edge`, `model/credential`, `model/identity`, and
+`model/policy` are leaves too: every package that needs the Edge ref, a
+credential, operator identity, or an access-policy handle imports the matching
+one of the four, and none of them imports anything FlowSeer-owned back. `edge/attach` imports `model/edge`
 for the entity, `model/credential` and `model/policy` for the handles and
 secret material its services hand out, and `net/addr` for the IP address a
 listed device reports; `api/edge` imports `model/edge` alone. `api/capture`
@@ -993,3 +992,16 @@ amends this record:
 - Radios are components, carried as a `net/wlan` radio facet on
   `ComponentState`. The "Radios are not interfaces" finding stands.
 - `net/wlan`'s imports widen to `addr`, `key`, `measure`, and `switching`.
+
+### 2026-09-28 — operator identity moves to a leaf package
+
+`OperatorRef` lives in `model/identity/v1`, a leaf that imports nothing
+FlowSeer-owned. It first left `model/access/v1` for a `model/principal/v1`
+leaf so that `model/capture` could name a requester; that leaf is folded into
+`model/identity/v1` so operators and tenants share one package. `model/access` is the
+shared vocabulary for device-access boundaries. Operator identity is the
+subject for every surface across FlowSeer — device access, packet capture, and
+administrative surfaces alike — and the tenant entity joins it as operator
+authorization expands. Housing operator identity in its own leaf avoids
+importing device-access operation vocabulary into callers that only need
+identity.

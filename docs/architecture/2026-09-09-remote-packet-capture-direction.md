@@ -304,14 +304,14 @@ disk is the record of what was captured.
 
 "Every capture is bounded and authorized" above asks that a session record who
 authorized it. It did, as a free string. `CaptureAuthorization` now names the
-requester as `requested_by`, a `flowseer.model.principal.v1.OperatorRef`: the
+requester as `requested_by`, a `flowseer.model.identity.v1.OperatorRef`: the
 identity provider's stable subject, the same value a mutation intent's `Actor`
 carries. Field 1 and the name `operator` are reserved, so a record written
 before the change still decodes, with no requester. `OperatorRef` moved out of
-`model/access` into the `model/principal` leaf, because `model/capture` reaches
+`model/access` into the `model/identity` leaf, because `model/capture` reaches
 the edge through `edge/capture` and must not pull the access plane with it. The
 import line the 2026-09-17 amendment gives for this package reads
-`{model/edge, model/principal, net/capture} ← model/capture` now.
+`{model/edge, model/identity, net/capture} ← model/capture` now.
 
 The subject is still what the caller writes. `CaptureService` checks nothing
 about the caller: authorization for the operator and admin services is one

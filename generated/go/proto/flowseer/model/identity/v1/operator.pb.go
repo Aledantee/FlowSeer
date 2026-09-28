@@ -2,13 +2,11 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/model/principal/v1/operator.proto
+// source: flowseer/model/identity/v1/operator.proto
 
-// Who an authorization check is about. A principal is named by the identity
-// provider, not by FlowSeer: it has no ref pair, no triad, and no place in
-// EntityType, because nothing FlowSeer stores answers for it.
+// Operator identity across FlowSeer boundaries.
 
-package principalv1
+package identityv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -36,7 +34,7 @@ type OperatorRef struct {
 
 func (x *OperatorRef) Reset() {
 	*x = OperatorRef{}
-	mi := &file_flowseer_model_principal_v1_operator_proto_msgTypes[0]
+	mi := &file_flowseer_model_identity_v1_operator_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -48,7 +46,7 @@ func (x *OperatorRef) String() string {
 func (*OperatorRef) ProtoMessage() {}
 
 func (x *OperatorRef) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_model_principal_v1_operator_proto_msgTypes[0]
+	mi := &file_flowseer_model_identity_v1_operator_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -105,21 +103,21 @@ func (b0 OperatorRef_builder) Build() *OperatorRef {
 	return m0
 }
 
-var File_flowseer_model_principal_v1_operator_proto protoreflect.FileDescriptor
+var File_flowseer_model_identity_v1_operator_proto protoreflect.FileDescriptor
 
-const file_flowseer_model_principal_v1_operator_proto_rawDesc = "" +
+const file_flowseer_model_identity_v1_operator_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/model/principal/v1/operator.proto\x12\x1bflowseer.model.principal.v1\"6\n" +
+	")flowseer/model/identity/v1/operator.proto\x12\x1aflowseer.model.identity.v1\"6\n" +
 	"\vOperatorRef\x12'\n" +
 	"\asubject\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubjectB\x91\x02\n" +
-	"\x1fcom.flowseer.model.principal.v1B\rOperatorProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1;principalv1\xa2\x02\x03FMP\xaa\x02\x1bFlowseer.Model.Principal.V1\xca\x02\x1bFlowseer\\Model\\Principal\\V1\xe2\x02'Flowseer\\Model\\Principal\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Principal::V1b\beditionsp\xe9\a"
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubjectB\x8a\x02\n" +
+	"\x1ecom.flowseer.model.identity.v1B\rOperatorProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1;identityv1\xa2\x02\x03FMI\xaa\x02\x1aFlowseer.Model.Identity.V1\xca\x02\x1aFlowseer\\Model\\Identity\\V1\xe2\x02&Flowseer\\Model\\Identity\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Identity::V1b\beditionsp\xe9\a"
 
-var file_flowseer_model_principal_v1_operator_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_flowseer_model_principal_v1_operator_proto_goTypes = []any{
-	(*OperatorRef)(nil), // 0: flowseer.model.principal.v1.OperatorRef
+var file_flowseer_model_identity_v1_operator_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_flowseer_model_identity_v1_operator_proto_goTypes = []any{
+	(*OperatorRef)(nil), // 0: flowseer.model.identity.v1.OperatorRef
 }
-var file_flowseer_model_principal_v1_operator_proto_depIdxs = []int32{
+var file_flowseer_model_identity_v1_operator_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -127,26 +125,26 @@ var file_flowseer_model_principal_v1_operator_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_model_principal_v1_operator_proto_init() }
-func file_flowseer_model_principal_v1_operator_proto_init() {
-	if File_flowseer_model_principal_v1_operator_proto != nil {
+func init() { file_flowseer_model_identity_v1_operator_proto_init() }
+func file_flowseer_model_identity_v1_operator_proto_init() {
+	if File_flowseer_model_identity_v1_operator_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_principal_v1_operator_proto_rawDesc), len(file_flowseer_model_principal_v1_operator_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_identity_v1_operator_proto_rawDesc), len(file_flowseer_model_identity_v1_operator_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_model_principal_v1_operator_proto_goTypes,
-		DependencyIndexes: file_flowseer_model_principal_v1_operator_proto_depIdxs,
-		MessageInfos:      file_flowseer_model_principal_v1_operator_proto_msgTypes,
+		GoTypes:           file_flowseer_model_identity_v1_operator_proto_goTypes,
+		DependencyIndexes: file_flowseer_model_identity_v1_operator_proto_depIdxs,
+		MessageInfos:      file_flowseer_model_identity_v1_operator_proto_msgTypes,
 	}.Build()
-	File_flowseer_model_principal_v1_operator_proto = out.File
-	file_flowseer_model_principal_v1_operator_proto_goTypes = nil
-	file_flowseer_model_principal_v1_operator_proto_depIdxs = nil
+	File_flowseer_model_identity_v1_operator_proto = out.File
+	file_flowseer_model_identity_v1_operator_proto_goTypes = nil
+	file_flowseer_model_identity_v1_operator_proto_depIdxs = nil
 }

@@ -20,7 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
@@ -92,7 +92,7 @@ func newTestCreateRequest(maxPackets uint64) *operatorcapturev1.CreateCaptureSes
 			}.Build(),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          principalv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
 			Reason:               proto.String("debugging traffic"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -141,9 +141,9 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 
 	// A request naming no requester, or one with an empty subject, is refused
 	// and stores nothing.
-	for name, requester := range map[string]*principalv1.OperatorRef{
+	for name, requester := range map[string]*identityv1.OperatorRef{
 		"no requester":  nil,
-		"empty subject": principalv1.OperatorRef_builder{Subject: proto.String("")}.Build(),
+		"empty subject": identityv1.OperatorRef_builder{Subject: proto.String("")}.Build(),
 	} {
 		before, err := h.store.ListSessions(ctx)
 		if err != nil {

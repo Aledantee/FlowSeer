@@ -13,9 +13,9 @@ import (
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -465,7 +465,7 @@ func TestTheFirstPassOverAnUnwrittenDeviceStoresARecordNamingIt(t *testing.T) {
 }
 
 func operatorIntent() *accessv1.MutationIntent {
-	operator := &principalv1.OperatorRef{}
+	operator := &identityv1.OperatorRef{}
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)
