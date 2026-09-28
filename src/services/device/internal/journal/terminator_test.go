@@ -16,7 +16,7 @@ const readIface = "ethernet 1/1/1"
 // sequence, at time now.
 func owesRow(t *testing.T, j *journal.Journal, kind journal.OwedKind, seq uint64) bool {
 	t.Helper()
-	rec, err := j.Record(context.Background(), deviceID)
+	rec, err := j.Record(context.Background(), tenantID, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 
 	admit := func(t *testing.T, j *journal.Journal, key string) uint64 {
 		t.Helper()
-		state, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+		state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef())
 		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
@@ -66,7 +66,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				return journal.OwedHoldResolved, pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000e00")
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				return j.ConfirmHoldResolved(ctx, deviceID, seq)
+				return j.ConfirmHoldResolved(ctx, tenantID, deviceID, seq)
 			},
 		},
 		{
@@ -80,7 +80,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				return journal.OwedExecute, seq
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				_, err := j.Dispose(ctx, deviceID, seq)
+				_, err := j.Dispose(ctx, tenantID, deviceID, seq)
 				return err
 			},
 		},
@@ -91,16 +91,16 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 			name: "execute resume after onboarded / AbandonMutation",
 			owe: func(t *testing.T, j *journal.Journal) (journal.OwedKind, uint64) {
 				seq := admit(t, j, "0192e6a0-0000-7000-8000-000000000e02")
-				if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+				if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 					t.Fatalf("admitted report: %v", err)
 				}
-				if err := j.MarkOnboarded(ctx, deviceID); err != nil {
+				if err := j.MarkOnboarded(ctx, tenantID, deviceID); err != nil {
 					t.Fatalf("onboarded: %v", err)
 				}
 				return journal.OwedExecute, seq
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				_, err := j.Dispose(ctx, deviceID, seq)
+				_, err := j.Dispose(ctx, tenantID, deviceID, seq)
 				return err
 			},
 		},
@@ -109,27 +109,27 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 			name: "checkpoint / ConfirmCheckpoint",
 			owe: func(t *testing.T, j *journal.Journal) (journal.OwedKind, uint64) {
 				seq := admit(t, j, "0192e6a0-0000-7000-8000-000000000e03")
-				if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+				if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 					t.Fatalf("admitted report: %v", err)
 				}
 				return journal.OwedCheckpoint, seq
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				return j.ConfirmCheckpoint(ctx, deviceID, seq)
+				return j.ConfirmCheckpoint(ctx, tenantID, deviceID, seq)
 			},
 		},
 		{
 			// Terminator: the read's result report, CloseRead.
 			name: "read / CloseRead",
 			owe: func(t *testing.T, j *journal.Journal) (journal.OwedKind, uint64) {
-				seq, err := j.OpenRead(ctx, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-000000000e04", time.Now().Add(time.Minute))
+				seq, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-000000000e04", time.Now().Add(time.Minute))
 				if err != nil {
 					t.Fatalf("open read: %v", err)
 				}
 				return journal.OwedRead, seq
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				return j.CloseRead(ctx, deviceID, readIface, seq, &accessv1.InterfaceObservation{}, nil)
+				return j.CloseRead(ctx, tenantID, deviceID, readIface, seq, &accessv1.InterfaceObservation{}, nil)
 			},
 		},
 		{
@@ -142,14 +142,14 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 					{Kind: journal.ReportAdmitted, Sequence: seq},
 					{Kind: journal.ReportVerified, Sequence: seq},
 				} {
-					if err := j.ApplyReport(ctx, deviceID, r); err != nil {
+					if err := j.ApplyReport(ctx, tenantID, deviceID, r); err != nil {
 						t.Fatalf("apply %v: %v", r.Kind, err)
 					}
 				}
 				return journal.OwedTerminalAck, seq
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				return j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: seq})
+				return j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: seq})
 			},
 		},
 		{
@@ -159,16 +159,16 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 			name: "terminal ack abandoned / ReportAbandoned",
 			owe: func(t *testing.T, j *journal.Journal) (journal.OwedKind, uint64) {
 				seq := admit(t, j, "0192e6a0-0000-7000-8000-000000000e06")
-				if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+				if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 					t.Fatalf("admitted report: %v", err)
 				}
-				if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+				if _, err := j.Dispose(ctx, tenantID, deviceID, seq); err != nil {
 					t.Fatalf("dispose: %v", err)
 				}
 				return journal.OwedTerminalAck, seq
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
-				return j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq})
+				return j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq})
 			},
 		},
 	}
@@ -200,7 +200,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 					t.Fatalf("the named terminator did not stop kind=%d seq=%d being owed", kind, seq)
 				}
 				// The terminator must not clobber an unrelated pending hold.
-				rec, _ := j.Record(ctx, deviceID)
+				rec, _ := j.Record(ctx, tenantID, deviceID)
 				if unrelated != 0 && !holdPending(rec, unrelated) {
 					t.Fatal("the terminator dropped an unrelated pending hold")
 				}
@@ -217,25 +217,25 @@ func TestAbandonedHoldResolvableUnderAnOlderHold(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
 	older := pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000e07") // an older, unacknowledged hold
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000e08"), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000e08"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
 		t.Fatalf("abandoned: %v", err)
 	}
 	// The mutation owes nothing now; ResolveDesynchronization must free it.
-	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq}); err != nil {
+	if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: seq}); err != nil {
 		t.Fatalf("ResolveDesynchronization refused under an older hold: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if rec.HasMutation() {
 		t.Fatal("ResolveDesynchronization did not free the abandoned mutation")
 	}
@@ -251,27 +251,27 @@ func TestAbandonedHoldResolvableUnderAnOlderHold(t *testing.T) {
 func TestDisposeAdvancesEvenAMutationThatOwesNothing(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000e07"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000e07"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	for _, r := range []journal.Report{
 		{Kind: journal.ReportAdmitted, Sequence: 1},
 		{Kind: journal.ReportRecovering, Sequence: 1},
 	} {
-		if err := j.ApplyReport(ctx, deviceID, r); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, r); err != nil {
 			t.Fatalf("apply %v: %v", r.Kind, err)
 		}
 	}
-	if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+	if err := j.ConfirmCheckpoint(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("checkpoint: %v", err)
 	}
-	if rec, _ := j.Record(ctx, deviceID); len(journal.OwedRows(rec, time.Now())) != 0 {
+	if rec, _ := j.Record(ctx, tenantID, deviceID); len(journal.OwedRows(rec, time.Now())) != 0 {
 		t.Fatal("setup expected a mutation that owes nothing")
 	}
-	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("Dispose could not act on a quiet mutation: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if !rec.GetMutation().HasDisposition() {
 		t.Fatal("Dispose silently no-oped on a mutation that owed nothing")
 	}
@@ -285,17 +285,17 @@ func TestRejectDispatchBranchesOnDispatched(t *testing.T) {
 
 	t.Run("undispatched: the lane is freed", func(t *testing.T) {
 		j := newJournal(t)
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f01"), edgeRef()); err != nil {
+		if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f01"), edgeRef()); err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		state, err := j.RejectDispatch(ctx, deviceID, 1)
+		state, err := j.RejectDispatch(ctx, tenantID, deviceID, 1)
 		if err != nil {
 			t.Fatalf("reject: %v", err)
 		}
 		if state.GetDisposition() != accessv1.Disposition_DISPOSITION_REJECTED {
 			t.Fatalf("returned disposition %v, want REJECTED", state.GetDisposition())
 		}
-		rec, _ := j.Record(ctx, deviceID)
+		rec, _ := j.Record(ctx, tenantID, deviceID)
 		if rec.HasMutation() {
 			t.Fatal("an un-dispatched refusal left the mutation open")
 		}
@@ -306,22 +306,22 @@ func TestRejectDispatchBranchesOnDispatched(t *testing.T) {
 
 	t.Run("dispatched: the mutation is kept and owes its ack", func(t *testing.T) {
 		j := newJournal(t)
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f02"), edgeRef()); err != nil {
+		if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f02"), edgeRef()); err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
 		// The device may already hold the possibly-applied command, so the
 		// mutation must not be dropped.
-		state, err := j.RejectDispatch(ctx, deviceID, 1)
+		state, err := j.RejectDispatch(ctx, tenantID, deviceID, 1)
 		if err != nil {
 			t.Fatalf("reject: %v", err)
 		}
 		if state.GetDisposition() != accessv1.Disposition_DISPOSITION_REJECTED {
 			t.Fatalf("returned disposition %v, want REJECTED", state.GetDisposition())
 		}
-		rec, _ := j.Record(ctx, deviceID)
+		rec, _ := j.Record(ctx, tenantID, deviceID)
 		if !rec.HasMutation() || !rec.GetDispatched() {
 			t.Fatalf("a dispatched refusal dropped the mutation: mutation=%v dispatched=%v", rec.HasMutation(), rec.GetDispatched())
 		}
@@ -335,10 +335,10 @@ func TestRejectDispatchBranchesOnDispatched(t *testing.T) {
 			t.Fatal("a dispatched refusal does not owe the terminal ack the edge's RELEASED report ends")
 		}
 		// The edge's RELEASED report then frees the lane through the ordinary path.
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
 			t.Fatalf("released: %v", err)
 		}
-		rec, _ = j.Record(ctx, deviceID)
+		rec, _ = j.Record(ctx, tenantID, deviceID)
 		if rec.HasMutation() {
 			t.Fatal("RELEASED did not free the rejected mutation")
 		}
@@ -365,14 +365,14 @@ func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
 	t.Run("a non-hold-adding terminator still acts", func(t *testing.T) {
 		j := newJournal(t)
 		fill(t, j)
-		state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f03"), edgeRef())
+		state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f03"), edgeRef())
 		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
-		if err := j.ConfirmCheckpoint(ctx, deviceID, state.GetSequence()); err != nil {
+		if err := j.ConfirmCheckpoint(ctx, tenantID, deviceID, state.GetSequence()); err != nil {
 			t.Fatalf("ConfirmCheckpoint refused on a full hold set: %v", err)
 		}
 	})
@@ -380,17 +380,17 @@ func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
 	t.Run("abandoning an un-dispatched mutation hits a named wall", func(t *testing.T) {
 		j := newJournal(t)
 		fill(t, j)
-		state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f04"), edgeRef())
+		state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f04"), edgeRef())
 		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
 		// Dispose of an un-dispatched mutation must add a hold, which the full
 		// set refuses — loudly, with the reason named, not silently.
-		_, err = j.Dispose(ctx, deviceID, state.GetSequence())
+		_, err = j.Dispose(ctx, tenantID, deviceID, state.GetSequence())
 		if code, _ := errs.CodeOf(err); code != journal.ErrCodeHoldsFull {
 			t.Fatalf("Dispose error code = %v, want holds-full", code)
 		}
-		rec, _ := j.Record(ctx, deviceID)
+		rec, _ := j.Record(ctx, tenantID, deviceID)
 		if !rec.HasMutation() {
 			t.Fatal("a refused abandon left the mutation half-disposed")
 		}
@@ -399,16 +399,16 @@ func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
 	t.Run("abandoning a dispatched mutation is unaffected", func(t *testing.T) {
 		j := newJournal(t)
 		fill(t, j)
-		state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f05"), edgeRef())
+		state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f05"), edgeRef())
 		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
 		// A dispatched mutation abandons into a recovery hold, which does not
 		// touch the pending-hold set, so the full set does not block it.
-		if _, err := j.Dispose(ctx, deviceID, state.GetSequence()); err != nil {
+		if _, err := j.Dispose(ctx, tenantID, deviceID, state.GetSequence()); err != nil {
 			t.Fatalf("Dispose of a dispatched mutation refused on a full hold set: %v", err)
 		}
 	})

@@ -3,6 +3,7 @@ package deviceapi
 import (
 	connect "connectrpc.com/connect"
 
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
@@ -20,6 +21,7 @@ import (
 // must not answer two different things depending which handler a caller
 // reached.
 var ClientErrors = connecterr.Table{
+	tenant.ErrCodeNoTenant:      {Code: connect.CodeUnauthenticated, UserMsg: "the call is not authenticated"},
 	ErrCodeRequest:              {Code: connect.CodeInvalidArgument, UserMsg: "the request is not one this service can act on"},
 	ErrCodeUnknownDevice:        {Code: connect.CodeNotFound, UserMsg: "no such device"},
 	registry.ErrCodeUnknownEdge: {Code: connect.CodeNotFound, UserMsg: "this deployment's registry describes a different edge"},

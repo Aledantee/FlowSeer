@@ -58,8 +58,10 @@ func (b binding) Hosts(context.Context, string, string) (bool, error) {
 	return b.hosts, nil
 }
 
+func edgeTenant(_ string) string { return tenant }
+
 func TestDeliverFailsWhenTheStreamRefuses(t *testing.T) {
-	svc := auditapi.New(refusing{}, binding{hosts: true}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: true}, edgeTenant)
 	if err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e001"); err == nil {
 		t.Fatal("Deliver answered success though the stream refused the publish")
 	}
@@ -68,7 +70,7 @@ func TestDeliverFailsWhenTheStreamRefuses(t *testing.T) {
 func TestDeliverRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 	// The publisher would succeed; the binding must stop the delivery first,
 	// so a forged device id never reaches the central-owned stream.
-	svc := auditapi.New(refusing{}, binding{hosts: false}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: false}, edgeTenant)
 	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e0ff")
 	if err == nil {
 		t.Fatal("Deliver accepted an event for a device the edge does not host")
@@ -90,7 +92,7 @@ func TestDeliverIsDurableAndDeduplicates(t *testing.T) {
 	}
 	t.Cleanup(hub.Close)
 
-	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, tenant)
+	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, edgeTenant)
 
 	const id = "0192e6a0-0000-7000-8000-00000000e002"
 	if err := deliver(t, svc, id); err != nil {
@@ -128,7 +130,7 @@ func streamMsgs(ctx context.Context, t *testing.T, hub *edgebus.Hub) uint64 {
 // The audit stream is central's, and what refused a publish on it is central's
 // business: the edge learns to deliver again, not what the stream said.
 func TestDeliverSendsNoStreamDetailToTheEdge(t *testing.T) {
-	svc := auditapi.New(refusing{}, binding{hosts: true}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: true}, edgeTenant)
 
 	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e002")
 	if err == nil {
@@ -139,5 +141,31 @@ func TestDeliverSendsNoStreamDetailToTheEdge(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "stream refused the publish") {
 		t.Errorf("the edge was sent the stream's own refusal: %q", err.Error())
+	}
+}
+
+func TestDeliverMultiTenantAuditSubject(t *testing.T) {
+	ctx := context.Background()
+	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+
+	const customTenant = "tenant-custom-42"
+	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, func(string) string {
+		return customTenant
+	})
+
+	const id = "0192e6a0-0000-7000-8000-00000000e099"
+	if err := deliver(t, svc, id); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+	if got := streamMsgs(ctx, t, hub); got != 1 {
+		t.Fatalf("audit stream holds %d messages, want 1", got)
 	}
 }

@@ -23,6 +23,7 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -33,6 +34,7 @@ import (
 )
 
 const (
+	testTenant = "0192e6a0-0000-7000-8000-0000000000aa"
 	deviceID   = "0192e6a0-0000-7000-8000-0000000000d1"
 	edgeID     = "0192e6a0-0000-7000-8000-0000000000e1"
 	iface      = "ethernet 1/1/1"
@@ -94,6 +96,10 @@ type harness struct {
 	svc      *deviceapi.Service
 	journal  *journal.Journal
 	resolver *resolver
+}
+
+func testContext() context.Context {
+	return tenant.WithTenant(context.Background(), testTenant)
 }
 
 func newHarness(t *testing.T) *harness {
@@ -219,7 +225,7 @@ func validate(t *testing.T, msg proto.Message) {
 func TestApplyAdmitsTheIntentAndReturnsItAtAdmission(t *testing.T) {
 	h := newHarness(t)
 
-	resp, err := h.svc.ApplyInterfaceDescription(context.Background(), applyRequest(intentFor("uplink to core"), false))
+	resp, err := h.svc.ApplyInterfaceDescription(testContext(), applyRequest(intentFor("uplink to core"), false))
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
@@ -241,7 +247,7 @@ func TestApplyRefusesADeviceTheRegistryDoesNotList(t *testing.T) {
 	h := newHarness(t)
 	h.resolver.missing = true
 
-	_, err := h.svc.ApplyInterfaceDescription(context.Background(), applyRequest(intentFor("x"), false))
+	_, err := h.svc.ApplyInterfaceDescription(testContext(), applyRequest(intentFor("x"), false))
 	wantCode(t, err, connect.CodeNotFound)
 }
 
@@ -252,10 +258,10 @@ func TestApplyRefusesADeviceWithNoMeasuredHorizon(t *testing.T) {
 	h := newHarness(t)
 	h.resolver.entry = registryEntry(0)
 
-	_, err := h.svc.ApplyInterfaceDescription(context.Background(), applyRequest(intentFor("x"), false))
+	_, err := h.svc.ApplyInterfaceDescription(testContext(), applyRequest(intentFor("x"), false))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 
-	record, _ := h.journal.Record(context.Background(), deviceID)
+	record, _ := h.journal.Record(testContext(), testTenant, deviceID)
 	if record.GetHighWatermark() != 0 {
 		t.Error("a refused apply assigned a sequence")
 	}
@@ -269,7 +275,7 @@ func TestApplyRefusesAnIntentUnderAPolicyVersionTheDeviceDoesNotPin(t *testing.T
 	stale.SetVersion(policyVer - 1)
 	intent.SetAccessPolicy(stale)
 
-	_, err := h.svc.ApplyInterfaceDescription(context.Background(), applyRequest(intent, false))
+	_, err := h.svc.ApplyInterfaceDescription(testContext(), applyRequest(intent, false))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -277,16 +283,16 @@ func TestApplyRefusesAnIntentUnderAPolicyVersionTheDeviceDoesNotPin(t *testing.T
 // reported another, the decision was made about a device that no longer
 // exists in that form, and nothing is written.
 func TestApplyRefusesAStaleFirmwareFingerprint(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
-	if err := h.journal.SetFingerprint(ctx, deviceID, deviceRef(), "fastiron-09.0.10"); err != nil {
+	if err := h.journal.SetFingerprint(ctx, testTenant, deviceID, deviceRef(), "fastiron-09.0.10"); err != nil {
 		t.Fatalf("set fingerprint: %v", err)
 	}
 
 	_, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("x"), false))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, testTenant, deviceID)
 	if record.HasMutation() {
 		t.Error("a refused apply admitted the intent anyway")
 	}
@@ -298,13 +304,13 @@ func TestApplyRefusesAStaleFirmwareFingerprint(t *testing.T) {
 func TestApplyAcceptsWhenNoFingerprintHasBeenReported(t *testing.T) {
 	h := newHarness(t)
 
-	if _, err := h.svc.ApplyInterfaceDescription(context.Background(), applyRequest(intentFor("x"), false)); err != nil {
+	if _, err := h.svc.ApplyInterfaceDescription(testContext(), applyRequest(intentFor("x"), false)); err != nil {
 		t.Fatalf("apply against an unprobed device: %v", err)
 	}
 }
 
 func TestApplyRefusesASecondIntentWhileTheLaneIsHeld(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	if _, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("first"), false)); err != nil {
 		t.Fatalf("first apply: %v", err)
@@ -315,7 +321,7 @@ func TestApplyRefusesASecondIntentWhileTheLaneIsHeld(t *testing.T) {
 }
 
 func TestApplyValidateOnlyRecordsNothing(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 
 	resp, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("x"), true))
@@ -325,14 +331,14 @@ func TestApplyValidateOnlyRecordsNothing(t *testing.T) {
 	if resp.Msg.HasMutation() {
 		t.Error("validate_only returned a mutation")
 	}
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, testTenant, deviceID)
 	if record.GetHighWatermark() != 0 || record.HasMutation() {
 		t.Error("validate_only wrote to the record")
 	}
 }
 
 func TestApplyValidateOnlyRefusesWhatAnApplyWouldRefuse(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	if _, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("first"), false)); err != nil {
 		t.Fatalf("first apply: %v", err)
@@ -345,7 +351,7 @@ func TestApplyValidateOnlyRefusesWhatAnApplyWouldRefuse(t *testing.T) {
 // A retried submission is the same intent, so it reads back the mutation it
 // already has rather than being refused by the lane its own first call holds.
 func TestApplyResubmissionReturnsTheRecordedMutation(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	intent := intentFor("uplink to core")
 
@@ -361,19 +367,19 @@ func TestApplyResubmissionReturnsTheRecordedMutation(t *testing.T) {
 	if again.Msg.GetMutation().GetSequence() != first.Msg.GetMutation().GetSequence() {
 		t.Errorf("the resubmission was admitted again, at %d", again.Msg.GetMutation().GetSequence())
 	}
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, testTenant, deviceID)
 	if record.GetHighWatermark() != 1 {
 		t.Errorf("high watermark = %d, want 1", record.GetHighWatermark())
 	}
 }
 
 func TestStatusReflectsTheRecord(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	if _, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("uplink"), false)); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if err := h.journal.SetFingerprint(ctx, deviceID, deviceRef(), fingerling); err != nil {
+	if err := h.journal.SetFingerprint(ctx, testTenant, deviceID, deviceRef(), fingerling); err != nil {
 		t.Fatalf("set fingerprint: %v", err)
 	}
 
@@ -397,7 +403,7 @@ func TestStatusReflectsTheRecord(t *testing.T) {
 }
 
 func TestAbandonEndsAnOpenMutationAndRefusesATerminalOne(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("uplink"), false))
 	if err != nil {
@@ -432,23 +438,23 @@ const heldDescription = "uplink to core"
 // exists for.
 func held(t *testing.T, h *harness) uint64 {
 	t.Helper()
-	ctx := context.Background()
+	ctx := testContext()
 	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	seq := applied.Msg.GetMutation().GetSequence()
-	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := h.journal.ApplyReport(ctx, testTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted report: %v", err)
 	}
-	if _, err := h.journal.Dispose(ctx, deviceID, seq); err != nil {
+	if _, err := h.journal.Dispose(ctx, testTenant, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	// The edge confirms the abandonment. A hold is resolvable only once it
 	// has: without this report the mutation still owes its terminal
 	// acknowledgement and every resolution below would be refused, which is
 	// what TestResolveRefusesWhileTheEdgeStillOwesItsAcknowledgement covers.
-	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
+	if err := h.journal.ApplyReport(ctx, testTenant, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
 		t.Fatalf("abandoned report: %v", err)
 	}
 	return seq
@@ -460,17 +466,17 @@ func held(t *testing.T, h *harness) uint64 {
 // owed, and the edge sat waiting for it while central dispatched the
 // replacement into a lane the old sequence still held.
 func TestResolveRefusesWhileTheEdgeStillOwesItsAcknowledgement(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	seq := applied.Msg.GetMutation().GetSequence()
-	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := h.journal.ApplyReport(ctx, testTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted report: %v", err)
 	}
-	if _, err := h.journal.Dispose(ctx, deviceID, seq); err != nil {
+	if _, err := h.journal.Dispose(ctx, testTenant, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 
@@ -479,7 +485,7 @@ func TestResolveRefusesWhileTheEdgeStillOwesItsAcknowledgement(t *testing.T) {
 	_, err = h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, testTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -497,12 +503,12 @@ func resolveRequest(sequence uint64) *devicev1.ResolveDesynchronizationRequest {
 }
 
 func TestResolveAcceptAdoptsWhatTheDeviceCarriesAndAdmitsNothing(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
 	// The interface is managed — central holds an expectation for it — and a
 	// read has since seen what the device really carries.
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
+	if err := h.journal.SetExpected(ctx, testTenant, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
 	closeARead(t, h, observation("whatever the device says"))
@@ -517,7 +523,7 @@ func TestResolveAcceptAdoptsWhatTheDeviceCarriesAndAdmitsNothing(t *testing.T) {
 	if resp.Msg.HasMutation() {
 		t.Error("accept admitted a mutation")
 	}
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, testTenant, deviceID)
 	if got := record.GetExpectedDescriptions()[iface]; got != "whatever the device says" {
 		t.Errorf("expected description = %q, want the observed one", got)
 	}
@@ -527,13 +533,13 @@ func TestResolveAcceptAdoptsWhatTheDeviceCarriesAndAdmitsNothing(t *testing.T) {
 }
 
 func TestResolveRestoreAdmitsCentralsOwnIntentToPutTheExpectationBack(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
+	if err := h.journal.SetExpected(ctx, testTenant, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
-	if err := h.journal.SetFingerprint(ctx, deviceID, deviceRef(), fingerling); err != nil {
+	if err := h.journal.SetFingerprint(ctx, testTenant, deviceID, deviceRef(), fingerling); err != nil {
 		t.Fatalf("set fingerprint: %v", err)
 	}
 
@@ -559,7 +565,7 @@ func TestResolveRestoreAdmitsCentralsOwnIntentToPutTheExpectationBack(t *testing
 }
 
 func TestResolveReplaceAdmitsTheCarriedIntent(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
 
@@ -578,7 +584,7 @@ func TestResolveReplaceAdmitsTheCarriedIntent(t *testing.T) {
 
 // A replacement is a fresh decision about the device and is checked like one.
 func TestResolveReplaceRefusesAnIntentUnderTheWrongPolicyVersion(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
 
@@ -593,7 +599,7 @@ func TestResolveReplaceRefusesAnIntentUnderTheWrongPolicyVersion(t *testing.T) {
 	_, err := h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, testTenant, deviceID)
 	if !record.HasMutation() {
 		t.Error("a refused replace resolved the hold anyway")
 	}
@@ -603,7 +609,7 @@ func TestResolveReplaceRefusesAnIntentUnderTheWrongPolicyVersion(t *testing.T) {
 // observation. Without one there is nothing to adopt and the expectation would
 // stand for nothing.
 func TestResolveAcceptRefusesWithNoObservationToAdopt(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
 
@@ -614,12 +620,12 @@ func TestResolveAcceptRefusesWithNoObservationToAdopt(t *testing.T) {
 }
 
 func TestReadReturnsTheObservationTheEdgeReports(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 
 	go func() {
 		seq := awaitOpenRead(t, h)
-		if err := h.journal.CloseRead(context.Background(), deviceID, iface, seq, observation("uplink to core"), nil); err != nil {
+		if err := h.journal.CloseRead(testContext(), testTenant, deviceID, iface, seq, observation("uplink to core"), nil); err != nil {
 			t.Errorf("close read: %v", err)
 		}
 	}()
@@ -642,7 +648,7 @@ func TestReadReturnsTheObservationTheEdgeReports(t *testing.T) {
 // answer still lands in the record for the status call to show.
 func TestReadThatOutlastsItsCallerLeavesTheReadOpen(t *testing.T) {
 	h := newHarness(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(testContext(), 100*time.Millisecond)
 	defer cancel()
 
 	msg := &devicev1.ReadInterfaceRequest{}
@@ -651,7 +657,7 @@ func TestReadThatOutlastsItsCallerLeavesTheReadOpen(t *testing.T) {
 	_, err := h.svc.ReadInterface(ctx, connect.NewRequest(msg))
 	wantCode(t, err, connect.CodeDeadlineExceeded)
 
-	record, _ := h.journal.Record(context.Background(), deviceID)
+	record, _ := h.journal.Record(testContext(), testTenant, deviceID)
 	entry, ok := record.GetOpenReads()[iface]
 	if !ok || entry.HasOutcome() {
 		t.Error("the abandoned call closed the read it opened")
@@ -664,7 +670,7 @@ func awaitOpenRead(t *testing.T, h *harness) uint64 {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		record, err := h.journal.Record(context.Background(), deviceID)
+		record, err := h.journal.Record(testContext(), testTenant, deviceID)
 		if err == nil {
 			if entry, ok := record.GetOpenReads()[iface]; ok {
 				return entry.GetSequence()
@@ -680,7 +686,7 @@ func awaitOpenRead(t *testing.T, h *harness) uint64 {
 // the record: nothing else writes what central last saw on an interface.
 func closeARead(t *testing.T, h *harness, obs *accessv1.InterfaceObservation) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := testContext()
 	read := &accessv1.TypedRead{}
 	handle := &policyv1.AccessPolicyHandle{}
 	handle.SetKey(policyKey)
@@ -690,11 +696,11 @@ func closeARead(t *testing.T, h *harness, obs *accessv1.InterfaceObservation) {
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	seq, err := h.journal.OpenRead(ctx, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
+	seq, err := h.journal.OpenRead(ctx, testTenant, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
-	if err := h.journal.CloseRead(ctx, deviceID, iface, seq, obs, nil); err != nil {
+	if err := h.journal.CloseRead(ctx, testTenant, deviceID, iface, seq, obs, nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
 }
@@ -705,13 +711,13 @@ func closeARead(t *testing.T, h *harness, obs *accessv1.InterfaceObservation) {
 // match, and the drift poll would then dispatch central's own stale value back
 // over whatever the operator's abandoned write actually left there.
 func TestResolveAcceptRefusesAnObservationOlderThanTheMutation(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
+	if err := h.journal.SetExpected(ctx, testTenant, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, testTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -722,7 +728,7 @@ func TestResolveAcceptRefusesAnObservationOlderThanTheMutation(t *testing.T) {
 	_, err = h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 
-	record, err = h.journal.Record(ctx, deviceID)
+	record, err = h.journal.Record(ctx, testTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -736,10 +742,10 @@ func TestResolveAcceptRefusesAnObservationOlderThanTheMutation(t *testing.T) {
 // none is not a valid intent. Until a read reports one, restore refuses rather
 // than writing a record that fails its own schema.
 func TestResolveRestoreRefusesBeforeCentralKnowsTheFirmwareEpoch(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
+	if err := h.journal.SetExpected(ctx, testTenant, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
 
@@ -748,7 +754,7 @@ func TestResolveRestoreRefusesBeforeCentralKnowsTheFirmwareEpoch(t *testing.T) {
 	_, err := h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
 	wantCode(t, err, connect.CodeFailedPrecondition)
 
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, testTenant, deviceID)
 	if record.GetHighWatermark() != seq {
 		t.Error("a refused restore assigned a sequence")
 	}
@@ -758,7 +764,7 @@ func TestResolveRestoreRefusesBeforeCentralKnowsTheFirmwareEpoch(t *testing.T) {
 // has to be told which ones — with the sequence they will abandon and the
 // phase it stopped at, not just how many.
 func TestListEdgeOpenMutationsNamesWhatRetiringAnEdgeWouldOrphan(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("uplink"), false))
 	if err != nil {
@@ -789,7 +795,7 @@ func TestListEdgeOpenMutationsNamesWhatRetiringAnEdgeWouldOrphan(t *testing.T) {
 }
 
 func TestListEdgeOpenMutationsPagesInDeviceOrder(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	if _, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("uplink"), false)); err != nil {
 		t.Fatalf("apply: %v", err)
@@ -852,7 +858,7 @@ func TestListEdgeOpenMutationsReportsNothingWhenNoLaneIsHeld(t *testing.T) {
 
 	msg := &devicev1.ListEdgeOpenMutationsRequest{}
 	msg.SetEdgeId(edgeID)
-	resp, err := h.svc.ListEdgeOpenMutations(context.Background(), connect.NewRequest(msg))
+	resp, err := h.svc.ListEdgeOpenMutations(testContext(), connect.NewRequest(msg))
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -866,14 +872,14 @@ func TestListEdgeOpenMutationsReportsNothingWhenNoLaneIsHeld(t *testing.T) {
 // mutation first, so HasDisposition() short-circuits this guard and it would
 // pass the suite if it were deleted.
 func TestResolveRefusesAMutationTheEdgeStillHolds(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	seq := applied.Msg.GetMutation().GetSequence()
-	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := h.journal.ApplyReport(ctx, testTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted report: %v", err)
 	}
 
@@ -887,7 +893,7 @@ func TestResolveRefusesAMutationTheEdgeStillHolds(t *testing.T) {
 		t.Errorf("message = %q, want the call that ends the mutation named", err)
 	}
 
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, testTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -901,7 +907,7 @@ func TestResolveRefusesAMutationTheEdgeStillHolds(t *testing.T) {
 // REJECTED, which is the true statement that the command never left. Refusing
 // here would leave only AbandonMutation, which records the opposite.
 func TestResolveDisposesAMutationTheEdgeNeverReceived(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
 	if err != nil {
@@ -910,7 +916,7 @@ func TestResolveDisposesAMutationTheEdgeNeverReceived(t *testing.T) {
 	seq := applied.Msg.GetMutation().GetSequence()
 	// The interface is managed, so the read central closes is kept as the last
 	// observation and the accept arm has something to adopt.
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, heldDescription); err != nil {
+	if err := h.journal.SetExpected(ctx, testTenant, deviceID, deviceRef(), iface, heldDescription); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
 	closeARead(t, h, observation("whatever the device says"))
@@ -921,7 +927,7 @@ func TestResolveDisposesAMutationTheEdgeNeverReceived(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, testTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -938,7 +944,7 @@ func TestResolveDisposesAMutationTheEdgeNeverReceived(t *testing.T) {
 // another one would put that name on the audit record, the idempotency digest,
 // and the ExecuteRequest the edge receives.
 func TestResolveReplaceRefusesAnIntentNamingAnotherDevice(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	h := newHarness(t)
 	seq := held(t, h)
 
@@ -953,4 +959,56 @@ func TestResolveReplaceRefusesAnIntentNamingAnotherDevice(t *testing.T) {
 	msg.SetReplace(other)
 	_, err := h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
 	wantCode(t, err, connect.CodeInvalidArgument)
+}
+
+func TestCrossTenantDeviceIsolation(t *testing.T) {
+	h := newHarness(t)
+	tenantA := "0192e6a0-0000-7000-8000-0000000000aa"
+	tenantB := "0192e6a0-0000-7000-8000-0000000000bb"
+	ctxA := tenant.WithTenant(context.Background(), tenantA)
+	ctxB := tenant.WithTenant(context.Background(), tenantB)
+
+	// Apply under tenant A
+	intent := intentFor("applied on A")
+	respA, err := h.svc.ApplyInterfaceDescription(ctxA, applyRequest(intent, false))
+	if err != nil {
+		t.Fatalf("apply tenant A: %v", err)
+	}
+	if respA.Msg.GetMutation().GetSequence() != 1 {
+		t.Fatalf("seq tenant A = %d, want 1", respA.Msg.GetMutation().GetSequence())
+	}
+
+	// Status under tenant B for same device should have no mutation
+	statusReq := &devicev1.GetDeviceAccessStatusRequest{}
+	statusReq.SetDevice(deviceRef())
+	statusB, err := h.svc.GetDeviceAccessStatus(ctxB, connect.NewRequest(statusReq))
+	if err != nil {
+		t.Fatalf("status tenant B: %v", err)
+	}
+	if statusB.Msg.GetUnresolved() != nil {
+		t.Fatalf("tenant B saw unresolved mutation: %v", statusB.Msg.GetUnresolved())
+	}
+
+	// Apply under tenant B for same device succeeds (isolated lane)
+	intentB := intentFor("applied on B")
+	respB, err := h.svc.ApplyInterfaceDescription(ctxB, applyRequest(intentB, false))
+	if err != nil {
+		t.Fatalf("apply tenant B: %v", err)
+	}
+	if respB.Msg.GetMutation().GetSequence() != 1 {
+		t.Fatalf("seq tenant B = %d, want 1", respB.Msg.GetMutation().GetSequence())
+	}
+}
+
+func TestUnauthenticatedWithoutTenant(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background() // no tenant
+
+	_, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("test"), false))
+	if err == nil {
+		t.Fatal("expected error without tenant context")
+	}
+	if connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Fatalf("got code %v, want Unauthenticated", connect.CodeOf(err))
+	}
 }

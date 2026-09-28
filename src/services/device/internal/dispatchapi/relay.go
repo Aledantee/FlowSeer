@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -40,13 +41,14 @@ func (s *Service) dispatchPass(ctx context.Context, edgeID string, out sender) e
 	if err != nil {
 		return errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Msg("resolve edge devices")
 	}
+	tenantID := s.edgeTenant(edgeID)
 	for _, deviceID := range devices {
-		fatal, err := s.dispatchDevice(ctx, deviceID, out)
+		fatal, err := s.dispatchDevice(ctx, tenantID, deviceID, out)
 		if err != nil {
 			if fatal {
 				return err // the stream is broken; owed stays in the record
 			}
-			s.log.WarnContext(ctx, "dispatch pass skipped a device", slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
+			s.log.WarnContext(ctx, "dispatch pass skipped a device", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
 		}
 	}
 	return nil
@@ -55,11 +57,11 @@ func (s *Service) dispatchPass(ctx context.Context, edgeID string, out sender) e
 // dispatchDevice sweeps then sends one device's owed rows. The returned bool
 // is whether the error broke the stream (a send failure) rather than the
 // record store (which is transient and skipped).
-func (s *Service) dispatchDevice(ctx context.Context, deviceID string, out sender) (fatal bool, err error) {
-	if _, err := s.cfg.Journal.SweepExpiredReads(ctx, deviceID, s.clock(), s.sweepError()); err != nil {
+func (s *Service) dispatchDevice(ctx context.Context, tenantID, deviceID string, out sender) (fatal bool, err error) {
+	if _, err := s.cfg.Journal.SweepExpiredReads(ctx, tenantID, deviceID, s.clock(), s.sweepError()); err != nil {
 		return false, errs.Wrap(err, "sweep expired reads")
 	}
-	rec, err := s.cfg.Journal.Record(ctx, deviceID)
+	rec, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return false, errs.Wrap(err, "read lane record")
 	}
@@ -216,11 +218,16 @@ func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 		if !errors.Is(err, jetstream.ErrNoKeysFound) {
 			s.log.WarnContext(ctx, "sweeper could not list devices", slog.String("error.type", telemetry.ErrorType(err)))
 		}
-		return // an empty bucket is not an error worth logging every tick
+		return // an empty bucket is not an empty error worth logging every tick
 	}
-	for _, deviceID := range keys {
-		if _, err := s.cfg.Journal.SweepExpiredReads(ctx, deviceID, s.clock(), s.sweepError()); err != nil {
-			s.log.WarnContext(ctx, "sweeper could not close expired reads", slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
+	for _, key := range keys {
+		parts := strings.SplitN(key, ".", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		tenantID, deviceID := parts[0], parts[1]
+		if _, err := s.cfg.Journal.SweepExpiredReads(ctx, tenantID, deviceID, s.clock(), s.sweepError()); err != nil {
+			s.log.WarnContext(ctx, "sweeper could not close expired reads", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
 		}
 	}
 }

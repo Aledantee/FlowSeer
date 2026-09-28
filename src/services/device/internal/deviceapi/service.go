@@ -72,7 +72,7 @@ type DeviceResolver interface {
 // report that closes a read may land on another central replica, so a waiter
 // cannot poll its own memory.
 type RecordWatcher interface {
-	Watch(ctx context.Context, deviceID string) (<-chan struct{}, func(), error)
+	Watch(ctx context.Context, tenantID, deviceID string) (<-chan struct{}, func(), error)
 }
 
 // Config wires the handlers to the journal, the registry, and the record

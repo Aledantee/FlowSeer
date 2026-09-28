@@ -51,16 +51,16 @@ type EdgeBinding interface {
 // Service implements the AuditService handler. A Service is safe for concurrent
 // use when its Publisher and EdgeBinding are safe for concurrent use.
 type Service struct {
-	stream  Publisher
-	binding EdgeBinding
-	tenant  string
+	stream     Publisher
+	binding    EdgeBinding
+	edgeTenant func(edgeID string) string
 }
 
 // New constructs the audit handler over a stream publisher, the edge binding
-// that authorizes each delivery, and the tenant whose audit subject the events
-// are written to.
-func New(stream Publisher, binding EdgeBinding, tenant string) *Service {
-	return &Service{stream: stream, binding: binding, tenant: tenant}
+// that authorizes each delivery, and a function resolving an edge to its tenant.
+// If edgeTenant is nil or returns empty, deliveries fall back to DefaultTenant.
+func New(stream Publisher, binding EdgeBinding, edgeTenant func(edgeID string) string) *Service {
+	return &Service{stream: stream, binding: binding, edgeTenant: edgeTenant}
 }
 
 // Deliver publishes one event and answers once the stream holds it, after
@@ -89,9 +89,15 @@ func (s *Service) Deliver(ctx context.Context, req *connect.Request[auditv1.Deli
 	if err != nil {
 		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Msg("marshal audit event"))
 	}
-	subject := edgebus.AuditSubject(s.tenant, deviceID)
+	tenantID := edgebus.DefaultTenant
+	if s.edgeTenant != nil {
+		if t := s.edgeTenant(edgeID); t != "" {
+			tenantID = t
+		}
+	}
+	subject := edgebus.AuditSubject(tenantID, deviceID)
 	if err := s.stream.Publish(ctx, subject, data, event.GetEventId()); err != nil {
-		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).
+		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("tenant", tenantID).Attr("device", deviceID).
 			Attr("event", event.GetEventId()).Msg("publish audit event"))
 	}
 	return connect.NewResponse(&auditv1.DeliverResponse{}), nil

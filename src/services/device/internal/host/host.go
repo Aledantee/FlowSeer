@@ -275,6 +275,7 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		Resolver:      h.registry,
 		Watch:         lanes,
 		EdgeID:        edgeIDFromContext,
+		EdgeTenant:    hub.EdgeTenant,
 		Resend:        intervals.DispatchResend,
 		SweepInterval: intervals.ReadSweep,
 		Audit:         audit,
@@ -368,6 +369,7 @@ func (h *assembly) setupDrift(ctx context.Context) (service.Attempt, error) {
 	poller, err := drift.New(drift.Config{
 		Journal:      resources.journal,
 		Resolver:     h.registry,
+		EdgeTenant:   resources.hub.EdgeTenant,
 		Audit:        centralaudit.New(auditPublisher(resources.hub), resources.hub.Tenant(), nil),
 		Telemetry:    view,
 		Interval:     intervals.Drift,

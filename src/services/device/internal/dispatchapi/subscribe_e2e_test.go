@@ -40,7 +40,7 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 	defer srv.Close()
 	client := dispatchv1connect.NewDispatchServiceClient(srv.Client(), srv.URL)
 
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
@@ -59,7 +59,7 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 
 	// A read opened now is a record change; the watch must wake the loop so its
 	// dispatch arrives without waiting for anything external.
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f05", time.Now().Add(time.Minute)); err != nil {
+	if _, err := j.OpenRead(ctx, tTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f05", time.Now().Add(time.Minute)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 

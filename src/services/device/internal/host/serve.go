@@ -19,7 +19,9 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
@@ -77,7 +79,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	middleware := edgeapi.NewMiddleware(verifier, maxEdgeBody, log)
 
 	edgeService, err := edgeapi.NewService(
-		resources.edges, h.registry, resources.journal, h.credentials, resources.hub,
+		resources.edges, h.registry, &edgeLaneRecords{journal: resources.journal, hub: resources.hub}, h.credentials, resources.hub,
 		edgeapi.ServiceConfig{
 			Audience:      h.cfg.AssertionAudience(),
 			TrustAnchors:  [][]byte{h.certificate.SPKI},
@@ -114,7 +116,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	auditService := auditapi.New(
 		auditPublisher(resources.hub),
 		&auditBinding{registry: h.registry},
-		resources.hub.Tenant(),
+		resources.hub.EdgeTenant,
 	)
 
 	captureEdgeService := captureapi.NewEdgeService(
@@ -205,11 +207,19 @@ func (l *laneAdmin) Devices(ctx context.Context, edgeID string) ([]string, error
 }
 
 func (l *laneAdmin) DropHolds(ctx context.Context, deviceID string) error {
-	return l.journal.DropHolds(ctx, deviceID)
+	tenantID, _ := tenant.FromContext(ctx)
+	if tenantID == "" {
+		tenantID = edgebus.DefaultTenant
+	}
+	return l.journal.DropHolds(ctx, tenantID, deviceID)
 }
 
 func (l *laneAdmin) OpenMutation(ctx context.Context, deviceID string) (uint64, bool, error) {
-	record, err := l.journal.Record(ctx, deviceID)
+	tenantID, _ := tenant.FromContext(ctx)
+	if tenantID == "" {
+		tenantID = edgebus.DefaultTenant
+	}
+	record, err := l.journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return 0, false, err
 	}
@@ -218,6 +228,22 @@ func (l *laneAdmin) OpenMutation(ctx context.Context, deviceID string) (uint64, 
 		return 0, false, nil
 	}
 	return mutation.GetSequence(), true, nil
+}
+
+type edgeLaneRecords struct {
+	journal *journal.Journal
+	hub     *edgebus.Hub
+}
+
+func (e *edgeLaneRecords) Record(ctx context.Context, deviceID string) (*storev1.DeviceLaneRecord, error) {
+	edgeID, _ := edgeapi.EdgeIDFromContext(ctx)
+	tenantID := edgebus.DefaultTenant
+	if edgeID != "" && e.hub != nil {
+		if t := e.hub.EdgeTenant(edgeID); t != "" {
+			tenantID = t
+		}
+	}
+	return e.journal.Record(ctx, tenantID, deviceID)
 }
 
 // auditBinding binds an audit delivery to the edge its assertion named, so an

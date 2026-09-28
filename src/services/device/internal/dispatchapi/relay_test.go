@@ -141,7 +141,7 @@ func pass(t *testing.T, svc *Service) []*dispatchv1.SubscribeResponse {
 func TestOwedMutationIsSentOnOpen(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a01"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, edgebus.DefaultTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	msgs := pass(t, svc)
@@ -163,7 +163,7 @@ func TestOwedMutationIsSentOnOpen(t *testing.T) {
 func TestReSendsWhileOwedAndStopsOnConfirmation(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a02"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, edgebus.DefaultTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a02"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	if len(pass(t, svc)) != 1 {
@@ -178,7 +178,7 @@ func TestReSendsWhileOwedAndStopsOnConfirmation(t *testing.T) {
 		{Kind: journal.ReportVerified, Sequence: 1},
 		{Kind: journal.ReportReleased, Sequence: 1},
 	} {
-		if err := j.ApplyReport(ctx, deviceID, r); err != nil {
+		if err := j.ApplyReport(ctx, edgebus.DefaultTenant, deviceID, r); err != nil {
 			t.Fatalf("apply %v: %v", r.Kind, err)
 		}
 	}
@@ -190,10 +190,10 @@ func TestReSendsWhileOwedAndStopsOnConfirmation(t *testing.T) {
 func TestMutationAndReadDispatchedSideBySide(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a03"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, edgebus.DefaultTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a03"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f01", time.Now().Add(time.Minute)); err != nil {
+	if _, err := j.OpenRead(ctx, edgebus.DefaultTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f01", time.Now().Add(time.Minute)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 	var mut, read bool
@@ -213,12 +213,12 @@ func TestMutationAndReadDispatchedSideBySide(t *testing.T) {
 func TestNoTerminalAckForNeverDispatchedIntent(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a04"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, edgebus.DefaultTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a04"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	// Abandon before the edge reports admitted: the lane closes and owes a
 	// hold-resolved row, never a terminal ack.
-	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+	if _, err := j.Dispose(ctx, edgebus.DefaultTenant, deviceID, 1); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	for _, m := range pass(t, svc) {
@@ -231,13 +231,13 @@ func TestNoTerminalAckForNeverDispatchedIntent(t *testing.T) {
 func TestExpiredReadSweptNotSent(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f02", time.Now().Add(-time.Second)); err != nil {
+	if _, err := j.OpenRead(ctx, edgebus.DefaultTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f02", time.Now().Add(-time.Second)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 	if msgs := pass(t, svc); len(msgs) != 0 {
 		t.Fatalf("an expired read was dispatched: %d messages", len(msgs))
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, edgebus.DefaultTenant, deviceID)
 	if !rec.GetOpenReads()["ethernet 1/1/1"].HasError() {
 		t.Fatal("the pass did not close the expired read with an error")
 	}
@@ -246,13 +246,13 @@ func TestExpiredReadSweptNotSent(t *testing.T) {
 func TestOnboardedResumeCarriesAdmissionTime(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a05"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, edgebus.DefaultTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a05"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, edgebus.DefaultTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if err := j.MarkOnboarded(ctx, deviceID); err != nil {
+	if err := j.MarkOnboarded(ctx, edgebus.DefaultTenant, deviceID); err != nil {
 		t.Fatalf("onboarded: %v", err)
 	}
 	msgs := pass(t, svc)
@@ -298,7 +298,7 @@ func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 	svc, j, kv := newFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f03", time.Now().Add(-time.Second)); err != nil {
+	if _, err := j.OpenRead(ctx, edgebus.DefaultTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f03", time.Now().Add(-time.Second)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 	done := svc.RunSweeper(ctx, kv)
@@ -306,7 +306,7 @@ func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		rec, err := j.Record(ctx, deviceID)
+		rec, err := j.Record(ctx, edgebus.DefaultTenant, deviceID)
 		if err != nil {
 			t.Fatalf("record: %v", err)
 		}

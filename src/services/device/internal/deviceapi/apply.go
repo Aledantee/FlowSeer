@@ -7,6 +7,7 @@ import (
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ApplyInterfaceDescription records the operator's intent and admits it to the
@@ -20,6 +21,10 @@ import (
 // check is the one that can go stale between the answer and a later apply,
 // which is what makes validate_only advice rather than a reservation.
 func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Request[devicev1.ApplyInterfaceDescriptionRequest]) (*connect.Response[devicev1.ApplyInterfaceDescriptionResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	intent := req.Msg.GetIntent()
 	deviceID, entry, err := s.device(intent.GetDevice())
 	if err != nil {
@@ -35,7 +40,7 @@ func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Re
 		return nil, connectErr(err)
 	}
 
-	record, err := s.cfg.Journal.Record(ctx, deviceID)
+	record, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -55,7 +60,7 @@ func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Re
 		return connect.NewResponse(resp), nil
 	}
 
-	state, err := s.cfg.Journal.Admit(ctx, deviceID, intent, edgeRef(s.cfg.Resolver.EdgeID()))
+	state, err := s.cfg.Journal.Admit(ctx, tenantID, deviceID, intent, edgeRef(s.cfg.Resolver.EdgeID()))
 	if err != nil {
 		return nil, connectErr(err)
 	}

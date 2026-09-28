@@ -52,7 +52,7 @@ func TestDispatchRejectedRecordsTheDispositionAndTheReason(t *testing.T) {
 	clock := func() time.Time { return time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC) }
 	emitter := centralaudit.New(pub, edgebus.DefaultTenant, clock)
 
-	err := emitter.DispatchRejected(context.Background(), deviceRef(), rejected(4),
+	err := emitter.DispatchRejected(context.Background(), edgebus.DefaultTenant, deviceRef(), rejected(4),
 		accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED, "mutation/firmware-epoch")
 	if err != nil {
 		t.Fatalf("DispatchRejected: %v", err)
@@ -91,7 +91,7 @@ func TestDispatchRejectedReportsAFailedPublish(t *testing.T) {
 	pub := &publisher{err: errors.New("stream refused the publish")}
 	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
 
-	err := emitter.DispatchRejected(context.Background(), deviceRef(), rejected(4),
+	err := emitter.DispatchRejected(context.Background(), edgebus.DefaultTenant, deviceRef(), rejected(4),
 		accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, "mutation/firmware-epoch")
 	if code, _ := errs.CodeOf(err); code != centralaudit.ErrCodePublish {
 		t.Fatalf("error code = %v, want a publish failure", code)
@@ -105,7 +105,7 @@ func TestDriftDetectedRecordsBothValues(t *testing.T) {
 	pub := &publisher{}
 	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
 
-	err := emitter.DriftDetected(context.Background(), deviceRef(), "ethernet 1/1/1", "uplink to core", "temporary")
+	err := emitter.DriftDetected(context.Background(), edgebus.DefaultTenant, deviceRef(), "ethernet 1/1/1", "uplink to core", "temporary")
 	if err != nil {
 		t.Fatalf("DriftDetected: %v", err)
 	}
@@ -128,5 +128,21 @@ func TestDriftDetectedRecordsBothValues(t *testing.T) {
 	}
 	if event.HasSequence() {
 		t.Error("a detection carries a sequence; no mutation exists yet at that moment")
+	}
+}
+
+func TestDispatchRejectedCustomTenant(t *testing.T) {
+	pub := &publisher{}
+	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
+	customTenant := "0192e6a0-0000-7000-8000-0000000000aa"
+
+	err := emitter.DispatchRejected(context.Background(), customTenant, deviceRef(), rejected(1),
+		accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, "mutation/firmware-epoch")
+	if err != nil {
+		t.Fatalf("DispatchRejected: %v", err)
+	}
+
+	if want := edgebus.AuditSubject(customTenant, deviceID); pub.subject != want {
+		t.Errorf("subject = %q, want %q", pub.subject, want)
 	}
 }

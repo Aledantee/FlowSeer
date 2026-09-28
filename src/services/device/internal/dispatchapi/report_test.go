@@ -12,8 +12,11 @@ import (
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
+
+const tTenant = edgebus.DefaultTenant
 
 func report(t *testing.T, svc *Service, req *dispatchv1.ReportRequest) {
 	t.Helper()
@@ -36,13 +39,13 @@ func resultReport(seq uint64, phase accessv1.OperationPhase, outcome func(*dispa
 func TestReportResultConfirmsDispatch(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b01"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	report(t, svc, resultReport(1, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, func(r *dispatchv1.ExecuteResult) {
 		r.SetProgress(&dispatchv1.Progress{})
 	}))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if !rec.GetDispatched() || !rec.GetDispatchConfirmed() ||
 		rec.GetMutation().GetPhase() != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED {
 		t.Fatalf("after an ADMITTED result: dispatched=%v confirmed=%v phase=%v",
@@ -53,7 +56,7 @@ func TestReportResultConfirmsDispatch(t *testing.T) {
 func TestReportObservationClosesReadAndLearnsFingerprint(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	seq, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f04", time.Now().Add(time.Minute))
+	seq, err := j.OpenRead(ctx, tTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f04", time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
@@ -65,7 +68,7 @@ func TestReportObservationClosesReadAndLearnsFingerprint(t *testing.T) {
 	report(t, svc, resultReport(seq, accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, func(r *dispatchv1.ExecuteResult) {
 		r.SetObservation(obs)
 	}))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if !rec.GetOpenReads()["ethernet 1/1/1"].HasObservation() {
 		t.Fatal("the read was not closed with its observation")
 	}
@@ -77,10 +80,10 @@ func TestReportObservationClosesReadAndLearnsFingerprint(t *testing.T) {
 func TestReportOnboardedClearsConfirmationsAndLearnsFingerprint(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b02"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b02"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
 	onboarded := &dispatchv1.Onboarded{}
@@ -89,7 +92,7 @@ func TestReportOnboardedClearsConfirmationsAndLearnsFingerprint(t *testing.T) {
 	req.SetDeviceId(deviceID)
 	req.SetOnboarded(onboarded)
 	report(t, svc, req)
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if rec.GetDispatchConfirmed() {
 		t.Fatal("Onboarded did not clear the dispatch confirmation")
 	}
@@ -101,19 +104,19 @@ func TestReportOnboardedClearsConfirmationsAndLearnsFingerprint(t *testing.T) {
 func TestReportRefusedTerminalAckClosesRecord(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b03"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b03"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	for _, r := range []journal.Report{
 		{Kind: journal.ReportAdmitted, Sequence: 1},
 		{Kind: journal.ReportVerified, Sequence: 1},
 	} {
-		if err := j.ApplyReport(ctx, deviceID, r); err != nil {
+		if err := j.ApplyReport(ctx, tTenant, deviceID, r); err != nil {
 			t.Fatalf("apply %v: %v", r.Kind, err)
 		}
 	}
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if rec.HasMutation() {
 		t.Fatal("a refused terminal ack did not close the released mutation")
 	}
@@ -122,11 +125,11 @@ func TestReportRefusedTerminalAckClosesRecord(t *testing.T) {
 func TestReportRefusedFirmwareEpochDisposesRejected(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b04"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b04"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "mutation/firmware-epoch"))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	// The refusal frees the lane without setting dispatched or owing a terminal
 	// ack for a command the edge refused before it reached the device.
 	if rec.HasMutation() {
@@ -147,13 +150,13 @@ func TestReportRefusedFirmwareEpochDisposesRejected(t *testing.T) {
 func TestReportCheckpointAckConfirmsTheCheckpoint(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b0c"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b0c"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if rows := journal.OwedRows(rec, time.Now()); len(rows) != 1 || rows[0].Kind != journal.OwedCheckpoint {
 		t.Fatalf("owed = %+v, want the checkpoint row", rows)
 	}
@@ -165,7 +168,7 @@ func TestReportCheckpointAckConfirmsTheCheckpoint(t *testing.T) {
 	req.SetCheckpointAck(ack)
 	report(t, svc, req)
 
-	rec, _ = j.Record(ctx, deviceID)
+	rec, _ = j.Record(ctx, tTenant, deviceID)
 	if !rec.GetCheckpointConfirmed() {
 		t.Fatal("a CheckpointAck did not confirm the checkpoint")
 	}
@@ -177,26 +180,26 @@ func TestReportCheckpointAckConfirmsTheCheckpoint(t *testing.T) {
 func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b05"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b05"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
 	// At ADMITTED the refusal leaves the checkpoint owed: the checkpoint was
 	// not received.
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal at ADMITTED wrongly confirmed the checkpoint")
 	}
 	// Once the edge reports a phase past POSSIBLY_APPLIED, the same refusal is
 	// a lost ack: confirm the checkpoint.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
 		t.Fatalf("recovering: %v", err)
 	}
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
-	rec, _ = j.Record(ctx, deviceID)
+	rec, _ = j.Record(ctx, tTenant, deviceID)
 	if !rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal past POSSIBLY_APPLIED did not confirm the checkpoint")
 	}
@@ -205,13 +208,13 @@ func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 func TestRetryableExecuteRefusalLeavesTheRowOwed(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b06"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b06"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	// A retryable code is not terminal: the record is unchanged and the execute
 	// row stays owed until the edge admits it or an operator ends it.
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/lane-closed"))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if rec.GetMutation() == nil || rec.GetMutation().HasDisposition() {
 		t.Fatalf("a retryable refusal disposed the mutation: %+v", rec.GetMutation())
 	}
@@ -223,20 +226,20 @@ func TestRetryableExecuteRefusalLeavesTheRowOwed(t *testing.T) {
 func TestRefusedTerminalAckOnAbandonmentConfirmsIt(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b07"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b07"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+	if _, err := j.Dispose(ctx, tTenant, deviceID, 1); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	// The edge holds no machine for an abandoned sequence and refuses the
 	// terminal ack. That must confirm the ack, not be dropped and re-sent
 	// forever.
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	for _, o := range journal.OwedRows(rec, time.Now()) {
 		if o.Kind == journal.OwedTerminalAck {
 			t.Fatal("a refused terminal ack on an abandonment is still owed")
@@ -258,12 +261,12 @@ func TestARefusedHoldResolvedConfirmsTheRow(t *testing.T) {
 	ctx := context.Background()
 	// A hold gets into the record by abandoning a mutation the edge never
 	// reported admitted: the lane closes and the sequence's hold is owed.
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000d05"), edgeRef())
+	state, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000d05"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
-	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+	if _, err := j.Dispose(ctx, tTenant, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	refused := &dispatchv1.Refused{}
@@ -274,7 +277,7 @@ func TestARefusedHoldResolvedConfirmsTheRow(t *testing.T) {
 	req.SetDeviceId(deviceID)
 	req.SetRefused(refused)
 	report(t, svc, req)
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	pending := false
 	for _, s := range rec.GetHoldResolutionPending() {
 		if s == seq {
@@ -329,14 +332,14 @@ func TestListsFailureLeavesTheExecuteRowOwed(t *testing.T) {
 		Resend:   50 * time.Millisecond,
 	})
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	// An unknown-device refusal is terminal only if the registry says the
 	// device is gone. When the registry cannot answer, the row stays owed
 	// rather than disposing on a transient failure.
 	report(t, svc, refusedReport(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unknown-device"))
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if rec.GetMutation() == nil || rec.GetMutation().HasDisposition() {
 		t.Fatalf("a refusal under a Lists failure disposed the mutation: %+v", rec.GetMutation())
 	}
@@ -397,16 +400,17 @@ func TestReportSendsNoResolverDetailToTheReportingEdge(t *testing.T) {
 // recordingAudit captures what central asked to have recorded about its own
 // decision.
 type recordingAudit struct {
-	calls int
-	state *accessv1.MutationState
-	from  accessv1.OperationPhase
-	code  string
-	err   error
+	calls    int
+	tenantID string
+	state    *accessv1.MutationState
+	from     accessv1.OperationPhase
+	code     string
+	err      error
 }
 
-func (r *recordingAudit) DispatchRejected(_ context.Context, _ *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, code string) error {
+func (r *recordingAudit) DispatchRejected(_ context.Context, tenantID string, _ *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, code string) error {
 	r.calls++
-	r.state, r.from, r.code = state, from, code
+	r.tenantID, r.state, r.from, r.code = tenantID, state, from, code
 	return r.err
 }
 
@@ -423,12 +427,12 @@ func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
 		Audit:    audit,
 	})
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c07"), edgeRef())
+	state, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c07"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
 
@@ -436,6 +440,9 @@ func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
 
 	if audit.calls != 1 {
 		t.Fatalf("central recorded %d rejections, want 1", audit.calls)
+	}
+	if audit.tenantID != tTenant {
+		t.Errorf("recorded tenant = %q, want %q", audit.tenantID, tTenant)
 	}
 	if got := audit.state.GetDisposition(); got != accessv1.Disposition_DISPOSITION_REJECTED {
 		t.Errorf("recorded disposition = %v, want rejected", got)
@@ -462,7 +469,7 @@ func TestARetryableRefusalRecordsNothing(t *testing.T) {
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
 		Audit:    audit,
 	})
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c08"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c08"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
@@ -470,5 +477,39 @@ func TestARetryableRefusalRecordsNothing(t *testing.T) {
 
 	if audit.calls != 0 {
 		t.Errorf("central recorded %d rejections for a retryable refusal, want 0", audit.calls)
+	}
+}
+
+func TestReportMultiTenantPartitioning(t *testing.T) {
+	j, kv := newJournalKV(t)
+	const customTenant = "0192e6a0-0000-7000-8000-000000000099"
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(id string) string {
+			if id == edgeID {
+				return customTenant
+			}
+			return edgebus.DefaultTenant
+		},
+	})
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, customTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000e01"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	report(t, svc, resultReport(1, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, func(r *dispatchv1.ExecuteResult) {
+		r.SetProgress(&dispatchv1.Progress{})
+	}))
+	// Verify custom tenant has the confirmed dispatch
+	recCustom, err := j.Record(ctx, customTenant, deviceID)
+	if err != nil || !recCustom.GetDispatchConfirmed() {
+		t.Fatalf("custom tenant record not updated: err=%v, rec=%v", err, recCustom)
+	}
+	// Verify default tenant bucket has NO record for this device
+	recDefault, _ := j.Record(ctx, edgebus.DefaultTenant, deviceID)
+	if recDefault.GetDispatchConfirmed() {
+		t.Fatal("default tenant record was modified by custom tenant report")
 	}
 }

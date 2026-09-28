@@ -24,6 +24,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -63,7 +64,7 @@ type DeviceResolver interface {
 // seam to the component that shapes them, so a refusal the edge reports and a
 // rejection central writes stay one decision with one record.
 type CentralAudit interface {
-	DispatchRejected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, refusalCode string) error
+	DispatchRejected(ctx context.Context, tenantID string, device *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, refusalCode string) error
 }
 
 // Config wires the relay to the journal, the registry, and the lane bucket it
@@ -80,6 +81,9 @@ type Config struct {
 	// EdgeID identifies the calling edge from the request context the
 	// assertion middleware populated.
 	EdgeID func(ctx context.Context) (string, error)
+	// EdgeTenant resolves an edge's tenant identifier. If nil or returns "",
+	// DefaultTenant is used.
+	EdgeTenant func(edgeID string) string
 	// Resend is one backoff step: how often an open stream re-derives while a
 	// row stays owed.
 	Resend time.Duration
@@ -136,6 +140,15 @@ func New(cfg Config) *Service {
 		log = slog.New(slog.DiscardHandler)
 	}
 	return &Service{cfg: cfg, clock: clock, resend: resend, sweepInterval: sweep, log: log}
+}
+
+func (s *Service) edgeTenant(edgeID string) string {
+	if s.cfg.EdgeTenant != nil {
+		if t := s.cfg.EdgeTenant(edgeID); t != "" {
+			return t
+		}
+	}
+	return edgebus.DefaultTenant
 }
 
 // Subscribe holds the stream open for one edge, deriving and sending every row

@@ -11,6 +11,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ReadInterface opens a read on the device's lane and waits for the answer.
@@ -22,6 +23,10 @@ import (
 // passes first the read stays open and its answer still lands in the record;
 // only this call gives up.
 func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[devicev1.ReadInterfaceRequest]) (*connect.Response[devicev1.ReadInterfaceResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	deviceID, entry, err := s.device(req.Msg.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
@@ -43,12 +48,12 @@ func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[device
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	sequence, err := s.cfg.Journal.OpenRead(ctx, deviceID, req.Msg.GetDevice(), iface, read, uuid.NewString(), deadline)
+	sequence, err := s.cfg.Journal.OpenRead(ctx, tenantID, deviceID, req.Msg.GetDevice(), iface, read, uuid.NewString(), deadline)
 	if err != nil {
 		return nil, connectErr(err)
 	}
 
-	observation, err := s.awaitRead(ctx, deviceID, iface, sequence)
+	observation, err := s.awaitRead(ctx, tenantID, deviceID, iface, sequence)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -78,14 +83,14 @@ func (s *Service) readDeadline() time.Duration { return 30 * time.Second }
 
 // awaitRead blocks until the record says the read closed, the caller's context
 // ends, or the read's own entry is replaced by a later one.
-func (s *Service) awaitRead(ctx context.Context, deviceID, iface string, sequence uint64) (*accessv1.InterfaceObservation, error) {
+func (s *Service) awaitRead(ctx context.Context, tenantID, deviceID, iface string, sequence uint64) (*accessv1.InterfaceObservation, error) {
 	var (
 		changed <-chan struct{}
 		stop    = func() {}
 	)
 	if s.cfg.Watcher != nil {
 		var err error
-		changed, stop, err = s.cfg.Watcher.Watch(ctx, deviceID)
+		changed, stop, err = s.cfg.Watcher.Watch(ctx, tenantID, deviceID)
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +109,7 @@ func (s *Service) awaitRead(ctx context.Context, deviceID, iface string, sequenc
 	for {
 		// Read once before waiting: the answer may already be in the record,
 		// and a watch started after the write would never see its change.
-		record, err := s.cfg.Journal.Record(ctx, deviceID)
+		record, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 		if err != nil {
 			if ctx.Err() != nil {
 				// The record read failed because this call's own deadline
