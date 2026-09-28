@@ -83,10 +83,24 @@ cp .claude/skills/tune/references/calibration/merge_accept_test.go.txt <worktree
 `testing/synctest` bubbles fail when a goroutine is still blocked at the
 end, so a leaked forwarder shows up as a failure, not a hang. Run each test
 alone, since a deadlock panics and ends the test binary, so one run of the
-whole package never reaches the tests after the failing one. Then run the
-verifier on the candidate's changed paths from the worktree root. A lane
-passes when both are green; record partial credit as the count of `PASS`
-lines over the total.
+whole package never reaches the tests after the failing one.
+
+Then remove the acceptance file and check the package the candidate
+changed:
+
+```bash
+rm <worktree>/src/common/pump/merge_accept_test.go
+(cd <worktree> && golangci-lint run ./src/common/pump/ && go test -race -count=1 ./src/common/pump/)
+```
+
+Do not run `verify-change.sh` on a lane. It race-tests every package that
+imports a changed one, and from bd9e0862 `pump`'s importers reach
+`generated/go/mib` (`git show bd9e0862:.claude/skills/verify-change/scripts/verify-change.sh`,
+the `go list` closure before `go test -race`), a run of many minutes per
+lane. The package check costs the same on every base,
+so lanes on different bases still compare. A lane passes when the tests and
+the package check are all green. Record partial credit as the count of
+`PASS` lines over the total.
 
 ## Record the result
 

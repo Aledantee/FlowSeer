@@ -130,7 +130,7 @@ fit-set change.
 ## 4. Calibrate on the repository (optional, costs money)
 
 Public numbers do not show how a model does on this Go tree with race tests
-and the verifier. State the lanes and the expected spend per lane from the
+and the linter. State the lanes and the expected spend per lane from the
 registry prices, and ask the user which lanes to run. A prepaid pool still
 consumes its window. Calibrate models flagged by field runs as missing a
 result first. Load `references/calibration.md` before running a lane: it
@@ -155,7 +155,7 @@ two passes.
 
 1. Pick each model's level. Consider only levels at or above the role's
    `min_effort`. Among those at which the model passed the role's task
-   (every acceptance test and the verifier for `execute`, the known bug
+   (every acceptance test and the package check for `execute`, the known bug
    found for a review), take the cheapest. Take a costlier level only when
    it passes more runs or, on a review task, finds more valid extras. A
    `judgment: true` role reads its result from `local.review-unit`. Write
